@@ -49,9 +49,12 @@ export function Sidebar({ activeRoomId, onSelectRoom, isOpenMobile, onCloseMobil
     }
   }, [user])
 
+  const [searchError, setSearchError] = useState('')
+
   // Cari user lain
   const handleSearch = async (query: string) => {
     setSearchQuery(query)
+    setSearchError('')
     if (!query.trim()) {
       setSearchResults([])
       setIsSearching(false)
@@ -59,9 +62,11 @@ export function Sidebar({ activeRoomId, onSelectRoom, isOpenMobile, onCloseMobil
     }
 
     setIsSearching(true)
-    const { data } = await apiRequest<User[]>(`/api/users/search?q=${encodeURIComponent(query.trim())}`)
+    const { data, error } = await apiRequest<User[]>(`/api/users/search?q=${encodeURIComponent(query.trim())}`)
     if (data) {
-      setSearchResults(data)
+      setSearchResults(Array.isArray(data) ? data : [])
+    } else if (error) {
+      setSearchError(error)
     }
   }
 
@@ -137,7 +142,9 @@ export function Sidebar({ activeRoomId, onSelectRoom, isOpenMobile, onCloseMobil
         {isSearching ? (
           <div className="search-results-pane">
             <p className="sidebar-section-title">Hasil Pencarian</p>
-            {searchResults.length === 0 ? (
+            {searchError ? (
+              <p className="sidebar-empty" style={{ color: 'var(--color-error)' }}>{searchError}</p>
+            ) : searchResults.length === 0 ? (
               <p className="sidebar-empty">Tidak ada pengguna ditemukan</p>
             ) : (
               <ul className="conversations-list">
