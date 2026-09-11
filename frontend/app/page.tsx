@@ -193,9 +193,30 @@ function LandingPageContent() {
             disabled={isLoading}
             style={{ marginTop: 'var(--space-2)' }}
           >
-            {isLoading ? 'Menghubungkan...' : 'Mulai Chat →'}
+            {isLoading ? 'Menghubungkan...' : 'Mulai Chat sebagai Tamu →'}
           </button>
         </form>
+
+        <div className="form-divider">atau</div>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => router.push('/login')}
+            className="btn btn-secondary"
+            style={{ flex: 1, padding: 'var(--space-2) var(--space-3)', fontSize: '0.875rem' }}
+          >
+            🔑 Masuk Akun
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/register')}
+            className="btn btn-secondary"
+            style={{ flex: 1, padding: 'var(--space-2) var(--space-3)', fontSize: '0.875rem' }}
+          >
+            ✨ Daftar Baru
+          </button>
+        </div>
       </div>
     </main>
   )

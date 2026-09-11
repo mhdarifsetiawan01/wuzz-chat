@@ -8,8 +8,9 @@ interface StatusBarProps {
   session: SessionInfo | null
   peerNickname: string | null
   roomId: string
-  roomUsers: RoomUser[]
+  roomUsers?: RoomUser[]
   onOpenMemberList: () => void
+  onToggleSidebar?: () => void
 }
 
 const statusLabel: Record<ConnectionStatus, string> = {
@@ -26,6 +27,7 @@ export function StatusBar({
   roomId,
   roomUsers = [],
   onOpenMemberList,
+  onToggleSidebar,
 }: StatusBarProps) {
   const [copied, setCopied] = useState(false)
 
@@ -45,6 +47,17 @@ export function StatusBar({
   return (
     <header className="status-bar" role="banner">
       <div className="status-bar-left">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            className="mobile-menu-btn"
+            onClick={onToggleSidebar}
+            aria-label="Buka daftar obrolan"
+          >
+            ☰
+          </button>
+        )}
+
         {/* Avatar */}
         <div className="status-avatar" aria-hidden="true">
           {initial}

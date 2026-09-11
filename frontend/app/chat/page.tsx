@@ -8,6 +8,7 @@ import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
 import { MemberListModal } from './MemberListModal'
+import { Sidebar } from './Sidebar'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -80,6 +81,7 @@ function ChatPageContent() {
 
   const [state, dispatch] = useReducer(chatReducer, initialState)
   const [isMemberListOpen, setIsMemberListOpen] = useState(false)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const clientRef = useRef<WsClient | null>(null)
 
   // Timer untuk matikan typing indicator setelah 3 detik
@@ -231,39 +233,55 @@ function ChatPageContent() {
     clientRef.current?.send({ type: 'typing', room: roomId })
   }, [roomId])
 
+  const handleSelectRoom = (newRoomId: string) => {
+    router.push(`/chat?room=${encodeURIComponent(newRoomId)}`)
+  }
+
   const isConnected = state.status === 'connected'
 
   return (
-    <div className="chat-layout">
-      <StatusBar
-        status={state.status}
-        session={state.session}
-        peerNickname={state.peerNickname}
-        roomId={roomId}
-        roomUsers={state.roomUsers}
-        onOpenMemberList={() => setIsMemberListOpen(true)}
+    <div className="chat-app-container">
+      {/* Sidebar Obrolan & Kontak */}
+      <Sidebar
+        activeRoomId={roomId}
+        onSelectRoom={handleSelectRoom}
+        isOpenMobile={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
 
-      <ChatWindow
-        messages={state.messages}
-        selfId={state.session?.clientId ?? ''}
-        selfNickname={state.session?.nickname ?? (typeof window !== 'undefined' ? sessionStorage.getItem('wuzz_nickname') ?? '' : '')}
-        isPeerTyping={state.isPeerTyping}
-      />
+      {/* Main Chat Pane */}
+      <main className="chat-main-pane">
+        <StatusBar
+          status={state.status}
+          session={state.session}
+          peerNickname={state.peerNickname}
+          roomId={roomId}
+          roomUsers={state.roomUsers}
+          onOpenMemberList={() => setIsMemberListOpen(true)}
+          onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+        />
 
-      <MessageInput
-        onSend={handleSend}
-        onTyping={handleTyping}
-        disabled={!isConnected || !state.session}
-      />
+        <ChatWindow
+          messages={state.messages}
+          selfId={state.session?.clientId ?? ''}
+          selfNickname={state.session?.nickname ?? (typeof window !== 'undefined' ? sessionStorage.getItem('wuzz_nickname') ?? '' : '')}
+          isPeerTyping={state.isPeerTyping}
+        />
 
-      <MemberListModal
-        isOpen={isMemberListOpen}
-        onClose={() => setIsMemberListOpen(false)}
-        users={state.roomUsers}
-        currentNickname={state.session?.nickname}
-        roomId={roomId}
-      />
+        <MessageInput
+          onSend={handleSend}
+          onTyping={handleTyping}
+          disabled={!isConnected || !state.session}
+        />
+
+        <MemberListModal
+          isOpen={isMemberListOpen}
+          onClose={() => setIsMemberListOpen(false)}
+          users={state.roomUsers}
+          currentNickname={state.session?.nickname}
+          roomId={roomId}
+        />
+      </main>
     </div>
   )
 }

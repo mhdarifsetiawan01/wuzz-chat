@@ -35,8 +35,13 @@ proxy.on('error', (err, req, res) => {
 
 app.prepare().then(() => {
   const server = createServer((req, res) => {
-    // Teruskan langsung ke Next.js tanpa parse manual.
-    // Next.js akan parse req.url secara internal dengan benar.
+    // Forward /api/* requests langsung ke Go backend
+    if (req.url && req.url.startsWith('/api/')) {
+      proxy.web(req, res, { target: BACKEND_WS_URL })
+      return
+    }
+
+    // Teruskan request halaman web ke Next.js
     handle(req, res)
   })
 

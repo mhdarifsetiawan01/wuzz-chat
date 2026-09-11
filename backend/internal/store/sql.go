@@ -52,28 +52,65 @@ func NewSQLMessageStore(driverName, dataSourceName string) (*SQLMessageStore, er
 
 // autoMigrate memastikan tabel yang diperlukan sudah tersedia di database.
 func (s *SQLMessageStore) autoMigrate() error {
-	createTableSQL := `
-	CREATE TABLE IF NOT EXISTS messages (
-		id VARCHAR(64) PRIMARY KEY,
-		room_id VARCHAR(128) NOT NULL,
-		from_id VARCHAR(64) NOT NULL,
-		from_nickname VARCHAR(64) NOT NULL,
-		to_id VARCHAR(64) NOT NULL,
-		content TEXT NOT NULL,
-		created_at TIMESTAMP NOT NULL
-	)`
-
-	if _, err := s.db.Exec(createTableSQL); err != nil {
-		return fmt.Errorf("gagal membuat tabel messages: %w", err)
+	migrations := []string{
+		// Tabel Users
+		`CREATE TABLE IF NOT EXISTS users (
+			id VARCHAR(64) PRIMARY KEY,
+			username VARCHAR(64) UNIQUE NOT NULL,
+			display_name VARCHAR(128) NOT NULL,
+			password_hash VARCHAR(255) NOT NULL,
+			avatar_url TEXT DEFAULT '',
+			created_at TIMESTAMP NOT NULL
+		);`,
+		// Index Users
+		`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`,
+		// Tabel Conversations
+		`CREATE TABLE IF NOT EXISTS conversations (
+			id VARCHAR(128) PRIMARY KEY,
+			type VARCHAR(32) NOT NULL,
+			title VARCHAR(128) DEFAULT '',
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);`,
+		// Tabel Conversation Members
+		`CREATE TABLE IF NOT EXISTS conversation_members (
+			conversation_id VARCHAR(128) NOT NULL,
+			user_id VARCHAR(64) NOT NULL,
+			joined_at TIMESTAMP NOT NULL,
+			PRIMARY KEY (conversation_id, user_id)
+		);`,
+		// Tabel Messages
+		`CREATE TABLE IF NOT EXISTS messages (
+			id VARCHAR(64) PRIMARY KEY,
+			room_id VARCHAR(128) NOT NULL,
+			from_id VARCHAR(64) NOT NULL,
+			from_nickname VARCHAR(64) NOT NULL,
+			to_id VARCHAR(64) NOT NULL,
+			content TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		// Index Messages
+		`CREATE INDEX IF NOT EXISTS idx_messages_room_time ON messages(room_id, created_at);`,
 	}
 
-	createIndexSQL := `CREATE INDEX IF NOT EXISTS idx_messages_room_time ON messages(room_id, created_at)`
-	if _, err := s.db.Exec(createIndexSQL); err != nil {
-		return fmt.Errorf("gagal membuat index messages: %w", err)
+	for _, query := range migrations {
+		if _, err := s.db.Exec(query); err != nil {
+			return fmt.Errorf("gagal eksekusi migrasi (%s): %w", query, err)
+		}
 	}
 
-	log.Printf("🛠️ [Auto-Migration] Tabel 'messages' dan index berhasil dipastikan ada di database!")
+	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' berhasil dipastikan ada!")
 	return nil
+}
+
+// DB mengembalikan objek *sql.DB mentah untuk digunakan oleh store lain.
+func (s *SQLMessageStore) DB() *sql.DB {
+	return s.db
+}
+
+// DriverName mengembalikan nama driver database.
+func (s *SQLMessageStore) DriverName() string {
+	return s.driverName
 }
 
 // Save menyimpan pesan ke database.

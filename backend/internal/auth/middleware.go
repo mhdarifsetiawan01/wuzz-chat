@@ -1,39 +1,51 @@
-// Package auth menyediakan middleware untuk autentikasi koneksi WebSocket.
-// Fase 1: semua middleware adalah no-op (langsung pass-through).
-// Fase 2: inject JWT validation di sini tanpa mengubah kode handler/hub.
 package auth
 
-import "net/http"
+import (
+	"context"
+	"net/http"
+	"strings"
+)
 
-// Middleware adalah fungsi yang membungkus http.Handler.
-// Pola ini (handler wrapping) adalah idiom standar Go untuk middleware chain.
-type Middleware func(http.Handler) http.Handler
+type contextKey string
 
-// NoOp mengembalikan middleware yang tidak melakukan validasi apapun.
-// Semua request langsung diteruskan ke handler berikutnya.
-//
-// Cara pakai:
-//
-//	handler = auth.NoOp()(myHandler)
-func NoOp() Middleware {
+const (
+	UserContextKey contextKey = "user_claims"
+)
+
+// RequireJWT adalah middleware yang memvalidasi header Authorization: Bearer <token>
+func RequireJWT() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Fase 2: di sini akan ada JWT parsing, validasi token,
-			// dan inject user claims ke r.Context()
-			next.ServeHTTP(w, r)
+			authHeader := r.Header.Get("Authorization")
+			tokenStr := ""
+
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+			} else {
+				// Cek query parameter token untuk koneksi WebSocket: /ws?token=...
+				tokenStr = r.URL.Query().Get("token")
+			}
+
+			if tokenStr == "" {
+				http.Error(w, `{"error":"Akses ditolak: token tidak ditemukan"}`, http.StatusUnauthorized)
+				return
+			}
+
+			claims, err := ValidateToken(tokenStr)
+			if err != nil {
+				http.Error(w, `{"error":"Token tidak valid atau kadaluarsa"}`, http.StatusUnauthorized)
+				return
+			}
+
+			// Masukkan claims user ke context request
+			ctx := context.WithValue(r.Context(), UserContextKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-// Chain menggabungkan beberapa middleware menjadi satu.
-// Urutan eksekusi: middlewares[0] → middlewares[1] → ... → handler
-//
-// Pola ini memudahkan penambahan middleware baru di fase 2 (logging, rate-limit, dst)
-// cukup dengan append ke slice, bukan ubah structure handler.
-func Chain(handler http.Handler, middlewares ...Middleware) http.Handler {
-	// Iterasi terbalik supaya urutan eksekusi sesuai urutan argumen
-	for i := len(middlewares) - 1; i >= 0; i-- {
-		handler = middlewares[i](handler)
-	}
-	return handler
+// GetUserFromContext mengekstrak UserClaims dari context HTTP request.
+func GetUserFromContext(ctx context.Context) (*UserClaims, bool) {
+	claims, ok := ctx.Value(UserContextKey).(*UserClaims)
+	return claims, ok
 }

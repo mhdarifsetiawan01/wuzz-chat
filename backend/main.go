@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
@@ -32,19 +33,68 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Gagal menginisialisasi message store: %v", err)
 	}
-	defer messageStore.Close()
+	// Inisialisasi User Store dari SQL DB
+	var userStore store.UserStore
+	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
+		userStore = store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+	}
+
+	// Inisialisasi REST Handlers
+	var authHandler *api.AuthHandler
+	var chatHandler *api.ChatHandler
+	if userStore != nil {
+		authHandler = api.NewAuthHandler(userStore)
+		chatHandler = api.NewChatHandler(userStore, messageStore)
+	}
 
 	// Inisialisasi Hub dengan dependency injection
 	hub := ws.NewHub(clientStore, messageStore)
 
-	// Inisialisasi handler
+	// Inisialisasi handler WebSocket
 	wsHandler := ws.NewHandler(hub)
 
 	// Setup routing
 	mux := http.NewServeMux()
 
-	// Endpoint WebSocket dengan auth middleware chain
-	mux.Handle("/ws", auth.Chain(wsHandler, auth.NoOp()))
+	// Helper CORS Middleware untuk REST API
+	withCORS := func(h http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			h(w, r)
+		}
+	}
+
+	// REST API Routes (Auth)
+	if authHandler != nil {
+		mux.HandleFunc("/api/auth/register", withCORS(authHandler.Register))
+		mux.HandleFunc("/api/auth/login", withCORS(authHandler.Login))
+		mux.HandleFunc("/api/auth/me", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(authHandler.Me)).ServeHTTP(w, r)
+		}))
+	}
+
+	// REST API Routes (Chat & Users)
+	if chatHandler != nil {
+		mux.HandleFunc("/api/users/search", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(chatHandler.SearchUsers)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/conversations", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.StartDirectChat)).ServeHTTP(w, r)
+			} else {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.GetConversations)).ServeHTTP(w, r)
+			}
+		}))
+	}
+
+	// Endpoint WebSocket
+	mux.Handle("/ws", wsHandler)
 
 	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

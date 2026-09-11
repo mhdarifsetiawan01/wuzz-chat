@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AuthProvider } from '@/lib/auth-context'
 
 export const metadata: Metadata = {
-  title: 'Wuzz Chat — Real-time WebSocket Chat',
-  description: 'Chat 1-on-1 secara real-time menggunakan WebSocket. Proyek belajar Go + Next.js.',
+  title: 'Wuzz Chat — Real-time Modern Chat Platform',
+  description: 'Chat real-time bertenaga Go WebSocket & Next.js.',
 }
 
 export default function RootLayout({
@@ -13,7 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   )
 }
