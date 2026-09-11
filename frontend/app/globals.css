@@ -1078,6 +1078,51 @@ h4 { font-size: 1rem;   font-weight: 600; }
   padding: 4px 8px;
 }
 
+/* Welcome / Standby Placeholder Screen (WhatsApp / Telegram style) */
+.chat-welcome-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  position: relative;
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 50%, rgba(16,185,129,0.05) 0%, transparent 60%),
+    var(--bg-base);
+}
+
+.welcome-content {
+  text-align: center;
+  max-width: 440px;
+  animation: fadeSlideUp 0.3s ease both;
+}
+
+.welcome-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto var(--space-4);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-500);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.25rem;
+}
+
+.welcome-content h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.welcome-content p {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
 /* ================================================================
    RESPONSIVE
    ================================================================ */

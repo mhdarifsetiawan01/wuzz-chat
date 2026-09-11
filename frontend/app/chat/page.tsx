@@ -77,7 +77,7 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
 function ChatPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const roomId = searchParams.get('room') || searchParams.get('peer') || 'room-general'
+  const roomId = searchParams.get('room') || searchParams.get('peer') || ''
 
   const [state, dispatch] = useReducer(chatReducer, initialState)
   const [isMemberListOpen, setIsMemberListOpen] = useState(false)
@@ -92,9 +92,19 @@ function ChatPageContent() {
     const nickname = sessionStorage.getItem('wuzz_nickname')
     if (!nickname) {
       // Jika tidak ada nickname (misal direct open link), arahkan ke landing dengan room param
-      router.replace(`/?room=${encodeURIComponent(roomId)}`)
+      router.replace(roomId ? `/?room=${encodeURIComponent(roomId)}` : '/')
       return
     }
+
+    // Jika belum ada room yang dipilih (buka /chat saja), jangan buat koneksi room dulu
+    if (!roomId) {
+      return
+    }
+
+    // Reset pesan saat berpindah room
+    dispatch({ type: 'SET_MESSAGES', payload: [] })
+    dispatch({ type: 'SET_ROOM_USERS', payload: [] })
+    dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
 
     // Buat koneksi WsClient
     const wsUrl = `ws://${window.location.host}/ws`
@@ -206,6 +216,7 @@ function ChatPageContent() {
   }, [roomId])
 
   const handleSend = useCallback((content: string) => {
+    if (!roomId) return
     const session = state.session
     clientRef.current?.send({
       type: 'message',
@@ -230,6 +241,7 @@ function ChatPageContent() {
   }, [state.session, roomId])
 
   const handleTyping = useCallback(() => {
+    if (!roomId) return
     clientRef.current?.send({ type: 'typing', room: roomId })
   }, [roomId])
 
@@ -251,36 +263,61 @@ function ChatPageContent() {
 
       {/* Main Chat Pane */}
       <main className="chat-main-pane">
-        <StatusBar
-          status={state.status}
-          session={state.session}
-          peerNickname={state.peerNickname}
-          roomId={roomId}
-          roomUsers={state.roomUsers}
-          onOpenMemberList={() => setIsMemberListOpen(true)}
-          onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-        />
+        {roomId ? (
+          <>
+            <StatusBar
+              status={state.status}
+              session={state.session}
+              peerNickname={state.peerNickname}
+              roomId={roomId}
+              roomUsers={state.roomUsers}
+              onOpenMemberList={() => setIsMemberListOpen(true)}
+              onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            />
 
-        <ChatWindow
-          messages={state.messages}
-          selfId={state.session?.clientId ?? ''}
-          selfNickname={state.session?.nickname ?? (typeof window !== 'undefined' ? sessionStorage.getItem('wuzz_nickname') ?? '' : '')}
-          isPeerTyping={state.isPeerTyping}
-        />
+            <ChatWindow
+              messages={state.messages}
+              selfId={state.session?.clientId ?? ''}
+              selfNickname={state.session?.nickname ?? (typeof window !== 'undefined' ? sessionStorage.getItem('wuzz_nickname') ?? '' : '')}
+              isPeerTyping={state.isPeerTyping}
+            />
 
-        <MessageInput
-          onSend={handleSend}
-          onTyping={handleTyping}
-          disabled={!isConnected || !state.session}
-        />
+            <MessageInput
+              onSend={handleSend}
+              onTyping={handleTyping}
+              disabled={!isConnected || !state.session}
+            />
 
-        <MemberListModal
-          isOpen={isMemberListOpen}
-          onClose={() => setIsMemberListOpen(false)}
-          users={state.roomUsers}
-          currentNickname={state.session?.nickname}
-          roomId={roomId}
-        />
+            <MemberListModal
+              isOpen={isMemberListOpen}
+              onClose={() => setIsMemberListOpen(false)}
+              users={state.roomUsers}
+              currentNickname={state.session?.nickname}
+              roomId={roomId}
+            />
+          </>
+        ) : (
+          <div className="chat-welcome-placeholder">
+            <button
+              type="button"
+              className="mobile-menu-btn"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              style={{ position: 'absolute', top: 16, left: 16 }}
+            >
+              ☰ Buka Obrolan
+            </button>
+            <div className="welcome-content">
+              <div className="welcome-icon">💬</div>
+              <h2>Wuzz Chat untuk Web</h2>
+              <p>
+                Kirim dan terima pesan secara instan dan aman.
+              </p>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+                👈 Pilih percakapan dari daftar di sebelah kiri atau cari kontak baru untuk mulai mengobrol.
+              </p>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
