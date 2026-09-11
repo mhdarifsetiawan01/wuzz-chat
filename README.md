@@ -35,6 +35,39 @@ wuzz-chat/
 
 ---
 
+## 📚 Dokumentasi Proyek
+
+Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi berikut:
+
+- 🗺️ **[ROADMAP.md](docs/ROADMAP.md)** — Rencana jangka panjang, milestone tahapan dari Fase 1 hingga Fase 7 (Auth, Group Chat, Rich Media, Receipts, WebRTC, Scaling).
+- 🏛️ **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Spesifikasi desain database relasional (ERD), protokol WebSocket, dan REST API endpoints.
+- 📄 **[PRD-websocket-chat-app.md](PRD-websocket-chat-app.md)** — Dokumen spesifikasi kebutuhan produk awal.
+
+---
+
+## 🚀 Fitur yang Telah Selesai (Fase 1 & 2)
+
+- [x] **Bidirectional WebSocket Engine**: Arsitektur hub Go dengan goroutine read/write pump dan graceful disconnect.
+- [x] **Next.js Reverse Proxy**: Menangani WebSocket upgrade event pada custom server (`server.js`), mengisolasi URL backend dari browser.
+- [x] **Multi-Database Flexible Store**: Otomatis mendukung **Supabase PostgreSQL**, **Local Postgres**, **SQLite**, dan **In-Memory** fallback.
+- [x] **Chat History Persistence**: Riwayat pesan otomatis tersimpan di cloud database dan dimuat saat pengguna membuka obrolan atau me-refresh tab.
+- [x] **Room-Based Isolation & Instant Links**: Pembuatan room obrolan (`room-XXXX`) dan tombol *Salin Link* instan.
+- [x] **Real-Time Presence Tracking**: Pelacakan status online real-time (`room_users`) dan panel drawer daftar peserta room (`👥 X Online`).
+- [x] **Optimistic UI & Auto-Reconnect**: Frontend WebSocket client dengan exponential backoff dan rendering bubble obrolan instan.
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Teknologi | Keterangan |
+|---|---|---|
+| **Backend** | Go (Golang) 1.24+ | Gorilla WebSocket, Lib/PQ, Modernc SQLite |
+| **Frontend** | Next.js 16 (App Router) + React 19 + TypeScript | Vanilla CSS Design System, Responsive Dark Mode |
+| **Database** | PostgreSQL (Supabase Pooler) / SQLite | Relational schema, auto-migrations, indexing |
+| **Testing** | Go Testing Suite + TypeScript Check | 100% test passing & zero linter errors |
+
+---
+
 ## 🚀 Menjalankan Secara Lokal
 
 ### Prasyarat
