@@ -41,8 +41,8 @@ export function StatusBar({
     }
   }
 
-  const peerName = peerNickname ?? (roomId ? `Room: ${roomId}` : 'Ruang Obrolan')
-  const initial = (peerNickname ?? (roomId ? roomId[0] : '#'))[0].toUpperCase()
+  const peerName = (peerNickname && peerNickname.trim()) ? peerNickname : (roomId ? `Room: ${roomId}` : 'Ruang Obrolan')
+  const initial = (peerNickname && peerNickname.trim() ? peerNickname.trim()[0] : (roomId && roomId.trim() ? roomId.trim()[0] : '#')).toUpperCase()
 
   return (
     <header className="status-bar" role="banner">
