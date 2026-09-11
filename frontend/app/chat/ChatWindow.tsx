@@ -7,10 +7,11 @@ import { MessageBubble } from './MessageBubble'
 interface ChatWindowProps {
   messages: Message[]
   selfId: string
+  selfNickname: string
   isPeerTyping: boolean
 }
 
-export function ChatWindow({ messages, selfId, isPeerTyping }: ChatWindowProps) {
+export function ChatWindow({ messages, selfId, selfNickname, isPeerTyping }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll ke bawah setiap ada pesan baru atau typing indicator
@@ -23,9 +24,9 @@ export function ChatWindow({ messages, selfId, isPeerTyping }: ChatWindowProps) 
       <div className="chat-window" aria-label="Area percakapan">
         <div className="chat-empty" role="status">
           <span className="chat-empty-icon" aria-hidden="true">💬</span>
-          <p>Belum ada pesan.</p>
+          <p>Belum ada pesan di room ini.</p>
           <p style={{ fontSize: '0.8125rem' }}>
-            Mulai kirim pesan atau tunggu lawan chat bergabung.
+            Kirim pesan pertama atau bagikan link room ke teman untuk mulai mengobrol.
           </p>
         </div>
         <div ref={bottomRef} aria-hidden="true" />
@@ -43,13 +44,14 @@ export function ChatWindow({ messages, selfId, isPeerTyping }: ChatWindowProps) 
     >
       {messages.map((msg, idx) => (
         <MessageBubble
-          key={`${msg.timestamp ?? ''}-${idx}`}
+          key={msg.id || `${msg.timestamp ?? ''}-${idx}`}
           message={msg}
           selfId={selfId}
+          selfNickname={selfNickname}
         />
       ))}
 
-      {/* Typing indicator — muncul hanya saat peer sedang mengetik */}
+      {/* Typing indicator — muncul saat anggota lain sedang mengetik */}
       {isPeerTyping && (
         <div className="message-row peer" aria-label="Lawan chat sedang mengetik" role="status">
           <div className="typing-indicator" aria-hidden="true">

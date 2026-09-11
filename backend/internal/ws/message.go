@@ -2,32 +2,27 @@ package ws
 
 import "time"
 
-// MessageType mendefinisikan tipe event yang didukung pada protokol fase 1.
-// Desain pakai string constant (bukan iota int) supaya JSON payload tetap human-readable
-// dan mudah di-debug via wscat/Postman tanpa perlu lookup enum.
+// MessageType mendefinisikan tipe event yang didukung pada protokol WebSocket.
 type MessageType string
 
 const (
-	TypeJoin    MessageType = "join"    // client pertama kali connect, kirim nickname
+	TypeJoin    MessageType = "join"    // client pertama kali connect, kirim nickname & room
 	TypeMessage MessageType = "message" // pesan chat biasa
-	TypeTyping  MessageType = "typing"  // indikator sedang mengetik (opsional fase 1)
+	TypeTyping  MessageType = "typing"  // indikator sedang mengetik
 	TypeLeave   MessageType = "leave"   // client disconnect
-
-	// TypeSystem: pesan dari server ke client (tidak dikirim oleh client).
-	// Digunakan untuk konfirmasi join, error, dll.
-	TypeSystem MessageType = "system"
+	TypeSystem  MessageType = "system"  // pesan sistem dari server ke client
+	TypeHistory MessageType = "history" // riwayat pesan percakapan dari database
 )
 
 // Message adalah struktur JSON yang dipertukarkan antara client dan server.
-// Field "to" kosong berarti broadcast / server-generated message.
-//
-// Alasan semua field pointer-free dan pakai nilai langsung:
-// kita sudah define omitempty di tag json supaya field kosong tidak muncul di payload.
 type Message struct {
+	ID        string      `json:"id,omitempty"`        // UUID unik pesan
 	Type      MessageType `json:"type"`
 	From      string      `json:"from,omitempty"`      // ClientID pengirim
-	To        string      `json:"to,omitempty"`        // ClientID tujuan (unicast)
-	Nickname  string      `json:"nickname,omitempty"`  // hanya pada event "join"
-	Content   string      `json:"content,omitempty"`   // isi pesan
-	Timestamp time.Time   `json:"timestamp,omitempty"` // di-set oleh server
+	To        string      `json:"to,omitempty"`        // ClientID tujuan (opsional jika unicast)
+	Room      string      `json:"room,omitempty"`      // Room ID / Conversation ID (persisten)
+	Nickname  string      `json:"nickname,omitempty"`  // Nickname pengirim
+	Content   string      `json:"content,omitempty"`   // Isi pesan
+	Timestamp time.Time   `json:"timestamp,omitempty"` // Timestamp server
+	Messages  []Message   `json:"messages,omitempty"`  // Kumpulan pesan untuk TypeHistory
 }

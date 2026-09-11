@@ -8,7 +8,6 @@ import (
 func TestMemoryClientStore(t *testing.T) {
 	s := NewMemoryClientStore()
 
-	// 1. Test Set & Get
 	rec := ClientRecord{
 		ID:       "test-id-1",
 		Nickname: "Alice",
@@ -28,13 +27,11 @@ func TestMemoryClientStore(t *testing.T) {
 		t.Errorf("expected nickname Alice, got %s", got.Nickname)
 	}
 
-	// 2. Test List
 	list := s.List()
 	if len(list) != 1 {
 		t.Errorf("expected 1 item in list, got %d", len(list))
 	}
 
-	// 3. Test Delete
 	if err := s.Delete("test-id-1"); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
@@ -49,8 +46,10 @@ func TestMemoryMessageStore(t *testing.T) {
 
 	msg := StoredMessage{
 		ID:        "msg-1",
-		From:      "user-1",
-		To:        "user-2",
+		RoomID:    "room-1",
+		FromID:    "user-1",
+		Nickname:  "Alice",
+		ToID:      "user-2",
 		Content:   "halo",
 		Timestamp: time.Now().UTC(),
 	}
@@ -59,11 +58,14 @@ func TestMemoryMessageStore(t *testing.T) {
 		t.Errorf("Save failed: %v", err)
 	}
 
-	history, err := ms.GetHistory("user-1", "user-2", 10)
-	if err == nil {
-		t.Errorf("expected error for phase 1 GetHistory")
+	history, err := ms.GetRoomHistory("room-1", 10)
+	if err != nil {
+		t.Fatalf("GetRoomHistory failed: %v", err)
 	}
-	if len(history) != 0 {
-		t.Errorf("expected empty history slice, got %d items", len(history))
+	if len(history) != 1 {
+		t.Errorf("expected 1 history item, got %d", len(history))
+	}
+	if history[0].Content != "halo" {
+		t.Errorf("expected content 'halo', got '%s'", history[0].Content)
 	}
 }

@@ -25,6 +25,9 @@ bin/
 *.dylib
 *.test
 *.out
+*.db
+*.sqlite
+*.sqlite3
 
 # Environment Variables
 .env

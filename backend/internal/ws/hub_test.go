@@ -20,7 +20,6 @@ func TestHubRegisterAndUnregister(t *testing.T) {
 		hub:      hub,
 	}
 
-	// Register
 	hub.Register(c1)
 	if count := hub.count(); count != 1 {
 		t.Errorf("expected count 1, got %d", count)
@@ -31,14 +30,13 @@ func TestHubRegisterAndUnregister(t *testing.T) {
 		t.Errorf("expected client-1 to be found with nickname Alice")
 	}
 
-	// Unregister
 	hub.Unregister(c1)
 	if count := hub.count(); count != 0 {
 		t.Errorf("expected count 0, got %d", count)
 	}
 }
 
-func TestHubRoutingAndPairing(t *testing.T) {
+func TestHubRoomBroadcastAndHistory(t *testing.T) {
 	cs := store.NewMemoryClientStore()
 	ms := store.NewMemoryMessageStore()
 	hub := NewHub(cs, ms)
@@ -60,29 +58,38 @@ func TestHubRoutingAndPairing(t *testing.T) {
 
 	hub.Register(c1)
 	hub.Register(c2)
-	hub.SetPeer(c1.ID, c2.ID)
 
-	if c1.PeerID != c2.ID || c2.PeerID != c1.ID {
-		t.Errorf("expected peer IDs to be cross-linked")
-	}
+	// Join both to same room "room-kopi"
+	hub.JoinRoom(c1, "room-kopi")
+	hub.JoinRoom(c2, "room-kopi")
 
-	// Route message from c1 to c2
+	// Broadcast message from c1 to room
 	msg := Message{
 		Type:      TypeMessage,
 		From:      c1.ID,
-		To:        c2.ID,
-		Content:   "Halo Bob!",
+		Nickname:  c1.Nickname,
+		Room:      "room-kopi",
+		Content:   "Halo Bob di room kopi!",
 		Timestamp: time.Now().UTC(),
 	}
 
-	hub.Route(msg)
+	hub.BroadcastRoom("room-kopi", msg, c1.ID)
 
 	select {
 	case received := <-c2.send:
-		if received.Content != "Halo Bob!" {
-			t.Errorf("expected 'Halo Bob!', got '%s'", received.Content)
+		if received.Content != "Halo Bob di room kopi!" {
+			t.Errorf("expected 'Halo Bob di room kopi!', got '%s'", received.Content)
 		}
 	case <-time.After(100 * time.Millisecond):
-		t.Fatalf("timed out waiting for message to arrive at c2")
+		t.Fatalf("timed out waiting for broadcast to arrive at c2")
+	}
+
+	// Verify history in store
+	history, err := ms.GetRoomHistory("room-kopi", 10)
+	if err != nil {
+		t.Fatalf("failed to get history: %v", err)
+	}
+	if len(history) != 1 {
+		t.Errorf("expected 1 history item, got %d", len(history))
 	}
 }

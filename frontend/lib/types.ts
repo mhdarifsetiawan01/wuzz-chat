@@ -1,13 +1,16 @@
-// Tipe pesan yang dipertukarkan — harus sinkron dengan backend Go (internal/ws/message.go)
-export type MessageType = 'join' | 'message' | 'typing' | 'leave' | 'system'
+// Tipe pesan yang dipertukarkan — sinkron dengan backend Go (internal/ws/message.go)
+export type MessageType = 'join' | 'message' | 'typing' | 'leave' | 'system' | 'history'
 
 export interface Message {
+  id?: string
   type: MessageType
   from?: string
   to?: string
+  room?: string
   nickname?: string
   content?: string
   timestamp?: string
+  messages?: Message[] // Digunakan saat type = 'history'
 }
 
 // Status koneksi WebSocket

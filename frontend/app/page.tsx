@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useRef, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function LandingPage() {
+function LandingPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const defaultRoom = searchParams.get('room') || searchParams.get('peer') || ''
+
   const [nickname, setNickname] = useState('')
-  const [peerId, setPeerId] = useState('')
+  const [roomId, setRoomId] = useState(defaultRoom)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const nicknameRef = useRef<HTMLInputElement>(null)
@@ -29,6 +32,17 @@ export default function LandingPage() {
     setError('')
   }
 
+  const generateRandomRoom = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    const topics = ['kopi', 'santai', 'project', 'gaming', 'diskusi', 'secret', 'room']
+    const randomNum = Math.floor(1000 + Math.random() * 9000)
+    const newRoom = `${topics[Math.floor(Math.random() * topics.length)]}-${randomNum}`
+    setRoomId(newRoom)
+  }
+
   const handleConnect = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmedNick = nickname.trim()
@@ -41,17 +55,28 @@ export default function LandingPage() {
     setError('')
     setIsLoading(true)
 
+    // Bersihkan jika user mem-paste link URL penuh
+    let cleanRoom = roomId.trim()
+    if (cleanRoom.includes('room=') || cleanRoom.includes('peer=')) {
+      try {
+        const parsed = new URL(cleanRoom.startsWith('http') ? cleanRoom : `http://localhost/${cleanRoom}`)
+        cleanRoom = parsed.searchParams.get('room') || parsed.searchParams.get('peer') || cleanRoom
+      } catch {}
+    } else if (cleanRoom.startsWith('http')) {
+      try {
+        const parsed = new URL(cleanRoom)
+        cleanRoom = parsed.searchParams.get('room') || parsed.searchParams.get('peer') || cleanRoom
+      } catch {}
+    }
+
+    const activeRoom = cleanRoom || `room-${Math.floor(1000 + Math.random() * 9000)}`
+
     try {
-      // Simpan nickname di sessionStorage
       sessionStorage.setItem('wuzz_nickname', trimmedNick)
+      const targetUrl = `/chat?room=${encodeURIComponent(activeRoom)}`
 
-      const query = peerId.trim() ? `?peer=${encodeURIComponent(peerId.trim())}` : ''
-      const targetUrl = `/chat${query}`
-
-      // Navigasi ke chat
       router.push(targetUrl)
 
-      // Fallback navigation jika client-side router lambat
       setTimeout(() => {
         if (window.location.pathname !== '/chat') {
           window.location.href = targetUrl
@@ -59,8 +84,8 @@ export default function LandingPage() {
       }, 300)
     } catch (err) {
       console.error('Navigation error:', err)
-      const query = peerId.trim() ? `?peer=${encodeURIComponent(peerId.trim())}` : ''
-      window.location.href = `/chat${query}`
+      const targetUrl = `/chat?room=${encodeURIComponent(activeRoom)}`
+      window.location.href = targetUrl
     }
   }
 
@@ -73,7 +98,7 @@ export default function LandingPage() {
           <h1>Wuzz Chat</h1>
         </div>
         <p className="landing-subtitle">
-          Chat real-time 1-on-1 menggunakan WebSocket. Masuk anonim, tidak ada akun diperlukan.
+          Chat real-time berbasis WebSocket & Supabase. Riwayat chat otomatis tersimpan di cloud.
         </p>
 
         <form onSubmit={handleConnect} noValidate>
@@ -125,22 +150,39 @@ export default function LandingPage() {
             )}
           </div>
 
-          {/* Peer ID (opsional) */}
+          {/* Kode Room / Obrolan */}
           <div className="form-group">
-            <label className="form-label" htmlFor="peerId">
-              ID lawan chat <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opsional)</span>
-            </label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label className="form-label" htmlFor="roomId">
+                Kode Room / Obrolan <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opsional)</span>
+              </label>
+              <button
+                type="button"
+                onClick={generateRandomRoom}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-400)',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                }}
+                title="Buat kode room baru"
+              >
+                🔄 Kode Baru
+              </button>
+            </div>
             <input
-              id="peerId"
+              id="roomId"
               className="form-input"
               type="text"
-              placeholder="UUID dari teman kamu"
-              value={peerId}
-              onChange={e => setPeerId(e.target.value)}
+              placeholder="misal: room-kopi atau biarkan kosong"
+              value={roomId}
+              onChange={e => setRoomId(e.target.value)}
               autoComplete="off"
             />
             <p className="form-hint">
-              Kosongkan jika belum punya. Kamu bisa share <code>ID Kamu</code> ke teman setelah connect.
+              Kosongkan untuk membuat room baru otomatis, atau masukkan kode room temanmu untuk bergabung.
             </p>
           </div>
 
@@ -156,5 +198,13 @@ export default function LandingPage() {
         </form>
       </div>
     </main>
+  )
+}
+
+export default function LandingPage() {
+  return (
+    <Suspense fallback={<div className="landing-page">Memuat...</div>}>
+      <LandingPageContent />
+    </Suspense>
   )
 }

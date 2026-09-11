@@ -1,7 +1,6 @@
 package store
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -9,18 +8,11 @@ import (
 // MemoryClientStore — implementasi ClientStore berbasis in-memory
 // ============================================================
 
-// MemoryClientStore menyimpan semua client aktif dalam sebuah map yang
-// dilindungi oleh RWMutex agar aman diakses dari banyak goroutine sekaligus.
-//
-// RWMutex dipilih daripada Mutex biasa karena operasi baca (Get/List)
-// lebih sering terjadi daripada operasi tulis (Set/Delete), sehingga
-// banyak goroutine bisa baca secara paralel tanpa saling blok.
 type MemoryClientStore struct {
 	mu      sync.RWMutex
 	clients map[string]ClientRecord
 }
 
-// NewMemoryClientStore membuat instance store baru yang siap digunakan.
 func NewMemoryClientStore() *MemoryClientStore {
 	return &MemoryClientStore{
 		clients: make(map[string]ClientRecord),
@@ -58,32 +50,56 @@ func (s *MemoryClientStore) List() []ClientRecord {
 	return result
 }
 
-// Pastikan MemoryClientStore memenuhi interface ClientStore saat compile time.
-// Trik ini membuat Go compiler langsung error jika ada method yang belum diimplementasi.
 var _ ClientStore = (*MemoryClientStore)(nil)
 
 // ============================================================
-// MemoryMessageStore — no-op implementasi MessageStore
+// MemoryMessageStore — implementasi MessageStore in-memory
 // ============================================================
 
-// MemoryMessageStore adalah implementasi kosong (no-op) untuk fase 1.
-// Pesan tidak disimpan sama sekali — semua operasi sukses tapi tidak melakukan apa-apa.
-// Di fase 2, kelas ini diganti dengan implementasi Postgres/Mongo tanpa ubah kode Hub.
-type MemoryMessageStore struct{}
-
-func NewMemoryMessageStore() *MemoryMessageStore {
-	return &MemoryMessageStore{}
+type MemoryMessageStore struct {
+	mu       sync.RWMutex
+	messages map[string][]StoredMessage // roomID -> messages
 }
 
-func (s *MemoryMessageStore) Save(_ StoredMessage) error {
-	// no-op: fase 1 tidak persist pesan
+func NewMemoryMessageStore() *MemoryMessageStore {
+	return &MemoryMessageStore{
+		messages: make(map[string][]StoredMessage),
+	}
+}
+
+func (s *MemoryMessageStore) Save(msg StoredMessage) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.messages[msg.RoomID] = append(s.messages[msg.RoomID], msg)
 	return nil
 }
 
-func (s *MemoryMessageStore) GetHistory(_, _ string, _ int) ([]StoredMessage, error) {
-	// no-op: kembalikan slice kosong, bukan nil, supaya caller tidak perlu nil-check
-	return []StoredMessage{}, fmt.Errorf("message history not implemented in phase 1")
+func (s *MemoryMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMessage, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if limit <= 0 {
+		limit = 50
+	}
+
+	msgs, ok := s.messages[roomID]
+	if !ok || len(msgs) == 0 {
+		return []StoredMessage{}, nil
+	}
+
+	// Ambil `limit` pesan terakhir
+	start := 0
+	if len(msgs) > limit {
+		start = len(msgs) - limit
+	}
+
+	result := make([]StoredMessage, len(msgs[start:]))
+	copy(result, msgs[start:])
+	return result, nil
 }
 
-// Compile-time interface check
+func (s *MemoryMessageStore) Close() error {
+	return nil
+}
+
 var _ MessageStore = (*MemoryMessageStore)(nil)

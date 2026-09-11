@@ -24,6 +24,7 @@ type ChatAction =
   | { type: 'SET_STATUS'; payload: ConnectionStatus }
   | { type: 'SET_SESSION'; payload: SessionInfo }
   | { type: 'ADD_MESSAGE'; payload: Message }
+  | { type: 'SET_MESSAGES'; payload: Message[] }
   | { type: 'SET_PEER_NICKNAME'; payload: string }
   | { type: 'SET_PEER_TYPING'; payload: boolean }
 
@@ -43,6 +44,16 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, session: action.payload }
     case 'ADD_MESSAGE':
       return { ...state, messages: [...state.messages, action.payload] }
+    case 'SET_MESSAGES': {
+      // Gabungkan riwayat chat dari database tanpa duplikasi
+      const existingKeys = new Set(
+        state.messages.map(m => m.id || `${m.from}_${m.timestamp}_${m.content}`)
+      )
+      const newMessages = action.payload.filter(
+        m => !existingKeys.has(m.id || `${m.from}_${m.timestamp}_${m.content}`)
+      )
+      return { ...state, messages: [...newMessages, ...state.messages] }
+    }
     case 'SET_PEER_NICKNAME':
       return { ...state, peerNickname: action.payload }
     case 'SET_PEER_TYPING':
@@ -59,84 +70,92 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
 function ChatPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const peerId = searchParams.get('peer') ?? ''
+  const roomId = searchParams.get('room') || searchParams.get('peer') || 'room-general'
 
   const [state, dispatch] = useReducer(chatReducer, initialState)
   const clientRef = useRef<WsClient | null>(null)
 
-  // Timer untuk matikan typing indicator setelah 3 detik tidak ada event
+  // Timer untuk matikan typing indicator setelah 3 detik
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    // Ambil nickname dari sessionStorage (di-set di landing page)
+    // Ambil nickname dari sessionStorage
     const nickname = sessionStorage.getItem('wuzz_nickname')
     if (!nickname) {
-      // Kalau tidak ada nickname, redirect balik ke landing
-      router.replace('/')
+      // Jika tidak ada nickname (misal direct open link), arahkan ke landing dengan room param
+      router.replace(`/?room=${encodeURIComponent(roomId)}`)
       return
     }
 
-    // Buat WsClient — koneksi ke /ws (same-origin, diproxy ke Go backend)
+    // Buat koneksi WsClient
     const wsUrl = `ws://${window.location.host}/ws`
     const client = new WsClient(wsUrl)
     clientRef.current = client
 
-    // Subscribe ke perubahan status
+    // Subscribe status
     client.onStatus(status => {
       dispatch({ type: 'SET_STATUS', payload: status })
 
-      // Saat (re)connect, kirim event join
+      // Saat terhubung, gabung ke room
       if (status === 'connected') {
         client.send({
           type: 'join',
           nickname,
-          to: peerId || undefined,
+          room: roomId,
         })
       }
     })
 
-    // Subscribe ke pesan masuk
+    // Subscribe pesan masuk
     client.onMessage(msg => {
       switch (msg.type) {
         case 'system': {
-          // Cek apakah ini konfirmasi join milik kita (berisi ID kita)
           const idMatch = msg.content?.match(/ID kamu: ([a-f0-9-]{36})/i)
-          const clientId = idMatch ? idMatch[1] : (msg.to && msg.to !== 'server' && /^[a-f0-9-]{36}$/i.test(msg.to) ? msg.to : null)
+          const clientId = idMatch ? idMatch[1] : (msg.to && msg.to !== 'server' && /^[a-f0-9-]{36}$/i.test(msg.to) ? msg.to : 'user')
           if (clientId) {
             dispatch({
               type: 'SET_SESSION',
               payload: {
                 clientId,
                 nickname,
-                peerId: peerId || undefined,
+                peerId: roomId,
               },
             })
           }
 
-          // Deteksi jika peer baru bergabung
+          // Deteksi user lain yang join
           const joinMatch = msg.content?.match(/^(.+) telah bergabung ke percakapan/i)
           if (joinMatch && joinMatch[1] !== nickname) {
             dispatch({ type: 'SET_PEER_NICKNAME', payload: joinMatch[1] })
           }
 
-          // Deteksi jika peer meninggalkan percakapan
+          // Deteksi user lain yang leave
           const leaveMatch = msg.content?.match(/^(.+) telah meninggalkan percakapan/i)
           if (leaveMatch) {
             dispatch({ type: 'SET_PEER_TYPING', payload: false })
           }
 
-          // Tampilkan pesan sistem di chat
           dispatch({ type: 'ADD_MESSAGE', payload: msg })
+          break
+        }
+
+        case 'history': {
+          // Muat riwayat chat dari Supabase/Database
+          if (msg.messages && msg.messages.length > 0) {
+            dispatch({ type: 'SET_MESSAGES', payload: msg.messages })
+          }
           break
         }
 
         case 'message': {
           dispatch({ type: 'ADD_MESSAGE', payload: msg })
+          if (msg.nickname && msg.nickname !== nickname) {
+            dispatch({ type: 'SET_PEER_NICKNAME', payload: msg.nickname })
+          }
           break
         }
 
         case 'typing': {
-          // Peer sedang mengetik — tampilkan indicator selama 3 detik
           dispatch({ type: 'SET_PEER_TYPING', payload: true })
           if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
           typingTimerRef.current = setTimeout(() => {
@@ -155,35 +174,40 @@ function ChatPageContent() {
 
     client.connect()
 
-    // Cleanup saat komponen unmount
     return () => {
       client.destroy()
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // hanya run sekali saat mount
+  }, [roomId])
 
   const handleSend = useCallback((content: string) => {
-    clientRef.current?.send({ type: 'message', content })
-    // Tambahkan pesan ke state lokal secara optimistic
-    // (pesan akan muncul langsung, tidak perlu tunggu server echo)
     const session = state.session
+    clientRef.current?.send({
+      type: 'message',
+      content,
+      room: roomId,
+      nickname: session?.nickname,
+    })
+
+    // Optimistic local render
     if (session) {
       dispatch({
         type: 'ADD_MESSAGE',
         payload: {
           type: 'message',
           from: session.clientId,
+          nickname: session.nickname,
           content,
           timestamp: new Date().toISOString(),
         },
       })
     }
-  }, [state.session])
+  }, [state.session, roomId])
 
   const handleTyping = useCallback(() => {
-    clientRef.current?.send({ type: 'typing' })
-  }, [])
+    clientRef.current?.send({ type: 'typing', room: roomId })
+  }, [roomId])
 
   const isConnected = state.status === 'connected'
 
@@ -193,25 +217,13 @@ function ChatPageContent() {
         status={state.status}
         session={state.session}
         peerNickname={state.peerNickname}
+        roomId={roomId}
       />
-
-      {/* Info sesi — tampilkan Client ID agar bisa di-share ke peer */}
-      {state.session && (
-        <div className="session-info-bar" aria-label="Info sesi">
-          <span>ID kamu:</span>
-          <code
-            title="Klik untuk select, lalu copy ke teman kamu"
-            id="client-id-display"
-          >
-            {state.session.clientId}
-          </code>
-          <span style={{ color: 'var(--accent-400)' }}>← share ke teman</span>
-        </div>
-      )}
 
       <ChatWindow
         messages={state.messages}
         selfId={state.session?.clientId ?? ''}
+        selfNickname={state.session?.nickname ?? (typeof window !== 'undefined' ? sessionStorage.getItem('wuzz_nickname') ?? '' : '')}
         isPeerTyping={state.isPeerTyping}
       />
 
@@ -224,17 +236,15 @@ function ChatPageContent() {
   )
 }
 
-// Wrapper dengan Suspense — diperlukan Next.js App Router saat useSearchParams
-// digunakan dalam Client Component agar tidak error saat static rendering.
+// Wrapper Suspense untuk Next.js App Router
 export default function ChatPage() {
   return (
     <Suspense fallback={
       <div className="chat-layout" style={{ alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-        Memuat...
+        Memuat obrolan...
       </div>
     }>
       <ChatPageContent />
     </Suspense>
   )
 }
-
