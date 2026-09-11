@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useReducer, useCallback, useRef, Suspense } from 'react'
+import { useEffect, useReducer, useState, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WsClient } from '@/lib/ws-client'
-import type { Message, ConnectionStatus, SessionInfo } from '@/lib/types'
+import type { Message, ConnectionStatus, SessionInfo, RoomUser } from '@/lib/types'
 import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
+import { MemberListModal } from './MemberListModal'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -18,6 +19,7 @@ interface ChatState {
   status: ConnectionStatus
   peerNickname: string | null
   isPeerTyping: boolean
+  roomUsers: RoomUser[]
 }
 
 type ChatAction =
@@ -27,6 +29,7 @@ type ChatAction =
   | { type: 'SET_MESSAGES'; payload: Message[] }
   | { type: 'SET_PEER_NICKNAME'; payload: string }
   | { type: 'SET_PEER_TYPING'; payload: boolean }
+  | { type: 'SET_ROOM_USERS'; payload: RoomUser[] }
 
 const initialState: ChatState = {
   messages: [],
@@ -34,6 +37,7 @@ const initialState: ChatState = {
   status: 'connecting',
   peerNickname: null,
   isPeerTyping: false,
+  roomUsers: [],
 }
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -58,6 +62,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, peerNickname: action.payload }
     case 'SET_PEER_TYPING':
       return { ...state, isPeerTyping: action.payload }
+    case 'SET_ROOM_USERS':
+      return { ...state, roomUsers: action.payload }
     default:
       return state
   }
@@ -73,6 +79,7 @@ function ChatPageContent() {
   const roomId = searchParams.get('room') || searchParams.get('peer') || 'room-general'
 
   const [state, dispatch] = useReducer(chatReducer, initialState)
+  const [isMemberListOpen, setIsMemberListOpen] = useState(false)
   const clientRef = useRef<WsClient | null>(null)
 
   // Timer untuk matikan typing indicator setelah 3 detik
@@ -136,6 +143,21 @@ function ChatPageContent() {
           }
 
           dispatch({ type: 'ADD_MESSAGE', payload: msg })
+          break
+        }
+
+        case 'room_users': {
+          // Update daftar member aktif di room
+          if (msg.users) {
+            dispatch({ type: 'SET_ROOM_USERS', payload: msg.users })
+            // Jika ada member selain kita, set nama peer
+            const otherUsers = msg.users.filter(u => u.nickname !== nickname)
+            if (otherUsers.length === 1) {
+              dispatch({ type: 'SET_PEER_NICKNAME', payload: otherUsers[0].nickname })
+            } else if (otherUsers.length > 1) {
+              dispatch({ type: 'SET_PEER_NICKNAME', payload: `${otherUsers.length} Peserta` })
+            }
+          }
           break
         }
 
@@ -218,6 +240,8 @@ function ChatPageContent() {
         session={state.session}
         peerNickname={state.peerNickname}
         roomId={roomId}
+        roomUsers={state.roomUsers}
+        onOpenMemberList={() => setIsMemberListOpen(true)}
       />
 
       <ChatWindow
@@ -231,6 +255,14 @@ function ChatPageContent() {
         onSend={handleSend}
         onTyping={handleTyping}
         disabled={!isConnected || !state.session}
+      />
+
+      <MemberListModal
+        isOpen={isMemberListOpen}
+        onClose={() => setIsMemberListOpen(false)}
+        users={state.roomUsers}
+        currentNickname={state.session?.nickname}
+        roomId={roomId}
       />
     </div>
   )

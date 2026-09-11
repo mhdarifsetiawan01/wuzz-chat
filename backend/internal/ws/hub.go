@@ -48,11 +48,11 @@ func (h *Hub) Register(c *Client) {
 
 // JoinRoom mendaftarkan client ke dalam room tertentu.
 func (h *Hub) JoinRoom(c *Client, roomID string) {
+	var oldRoomID string
 	h.mu.Lock()
-	defer h.mu.Unlock()
-
 	// Jika client sebelumnya ada di room lain, bersihkan dulu
 	if c.RoomID != "" && c.RoomID != roomID {
+		oldRoomID = c.RoomID
 		if room, ok := h.rooms[c.RoomID]; ok {
 			delete(room, c.ID)
 			if len(room) == 0 {
@@ -68,10 +68,20 @@ func (h *Hub) JoinRoom(c *Client, roomID string) {
 	h.rooms[roomID][c.ID] = c
 
 	log.Printf("[Hub] client %s (%s) bergabung ke room '%s' | member room=%d", c.ID, c.Nickname, roomID, len(h.rooms[roomID]))
+	h.mu.Unlock()
+
+	// Broadcast update user list untuk room lama jika ada perpindahan
+	if oldRoomID != "" {
+		h.BroadcastRoomUsers(oldRoomID)
+	}
+
+	// Broadcast update user list ke seluruh anggota di room baru
+	h.BroadcastRoomUsers(roomID)
 }
 
 // Unregister menghapus client dari registry dan room-nya.
 func (h *Hub) Unregister(c *Client) {
+	roomID := c.RoomID
 	h.mu.Lock()
 	_, exists := h.clients[c.ID]
 	if exists {
@@ -80,11 +90,11 @@ func (h *Hub) Unregister(c *Client) {
 	}
 
 	// Hapus dari room
-	if c.RoomID != "" {
-		if room, ok := h.rooms[c.RoomID]; ok {
+	if roomID != "" {
+		if room, ok := h.rooms[roomID]; ok {
 			delete(room, c.ID)
 			if len(room) == 0 {
-				delete(h.rooms, c.RoomID)
+				delete(h.rooms, roomID)
 			}
 		}
 	}
@@ -100,16 +110,59 @@ func (h *Hub) Unregister(c *Client) {
 
 	log.Printf("[Hub] client keluar: id=%s nickname=%s | sisa=%d", c.ID, c.Nickname, h.count())
 
-	// Beritahu anggota lain di room
-	if c.RoomID != "" {
-		h.BroadcastRoom(c.RoomID, Message{
+	// Beritahu anggota lain di room & perbarui daftar user aktif
+	if roomID != "" {
+		h.BroadcastRoom(roomID, Message{
 			Type:      TypeLeave,
 			From:      c.ID,
 			Nickname:  c.Nickname,
-			Room:      c.RoomID,
+			Room:      roomID,
 			Content:   c.Nickname + " telah meninggalkan percakapan",
 			Timestamp: time.Now().UTC(),
 		}, c.ID)
+
+		h.BroadcastRoomUsers(roomID)
+	}
+}
+
+// BroadcastRoomUsers mengumpulkan seluruh klien aktif di sebuah room dan mem-broadcast pesan TypeRoomUsers.
+func (h *Hub) BroadcastRoomUsers(roomID string) {
+	if roomID == "" {
+		return
+	}
+
+	h.mu.RLock()
+	room, exists := h.rooms[roomID]
+	var users []RoomUser
+	var targets []*Client
+	if exists {
+		for _, client := range room {
+			users = append(users, RoomUser{
+				ID:       client.ID,
+				Nickname: client.Nickname,
+			})
+			targets = append(targets, client)
+		}
+	}
+	h.mu.RUnlock()
+
+	if len(targets) == 0 {
+		return
+	}
+
+	msg := Message{
+		Type:      TypeRoomUsers,
+		Room:      roomID,
+		Users:     users,
+		Timestamp: time.Now().UTC(),
+	}
+
+	for _, target := range targets {
+		select {
+		case target.send <- msg:
+		default:
+			log.Printf("[Hub] buffer penuh saat broadcast room_users ke client %s", target.ID)
+		}
 	}
 }
 

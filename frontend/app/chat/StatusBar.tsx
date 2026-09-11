@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import type { ConnectionStatus, SessionInfo } from '@/lib/types'
+import type { ConnectionStatus, SessionInfo, RoomUser } from '@/lib/types'
 
 interface StatusBarProps {
   status: ConnectionStatus
   session: SessionInfo | null
   peerNickname: string | null
   roomId: string
+  roomUsers: RoomUser[]
+  onOpenMemberList: () => void
 }
 
 const statusLabel: Record<ConnectionStatus, string> = {
@@ -17,7 +19,14 @@ const statusLabel: Record<ConnectionStatus, string> = {
   reconnecting: 'Reconnecting...',
 }
 
-export function StatusBar({ status, session, peerNickname, roomId }: StatusBarProps) {
+export function StatusBar({
+  status,
+  session,
+  peerNickname,
+  roomId,
+  roomUsers = [],
+  onOpenMemberList,
+}: StatusBarProps) {
   const [copied, setCopied] = useState(false)
 
   const copyRoomLink = () => {
@@ -42,26 +51,27 @@ export function StatusBar({ status, session, peerNickname, roomId }: StatusBarPr
         </div>
 
         <div className="status-info">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span className="status-name">{peerName}</span>
             {roomId && (
               <button
                 type="button"
                 onClick={copyRoomLink}
-                style={{
-                  background: 'var(--bg-overlay)',
-                  border: '1px solid var(--border-default)',
-                  color: copied ? 'var(--accent-400)' : 'var(--text-secondary)',
-                  fontSize: '0.6875rem',
-                  padding: '2px 6px',
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: 'pointer',
-                }}
+                className="status-btn"
                 title="Salin link chat ini untuk dibagikan ke teman"
               >
                 {copied ? '✓ Link Tersalin!' : '📋 Salin Link'}
               </button>
             )}
+            {/* Tombol Daftar Anggota */}
+            <button
+              type="button"
+              onClick={onOpenMemberList}
+              className="status-btn member-badge-btn"
+              title="Lihat daftar anggota yang sedang online di room ini"
+            >
+              👥 {roomUsers.length} Online
+            </button>
           </div>
           {session && (
             <div className="status-sub">

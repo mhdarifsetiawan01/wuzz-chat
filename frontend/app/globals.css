@@ -642,6 +642,225 @@ h4 { font-size: 1rem;   font-weight: 600; }
 }
 
 /* ================================================================
+   STATUS BAR BUTTONS & MEMBER BADGE
+   ================================================================ */
+
+.status-btn {
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--transition-fast) ease;
+  user-select: none;
+}
+
+.status-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.member-badge-btn {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--accent-300);
+  font-weight: 500;
+}
+
+.member-badge-btn:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: var(--accent-500);
+  color: #ffffff;
+}
+
+/* ================================================================
+   MEMBER LIST MODAL / DRAWER
+   ================================================================ */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: fadeIn 0.2s ease;
+}
+
+.member-drawer {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 400px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.member-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.member-drawer-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.member-drawer-subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.member-drawer-subtitle .highlight {
+  color: var(--accent-400);
+  font-weight: 500;
+}
+
+.member-drawer-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.125rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast) ease;
+}
+
+.member-drawer-close:hover {
+  background: var(--bg-overlay);
+  color: var(--text-primary);
+}
+
+.member-drawer-body {
+  padding: var(--space-4) var(--space-5);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.member-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  transition: background var(--transition-fast) ease;
+}
+
+.member-item:hover {
+  background: var(--bg-elevated);
+}
+
+.member-item-me {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.member-avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-500);
+  color: var(--accent-300);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.member-online-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-success);
+  border: 2px solid var(--bg-surface);
+}
+
+.member-details {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.member-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-badge-you {
+  font-size: 0.75rem;
+  color: var(--accent-400);
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.member-status-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.member-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: var(--space-6) 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ================================================================
    RESPONSIVE
    ================================================================ */
 

@@ -6,13 +6,20 @@ import "time"
 type MessageType string
 
 const (
-	TypeJoin    MessageType = "join"    // client pertama kali connect, kirim nickname & room
-	TypeMessage MessageType = "message" // pesan chat biasa
-	TypeTyping  MessageType = "typing"  // indikator sedang mengetik
-	TypeLeave   MessageType = "leave"   // client disconnect
-	TypeSystem  MessageType = "system"  // pesan sistem dari server ke client
-	TypeHistory MessageType = "history" // riwayat pesan percakapan dari database
+	TypeJoin      MessageType = "join"       // client pertama kali connect, kirim nickname & room
+	TypeMessage   MessageType = "message"    // pesan chat biasa
+	TypeTyping    MessageType = "typing"     // indikator sedang mengetik
+	TypeLeave     MessageType = "leave"      // client disconnect
+	TypeSystem    MessageType = "system"     // pesan sistem dari server ke client
+	TypeHistory   MessageType = "history"    // riwayat pesan percakapan dari database
+	TypeRoomUsers MessageType = "room_users" // daftar user yang sedang aktif di room
 )
+
+// RoomUser merepresentasikan informasi singkat member di dalam room
+type RoomUser struct {
+	ID       string `json:"id"`
+	Nickname string `json:"nickname"`
+}
 
 // Message adalah struktur JSON yang dipertukarkan antara client dan server.
 type Message struct {
@@ -25,4 +32,5 @@ type Message struct {
 	Content   string      `json:"content,omitempty"`   // Isi pesan
 	Timestamp time.Time   `json:"timestamp,omitempty"` // Timestamp server
 	Messages  []Message   `json:"messages,omitempty"`  // Kumpulan pesan untuk TypeHistory
+	Users     []RoomUser  `json:"users,omitempty"`     // Daftar user aktif di room
 }
