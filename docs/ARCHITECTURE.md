@@ -52,20 +52,18 @@ erDiagram
         uuid id PK
         uuid conversation_id FK
         uuid sender_id FK
+        varchar from_nickname
         uuid reply_to_id FK "nullable for quoted message"
+        varchar reply_to_nickname "nullable"
+        text reply_to_content "nullable"
+        text reactions "JSON string array of emoji reactions"
+        varchar status "pending / sent / delivered / read"
         varchar type "text / image / video / audio / document"
         text content
         boolean is_edited
         boolean is_deleted
         timestamp created_at
         timestamp updated_at
-    }
-
-    MESSAGE_RECEIPTS {
-        uuid message_id PK,FK
-        uuid user_id PK,FK
-        varchar status "delivered / read"
-        timestamp read_at
     }
 
     ATTACHMENTS {
@@ -90,11 +88,20 @@ Format standar event WebSocket yang seragam di frontend dan backend:
 ```json
 {
   "id": "uuid-v4-event",
-  "type": "message | typing | receipt | presence | room_users",
-  "conversation_id": "uuid-conversation",
-  "sender_id": "uuid-user",
-  "sender_nickname": "Alice",
-  "payload": {},
+  "type": "message | typing | receipt | reaction | room_users | history | system",
+  "room": "dm_xxx / room-xxx",
+  "from": "uuid-sender",
+  "nickname": "Alice",
+  "content": "Isi pesan...",
+  "status": "pending | sent | delivered | read",
+  "reply_to": {
+    "id": "uuid-quoted-msg",
+    "nickname": "Bob",
+    "content": "Pesan yang dibalas"
+  },
+  "reactions": [
+    { "emoji": "❤️", "users": ["Alice"], "count": 1 }
+  ],
   "timestamp": "2026-09-12T03:00:00Z"
 }
 ```
@@ -102,12 +109,13 @@ Format standar event WebSocket yang seragam di frontend dan backend:
 ### B. Daftar Tipe Event:
 | Event Type | Arah | Penjelasan |
 |---|---|---|
-| `auth` | Client ➔ Server | Autentikasi token JWT saat handshake pertama kali |
 | `message` | Bidirectional | Pengiriman dan penerimaan pesan teks/media |
 | `typing` | Bidirectional | Notifikasi bahwa user sedang mengetik di obrolan |
-| `receipt` | Bidirectional | Laporan status pesan (`delivered`, `read`) |
-| `presence` | Server ➔ Client | Update status user (`online`, `offline`, `last_seen`) |
-| `room_users`| Server ➔ Client | Daftar anggota aktif dalam satu obrolan |
+| `receipt` | Bidirectional | Laporan status pesan (`sent`, `delivered`, `read`) secara single atau bulk room |
+| `reaction`| Bidirectional | Toggle penambahan/penghapusan reaksi emoji pada pesan |
+| `room_users`| Server ➔ Client | Daftar anggota aktif dalam satu obrolan (presence realtime) |
+| `history` | Server ➔ Client | Pengiriman riwayat pesan persisten saat user join ke obrolan |
+| `join` | Client ➔ Server | Permintaan bergabung ke room tertentu dengan nickname/identitas |
 
 ---
 

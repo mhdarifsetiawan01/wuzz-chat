@@ -39,12 +39,13 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 - ✅ **Fase 1: Real-Time Engine Foundation (SELESAI)** — Hub WebSocket Go, Read/Write pumps, Custom Server Proxy, Dark Mode CSS.
 - ✅ **Fase 2: Persistence & Presence (SELESAI)** — Supabase PostgreSQL integration, room code routing (`room-XXXX`), auto-migration, drawer anggota online (`👥 X Online`).
 - ✅ **Fase 3: User Identity, JWT Auth & Direct Messages (SELESAI)** — Register (`bcrypt`), Login JWT 7 hari, profil user, pencarian kontak (`/api/users/search`), obrolan langsung (Direct Message), layout 2-kolom WhatsApp-grade lengkap dengan Standby / Welcome Screen.
-- 🎯 **Fase 4: Modern Chat UX & Interactive Dynamics (SEDANG / NEXT)** —
-  1. Unread Badge Counter di sidebar & live last message snippet update.
-  2. Sound FX (audio notifikasi kirim & terima pesan).
-  3. Status tanda terima pesan: `🕒 Pending` ➔ `✓ Sent` ➔ `✓✓ Delivered` ➔ `✓✓ Read Biru`.
-  4. Live Typing Indicator (*"User sedang mengetik..."*).
-  5. Emoji reactions & Quote/Reply message.
+- ✅ **Fase 4: Modern Chat UX & Interactive Dynamics (SELESAI)** — Unread Badge Counter persisten, Web Audio API Sound FX, 3-Stage Receipts (`sent`, `delivered`, `read`), Live Typing Indicator, Emoji Reactions & Quote Reply (Click-to-Scroll & Glow), Sidebar Receipt Icons, dan Anti-Spam Clean Timeline.
+- 🎯 **Fase 5: Rich Media, Voice Notes & Attachments (SEDANG / NEXT)** —
+  1. Integrasi Cloud Storage (S3 / Supabase Storage) untuk upload media.
+  2. Thumbnail generator & image modal preview.
+  3. Web Audio API Voice Note recorder & custom player.
+  4. Document / Attachment sharing (PDF, ZIP, dll.) dengan progress indicator.
+  5. Link previewer metadata OpenGraph.
 
 ---
 

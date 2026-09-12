@@ -73,7 +73,7 @@ Membangun platform chatting modern yang:
 
 ---
 
-### Fase 3: User Identity, Auth & Contacts (Fase Selanjutnya 🎯)
+### Fase 3: User Identity, Auth & Contacts (Status: SELESAI ✅)
 *Tujuan: Mengubah sistem dari sesi room anonim sekali-pakai menjadi platform chatting berbasis akun dan daftar kontak tetap layaknya WhatsApp/Telegram.*
 - **Backend**:
   - Tabel `users` (ID, username, email/phone, password_hash, avatar_url, bio, last_seen).
@@ -88,20 +88,21 @@ Membangun platform chatting modern yang:
 
 ---
 
-### Fase 4: Modern Chat UX & Interactive Dynamics
-*Tujuan: Memberikan sensasi chatting yang hidup, responsif, dan kaya umpan balik visual.*
-- **Receipts & Status**:
-  - Checklist pengiriman: `🕒 Pending` ➔ `✓ Sent (Terkirim ke Server)` ➔ `✓✓ Delivered (Diterima Perangkat Lawan)` ➔ `✓✓ Biru (Sudah Dibaca/Read)`.
-- **Interactive UX**:
-  - Typing indicator live (*"Alice sedang mengetik..."*).
-  - Audio sound effects: Suara 'pop' saat kirim pesan dan 'ding' saat pesan masuk.
-  - Emoji & Reaction picker: Tambahkan reaksi emoji (❤️, 👍, 😂, 🔥) pada setiap balon pesan.
-  - Fitur Reply / Quote pesan tertentu.
-  - Fitur Delete for Everyone & Edit Message.
+### Fase 4: Modern Chat UX & Interactive Dynamics (Status: SELESAI ✅)
+*Tujuan: Memberikan sensasi chatting yang hidup, responsif, dan kaya umpan balik visual sekelas WhatsApp & Telegram.*
+- **Receipts & Status (3-Tahap)**:
+  - Checklist pengiriman: `🕒 Pending` ➔ `✓ Sent (Centang 1 Abu-abu)` ➔ `✓✓ Delivered (Centang 2 Abu-abu saat lawan online)` ➔ `✓✓ Read (Centang 2 Biru saat dibuka)`.
+  - Tampilan receipt realtime di balon chat dan di daftar obrolan Sidebar kiri.
+- **Interactive UX & Feedback**:
+  - Typing indicator live (*"Alice sedang mengetik..."*) dengan debouncing.
+  - Audio sound effects (Web Audio API): Suara 'pop' saat kirim pesan dan 'ding' saat pesan masuk / reaksi masuk.
+  - Emoji & Reaction picker cepat (`👍 ❤️ 😂 😮 😢 🙏`) pada setiap balon pesan dengan toggle interaktif.
+  - Fitur Reply / Quote pesan dengan banner pratinjau dan **Click-to-Scroll & Glow Highlight** ke pesan asli.
+  - Clean Timeline (Anti-spam join/leave/welcome message).
 
 ---
 
-### Fase 5: Rich Media, Voice Notes & Attachments
+### Fase 5: Rich Media, Voice Notes & Attachments (Target Selanjutnya 🎯)
 *Tujuan: Mendukung pengiriman berbagai tipe konten multimedia.*
 - **Cloud Object Storage Integration**:
   - Integrasi S3 / Supabase Storage untuk upload media.

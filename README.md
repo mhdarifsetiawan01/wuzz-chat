@@ -45,15 +45,20 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 
 ---
 
-## 🚀 Fitur yang Telah Selesai (Fase 1 & 2)
+## 🚀 Fitur yang Telah Selesai (Fase 1 s/d Fase 4)
 
 - [x] **Bidirectional WebSocket Engine**: Arsitektur hub Go dengan goroutine read/write pump dan graceful disconnect.
-- [x] **Next.js Reverse Proxy**: Menangani WebSocket upgrade event pada custom server (`server.js`), mengisolasi URL backend dari browser.
+- [x] **Next.js Reverse Proxy (`server.js`)**: Menangani WebSocket upgrade event pada custom server, mengisolasi URL backend dari browser.
 - [x] **Multi-Database Flexible Store**: Otomatis mendukung **Supabase PostgreSQL**, **Local Postgres**, **SQLite**, dan **In-Memory** fallback.
 - [x] **Chat History Persistence**: Riwayat pesan otomatis tersimpan di cloud database dan dimuat saat pengguna membuka obrolan atau me-refresh tab.
-- [x] **Room-Based Isolation & Instant Links**: Pembuatan room obrolan (`room-XXXX`) dan tombol *Salin Link* instan.
-- [x] **Real-Time Presence Tracking**: Pelacakan status online real-time (`room_users`) dan panel drawer daftar peserta room (`👥 X Online`).
-- [x] **Optimistic UI & Auto-Reconnect**: Frontend WebSocket client dengan exponential backoff dan rendering bubble obrolan instan.
+- [x] **User Identity & JWT Authentication (Fase 3)**: Pendaftaran akun dengan password hashing bcrypt, login JWT 7 hari, profil user, dan pencarian kontak instan.
+- [x] **Direct Messages & 2-Kolom Layout (Fase 3)**: Obrolan 1-on-1 permanen dengan layout WhatsApp-grade, sidebar Recent Chats, dan standby welcome screen.
+- [x] **Sound FX Synthesizer (Fase 4)**: Efek suara prosedural Web Audio API saat kirim/terima pesan dan reaksi tanpa file audio eksternal.
+- [x] **Live Typing Indicator (Fase 4)**: Animasi typing indicator real-time saat lawan bicara sedang mengetik.
+- [x] **Real-Time 3-Stage Receipts (Fase 4)**: Transisi tanda centang `🕒 Pending` ➔ `✓ Sent` (centang 1 abu) ➔ `✓✓ Delivered` (centang 2 abu saat lawan online) ➔ `✓✓ Read` (centang 2 biru saat dibaca).
+- [x] **Sidebar Receipt Icons & Unread Counter (Fase 4)**: Tanda centang di depan cuplikan teks pesan terakhir pada daftar obrolan sidebar dan badge unread counter persisten.
+- [x] **Emoji Reactions & Reply/Quote Message (Fase 4)**: Toolbar reaksi emoji cepat (`👍 ❤️ 😂 😮 😢 🙏`), badge interaktif, dan balasan kutipan pesan dengan fitur **Click-to-Scroll & Glow Highlight** ke pesan asli.
+- [x] **Clean Anti-Spam Timeline (Fase 4)**: Linimasa pesan bersih tanpa spam status join/leave/welcome.
 
 ---
 
