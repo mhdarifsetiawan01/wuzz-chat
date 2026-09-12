@@ -167,6 +167,9 @@ func (c *Client) onJoin(msg Message) {
 		Timestamp: time.Now().UTC(),
 	}, c.ID)
 
+	// Tandai seluruh pesan yang belum dibaca dari lawan bicara di room ini menjadi 'read'
+	_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, c.Nickname)
+
 	// Muat dan kirim riwayat pesan percakapan dari database
 	c.hub.sendRoomHistory(c.ID, targetRoom)
 

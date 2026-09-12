@@ -14,6 +14,7 @@ export interface ConversationItem {
   peer_nickname?: string
   last_message?: string
   last_sender?: string
+  unread_count?: number
   updated_at: string
 }
 
@@ -57,13 +58,20 @@ export function Sidebar({
   const [isSearching, setIsSearching] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Fetch daftar obrolan aktif
+  // Fetch daftar obrolan aktif beserta unread counts dari database
   const loadConversations = async () => {
     if (!user) return
     setIsLoading(true)
     const { data } = await apiRequest<ConversationItem[]>('/api/conversations')
     if (data) {
       setConversations(data)
+      const initialUnread: Record<string, number> = {}
+      data.forEach(c => {
+        if (c.unread_count && c.unread_count > 0 && c.id !== activeRoomId) {
+          initialUnread[c.id] = c.unread_count
+        }
+      })
+      setUnreadCounts(prev => ({ ...initialUnread, ...prev }))
     }
     setIsLoading(false)
   }

@@ -163,6 +163,18 @@ func (s *SQLMessageStore) UpdateMessageStatus(msgID string, status string) error
 	return err
 }
 
+// MarkRoomMessagesAsRead menandai seluruh pesan di room tertentu yang bukan dikirim oleh excludeNickname sebagai 'read'.
+func (s *SQLMessageStore) MarkRoomMessagesAsRead(roomID, excludeNickname string) error {
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE messages SET status = 'read' WHERE room_id = $1 AND LOWER(from_nickname) != LOWER($2) AND status != 'read'`
+	} else {
+		query = `UPDATE messages SET status = 'read' WHERE room_id = ? AND LOWER(from_nickname) != LOWER(?) AND status != 'read'`
+	}
+	_, err := s.db.Exec(query, roomID, excludeNickname)
+	return err
+}
+
 // GetRoomHistory mengambil riwayat pesan dalam suatu room/percakapan.
 func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMessage, error) {
 	if limit <= 0 {

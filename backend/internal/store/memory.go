@@ -1,6 +1,7 @@
 package store
 
 import (
+	"strings"
 	"sync"
 )
 
@@ -86,6 +87,21 @@ func (s *MemoryMessageStore) UpdateMessageStatus(msgID string, status string) er
 				s.messages[roomID][i].Status = status
 				return nil
 			}
+		}
+	}
+	return nil
+}
+
+func (s *MemoryMessageStore) MarkRoomMessagesAsRead(roomID, excludeNickname string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	msgs, ok := s.messages[roomID]
+	if !ok {
+		return nil
+	}
+	for i, m := range msgs {
+		if !strings.EqualFold(m.Nickname, excludeNickname) && m.Status != "read" {
+			s.messages[roomID][i].Status = "read"
 		}
 	}
 	return nil

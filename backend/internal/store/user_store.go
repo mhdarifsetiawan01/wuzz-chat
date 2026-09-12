@@ -35,6 +35,7 @@ type ConversationItem struct {
 	PeerNickname string    `json:"peer_nickname,omitempty"`
 	LastMessage  string    `json:"last_message"`
 	LastSender   string    `json:"last_sender"`
+	UnreadCount  int       `json:"unread_count"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
@@ -263,6 +264,14 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 	}
 	defer rows.Close()
 
+	currentUser, _ := s.GetUserByID(userID)
+	currentName := ""
+	currentUsername := ""
+	if currentUser != nil {
+		currentName = currentUser.DisplayName
+		currentUsername = currentUser.Username
+	}
+
 	var items []ConversationItem
 	for rows.Next() {
 		var item ConversationItem
@@ -299,6 +308,23 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 		if err := s.db.QueryRow(msgQuery, item.ID).Scan(&item.LastMessage, &item.LastSender, &msgTime); err == nil {
 			item.UpdatedAt = msgTime
 		}
+
+		// Hitung jumlah pesan belum dibaca dari lawan bicara
+		var unreadQuery string
+		if s.driverName == "postgres" {
+			unreadQuery = `SELECT COUNT(*) FROM messages 
+			               WHERE room_id = $1 
+			                 AND LOWER(from_nickname) != LOWER($2) 
+			                 AND LOWER(from_nickname) != LOWER($3) 
+			                 AND status != 'read'`
+		} else {
+			unreadQuery = `SELECT COUNT(*) FROM messages 
+			               WHERE room_id = ? 
+			                 AND LOWER(from_nickname) != LOWER(?) 
+			                 AND LOWER(from_nickname) != LOWER(?) 
+			                 AND status != 'read'`
+		}
+		_ = s.db.QueryRow(unreadQuery, item.ID, currentName, currentUsername).Scan(&item.UnreadCount)
 
 		items = append(items, item)
 	}

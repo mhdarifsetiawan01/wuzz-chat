@@ -49,6 +49,9 @@ type MessageStore interface {
 	// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
 	UpdateMessageStatus(msgID string, status string) error
 
+	// MarkRoomMessagesAsRead menandai semua pesan yang belum dibaca dari lawan bicara menjadi 'read'.
+	MarkRoomMessagesAsRead(roomID, excludeNickname string) error
+
 	// GetRoomHistory mengambil riwayat pesan dalam suatu room/percakapan.
 	// Mengembalikan pesan terurut secara kronologis (tertua ke terbaru).
 	// limit = 0 berarti default 50 pesan.
