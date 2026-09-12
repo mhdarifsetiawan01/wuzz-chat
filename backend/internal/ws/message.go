@@ -49,8 +49,10 @@ type ReactionPayload struct {
 
 // RoomUser merepresentasikan informasi singkat member di dalam room
 type RoomUser struct {
-	ID       string `json:"id"`
-	Nickname string `json:"nickname"`
+	ID          string `json:"id"`
+	Username    string `json:"username,omitempty"`
+	DisplayName string `json:"display_name,omitempty"`
+	Nickname    string `json:"nickname"`
 }
 
 // Message adalah struktur JSON yang dipertukarkan antara client dan server.

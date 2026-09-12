@@ -47,6 +47,7 @@ type UserStore interface {
 	Authenticate(username, password string) (*User, error)
 	GetUserByID(id string) (*User, error)
 	GetUserByUsername(username string) (*User, error)
+	GetUserByUsernameOrDisplayName(name string) (*User, error)
 	UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*User, error)
 	SearchUsers(query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
@@ -161,6 +162,41 @@ func (s *SQLUserStore) GetUserByUsername(username string) (*User, error) {
 	}
 	return &u, nil
 }
+
+// GetUserByUsernameOrDisplayName mengambil user berdasarkan username ATAU display_name.
+func (s *SQLUserStore) GetUserByUsernameOrDisplayName(name string) (*User, error) {
+	var query string
+	if s.driverName == "postgres" {
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at 
+		         FROM users 
+		         WHERE LOWER(username) = LOWER($1) OR LOWER(display_name) = LOWER($1) 
+		         ORDER BY (CASE WHEN LOWER(username) = LOWER($1) THEN 0 ELSE 1 END), created_at DESC
+		         LIMIT 1`
+	} else {
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at 
+		         FROM users 
+		         WHERE LOWER(username) = LOWER(?) OR LOWER(display_name) = LOWER(?) 
+		         ORDER BY (CASE WHEN LOWER(username) = LOWER(?) THEN 0 ELSE 1 END), created_at DESC
+		         LIMIT 1`
+	}
+
+	var row *sql.Row
+	if s.driverName == "postgres" {
+		row = s.db.QueryRow(query, name)
+	} else {
+		row = s.db.QueryRow(query, name, name, name)
+	}
+
+	var u User
+	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.CreatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &u, nil
+}
+
 
 // UpdateProfile memperbarui display_name, status_message, dan avatar_url milik user.
 func (s *SQLUserStore) UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*User, error) {

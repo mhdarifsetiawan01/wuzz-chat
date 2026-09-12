@@ -90,6 +90,9 @@ func main() {
 		mux.HandleFunc("/api/users/search", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(chatHandler.SearchUsers)).ServeHTTP(w, r)
 		}))
+		mux.HandleFunc("/api/users/profile", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(chatHandler.GetUserProfile)).ServeHTTP(w, r)
+		}))
 		mux.HandleFunc("/api/conversations", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPost {
 				auth.RequireJWT()(http.HandlerFunc(chatHandler.StartDirectChat)).ServeHTTP(w, r)

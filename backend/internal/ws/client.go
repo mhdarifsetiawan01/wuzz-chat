@@ -20,14 +20,16 @@ const (
 
 // Client merepresentasikan satu koneksi WebSocket yang aktif.
 type Client struct {
-	ID       string
-	Nickname string
-	RoomID   string
-	PeerID   string
-	JoinedAt time.Time
-	hub      *Hub
-	conn     *websocket.Conn
-	send     chan Message
+	ID          string
+	Username    string
+	DisplayName string
+	Nickname    string
+	RoomID      string
+	PeerID      string
+	JoinedAt    time.Time
+	hub         *Hub
+	conn        *websocket.Conn
+	send        chan Message
 }
 
 // NewClient membuat instance Client baru.

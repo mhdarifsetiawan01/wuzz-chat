@@ -139,8 +139,10 @@ func (h *Hub) BroadcastRoomUsers(roomID string) {
 	if exists {
 		for _, client := range room {
 			users = append(users, RoomUser{
-				ID:       client.ID,
-				Nickname: client.Nickname,
+				ID:          client.ID,
+				Username:    client.Username,
+				DisplayName: client.DisplayName,
+				Nickname:    client.Nickname,
 			})
 			targets = append(targets, client)
 		}

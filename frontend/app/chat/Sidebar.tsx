@@ -287,12 +287,14 @@ export function Sidebar({
                     className="conversation-item"
                     onClick={() => handleStartDirectChat(u)}
                   >
-                    <div className="sidebar-avatar">
-                      {(u.display_name || u.username)[0].toUpperCase()}
+                    <div className="sidebar-avatar" style={{ fontSize: u.avatar_url ? '1.25rem' : '0.9rem' }}>
+                      {u.avatar_url || (u.display_name || u.username)[0].toUpperCase()}
                     </div>
                     <div className="conv-details">
                       <span className="conv-name">{u.display_name}</span>
-                      <span className="conv-last-msg">@{u.username} • Klik untuk chat</span>
+                      <span className="conv-last-msg" title={u.status_message || `@${u.username}`}>
+                        {u.status_message ? `${u.status_message} • @${u.username}` : `@${u.username}`}
+                      </span>
                     </div>
                   </li>
                 ))}

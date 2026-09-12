@@ -98,13 +98,16 @@ func TestSQLUserStore_Profile(t *testing.T) {
 		t.Errorf("expected AvatarURL 'avatar_1', got: %s", updated.AvatarURL)
 	}
 
-	// 3. Re-fetch from DB
-	fetched, err := userStore.GetUserByID(user.ID)
-	if err != nil {
-		t.Fatalf("failed to get user: %v", err)
+	// 4. Test GetUserByUsernameOrDisplayName
+	byUsername, err := userStore.GetUserByUsernameOrDisplayName("charlie")
+	if err != nil || byUsername.StatusMessage != "🚀 Sedang coding Wuzz Chat" {
+		t.Fatalf("failed to get user by username: %v, status: %v", err, byUsername)
 	}
-	if fetched.DisplayName != "Charlie Super" || fetched.StatusMessage != "🚀 Sedang coding Wuzz Chat" {
-		t.Errorf("re-fetched user mismatch: %+v", fetched)
+
+	byDisplayName, err := userStore.GetUserByUsernameOrDisplayName("Charlie Super")
+	if err != nil || byDisplayName.StatusMessage != "🚀 Sedang coding Wuzz Chat" {
+		t.Fatalf("failed to get user by display name: %v, status: %v", err, byDisplayName)
 	}
 }
+
 

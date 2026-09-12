@@ -95,3 +95,40 @@ func (h *ChatHandler) StartDirectChat(w http.ResponseWriter, r *http.Request) {
 		"room_id": roomID,
 	})
 }
+
+// GetUserProfile mengambil profil publik user lain berdasarkan ID atau username.
+func (h *ChatHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
+	_, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	userID := strings.TrimSpace(r.URL.Query().Get("id"))
+	username := strings.TrimSpace(r.URL.Query().Get("username"))
+
+	var user *store.User
+	var err error
+
+	if userID != "" {
+		user, err = h.userStore.GetUserByID(userID)
+	} else if username != "" {
+		cleanUsername := strings.TrimPrefix(username, "@")
+		user, err = h.userStore.GetUserByUsername(cleanUsername)
+		if err != nil {
+			user, err = h.userStore.GetUserByUsernameOrDisplayName(cleanUsername)
+		}
+	} else {
+		http.Error(w, `{"error":"parameter id atau username wajib disertakan"}`, http.StatusBadRequest)
+		return
+	}
+
+	if err != nil || user == nil {
+		http.Error(w, `{"error":"User tidak ditemukan"}`, http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(user)
+}
+

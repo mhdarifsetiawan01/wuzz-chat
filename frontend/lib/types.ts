@@ -22,6 +22,8 @@ export interface ReactionPayload {
 
 export interface RoomUser {
   id: string
+  username?: string
+  display_name?: string
   nickname: string
   isSelf?: boolean
 }

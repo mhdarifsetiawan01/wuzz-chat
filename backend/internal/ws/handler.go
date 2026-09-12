@@ -76,6 +76,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := NewClient(clientID, nickname, conn, h.hub)
+	client.Username = claims.Username
+	client.DisplayName = claims.DisplayName
 
 	// Daftarkan ke Hub
 	h.hub.Register(client)
