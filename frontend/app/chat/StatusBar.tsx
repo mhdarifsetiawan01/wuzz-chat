@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { ConnectionStatus, SessionInfo, RoomUser } from '@/lib/types'
+import { soundManager } from '@/lib/sound'
 
 interface StatusBarProps {
   status: ConnectionStatus
@@ -30,6 +31,13 @@ export function StatusBar({
   onToggleSidebar,
 }: StatusBarProps) {
   const [copied, setCopied] = useState(false)
+  const [soundMuted, setSoundMuted] = useState(false)
+
+  useEffect(() => {
+    setSoundMuted(soundManager.isMuted())
+    const unsubscribe = soundManager.onMuteChange(setSoundMuted)
+    return () => unsubscribe()
+  }, [])
 
   const copyRoomLink = () => {
     if (typeof window !== 'undefined') {
@@ -94,16 +102,32 @@ export function StatusBar({
         </div>
       </div>
 
-      {/* Status koneksi */}
-      <div
-        className={`status-indicator ${status}`}
-        role="status"
-        aria-live="polite"
-        aria-label={`Status koneksi: ${statusLabel[status]}`}
-      >
-        <span className="status-dot" aria-hidden="true" />
-        {statusLabel[status]}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Tombol Toggle Sound FX */}
+        <button
+          type="button"
+          onClick={() => soundManager.toggleMute()}
+          className={`status-btn ${soundMuted ? 'muted' : ''}`}
+          title={soundMuted ? 'Nyalakan efek suara pesan' : 'Matikan efek suara pesan'}
+          aria-label={soundMuted ? 'Nyalakan efek suara pesan' : 'Matikan efek suara pesan'}
+          style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8125rem' }}
+        >
+          <span>{soundMuted ? '🔇' : '🔊'}</span>
+          <span className="hide-on-mobile">{soundMuted ? 'Muted' : 'Sound'}</span>
+        </button>
+
+        {/* Status koneksi */}
+        <div
+          className={`status-indicator ${status}`}
+          role="status"
+          aria-live="polite"
+          aria-label={`Status koneksi: ${statusLabel[status]}`}
+        >
+          <span className="status-dot" aria-hidden="true" />
+          {statusLabel[status]}
+        </div>
       </div>
     </header>
   )
 }
+

@@ -1,19 +1,15 @@
 # Implementation Progress: Fase 4
 
-- [ ] **Milestone 4.1: Unread Counter & Sidebar Real-Time Sync**
-  - [ ] Update WebSocket event payload untuk update percakapan aktif
-  - [ ] Tambahkan badge angka unread di `Sidebar.tsx`
-  - [ ] Update live `last_message` di sidebar tanpa reload
-- [ ] **Milestone 4.2: Audio Sound Effects (Web Audio API)**
-  - [ ] Buat utilitas sound FX ringan tanpa file eksternal (`frontend/lib/sound.ts`)
-  - [ ] Trigger suara saat pesan terkirim & pesan diterima
-- [ ] **Milestone 4.3: Status Pesan (Receipts Checklist)**
-  - [ ] Tanda `✓ Sent` (disimpan server)
-  - [ ] Tanda `✓✓ Delivered` (diterima klien penerima)
-  - [ ] Tanda `✓✓ Read Biru` (dibaca oleh penerima)
-- [ ] **Milestone 4.4: Live Typing Indicator**
-  - [ ] Broadcast typing event antar client di room/DM yang sama
-  - [ ] Animasi 3-dot typing di bubble dan status bar
-- [ ] **Milestone 4.5: Emoji Reactions & Reply Quote**
-  - [ ] UI picker reaksi emoji di tiap balon chat
-  - [ ] Quote / Reply tampilan balasan pesan di atas input box
+## 📌 Status Sub-Milestone
+
+- [x] **Milestone 4.1: Sound FX Synthesizer (Web Audio API)** ✅
+  - [x] Buat procedural sound generator di `frontend/lib/sound.ts`
+  - [x] Tambahkan toggle mute di StatusBar / Header
+  - [x] Integrasikan audio trigger pada pengiriman & penerimaan pesan
+- [ ] **Milestone 4.2: Live Typing Indicator** 🚀 (Next)
+- [ ] **Milestone 4.3: Real-Time Sidebar Snippet & Unread Badge Counter**
+- [ ] **Milestone 4.4: Message Receipts Status Transitions**
+- [ ] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**
+
+## 📝 Catatan Milestone 4.1
+- Menggunakan Web Audio API oscillator murni (bebas dependensi aset audio eksternal dan bebas lag loading).

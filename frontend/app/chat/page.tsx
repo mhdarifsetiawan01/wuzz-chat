@@ -9,6 +9,7 @@ import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
 import { MemberListModal } from './MemberListModal'
 import { Sidebar } from './Sidebar'
+import { soundManager } from '@/lib/sound'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -185,6 +186,7 @@ function ChatPageContent() {
           dispatch({ type: 'ADD_MESSAGE', payload: msg })
           if (msg.nickname && msg.nickname !== nickname) {
             dispatch({ type: 'SET_PEER_NICKNAME', payload: msg.nickname })
+            soundManager.playReceive()
           }
           break
         }
@@ -224,6 +226,9 @@ function ChatPageContent() {
       room: roomId,
       nickname: session?.nickname,
     })
+
+    // Mainkan suara pop pengiriman pesan
+    soundManager.playSend()
 
     // Optimistic local render
     if (session) {

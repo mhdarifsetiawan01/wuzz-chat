@@ -14,3 +14,8 @@
 - **Konteks:** Mengubah sistem dari obrolan anonim menjadi percakapan permanen antar user terdaftar.
 - **Keputusan:** Menggunakan JWT token 7 hari, layout 2-kolom (Sidebar daftar chat + Chat window), dan Standby / Welcome Screen saat belum ada room yang dipilih.
 - **Status:** Diimplementasikan & Berfungsi.
+
+### DEC-004: Procedural Web Audio API Sound FX Synthesizer
+- **Konteks:** Membutuhkan efek audio notifikasi pesan (kirim & terima) yang ringan, instan, dan bebas kegagalan jaringan atau file asset hilang.
+- **Keputusan:** Menggunakan Web Audio API oscillator synthesis (`lib/sound.ts`) untuk menghasilkan suara nada *pop* (880Hz->320Hz) dan nada lonceng ganda *ding* (E5 + B5) tanpa memerlukan file MP3 eksternal.
+- **Status:** Diimplementasikan & Berfungsi.

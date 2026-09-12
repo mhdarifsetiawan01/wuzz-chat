@@ -49,29 +49,22 @@
 
 ---
 
-## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
-
-- Sistem saat ini sudah berjalan stabil dengan 2 user terdaftar (**Alice Wonder** & **Bob Builder**).
-- Obrolan Direct Message antara Alice dan Bob sudah berhasil dibuat, tersimpan di database Supabase, dan muncul di sidebar masing-masing akun.
-- Standby / Welcome Screen sudah aktif di sisi kanan saat user belum memilih obrolan.
+### D. Fase 4: Modern Chat UX & Interactive Dynamics (Sedang Berjalan)
+- [x] **Milestone 4.1: Sound FX Synthesizer (Web Audio API)**:
+  - Procedural Web Audio API sound generator (`lib/sound.ts`) untuk efek suara kirim (*pop*) dan terima (*ding*).
+  - Tombol toggle mute di status bar dengan persistensi `localStorage`.
+  - 100% tanpa dependensi file eksternal (bebas lag & 404).
+- [ ] **Milestone 4.2: Live Typing Indicator** (Next)
+- [ ] **Milestone 4.3: Real-Time Sidebar Snippet & Unread Badge Counter**
+- [ ] **Milestone 4.4: Message Receipts Status Transitions**
+- [ ] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**
 
 ---
 
-## 🚀 4. Rencana Kerja Selanjutnya (Fase 4: Modern Chat UX & Interactive Dynamics)
+## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-Berikut adalah fitur yang akan dikerjakan pada sesi berikutnya:
-
-1. **Unread Badge & Real-Time Sidebar Update**:
-   - Menampilkan badge jumlah pesan belum dibaca (`🟢 1`) di samping nama kontak lawan bicara pada sidebar.
-   - Mengupdate cuplikan pesan terakhir (*last message snippet*) di sidebar secara live tanpa perlu me-refresh halaman.
-2. **Audio & Sound FX**:
-   - Suara *"pop"* saat user mengirim pesan dan *"ding"* saat pesan baru diterima.
-3. **Status Pesan (Message Receipts Checklist)**:
-   - Indikator centang: `🕒 Pending` ➔ `✓ Sent` ➔ `✓✓ Delivered` ➔ `✓✓ Biru (Read)`.
-4. **Live Typing Indicator**:
-   - Animasi titik tiga dan teks *"Bob sedang mengetik..."* saat lawan bicara sedang mengetik pesan di input box.
-5. **Emoji Reactions & Reply Quote**:
-   - Fitur membalas (*quote*) pesan tertentu dan menambahkan reaksi emoji pada pesan.
+- Sistem saat ini sudah berjalan stabil dengan autentikasi akun, direct message, dan procedural Sound FX.
+- Milestone 4.1 selesai, siap melangkah ke Milestone 4.2 (Live Typing Indicator).
 
 ---
 
@@ -100,6 +93,7 @@ wuzz-chat/
 │   ├── lib/
 │   │   ├── api.ts          -> REST API client helper
 │   │   ├── auth-context.tsx-> Global Auth Provider
+│   │   ├── sound.ts        -> Web Audio API procedural sound synthesizer
 │   │   ├── types.ts        -> TypeScript definitions
 │   │   └── ws-client.ts    -> WebSocket abstraction
 │   └── server.js           -> Custom Next.js server & proxy layer
