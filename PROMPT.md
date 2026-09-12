@@ -40,12 +40,19 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 - ✅ **Fase 2: Persistence & Presence (SELESAI)** — Supabase PostgreSQL integration, room code routing (`room-XXXX`), auto-migration, drawer anggota online (`👥 X Online`).
 - ✅ **Fase 3: User Identity, JWT Auth & Direct Messages (SELESAI)** — Register (`bcrypt`), Login JWT 7 hari, profil user, pencarian kontak (`/api/users/search`), obrolan langsung (Direct Message), layout 2-kolom WhatsApp-grade lengkap dengan Standby / Welcome Screen.
 - ✅ **Fase 4: Modern Chat UX & Interactive Dynamics (SELESAI)** — Unread Badge Counter persisten, Web Audio API Sound FX, 3-Stage Receipts (`sent`, `delivered`, `read`), Live Typing Indicator, Emoji Reactions & Quote Reply (Click-to-Scroll & Glow), Sidebar Receipt Icons, dan Anti-Spam Clean Timeline.
-- 🎯 **Fase 5: Rich Media, Voice Notes & Attachments (SEDANG / NEXT)** —
-  1. Integrasi Cloud Storage (S3 / Supabase Storage) untuk upload media.
-  2. Thumbnail generator & image modal preview.
-  3. Web Audio API Voice Note recorder & custom player.
-  4. Document / Attachment sharing (PDF, ZIP, dll.) dengan progress indicator.
-  5. Link previewer metadata OpenGraph.
+- ✅ **Fase 5: Rich Media, Voice Notes, Attachments & Store-and-Forward Lifecycle (SELESAI)** —
+  1. Upload Media & Storage Driver Factory (Supabase Storage & Local disk fallback).
+  2. Paste gambar clipboard (`Ctrl+V`), Drag-and-Drop file, dan Modal Lightbox viewer interaktif.
+  3. Web Audio API Voice Note recorder (`MediaRecorder`) & Custom dynamic waveform audio player bubble.
+  4. Document & Attachment sharing card dengan badge ekstensi berwarna dan direct downloader.
+  5. WhatsApp-Style Store-and-Forward ($0 Storage Cost): auto-delete fisik file via `POST /api/media/ack`.
+  6. TTL Background Purge Worker (`MEDIA_RETENTION_DAYS=7`).
+  7. Client-Side Offline Storage (`IndexedDB` via `mediaCache.ts`) & graceful expired state.
+  8. Client-Side Pre-Upload Image Compressor (`imageCompressor.ts`, max 1600px, WebP quality 0.82) dengan toggle di Profil.
+- 🎯 **Fase 6: Distributed Scale & Reliability (SEDANG / NEXT)** —
+  1. Redis Pub/Sub integration untuk sinkronisasi pesan antar multi-instance Go WebSocket servers.
+  2. Horizontal clustering & Load balancing ready.
+  3. Link previewer metadata OpenGraph (URL parsing & preview card).
 
 ---
 

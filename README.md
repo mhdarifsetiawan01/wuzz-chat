@@ -8,28 +8,33 @@ Wuzz Chat adalah aplikasi chat real-time 1-on-1 berbasis WebSocket dengan arsite
 
 ```text
 wuzz-chat/
-├── backend/                  # WebSocket Backend Service (Golang)
+├── backend/                  # WebSocket & REST Backend Service (Golang 1.26)
 │   ├── internal/
-│   │   ├── auth/             # Middleware & Autentikasi (NoOp fase 1, JWT fase 2)
-│   │   ├── store/            # Data Layer (In-Memory fase 1, Redis fase 2)
-│   │   └── ws/               # WebSocket Hub, Client Pump, Message Router
+│   │   ├── api/              # REST Handlers (auth, chat, media upload & ack, config)
+│   │   ├── auth/             # JWT helper, claims validation & RequireJWT middleware
+│   │   ├── storage/          # Media Storage driver (Supabase, Local disk) & TTL PurgeWorker
+│   │   ├── store/            # Data Layer (PostgreSQL Supabase, SQLite, In-Memory)
+│   │   └── ws/               # WebSocket Hub, Client Pump, Message Router & Presence
 │   ├── go.mod
 │   ├── go.sum
 │   └── main.go
 │
 ├── frontend/                 # Web Interface (Next.js 16 + React 19 + TypeScript)
 │   ├── app/
-│   │   ├── chat/             # Chat UI container, Message bubbles, Status bar
-│   │   ├── globals.css       # Dark-mode design system & animations
+│   │   ├── chat/             # Chat UI container, Message bubbles, AudioPlayer, VoiceRecorder, Lightbox
+│   │   ├── login/            # Halaman Login
+│   │   ├── register/         # Halaman Registrasi
+│   │   ├── globals.css       # Dark-mode design system, dynamic waveforms & responsive CSS
 │   │   ├── layout.tsx
 │   │   └── page.tsx          # Landing page & anonymous nickname entry
-│   ├── lib/                  # WebSocket client abstraction & TypeScript types
-│   ├── server.js             # Custom server dengan integrated WebSocket proxy
+│   ├── lib/                  # WebSocket client, API helper, MediaCache (IndexedDB), ImageCompressor
+│   ├── server.js             # Custom server dengan WebSocket proxy & /uploads/ stream proxy
 │   └── package.json
 │
 ├── .agents/                  # Workspace configuration & lifecycle rules
-├── .gitignore
+├── docs/                     # Dokumentasi Arsitektur, Roadmap, dan Progress
 ├── PRD-websocket-chat-app.md # Dokumen spesifikasi teknis
+├── PROMPT.md                 # Context primer sesi AI
 └── README.md
 ```
 
@@ -40,17 +45,18 @@ wuzz-chat/
 Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi berikut:
 
 - 🗺️ **[ROADMAP.md](docs/ROADMAP.md)** — Rencana jangka panjang, milestone tahapan dari Fase 1 hingga Fase 7 (Auth, Group Chat, Rich Media, Receipts, WebRTC, Scaling).
-- 🏛️ **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Spesifikasi desain database relasional (ERD), protokol WebSocket, dan REST API endpoints.
+- 🏛️ **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Spesifikasi desain database relasional (ERD), protokol WebSocket, REST API endpoints, dan Store-and-Forward media lifecycle.
+- 📄 **[PROGRESS.md](docs/PROGRESS.md)** — Laporan status pengerjaan detail per fase & milestone.
 - 📄 **[PRD-websocket-chat-app.md](PRD-websocket-chat-app.md)** — Dokumen spesifikasi kebutuhan produk awal.
 
 ---
 
-## 🚀 Fitur yang Telah Selesai (Fase 1 s/d Fase 4)
+## 🚀 Fitur yang Telah Selesai (Fase 1 s/d Fase 5)
 
-- [x] **Bidirectional WebSocket Engine**: Arsitektur hub Go dengan goroutine read/write pump dan graceful disconnect.
-- [x] **Next.js Reverse Proxy (`server.js`)**: Menangani WebSocket upgrade event pada custom server, mengisolasi URL backend dari browser.
-- [x] **Multi-Database Flexible Store**: Otomatis mendukung **Supabase PostgreSQL**, **Local Postgres**, **SQLite**, dan **In-Memory** fallback.
-- [x] **Chat History Persistence**: Riwayat pesan otomatis tersimpan di cloud database dan dimuat saat pengguna membuka obrolan atau me-refresh tab.
+- [x] **Bidirectional WebSocket Engine (Fase 1)**: Arsitektur hub Go dengan goroutine read/write pump dan graceful disconnect.
+- [x] **Next.js Reverse Proxy (`server.js`) (Fase 1)**: Menangani WebSocket upgrade event pada custom server dan me-reverse proxy `/api/*` serta `/uploads/*`, mengisolasi URL backend dari browser.
+- [x] **Multi-Database Flexible Store (Fase 2)**: Otomatis mendukung **Supabase PostgreSQL**, **Local Postgres**, **SQLite**, dan **In-Memory** fallback.
+- [x] **Chat History Persistence (Fase 2)**: Riwayat pesan otomatis tersimpan di cloud database dan dimuat saat pengguna membuka obrolan atau me-refresh tab.
 - [x] **User Identity & JWT Authentication (Fase 3)**: Pendaftaran akun dengan password hashing bcrypt, login JWT 7 hari, profil user, dan pencarian kontak instan.
 - [x] **Direct Messages & 2-Kolom Layout (Fase 3)**: Obrolan 1-on-1 permanen dengan layout WhatsApp-grade, sidebar Recent Chats, dan standby welcome screen.
 - [x] **Sound FX Synthesizer (Fase 4)**: Efek suara prosedural Web Audio API saat kirim/terima pesan dan reaksi tanpa file audio eksternal.
@@ -59,6 +65,13 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 - [x] **Sidebar Receipt Icons & Unread Counter (Fase 4)**: Tanda centang di depan cuplikan teks pesan terakhir pada daftar obrolan sidebar dan badge unread counter persisten.
 - [x] **Emoji Reactions & Reply/Quote Message (Fase 4)**: Toolbar reaksi emoji cepat (`👍 ❤️ 😂 😮 😢 🙏`), badge interaktif, dan balasan kutipan pesan dengan fitur **Click-to-Scroll & Glow Highlight** ke pesan asli.
 - [x] **Clean Anti-Spam Timeline (Fase 4)**: Linimasa pesan bersih tanpa spam status join/leave/welcome.
+- [x] **Rich Media & Image Lightbox (Fase 5)**: Upload gambar (JPG, PNG, GIF, WebP), paste gambar clipboard (`Ctrl+V`), drag-and-drop file ke layar chat, dan modal Lightbox preview interaktif dengan keyboard navigation (`Esc`).
+- [x] **Document & File Sharing (Fase 5)**: Berbagi file dokumen (PDF, Word, Excel, ZIP, dll.) dengan kartu lampiran terformat, badge ekstensi berwarna, ukuran berkas dinamis, dan tombol unduh instan.
+- [x] **Voice Note Recording & Waveform Player (Fase 5)**: Perekaman suara langsung via `MediaRecorder` API dengan timer live, animasi gelombang suara, dan pemutar audio kustom bergaya WhatsApp/Telegram (dynamic waveform scrubber, Play/Pause, speed toggle `1x`/`1.5x`/`2x`, single-active player).
+- [x] **WhatsApp-Style Store-and-Forward Media Lifecycle ($0 Server Cost) (Fase 5)**: File di server hanya berfungsi sebagai transit buffer dan otomatis dihapus saat penerima mengunduh berkas (`POST /api/media/ack`).
+- [x] **Background TTL Auto-Purge Worker (Fase 5)**: Goroutine pembersih berkas kedaluwarsa yang belum diunduh melebihi `MEDIA_RETENTION_DAYS` (default 7 hari).
+- [x] **Client-Side Offline Caching (`IndexedDB`) (Fase 5)**: Berkas media tersimpan di IndexedDB browser klien sehingga pengguna tetap bisa membuka media secara offline meskipun file di server telah dihapus.
+- [x] **Client-Side Pre-Upload Image Compressor (Fase 5)**: Kompresi otomatis gambar sebelum diunggah (resize max 1600px, WebP quality 0.82) untuk menghemat kuota dan mempercepat transmisi, dengan tombol toggle on/off di modal Profil.
 
 ---
 
