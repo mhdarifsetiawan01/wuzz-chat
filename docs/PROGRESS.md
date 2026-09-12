@@ -90,15 +90,20 @@
   - Pengikatan identitas klien (`c.ID = claims.UserID`, `c.Nickname = claims.DisplayName`) langsung dari token terverifikasi anti-spoofing.
   - Abstraksi `WsClient` frontend yang otomatis membaca token dari `localStorage` dan menyertakannya dalam query param handshake (`/ws?token=...`).
   - Unit test `TestWebSocketJWTAuthentication` lulus 100% (mencakup unauthorized rejection, invalid token rejection, dan authorized connection acceptance).
-- [ ] **Milestone 3.5.3: User Profile & Status Bio Management**:
-  - Endpoint `PUT /api/auth/profile` dan drawer pengaturan profil di sidebar frontend.
+- [x] **Milestone 3.5.3: User Profile & Status Bio Management**:
+  - Kolom `status_message` (default: `'Tersedia untuk mengobrol'`) dan `avatar_url` pada skema database `users` dengan auto-migration.
+  - Method `UpdateProfile` pada `UserStore` interface dan `SQLUserStore` (PostgreSQL & SQLite).
+  - REST endpoint `PUT /api/auth/profile` dengan middleware JWT untuk memperbarui `display_name`, `status_message`, dan `avatar_url`.
+  - Komponen Modal Glassmorphism `ProfileModal.tsx` di frontend dengan avatar selector dan preset bio status cepat.
+  - Pembaruan `Sidebar.tsx` untuk menampilkan status bio real-time di bawah nama user dan tombol edit profil.
+  - Unit test `TestSQLUserStore_Profile` lulus 100%.
 
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Milestone 3.5.2: WebSocket JWT Handshake Authentication** telah selesai diimplementasikan dan diverifikasi (`go test` dan `npm run build` sukses 100%, 0 error).
-- Siap melanjutkan ke **Milestone 3.5.3 (User Profile & Status Bio Management)** setelah konfirmasi dari pengguna.
+- **Fase 3.5: Authentication Hardening & Security Polish telah 100% Selesai & Terverifikasi!** (Route Protection, WebSocket JWT Handshake Authentication, Profile & Status Bio Management).
+- Siap melangkah ke **Fase 5: Media Sharing, Attachments & File Transfer** (Image Preview, Drag & Drop Upload, File Transfer) setelah konfirmasi dari pengguna.
 
 ---
 

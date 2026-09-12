@@ -59,3 +59,52 @@ func TestSQLMessageStore_SQLite(t *testing.T) {
 		t.Errorf("history is not chronologically sorted: %v", history)
 	}
 }
+
+func TestSQLUserStore_Profile(t *testing.T) {
+	tmpDB := "test_user_profile.db"
+	defer os.Remove(tmpDB)
+
+	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
+	if err != nil {
+		t.Fatalf("failed to init SQLite store: %v", err)
+	}
+	defer sqlStore.Close()
+
+	userStore := NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+
+	// 1. Register User
+	user, err := userStore.Register("charlie", "Charlie Brown", "password123")
+	if err != nil {
+		t.Fatalf("failed to register user: %v", err)
+	}
+
+	if user.StatusMessage != "Tersedia untuk mengobrol" {
+		t.Errorf("expected default status message, got: %s", user.StatusMessage)
+	}
+
+	// 2. Update Profile
+	updated, err := userStore.UpdateProfile(user.ID, "Charlie Super", "🚀 Sedang coding Wuzz Chat", "avatar_1")
+	if err != nil {
+		t.Fatalf("failed to update profile: %v", err)
+	}
+
+	if updated.DisplayName != "Charlie Super" {
+		t.Errorf("expected DisplayName 'Charlie Super', got: %s", updated.DisplayName)
+	}
+	if updated.StatusMessage != "🚀 Sedang coding Wuzz Chat" {
+		t.Errorf("expected StatusMessage '🚀 Sedang coding Wuzz Chat', got: %s", updated.StatusMessage)
+	}
+	if updated.AvatarURL != "avatar_1" {
+		t.Errorf("expected AvatarURL 'avatar_1', got: %s", updated.AvatarURL)
+	}
+
+	// 3. Re-fetch from DB
+	fetched, err := userStore.GetUserByID(user.ID)
+	if err != nil {
+		t.Fatalf("failed to get user: %v", err)
+	}
+	if fetched.DisplayName != "Charlie Super" || fetched.StatusMessage != "🚀 Sedang coding Wuzz Chat" {
+		t.Errorf("re-fetched user mismatch: %+v", fetched)
+	}
+}
+

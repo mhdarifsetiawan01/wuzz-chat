@@ -126,3 +126,42 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(user)
 }
+
+type UpdateProfileRequest struct {
+	DisplayName   string `json:"display_name"`
+	StatusMessage string `json:"status_message"`
+	AvatarURL     string `json:"avatar_url"`
+}
+
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut && r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
+		return
+	}
+
+	req.DisplayName = strings.TrimSpace(req.DisplayName)
+	req.StatusMessage = strings.TrimSpace(req.StatusMessage)
+	req.AvatarURL = strings.TrimSpace(req.AvatarURL)
+
+	updatedUser, err := h.userStore.UpdateProfile(claims.UserID, req.DisplayName, req.StatusMessage, req.AvatarURL)
+	if err != nil {
+		http.Error(w, `{"error":"Gagal memperbarui profil"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(updatedUser)
+}
+

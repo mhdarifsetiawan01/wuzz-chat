@@ -52,3 +52,27 @@ export interface SessionInfo {
   nickname: string
   peerId?: string
 }
+
+export interface User {
+  id: string
+  username: string
+  display_name: string
+  status_message?: string
+  avatar_url?: string
+  created_at?: string
+}
+
+export interface ConversationItem {
+  id: string
+  type: string
+  title: string
+  peer_id?: string
+  peer_nickname?: string
+  last_message?: string
+  last_sender?: string
+  last_status?: MessageReceiptStatus
+  unread_count?: number
+  updated_at: string
+}
+
+

@@ -3,12 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { apiRequest } from './api'
 
-export interface User {
-  id: string
-  username: string
-  display_name: string
-  avatar_url?: string
-}
+import type { User } from './types'
 
 interface AuthContextType {
   user: User | null
@@ -16,6 +11,7 @@ interface AuthContextType {
   isLoading: boolean
   login: (token: string, user: User) => void
   logout: () => void
+  updateUser: (user: User) => void
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   login: () => {},
   logout: () => {},
+  updateUser: () => {},
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -63,7 +60,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(newUser)
     localStorage.setItem('wuzz_auth_token', newToken)
     localStorage.setItem('wuzz_user_profile', JSON.stringify(newUser))
-    sessionStorage.setItem('wuzz_nickname', newUser.display_name || newUser.username)
   }
 
   const logout = () => {
@@ -71,11 +67,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     localStorage.removeItem('wuzz_auth_token')
     localStorage.removeItem('wuzz_user_profile')
-    sessionStorage.removeItem('wuzz_nickname')
+  }
+
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser)
+    localStorage.setItem('wuzz_user_profile', JSON.stringify(updatedUser))
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )
@@ -84,3 +84,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   return useContext(AuthContext)
 }
+

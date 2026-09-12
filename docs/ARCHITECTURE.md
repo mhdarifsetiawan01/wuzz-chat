@@ -129,8 +129,10 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `POST` | `/api/auth/register` | Pendaftaran akun user baru | Public |
 | `POST` | `/api/auth/login` | Login dan generate JWT token | Public |
 | `GET` | `/api/auth/me` | Mengambil profil user yang sedang login | Bearer Token |
+| `PUT` | `/api/auth/profile` | Memperbarui display name, status bio, dan avatar | Bearer Token |
 | `GET` | `/api/users/search?q=` | Mencari user berdasarkan username/nama | Bearer Token |
 | `GET` | `/api/conversations` | Daftar obrolan aktif beserta pesan terakhir | Bearer Token |
 | `POST` | `/api/conversations` | Membuat obrolan baru (Direct atau Group) | Bearer Token |
 | `GET` | `/api/conversations/:id/messages` | Mengambil riwayat pesan berpaginasi | Bearer Token |
 | `POST` | `/api/media/upload` | Upload file gambar/dokumen/audio ke storage | Bearer Token |
+

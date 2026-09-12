@@ -3,21 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
-import { useAuth, User } from '@/lib/auth-context'
-import type { Message } from '@/lib/types'
-
-export interface ConversationItem {
-  id: string
-  type: 'direct' | 'group'
-  title: string
-  peer_id?: string
-  peer_nickname?: string
-  last_message?: string
-  last_sender?: string
-  last_status?: Message['status']
-  unread_count?: number
-  updated_at: string
-}
+import { useAuth } from '@/lib/auth-context'
+import type { Message, User, ConversationItem } from '@/lib/types'
+import { ProfileModal } from './ProfileModal'
 
 interface SidebarProps {
   activeRoomId: string
@@ -72,6 +60,8 @@ export function Sidebar({
   const [searchResults, setSearchResults] = useState<User[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+
 
   // Fetch daftar obrolan aktif beserta unread counts dari database
   const loadConversations = async () => {
@@ -207,37 +197,66 @@ export function Sidebar({
     <aside className={`chat-sidebar ${isOpenMobile ? 'sidebar-open' : ''}`}>
       {/* Header Profil User */}
       <div className="sidebar-header">
-        <div className="sidebar-user-info">
-          <div className="sidebar-avatar">
-            {(user?.display_name || user?.username || 'A')[0].toUpperCase()}
+        <div
+          className="sidebar-user-info"
+          onClick={() => setIsProfileModalOpen(true)}
+          style={{ cursor: 'pointer', flex: 1 }}
+          title="Klik untuk mengedit profil & status bio"
+        >
+          <div className="sidebar-avatar" style={{ fontSize: user?.avatar_url ? '1.25rem' : '0.9rem' }}>
+            {user?.avatar_url || (user?.display_name || user?.username || 'A')[0].toUpperCase()}
           </div>
-          <div className="sidebar-user-details">
+          <div className="sidebar-user-details" style={{ overflow: 'hidden' }}>
             <span className="sidebar-user-name">{user?.display_name || user?.username || 'Pengguna'}</span>
-            <span className="sidebar-user-handle">@{user?.username || 'guest'}</span>
+            <span
+              className="sidebar-user-handle"
+              style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-muted)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: 'block',
+              }}
+              title={user?.status_message || 'Tersedia untuk mengobrol'}
+            >
+              {user?.status_message ? user.status_message : `@${user?.username || 'guest'}`}
+            </span>
           </div>
         </div>
-        {user ? (
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
           <button
             type="button"
-            onClick={() => {
-              logout()
-              router.push('/login')
-            }}
+            onClick={() => setIsProfileModalOpen(true)}
             className="sidebar-logout-btn"
-            title="Keluar dari akun"
+            title="Edit Profil Akun"
+            style={{ fontSize: '0.95rem' }}
           >
-            ⏻
+            ⚙️
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => router.push('/login')}
-            className="btn btn-primary"
-            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-          >
-            Masuk
-          </button>
-        )}
+          {user ? (
+            <button
+              type="button"
+              onClick={() => {
+                logout()
+                router.push('/login')
+              }}
+              className="sidebar-logout-btn"
+              title="Keluar dari akun"
+            >
+              ⏻
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => router.push('/login')}
+              className="btn btn-primary"
+              style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+            >
+              Masuk
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Input Pencarian Kontak */}
@@ -358,7 +377,13 @@ export function Sidebar({
           </div>
         )}
       </div>
+
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+      />
     </aside>
   )
 }
+
 

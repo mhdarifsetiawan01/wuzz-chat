@@ -61,6 +61,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 			username VARCHAR(64) UNIQUE NOT NULL,
 			display_name VARCHAR(128) NOT NULL,
 			password_hash VARCHAR(255) NOT NULL,
+			status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol',
 			avatar_url TEXT DEFAULT '',
 			created_at TIMESTAMP NOT NULL
 		);`,
@@ -101,8 +102,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 		}
 	}
 
-	// Auto-migration non-destruktif untuk kolom status, reply_to, dan reactions di tabel messages
+	// Auto-migration non-destruktif untuk kolom status, reply_to, dan reactions di tabel messages & users
 	if s.driverName == "postgres" {
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'sent';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id VARCHAR(64) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_nickname VARCHAR(64) DEFAULT '';`)
@@ -110,6 +113,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reactions TEXT DEFAULT '[]';`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN status VARCHAR(32) DEFAULT 'sent';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reply_to_id VARCHAR(64) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reply_to_nickname VARCHAR(64) DEFAULT '';`)
@@ -117,7 +122,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reactions TEXT DEFAULT '[]';`)
 	}
 
-	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' (dengan status receipts, reply, dan reactions) berhasil dipastikan ada!")
+	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' (dengan status receipts, reply, reactions, dan user bio) berhasil dipastikan ada!")
 	return nil
 }
 

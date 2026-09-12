@@ -18,12 +18,13 @@ var (
 
 // User merepresentasikan entitas akun user terdaftar.
 type User struct {
-	ID           string    `json:"id"`
-	Username     string    `json:"username"`
-	DisplayName  string    `json:"display_name"`
-	PasswordHash string    `json:"-"`
-	AvatarURL    string    `json:"avatar_url"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID            string    `json:"id"`
+	Username      string    `json:"username"`
+	DisplayName   string    `json:"display_name"`
+	PasswordHash  string    `json:"-"`
+	StatusMessage string    `json:"status_message"`
+	AvatarURL     string    `json:"avatar_url"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // ConversationItem merepresentasikan entitas percakapan di daftar obrolan (Sidebar).
@@ -46,6 +47,7 @@ type UserStore interface {
 	Authenticate(username, password string) (*User, error)
 	GetUserByID(id string) (*User, error)
 	GetUserByUsername(username string) (*User, error)
+	UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*User, error)
 	SearchUsers(query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
 	GetUserConversations(userID string) ([]ConversationItem, error)
@@ -80,24 +82,25 @@ func (s *SQLUserStore) Register(username, displayName, password string) (*User, 
 	}
 
 	user := &User{
-		ID:           uuid.New().String(),
-		Username:     username,
-		DisplayName:  displayName,
-		PasswordHash: string(hash),
-		AvatarURL:    "",
-		CreatedAt:    time.Now().UTC(),
+		ID:            uuid.New().String(),
+		Username:      username,
+		DisplayName:   displayName,
+		PasswordHash:  string(hash),
+		StatusMessage: "Tersedia untuk mengobrol",
+		AvatarURL:     "",
+		CreatedAt:     time.Now().UTC(),
 	}
 
 	var query string
 	if s.driverName == "postgres" {
-		query = `INSERT INTO users (id, username, display_name, password_hash, avatar_url, created_at)
-		         VALUES ($1, $2, $3, $4, $5, $6)`
+		query = `INSERT INTO users (id, username, display_name, password_hash, status_message, avatar_url, created_at)
+		         VALUES ($1, $2, $3, $4, $5, $6, $7)`
 	} else {
-		query = `INSERT INTO users (id, username, display_name, password_hash, avatar_url, created_at)
-		         VALUES (?, ?, ?, ?, ?, ?)`
+		query = `INSERT INTO users (id, username, display_name, password_hash, status_message, avatar_url, created_at)
+		         VALUES (?, ?, ?, ?, ?, ?, ?)`
 	}
 
-	_, err = s.db.Exec(query, user.ID, user.Username, user.DisplayName, user.PasswordHash, user.AvatarURL, user.CreatedAt)
+	_, err = s.db.Exec(query, user.ID, user.Username, user.DisplayName, user.PasswordHash, user.StatusMessage, user.AvatarURL, user.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("gagal simpan user: %w", err)
 	}
@@ -123,14 +126,14 @@ func (s *SQLUserStore) Authenticate(username, password string) (*User, error) {
 func (s *SQLUserStore) GetUserByID(id string) (*User, error) {
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, username, display_name, password_hash, avatar_url, created_at FROM users WHERE id = $1`
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users WHERE id = $1`
 	} else {
-		query = `SELECT id, username, display_name, password_hash, avatar_url, created_at FROM users WHERE id = ?`
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users WHERE id = ?`
 	}
 
 	row := s.db.QueryRow(query, id)
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.AvatarURL, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
@@ -143,20 +146,52 @@ func (s *SQLUserStore) GetUserByID(id string) (*User, error) {
 func (s *SQLUserStore) GetUserByUsername(username string) (*User, error) {
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, username, display_name, password_hash, avatar_url, created_at FROM users WHERE LOWER(username) = LOWER($1)`
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users WHERE LOWER(username) = LOWER($1)`
 	} else {
-		query = `SELECT id, username, display_name, password_hash, avatar_url, created_at FROM users WHERE LOWER(username) = LOWER(?)`
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users WHERE LOWER(username) = LOWER(?)`
 	}
 
 	row := s.db.QueryRow(query, username)
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.AvatarURL, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, err
 	}
 	return &u, nil
+}
+
+// UpdateProfile memperbarui display_name, status_message, dan avatar_url milik user.
+func (s *SQLUserStore) UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*User, error) {
+	user, err := s.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if displayName != "" {
+		user.DisplayName = displayName
+	}
+	if statusMessage != "" {
+		user.StatusMessage = statusMessage
+	}
+	if avatarURL != "" {
+		user.AvatarURL = avatarURL
+	}
+
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE users SET display_name = $1, status_message = $2, avatar_url = $3 WHERE id = $4`
+	} else {
+		query = `UPDATE users SET display_name = ?, status_message = ?, avatar_url = ? WHERE id = ?`
+	}
+
+	_, err = s.db.Exec(query, user.DisplayName, user.StatusMessage, user.AvatarURL, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("gagal update profil: %w", err)
+	}
+
+	return user, nil
 }
 
 // SearchUsers mencari user berdasarkan username atau display_name.
@@ -167,12 +202,12 @@ func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) 
 	var err error
 
 	if s.driverName == "postgres" {
-		sqlQuery = `SELECT id, username, display_name, avatar_url, created_at FROM users 
+		sqlQuery = `SELECT id, username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users 
 		            WHERE id != $1 AND (LOWER(username) LIKE LOWER($2) OR LOWER(display_name) LIKE LOWER($2)) 
 		            ORDER BY username ASC LIMIT 20`
 		rows, err = s.db.Query(sqlQuery, excludeUserID, searchPattern)
 	} else {
-		sqlQuery = `SELECT id, username, display_name, avatar_url, created_at FROM users 
+		sqlQuery = `SELECT id, username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users 
 		            WHERE id != ? AND (LOWER(username) LIKE LOWER(?) OR LOWER(display_name) LIKE LOWER(?)) 
 		            ORDER BY username ASC LIMIT 20`
 		rows, err = s.db.Query(sqlQuery, excludeUserID, searchPattern, searchPattern)
@@ -186,7 +221,7 @@ func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) 
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.AvatarURL, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.StatusMessage, &u.AvatarURL, &u.CreatedAt); err != nil {
 			continue
 		}
 		users = append(users, u)
