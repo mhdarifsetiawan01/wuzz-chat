@@ -110,4 +110,52 @@ func TestSQLUserStore_Profile(t *testing.T) {
 	}
 }
 
+func TestSQLUserStore_RoomAccessAuthorization(t *testing.T) {
+	tmpDB := "test_user_auth_room.db"
+	defer os.Remove(tmpDB)
+
+	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
+	if err != nil {
+		t.Fatalf("failed to init SQLite store: %v", err)
+	}
+	defer sqlStore.Close()
+
+	userStore := NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+
+	userA, _ := userStore.Register("alice_sec", "Alice Sec", "pass123")
+	userB, _ := userStore.Register("bob_sec", "Bob Sec", "pass123")
+	userC, _ := userStore.Register("mallory_sec", "Mallory Sec", "pass123")
+
+	// 1. Alice dan Bob membuat direct conversation
+	dmRoomID, err := userStore.GetOrCreateDirectConversation(userA.ID, userB.ID)
+	if err != nil {
+		t.Fatalf("failed to create DM: %v", err)
+	}
+
+	// 2. Alice harus diizinkan (true)
+	allowedA, err := userStore.IsUserInConversation(dmRoomID, userA.ID)
+	if err != nil || !allowedA {
+		t.Errorf("Alice should be allowed, got allowed=%v, err=%v", allowedA, err)
+	}
+
+	// 3. Bob harus diizinkan (true)
+	allowedB, err := userStore.IsUserInConversation(dmRoomID, userB.ID)
+	if err != nil || !allowedB {
+		t.Errorf("Bob should be allowed, got allowed=%v, err=%v", allowedB, err)
+	}
+
+	// 4. Mallory (pihak ketiga yang bukan anggota) harus DITOLAK (false)
+	allowedC, err := userStore.IsUserInConversation(dmRoomID, userC.ID)
+	if err != nil || allowedC {
+		t.Errorf("Mallory should be DENIED access to Alice-Bob DM, got allowed=%v", allowedC)
+	}
+
+	// 5. Room publik / ad-hoc group biasa harus diizinkan untuk semua
+	allowedPublic, err := userStore.IsUserInConversation("room-kopi-santai", userC.ID)
+	if err != nil || !allowedPublic {
+		t.Errorf("Public room should be accessible, got allowed=%v", allowedPublic)
+	}
+}
+
+
 

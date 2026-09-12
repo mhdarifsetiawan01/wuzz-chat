@@ -59,10 +59,18 @@ func main() {
 	// Setup routing
 	mux := http.NewServeMux()
 
+	// Inisialisasi Rate Limiter untuk Auth Endpoint (15 request / menit per IP untuk anti-brute force)
+	authLimiter := auth.NewIPRateLimiter(15, 1*time.Minute)
+
 	// Helper CORS Middleware untuk REST API
+	corsOrigin := os.Getenv("CORS_ALLOWED_ORIGIN")
+	if corsOrigin == "" {
+		corsOrigin = "*"
+	}
+
 	withCORS := func(h http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Origin", corsOrigin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			if r.Method == http.MethodOptions {
@@ -73,10 +81,14 @@ func main() {
 		}
 	}
 
-	// REST API Routes (Auth)
+	// REST API Routes (Auth) dengan Rate Limiting
 	if authHandler != nil {
-		mux.HandleFunc("/api/auth/register", withCORS(authHandler.Register))
-		mux.HandleFunc("/api/auth/login", withCORS(authHandler.Login))
+		mux.HandleFunc("/api/auth/register", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RateLimitMiddleware(authLimiter)(http.HandlerFunc(authHandler.Register)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/auth/login", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RateLimitMiddleware(authLimiter)(http.HandlerFunc(authHandler.Login)).ServeHTTP(w, r)
+		}))
 		mux.HandleFunc("/api/auth/me", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.Me)).ServeHTTP(w, r)
 		}))

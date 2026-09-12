@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,6 +54,7 @@ type UserStore interface {
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
 	GetUserConversations(userID string) ([]ConversationItem, error)
 	GetConversationMemberUsernames(conversationID string) ([]string, error)
+	IsUserInConversation(conversationID, userID string) (bool, error)
 }
 
 // SQLUserStore adalah implementasi UserStore menggunakan SQL (SQLite & Postgres).
@@ -438,4 +440,53 @@ func (s *SQLUserStore) GetConversationMemberUsernames(conversationID string) ([]
 
 	return names, nil
 }
+
+// IsUserInConversation memeriksa apakah user dengan userID tertentu adalah anggota sah dari conversationID.
+func (s *SQLUserStore) IsUserInConversation(conversationID, userID string) (bool, error) {
+	if conversationID == "" || userID == "" {
+		return false, nil
+	}
+
+	// 1. Cek apakah user terdaftar sebagai member resmi di tabel conversation_members
+	var query string
+	if s.driverName == "postgres" {
+		query = `SELECT COUNT(*) FROM conversation_members WHERE conversation_id = $1 AND user_id = $2`
+	} else {
+		query = `SELECT COUNT(*) FROM conversation_members WHERE conversation_id = ? AND user_id = ?`
+	}
+
+	var count int
+	err := s.db.QueryRow(query, conversationID, userID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	if count > 0 {
+		return true, nil
+	}
+
+	// 2. Cek apakah room ini terdaftar di tabel conversations
+	// Jika room adalah percakapan terdaftar dan user BUKAN anggota -> tolak (false)
+	var convQuery string
+	if s.driverName == "postgres" {
+		convQuery = `SELECT COUNT(*) FROM conversations WHERE id = $1`
+	} else {
+		convQuery = `SELECT COUNT(*) FROM conversations WHERE id = ?`
+	}
+
+	var convCount int
+	_ = s.db.QueryRow(convQuery, conversationID).Scan(&convCount)
+	if convCount > 0 {
+		return false, nil
+	}
+
+	// 3. Jika berupa direct message pattern 'dm_...' tapi belum tersimpan di DB
+	// Tolak akses jika formatnya direct message untuk mencegah akses liar
+	if strings.HasPrefix(conversationID, "dm_") {
+		return false, nil
+	}
+
+	// 4. Untuk room publik / ad-hoc group biasa (misal 'room-123', 'room-kopi'), siapapun yang memegang link diizinkan
+	return true, nil
+}
+
 

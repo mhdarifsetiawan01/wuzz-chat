@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,6 +31,10 @@ type Client struct {
 	hub         *Hub
 	conn        *websocket.Conn
 	send        chan Message
+
+	// Rate Limiter per koneksi client (Anti-flood)
+	rateMu        sync.Mutex
+	msgTimestamps []time.Time
 }
 
 // NewClient membuat instance Client baru.
@@ -135,8 +140,9 @@ func (c *Client) handleMessage(msg Message) {
 
 // onJoin memproses event join ke room percakapan.
 func (c *Client) onJoin(msg Message) {
-	if msg.Nickname != "" {
-		c.Nickname = msg.Nickname
+	// Kunci anti-spoofing: Jangan izinkan client menimpa Nickname yang sudah sah dari JWT
+	if c.Nickname == "" && msg.Nickname != "" {
+		c.Nickname = strings.TrimSpace(msg.Nickname)
 	}
 
 	// Tentukan target room: utamakan msg.Room, fallback ke msg.To (backward compatibility), atau generate ID baru
@@ -146,6 +152,16 @@ func (c *Client) onJoin(msg Message) {
 	}
 	if targetRoom == "" {
 		targetRoom = "room-" + c.ID[:8]
+	}
+
+	// Validasi Hak Akses Room (BOLA Prevention)
+	if c.hub.userStore != nil && targetRoom != "" {
+		allowed, err := c.hub.userStore.IsUserInConversation(targetRoom, c.ID)
+		if err == nil && !allowed {
+			log.Printf("[Security] Akses ditolak: User %s (%s) bukan anggota room %s", c.ID, c.Nickname, targetRoom)
+			c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
+			return
+		}
 	}
 
 	c.RoomID = targetRoom
@@ -196,6 +212,38 @@ func (c *Client) onMessage(msg Message) {
 		return
 	}
 
+	// Validasi Hak Akses Room Pengirim (BOLA Prevention)
+	if c.hub.userStore != nil && targetRoom != "" {
+		allowed, err := c.hub.userStore.IsUserInConversation(targetRoom, c.ID)
+		if err == nil && !allowed {
+			c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
+			return
+		}
+	}
+
+	// Rate Limiting Pengiriman Pesan: Maksimal 10 pesan per 2 detik per koneksi (Anti-Flood)
+	if !c.allowRateLimit(10, 2*time.Second) {
+		c.sendError("Anda mengirim pesan terlalu cepat. Harap tunggu sebentar.")
+		return
+	}
+
+	// Validasi Konten Pesan: Tidak boleh kosong & batasi panjang maksimal 5.000 karakter
+	content := strings.TrimSpace(msg.Content)
+	if content == "" {
+		c.sendError("Isi pesan tidak boleh kosong")
+		return
+	}
+	if len([]rune(content)) > 5000 {
+		c.sendError("Pesan terlalu panjang (maksimal 5.000 karakter)")
+		return
+	}
+	msg.Content = content
+
+	// Sanitasi Reply Target preview jika ada
+	if msg.ReplyTo != nil && len([]rune(msg.ReplyTo.Content)) > 500 {
+		msg.ReplyTo.Content = string([]rune(msg.ReplyTo.Content)[:500]) + "..."
+	}
+
 	if msg.ID == "" {
 		msg.ID = uuid.New().String()
 	}
@@ -233,6 +281,7 @@ func (c *Client) onMessage(msg Message) {
 	}
 	msg.Status = initialStatus
 	msg.Room = targetRoom
+	msg.From = c.ID
 	msg.Nickname = c.Nickname
 
 	// Broadcast ke semua anggota lain di room dan simpan ke database
@@ -299,6 +348,13 @@ func (c *Client) onReaction(msg Message) {
 	if msg.Reaction == nil || msg.Reaction.MessageID == "" || msg.Reaction.Emoji == "" {
 		return
 	}
+
+	emoji := strings.TrimSpace(msg.Reaction.Emoji)
+	if emoji == "" || len([]rune(emoji)) > 16 {
+		c.sendError("Reaksi emoji tidak valid")
+		return
+	}
+	msg.Reaction.Emoji = emoji
 	targetRoom := msg.Room
 	if targetRoom == "" {
 		targetRoom = c.RoomID
@@ -339,3 +395,27 @@ func (c *Client) sendError(errMsg string) {
 	default:
 	}
 }
+
+// allowRateLimit memeriksa apakah pengiriman pesan client memenuhi kuota sliding window rate limit.
+func (c *Client) allowRateLimit(limit int, window time.Duration) bool {
+	c.rateMu.Lock()
+	defer c.rateMu.Unlock()
+
+	now := time.Now()
+	var recent []time.Time
+	for _, t := range c.msgTimestamps {
+		if now.Sub(t) <= window {
+			recent = append(recent, t)
+		}
+	}
+
+	if len(recent) >= limit {
+		c.msgTimestamps = recent
+		return false
+	}
+
+	recent = append(recent, now)
+	c.msgTimestamps = recent
+	return true
+}
+
