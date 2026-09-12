@@ -624,18 +624,60 @@ h4 { font-size: 1rem;   font-weight: 600; }
 .message-quote-box {
   display: flex;
   flex-direction: column;
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.25);
   border-left: 3px solid var(--accent-500);
   border-radius: var(--radius-sm);
   padding: 4px 8px;
   margin-bottom: 6px;
   font-size: 0.75rem;
-  cursor: default;
+  cursor: pointer;
+  transition: background 150ms ease, border-left-color 150ms ease, transform 120ms ease;
+  user-select: none;
+}
+
+.message-quote-box:hover {
+  background: rgba(0, 0, 0, 0.38);
+  border-left-color: var(--accent-400);
+  transform: translateX(2px);
+}
+
+.message-quote-box:active {
+  transform: scale(0.98);
 }
 
 .message-row.self .message-quote-box {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   border-left-color: #53bdeb;
+}
+
+.message-row.self .message-quote-box:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-left-color: #8ed6fb;
+}
+
+/* Animasi Flash / Pulse saat melompat ke pesan yang direply */
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.8), 0 0 20px rgba(16, 185, 129, 0.4);
+    filter: brightness(1.3);
+  }
+  35% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0.4), 0 0 25px rgba(16, 185, 129, 0.5);
+    filter: brightness(1.4);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(16, 185, 129, 0), 0 0 15px rgba(16, 185, 129, 0.2);
+    filter: brightness(1.1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    filter: brightness(1);
+  }
+}
+
+.message-row.highlight-pulse .message-bubble {
+  animation: highlightPulse 1.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+  border-color: var(--accent-400) !important;
 }
 
 .quote-sender {

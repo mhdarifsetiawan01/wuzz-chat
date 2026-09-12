@@ -69,8 +69,10 @@
   - Penambahan kolom `status VARCHAR(32) DEFAULT 'sent'` pada tabel database `messages` dengan auto-migration & method `UpdateMessageStatus`.
   - Unit test `TestHubReceiptsFlow` lulus 100%.
 - [x] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**:
-  - Tombol aksi kutip pesan (*reply/quote*) dengan preview banner di atas textarea input dan kartu kutipan di dalam balon pesan.
+  - Tombol aksi kutip pesan (*reply/quote*) dengan preview banner di atas textarea input dan kartu kutipan interaktif di dalam balon pesan.
+  - **Click-to-Scroll & Glow Highlight**: Mengklik kotak kutipan balasan pada pesan secara otomatis melakukan smooth scroll ke pesan asli dan memicu animasi highlight pulse hijau.
   - Floating emoji toolbar cepat (`👍 ❤️ 😂 😮 😢 🙏`) saat hover balon pesan.
+  - **Audio Notification pada Reaksi**: Memberikan atau mengubah reaksi emoji kini membunyikan chime audio notifikasi pada browser lawan bicara.
   - Badge reaksi interaktif di bawah balon pesan dengan fitur toggle penambahan/penghapusan reaksi secara real-time.
   - Skema tabel `messages` diperkaya kolom `reply_to_id`, `reply_to_nickname`, `reply_to_content`, dan `reactions`.
   - Unit test `TestHubReplyAndReactions` lulus 100%.
@@ -79,7 +81,7 @@
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Fase 4: Modern Chat UX & Interactive Dynamics telah 100% Selesai & Terverifikasi!** (Sound FX, Live Typing Indicator, Real-Time Sidebar Snippets & Persistent Unread Badge, Message Receipts `pending`->`sent`->`delivered`->`read`, serta Emoji Reactions & Reply/Quote Message).
+- **Fase 4: Modern Chat UX & Interactive Dynamics telah 100% Selesai & Terverifikasi!** (Sound FX, Live Typing Indicator, Real-Time Sidebar Snippets & Persistent Unread Badge, Message Receipts `pending`->`sent`->`delivered`->`read`, Emoji Reactions & Audio Alert, serta Reply/Quote Message dengan Interactive Click-to-Scroll & Glow).
 - Siap melangkah ke **Fase 5: Media Sharing, Attachments & File Transfer** (Image Preview, Drag & Drop Upload, Audio Voice Note / File Download).
 
 ---

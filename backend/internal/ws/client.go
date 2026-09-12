@@ -277,6 +277,8 @@ func (c *Client) onReaction(msg Message) {
 	// Broadcast update reaksi ke seluruh anggota room (termasuk pengirim reaksi)
 	msg.Room = targetRoom
 	msg.Type = TypeReaction
+	msg.Nickname = c.Nickname
+	msg.From = c.ID
 	msg.Reactions = reactions
 	msg.ID = msg.Reaction.MessageID
 	c.hub.BroadcastRoom(targetRoom, msg, "")

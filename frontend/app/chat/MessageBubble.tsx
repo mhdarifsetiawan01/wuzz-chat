@@ -62,8 +62,30 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact 
     }
   }
 
+  const handleQuoteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const targetId = message.reply_to?.id
+    if (!targetId) return
+
+    const targetEl = document.getElementById(`msg-${targetId}`)
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      targetEl.classList.remove('highlight-pulse')
+      // Trigger reflow untuk me-restart animasi pulse jika diklik berkali-kali
+      void targetEl.offsetWidth
+      targetEl.classList.add('highlight-pulse')
+      setTimeout(() => {
+        targetEl.classList.remove('highlight-pulse')
+      }, 2000)
+    }
+  }
+
   return (
-    <div className={`message-row ${rowClass}`} role="listitem">
+    <div
+      id={message.id ? `msg-${message.id}` : undefined}
+      className={`message-row ${rowClass}`}
+      role="listitem"
+    >
       {!isSystem && !isSelf && message.nickname && (
         <span className="message-sender">{message.nickname}</span>
       )}
@@ -72,7 +94,19 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact 
         <div className="message-bubble">
           {/* Quoted / Reply Preview Block */}
           {message.reply_to && (
-            <div className="message-quote-box">
+            <div
+              className="message-quote-box"
+              onClick={handleQuoteClick}
+              role="button"
+              tabIndex={0}
+              title="Klik untuk melompat ke pesan yang dibalas"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleQuoteClick(e as unknown as React.MouseEvent)
+                }
+              }}
+            >
               <span className="quote-sender">{message.reply_to.nickname || 'Pengguna'}</span>
               <span className="quote-text">{message.reply_to.content}</span>
             </div>

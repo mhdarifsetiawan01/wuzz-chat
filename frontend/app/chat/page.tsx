@@ -269,6 +269,11 @@ function ChatPageContent() {
               type: 'UPDATE_MESSAGE_REACTIONS',
               payload: { id: msg.id, reactions: msg.reactions },
             })
+
+            // Mainkan suara notifikasi jika reaksi diberikan oleh lawan bicara
+            if (msg.nickname && msg.nickname !== nickname) {
+              soundManager.playReceive()
+            }
           }
           break
         }
