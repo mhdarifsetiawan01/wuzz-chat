@@ -49,6 +49,9 @@ func main() {
 
 	// Inisialisasi Hub dengan dependency injection
 	hub := ws.NewHub(clientStore, messageStore)
+	if userStore != nil {
+		hub.SetUserStore(userStore)
+	}
 
 	// Inisialisasi handler WebSocket
 	wsHandler := ws.NewHandler(hub)

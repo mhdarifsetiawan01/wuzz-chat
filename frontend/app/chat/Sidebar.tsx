@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
 import { useAuth, User } from '@/lib/auth-context'
+import type { Message } from '@/lib/types'
 
 export interface ConversationItem {
   id: string
@@ -21,12 +22,36 @@ interface SidebarProps {
   onSelectRoom: (roomId: string) => void
   isOpenMobile?: boolean
   onCloseMobile?: () => void
+  lastIncomingMessage?: Message | null
 }
 
-export function Sidebar({ activeRoomId, onSelectRoom, isOpenMobile, onCloseMobile }: SidebarProps) {
+function formatConvTime(dateStr?: string): string {
+  if (!dateStr) return ''
+  try {
+    const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return ''
+    const now = new Date()
+    const isToday = date.toDateString() === now.toDateString()
+    if (isToday) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+    return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' })
+  } catch {
+    return ''
+  }
+}
+
+export function Sidebar({
+  activeRoomId,
+  onSelectRoom,
+  isOpenMobile,
+  onCloseMobile,
+  lastIncomingMessage,
+}: SidebarProps) {
   const router = useRouter()
   const { user, logout } = useAuth()
   const [conversations, setConversations] = useState<ConversationItem[]>([])
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<User[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -48,6 +73,60 @@ export function Sidebar({ activeRoomId, onSelectRoom, isOpenMobile, onCloseMobil
       loadConversations()
     }
   }, [user])
+
+  // Reset unread counter untuk room yang sedang aktif dibuka
+  useEffect(() => {
+    if (activeRoomId) {
+      setUnreadCounts(prev => {
+        if (!prev[activeRoomId]) return prev
+        const next = { ...prev }
+        delete next[activeRoomId]
+        return next
+      })
+    }
+  }, [activeRoomId])
+
+  // Real-time update snippet & unread counter saat ada pesan masuk
+  useEffect(() => {
+    if (!lastIncomingMessage || !lastIncomingMessage.room) return
+
+    const room = lastIncomingMessage.room
+    const isFromOther = lastIncomingMessage.nickname !== user?.username && lastIncomingMessage.nickname !== user?.display_name
+    const isInactiveRoom = room !== activeRoomId
+
+    // Jika pesan masuk ke room yang sedang tidak aktif dibuka, naikkan badge unread
+    if (isInactiveRoom && isFromOther && lastIncomingMessage.type === 'message') {
+      setUnreadCounts(prev => ({
+        ...prev,
+        [room]: (prev[room] || 0) + 1,
+      }))
+    }
+
+    // Update snippet & pindahkan percakapan ke urutan teratas
+    if (lastIncomingMessage.type === 'message') {
+      setConversations(prev => {
+        const index = prev.findIndex(c => c.id === room)
+        const updatedItem: ConversationItem = index >= 0
+          ? {
+              ...prev[index],
+              last_message: lastIncomingMessage.content,
+              last_sender: lastIncomingMessage.nickname || 'Pengguna',
+              updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
+            }
+          : {
+              id: room,
+              type: 'direct',
+              title: lastIncomingMessage.nickname || room,
+              last_message: lastIncomingMessage.content,
+              last_sender: lastIncomingMessage.nickname || 'Pengguna',
+              updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
+            }
+
+        const remaining = prev.filter(c => c.id !== room)
+        return [updatedItem, ...remaining]
+      })
+    }
+  }, [lastIncomingMessage, activeRoomId, user?.username, user?.display_name])
 
   const [searchError, setSearchError] = useState('')
 
@@ -192,6 +271,9 @@ export function Sidebar({ activeRoomId, onSelectRoom, isOpenMobile, onCloseMobil
                 {conversations.map(c => {
                   const isActive = c.id === activeRoomId
                   const initial = (c.title || '#')[0].toUpperCase()
+                  const unread = unreadCounts[c.id] || 0
+                  const timeStr = formatConvTime(c.updated_at)
+
                   return (
                     <li
                       key={c.id}
@@ -207,14 +289,25 @@ export function Sidebar({ activeRoomId, onSelectRoom, isOpenMobile, onCloseMobil
                       <div className="conv-details">
                         <div className="conv-top">
                           <span className="conv-name">{c.title || c.id}</span>
+                          {timeStr && <span className="conv-time">{timeStr}</span>}
                         </div>
-                        <span className="conv-last-msg">
-                          {c.last_message ? (
-                            <><strong>{c.last_sender}:</strong> {c.last_message}</>
-                          ) : (
-                            'Belum ada pesan'
+                        <div className="conv-bottom">
+                          <span className="conv-last-msg">
+                            {c.last_message ? (
+                              <>
+                                {c.last_sender ? <strong>{c.last_sender}: </strong> : null}
+                                {c.last_message}
+                              </>
+                            ) : (
+                              'Belum ada pesan'
+                            )}
+                          </span>
+                          {unread > 0 && (
+                            <span className="conv-unread-badge" aria-label={`${unread} pesan belum dibaca`}>
+                              {unread > 99 ? '99+' : unread}
+                            </span>
                           )}
-                        </span>
+                        </div>
                       </div>
                     </li>
                   )
@@ -227,3 +320,4 @@ export function Sidebar({ activeRoomId, onSelectRoom, isOpenMobile, onCloseMobil
     </aside>
   )
 }
+

@@ -58,16 +58,20 @@
   - Broadcast event `TypeTyping` dengan nickname pengirim dan unit test `TestHubTypingBroadcast`.
   - Debounce throttling pada textarea input.
   - Tampilan animated label di StatusBar dan author bubble di ChatWindow.
-- [ ] **Milestone 4.3: Real-Time Sidebar Snippet & Unread Badge Counter** (Next)
-- [ ] **Milestone 4.4: Message Receipts Status Transitions**
+- [x] **Milestone 4.3: Real-Time Sidebar Snippet & Unread Badge Counter**:
+  - Auto-increment badge unread saat pesan masuk ke room yang sedang tidak aktif.
+  - Reset unread counter saat room dibuka oleh user.
+  - Cuplikan pesan terakhir (*snippet*), pengirim, dan timestamp `HH:mm` terupdate real-time.
+  - Dynamic sorting percakapan (room terupdate otomatis naik ke paling atas).
+- [ ] **Milestone 4.4: Message Receipts Status Transitions** (Next)
 - [ ] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**
 
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- Sistem saat ini sudah berjalan stabil dengan autentikasi akun, direct message, procedural Sound FX, dan Live Typing Indicator.
-- Milestone 4.1 & 4.2 selesai, siap melangkah ke Milestone 4.3 (Real-Time Sidebar Snippet & Unread Badge Counter).
+- Sistem saat ini sudah berjalan stabil dengan autentikasi akun, direct message, procedural Sound FX, Live Typing Indicator, serta Live Sidebar Snippets & Unread Badge Counter.
+- Milestone 4.1, 4.2, & 4.3 selesai, siap melangkah ke Milestone 4.4 (Message Receipts Status Transitions).
 
 ---
 

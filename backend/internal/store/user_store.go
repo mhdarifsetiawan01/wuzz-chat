@@ -47,6 +47,7 @@ type UserStore interface {
 	SearchUsers(query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
 	GetUserConversations(userID string) ([]ConversationItem, error)
+	GetConversationMemberUsernames(conversationID string) ([]string, error)
 }
 
 // SQLUserStore adalah implementasi UserStore menggunakan SQL (SQLite & Postgres).
@@ -304,3 +305,39 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 
 	return items, nil
 }
+
+// GetConversationMemberUsernames mengambil seluruh username dan display_name anggota dalam suatu percakapan.
+func (s *SQLUserStore) GetConversationMemberUsernames(conversationID string) ([]string, error) {
+	var query string
+	if s.driverName == "postgres" {
+		query = `SELECT u.username, u.display_name FROM users u 
+		         JOIN conversation_members cm ON u.id = cm.user_id 
+		         WHERE cm.conversation_id = $1`
+	} else {
+		query = `SELECT u.username, u.display_name FROM users u 
+		         JOIN conversation_members cm ON u.id = cm.user_id 
+		         WHERE cm.conversation_id = ?`
+	}
+
+	rows, err := s.db.Query(query, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var names []string
+	for rows.Next() {
+		var username, displayName string
+		if err := rows.Scan(&username, &displayName); err == nil {
+			if username != "" {
+				names = append(names, username)
+			}
+			if displayName != "" && displayName != username {
+				names = append(names, displayName)
+			}
+		}
+	}
+
+	return names, nil
+}
+

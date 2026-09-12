@@ -24,3 +24,8 @@
 - **Konteks:** Indikator mengetik (*"Alice sedang mengetik..."*) harus real-time tanpa membebani database ataupun bandwidth WebSocket.
 - **Keputusan:** Event `TypeTyping` di-broadcast murni di memori Hub (tidak disimpan ke Database). Input client di-throttle 2 detik saat mengetik, dan recipient memiliki auto-reset timer 2.5 detik serta reset instan saat pesan baru diterima (`TypeMessage`).
 - **Status:** Diimplementasikan & Berfungsi.
+
+### DEC-006: Client-Side Live Snippet Dispatcher & Unread Count State
+- **Konteks:** Sidebar percakapan harus mengupdate pesan terakhir, timestamp, dan badge belum dibaca secara live tanpa polling berulang ke database `/api/conversations`.
+- **Keputusan:** State `lastIncomingMessage` di `page.tsx` diteruskan ke `Sidebar.tsx`. Setiap pesan masuk/terkirim seketika mengupdate state lokal daftar percakapan, menaikkan unread badge jika room tidak aktif dibuka, dan menggeser percakapan aktif ke urutan paling atas.
+- **Status:** Diimplementasikan & Berfungsi.

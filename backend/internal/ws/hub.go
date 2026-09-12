@@ -2,6 +2,7 @@ package ws
 
 import (
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ type Hub struct {
 	mu           sync.RWMutex
 	clientStore  store.ClientStore
 	messageStore store.MessageStore
+	userStore    store.UserStore
 }
 
 // NewHub membuat Hub baru dengan dependency yang disuntikkan.
@@ -27,6 +29,13 @@ func NewHub(cs store.ClientStore, ms store.MessageStore) *Hub {
 		clientStore:  cs,
 		messageStore: ms,
 	}
+}
+
+// SetUserStore menyuntikkan UserStore opsional untuk resolusi anggota percakapan.
+func (h *Hub) SetUserStore(us store.UserStore) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.userStore = us
 }
 
 // Register menambahkan client baru ke registry.
@@ -171,18 +180,35 @@ func (h *Hub) BroadcastRoomUsers(roomID string) {
 func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 	h.mu.RLock()
 	room, roomExists := h.rooms[roomID]
-	var targets []*Client
+	targetMap := make(map[*Client]bool)
 	if roomExists {
 		for id, client := range room {
 			if id != senderID {
-				targets = append(targets, client)
+				targetMap[client] = true
+			}
+		}
+	}
+
+	// Jika ada userStore, kirim juga ke seluruh klien terhubung yang merupakan anggota percakapan ini
+	if h.userStore != nil && roomID != "" {
+		if memberNames, err := h.userStore.GetConversationMemberUsernames(roomID); err == nil && len(memberNames) > 0 {
+			memberSet := make(map[string]bool)
+			for _, name := range memberNames {
+				if name != "" {
+					memberSet[strings.ToLower(name)] = true
+				}
+			}
+			for id, client := range h.clients {
+				if id != senderID && (memberSet[strings.ToLower(client.Nickname)] || memberSet[strings.ToLower(client.ID)]) {
+					targetMap[client] = true
+				}
 			}
 		}
 	}
 	h.mu.RUnlock()
 
 	// Kirim pesan ke semua penerima
-	for _, target := range targets {
+	for target := range targetMap {
 		select {
 		case target.send <- msg:
 		default:

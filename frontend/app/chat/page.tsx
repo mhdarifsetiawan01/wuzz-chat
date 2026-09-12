@@ -10,6 +10,7 @@ import { MessageInput } from './MessageInput'
 import { MemberListModal } from './MemberListModal'
 import { Sidebar } from './Sidebar'
 import { soundManager } from '@/lib/sound'
+import { useAuth } from '@/lib/auth-context'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -85,26 +86,25 @@ function ChatPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const roomId = searchParams.get('room') || searchParams.get('peer') || ''
+  const { user, isLoading: isAuthLoading } = useAuth()
 
   const [state, dispatch] = useReducer(chatReducer, initialState)
   const [isMemberListOpen, setIsMemberListOpen] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+  const [lastIncomingMessage, setLastIncomingMessage] = useState<Message | null>(null)
   const clientRef = useRef<WsClient | null>(null)
 
   // Timer untuk matikan typing indicator setelah 3 detik
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    // Ambil nickname dari sessionStorage
-    const nickname = sessionStorage.getItem('wuzz_nickname')
-    if (!nickname) {
-      // Jika tidak ada nickname (misal direct open link), arahkan ke landing dengan room param
-      router.replace(roomId ? `/?room=${encodeURIComponent(roomId)}` : '/')
-      return
-    }
+    if (isAuthLoading) return
 
-    // Jika belum ada room yang dipilih (buka /chat saja), jangan buat koneksi room dulu
-    if (!roomId) {
+    // Ambil nickname dari user auth atau sessionStorage
+    const nickname = user?.display_name || user?.username || (typeof window !== 'undefined' ? sessionStorage.getItem('wuzz_nickname') : '')
+    if (!nickname) {
+      // Jika tidak ada nickname (misal direct open link tanpa login), arahkan ke login/landing
+      router.replace(roomId ? `/?room=${encodeURIComponent(roomId)}` : '/')
       return
     }
 
@@ -113,7 +113,7 @@ function ChatPageContent() {
     dispatch({ type: 'SET_ROOM_USERS', payload: [] })
     dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
 
-    // Buat koneksi WsClient
+    // Buat koneksi WsClient (selalu aktif untuk menerima notifikasi pesan baru)
     const wsUrl = `ws://${window.location.host}/ws`
     const client = new WsClient(wsUrl)
     clientRef.current = client
@@ -122,12 +122,12 @@ function ChatPageContent() {
     client.onStatus(status => {
       dispatch({ type: 'SET_STATUS', payload: status })
 
-      // Saat terhubung, gabung ke room
+      // Saat terhubung, daftarkan user ke Hub (dan join ke room jika ada)
       if (status === 'connected') {
         client.send({
           type: 'join',
           nickname,
-          room: roomId,
+          room: roomId || '',
         })
       }
     })
@@ -161,13 +161,15 @@ function ChatPageContent() {
             dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
           }
 
-          dispatch({ type: 'ADD_MESSAGE', payload: msg })
+          if (roomId) {
+            dispatch({ type: 'ADD_MESSAGE', payload: msg })
+          }
           break
         }
 
         case 'room_users': {
           // Update daftar member aktif di room
-          if (msg.users) {
+          if (msg.users && roomId) {
             dispatch({ type: 'SET_ROOM_USERS', payload: msg.users })
             // Jika ada member selain kita, set nama peer
             const otherUsers = msg.users.filter(u => u.nickname !== nickname)
@@ -182,18 +184,29 @@ function ChatPageContent() {
 
         case 'history': {
           // Muat riwayat chat dari Supabase/Database
-          if (msg.messages && msg.messages.length > 0) {
+          if (msg.messages && msg.messages.length > 0 && roomId) {
             dispatch({ type: 'SET_MESSAGES', payload: msg.messages })
           }
           break
         }
 
         case 'message': {
-          dispatch({ type: 'ADD_MESSAGE', payload: msg })
+          // Teruskan ke snippet sidebar & unread counter
+          setLastIncomingMessage(msg)
+
+          // Jika pesan adalah untuk room yang sedang aktif dibuka
+          if (roomId && msg.room === roomId) {
+            dispatch({ type: 'ADD_MESSAGE', payload: msg })
+            if (msg.nickname && msg.nickname !== nickname) {
+              dispatch({ type: 'SET_PEER_NICKNAME', payload: msg.nickname })
+            }
+          }
+
+          // Mainkan notifikasi audio jika pesan dari lawan bicara
           if (msg.nickname && msg.nickname !== nickname) {
-            dispatch({ type: 'SET_PEER_NICKNAME', payload: msg.nickname })
             soundManager.playReceive()
           }
+
           // Reset typing indicator saat pesan baru masuk
           dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
           break
@@ -226,7 +239,7 @@ function ChatPageContent() {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId])
+  }, [roomId, isAuthLoading, user?.username, user?.display_name])
 
   const handleSend = useCallback((content: string) => {
     if (!roomId) return
@@ -243,16 +256,19 @@ function ChatPageContent() {
 
     // Optimistic local render
     if (session) {
+      const localMsg: Message = {
+        type: 'message',
+        from: session.clientId,
+        nickname: session.nickname,
+        content,
+        room: roomId,
+        timestamp: new Date().toISOString(),
+      }
       dispatch({
         type: 'ADD_MESSAGE',
-        payload: {
-          type: 'message',
-          from: session.clientId,
-          nickname: session.nickname,
-          content,
-          timestamp: new Date().toISOString(),
-        },
+        payload: localMsg,
       })
+      setLastIncomingMessage(localMsg)
     }
   }, [state.session, roomId])
 
@@ -279,6 +295,7 @@ function ChatPageContent() {
         onSelectRoom={handleSelectRoom}
         isOpenMobile={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        lastIncomingMessage={lastIncomingMessage}
       />
 
       {/* Main Chat Pane */}
