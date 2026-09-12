@@ -19,3 +19,8 @@
 - **Konteks:** Membutuhkan efek audio notifikasi pesan (kirim & terima) yang ringan, instan, dan bebas kegagalan jaringan atau file asset hilang.
 - **Keputusan:** Menggunakan Web Audio API oscillator synthesis (`lib/sound.ts`) untuk menghasilkan suara nada *pop* (880Hz->320Hz) dan nada lonceng ganda *ding* (E5 + B5) tanpa memerlukan file MP3 eksternal.
 - **Status:** Diimplementasikan & Berfungsi.
+
+### DEC-005: Ephemeral Live Typing Protocol & Debounce Auto-Reset
+- **Konteks:** Indikator mengetik (*"Alice sedang mengetik..."*) harus real-time tanpa membebani database ataupun bandwidth WebSocket.
+- **Keputusan:** Event `TypeTyping` di-broadcast murni di memori Hub (tidak disimpan ke Database). Input client di-throttle 2 detik saat mengetik, dan recipient memiliki auto-reset timer 2.5 detik serta reset instan saat pesan baru diterima (`TypeMessage`).
+- **Status:** Diimplementasikan & Berfungsi.

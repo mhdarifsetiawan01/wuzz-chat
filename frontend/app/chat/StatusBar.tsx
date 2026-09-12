@@ -10,6 +10,8 @@ interface StatusBarProps {
   peerNickname: string | null
   roomId: string
   roomUsers?: RoomUser[]
+  isPeerTyping?: boolean
+  typingNickname?: string | null
   onOpenMemberList: () => void
   onToggleSidebar?: () => void
 }
@@ -27,6 +29,8 @@ export function StatusBar({
   peerNickname,
   roomId,
   roomUsers = [],
+  isPeerTyping = false,
+  typingNickname = null,
   onOpenMemberList,
   onToggleSidebar,
 }: StatusBarProps) {
@@ -94,11 +98,18 @@ export function StatusBar({
               👥 {roomUsers.length} Online
             </button>
           </div>
-          {session && (
+          {isPeerTyping ? (
+            <div className="status-sub">
+              <span className="status-typing-label">
+                <span>✍️</span>
+                <span>{typingNickname ? `${typingNickname} sedang mengetik...` : 'sedang mengetik...'}</span>
+              </span>
+            </div>
+          ) : session ? (
             <div className="status-sub">
               Kamu: <strong>{session.nickname}</strong>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 

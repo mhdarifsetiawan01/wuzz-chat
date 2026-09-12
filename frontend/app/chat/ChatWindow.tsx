@@ -9,9 +9,10 @@ interface ChatWindowProps {
   selfId: string
   selfNickname: string
   isPeerTyping: boolean
+  typingNickname?: string | null
 }
 
-export function ChatWindow({ messages, selfId, selfNickname, isPeerTyping }: ChatWindowProps) {
+export function ChatWindow({ messages, selfId, selfNickname, isPeerTyping, typingNickname }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll ke bawah setiap ada pesan baru atau typing indicator
@@ -54,10 +55,13 @@ export function ChatWindow({ messages, selfId, selfNickname, isPeerTyping }: Cha
       {/* Typing indicator — muncul saat anggota lain sedang mengetik */}
       {isPeerTyping && (
         <div className="message-row peer" aria-label="Lawan chat sedang mengetik" role="status">
-          <div className="typing-indicator" aria-hidden="true">
-            <span className="typing-dot" />
-            <span className="typing-dot" />
-            <span className="typing-dot" />
+          <div className="typing-bubble-container">
+            {typingNickname && <span className="typing-author">{typingNickname}</span>}
+            <div className="typing-indicator" aria-hidden="true">
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+              <span className="typing-dot" />
+            </div>
           </div>
         </div>
       )}

@@ -21,6 +21,7 @@ interface ChatState {
   status: ConnectionStatus
   peerNickname: string | null
   isPeerTyping: boolean
+  typingNickname: string | null
   roomUsers: RoomUser[]
 }
 
@@ -30,7 +31,7 @@ type ChatAction =
   | { type: 'ADD_MESSAGE'; payload: Message }
   | { type: 'SET_MESSAGES'; payload: Message[] }
   | { type: 'SET_PEER_NICKNAME'; payload: string }
-  | { type: 'SET_PEER_TYPING'; payload: boolean }
+  | { type: 'SET_PEER_TYPING'; payload: { typing: boolean; nickname?: string | null } }
   | { type: 'SET_ROOM_USERS'; payload: RoomUser[] }
 
 const initialState: ChatState = {
@@ -39,6 +40,7 @@ const initialState: ChatState = {
   status: 'connecting',
   peerNickname: null,
   isPeerTyping: false,
+  typingNickname: null,
   roomUsers: [],
 }
 
@@ -63,7 +65,11 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SET_PEER_NICKNAME':
       return { ...state, peerNickname: action.payload }
     case 'SET_PEER_TYPING':
-      return { ...state, isPeerTyping: action.payload }
+      return {
+        ...state,
+        isPeerTyping: action.payload.typing,
+        typingNickname: action.payload.typing ? (action.payload.nickname || state.typingNickname) : null,
+      }
     case 'SET_ROOM_USERS':
       return { ...state, roomUsers: action.payload }
     default:
@@ -152,7 +158,7 @@ function ChatPageContent() {
           // Deteksi user lain yang leave
           const leaveMatch = msg.content?.match(/^(.+) telah meninggalkan percakapan/i)
           if (leaveMatch) {
-            dispatch({ type: 'SET_PEER_TYPING', payload: false })
+            dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
           }
 
           dispatch({ type: 'ADD_MESSAGE', payload: msg })
@@ -188,20 +194,25 @@ function ChatPageContent() {
             dispatch({ type: 'SET_PEER_NICKNAME', payload: msg.nickname })
             soundManager.playReceive()
           }
+          // Reset typing indicator saat pesan baru masuk
+          dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
           break
         }
 
         case 'typing': {
-          dispatch({ type: 'SET_PEER_TYPING', payload: true })
+          dispatch({
+            type: 'SET_PEER_TYPING',
+            payload: { typing: true, nickname: msg.nickname || null },
+          })
           if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
           typingTimerRef.current = setTimeout(() => {
-            dispatch({ type: 'SET_PEER_TYPING', payload: false })
-          }, 3000)
+            dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
+          }, 2500)
           break
         }
 
         case 'leave': {
-          dispatch({ type: 'SET_PEER_TYPING', payload: false })
+          dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
           dispatch({ type: 'ADD_MESSAGE', payload: msg })
           break
         }
@@ -247,8 +258,12 @@ function ChatPageContent() {
 
   const handleTyping = useCallback(() => {
     if (!roomId) return
-    clientRef.current?.send({ type: 'typing', room: roomId })
-  }, [roomId])
+    clientRef.current?.send({
+      type: 'typing',
+      room: roomId,
+      nickname: state.session?.nickname,
+    })
+  }, [roomId, state.session?.nickname])
 
   const handleSelectRoom = (newRoomId: string) => {
     router.push(`/chat?room=${encodeURIComponent(newRoomId)}`)
@@ -276,6 +291,8 @@ function ChatPageContent() {
               peerNickname={state.peerNickname}
               roomId={roomId}
               roomUsers={state.roomUsers}
+              isPeerTyping={state.isPeerTyping}
+              typingNickname={state.typingNickname}
               onOpenMemberList={() => setIsMemberListOpen(true)}
               onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
             />
@@ -285,6 +302,7 @@ function ChatPageContent() {
               selfId={state.session?.clientId ?? ''}
               selfNickname={state.session?.nickname ?? (typeof window !== 'undefined' ? sessionStorage.getItem('wuzz_nickname') ?? '' : '')}
               isPeerTyping={state.isPeerTyping}
+              typingNickname={state.typingNickname}
             />
 
             <MessageInput

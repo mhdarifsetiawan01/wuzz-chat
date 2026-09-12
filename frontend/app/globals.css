@@ -499,11 +499,34 @@ h4 { font-size: 1rem;   font-weight: 600; }
 }
 
 /* Typing indicator */
+.status-typing-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-online);
+  font-size: 0.75rem;
+  font-weight: 500;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.typing-bubble-container {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.typing-author {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--accent-400);
+  margin-left: var(--space-1);
+}
+
 .typing-indicator {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   background: var(--bubble-peer);
   border: 1px solid var(--bubble-peer-border);
   border-radius: var(--radius-lg);
@@ -516,7 +539,7 @@ h4 { font-size: 1rem;   font-weight: 600; }
   width: 6px;
   height: 6px;
   border-radius: var(--radius-full);
-  background: var(--text-secondary);
+  background: var(--color-online);
   animation: typing-bounce 1.2s ease infinite;
 }
 

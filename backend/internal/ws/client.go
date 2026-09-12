@@ -199,6 +199,7 @@ func (c *Client) onTyping(msg Message) {
 		return
 	}
 	msg.Room = targetRoom
+	msg.Nickname = c.Nickname
 	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
 }
 

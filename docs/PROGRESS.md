@@ -54,8 +54,11 @@
   - Procedural Web Audio API sound generator (`lib/sound.ts`) untuk efek suara kirim (*pop*) dan terima (*ding*).
   - Tombol toggle mute di status bar dengan persistensi `localStorage`.
   - 100% tanpa dependensi file eksternal (bebas lag & 404).
-- [ ] **Milestone 4.2: Live Typing Indicator** (Next)
-- [ ] **Milestone 4.3: Real-Time Sidebar Snippet & Unread Badge Counter**
+- [x] **Milestone 4.2: Live Typing Indicator**:
+  - Broadcast event `TypeTyping` dengan nickname pengirim dan unit test `TestHubTypingBroadcast`.
+  - Debounce throttling pada textarea input.
+  - Tampilan animated label di StatusBar dan author bubble di ChatWindow.
+- [ ] **Milestone 4.3: Real-Time Sidebar Snippet & Unread Badge Counter** (Next)
 - [ ] **Milestone 4.4: Message Receipts Status Transitions**
 - [ ] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**
 
@@ -63,8 +66,8 @@
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- Sistem saat ini sudah berjalan stabil dengan autentikasi akun, direct message, dan procedural Sound FX.
-- Milestone 4.1 selesai, siap melangkah ke Milestone 4.2 (Live Typing Indicator).
+- Sistem saat ini sudah berjalan stabil dengan autentikasi akun, direct message, procedural Sound FX, dan Live Typing Indicator.
+- Milestone 4.1 & 4.2 selesai, siap melangkah ke Milestone 4.3 (Real-Time Sidebar Snippet & Unread Badge Counter).
 
 ---
 

@@ -145,3 +145,57 @@ func TestHubRoomUsersBroadcast(t *testing.T) {
 		t.Fatalf("timeout waiting for room_users update on c1")
 	}
 }
+
+func TestHubTypingBroadcast(t *testing.T) {
+	cs := store.NewMemoryClientStore()
+	ms := store.NewMemoryMessageStore()
+	hub := NewHub(cs, ms)
+
+	c1 := &Client{
+		ID:       "c1",
+		Nickname: "Alice",
+		JoinedAt: time.Now().UTC(),
+		send:     make(chan Message, 10),
+		hub:      hub,
+	}
+	c2 := &Client{
+		ID:       "c2",
+		Nickname: "Bob",
+		JoinedAt: time.Now().UTC(),
+		send:     make(chan Message, 10),
+		hub:      hub,
+	}
+
+	hub.Register(c1)
+	hub.Register(c2)
+	hub.JoinRoom(c1, "room-typing")
+	hub.JoinRoom(c2, "room-typing")
+
+	// Drain initial room_users
+	select {
+	case <-c2.send:
+	default:
+	}
+
+	// c1 emits typing
+	c1.onTyping(Message{
+		Type: TypeTyping,
+		Room: "room-typing",
+	})
+
+	select {
+	case msg := <-c2.send:
+		if msg.Type != TypeTyping {
+			t.Errorf("expected TypeTyping, got %s", msg.Type)
+		}
+		if msg.Nickname != "Alice" {
+			t.Errorf("expected Nickname 'Alice', got '%s'", msg.Nickname)
+		}
+		if msg.Room != "room-typing" {
+			t.Errorf("expected Room 'room-typing', got '%s'", msg.Room)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for typing event on c2")
+	}
+}
+
