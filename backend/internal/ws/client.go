@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -117,6 +118,8 @@ func (c *Client) handleMessage(msg Message) {
 		c.onMessage(msg)
 	case TypeTyping:
 		c.onTyping(msg)
+	case TypeReceipt:
+		c.onReceipt(msg)
 	case TypeLeave:
 		c.conn.Close()
 	default:
@@ -182,10 +185,50 @@ func (c *Client) onMessage(msg Message) {
 		return
 	}
 
+	if msg.ID == "" {
+		msg.ID = uuid.New().String()
+	}
+	msg.Status = StatusSent
 	msg.Room = targetRoom
 	msg.Nickname = c.Nickname
 
 	// Broadcast ke semua anggota lain di room dan simpan ke database
+	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
+
+	// Kirim balik konfirmasi receipt status sent ke sender
+	select {
+	case c.send <- Message{
+		ID:        msg.ID,
+		Type:      TypeReceipt,
+		Room:      targetRoom,
+		Status:    StatusSent,
+		Timestamp: time.Now().UTC(),
+	}:
+	default:
+	}
+}
+
+// onReceipt memproses update status tanda terima pesan (delivered / read).
+func (c *Client) onReceipt(msg Message) {
+	if msg.ID == "" || msg.Status == "" {
+		return
+	}
+	targetRoom := msg.Room
+	if targetRoom == "" {
+		targetRoom = c.RoomID
+	}
+	if targetRoom == "" {
+		return
+	}
+
+	// Update status di database / memory store
+	if err := c.hub.messageStore.UpdateMessageStatus(msg.ID, string(msg.Status)); err != nil {
+		log.Printf("[Client %s] gagal update status message %s ke %s: %v", c.ID, msg.ID, msg.Status, err)
+	}
+
+	msg.Room = targetRoom
+	msg.Type = TypeReceipt
+	// Broadcast receipt ke anggota percakapan (terutama sender asli)
 	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
 }
 

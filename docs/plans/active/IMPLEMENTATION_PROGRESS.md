@@ -15,8 +15,15 @@
   - [x] Auto-reset unread counter saat user membuka/mengklik room tersebut
   - [x] Live reordering conversation list (room terupdate otomatis naik ke paling atas)
   - [x] Tampilan timestamp `HH:mm` dan badge hijau `conv-unread-badge`
-- [ ] **Milestone 4.4: Message Receipts Status Transitions** 🚀 (Next)
+- [x] **Milestone 4.4: Message Receipts Status Transitions** ✅
+  - [x] Skema basis data kolom `status VARCHAR(32) DEFAULT 'sent'` pada tabel `messages` dengan auto-migration & method `UpdateMessageStatus`
+  - [x] Backend WebSocket handler `TypeReceipt` & ACK sender `status: sent` di `client.go` & `hub.go`
+  - [x] Unit test `TestHubReceiptsFlow` lulus 100%
+  - [x] Reducer `UPDATE_MESSAGE_STATUS` di `frontend/app/chat/page.tsx` dengan transisi non-downgrading (`pending` ➔ `sent` ➔ `delivered` ➔ `read`)
+  - [x] Rendering WhatsApp/Telegram-style receipt icons di `MessageBubble.tsx` (`🕒`, `✓`, `✓✓`, `✓✓` blue `#53bdeb`)
+  - [x] Pengiriman otomatis `delivered` & `read` receipts saat pesan lawan bicara diterima/dibuka
 - [ ] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**
 
-## 📝 Catatan Milestone 4.1
-- Menggunakan Web Audio API oscillator murni (bebas dependensi aset audio eksternal dan bebas lag loading).
+## 📝 Catatan Milestone 4.4
+- Status transisi receipt menggunakan bobot prioritas (`pending`: 0, `sent`: 1, `delivered`: 2, `read`: 3) sehingga status tidak akan pernah ter-downgrade secara tidak sengaja oleh race condition WebSocket.
+

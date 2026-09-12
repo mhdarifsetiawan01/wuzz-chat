@@ -29,3 +29,9 @@
 - **Konteks:** Sidebar percakapan harus mengupdate pesan terakhir, timestamp, dan badge belum dibaca secara live tanpa polling berulang ke database `/api/conversations`.
 - **Keputusan:** State `lastIncomingMessage` di `page.tsx` diteruskan ke `Sidebar.tsx`. Setiap pesan masuk/terkirim seketika mengupdate state lokal daftar percakapan, menaikkan unread badge jika room tidak aktif dibuka, dan menggeser percakapan aktif ke urutan paling atas.
 - **Status:** Diimplementasikan & Berfungsi.
+
+### DEC-007: 4-Stage Weighted Message Receipt Transitions
+- **Konteks:** Status tanda terima pesan (`pending` ➔ `sent` ➔ `delivered` ➔ `read`) memerlukan kepastian status tidak pernah menurun (*downgrade*) akibat latensi pengiriman atau keterlambatan ACK WebSocket.
+- **Keputusan:** Menggunakan sistem bobot integer pada reducer frontend (`pending`: 0, `sent`: 1, `delivered`: 2, `read`: 3) sehingga update status hanya diaplikasikan jika nilai bobot lebih tinggi atau sama. Server Go melakukan auto-ACK `sent` ke pengirim, client penerima otomatis mengirim `delivered` receipt saat pesan sampai di socket, dan mengirim `read` receipt saat jendela obrolan aktif dibuka.
+- **Status:** Diimplementasikan & Berfungsi.
+

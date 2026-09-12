@@ -37,6 +37,7 @@ type StoredMessage struct {
 	Nickname  string    `json:"nickname,omitempty"`
 	ToID      string    `json:"to_id"`
 	Content   string    `json:"content"`
+	Status    string    `json:"status,omitempty"` // "pending", "sent", "delivered", "read"
 	Timestamp time.Time `json:"timestamp"`
 }
 
@@ -44,6 +45,9 @@ type StoredMessage struct {
 type MessageStore interface {
 	// Save menyimpan pesan yang sudah terkirim ke database.
 	Save(msg StoredMessage) error
+
+	// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
+	UpdateMessageStatus(msgID string, status string) error
 
 	// GetRoomHistory mengambil riwayat pesan dalam suatu room/percakapan.
 	// Mengembalikan pesan terurut secara kronologis (tertua ke terbaru).

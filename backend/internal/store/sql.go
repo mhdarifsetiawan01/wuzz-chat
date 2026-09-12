@@ -99,7 +99,15 @@ func (s *SQLMessageStore) autoMigrate() error {
 		}
 	}
 
-	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' berhasil dipastikan ada!")
+	// Auto-migration non-destruktif untuk kolom status di tabel messages
+	if s.driverName == "postgres" {
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'sent';`)
+	} else {
+		// SQLite ALTER TABLE ADD COLUMN
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN status VARCHAR(32) DEFAULT 'sent';`)
+	}
+
+	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' (dengan status receipts) berhasil dipastikan ada!")
 	return nil
 }
 
@@ -115,13 +123,18 @@ func (s *SQLMessageStore) DriverName() string {
 
 // Save menyimpan pesan ke database.
 func (s *SQLMessageStore) Save(msg StoredMessage) error {
+	status := msg.Status
+	if status == "" {
+		status = "sent"
+	}
+
 	var query string
 	if s.driverName == "postgres" {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, created_at)
-		         VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, created_at)
+		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	} else {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, created_at)
-		         VALUES (?, ?, ?, ?, ?, ?, ?)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, created_at)
+		         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
 	_, err := s.db.Exec(
@@ -132,8 +145,21 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 		msg.Nickname,
 		msg.ToID,
 		msg.Content,
+		status,
 		msg.Timestamp.UTC(),
 	)
+	return err
+}
+
+// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
+func (s *SQLMessageStore) UpdateMessageStatus(msgID string, status string) error {
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE messages SET status = $1 WHERE id = $2`
+	} else {
+		query = `UPDATE messages SET status = ? WHERE id = ?`
+	}
+	_, err := s.db.Exec(query, status, msgID)
 	return err
 }
 
@@ -146,9 +172,9 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 	var query string
 	if s.driverName == "postgres" {
 		query = `
-		SELECT id, room_id, from_id, from_nickname, to_id, content, created_at
+		SELECT id, room_id, from_id, from_nickname, to_id, content, COALESCE(status, 'sent'), created_at
 		FROM (
-			SELECT id, room_id, from_id, from_nickname, to_id, content, created_at
+			SELECT id, room_id, from_id, from_nickname, to_id, content, status, created_at
 			FROM messages
 			WHERE room_id = $1
 			ORDER BY created_at DESC
@@ -157,9 +183,9 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 		ORDER BY created_at ASC;`
 	} else {
 		query = `
-		SELECT id, room_id, from_id, from_nickname, to_id, content, created_at
+		SELECT id, room_id, from_id, from_nickname, to_id, content, COALESCE(status, 'sent'), created_at
 		FROM (
-			SELECT id, room_id, from_id, from_nickname, to_id, content, created_at
+			SELECT id, room_id, from_id, from_nickname, to_id, content, status, created_at
 			FROM messages
 			WHERE room_id = ?
 			ORDER BY created_at DESC
@@ -178,6 +204,7 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 	for rows.Next() {
 		var m StoredMessage
 		var createdAt time.Time
+		var status string
 		if err := rows.Scan(
 			&m.ID,
 			&m.RoomID,
@@ -185,10 +212,12 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 			&m.Nickname,
 			&m.ToID,
 			&m.Content,
+			&status,
 			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("gagal scan baris history: %w", err)
 		}
+		m.Status = status
 		m.Timestamp = createdAt.UTC()
 		history = append(history, m)
 	}

@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useState, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WsClient } from '@/lib/ws-client'
-import type { Message, ConnectionStatus, SessionInfo, RoomUser } from '@/lib/types'
+import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus } from '@/lib/types'
 import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
@@ -30,6 +30,7 @@ type ChatAction =
   | { type: 'SET_STATUS'; payload: ConnectionStatus }
   | { type: 'SET_SESSION'; payload: SessionInfo }
   | { type: 'ADD_MESSAGE'; payload: Message }
+  | { type: 'UPDATE_MESSAGE_STATUS'; payload: { id: string; status: MessageReceiptStatus } }
   | { type: 'SET_MESSAGES'; payload: Message[] }
   | { type: 'SET_PEER_NICKNAME'; payload: string }
   | { type: 'SET_PEER_TYPING'; payload: { typing: boolean; nickname?: string | null } }
@@ -45,14 +46,50 @@ const initialState: ChatState = {
   roomUsers: [],
 }
 
+const statusWeight: Record<MessageReceiptStatus, number> = {
+  pending: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+}
+
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case 'SET_STATUS':
       return { ...state, status: action.payload }
     case 'SET_SESSION':
       return { ...state, session: action.payload }
-    case 'ADD_MESSAGE':
+    case 'ADD_MESSAGE': {
+      // Jika pesan sudah ada berdasarkan ID (misal optimistic vs ACK server), update status & datanya
+      if (action.payload.id && state.messages.some(m => m.id === action.payload.id)) {
+        return {
+          ...state,
+          messages: state.messages.map(m =>
+            m.id === action.payload.id ? { ...m, ...action.payload } : m
+          ),
+        }
+      }
       return { ...state, messages: [...state.messages, action.payload] }
+    }
+    case 'UPDATE_MESSAGE_STATUS': {
+      const { id, status } = action.payload
+      if (!id) return state
+      const targetWeight = statusWeight[status] || 0
+
+      return {
+        ...state,
+        messages: state.messages.map(m => {
+          if (m.id === id) {
+            const currentWeight = m.status ? (statusWeight[m.status] ?? 1) : 1
+            // Status hanya boleh bergerak maju (pending -> sent -> delivered -> read)
+            if (targetWeight >= currentWeight) {
+              return { ...m, status }
+            }
+          }
+          return m
+        }),
+      }
+    }
     case 'SET_MESSAGES': {
       // Gabungkan riwayat chat dari database tanpa duplikasi
       const existingKeys = new Set(
@@ -186,6 +223,31 @@ function ChatPageContent() {
           // Muat riwayat chat dari Supabase/Database
           if (msg.messages && msg.messages.length > 0 && roomId) {
             dispatch({ type: 'SET_MESSAGES', payload: msg.messages })
+
+            // Kirim tanda 'read' untuk pesan lawan bicara jika jendela chat sedang aktif
+            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+              msg.messages.forEach(m => {
+                if (m.id && m.nickname && m.nickname !== nickname && m.status !== 'read') {
+                  client.send({
+                    type: 'receipt',
+                    id: m.id,
+                    room: roomId,
+                    status: 'read',
+                  })
+                }
+              })
+            }
+          }
+          break
+        }
+
+        case 'receipt': {
+          // Update status tanda terima pesan (sent -> delivered -> read)
+          if (msg.id && msg.status) {
+            dispatch({
+              type: 'UPDATE_MESSAGE_STATUS',
+              payload: { id: msg.id, status: msg.status },
+            })
           }
           break
         }
@@ -202,9 +264,27 @@ function ChatPageContent() {
             }
           }
 
-          // Mainkan notifikasi audio jika pesan dari lawan bicara
-          if (msg.nickname && msg.nickname !== nickname) {
+          // Balas receipt ke pengirim jika pesan dari lawan bicara
+          if (msg.nickname && msg.nickname !== nickname && msg.id) {
             soundManager.playReceive()
+
+            // 1. Kirim tanda 'delivered'
+            client.send({
+              type: 'receipt',
+              id: msg.id,
+              room: msg.room || roomId,
+              status: 'delivered',
+            })
+
+            // 2. Jika room ini sedang aktif dibuka & window terlihat, kirim juga status 'read'
+            if (roomId && msg.room === roomId && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+              client.send({
+                type: 'receipt',
+                id: msg.id,
+                room: msg.room || roomId,
+                status: 'read',
+              })
+            }
           }
 
           // Reset typing indicator saat pesan baru masuk
@@ -244,7 +324,10 @@ function ChatPageContent() {
   const handleSend = useCallback((content: string) => {
     if (!roomId) return
     const session = state.session
+    const msgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'msg-' + Date.now()
+
     clientRef.current?.send({
+      id: msgId,
       type: 'message',
       content,
       room: roomId,
@@ -254,14 +337,16 @@ function ChatPageContent() {
     // Mainkan suara pop pengiriman pesan
     soundManager.playSend()
 
-    // Optimistic local render
+    // Optimistic local render dengan status pending
     if (session) {
       const localMsg: Message = {
+        id: msgId,
         type: 'message',
         from: session.clientId,
         nickname: session.nickname,
         content,
         room: roomId,
+        status: 'pending',
         timestamp: new Date().toISOString(),
       }
       dispatch({

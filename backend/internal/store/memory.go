@@ -70,7 +70,24 @@ func NewMemoryMessageStore() *MemoryMessageStore {
 func (s *MemoryMessageStore) Save(msg StoredMessage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if msg.Status == "" {
+		msg.Status = "sent"
+	}
 	s.messages[msg.RoomID] = append(s.messages[msg.RoomID], msg)
+	return nil
+}
+
+func (s *MemoryMessageStore) UpdateMessageStatus(msgID string, status string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for roomID, msgs := range s.messages {
+		for i, m := range msgs {
+			if m.ID == msgID {
+				s.messages[roomID][i].Status = status
+				return nil
+			}
+		}
+	}
 	return nil
 }
 

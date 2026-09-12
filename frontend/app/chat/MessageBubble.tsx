@@ -18,6 +18,21 @@ function formatTime(iso?: string): string {
   }
 }
 
+// Render icon tanda terima pesan (WhatsApp/Telegram-style)
+function renderReceipt(status?: Message['status']) {
+  switch (status) {
+    case 'pending':
+      return <span className="receipt-icon receipt-pending" title="Sedang dikirim...">🕒</span>
+    case 'delivered':
+      return <span className="receipt-icon receipt-delivered" title="Tersampaikan">✓✓</span>
+    case 'read':
+      return <span className="receipt-icon receipt-read" title="Dibaca">✓✓</span>
+    case 'sent':
+    default:
+      return <span className="receipt-icon receipt-sent" title="Terkirim ke server">✓</span>
+  }
+}
+
 export function MessageBubble({ message, selfId, selfNickname }: MessageBubbleProps) {
   const isSystem = message.type === 'system'
   
@@ -39,10 +54,19 @@ export function MessageBubble({ message, selfId, selfNickname }: MessageBubblePr
       <div className="message-bubble">
         {message.content}
       </div>
-      {!isSystem && time && (
-        <span className="message-meta" aria-label={`Dikirim pukul ${time}`}>
-          {time}
-        </span>
+      {!isSystem && (
+        <div className="message-meta-row">
+          {time && (
+            <span className="message-meta" aria-label={`Dikirim pukul ${time}`}>
+              {time}
+            </span>
+          )}
+          {isSelf && (
+            <span className="message-receipt" aria-label={`Status: ${message.status || 'sent'}`}>
+              {renderReceipt(message.status)}
+            </span>
+          )}
+        </div>
       )}
     </div>
   )

@@ -63,15 +63,19 @@
   - Reset unread counter saat room dibuka oleh user.
   - Cuplikan pesan terakhir (*snippet*), pengirim, dan timestamp `HH:mm` terupdate real-time.
   - Dynamic sorting percakapan (room terupdate otomatis naik ke paling atas).
-- [ ] **Milestone 4.4: Message Receipts Status Transitions** (Next)
+- [x] **Milestone 4.4: Message Receipts Status Transitions**:
+  - Transisi status tanda terima 4-tahap: `🕒 Pending` ➔ `✓ Sent` ➔ `✓✓ Delivered` (abu-abu) ➔ `✓✓ Read` (biru `#53bdeb`).
+  - Auto-ACK status `sent` dari backend Go, `delivered` saat pesan diterima browser lawan bicara, dan `read` saat percakapan aktif terbuka.
+  - Penambahan kolom `status VARCHAR(32) DEFAULT 'sent'` pada tabel database `messages` dengan auto-migration & method `UpdateMessageStatus`.
+  - Unit test `TestHubReceiptsFlow` lulus 100%.
 - [ ] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**
 
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- Sistem saat ini sudah berjalan stabil dengan autentikasi akun, direct message, procedural Sound FX, Live Typing Indicator, serta Live Sidebar Snippets & Unread Badge Counter.
-- Milestone 4.1, 4.2, & 4.3 selesai, siap melangkah ke Milestone 4.4 (Message Receipts Status Transitions).
+- Sistem saat ini sudah berjalan stabil dengan autentikasi akun, direct message, procedural Sound FX, Live Typing Indicator, Live Sidebar Snippets & Unread Badge Counter, serta Message Receipts (`pending` ➔ `sent` ➔ `delivered` ➔ `read`).
+- Milestone 4.1, 4.2, 4.3, & 4.4 selesai, siap melangkah ke Milestone 4.5 (Emoji Reactions & Reply/Quote Message).
 
 ---
 

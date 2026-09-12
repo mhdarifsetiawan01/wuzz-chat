@@ -199,3 +199,112 @@ func TestHubTypingBroadcast(t *testing.T) {
 	}
 }
 
+func TestHubReceiptsFlow(t *testing.T) {
+	cs := store.NewMemoryClientStore()
+	ms := store.NewMemoryMessageStore()
+	hub := NewHub(cs, ms)
+
+	c1 := &Client{
+		ID:       "c1",
+		Nickname: "Alice",
+		JoinedAt: time.Now().UTC(),
+		send:     make(chan Message, 10),
+		hub:      hub,
+	}
+	c2 := &Client{
+		ID:       "c2",
+		Nickname: "Bob",
+		JoinedAt: time.Now().UTC(),
+		send:     make(chan Message, 10),
+		hub:      hub,
+	}
+
+	hub.Register(c1)
+	hub.Register(c2)
+	hub.JoinRoom(c1, "room-receipts")
+	hub.JoinRoom(c2, "room-receipts")
+
+	// Drain initial join/room_users messages
+	for len(c1.send) > 0 {
+		<-c1.send
+	}
+	for len(c2.send) > 0 {
+		<-c2.send
+	}
+
+	// 1. c1 sends message
+	msgID := "msg-123"
+	c1.onMessage(Message{
+		ID:      msgID,
+		Type:    TypeMessage,
+		Room:    "room-receipts",
+		Content: "Halo Bob receipt test",
+	})
+
+	// c1 should receive ACK receipt 'sent'
+	select {
+	case ack := <-c1.send:
+		if ack.Type != TypeReceipt || ack.ID != msgID || ack.Status != StatusSent {
+			t.Errorf("expected ACK TypeReceipt with status 'sent', got %+v", ack)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for ACK on c1")
+	}
+
+	// c2 should receive the chat message
+	select {
+	case received := <-c2.send:
+		if received.ID != msgID || received.Content != "Halo Bob receipt test" || received.Status != StatusSent {
+			t.Errorf("c2 received unexpected message: %+v", received)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for message on c2")
+	}
+
+	// 2. c2 emits delivered receipt
+	c2.onReceipt(Message{
+		ID:     msgID,
+		Type:   TypeReceipt,
+		Room:   "room-receipts",
+		Status: StatusDelivered,
+	})
+
+	// c1 should receive delivered receipt
+	select {
+	case receipt := <-c1.send:
+		if receipt.Type != TypeReceipt || receipt.ID != msgID || receipt.Status != StatusDelivered {
+			t.Errorf("c1 expected delivered receipt, got %+v", receipt)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for delivered receipt on c1")
+	}
+
+	// 3. c2 emits read receipt
+	c2.onReceipt(Message{
+		ID:     msgID,
+		Type:   TypeReceipt,
+		Room:   "room-receipts",
+		Status: StatusRead,
+	})
+
+	// c1 should receive read receipt
+	select {
+	case receipt := <-c1.send:
+		if receipt.Type != TypeReceipt || receipt.ID != msgID || receipt.Status != StatusRead {
+			t.Errorf("c1 expected read receipt, got %+v", receipt)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for read receipt on c1")
+	}
+
+	// Verify store status is updated to 'read'
+	history, err := ms.GetRoomHistory("room-receipts", 10)
+	if err != nil || len(history) == 0 {
+		t.Fatalf("failed to query history: %v", err)
+	}
+	if history[0].Status != "read" {
+		t.Errorf("expected store status 'read', got '%s'", history[0].Status)
+	}
+}
+
+

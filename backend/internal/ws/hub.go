@@ -221,6 +221,9 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 		if msg.ID == "" {
 			msg.ID = uuid.New().String()
 		}
+		if msg.Status == "" {
+			msg.Status = StatusSent
+		}
 
 		err := h.messageStore.Save(store.StoredMessage{
 			ID:        msg.ID,
@@ -229,6 +232,7 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 			Nickname:  msg.Nickname,
 			ToID:      msg.To,
 			Content:   msg.Content,
+			Status:    string(msg.Status),
 			Timestamp: msg.Timestamp,
 		})
 		if err != nil {
@@ -251,6 +255,10 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 
 	var msgs []Message
 	for _, m := range history {
+		status := StatusSent
+		if m.Status != "" {
+			status = MessageStatus(m.Status)
+		}
 		msgs = append(msgs, Message{
 			ID:        m.ID,
 			Type:      TypeMessage,
@@ -259,6 +267,7 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 			Room:      m.RoomID,
 			Nickname:  m.Nickname,
 			Content:   m.Content,
+			Status:    status,
 			Timestamp: m.Timestamp,
 		})
 	}
