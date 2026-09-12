@@ -3,6 +3,7 @@ package ws
 import (
 	"encoding/json"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -147,33 +148,36 @@ func (c *Client) onJoin(msg Message) {
 
 	c.RoomID = targetRoom
 
-	// Gabungkan client ke room di Hub
+	// Gabungkan client ke room di Hub (otomatis mem-broadcast TypeRoomUsers untuk presence)
 	c.hub.JoinRoom(c, targetRoom)
 
-	// Balas konfirmasi join ke client
-	c.send <- Message{
-		Type:      TypeSystem,
-		From:      "server",
-		To:        c.ID,
-		Room:      targetRoom,
-		Content:   "Selamat datang, " + c.Nickname + "! ID kamu: " + c.ID,
-		Timestamp: time.Now().UTC(),
+	// 1. Tandai seluruh pesan tertunda untuk user ini sebagai 'delivered' (centang 2 abu-abu)
+	deliveredRooms, _ := c.hub.messageStore.MarkUserMessagesAsDelivered(c.Nickname)
+	for _, rID := range deliveredRooms {
+		if rID != targetRoom {
+			c.hub.BroadcastRoom(rID, Message{
+				Type:      TypeReceipt,
+				Room:      rID,
+				Status:    StatusDelivered,
+				Timestamp: time.Now().UTC(),
+			}, c.ID)
+		}
 	}
 
-	// Beritahu anggota lain di room yang sama
-	c.hub.BroadcastRoom(targetRoom, Message{
-		Type:      TypeSystem,
-		From:      "server",
-		Room:      targetRoom,
-		Content:   c.Nickname + " telah bergabung ke percakapan.",
-		Timestamp: time.Now().UTC(),
-	}, c.ID)
+	// 2. Jika user membuka room percakapan tertentu, tandai pesan di room tersebut sebagai 'read' (centang 2 biru)
+	if targetRoom != "" {
+		_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, c.Nickname)
 
-	// Tandai seluruh pesan yang belum dibaca dari lawan bicara di room ini menjadi 'read'
-	_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, c.Nickname)
+		c.hub.BroadcastRoom(targetRoom, Message{
+			Type:      TypeReceipt,
+			Room:      targetRoom,
+			Status:    StatusRead,
+			Timestamp: time.Now().UTC(),
+		}, c.ID)
 
-	// Muat dan kirim riwayat pesan percakapan dari database
-	c.hub.sendRoomHistory(c.ID, targetRoom)
+		// Muat dan kirim riwayat pesan percakapan dari database
+		c.hub.sendRoomHistory(c.ID, targetRoom)
+	}
 
 	log.Printf("[Client %s] join: nickname=%s room=%s", c.ID, c.Nickname, targetRoom)
 }
@@ -193,20 +197,52 @@ func (c *Client) onMessage(msg Message) {
 	if msg.ID == "" {
 		msg.ID = uuid.New().String()
 	}
-	msg.Status = StatusSent
+
+	// Cek apakah lawan bicara sedang online di Hub
+	isPeerOnline := false
+	c.hub.mu.RLock()
+	if room, ok := c.hub.rooms[targetRoom]; ok {
+		for id := range room {
+			if id != c.ID {
+				isPeerOnline = true
+				break
+			}
+		}
+	}
+	if !isPeerOnline && c.hub.userStore != nil {
+		if memberNames, err := c.hub.userStore.GetConversationMemberUsernames(targetRoom); err == nil {
+			for _, name := range memberNames {
+				if name != "" && !strings.EqualFold(name, c.Nickname) {
+					for _, client := range c.hub.clients {
+						if strings.EqualFold(client.Nickname, name) || client.ID == name {
+							isPeerOnline = true
+							break
+						}
+					}
+				}
+			}
+		}
+	}
+	c.hub.mu.RUnlock()
+
+	initialStatus := StatusSent
+	if isPeerOnline {
+		initialStatus = StatusDelivered
+	}
+	msg.Status = initialStatus
 	msg.Room = targetRoom
 	msg.Nickname = c.Nickname
 
 	// Broadcast ke semua anggota lain di room dan simpan ke database
 	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
 
-	// Kirim balik konfirmasi receipt status sent ke sender
+	// Kirim balik konfirmasi receipt awal (sent atau delivered) ke sender
 	select {
 	case c.send <- Message{
 		ID:        msg.ID,
 		Type:      TypeReceipt,
 		Room:      targetRoom,
-		Status:    StatusSent,
+		Status:    initialStatus,
 		Timestamp: time.Now().UTC(),
 	}:
 	default:
@@ -215,7 +251,7 @@ func (c *Client) onMessage(msg Message) {
 
 // onReceipt memproses update status tanda terima pesan (delivered / read).
 func (c *Client) onReceipt(msg Message) {
-	if msg.ID == "" || msg.Status == "" {
+	if msg.Status == "" {
 		return
 	}
 	targetRoom := msg.Room
@@ -226,9 +262,14 @@ func (c *Client) onReceipt(msg Message) {
 		return
 	}
 
-	// Update status di database / memory store
-	if err := c.hub.messageStore.UpdateMessageStatus(msg.ID, string(msg.Status)); err != nil {
-		log.Printf("[Client %s] gagal update status message %s ke %s: %v", c.ID, msg.ID, msg.Status, err)
+	if msg.ID != "" {
+		// Update status single message di database / memory store
+		if err := c.hub.messageStore.UpdateMessageStatus(msg.ID, string(msg.Status)); err != nil {
+			log.Printf("[Client %s] gagal update status message %s ke %s: %v", c.ID, msg.ID, msg.Status, err)
+		}
+	} else if msg.Status == StatusRead {
+		// Bulk update status read untuk seluruh pesan di room ini
+		_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, c.Nickname)
 	}
 
 	msg.Room = targetRoom

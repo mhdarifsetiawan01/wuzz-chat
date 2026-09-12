@@ -30,7 +30,7 @@ type ChatAction =
   | { type: 'SET_STATUS'; payload: ConnectionStatus }
   | { type: 'SET_SESSION'; payload: SessionInfo }
   | { type: 'ADD_MESSAGE'; payload: Message }
-  | { type: 'UPDATE_MESSAGE_STATUS'; payload: { id: string; status: MessageReceiptStatus } }
+  | { type: 'UPDATE_MESSAGE_STATUS'; payload: { id?: string; status: MessageReceiptStatus } }
   | { type: 'UPDATE_MESSAGE_REACTIONS'; payload: { id: string; reactions: ReactionItem[] } }
   | { type: 'SET_MESSAGES'; payload: Message[] }
   | { type: 'SET_PEER_NICKNAME'; payload: string }
@@ -74,8 +74,21 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
     }
     case 'UPDATE_MESSAGE_STATUS': {
       const { id, status } = action.payload
-      if (!id) return state
       const targetWeight = statusWeight[status] || 0
+
+      // Jika id kosong, ini adalah bulk status update untuk seluruh pesan di room
+      if (!id) {
+        return {
+          ...state,
+          messages: state.messages.map(m => {
+            const currentWeight = m.status ? (statusWeight[m.status] ?? 1) : 1
+            if (targetWeight >= currentWeight) {
+              return { ...m, status }
+            }
+            return m
+          }),
+        }
+      }
 
       return {
         ...state,
@@ -171,6 +184,14 @@ function ChatPageContent() {
 
       // Saat terhubung, daftarkan user ke Hub (dan join ke room jika ada)
       if (status === 'connected') {
+        dispatch({
+          type: 'SET_SESSION',
+          payload: {
+            clientId: nickname,
+            nickname,
+            peerId: roomId,
+          },
+        })
         client.send({
           type: 'join',
           nickname,
@@ -195,22 +216,6 @@ function ChatPageContent() {
               },
             })
           }
-
-          // Deteksi user lain yang join
-          const joinMatch = msg.content?.match(/^(.+) telah bergabung ke percakapan/i)
-          if (joinMatch && joinMatch[1] !== nickname) {
-            dispatch({ type: 'SET_PEER_NICKNAME', payload: joinMatch[1] })
-          }
-
-          // Deteksi user lain yang leave
-          const leaveMatch = msg.content?.match(/^(.+) telah meninggalkan percakapan/i)
-          if (leaveMatch) {
-            dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
-          }
-
-          if (roomId) {
-            dispatch({ type: 'ADD_MESSAGE', payload: msg })
-          }
           break
         }
 
@@ -234,17 +239,12 @@ function ChatPageContent() {
           if (msg.messages && msg.messages.length > 0 && roomId) {
             dispatch({ type: 'SET_MESSAGES', payload: msg.messages })
 
-            // Kirim tanda 'read' untuk pesan lawan bicara jika jendela chat sedang aktif
+            // Kirim tanda 'read' untuk seluruh pesan di room jika jendela chat sedang aktif
             if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-              msg.messages.forEach(m => {
-                if (m.id && m.nickname && m.nickname !== nickname && m.status !== 'read') {
-                  client.send({
-                    type: 'receipt',
-                    id: m.id,
-                    room: roomId,
-                    status: 'read',
-                  })
-                }
+              client.send({
+                type: 'receipt',
+                room: roomId,
+                status: 'read',
               })
             }
           }
@@ -252,8 +252,11 @@ function ChatPageContent() {
         }
 
         case 'receipt': {
+          // Teruskan ke sidebar agar icon centang di sidebar ikut terupdate
+          setLastIncomingMessage(msg)
+
           // Update status tanda terima pesan (sent -> delivered -> read)
-          if (msg.id && msg.status) {
+          if (msg.status) {
             dispatch({
               type: 'UPDATE_MESSAGE_STATUS',
               payload: { id: msg.id, status: msg.status },
@@ -332,7 +335,6 @@ function ChatPageContent() {
 
         case 'leave': {
           dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
-          dispatch({ type: 'ADD_MESSAGE', payload: msg })
           break
         }
       }
@@ -462,7 +464,7 @@ function ChatPageContent() {
             <MessageInput
               onSend={handleSend}
               onTyping={handleTyping}
-              disabled={!isConnected || !state.session}
+              disabled={!isConnected}
               replyTo={replyingTo}
               onCancelReply={() => setReplyingTo(null)}
             />

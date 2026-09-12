@@ -120,17 +120,8 @@ func (h *Hub) Unregister(c *Client) {
 
 	log.Printf("[Hub] client keluar: id=%s nickname=%s | sisa=%d", c.ID, c.Nickname, h.count())
 
-	// Beritahu anggota lain di room & perbarui daftar user aktif
+	// Perbarui daftar user aktif di room (presence)
 	if roomID != "" {
-		h.BroadcastRoom(roomID, Message{
-			Type:      TypeLeave,
-			From:      c.ID,
-			Nickname:  c.Nickname,
-			Room:      roomID,
-			Content:   c.Nickname + " telah meninggalkan percakapan",
-			Timestamp: time.Now().UTC(),
-		}, c.ID)
-
 		h.BroadcastRoomUsers(roomID)
 	}
 }

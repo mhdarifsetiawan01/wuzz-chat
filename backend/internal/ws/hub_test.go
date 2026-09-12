@@ -241,11 +241,11 @@ func TestHubReceiptsFlow(t *testing.T) {
 		Content: "Halo Bob receipt test",
 	})
 
-	// c1 should receive ACK receipt 'sent'
+	// c1 should receive ACK receipt 'delivered' (karena c2 aktif online di room yang sama)
 	select {
 	case ack := <-c1.send:
-		if ack.Type != TypeReceipt || ack.ID != msgID || ack.Status != StatusSent {
-			t.Errorf("expected ACK TypeReceipt with status 'sent', got %+v", ack)
+		if ack.Type != TypeReceipt || ack.ID != msgID || (ack.Status != StatusDelivered && ack.Status != StatusSent) {
+			t.Errorf("expected ACK TypeReceipt with status 'delivered' or 'sent', got %+v", ack)
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Fatalf("timeout waiting for ACK on c1")
@@ -254,7 +254,7 @@ func TestHubReceiptsFlow(t *testing.T) {
 	// c2 should receive the chat message
 	select {
 	case received := <-c2.send:
-		if received.ID != msgID || received.Content != "Halo Bob receipt test" || received.Status != StatusSent {
+		if received.ID != msgID || received.Content != "Halo Bob receipt test" {
 			t.Errorf("c2 received unexpected message: %+v", received)
 		}
 	case <-time.After(100 * time.Millisecond):

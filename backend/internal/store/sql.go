@@ -286,6 +286,48 @@ func (s *SQLMessageStore) MarkRoomMessagesAsRead(roomID, excludeNickname string)
 	return err
 }
 
+// MarkUserMessagesAsDelivered menandai seluruh pesan berstatus 'sent' dari pengirim lain menjadi 'delivered'.
+// Mengembalikan daftar room_id yang terpengaruh.
+func (s *SQLMessageStore) MarkUserMessagesAsDelivered(userNickname string) ([]string, error) {
+	if userNickname == "" {
+		return nil, nil
+	}
+
+	var querySelect string
+	if s.driverName == "postgres" {
+		querySelect = `SELECT DISTINCT room_id FROM messages WHERE LOWER(from_nickname) != LOWER($1) AND status = 'sent'`
+	} else {
+		querySelect = `SELECT DISTINCT room_id FROM messages WHERE LOWER(from_nickname) != LOWER(?) AND status = 'sent'`
+	}
+
+	rows, err := s.db.Query(querySelect, userNickname)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roomIDs []string
+	for rows.Next() {
+		var rID string
+		if err := rows.Scan(&rID); err == nil && rID != "" {
+			roomIDs = append(roomIDs, rID)
+		}
+	}
+
+	if len(roomIDs) == 0 {
+		return nil, nil
+	}
+
+	var queryUpdate string
+	if s.driverName == "postgres" {
+		queryUpdate = `UPDATE messages SET status = 'delivered' WHERE LOWER(from_nickname) != LOWER($1) AND status = 'sent'`
+	} else {
+		queryUpdate = `UPDATE messages SET status = 'delivered' WHERE LOWER(from_nickname) != LOWER(?) AND status = 'sent'`
+	}
+	_, err = s.db.Exec(queryUpdate, userNickname)
+	return roomIDs, err
+}
+
 // GetRoomHistory mengambil riwayat pesan dalam suatu room/percakapan.
 func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMessage, error) {
 	if limit <= 0 {

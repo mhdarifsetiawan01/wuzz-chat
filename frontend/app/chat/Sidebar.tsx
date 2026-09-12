@@ -14,6 +14,7 @@ export interface ConversationItem {
   peer_nickname?: string
   last_message?: string
   last_sender?: string
+  last_status?: Message['status']
   unread_count?: number
   updated_at: string
 }
@@ -24,6 +25,20 @@ interface SidebarProps {
   isOpenMobile?: boolean
   onCloseMobile?: () => void
   lastIncomingMessage?: Message | null
+}
+
+function renderReceipt(status?: Message['status']) {
+  switch (status) {
+    case 'pending':
+      return <span className="receipt-icon receipt-pending" title="Sedang dikirim..." style={{ marginRight: 4 }}>🕒</span>
+    case 'delivered':
+      return <span className="receipt-icon receipt-delivered" title="Tersampaikan" style={{ marginRight: 4 }}>✓✓</span>
+    case 'read':
+      return <span className="receipt-icon receipt-read" title="Dibaca" style={{ marginRight: 4 }}>✓✓</span>
+    case 'sent':
+    default:
+      return <span className="receipt-icon receipt-sent" title="Terkirim ke server" style={{ marginRight: 4 }}>✓</span>
+  }
 }
 
 function formatConvTime(dateStr?: string): string {
@@ -119,6 +134,7 @@ export function Sidebar({
               ...prev[index],
               last_message: lastIncomingMessage.content,
               last_sender: lastIncomingMessage.nickname || 'Pengguna',
+              last_status: lastIncomingMessage.status || 'sent',
               updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
             }
           : {
@@ -127,12 +143,23 @@ export function Sidebar({
               title: lastIncomingMessage.nickname || room,
               last_message: lastIncomingMessage.content,
               last_sender: lastIncomingMessage.nickname || 'Pengguna',
+              last_status: lastIncomingMessage.status || 'sent',
               updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
             }
 
         const remaining = prev.filter(c => c.id !== room)
         return [updatedItem, ...remaining]
       })
+    } else if (lastIncomingMessage.type === 'receipt' && lastIncomingMessage.status) {
+      // Update tanda centang pesan terakhir di sidebar secara real-time
+      setConversations(prev =>
+        prev.map(c => {
+          if (c.id === room) {
+            return { ...c, last_status: lastIncomingMessage.status }
+          }
+          return c
+        })
+      )
     }
   }, [lastIncomingMessage, activeRoomId, user?.username, user?.display_name])
 
@@ -303,7 +330,13 @@ export function Sidebar({
                           <span className="conv-last-msg">
                             {c.last_message ? (
                               <>
-                                {c.last_sender ? <strong>{c.last_sender}: </strong> : null}
+                                {(() => {
+                                  const isSelf = c.last_sender === user?.display_name || c.last_sender === user?.username || c.last_sender === 'Kamu'
+                                  if (isSelf) {
+                                    return renderReceipt(c.last_status)
+                                  }
+                                  return c.last_sender ? <strong>{c.last_sender}: </strong> : null
+                                })()}
                                 {c.last_message}
                               </>
                             ) : (

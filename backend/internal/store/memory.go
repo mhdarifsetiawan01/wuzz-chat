@@ -188,6 +188,27 @@ func (s *MemoryMessageStore) MarkRoomMessagesAsRead(roomID, excludeNickname stri
 	return nil
 }
 
+func (s *MemoryMessageStore) MarkUserMessagesAsDelivered(userNickname string) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	roomSet := make(map[string]bool)
+	for roomID, msgs := range s.messages {
+		for i, m := range msgs {
+			if !strings.EqualFold(m.Nickname, userNickname) && m.Status == "sent" {
+				s.messages[roomID][i].Status = "delivered"
+				roomSet[roomID] = true
+			}
+		}
+	}
+
+	var rooms []string
+	for r := range roomSet {
+		rooms = append(rooms, r)
+	}
+	return rooms, nil
+}
+
 func (s *MemoryMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMessage, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

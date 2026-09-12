@@ -35,6 +35,7 @@ type ConversationItem struct {
 	PeerNickname string    `json:"peer_nickname,omitempty"`
 	LastMessage  string    `json:"last_message"`
 	LastSender   string    `json:"last_sender"`
+	LastStatus   string    `json:"last_status,omitempty"`
 	UnreadCount  int       `json:"unread_count"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -300,12 +301,12 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 		// Ambil pesan terakhir
 		var msgQuery string
 		if s.driverName == "postgres" {
-			msgQuery = `SELECT content, from_nickname, created_at FROM messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT 1`
+			msgQuery = `SELECT content, from_nickname, COALESCE(status, 'sent'), created_at FROM messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT 1`
 		} else {
-			msgQuery = `SELECT content, from_nickname, created_at FROM messages WHERE room_id = ? ORDER BY created_at DESC LIMIT 1`
+			msgQuery = `SELECT content, from_nickname, COALESCE(status, 'sent'), created_at FROM messages WHERE room_id = ? ORDER BY created_at DESC LIMIT 1`
 		}
 		var msgTime time.Time
-		if err := s.db.QueryRow(msgQuery, item.ID).Scan(&item.LastMessage, &item.LastSender, &msgTime); err == nil {
+		if err := s.db.QueryRow(msgQuery, item.ID).Scan(&item.LastMessage, &item.LastSender, &item.LastStatus, &msgTime); err == nil {
 			item.UpdatedAt = msgTime
 		}
 

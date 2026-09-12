@@ -59,6 +59,9 @@ type MessageStore interface {
 	// MarkRoomMessagesAsRead menandai semua pesan yang belum dibaca dari lawan bicara menjadi 'read'.
 	MarkRoomMessagesAsRead(roomID, excludeNickname string) error
 
+	// MarkUserMessagesAsDelivered menandai semua pesan berstatus 'sent' yang ditujukan ke user menjadi 'delivered'.
+	MarkUserMessagesAsDelivered(userNickname string) ([]string, error)
+
 	// GetRoomHistory mengambil riwayat pesan dalam suatu room/percakapan.
 	// Mengembalikan pesan terurut secara kronologis (tertua ke terbaru).
 	// limit = 0 berarti default 50 pesan.

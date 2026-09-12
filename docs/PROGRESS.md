@@ -61,12 +61,13 @@
 - [x] **Milestone 4.3: Real-Time Sidebar Snippet & Unread Badge Counter**:
   - Auto-increment badge unread saat pesan masuk ke room yang sedang tidak aktif.
   - Reset unread counter saat room dibuka oleh user.
-  - Cuplikan pesan terakhir (*snippet*), pengirim, dan timestamp `HH:mm` terupdate real-time.
+  - Cuplikan pesan terakhir (*snippet*), pengirim, timestamp `HH:mm`, dan indikator status tanda centang (`✓` sent, `✓✓` delivered, `✓✓` read) terupdate real-time.
   - Dynamic sorting percakapan (room terupdate otomatis naik ke paling atas).
 - [x] **Milestone 4.4: Message Receipts Status Transitions**:
-  - Transisi status tanda terima 4-tahap: `🕒 Pending` ➔ `✓ Sent` ➔ `✓✓ Delivered` (abu-abu) ➔ `✓✓ Read` (biru `#53bdeb`).
-  - Auto-ACK status `sent` dari backend Go, `delivered` saat pesan diterima browser lawan bicara, dan `read` saat percakapan aktif terbuka.
-  - Penambahan kolom `status VARCHAR(32) DEFAULT 'sent'` pada tabel database `messages` dengan auto-migration & method `UpdateMessageStatus`.
+  - Transisi status tanda terima 4-tahap lengkap: `🕒 Pending` ➔ `✓ Sent` (centang 1 abu-abu) ➔ `✓✓ Delivered` (centang 2 abu-abu saat lawan bicara online) ➔ `✓✓ Read` (centang 2 biru `#53bdeb` saat lawan bicara membuka obrolan).
+  - Tampilan receipt realtime terintegrasi di balon chat linimasa dan di daftar percakapan Sidebar kiri.
+  - Bulk read & delivered receipts synchronization saat client tersambung kembali ke WebSocket atau membuka room.
+  - Penambahan kolom `status VARCHAR(32) DEFAULT 'sent'` pada tabel database `messages` dengan auto-migration & method `UpdateMessageStatus`, `MarkRoomMessagesAsRead`, dan `MarkUserMessagesAsDelivered`.
   - Unit test `TestHubReceiptsFlow` lulus 100%.
 - [x] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**:
   - Tombol aksi kutip pesan (*reply/quote*) dengan preview banner di atas textarea input dan kartu kutipan interaktif di dalam balon pesan.
