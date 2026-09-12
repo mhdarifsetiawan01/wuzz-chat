@@ -371,12 +371,32 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 			}
 		}
 
-		// Ambil pesan terakhir
+		// Ambil pesan terakhir (termasuk format snippet untuk media)
 		var msgQuery string
 		if s.driverName == "postgres" {
-			msgQuery = `SELECT content, from_nickname, COALESCE(status, 'sent'), created_at FROM messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT 1`
+			msgQuery = `SELECT 
+				CASE 
+					WHEN content IS NOT NULL AND content != '' THEN content
+					WHEN media_type = 'image' THEN '📷 Foto'
+					WHEN media_type = 'audio' THEN '🎙️ Pesan Suara'
+					WHEN media_type = 'video' THEN '🎥 Video'
+					WHEN media_url IS NOT NULL AND media_url != '' THEN '📎 ' || COALESCE(NULLIF(file_name, ''), 'Berkas')
+					ELSE ''
+				END AS snippet, 
+				from_nickname, COALESCE(status, 'sent'), created_at 
+			FROM messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT 1`
 		} else {
-			msgQuery = `SELECT content, from_nickname, COALESCE(status, 'sent'), created_at FROM messages WHERE room_id = ? ORDER BY created_at DESC LIMIT 1`
+			msgQuery = `SELECT 
+				CASE 
+					WHEN content IS NOT NULL AND content != '' THEN content
+					WHEN media_type = 'image' THEN '📷 Foto'
+					WHEN media_type = 'audio' THEN '🎙️ Pesan Suara'
+					WHEN media_type = 'video' THEN '🎥 Video'
+					WHEN media_url IS NOT NULL AND media_url != '' THEN '📎 ' || COALESCE(NULLIF(file_name, ''), 'Berkas')
+					ELSE ''
+				END AS snippet, 
+				from_nickname, COALESCE(status, 'sent'), created_at 
+			FROM messages WHERE room_id = ? ORDER BY created_at DESC LIMIT 1`
 		}
 		var msgTime time.Time
 		if err := s.db.QueryRow(msgQuery, item.ID).Scan(&item.LastMessage, &item.LastSender, &item.LastStatus, &msgTime); err == nil {

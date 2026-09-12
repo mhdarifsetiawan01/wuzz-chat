@@ -2250,5 +2250,56 @@ h4 { font-size: 1rem;   font-weight: 600; }
   color: var(--text-primary);
 }
 
+/* ============================================================
+   Store-and-Forward Media Lifecycle & Expired Badges
+   ============================================================ */
+
+.message-expired-media-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+}
+
+.expired-media-icon {
+  font-size: 1.5rem;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.expired-media-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.expired-media-info strong {
+  font-size: 0.8125rem;
+  color: #f87171;
+}
+
+.expired-media-info span {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.media-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  z-index: 2;
+  border-radius: var(--radius-md);
+}
+
+
 
 

@@ -102,17 +102,22 @@ Membangun platform chatting modern yang:
 
 ---
 
-### Fase 5: Rich Media, Voice Notes & Attachments (Target Selanjutnya 🎯)
-*Tujuan: Mendukung pengiriman berbagai tipe konten multimedia.*
-- **Cloud Object Storage Integration**:
-  - Integrasi S3 / Supabase Storage untuk upload media.
-  - Generasi thumbnail otomatis untuk gambar & video.
+### Fase 5: Rich Media, Voice Notes, Attachments & Store-and-Forward Lifecycle (Status: SELESAI ✅)
+*Tujuan: Mendukung pengiriman multimedia kaya dengan efisiensi storage $0 via WhatsApp Store-and-Forward model.*
+- **Cloud & Local Media Storage Integration**:
+  - Pluggable storage architecture (`LocalStorage`, `SupabaseStorage`, `S3Storage`).
+  - Endpoint `POST /api/media/upload` dengan validasi MIME magic bytes, UUID anti-traversal, dan dynamic feature flag `ENABLE_MEDIA_UPLOAD`.
+- **WhatsApp-Style Store-and-Forward & IndexedDB Caching**:
+  - Auto-delete file dari storage begitu client selesai download (`POST /api/media/ack`).
+  - Background auto-purge worker (`PurgeWorker`) dengan batas retensi `MEDIA_RETENTION_DAYS=7`.
+  - Client-side offline cache berbasis browser `IndexedDB` (`mediaCache.ts`) untuk akses instan tanpa kuota.
+  - Kompresi gambar client-side otomatis (`imageCompressor.ts`, resize max 1600px, WebP quality 0.82) dengan toggle on/off di modal profil.
 - **Voice Note Recording**:
-  - Web Audio API: Perekaman suara langsung dari browser, preview visual waveform, dan pemutar audio kustom.
+  - MediaRecorder API: Perekaman suara langsung dari peramban, timer live, waveform animasi, dan pemutar audio kustom (`AudioPlayerBubble`).
 - **Document & File Sharing**:
-  - Upload file PDF, ZIP, Dokumen dengan progress bar persentase.
-- **Link Previewer**:
-  - Otomatis mengambil metadata OpenGraph (Title, Description, Image) saat user mengirimkan link URL.
+  - Berkas PDF, DOC, Sheet, Slide, ZIP, Text dengan badge visual berwarna dan tombol direct download.
+- **Image Lightbox Modal**:
+  - Fullscreen zoomable modal view (Zoom In/Out, Reset, Download, Keyboard Escape navigation).
 
 ---
 

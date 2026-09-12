@@ -45,6 +45,7 @@ export interface Message {
   media_type?: 'image' | 'audio' | 'video' | 'document' | string
   file_name?: string
   file_size?: number
+  media_status?: 'active' | 'downloaded' | 'expired' | string
   messages?: Message[]   // Digunakan saat type = 'history'
   users?: RoomUser[]     // Digunakan saat type = 'room_users'
 }
@@ -53,6 +54,8 @@ export interface AppConfig {
   media_upload_enabled: boolean
   max_file_size_mb: number
   storage_driver: string
+  media_retention_days?: number
+  auto_delete_on_download?: boolean
 }
 
 export interface MediaUploadResponse {

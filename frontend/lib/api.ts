@@ -76,3 +76,15 @@ export async function getAppConfig(): Promise<AppConfig | null> {
   const res = await apiRequest<AppConfig>('/api/config')
   return res.data || null
 }
+
+export async function acknowledgeMediaDownload(
+  messageId: string,
+  roomId?: string
+): Promise<{ data?: { status: string; media_status: string }; error?: string }> {
+  if (!messageId) return { error: 'messageId required' }
+  return apiRequest<{ status: string; media_status: string }>('/api/media/ack', {
+    method: 'POST',
+    body: JSON.stringify({ message_id: messageId, room_id: roomId }),
+  })
+}
+

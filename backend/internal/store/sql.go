@@ -102,7 +102,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		}
 	}
 
-	// Auto-migration non-destruktif untuk kolom status, reply_to, dan reactions di tabel messages & users
+	// Auto-migration non-destruktif untuk kolom status, reply_to, reactions, dan media di tabel messages & users
 	if s.driverName == "postgres" {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';`)
@@ -115,6 +115,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_type VARCHAR(32) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size BIGINT DEFAULT 0;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_status VARCHAR(32) DEFAULT 'active';`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -128,9 +129,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN media_type VARCHAR(32) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN file_name VARCHAR(255) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN file_size BIGINT DEFAULT 0;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN media_status VARCHAR(32) DEFAULT 'active';`)
 	}
 
-	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' (dengan status receipts, reply, reactions, media, dan user bio) berhasil dipastikan ada!")
+	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' (dengan status receipts, reply, reactions, media lifecycle, dan user bio) berhasil dipastikan ada!")
 	return nil
 }
 
@@ -154,14 +156,18 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 	if reactions == "" {
 		reactions = "[]"
 	}
+	mediaStatus := msg.MediaStatus
+	if mediaStatus == "" {
+		mediaStatus = "active"
+	}
 
 	var query string
 	if s.driverName == "postgres" {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, created_at)
-		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at)
+		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
 	} else {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, created_at)
-		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at)
+		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
 	_, err := s.db.Exec(
@@ -181,6 +187,7 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 		msg.MediaType,
 		msg.FileName,
 		msg.FileSize,
+		mediaStatus,
 		msg.Timestamp.UTC(),
 	)
 	return err
@@ -356,9 +363,9 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 		query = `
 		SELECT id, room_id, from_id, from_nickname, to_id, content, 
 		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
-		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), created_at
+		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
 		FROM (
-			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, created_at
+			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at
 			FROM messages
 			WHERE room_id = $1
 			ORDER BY created_at DESC
@@ -369,9 +376,9 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 		query = `
 		SELECT id, room_id, from_id, from_nickname, to_id, content, 
 		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
-		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), created_at
+		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
 		FROM (
-			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, created_at
+			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at
 			FROM messages
 			WHERE room_id = ?
 			ORDER BY created_at DESC
@@ -391,7 +398,7 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 		var m StoredMessage
 		var createdAt time.Time
 		var status, replyToID, replyToNickname, replyToContent, reactions string
-		var mediaURL, mediaType, fileName string
+		var mediaURL, mediaType, fileName, mediaStatus string
 		var fileSize int64
 		if err := rows.Scan(
 			&m.ID,
@@ -409,6 +416,7 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 			&mediaType,
 			&fileName,
 			&fileSize,
+			&mediaStatus,
 			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("gagal scan baris history: %w", err)
@@ -422,6 +430,7 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 		m.MediaType = mediaType
 		m.FileName = fileName
 		m.FileSize = fileSize
+		m.MediaStatus = mediaStatus
 		m.Timestamp = createdAt.UTC()
 		history = append(history, m)
 	}
@@ -433,6 +442,152 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 	return history, nil
 }
 
+// AcknowledgeMediaDownload mencatat bahwa client telah mengunduh media.
+func (s *SQLMessageStore) AcknowledgeMediaDownload(msgID string) (string, string, bool, error) {
+	if msgID == "" {
+		return "", "", false, nil
+	}
+
+	var mediaURL, mediaStatus sql.NullString
+	var queryGet string
+	if s.driverName == "postgres" {
+		queryGet = `SELECT media_url, COALESCE(media_status, 'active') FROM messages WHERE id = $1`
+	} else {
+		queryGet = `SELECT media_url, COALESCE(media_status, 'active') FROM messages WHERE id = ?`
+	}
+
+	if err := s.db.QueryRow(queryGet, msgID).Scan(&mediaURL, &mediaStatus); err != nil {
+		if err == sql.ErrNoRows {
+			return "", "", false, nil
+		}
+		return "", "", false, err
+	}
+
+	urlStr := ""
+	if mediaURL.Valid {
+		urlStr = mediaURL.String
+	}
+	statusStr := "active"
+	if mediaStatus.Valid && mediaStatus.String != "" {
+		statusStr = mediaStatus.String
+	}
+
+	if urlStr == "" {
+		return "", statusStr, false, nil
+	}
+
+	// Ubah media_status menjadi 'expired' (atau 'downloaded')
+	var queryUpdate string
+	if s.driverName == "postgres" {
+		queryUpdate = `UPDATE messages SET media_status = 'expired' WHERE id = $1`
+	} else {
+		queryUpdate = `UPDATE messages SET media_status = 'expired' WHERE id = ?`
+	}
+	_, err := s.db.Exec(queryUpdate, msgID)
+	if err != nil {
+		return urlStr, statusStr, false, err
+	}
+
+	return urlStr, "expired", true, nil
+}
+
+// GetExpiredMediaMessages mengambil daftar pesan dengan media aktif yang sudah melewati batas retensi hari.
+func (s *SQLMessageStore) GetExpiredMediaMessages(retentionDays int) ([]StoredMessage, error) {
+	if retentionDays <= 0 {
+		return []StoredMessage{}, nil
+	}
+
+	var query string
+	if s.driverName == "postgres" {
+		query = `
+		SELECT id, room_id, from_id, from_nickname, to_id, content, 
+		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
+		FROM messages
+		WHERE media_url IS NOT NULL AND media_url != '' 
+		  AND COALESCE(media_status, 'active') = 'active'
+		  AND created_at < NOW() - ($1 || ' days')::INTERVAL
+		ORDER BY created_at ASC
+		LIMIT 100`
+	} else {
+		query = `
+		SELECT id, room_id, from_id, from_nickname, to_id, content, 
+		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
+		FROM messages
+		WHERE media_url IS NOT NULL AND media_url != '' 
+		  AND COALESCE(media_status, 'active') = 'active'
+		  AND created_at < datetime('now', '-' || ? || ' days')
+		ORDER BY created_at ASC
+		LIMIT 100`
+	}
+
+	rows, err := s.db.Query(query, retentionDays)
+	if err != nil {
+		return nil, fmt.Errorf("gagal query expired media: %w", err)
+	}
+	defer rows.Close()
+
+	var expired []StoredMessage
+	for rows.Next() {
+		var m StoredMessage
+		var createdAt time.Time
+		var status, replyToID, replyToNickname, replyToContent, reactions string
+		var mediaURL, mediaType, fileName, mediaStatus string
+		var fileSize int64
+		if err := rows.Scan(
+			&m.ID,
+			&m.RoomID,
+			&m.FromID,
+			&m.Nickname,
+			&m.ToID,
+			&m.Content,
+			&status,
+			&replyToID,
+			&replyToNickname,
+			&replyToContent,
+			&reactions,
+			&mediaURL,
+			&mediaType,
+			&fileName,
+			&fileSize,
+			&mediaStatus,
+			&createdAt,
+		); err != nil {
+			return nil, fmt.Errorf("gagal scan expired media: %w", err)
+		}
+		m.Status = status
+		m.ReplyToID = replyToID
+		m.ReplyToNickname = replyToNickname
+		m.ReplyToContent = replyToContent
+		m.Reactions = reactions
+		m.MediaURL = mediaURL
+		m.MediaType = mediaType
+		m.FileName = fileName
+		m.FileSize = fileSize
+		m.MediaStatus = mediaStatus
+		m.Timestamp = createdAt.UTC()
+		expired = append(expired, m)
+	}
+
+	if expired == nil {
+		expired = []StoredMessage{}
+	}
+	return expired, nil
+}
+
+// MarkMediaExpired menandai status media pesan menjadi 'expired'.
+func (s *SQLMessageStore) MarkMediaExpired(msgID string) error {
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE messages SET media_status = 'expired' WHERE id = $1`
+	} else {
+		query = `UPDATE messages SET media_status = 'expired' WHERE id = ?`
+	}
+	_, err := s.db.Exec(query, msgID)
+	return err
+}
+
 // Close menutup koneksi pool database.
 func (s *SQLMessageStore) Close() error {
 	if s.db != nil {
@@ -442,3 +597,4 @@ func (s *SQLMessageStore) Close() error {
 }
 
 var _ MessageStore = (*SQLMessageStore)(nil)
+

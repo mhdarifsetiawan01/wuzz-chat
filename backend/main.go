@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/api"
@@ -53,7 +54,18 @@ func main() {
 	if err != nil {
 		log.Printf("⚠️ Gagal inisialisasi media storage: %v", err)
 	}
-	mediaHandler := api.NewMediaHandler(mediaStorage)
+	mediaHandler := api.NewMediaHandler(mediaStorage, messageStore)
+
+	// Inisialisasi Purge Worker untuk membersihkan file media kedaluwarsa (TTL)
+	retentionDays := 7
+	if envDays := os.Getenv("MEDIA_RETENTION_DAYS"); envDays != "" {
+		if val, err := strconv.Atoi(envDays); err == nil && val >= 0 {
+			retentionDays = val
+		}
+	}
+	purgeWorker := storage.NewPurgeWorker(mediaStorage, messageStore, retentionDays, 1*time.Hour)
+	purgeWorker.Start()
+	defer purgeWorker.Stop()
 
 	// Inisialisasi Hub dengan dependency injection
 	hub := ws.NewHub(clientStore, messageStore)
@@ -93,6 +105,9 @@ func main() {
 	mux.HandleFunc("/api/config", withCORS(mediaHandler.Config))
 	mux.HandleFunc("/api/media/upload", withCORS(func(w http.ResponseWriter, r *http.Request) {
 		auth.RequireJWT()(http.HandlerFunc(mediaHandler.Upload)).ServeHTTP(w, r)
+	}))
+	mux.HandleFunc("/api/media/ack", withCORS(func(w http.ResponseWriter, r *http.Request) {
+		auth.RequireJWT()(http.HandlerFunc(mediaHandler.AcknowledgeDownload)).ServeHTTP(w, r)
 	}))
 
 	// Serving file statis jika menggunakan Local Storage

@@ -1,9 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { Message } from '@/lib/types'
 import { AudioPlayerBubble } from './AudioPlayerBubble'
+import { getCachedMediaBlob, setCachedMediaBlob } from '@/lib/mediaCache'
+import { acknowledgeMediaDownload } from '@/lib/api'
 
 interface MessageBubbleProps {
   message: Message
@@ -88,18 +90,113 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
   const [isExpanded, setIsExpanded] = useState(false)
   const [isReaderModalOpen, setIsReaderModalOpen] = useState(false)
 
-  // Cek apakah pesan tergolong panjang (> 300 karakter atau > 7 baris)
-  const isLongMessage = !isSystem && Boolean(
-    (message.content && message.content.length > 300) ||
-    (message.content && message.content.split('\n').length > 7)
-  )
-  
+  // Media Offline Caching & Expiration State (Store-and-Forward)
+  const [resolvedMediaUrl, setResolvedMediaUrl] = useState<string | null>(null)
+  const [isMediaExpired, setIsMediaExpired] = useState(false)
+  const [isMediaLoading, setIsMediaLoading] = useState(false)
+
   // Penentuan self yang andal: utamakan kecocokan nickname, fallback ke client ID
   const isSelf = isSystem
     ? false
     : message.nickname && selfNickname
       ? message.nickname === selfNickname
       : message.from === selfId
+
+  // Resolusi Caching IndexedDB untuk Media (WhatsApp-Style)
+  useEffect(() => {
+    if (!message.media_url) return
+
+    let isMounted = true
+    let createdBlobUrl: string | null = null
+
+    async function resolveMedia() {
+      const targetUrl = message.media_url!
+      
+      // 1. Cek apakah binary blob sudah tersimpan di IndexedDB browser lokal
+      const cachedBlob = await getCachedMediaBlob(targetUrl)
+      if (cachedBlob) {
+        if (isMounted) {
+          createdBlobUrl = URL.createObjectURL(cachedBlob)
+          setResolvedMediaUrl(createdBlobUrl)
+          setIsMediaExpired(false)
+        }
+        return
+      }
+
+      // 2. Jika tidak ada di lokal dan status di server sudah 'expired', tandai expired
+      if (message.media_status === 'expired') {
+        if (isMounted) {
+          setIsMediaExpired(true)
+        }
+        return
+      }
+
+      // 3. Jika belum di-cache dan belum expired di server, unduh dan simpan ke IndexedDB
+      if (isMounted) setIsMediaLoading(true)
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') : null
+        const isInternal = targetUrl.startsWith('/') || (typeof window !== 'undefined' && targetUrl.startsWith(window.location.origin))
+        const headers: Record<string, string> = {}
+        if (isInternal && token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+
+        const res = await fetch(targetUrl, { headers })
+        if (!res.ok) {
+          // Jika file fisik sudah dihapus dari server (404/410)
+          if (res.status === 404 || res.status === 410) {
+            if (isMounted) {
+              setIsMediaExpired(true)
+              setIsMediaLoading(false)
+            }
+          } else {
+            if (isMounted) {
+              setResolvedMediaUrl(targetUrl)
+              setIsMediaLoading(false)
+            }
+          }
+          return
+        }
+
+        const blob = await res.blob()
+        // Simpan ke IndexedDB lokal
+        await setCachedMediaBlob(targetUrl, blob, blob.type, message.file_name)
+
+        // Kirim ACK ke backend bahwa media sudah selesai diunduh oleh client
+        if (message.id && !isSelf) {
+          acknowledgeMediaDownload(message.id, message.room)
+        }
+
+        if (isMounted) {
+          createdBlobUrl = URL.createObjectURL(blob)
+          setResolvedMediaUrl(createdBlobUrl)
+          setIsMediaExpired(false)
+          setIsMediaLoading(false)
+        }
+      } catch {
+        if (isMounted) {
+          // Fallback gunakan remote URL langsung jika fetch blob gagal tapi URL masih valid
+          setResolvedMediaUrl(targetUrl)
+          setIsMediaLoading(false)
+        }
+      }
+    }
+
+    resolveMedia()
+
+    return () => {
+      isMounted = false
+      if (createdBlobUrl) {
+        URL.revokeObjectURL(createdBlobUrl)
+      }
+    }
+  }, [message.media_url, message.media_status, message.id, message.room, message.file_name, isSelf])
+
+  // Cek apakah pesan tergolong panjang (> 300 karakter atau > 7 baris)
+  const isLongMessage = !isSystem && Boolean(
+    (message.content && message.content.length > 300) ||
+    (message.content && message.content.split('\n').length > 7)
+  )
 
   const rowClass = isSystem ? 'system' : isSelf ? 'self' : 'peer'
   const time = formatTime(message.timestamp)
@@ -125,7 +222,6 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
     if (targetEl) {
       targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
       targetEl.classList.remove('highlight-pulse')
-      // Trigger reflow untuk me-restart animasi pulse jika diklik berkali-kali
       void targetEl.offsetWidth
       targetEl.classList.add('highlight-pulse')
       setTimeout(() => {
@@ -133,6 +229,8 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
       }, 2000)
     }
   }
+
+  const effectiveMediaUrl = resolvedMediaUrl || message.media_url
 
   return (
     <div
@@ -166,23 +264,39 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
             </div>
           )}
 
-          {/* Pratinjau Gambar jika ada */}
-          {message.media_url && message.media_type === 'image' && (
+          {/* Tampilan Media Kedaluwarsa (Expired State - WhatsApp style) */}
+          {message.media_url && isMediaExpired && !resolvedMediaUrl && (
+            <div className="message-expired-media-box">
+              <span className="expired-media-icon">⌛</span>
+              <div className="expired-media-info">
+                <strong>Media telah kedaluwarsa</strong>
+                <span>File sudah tidak tersedia di server</span>
+              </div>
+            </div>
+          )}
+
+          {/* Pratinjau Gambar jika ada dan tidak expired */}
+          {message.media_url && message.media_type === 'image' && !isMediaExpired && (
             <div
               className="message-image-wrapper"
-              onClick={() => onImageClick?.(message.media_url!, message.file_name)}
+              onClick={() => onImageClick?.(effectiveMediaUrl!, message.file_name)}
               role="button"
               tabIndex={0}
               title="Klik untuk memperbesar gambar"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
-                  onImageClick?.(message.media_url!, message.file_name)
+                  onImageClick?.(effectiveMediaUrl!, message.file_name)
                 }
               }}
             >
+              {isMediaLoading && (
+                <div className="media-loading-overlay">
+                  <span>Memuat gambar... ⏳</span>
+                </div>
+              )}
               <img
-                src={message.media_url}
+                src={effectiveMediaUrl!}
                 alt={message.file_name || 'Foto terlampir'}
                 className="message-image-img"
                 loading="lazy"
@@ -191,7 +305,7 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
           )}
 
           {/* Pratinjau Dokumen / Berkas jika tipe bukan gambar atau audio */}
-          {message.media_url && message.media_type !== 'image' && message.media_type !== 'audio' && (
+          {message.media_url && message.media_type !== 'image' && message.media_type !== 'audio' && !isMediaExpired && (
             <div className="message-doc-card">
               <div className={`doc-card-badge ${getFileMeta(message.file_name).colorClass}`}>
                 <span className="doc-card-icon">{getFileMeta(message.file_name).icon}</span>
@@ -206,7 +320,7 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
                 </span>
               </div>
               <a
-                href={message.media_url}
+                href={effectiveMediaUrl!}
                 download={message.file_name || 'file'}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -220,9 +334,9 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
           )}
 
           {/* Pratinjau Pesan Suara / Audio Voice Note */}
-          {message.media_url && message.media_type === 'audio' && (
+          {message.media_url && message.media_type === 'audio' && !isMediaExpired && (
             <AudioPlayerBubble
-              audioUrl={message.media_url}
+              audioUrl={effectiveMediaUrl!}
               fileName={message.file_name}
               isSelf={isSelf}
             />

@@ -17,7 +17,7 @@ func TestMediaHandler_Config(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	ls, _ := storage.NewLocalStorage(tempDir, "/uploads")
-	handler := NewMediaHandler(ls)
+	handler := NewMediaHandler(ls, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/config", nil)
 	rr := httptest.NewRecorder()
@@ -39,6 +39,9 @@ func TestMediaHandler_Config(t *testing.T) {
 	if res.StorageDriver != "local" {
 		t.Errorf("Ekspektasi storage driver 'local', dapat: %s", res.StorageDriver)
 	}
+	if res.MediaRetentionDays != 7 {
+		t.Errorf("Ekspektasi default media retention 7 hari, dapat: %d", res.MediaRetentionDays)
+	}
 }
 
 func TestMediaHandler_UploadSuccess(t *testing.T) {
@@ -46,7 +49,7 @@ func TestMediaHandler_UploadSuccess(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	ls, _ := storage.NewLocalStorage(tempDir, "/uploads")
-	handler := NewMediaHandler(ls)
+	handler := NewMediaHandler(ls, nil)
 
 	// Buat multipart form data
 	body := &bytes.Buffer{}
@@ -88,7 +91,7 @@ func TestMediaHandler_UploadDisabled(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	ls, _ := storage.NewLocalStorage(tempDir, "/uploads")
-	handler := NewMediaHandler(ls)
+	handler := NewMediaHandler(ls, nil)
 	handler.SetEnabled(false) // Nonaktifkan fitur
 
 	body := &bytes.Buffer{}
@@ -113,7 +116,7 @@ func TestMediaHandler_UploadDangerousFile(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	ls, _ := storage.NewLocalStorage(tempDir, "/uploads")
-	handler := NewMediaHandler(ls)
+	handler := NewMediaHandler(ls, nil)
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -129,5 +132,26 @@ func TestMediaHandler_UploadDangerousFile(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("Ekspektasi status 400 Bad Request untuk file berbahaya .exe, dapat: %d", rr.Code)
+	}
+}
+
+func TestMediaHandler_AcknowledgeDownload(t *testing.T) {
+	tempDir, _ := os.MkdirTemp("", "wuzz_test_media_*")
+	defer os.RemoveAll(tempDir)
+
+	ls, _ := storage.NewLocalStorage(tempDir, "/uploads")
+	handler := NewMediaHandler(ls, nil)
+
+	ackBody, _ := json.Marshal(MediaAckRequest{
+		MessageID: "msg-123",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/media/ack", bytes.NewReader(ackBody))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+
+	handler.AcknowledgeDownload(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Ekspektasi status 200 OK untuk ACK download, dapat: %d", rr.Code)
 	}
 }

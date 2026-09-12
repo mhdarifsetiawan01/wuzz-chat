@@ -46,6 +46,7 @@ type StoredMessage struct {
 	MediaType       string    `json:"media_type,omitempty"`
 	FileName        string    `json:"file_name,omitempty"`
 	FileSize        int64     `json:"file_size,omitempty"`
+	MediaStatus     string    `json:"media_status,omitempty"` // "active", "downloaded", "expired"
 	Timestamp       time.Time `json:"timestamp"`
 }
 
@@ -70,6 +71,16 @@ type MessageStore interface {
 	// Mengembalikan pesan terurut secara kronologis (tertua ke terbaru).
 	// limit = 0 berarti default 50 pesan.
 	GetRoomHistory(roomID string, limit int) ([]StoredMessage, error)
+
+	// AcknowledgeMediaDownload mencatat bahwa client telah mengunduh media.
+	// Mengembalikan mediaURL, mediaStatus terkini, dan apakah file sudah dapat dihapus dari server.
+	AcknowledgeMediaDownload(msgID string) (mediaURL string, mediaStatus string, canDelete bool, err error)
+
+	// GetExpiredMediaMessages mengambil daftar pesan dengan media aktif yang sudah melewati batas retensi hari.
+	GetExpiredMediaMessages(retentionDays int) ([]StoredMessage, error)
+
+	// MarkMediaExpired menandai status media pesan menjadi 'expired'.
+	MarkMediaExpired(msgID string) error
 
 	// Close menutup koneksi database jika ada.
 	Close() error

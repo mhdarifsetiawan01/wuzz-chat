@@ -227,10 +227,10 @@ func (c *Client) onMessage(msg Message) {
 		return
 	}
 
-	// Validasi Konten Pesan: Tidak boleh kosong & batasi panjang maksimal 5.000 karakter
+	// Validasi Konten Pesan: Harus memiliki teks ATAU berkas media terlampir
 	content := strings.TrimSpace(msg.Content)
-	if content == "" {
-		c.sendError("Isi pesan tidak boleh kosong")
+	if content == "" && msg.MediaURL == "" {
+		c.sendError("Isi pesan atau lampiran media tidak boleh kosong")
 		return
 	}
 	if len([]rune(content)) > 5000 {

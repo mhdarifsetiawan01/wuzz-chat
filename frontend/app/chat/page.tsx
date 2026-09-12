@@ -394,7 +394,7 @@ function ChatPageContent() {
         nickname: session.nickname,
         content,
         room: roomId,
-        status: 'pending',
+        status: 'sent',
         reply_to: replyPayload,
         media_url: media?.url,
         media_type: media?.media_type,

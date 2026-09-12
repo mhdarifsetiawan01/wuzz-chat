@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { apiRequest } from '@/lib/api'
 import type { User } from '@/lib/types'
+import { isImageCompressionEnabled, setImageCompressionEnabled } from '@/lib/imageCompressor'
+import { getMediaCacheStats, clearMediaCache } from '@/lib/mediaCache'
 
 interface ProfileModalProps {
   isOpen: boolean
@@ -29,6 +31,11 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
+  // Settings: Image Compression & Media Cache
+  const [compressImages, setCompressImages] = useState(true)
+  const [cacheStats, setCacheStats] = useState<{ count: number; totalBytes: number }>({ count: 0, totalBytes: 0 })
+  const [cacheClearMsg, setCacheClearMsg] = useState('')
+
   useEffect(() => {
     if (user && isOpen) {
       setDisplayName(user.display_name || user.username || '')
@@ -36,10 +43,26 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       setAvatarUrl(user.avatar_url || '')
       setError('')
       setSuccessMsg('')
+      setCompressImages(isImageCompressionEnabled())
+      getMediaCacheStats().then(setCacheStats)
     }
   }, [user, isOpen])
 
   if (!isOpen || !user) return null
+
+  const handleToggleCompression = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked
+    setCompressImages(checked)
+    setImageCompressionEnabled(checked)
+  }
+
+  const handleClearCache = async () => {
+    await clearMediaCache()
+    const stats = await getMediaCacheStats()
+    setCacheStats(stats)
+    setCacheClearMsg('🧹 Cache media lokal berhasil dibersihkan!')
+    setTimeout(() => setCacheClearMsg(''), 2500)
+  }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,8 +112,8 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0, 0, 0, 0.7)',
-        backdropFilter: 'blur(4px)',
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(6px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -105,8 +128,11 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           border: '1px solid var(--border-color)',
           borderRadius: 'var(--radius-lg)',
           width: '100%',
-          maxWidth: '440px',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+          maxWidth: '460px',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
           overflow: 'hidden',
         }}
       >
@@ -123,7 +149,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <span style={{ fontSize: '1.25rem' }}>⚙️</span>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Edit Profil Akun</h3>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Profil & Pengaturan</h3>
           </div>
           <button
             type="button"
@@ -143,7 +169,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSave} style={{ padding: 'var(--space-5)' }}>
+        <form onSubmit={handleSave} style={{ padding: 'var(--space-5)', overflowY: 'auto' }}>
           {error && (
             <div
               style={{
@@ -288,6 +314,83 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Section: Pengaturan Media & Penyimpanan (WhatsApp Style) */}
+          <div
+            style={{
+              marginTop: 'var(--space-4)',
+              paddingTop: 'var(--space-4)',
+              borderTop: '1px solid var(--border-color)',
+            }}
+          >
+            <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+              📦 Pengaturan Media & Penyimpanan
+            </h4>
+
+            {/* Toggle Kompresi Gambar */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: '8px',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                  🗜️ Kompres Gambar Otomatis
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  Hemat kuota dan unggah lebih cepat (Default: ON)
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={compressImages}
+                onChange={handleToggleCompression}
+                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-500)' }}
+              />
+            </div>
+
+            {/* Cache Local IndexedDB Stats & Clear */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 12px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: 'var(--radius-md)',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                  💾 Penyimpanan Lokal (IndexedDB)
+                </div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                  {cacheStats.count} media tersimpan ({(cacheStats.totalBytes / (1024 * 1024)).toFixed(2)} MB)
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearCache}
+                className="btn btn-secondary"
+                style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+                title="Bersihkan cache lokal"
+              >
+                Bersihkan
+              </button>
+            </div>
+
+            {cacheClearMsg && (
+              <div style={{ fontSize: '0.75rem', color: '#22c55e', marginTop: '6px', textAlign: 'right' }}>
+                {cacheClearMsg}
+              </div>
+            )}
           </div>
 
           {/* Buttons */}

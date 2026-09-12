@@ -117,12 +117,24 @@ export function Sidebar({
 
     // Update snippet & pindahkan percakapan ke urutan teratas
     if (lastIncomingMessage.type === 'message') {
+      const snippet = lastIncomingMessage.content && lastIncomingMessage.content.trim() !== ''
+        ? lastIncomingMessage.content
+        : lastIncomingMessage.media_type === 'image'
+        ? '📷 Foto'
+        : lastIncomingMessage.media_type === 'audio'
+        ? '🎙️ Pesan Suara'
+        : lastIncomingMessage.media_type === 'video'
+        ? '🎥 Video'
+        : lastIncomingMessage.media_url
+        ? `📎 ${lastIncomingMessage.file_name || 'Berkas'}`
+        : ''
+
       setConversations(prev => {
         const index = prev.findIndex(c => c.id === room)
         const updatedItem: ConversationItem = index >= 0
           ? {
               ...prev[index],
-              last_message: lastIncomingMessage.content,
+              last_message: snippet,
               last_sender: lastIncomingMessage.nickname || 'Pengguna',
               last_status: lastIncomingMessage.status || 'sent',
               updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
@@ -131,7 +143,7 @@ export function Sidebar({
               id: room,
               type: 'direct',
               title: lastIncomingMessage.nickname || room,
-              last_message: lastIncomingMessage.content,
+              last_message: snippet,
               last_sender: lastIncomingMessage.nickname || 'Pengguna',
               last_status: lastIncomingMessage.status || 'sent',
               updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),

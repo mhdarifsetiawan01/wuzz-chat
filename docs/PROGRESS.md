@@ -142,12 +142,19 @@
   - Otomatis membuat blob berkas audio terkompresi (`.webm` / `.mp4` / `.ogg`), mengunggah via `uploadMedia()`, dan mengirim pesan tipe `audio`.
   - Pemutar audio kustom bergaya WhatsApp/Telegram (`AudioPlayerBubble.tsx`): tombol Play/Pause kustom, simulated dynamic waveform scrubber track, timer progres audio, dan toggle kecepatan pemutaran (`1x` / `1.5x` / `2x`).
   - Single-active player auto-pause saat audio lain diputar.
+- [x] **Milestone 5.5: WhatsApp-Style Store-and-Forward Media Lifecycle, TTL Auto-Purge & Client-Side Caching**:
+  - Arsitektur Store-and-Forward ($0 Storage Cost): File di server hanya berfungsi sebagai transit buffer dan otomatis dibersihkan.
+  - Background Worker Auto-Purge (`PurgeWorker`): membersihkan berkas yang usianya melampaui `MEDIA_RETENTION_DAYS` (default 7 hari).
+  - Download Acknowledgment (`POST /api/media/ack`): saat klien mengunduh file, server menghapus berkas fisik dari storage dan memperbarui `media_status`.
+  - Client-Side Offline Storage (`IndexedDB` via `mediaCache.ts`): file tersimpan di cache lokal browser pengguna sehingga tetap dapat dibuka instan dan offline meskipun berkas di server telah dihapus.
+  - Expired State Graceful UI: menampilkan placeholder blur dan badge *"Media telah kedaluwarsa"* jika file di server terhapus dan belum pernah di-cache lokal.
+  - Client-Side Pre-Upload Image Compressor (`imageCompressor.ts`): kompresi otomatis gambar sebelum diunggah (resize max 1600px, WebP quality 0.82) dengan toggle on/off yang dapat dimatikan kapan saja di modal Profil.
 
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Fase 5: Rich Media, Voice Notes & Attachments telah 100% Selesai & Terverifikasi!** (Storage Adapter, Upload API, Image Lightbox, Document Cards, Voice Notes & Waveform Player).
+- **Fase 5: Rich Media, Voice Notes, Attachments & Store-and-Forward Lifecycle telah 100% Selesai & Terverifikasi!**
 - Siap melangkah ke **Fase 6: Distributed Scale & Reliability (Redis Pub/Sub & Multi-Server Cluster)** atau **OpenGraph Rich Link Preview**.
 
 ---

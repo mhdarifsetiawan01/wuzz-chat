@@ -135,11 +135,12 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `GET` | `/api/conversations` | Daftar obrolan aktif beserta pesan terakhir | Bearer Token |
 | `POST` | `/api/conversations` | Membuat obrolan baru (Direct atau Group) | Bearer Token |
 | `POST` | `/api/media/upload` | Upload file gambar/dokumen/audio ke storage | Bearer Token |
-| `GET` | `/api/config` | Mengambil status konfigurasi publik (media upload toggle) | Public |
+| `POST` | `/api/media/ack` | Konfirmasi download file oleh client (memicu auto-delete file fisik) | Bearer Token |
+| `GET` | `/api/config` | Mengambil status konfigurasi publik (media upload toggle & retention) | Public |
 
 ---
 
-## 📦 4. Panduan Ekstensi Media Storage (Pluggable Storage Drivers)
+## 📦 4. Panduan Ekstensi Media Storage & WhatsApp-Style Store-and-Forward
 
 Backend WuzzChat menggunakan kontrak tunggal `MediaStorage` di `backend/internal/storage/storage.go`:
 
@@ -151,6 +152,14 @@ type MediaStorage interface {
 }
 ```
 
+### 🔄 Siklus Hidup Media (Store-and-Forward & IndexedDB Caching)
+
+1. **Upload & Transit Buffer**: File diunggah ke storage (Supabase / Local) hanya sebagai penampung sementara (*transit buffer*).
+2. **Download & Client Caching**: Klien penerima mengunduh binary blob dan menyimpannya secara offline ke browser **IndexedDB** (`mediaCache.ts`).
+3. **Immediate Server Purge (ACK)**: Klien mengirim `POST /api/media/ack`. Server langsung memanggil `storage.Delete()` untuk menghapus berkas fisik dari server disk/bucket ($0 Server Storage Cost).
+4. **TTL Background Auto-Purge (`PurgeWorker`)**: Berkas yang belum pernah diunduh melebihi `MEDIA_RETENTION_DAYS` (default 7 hari) otomatis dibersihkan oleh goroutine worker berkala.
+5. **Client Pre-Upload Compression**: Klien mengompresi gambar otomatis (`imageCompressor.ts`, max 1600px, WebP quality 0.82) dengan opsi toggle yang dapat dimatikan kapan saja.
+
 ### 🚀 Cara Menambah Provider Storage Baru (Misal: AWS S3 / Cloudflare R2 / GCS):
 
 1. **Buat File Driver Baru**: Buat file `backend/internal/storage/<nama_provider>_storage.go` yang mengimplementasikan ketiga method di atas.
@@ -161,5 +170,6 @@ type MediaStorage interface {
    ```
 3. **Konfigurasi `.env`**: Cukup atur nilai `STORAGE_DRIVER=<nama_provider>` dan tambahkan kredensial terkait.
 4. **Zero-Touch Codebase**: Seluruh endpoint REST API, WebSocket Hub, database query, dan frontend Next.js **tidak perlu diubah sama sekali**.
+
 
 

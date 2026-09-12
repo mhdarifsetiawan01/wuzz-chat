@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/bms-del112/wuzz-chat/internal/storage"
+	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
 // MediaUploadResponse adalah struktur JSON respon saat file berhasil diunggah.
@@ -25,20 +26,31 @@ type MediaUploadResponse struct {
 
 // AppConfigResponse adalah struktur JSON konfigurasi publik untuk frontend.
 type AppConfigResponse struct {
-	MediaUploadEnabled bool   `json:"media_upload_enabled"`
-	MaxFileSizeMB      int64  `json:"max_file_size_mb"`
-	StorageDriver      string `json:"storage_driver"`
+	MediaUploadEnabled   bool   `json:"media_upload_enabled"`
+	MaxFileSizeMB        int64  `json:"max_file_size_mb"`
+	StorageDriver        string `json:"storage_driver"`
+	MediaRetentionDays   int    `json:"media_retention_days"`
+	AutoDeleteOnDownload bool   `json:"auto_delete_on_download"`
 }
 
-// MediaHandler menangani operasi pengunggahan berkas dan penyajian konfigurasi media.
+// MediaAckRequest payload untuk konfirmasi download file oleh client.
+type MediaAckRequest struct {
+	MessageID string `json:"message_id"`
+	RoomID    string `json:"room_id,omitempty"`
+}
+
+// MediaHandler menangani operasi pengunggahan berkas, konfirmasi unduhan (ACK), dan penyajian konfigurasi media.
 type MediaHandler struct {
-	storage       storage.MediaStorage
-	enabled       bool
-	maxFileSizeMB int64
+	storage              storage.MediaStorage
+	msgStore             store.MessageStore
+	enabled              bool
+	maxFileSizeMB        int64
+	retentionDays        int
+	autoDeleteOnDownload bool
 }
 
 // NewMediaHandler membuat instance baru MediaHandler dengan membaca environment variable.
-func NewMediaHandler(mediaStorage storage.MediaStorage) *MediaHandler {
+func NewMediaHandler(mediaStorage storage.MediaStorage, msgStore store.MessageStore) *MediaHandler {
 	// Fitur toggle on/off: Default true, jika diset "false" / "0" maka off
 	enabledStr := strings.ToLower(os.Getenv("ENABLE_MEDIA_UPLOAD"))
 	enabled := true
@@ -53,10 +65,25 @@ func NewMediaHandler(mediaStorage storage.MediaStorage) *MediaHandler {
 		}
 	}
 
+	retentionDays := 7 // Default TTL 7 hari
+	if envRetention := os.Getenv("MEDIA_RETENTION_DAYS"); envRetention != "" {
+		if val, err := strconv.Atoi(envRetention); err == nil && val >= 0 {
+			retentionDays = val
+		}
+	}
+
+	autoDelete := true // Default auto delete setelah diunduh (WhatsApp Store-and-Forward)
+	if envAutoDel := strings.ToLower(os.Getenv("MEDIA_AUTO_DELETE_ON_DOWNLOAD")); envAutoDel == "false" || envAutoDel == "0" {
+		autoDelete = false
+	}
+
 	return &MediaHandler{
-		storage:       mediaStorage,
-		enabled:       enabled,
-		maxFileSizeMB: maxSize,
+		storage:              mediaStorage,
+		msgStore:             msgStore,
+		enabled:              enabled,
+		maxFileSizeMB:        maxSize,
+		retentionDays:        retentionDays,
+		autoDeleteOnDownload: autoDelete,
 	}
 }
 
@@ -74,9 +101,11 @@ func (h *MediaHandler) Config(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(AppConfigResponse{
-		MediaUploadEnabled: h.enabled,
-		MaxFileSizeMB:      h.maxFileSizeMB,
-		StorageDriver:      driverName,
+		MediaUploadEnabled:   h.enabled,
+		MaxFileSizeMB:        h.maxFileSizeMB,
+		StorageDriver:        driverName,
+		MediaRetentionDays:   h.retentionDays,
+		AutoDeleteOnDownload: h.autoDeleteOnDownload,
 	})
 }
 
@@ -140,7 +169,6 @@ func (h *MediaHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	finalMIME := detectedMIME
 	if header.Header.Get("Content-Type") != "" && header.Header.Get("Content-Type") != "application/octet-stream" {
 		headerMIME := header.Header.Get("Content-Type")
-		// Jika sniffing mendeteksi octet-stream atau plain text tapi extension audio/video, gunakan header MIME
 		if strings.HasPrefix(headerMIME, "audio/") || strings.HasPrefix(headerMIME, "video/") || strings.HasPrefix(headerMIME, "image/") {
 			finalMIME = headerMIME
 		}
@@ -185,6 +213,51 @@ func (h *MediaHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		FileSize:  header.Size,
 		MediaType: mediaType,
 		MIMEType:  finalMIME,
+	})
+}
+
+// AcknowledgeDownload menangani laporan penerima bahwa file media telah berhasil diunduh ke penyimpanan lokal.
+// Jika auto-delete aktif, file fisik di storage akan langsung dihapus untuk menghemat server disk.
+func (h *MediaHandler) AcknowledgeDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req MediaAckRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.MessageID == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "message_id wajib diisi"})
+		return
+	}
+
+	if h.msgStore == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "acknowledged"})
+		return
+	}
+
+	mediaURL, status, canDelete, err := h.msgStore.AcknowledgeMediaDownload(req.MessageID)
+	if err != nil {
+		log.Printf("[MediaHandler] Gagal memproses ACK download media (%s): %v", req.MessageID, err)
+	}
+
+	// Jika file sudah siap dihapus dan auto-delete aktif, hapus dari storage fisik
+	if canDelete && h.autoDeleteOnDownload && mediaURL != "" && h.storage != nil {
+		if delErr := h.storage.Delete(r.Context(), mediaURL); delErr != nil {
+			log.Printf("⚠️ [MediaHandler] Gagal menghapus file fisik setelah download (%s): %v", mediaURL, delErr)
+		} else {
+			log.Printf("🗑️ [Store-and-Forward] File fisik berhasil dihapus dari storage setelah diunduh client: %s", mediaURL)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":       "acknowledged",
+		"media_status": status,
 	})
 }
 

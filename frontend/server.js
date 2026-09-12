@@ -35,8 +35,8 @@ proxy.on('error', (err, req, res) => {
 
 app.prepare().then(() => {
   const server = createServer((req, res) => {
-    // Forward /api/* requests langsung ke Go backend
-    if (req.url && req.url.startsWith('/api/')) {
+    // Forward /api/* dan /uploads/* requests langsung ke Go backend
+    if (req.url && (req.url.startsWith('/api/') || req.url.startsWith('/uploads/'))) {
       proxy.web(req, res, { target: BACKEND_WS_URL })
       return
     }

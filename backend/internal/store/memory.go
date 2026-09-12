@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ============================================================
@@ -231,6 +232,60 @@ func (s *MemoryMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredM
 	result := make([]StoredMessage, len(msgs[start:]))
 	copy(result, msgs[start:])
 	return result, nil
+}
+
+func (s *MemoryMessageStore) AcknowledgeMediaDownload(msgID string) (string, string, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for roomID, msgs := range s.messages {
+		for i, m := range msgs {
+			if m.ID == msgID {
+				if m.MediaURL == "" {
+					return "", m.MediaStatus, false, nil
+				}
+				s.messages[roomID][i].MediaStatus = "expired"
+				return m.MediaURL, "expired", true, nil
+			}
+		}
+	}
+	return "", "", false, nil
+}
+
+func (s *MemoryMessageStore) GetExpiredMediaMessages(retentionDays int) ([]StoredMessage, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if retentionDays <= 0 {
+		return []StoredMessage{}, nil
+	}
+
+	cutoff := time.Now().AddDate(0, 0, -retentionDays)
+	var expired []StoredMessage
+
+	for _, msgs := range s.messages {
+		for _, m := range msgs {
+			if m.MediaURL != "" && (m.MediaStatus == "" || m.MediaStatus == "active") && m.Timestamp.Before(cutoff) {
+				expired = append(expired, m)
+			}
+		}
+	}
+	return expired, nil
+}
+
+func (s *MemoryMessageStore) MarkMediaExpired(msgID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for roomID, msgs := range s.messages {
+		for i, m := range msgs {
+			if m.ID == msgID {
+				s.messages[roomID][i].MediaStatus = "expired"
+				return nil
+			}
+		}
+	}
+	return nil
 }
 
 func (s *MemoryMessageStore) Close() error {

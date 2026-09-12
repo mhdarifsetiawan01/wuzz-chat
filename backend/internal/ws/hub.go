@@ -294,11 +294,12 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 			Status:    status,
 			ReplyTo:   replyTo,
 			Reactions: reactions,
-			MediaURL:  m.MediaURL,
-			MediaType: m.MediaType,
-			FileName:  m.FileName,
-			FileSize:  m.FileSize,
-			Timestamp: m.Timestamp,
+			MediaURL:    m.MediaURL,
+			MediaType:   m.MediaType,
+			FileName:    m.FileName,
+			FileSize:    m.FileSize,
+			MediaStatus: m.MediaStatus,
+			Timestamp:   m.Timestamp,
 		})
 	}
 

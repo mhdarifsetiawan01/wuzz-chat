@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { uploadMedia, getAppConfig } from '@/lib/api'
+import { compressImage } from '@/lib/imageCompressor'
+import { setCachedMediaBlob } from '@/lib/mediaCache'
 import type { Message, MediaUploadResponse } from '@/lib/types'
 import { VoiceRecorder } from './VoiceRecorder'
 
@@ -145,10 +147,16 @@ export function MessageInput({
     try {
       let mediaPayload: { url: string; media_type: string; file_name: string; file_size: number } | undefined
 
-      // Jika ada media yang dilampirkan, unggah terlebih dahulu
+      // Jika ada media yang dilampirkan, kompresi gambar (jika aktif) lalu unggah
       if (stagedMedia) {
         setStagedMedia((prev) => (prev ? { ...prev, isUploading: true, error: undefined } : null))
-        const uploadRes = await uploadMedia(stagedMedia.file)
+        
+        // Kompresi otomatis (WhatsApp style) untuk gambar
+        const fileToUpload = stagedMedia.file.type.startsWith('image/')
+          ? await compressImage(stagedMedia.file)
+          : stagedMedia.file
+
+        const uploadRes = await uploadMedia(fileToUpload)
 
         if (uploadRes.error || !uploadRes.data) {
           setStagedMedia((prev) =>
@@ -157,6 +165,9 @@ export function MessageInput({
           setIsSending(false)
           return
         }
+
+        // Simpan langsung ke IndexedDB pengirim agar instan & tidak perlu download ulang
+        await setCachedMediaBlob(uploadRes.data.url, fileToUpload, fileToUpload.type, uploadRes.data.file_name)
 
         mediaPayload = {
           url: uploadRes.data.url,
@@ -188,6 +199,9 @@ export function MessageInput({
         setIsSending(false)
         return
       }
+
+      // Simpan langsung rekaman ke IndexedDB
+      await setCachedMediaBlob(uploadRes.data.url, audioFile, audioFile.type, uploadRes.data.file_name)
 
       onSend('', {
         url: uploadRes.data.url,
