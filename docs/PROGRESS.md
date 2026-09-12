@@ -84,8 +84,12 @@
   - Proteksi rute `/login`, `/register`, dan Landing page `/`: Pengguna yang telah terautentikasi otomatis dialihkan ke `/chat`.
   - HTTP 401 Unauthorized interceptor pada `frontend/lib/api.ts` yang otomatis menghapus session token lama dan mengarahkan user ke `/login?expired=1` dengan banner peringatan.
   - Suspense-safe search params wrapper pada seluruh client route.
-- [ ] **Milestone 3.5.2: WebSocket JWT Handshake Authentication**:
-  - Validasi token JWT saat handshake `/ws` di backend Go dan bind identitas client langsung dari claims token.
+- [x] **Milestone 3.5.2: WebSocket JWT Handshake Authentication**:
+  - Validasi token JWT sebelum upgrade connection di endpoint `/ws` (backend Go).
+  - Penolakan otomatis (HTTP 401 Unauthorized) jika token tidak valid atau tidak disediakan.
+  - Pengikatan identitas klien (`c.ID = claims.UserID`, `c.Nickname = claims.DisplayName`) langsung dari token terverifikasi anti-spoofing.
+  - Abstraksi `WsClient` frontend yang otomatis membaca token dari `localStorage` dan menyertakannya dalam query param handshake (`/ws?token=...`).
+  - Unit test `TestWebSocketJWTAuthentication` lulus 100% (mencakup unauthorized rejection, invalid token rejection, dan authorized connection acceptance).
 - [ ] **Milestone 3.5.3: User Profile & Status Bio Management**:
   - Endpoint `PUT /api/auth/profile` dan drawer pengaturan profil di sidebar frontend.
 
@@ -93,8 +97,8 @@
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Milestone 3.5.1: Next.js Auth Guard & Route Protection** telah selesai diimplementasikan dan diverifikasi (`npm run build` sukses 100%, 0 error).
-- Menunggu konfirmasi user sebelum melanjutkan ke **Milestone 3.5.2 (WebSocket JWT Handshake)**.
+- **Milestone 3.5.2: WebSocket JWT Handshake Authentication** telah selesai diimplementasikan dan diverifikasi (`go test` dan `npm run build` sukses 100%, 0 error).
+- Siap melanjutkan ke **Milestone 3.5.3 (User Profile & Status Bio Management)** setelah konfirmasi dari pengguna.
 
 ---
 

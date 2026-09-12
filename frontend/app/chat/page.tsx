@@ -175,7 +175,8 @@ function ChatPageContent() {
     setReplyingTo(null)
 
     // Buat koneksi WsClient (selalu aktif untuk menerima notifikasi pesan baru)
-    const wsUrl = `ws://${window.location.host}/ws`
+    const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
+    const wsUrl = `ws://${window.location.host}/ws${token ? `?token=${encodeURIComponent(token)}` : ''}`
     const client = new WsClient(wsUrl)
     clientRef.current = client
 
@@ -188,7 +189,7 @@ function ChatPageContent() {
         dispatch({
           type: 'SET_SESSION',
           payload: {
-            clientId: nickname,
+            clientId: user.id || nickname,
             nickname,
             peerId: roomId,
           },

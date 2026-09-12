@@ -3,31 +3,28 @@ package ws
 import (
 	"log"
 	"net/http"
+	"strings"
 
+	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
 // upgrader mengkonfigurasi WebSocket upgrader dari gorilla/websocket.
-//
-// CheckOrigin: untuk development, kita terima semua origin.
-// PENTING: Di production, ganti ini dengan validasi origin yang ketat
-// (cek r.Header.Get("Origin") == "https://your-domain.com").
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// TODO (fase 2/production): validasi origin
 		return true
 	},
 }
 
 // Handler adalah HTTP handler untuk endpoint WebSocket (/ws).
 // Bertanggung jawab untuk:
-//  1. Upgrade HTTP ke WebSocket
-//  2. Generate ClientID
-//  3. Buat Client baru dan register ke Hub
-//  4. Jalankan goroutine readPump + writePump
+//  1. Validasi token JWT sebelum upgrade
+//  2. Upgrade HTTP ke WebSocket
+//  3. Mengikat identitas Client dari claims JWT
+//  4. Daftarkan Client ke Hub dan jalankan pump
 type Handler struct {
 	hub *Hub
 }
@@ -37,25 +34,48 @@ func NewHandler(hub *Hub) *Handler {
 	return &Handler{hub: hub}
 }
 
-// ServeHTTP menangani request WebSocket upgrade.
-// Setelah upgrade berhasil, goroutine readPump dan writePump dijalankan.
-//
-// Kenapa writePump di goroutine tapi readPump di goroutine yang sama dengan ServeHTTP?
-// Karena ServeHTTP sudah berjalan di goroutine milik HTTP server.
-// Kita manfaatkan goroutine itu untuk readPump (blocking loop),
-// lalu spawn satu goroutine baru untuk writePump.
+// ServeHTTP menangani request WebSocket upgrade dengan autentikasi JWT wajib.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// 1. Ekstrak token JWT dari query param '?token=' atau header 'Authorization'
+	tokenStr := r.URL.Query().Get("token")
+	if tokenStr == "" {
+		authHeader := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
+		}
+	}
+
+	if tokenStr == "" {
+		http.Error(w, "Unauthorized: token JWT tidak ditemukan", http.StatusUnauthorized)
+		return
+	}
+
+	// 2. Validasi token JWT
+	claims, err := auth.ValidateToken(tokenStr)
+	if err != nil {
+		http.Error(w, "Unauthorized: token JWT tidak valid atau kadaluarsa", http.StatusUnauthorized)
+		return
+	}
+
+	// 3. Lakukan upgrade HTTP ke WebSocket
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("[Handler] WebSocket upgrade gagal: %v", err)
-		return // gorilla sudah tulis error response ke w
+		return
 	}
 
-	// Generate ClientID di sisi server (tidak dari client)
-	clientID := uuid.New().String()
+	// Bind identitas resmi dari claims JWT
+	clientID := claims.UserID
+	if clientID == "" {
+		clientID = uuid.New().String()
+	}
 
-	// Buat client dengan nickname kosong dulu; akan diupdate saat event "join" diterima
-	client := NewClient(clientID, "anon-"+clientID[:8], conn, h.hub)
+	nickname := claims.DisplayName
+	if nickname == "" {
+		nickname = claims.Username
+	}
+
+	client := NewClient(clientID, nickname, conn, h.hub)
 
 	// Daftarkan ke Hub
 	h.hub.Register(client)
@@ -66,3 +86,4 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// readPump berjalan di goroutine ini (blocking sampai koneksi putus)
 	client.ReadPump()
 }
+

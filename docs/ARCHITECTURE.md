@@ -80,11 +80,14 @@ erDiagram
 
 ---
 
-## 📡 2. Protokol Komunikasi WebSocket (Payload Standard)
+## 📡 2. Protokol Komunikasi WebSocket (Payload Standard & Autentikasi)
 
-Format standar event WebSocket yang seragam di frontend dan backend:
+### A. Handshake Autentikasi (`/ws`)
+Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection dilakukan. Token dapat dikirimkan melalui parameter query `?token=<jwt>` atau header `Authorization: Bearer <jwt>`.
+- Jika token tidak valid atau tidak disertakan ➔ Server merespons `401 Unauthorized`.
+- Jika token valid ➔ Server melakukan upgrade ke WebSocket dan secara otomatis mengikat identitas koneksi (`ClientID` = `claims.UserID`, `Nickname` = `claims.DisplayName` / `claims.Username`) tanpa celah pemalsuan nickname.
 
-### A. Format Amplop Pesan (Payload Envelope)
+### B. Format Amplop Pesan (Payload Envelope)
 ```json
 {
   "id": "uuid-v4-event",

@@ -20,7 +20,7 @@ const RECONNECT_MAX_ATTEMPTS  = 10     // stop setelah 10 kali gagal
  */
 export class WsClient {
   private ws: WebSocket | null = null
-  private url: string
+  private urlOrGetter: string | (() => string)
   private reconnectAttempts = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private destroyed = false
@@ -29,8 +29,20 @@ export class WsClient {
   private messageHandlers: MessageHandler[] = []
   private statusHandlers: StatusHandler[] = []
 
-  constructor(url: string) {
-    this.url = url
+  constructor(urlOrGetter: string | (() => string)) {
+    this.urlOrGetter = urlOrGetter
+  }
+
+  private getUrl(): string {
+    let url = typeof this.urlOrGetter === 'function' ? this.urlOrGetter() : this.urlOrGetter
+    // Jika URL belum memiliki query token, otomatis tambahkan dari localStorage jika tersedia
+    if (!url.includes('token=') && typeof window !== 'undefined') {
+      const token = localStorage.getItem('wuzz_auth_token')
+      if (token) {
+        url += (url.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`
+      }
+    }
+    return url
   }
 
   // ----------------------------------------------------------------
@@ -90,7 +102,8 @@ export class WsClient {
     this._emitStatus('connecting')
 
     try {
-      this.ws = new WebSocket(this.url)
+      const targetUrl = this.getUrl()
+      this.ws = new WebSocket(targetUrl)
     } catch (err) {
       console.error('[WsClient] gagal buat WebSocket:', err)
       this._scheduleReconnect()
