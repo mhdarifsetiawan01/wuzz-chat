@@ -41,8 +41,18 @@ export interface Message {
   reply_to?: ReplyTarget
   reactions?: ReactionItem[]
   reaction?: ReactionPayload
+  media_url?: string
+  media_type?: 'image' | 'audio' | 'video' | 'document' | string
+  file_name?: string
+  file_size?: number
   messages?: Message[]   // Digunakan saat type = 'history'
   users?: RoomUser[]     // Digunakan saat type = 'room_users'
+}
+
+export interface AppConfig {
+  media_upload_enabled: boolean
+  max_file_size_mb: number
+  storage_driver: string
 }
 
 // Status koneksi WebSocket

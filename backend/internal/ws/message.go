@@ -69,6 +69,10 @@ type Message struct {
 	ReplyTo   *ReplyTarget     `json:"reply_to,omitempty"`  // Konteks pesan yang dikutip (opsional)
 	Reactions []ReactionItem   `json:"reactions,omitempty"` // Reaksi emoji terhadap pesan ini
 	Reaction  *ReactionPayload `json:"reaction,omitempty"`  // Data reaksi (digunakan saat type = 'reaction')
+	MediaURL  string           `json:"media_url,omitempty"`  // URL file media (lokal atau cloud CDN)
+	MediaType string           `json:"media_type,omitempty"` // 'image', 'document', 'audio', 'video'
+	FileName  string           `json:"file_name,omitempty"`  // Nama asli berkas (misal: laporan.pdf)
+	FileSize  int64            `json:"file_size,omitempty"`  // Ukuran berkas dalam bytes
 	Messages  []Message        `json:"messages,omitempty"`  // Kumpulan pesan untuk TypeHistory
 	Users     []RoomUser       `json:"users,omitempty"`     // Daftar user aktif di room
 }

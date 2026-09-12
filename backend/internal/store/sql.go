@@ -111,6 +111,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_nickname VARCHAR(64) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_content TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reactions TEXT DEFAULT '[]';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_url TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_type VARCHAR(32) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size BIGINT DEFAULT 0;`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -120,9 +124,13 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reply_to_nickname VARCHAR(64) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reply_to_content TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reactions TEXT DEFAULT '[]';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN media_url TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN media_type VARCHAR(32) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN file_name VARCHAR(255) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN file_size BIGINT DEFAULT 0;`)
 	}
 
-	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' (dengan status receipts, reply, reactions, dan user bio) berhasil dipastikan ada!")
+	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' (dengan status receipts, reply, reactions, media, dan user bio) berhasil dipastikan ada!")
 	return nil
 }
 
@@ -149,11 +157,11 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 
 	var query string
 	if s.driverName == "postgres" {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, created_at)
-		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, created_at)
+		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
 	} else {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, created_at)
-		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, created_at)
+		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
 	_, err := s.db.Exec(
@@ -169,6 +177,10 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 		msg.ReplyToNickname,
 		msg.ReplyToContent,
 		reactions,
+		msg.MediaURL,
+		msg.MediaType,
+		msg.FileName,
+		msg.FileSize,
 		msg.Timestamp.UTC(),
 	)
 	return err
@@ -343,9 +355,10 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 	if s.driverName == "postgres" {
 		query = `
 		SELECT id, room_id, from_id, from_nickname, to_id, content, 
-		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'), created_at
+		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), created_at
 		FROM (
-			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, created_at
+			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, created_at
 			FROM messages
 			WHERE room_id = $1
 			ORDER BY created_at DESC
@@ -355,9 +368,10 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 	} else {
 		query = `
 		SELECT id, room_id, from_id, from_nickname, to_id, content, 
-		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'), created_at
+		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), created_at
 		FROM (
-			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, created_at
+			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, created_at
 			FROM messages
 			WHERE room_id = ?
 			ORDER BY created_at DESC
@@ -377,6 +391,8 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 		var m StoredMessage
 		var createdAt time.Time
 		var status, replyToID, replyToNickname, replyToContent, reactions string
+		var mediaURL, mediaType, fileName string
+		var fileSize int64
 		if err := rows.Scan(
 			&m.ID,
 			&m.RoomID,
@@ -389,6 +405,10 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 			&replyToNickname,
 			&replyToContent,
 			&reactions,
+			&mediaURL,
+			&mediaType,
+			&fileName,
+			&fileSize,
 			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("gagal scan baris history: %w", err)
@@ -398,6 +418,10 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 		m.ReplyToNickname = replyToNickname
 		m.ReplyToContent = replyToContent
 		m.Reactions = reactions
+		m.MediaURL = mediaURL
+		m.MediaType = mediaType
+		m.FileName = fileName
+		m.FileSize = fileSize
 		m.Timestamp = createdAt.UTC()
 		history = append(history, m)
 	}

@@ -116,10 +116,21 @@
 
 ---
 
+### E. Fase 5: Rich Media, Voice Notes & Attachments (Sedang Berjalan 🎯)
+- [x] **Milestone 5.1: Backend Storage Engine, Upload API & Dynamic Feature Flag**:
+  - Interface `MediaStorage` mendukung multi-driver (`LocalStorage`, `SupabaseStorage`, `S3Storage`).
+  - Endpoint `POST /api/media/upload` dengan otentikasi JWT, validasi MIME magic bytes, pembatasan ukuran berkas (25 MB), dan sanitasi UUID anti-traversal.
+  - Endpoint publik `GET /api/config` menyajikan status dynamic toggle `media_upload_enabled`.
+  - Auto-migration database non-destruktif menambah kolom `media_url`, `media_type`, `file_name`, dan `file_size` pada tabel `messages`.
+  - Static file serving handler `/uploads/` dengan HTTP caching header.
+  - Unit test `storage_test.go` dan `media_handler_test.go` lulus 100%.
+
+---
+
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Fase 3.5: Authentication Hardening & Security Polish telah 100% Selesai & Terverifikasi!** (Route Protection, WebSocket JWT Handshake Authentication, Profile & Status Bio Management).
-- Siap melangkah ke **Fase 5: Media Sharing, Attachments & File Transfer** (Image Preview, Drag & Drop Upload, File Transfer) setelah konfirmasi dari pengguna.
+- **Milestone 5.1 (Backend Media Engine & Upload API) telah selesai & terverifikasi 100%!**
+- Langkah berikutnya: **Milestone 5.2 (Frontend UI Attachment Picker, Drag & Drop, Clipboard Paste `Ctrl + V`, dan Image Lightbox Viewer)**.
 
 ---
 

@@ -238,6 +238,10 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 			ReplyToNickname: replyToNickname,
 			ReplyToContent:  replyToContent,
 			Reactions:       "[]",
+			MediaURL:        msg.MediaURL,
+			MediaType:       msg.MediaType,
+			FileName:        msg.FileName,
+			FileSize:        msg.FileSize,
 			Timestamp:       msg.Timestamp,
 		})
 		if err != nil {
@@ -290,6 +294,10 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 			Status:    status,
 			ReplyTo:   replyTo,
 			Reactions: reactions,
+			MediaURL:  m.MediaURL,
+			MediaType: m.MediaType,
+			FileName:  m.FileName,
+			FileSize:  m.FileSize,
 			Timestamp: m.Timestamp,
 		})
 	}

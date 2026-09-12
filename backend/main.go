@@ -9,6 +9,7 @@ import (
 
 	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/storage"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
 	"github.com/joho/godotenv"
@@ -47,6 +48,13 @@ func main() {
 		chatHandler = api.NewChatHandler(userStore, messageStore)
 	}
 
+	// Inisialisasi Media Storage & Handler
+	mediaStorage, err := storage.NewMediaStorageFromEnv()
+	if err != nil {
+		log.Printf("⚠️ Gagal inisialisasi media storage: %v", err)
+	}
+	mediaHandler := api.NewMediaHandler(mediaStorage)
+
 	// Inisialisasi Hub dengan dependency injection
 	hub := ws.NewHub(clientStore, messageStore)
 	if userStore != nil {
@@ -80,6 +88,25 @@ func main() {
 			h(w, r)
 		}
 	}
+
+	// Media Storage & Dynamic Config Routes
+	mux.HandleFunc("/api/config", withCORS(mediaHandler.Config))
+	mux.HandleFunc("/api/media/upload", withCORS(func(w http.ResponseWriter, r *http.Request) {
+		auth.RequireJWT()(http.HandlerFunc(mediaHandler.Upload)).ServeHTTP(w, r)
+	}))
+
+	// Serving file statis jika menggunakan Local Storage
+	uploadDir := os.Getenv("UPLOAD_DIR")
+	if uploadDir == "" {
+		uploadDir = "./uploads"
+	}
+	_ = storage.EnsureDir(uploadDir)
+	fileServer := http.FileServer(http.Dir(uploadDir))
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.Header().Set("Access-Control-Allow-Origin", corsOrigin)
+		fileServer.ServeHTTP(w, r)
+	})))
 
 	// REST API Routes (Auth) dengan Rate Limiting
 	if authHandler != nil {

@@ -42,6 +42,10 @@ type StoredMessage struct {
 	ReplyToNickname string    `json:"reply_to_nickname,omitempty"`
 	ReplyToContent  string    `json:"reply_to_content,omitempty"`
 	Reactions       string    `json:"reactions,omitempty"` // JSON string representation of ReactionItem[]
+	MediaURL        string    `json:"media_url,omitempty"`
+	MediaType       string    `json:"media_type,omitempty"`
+	FileName        string    `json:"file_name,omitempty"`
+	FileSize        int64     `json:"file_size,omitempty"`
 	Timestamp       time.Time `json:"timestamp"`
 }
 

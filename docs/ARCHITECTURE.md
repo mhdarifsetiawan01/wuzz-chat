@@ -134,6 +134,32 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `GET` | `/api/users/search?q=` | Mencari user berdasarkan username/nama | Bearer Token |
 | `GET` | `/api/conversations` | Daftar obrolan aktif beserta pesan terakhir | Bearer Token |
 | `POST` | `/api/conversations` | Membuat obrolan baru (Direct atau Group) | Bearer Token |
-| `GET` | `/api/conversations/:id/messages` | Mengambil riwayat pesan berpaginasi | Bearer Token |
 | `POST` | `/api/media/upload` | Upload file gambar/dokumen/audio ke storage | Bearer Token |
+| `GET` | `/api/config` | Mengambil status konfigurasi publik (media upload toggle) | Public |
+
+---
+
+## 📦 4. Panduan Ekstensi Media Storage (Pluggable Storage Drivers)
+
+Backend WuzzChat menggunakan kontrak tunggal `MediaStorage` di `backend/internal/storage/storage.go`:
+
+```go
+type MediaStorage interface {
+    Upload(ctx context.Context, file io.Reader, filename string, contentType string) (publicURL string, err error)
+    Delete(ctx context.Context, fileKey string) error
+    DriverName() string
+}
+```
+
+### 🚀 Cara Menambah Provider Storage Baru (Misal: AWS S3 / Cloudflare R2 / GCS):
+
+1. **Buat File Driver Baru**: Buat file `backend/internal/storage/<nama_provider>_storage.go` yang mengimplementasikan ketiga method di atas.
+2. **Daftarkan di Factory**: Buka `backend/internal/storage/storage.go`, lalu tambahkan case baru pada fungsi `NewMediaStorageFromEnv()`:
+   ```go
+   case "s3":
+       return NewS3Storage(...)
+   ```
+3. **Konfigurasi `.env`**: Cukup atur nilai `STORAGE_DRIVER=<nama_provider>` dan tambahkan kredensial terkait.
+4. **Zero-Touch Codebase**: Seluruh endpoint REST API, WebSocket Hub, database query, dan frontend Next.js **tidak perlu diubah sama sekali**.
+
 
