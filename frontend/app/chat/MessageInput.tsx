@@ -214,7 +214,17 @@ export function MessageInput({
             {stagedMedia.previewUrl ? (
               <img src={stagedMedia.previewUrl} alt="Preview" className="media-preview-thumb" />
             ) : (
-              <span className="media-preview-file-icon">📄</span>
+              <span className="media-preview-file-icon">
+                {stagedMedia.file.name.endsWith('.pdf')
+                  ? '📕'
+                  : stagedMedia.file.name.match(/\.(doc|docx)$/i)
+                  ? '📘'
+                  : stagedMedia.file.name.match(/\.(xls|xlsx|csv)$/i)
+                  ? '📗'
+                  : stagedMedia.file.name.match(/\.(zip|rar|7z|tar|gz)$/i)
+                  ? '🗜️'
+                  : '📄'}
+              </span>
             )}
           </div>
           <div className="media-preview-info">
@@ -242,7 +252,7 @@ export function MessageInput({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,application/pdf,application/zip,text/plain"
+          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z,.tar,.gz,.txt,.csv,.json"
           style={{ display: 'none' }}
           onChange={handleFileChange}
         />

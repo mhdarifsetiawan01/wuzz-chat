@@ -25,6 +25,48 @@ function formatTime(iso?: string): string {
   }
 }
 
+// Format ukuran file bytes ke B / KB / MB
+function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// Identifikasi metadata file (ikon, label, warna) berbasis ekstensi
+function getFileMeta(fileName?: string) {
+  const ext = fileName ? fileName.split('.').pop()?.toLowerCase() || '' : ''
+  switch (ext) {
+    case 'pdf':
+      return { icon: '📕', label: 'PDF', colorClass: 'file-pdf' }
+    case 'doc':
+    case 'docx':
+      return { icon: '📘', label: 'DOC', colorClass: 'file-doc' }
+    case 'xls':
+    case 'xlsx':
+    case 'csv':
+      return { icon: '📗', label: 'SHEET', colorClass: 'file-sheet' }
+    case 'ppt':
+    case 'pptx':
+      return { icon: '📙', label: 'SLIDE', colorClass: 'file-slide' }
+    case 'zip':
+    case 'rar':
+    case '7z':
+    case 'tar':
+    case 'gz':
+      return { icon: '🗜️', label: 'ZIP', colorClass: 'file-zip' }
+    case 'txt':
+    case 'json':
+    case 'js':
+    case 'ts':
+    case 'html':
+    case 'css':
+      return { icon: '📄', label: 'TEXT', colorClass: 'file-code' }
+    default:
+      return { icon: '📁', label: ext.toUpperCase() || 'FILE', colorClass: 'file-default' }
+  }
+}
+
 // Render icon tanda terima pesan (WhatsApp/Telegram-style)
 function renderReceipt(status?: Message['status']) {
   switch (status) {
@@ -144,6 +186,35 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
                 className="message-image-img"
                 loading="lazy"
               />
+            </div>
+          )}
+
+          {/* Pratinjau Dokumen / Berkas jika tipe bukan gambar atau audio */}
+          {message.media_url && message.media_type !== 'image' && message.media_type !== 'audio' && (
+            <div className="message-doc-card">
+              <div className={`doc-card-badge ${getFileMeta(message.file_name).colorClass}`}>
+                <span className="doc-card-icon">{getFileMeta(message.file_name).icon}</span>
+                <span className="doc-card-ext-label">{getFileMeta(message.file_name).label}</span>
+              </div>
+              <div className="doc-card-details">
+                <span className="doc-card-title" title={message.file_name || 'Berkas'}>
+                  {message.file_name || 'Dokumen Terlampir'}
+                </span>
+                <span className="doc-card-meta">
+                  {formatFileSize(message.file_size)}
+                </span>
+              </div>
+              <a
+                href={message.media_url}
+                download={message.file_name || 'file'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="doc-card-download-btn"
+                title="Unduh berkas"
+                onClick={(e) => e.stopPropagation()}
+              >
+                ⬇
+              </a>
             </div>
           )}
 

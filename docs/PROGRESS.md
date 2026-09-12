@@ -132,12 +132,18 @@
   - Balon pesan gambar di linimasa chat (`MessageBubble`) dengan aspect-ratio rapi, lazy-loading, dan timestamp overlay.
   - Komponen `ImageLightboxModal` (React Portal): fullscreen image viewer dengan dark glassmorphism backdrop, Zoom In (`+`), Zoom Out (`-`), Reset Zoom (`100%`), Unduh Berkas langsung, dan penutupan via tombol `✕` / tombol `Esc` / backdrop click.
 
+- [x] **Milestone 5.3: Document & File Sharing Card (PDF, Word, Excel, ZIP, TXT)**:
+  - Ekstensi file otomatis terklasifikasi dengan tema warna ikon visual yang kaya (📕 Merah PDF, 📘 Biru DOC, 📗 Hijau Sheet, 📙 Oranye Slide, 🗜️ Ungu ZIP, 📄 Abu-abu Text/Code).
+  - Format pembacaan ukuran berkas dinamis (`bytes` ➔ `KB` / `MB`).
+  - Balon pesan kartu dokumen `message-doc-card` dengan nama file, metadata ukuran, dan tombol *Direct Download*.
+  - Pemilihan berkas luas melalui file picker dialog di MessageInput.
+
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Milestone 5.1 & Milestone 5.2 telah selesai & terverifikasi 100%!**
-- Langkah berikutnya: **Milestone 5.3 (Document & File Sharing Card: PDF, DOC, ZIP downloader bubble)**.
+- **Milestone 5.1, 5.2, dan 5.3 telah selesai & terverifikasi 100%!**
+- Langkah berikutnya: **Milestone 5.4 (Voice Note Recorder & Custom Waveform Audio Player Bubble)**.
 
 ---
 

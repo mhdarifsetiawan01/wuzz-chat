@@ -1870,3 +1870,135 @@ h4 { font-size: 1rem;   font-weight: 600; }
   user-select: none;
 }
 
+/* ================================================================
+   DOCUMENT FILE CARD STYLES (MILESTONE 5.3)
+   ================================================================ */
+
+.message-doc-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.375rem;
+  min-width: 220px;
+  max-width: 320px;
+  transition: all var(--transition-fast) ease;
+}
+
+.message-doc-card:hover {
+  background: rgba(15, 23, 42, 0.65);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.doc-card-badge {
+  width: 42px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-sm);
+}
+
+.doc-card-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.doc-card-ext-label {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+
+/* File badge color themes */
+.file-pdf {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+.file-doc {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+.file-sheet {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+.file-slide {
+  background: rgba(249, 115, 22, 0.15);
+  border-color: rgba(249, 115, 22, 0.3);
+  color: #fdba74;
+}
+.file-zip {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #d8b4fe;
+}
+.file-code {
+  background: rgba(148, 163, 184, 0.15);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+}
+.file-default {
+  background: rgba(100, 116, 139, 0.15);
+  border-color: rgba(100, 116, 139, 0.3);
+  color: #94a3b8;
+}
+
+.doc-card-details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-card-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-card-meta {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.doc-card-download-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: all var(--transition-fast) ease;
+}
+
+.doc-card-download-btn:hover {
+  background: var(--accent-500);
+  border-color: var(--accent-400);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+
