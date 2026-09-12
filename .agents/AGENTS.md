@@ -51,3 +51,25 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
 3. **Anti-Stale Documentation:**
    - Dilarang membiarkan file dokumentasi menjadi usang (*outdated*). Seluruh diagram ERD, daftar endpoint, dan daftar file harus selalu merefleksikan kondisi codebase terbaru.
 
+---
+
+## 🔒 Mandatory Git Commit Approval & Session Confirmation Rule (MANDATORY)
+
+**AI DILARANG KERAS melakukan `git commit` tanpa persetujuan / konfirmasi eksplisit dari pengguna.**
+
+### Aturan konkret:
+
+1. **Konfirmasi Sebelum Commit**: Setiap kali sebuah task/tugas dalam 1 sesi selesai dikerjakan dan diverifikasi, AI **TIDAK BOLEH** langsung melakukan `git commit`. AI wajib mengonfirmasi ke user terlebih dahulu:
+   - Menjelaskan apa yang telah diubah/diperbaiki.
+   - Menanyakan apakah hasilnya sudah sesuai dengan harapan user.
+
+2. **Kondisi Persetujuan ("Selesai")**:
+   - AI **HANYA BOLEH** mengeksekusi `git commit` jika user telah secara eksplisit menyatakan selesai (misal: *"selesai"*, *"ya commit"*, *"oke commit"*).
+
+3. **Kondisi Belum Selesai / Iterasi Lanjutan**:
+   - Jika user menganggap task belum selesai, menemukan bug, atau memberikan pertanyaan/perbaikan lanjutan, AI harus **tetap melanjutkan percakapan/pekerjaan sebelumnya** dalam sesi tersebut tanpa melakukan commit.
+
+4. **Proteksi Git Push**:
+   - Persetujuan lokal `git commit` **TIDAK MEMBERIKAN IZIN** untuk melakukan `git push`. `git push` ke remote tetap membutuhkan perintah tertulis terpisah dari user.
+
+
