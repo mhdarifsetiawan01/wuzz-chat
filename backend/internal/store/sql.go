@@ -2,8 +2,10 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -99,15 +101,23 @@ func (s *SQLMessageStore) autoMigrate() error {
 		}
 	}
 
-	// Auto-migration non-destruktif untuk kolom status di tabel messages
+	// Auto-migration non-destruktif untuk kolom status, reply_to, dan reactions di tabel messages
 	if s.driverName == "postgres" {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'sent';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id VARCHAR(64) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_nickname VARCHAR(64) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_content TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reactions TEXT DEFAULT '[]';`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN status VARCHAR(32) DEFAULT 'sent';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reply_to_id VARCHAR(64) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reply_to_nickname VARCHAR(64) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reply_to_content TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reactions TEXT DEFAULT '[]';`)
 	}
 
-	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' (dengan status receipts) berhasil dipastikan ada!")
+	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' (dengan status receipts, reply, dan reactions) berhasil dipastikan ada!")
 	return nil
 }
 
@@ -127,14 +137,18 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 	if status == "" {
 		status = "sent"
 	}
+	reactions := msg.Reactions
+	if reactions == "" {
+		reactions = "[]"
+	}
 
 	var query string
 	if s.driverName == "postgres" {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, created_at)
-		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, created_at)
+		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 	} else {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, created_at)
-		         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, created_at)
+		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
 	_, err := s.db.Exec(
@@ -146,6 +160,10 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 		msg.ToID,
 		msg.Content,
 		status,
+		msg.ReplyToID,
+		msg.ReplyToNickname,
+		msg.ReplyToContent,
+		reactions,
 		msg.Timestamp.UTC(),
 	)
 	return err
@@ -161,6 +179,99 @@ func (s *SQLMessageStore) UpdateMessageStatus(msgID string, status string) error
 	}
 	_, err := s.db.Exec(query, status, msgID)
 	return err
+}
+
+// ToggleReaction menambah atau menghapus reaksi emoji user terhadap pesan tertentu.
+func (s *SQLMessageStore) ToggleReaction(msgID, emoji, userNickname string) (string, error) {
+	if msgID == "" || emoji == "" || userNickname == "" {
+		return "[]", nil
+	}
+
+	// 1. Ambil reaksi saat ini
+	var rawReactions sql.NullString
+	var queryGet string
+	if s.driverName == "postgres" {
+		queryGet = `SELECT reactions FROM messages WHERE id = $1`
+	} else {
+		queryGet = `SELECT reactions FROM messages WHERE id = ?`
+	}
+	if err := s.db.QueryRow(queryGet, msgID).Scan(&rawReactions); err != nil {
+		return "[]", err
+	}
+
+	var items []struct {
+		Emoji string   `json:"emoji"`
+		Users []string `json:"users"`
+		Count int      `json:"count"`
+	}
+
+	if rawReactions.Valid && rawReactions.String != "" {
+		_ = json.Unmarshal([]byte(rawReactions.String), &items)
+	}
+
+	// 2. Toggle emoji untuk userNickname
+	foundEmoji := false
+	var updatedItems []struct {
+		Emoji string   `json:"emoji"`
+		Users []string `json:"users"`
+		Count int      `json:"count"`
+	}
+
+	for _, item := range items {
+		if item.Emoji == emoji {
+			foundEmoji = true
+			userExists := false
+			var newUsers []string
+			for _, u := range item.Users {
+				if strings.EqualFold(u, userNickname) {
+					userExists = true
+				} else {
+					newUsers = append(newUsers, u)
+				}
+			}
+			if !userExists {
+				newUsers = append(newUsers, userNickname)
+			}
+			if len(newUsers) > 0 {
+				updatedItems = append(updatedItems, struct {
+					Emoji string   `json:"emoji"`
+					Users []string `json:"users"`
+					Count int      `json:"count"`
+				}{
+					Emoji: emoji,
+					Users: newUsers,
+					Count: len(newUsers),
+				})
+			}
+		} else {
+			updatedItems = append(updatedItems, item)
+		}
+	}
+
+	if !foundEmoji {
+		updatedItems = append(updatedItems, struct {
+			Emoji string   `json:"emoji"`
+			Users []string `json:"users"`
+			Count int      `json:"count"`
+		}{
+			Emoji: emoji,
+			Users: []string{userNickname},
+			Count: 1,
+		})
+	}
+
+	bytes, _ := json.Marshal(updatedItems)
+	jsonStr := string(bytes)
+
+	// 3. Simpan kembali ke database
+	var queryUpdate string
+	if s.driverName == "postgres" {
+		queryUpdate = `UPDATE messages SET reactions = $1 WHERE id = $2`
+	} else {
+		queryUpdate = `UPDATE messages SET reactions = ? WHERE id = ?`
+	}
+	_, err := s.db.Exec(queryUpdate, jsonStr, msgID)
+	return jsonStr, err
 }
 
 // MarkRoomMessagesAsRead menandai seluruh pesan di room tertentu yang bukan dikirim oleh excludeNickname sebagai 'read'.
@@ -184,9 +295,10 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 	var query string
 	if s.driverName == "postgres" {
 		query = `
-		SELECT id, room_id, from_id, from_nickname, to_id, content, COALESCE(status, 'sent'), created_at
+		SELECT id, room_id, from_id, from_nickname, to_id, content, 
+		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'), created_at
 		FROM (
-			SELECT id, room_id, from_id, from_nickname, to_id, content, status, created_at
+			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, created_at
 			FROM messages
 			WHERE room_id = $1
 			ORDER BY created_at DESC
@@ -195,9 +307,10 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 		ORDER BY created_at ASC;`
 	} else {
 		query = `
-		SELECT id, room_id, from_id, from_nickname, to_id, content, COALESCE(status, 'sent'), created_at
+		SELECT id, room_id, from_id, from_nickname, to_id, content, 
+		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'), created_at
 		FROM (
-			SELECT id, room_id, from_id, from_nickname, to_id, content, status, created_at
+			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, created_at
 			FROM messages
 			WHERE room_id = ?
 			ORDER BY created_at DESC
@@ -216,7 +329,7 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 	for rows.Next() {
 		var m StoredMessage
 		var createdAt time.Time
-		var status string
+		var status, replyToID, replyToNickname, replyToContent, reactions string
 		if err := rows.Scan(
 			&m.ID,
 			&m.RoomID,
@@ -225,11 +338,19 @@ func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMess
 			&m.ToID,
 			&m.Content,
 			&status,
+			&replyToID,
+			&replyToNickname,
+			&replyToContent,
+			&reactions,
 			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("gagal scan baris history: %w", err)
 		}
 		m.Status = status
+		m.ReplyToID = replyToID
+		m.ReplyToNickname = replyToNickname
+		m.ReplyToContent = replyToContent
+		m.Reactions = reactions
 		m.Timestamp = createdAt.UTC()
 		history = append(history, m)
 	}

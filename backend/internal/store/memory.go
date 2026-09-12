@@ -1,6 +1,7 @@
 package store
 
 import (
+	"encoding/json"
 	"strings"
 	"sync"
 )
@@ -74,6 +75,9 @@ func (s *MemoryMessageStore) Save(msg StoredMessage) error {
 	if msg.Status == "" {
 		msg.Status = "sent"
 	}
+	if msg.Reactions == "" {
+		msg.Reactions = "[]"
+	}
 	s.messages[msg.RoomID] = append(s.messages[msg.RoomID], msg)
 	return nil
 }
@@ -90,6 +94,83 @@ func (s *MemoryMessageStore) UpdateMessageStatus(msgID string, status string) er
 		}
 	}
 	return nil
+}
+
+func (s *MemoryMessageStore) ToggleReaction(msgID, emoji, userNickname string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for roomID, msgs := range s.messages {
+		for i, m := range msgs {
+			if m.ID == msgID {
+				var items []struct {
+					Emoji string   `json:"emoji"`
+					Users []string `json:"users"`
+					Count int      `json:"count"`
+				}
+				if m.Reactions != "" {
+					_ = json.Unmarshal([]byte(m.Reactions), &items)
+				}
+
+				found := false
+				var updatedItems []struct {
+					Emoji string   `json:"emoji"`
+					Users []string `json:"users"`
+					Count int      `json:"count"`
+				}
+
+				for _, item := range items {
+					if item.Emoji == emoji {
+						found = true
+						userExists := false
+						var newUsers []string
+						for _, u := range item.Users {
+							if strings.EqualFold(u, userNickname) {
+								userExists = true
+							} else {
+								newUsers = append(newUsers, u)
+							}
+						}
+						if !userExists {
+							newUsers = append(newUsers, userNickname)
+						}
+						if len(newUsers) > 0 {
+							updatedItems = append(updatedItems, struct {
+								Emoji string   `json:"emoji"`
+								Users []string `json:"users"`
+								Count int      `json:"count"`
+							}{
+								Emoji: emoji,
+								Users: newUsers,
+								Count: len(newUsers),
+							})
+						}
+					} else {
+						updatedItems = append(updatedItems, item)
+					}
+				}
+
+				if !found {
+					updatedItems = append(updatedItems, struct {
+						Emoji string   `json:"emoji"`
+						Users []string `json:"users"`
+						Count int      `json:"count"`
+					}{
+						Emoji: emoji,
+						Users: []string{userNickname},
+						Count: 1,
+					})
+				}
+
+				b, _ := json.Marshal(updatedItems)
+				jsonStr := string(b)
+				s.messages[roomID][i].Reactions = jsonStr
+				return jsonStr, nil
+			}
+		}
+	}
+
+	return "[]", nil
 }
 
 func (s *MemoryMessageStore) MarkRoomMessagesAsRead(roomID, excludeNickname string) error {

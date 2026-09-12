@@ -307,4 +307,102 @@ func TestHubReceiptsFlow(t *testing.T) {
 	}
 }
 
+func TestHubReplyAndReactions(t *testing.T) {
+	cs := store.NewMemoryClientStore()
+	ms := store.NewMemoryMessageStore()
+	hub := NewHub(cs, ms)
+
+	c1 := &Client{
+		ID:       "c1",
+		Nickname: "Alice",
+		JoinedAt: time.Now().UTC(),
+		send:     make(chan Message, 10),
+		hub:      hub,
+	}
+	c2 := &Client{
+		ID:       "c2",
+		Nickname: "Bob",
+		JoinedAt: time.Now().UTC(),
+		send:     make(chan Message, 10),
+		hub:      hub,
+	}
+
+	hub.Register(c1)
+	hub.Register(c2)
+	hub.JoinRoom(c1, "room-features")
+	hub.JoinRoom(c2, "room-features")
+
+	// Drain join messages
+	for len(c1.send) > 0 {
+		<-c1.send
+	}
+	for len(c2.send) > 0 {
+		<-c2.send
+	}
+
+	// 1. Test Reply Quote
+	msgID := "msg-reply-1"
+	c1.onMessage(Message{
+		ID:      msgID,
+		Type:    TypeMessage,
+		Room:    "room-features",
+		Content: "Ini balasan untuk Bob",
+		ReplyTo: &ReplyTarget{
+			ID:       "msg-parent-0",
+			Nickname: "Bob",
+			Content:  "Pesan Bob terdahulu",
+		},
+	})
+
+	select {
+	case received := <-c2.send:
+		if received.ReplyTo == nil || received.ReplyTo.Content != "Pesan Bob terdahulu" {
+			t.Errorf("expected ReplyTo content 'Pesan Bob terdahulu', got %+v", received.ReplyTo)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for reply message on c2")
+	}
+
+	// Drain c1 ACK
+	for len(c1.send) > 0 {
+		<-c1.send
+	}
+
+	// 2. Test Emoji Reaction Add
+	c2.onReaction(Message{
+		Room: "room-features",
+		Reaction: &ReactionPayload{
+			MessageID: msgID,
+			Emoji:     "❤️",
+		},
+	})
+
+	select {
+	case reactionMsg := <-c1.send:
+		if reactionMsg.Type != TypeReaction || len(reactionMsg.Reactions) != 1 || reactionMsg.Reactions[0].Emoji != "❤️" {
+			t.Errorf("expected TypeReaction with ❤️ on c1, got %+v", reactionMsg)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for reaction on c1")
+	}
+
+	// 3. Test Emoji Reaction Toggle (Remove)
+	c2.onReaction(Message{
+		Room: "room-features",
+		Reaction: &ReactionPayload{
+			MessageID: msgID,
+			Emoji:     "❤️",
+		},
+	})
+
+	select {
+	case reactionMsg := <-c1.send:
+		if reactionMsg.Type != TypeReaction || len(reactionMsg.Reactions) != 0 {
+			t.Errorf("expected TypeReaction with 0 reactions on c1 after toggle, got %+v", reactionMsg)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timeout waiting for reaction toggle on c1")
+	}
+}
+
 

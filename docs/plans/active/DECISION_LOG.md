@@ -35,3 +35,9 @@
 - **Keputusan:** Menggunakan sistem bobot integer pada reducer frontend (`pending`: 0, `sent`: 1, `delivered`: 2, `read`: 3) sehingga update status hanya diaplikasikan jika nilai bobot lebih tinggi atau sama. Server Go melakukan auto-ACK `sent` ke pengirim, client penerima otomatis mengirim `delivered` receipt saat pesan sampai di socket, dan mengirim `read` receipt saat jendela obrolan aktif dibuka.
 - **Status:** Diimplementasikan & Berfungsi.
 
+### DEC-008: Quoted Replies & In-Place Emoji Reaction Toggling
+- **Konteks:** Fitur balas pesan dan reaksi emoji membutuhkan struktur data yang fleksibel, kompatibel dengan skema SQL relasional yang ada, serta responsif secara real-time.
+- **Keputusan:** Menyimpan konteks `reply_to` (`reply_to_id`, `reply_to_nickname`, `reply_to_content`) dan array reaksi `reactions` (JSON serialized: `[{emoji, users, count}]`) langsung di tabel `messages`. WebSocket event `TypeReaction` men-toggle user ID/nickname pada array reaksi dan mem-broadcast update instan ke semua anggota room.
+- **Status:** Diimplementasikan & Berfungsi.
+
+

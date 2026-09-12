@@ -68,14 +68,19 @@
   - Auto-ACK status `sent` dari backend Go, `delivered` saat pesan diterima browser lawan bicara, dan `read` saat percakapan aktif terbuka.
   - Penambahan kolom `status VARCHAR(32) DEFAULT 'sent'` pada tabel database `messages` dengan auto-migration & method `UpdateMessageStatus`.
   - Unit test `TestHubReceiptsFlow` lulus 100%.
-- [ ] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**
+- [x] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**:
+  - Tombol aksi kutip pesan (*reply/quote*) dengan preview banner di atas textarea input dan kartu kutipan di dalam balon pesan.
+  - Floating emoji toolbar cepat (`👍 ❤️ 😂 😮 😢 🙏`) saat hover balon pesan.
+  - Badge reaksi interaktif di bawah balon pesan dengan fitur toggle penambahan/penghapusan reaksi secara real-time.
+  - Skema tabel `messages` diperkaya kolom `reply_to_id`, `reply_to_nickname`, `reply_to_content`, dan `reactions`.
+  - Unit test `TestHubReplyAndReactions` lulus 100%.
 
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- Sistem saat ini sudah berjalan stabil dengan autentikasi akun, direct message, procedural Sound FX, Live Typing Indicator, Live Sidebar Snippets & Unread Badge Counter, serta Message Receipts (`pending` ➔ `sent` ➔ `delivered` ➔ `read`).
-- Milestone 4.1, 4.2, 4.3, & 4.4 selesai, siap melangkah ke Milestone 4.5 (Emoji Reactions & Reply/Quote Message).
+- **Fase 4: Modern Chat UX & Interactive Dynamics telah 100% Selesai & Terverifikasi!** (Sound FX, Live Typing Indicator, Real-Time Sidebar Snippets & Persistent Unread Badge, Message Receipts `pending`->`sent`->`delivered`->`read`, serta Emoji Reactions & Reply/Quote Message).
+- Siap melangkah ke **Fase 5: Media Sharing, Attachments & File Transfer** (Image Preview, Drag & Drop Upload, Audio Voice Note / File Download).
 
 ---
 

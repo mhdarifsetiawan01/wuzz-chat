@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"encoding/json"
 	"log"
 	"strings"
 	"sync"
@@ -225,15 +226,26 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 			msg.Status = StatusSent
 		}
 
+		var replyToID, replyToNickname, replyToContent string
+		if msg.ReplyTo != nil {
+			replyToID = msg.ReplyTo.ID
+			replyToNickname = msg.ReplyTo.Nickname
+			replyToContent = msg.ReplyTo.Content
+		}
+
 		err := h.messageStore.Save(store.StoredMessage{
-			ID:        msg.ID,
-			RoomID:    roomID,
-			FromID:    msg.From,
-			Nickname:  msg.Nickname,
-			ToID:      msg.To,
-			Content:   msg.Content,
-			Status:    string(msg.Status),
-			Timestamp: msg.Timestamp,
+			ID:              msg.ID,
+			RoomID:          roomID,
+			FromID:          msg.From,
+			Nickname:        msg.Nickname,
+			ToID:            msg.To,
+			Content:         msg.Content,
+			Status:          string(msg.Status),
+			ReplyToID:       replyToID,
+			ReplyToNickname: replyToNickname,
+			ReplyToContent:  replyToContent,
+			Reactions:       "[]",
+			Timestamp:       msg.Timestamp,
 		})
 		if err != nil {
 			log.Printf("[Hub] gagal menyimpan pesan ke database: %v", err)
@@ -259,6 +271,21 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 		if m.Status != "" {
 			status = MessageStatus(m.Status)
 		}
+
+		var replyTo *ReplyTarget
+		if m.ReplyToID != "" {
+			replyTo = &ReplyTarget{
+				ID:       m.ReplyToID,
+				Nickname: m.ReplyToNickname,
+				Content:  m.ReplyToContent,
+			}
+		}
+
+		var reactions []ReactionItem
+		if m.Reactions != "" && m.Reactions != "[]" {
+			_ = json.Unmarshal([]byte(m.Reactions), &reactions)
+		}
+
 		msgs = append(msgs, Message{
 			ID:        m.ID,
 			Type:      TypeMessage,
@@ -268,6 +295,8 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 			Nickname:  m.Nickname,
 			Content:   m.Content,
 			Status:    status,
+			ReplyTo:   replyTo,
+			Reactions: reactions,
 			Timestamp: m.Timestamp,
 		})
 	}

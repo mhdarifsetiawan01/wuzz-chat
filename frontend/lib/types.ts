@@ -1,7 +1,24 @@
 // Tipe pesan yang dipertukarkan — sinkron dengan backend Go (internal/ws/message.go)
-export type MessageType = 'join' | 'message' | 'typing' | 'receipt' | 'leave' | 'system' | 'history' | 'room_users'
+export type MessageType = 'join' | 'message' | 'typing' | 'receipt' | 'reaction' | 'leave' | 'system' | 'history' | 'room_users'
 
 export type MessageReceiptStatus = 'pending' | 'sent' | 'delivered' | 'read'
+
+export interface ReplyTarget {
+  id: string
+  nickname: string
+  content: string
+}
+
+export interface ReactionItem {
+  emoji: string
+  users: string[]
+  count: number
+}
+
+export interface ReactionPayload {
+  message_id: string
+  emoji: string
+}
 
 export interface RoomUser {
   id: string
@@ -19,6 +36,9 @@ export interface Message {
   content?: string
   timestamp?: string
   status?: MessageReceiptStatus
+  reply_to?: ReplyTarget
+  reactions?: ReactionItem[]
+  reaction?: ReactionPayload
   messages?: Message[]   // Digunakan saat type = 'history'
   users?: RoomUser[]     // Digunakan saat type = 'room_users'
 }

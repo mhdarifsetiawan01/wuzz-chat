@@ -120,6 +120,8 @@ func (c *Client) handleMessage(msg Message) {
 		c.onTyping(msg)
 	case TypeReceipt:
 		c.onReceipt(msg)
+	case TypeReaction:
+		c.onReaction(msg)
 	case TypeLeave:
 		c.conn.Close()
 	default:
@@ -247,6 +249,37 @@ func (c *Client) onTyping(msg Message) {
 	msg.Room = targetRoom
 	msg.Nickname = c.Nickname
 	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
+}
+
+// onReaction memproses penambahan atau penghapusan reaksi emoji pada suatu pesan.
+func (c *Client) onReaction(msg Message) {
+	if msg.Reaction == nil || msg.Reaction.MessageID == "" || msg.Reaction.Emoji == "" {
+		return
+	}
+	targetRoom := msg.Room
+	if targetRoom == "" {
+		targetRoom = c.RoomID
+	}
+	if targetRoom == "" {
+		return
+	}
+
+	// Toggle reaksi di database / memory store
+	reactionsJSON, err := c.hub.messageStore.ToggleReaction(msg.Reaction.MessageID, msg.Reaction.Emoji, c.Nickname)
+	if err != nil {
+		log.Printf("[Client %s] gagal toggle reaction: %v", c.ID, err)
+		return
+	}
+
+	var reactions []ReactionItem
+	_ = json.Unmarshal([]byte(reactionsJSON), &reactions)
+
+	// Broadcast update reaksi ke seluruh anggota room (termasuk pengirim reaksi)
+	msg.Room = targetRoom
+	msg.Type = TypeReaction
+	msg.Reactions = reactions
+	msg.ID = msg.Reaction.MessageID
+	c.hub.BroadcastRoom(targetRoom, msg, "")
 }
 
 // sendError mengirimkan pesan error sistem ke client ini sendiri.

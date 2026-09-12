@@ -2,19 +2,30 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 
+import type { Message } from '@/lib/types'
+
 interface MessageInputProps {
   onSend: (content: string) => void
   onTyping: () => void
   disabled: boolean
+  replyTo?: Message | null
+  onCancelReply?: () => void
 }
 
 // Throttle typing event agar tidak spam ke server
 const TYPING_THROTTLE_MS = 2000
 
-export function MessageInput({ onSend, onTyping, disabled }: MessageInputProps) {
+export function MessageInput({ onSend, onTyping, disabled, replyTo, onCancelReply }: MessageInputProps) {
   const [text, setText] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lastTypingSentRef = useRef<number>(0)
+
+  // Focus textarea saat user mengklik reply
+  useEffect(() => {
+    if (replyTo && textareaRef.current) {
+      textareaRef.current.focus()
+    }
+  }, [replyTo])
 
   // Auto-resize textarea sesuai konten
   useEffect(() => {
@@ -56,6 +67,25 @@ export function MessageInput({ onSend, onTyping, disabled }: MessageInputProps) 
 
   return (
     <div className="chat-input-area">
+      {/* Quoted Message Preview Banner */}
+      {replyTo && (
+        <div className="reply-preview-bar" aria-label="Membalas pesan">
+          <div className="reply-preview-content">
+            <span className="reply-preview-label">Membalas ke <strong className="reply-preview-sender">{replyTo.nickname || 'Pengguna'}</strong></span>
+            <span className="reply-preview-snippet">{replyTo.content}</span>
+          </div>
+          <button
+            type="button"
+            className="reply-preview-cancel"
+            onClick={onCancelReply}
+            title="Batal membalas"
+            aria-label="Batal membalas"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className="chat-input-wrapper">
         <textarea
           ref={textareaRef}

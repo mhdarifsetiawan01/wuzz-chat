@@ -536,6 +536,226 @@ h4 { font-size: 1rem;   font-weight: 600; }
   text-shadow: 0 0 8px rgba(83, 189, 235, 0.4);
 }
 
+/* Bubble Wrapper & Action Bar */
+.message-bubble-wrapper {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.bubble-action-bar {
+  position: absolute;
+  top: -34px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--border-default);
+  backdrop-filter: blur(12px);
+  padding: 3px 6px;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity 150ms ease, transform 150ms ease;
+  z-index: 10;
+}
+
+.message-row.self .bubble-action-bar {
+  right: 0;
+}
+
+.message-row.peer .bubble-action-bar {
+  left: 0;
+  right: auto;
+}
+
+.message-bubble-wrapper:hover .bubble-action-bar,
+.message-bubble-wrapper:focus-within .bubble-action-bar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.quick-emoji-list {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.quick-emoji-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: transform 120ms ease, background 120ms ease;
+  line-height: 1;
+}
+
+.quick-emoji-btn:hover {
+  transform: scale(1.25);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bubble-action-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: background 120ms ease, color 120ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bubble-action-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+}
+
+/* Quoted Reply Block in Message Bubble */
+.message-quote-box {
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.2);
+  border-left: 3px solid var(--accent-500);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  cursor: default;
+}
+
+.message-row.self .message-quote-box {
+  background: rgba(255, 255, 255, 0.08);
+  border-left-color: #53bdeb;
+}
+
+.quote-sender {
+  font-weight: 600;
+  color: var(--accent-400);
+  font-size: 0.7rem;
+  margin-bottom: 2px;
+}
+
+.message-row.self .quote-sender {
+  color: #53bdeb;
+}
+
+.quote-text {
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+/* Reaction Pills Badges */
+.reaction-pills-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 0 2px;
+}
+
+.reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.reaction-pill:hover {
+  border-color: var(--accent-500);
+  background: var(--bg-elevated);
+  transform: scale(1.05);
+}
+
+.reaction-pill.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--accent-500);
+  color: var(--accent-400);
+}
+
+.reaction-count {
+  font-weight: 600;
+  font-size: 0.7rem;
+}
+
+/* Reply Preview Bar above Input */
+.reply-preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-left: 4px solid var(--accent-500);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  animation: fadeSlideUp 180ms ease both;
+}
+
+.reply-preview-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.reply-preview-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.reply-preview-sender {
+  color: var(--accent-400);
+}
+
+.reply-preview-snippet {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 380px;
+}
+
+.reply-preview-cancel {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reply-preview-cancel:hover {
+  color: var(--color-error);
+  background: rgba(248, 81, 73, 0.1);
+}
+
 
 /* Typing indicator */
 .status-typing-label {

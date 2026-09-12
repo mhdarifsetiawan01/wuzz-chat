@@ -22,8 +22,18 @@
   - [x] Reducer `UPDATE_MESSAGE_STATUS` di `frontend/app/chat/page.tsx` dengan transisi non-downgrading (`pending` ➔ `sent` ➔ `delivered` ➔ `read`)
   - [x] Rendering WhatsApp/Telegram-style receipt icons di `MessageBubble.tsx` (`🕒`, `✓`, `✓✓`, `✓✓` blue `#53bdeb`)
   - [x] Pengiriman otomatis `delivered` & `read` receipts saat pesan lawan bicara diterima/dibuka
-- [ ] **Milestone 4.5: Emoji Reactions & Reply/Quote Message**
+- [x] **Milestone 4.5: Emoji Reactions & Reply/Quote Message** ✅
+  - [x] Auto-migration skema database kolom `reply_to_id`, `reply_to_nickname`, `reply_to_content`, `reactions` di tabel `messages`
+  - [x] Backend method `ToggleReaction(msgID, emoji, userNickname)` di SQL & Memory store
+  - [x] Handler WebSocket `TypeReaction` dan persistence quoted `reply_to` di `client.go` & `hub.go`
+  - [x] Unit test `TestHubReplyAndReactions` lulus 100%
+  - [x] Quoted message preview bar pada `MessageInput.tsx` dengan tombol batal `✕`
+  - [x] Floating hover reaction bar (`👍 ❤️ 😂 😮 😢 🙏`) dan tombol reply (`↩️`) pada `MessageBubble.tsx`
+  - [x] Interactive reaction badges di bawah balon pesan dengan highlight active user & toggle click
+  - [x] Glassmorphism & micro-animations styling di `globals.css`
 
-## 📝 Catatan Milestone 4.4
-- Status transisi receipt menggunakan bobot prioritas (`pending`: 0, `sent`: 1, `delivered`: 2, `read`: 3) sehingga status tidak akan pernah ter-downgrade secara tidak sengaja oleh race condition WebSocket.
+## 📝 Catatan Milestone 4.5
+- Format `reactions` disimpan sebagai JSON array terstruktur di basis data, dan di-broadcast secara real-time ke seluruh klien di room percakapan yang sama.
+- Balasan kutipan (*quoted reply*) terintegrasi mulus dengan layout bubble self & peer.
+
 

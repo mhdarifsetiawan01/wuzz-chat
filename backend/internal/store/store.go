@@ -31,14 +31,18 @@ type ClientStore interface {
 
 // StoredMessage adalah representasi pesan yang tersimpan di database.
 type StoredMessage struct {
-	ID        string    `json:"id"`
-	RoomID    string    `json:"room_id"`
-	FromID    string    `json:"from_id"`
-	Nickname  string    `json:"nickname,omitempty"`
-	ToID      string    `json:"to_id"`
-	Content   string    `json:"content"`
-	Status    string    `json:"status,omitempty"` // "pending", "sent", "delivered", "read"
-	Timestamp time.Time `json:"timestamp"`
+	ID              string    `json:"id"`
+	RoomID          string    `json:"room_id"`
+	FromID          string    `json:"from_id"`
+	Nickname        string    `json:"nickname,omitempty"`
+	ToID            string    `json:"to_id"`
+	Content         string    `json:"content"`
+	Status          string    `json:"status,omitempty"` // "pending", "sent", "delivered", "read"
+	ReplyToID       string    `json:"reply_to_id,omitempty"`
+	ReplyToNickname string    `json:"reply_to_nickname,omitempty"`
+	ReplyToContent  string    `json:"reply_to_content,omitempty"`
+	Reactions       string    `json:"reactions,omitempty"` // JSON string representation of ReactionItem[]
+	Timestamp       time.Time `json:"timestamp"`
 }
 
 // MessageStore mendefinisikan operasi penyimpanan dan pemuatan riwayat pesan.
@@ -48,6 +52,9 @@ type MessageStore interface {
 
 	// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
 	UpdateMessageStatus(msgID string, status string) error
+
+	// ToggleReaction menambah atau menghapus reaksi emoji user terhadap pesan tertentu.
+	ToggleReaction(msgID, emoji, userNickname string) (string, error)
 
 	// MarkRoomMessagesAsRead menandai semua pesan yang belum dibaca dari lawan bicara menjadi 'read'.
 	MarkRoomMessagesAsRead(roomID, excludeNickname string) error

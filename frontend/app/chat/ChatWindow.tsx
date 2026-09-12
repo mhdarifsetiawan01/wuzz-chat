@@ -10,9 +10,19 @@ interface ChatWindowProps {
   selfNickname: string
   isPeerTyping: boolean
   typingNickname?: string | null
+  onReply?: (message: Message) => void
+  onReact?: (messageId: string, emoji: string) => void
 }
 
-export function ChatWindow({ messages, selfId, selfNickname, isPeerTyping, typingNickname }: ChatWindowProps) {
+export function ChatWindow({
+  messages,
+  selfId,
+  selfNickname,
+  isPeerTyping,
+  typingNickname,
+  onReply,
+  onReact,
+}: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll ke bawah setiap ada pesan baru atau typing indicator
@@ -49,6 +59,8 @@ export function ChatWindow({ messages, selfId, selfNickname, isPeerTyping, typin
           message={msg}
           selfId={selfId}
           selfNickname={selfNickname}
+          onReply={onReply}
+          onReact={onReact}
         />
       ))}
 

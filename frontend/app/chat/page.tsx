@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useState, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WsClient } from '@/lib/ws-client'
-import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus } from '@/lib/types'
+import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem } from '@/lib/types'
 import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
@@ -31,6 +31,7 @@ type ChatAction =
   | { type: 'SET_SESSION'; payload: SessionInfo }
   | { type: 'ADD_MESSAGE'; payload: Message }
   | { type: 'UPDATE_MESSAGE_STATUS'; payload: { id: string; status: MessageReceiptStatus } }
+  | { type: 'UPDATE_MESSAGE_REACTIONS'; payload: { id: string; reactions: ReactionItem[] } }
   | { type: 'SET_MESSAGES'; payload: Message[] }
   | { type: 'SET_PEER_NICKNAME'; payload: string }
   | { type: 'SET_PEER_TYPING'; payload: { typing: boolean; nickname?: string | null } }
@@ -90,6 +91,13 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         }),
       }
     }
+    case 'UPDATE_MESSAGE_REACTIONS': {
+      const { id, reactions } = action.payload
+      return {
+        ...state,
+        messages: state.messages.map(m => (m.id === id ? { ...m, reactions } : m)),
+      }
+    }
     case 'SET_MESSAGES': {
       // Gabungkan riwayat chat dari database tanpa duplikasi
       const existingKeys = new Set(
@@ -129,6 +137,7 @@ function ChatPageContent() {
   const [isMemberListOpen, setIsMemberListOpen] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [lastIncomingMessage, setLastIncomingMessage] = useState<Message | null>(null)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const clientRef = useRef<WsClient | null>(null)
 
   // Timer untuk matikan typing indicator setelah 3 detik
@@ -145,10 +154,11 @@ function ChatPageContent() {
       return
     }
 
-    // Reset pesan saat berpindah room
+    // Reset pesan & reply saat berpindah room
     dispatch({ type: 'SET_MESSAGES', payload: [] })
     dispatch({ type: 'SET_ROOM_USERS', payload: [] })
     dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
+    setReplyingTo(null)
 
     // Buat koneksi WsClient (selalu aktif untuk menerima notifikasi pesan baru)
     const wsUrl = `ws://${window.location.host}/ws`
@@ -252,6 +262,17 @@ function ChatPageContent() {
           break
         }
 
+        case 'reaction': {
+          // Update reaksi emoji terhadap pesan tertentu
+          if (msg.id && msg.reactions) {
+            dispatch({
+              type: 'UPDATE_MESSAGE_REACTIONS',
+              payload: { id: msg.id, reactions: msg.reactions },
+            })
+          }
+          break
+        }
+
         case 'message': {
           // Teruskan ke snippet sidebar & unread counter
           setLastIncomingMessage(msg)
@@ -326,12 +347,21 @@ function ChatPageContent() {
     const session = state.session
     const msgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'msg-' + Date.now()
 
+    const replyPayload = replyingTo
+      ? {
+          id: replyingTo.id || '',
+          nickname: replyingTo.nickname || '',
+          content: replyingTo.content || '',
+        }
+      : undefined
+
     clientRef.current?.send({
       id: msgId,
       type: 'message',
       content,
       room: roomId,
       nickname: session?.nickname,
+      reply_to: replyPayload,
     })
 
     // Mainkan suara pop pengiriman pesan
@@ -347,6 +377,7 @@ function ChatPageContent() {
         content,
         room: roomId,
         status: 'pending',
+        reply_to: replyPayload,
         timestamp: new Date().toISOString(),
       }
       dispatch({
@@ -355,7 +386,9 @@ function ChatPageContent() {
       })
       setLastIncomingMessage(localMsg)
     }
-  }, [state.session, roomId])
+
+    setReplyingTo(null)
+  }, [state.session, roomId, replyingTo])
 
   const handleTyping = useCallback(() => {
     if (!roomId) return
@@ -365,6 +398,18 @@ function ChatPageContent() {
       nickname: state.session?.nickname,
     })
   }, [roomId, state.session?.nickname])
+
+  const handleReact = useCallback((messageId: string, emoji: string) => {
+    if (!roomId) return
+    clientRef.current?.send({
+      type: 'reaction',
+      room: roomId,
+      reaction: {
+        message_id: messageId,
+        emoji,
+      },
+    })
+  }, [roomId])
 
   const handleSelectRoom = (newRoomId: string) => {
     router.push(`/chat?room=${encodeURIComponent(newRoomId)}`)
@@ -405,12 +450,16 @@ function ChatPageContent() {
               selfNickname={state.session?.nickname ?? (typeof window !== 'undefined' ? sessionStorage.getItem('wuzz_nickname') ?? '' : '')}
               isPeerTyping={state.isPeerTyping}
               typingNickname={state.typingNickname}
+              onReply={setReplyingTo}
+              onReact={handleReact}
             />
 
             <MessageInput
               onSend={handleSend}
               onTyping={handleTyping}
               disabled={!isConnected || !state.session}
+              replyTo={replyingTo}
+              onCancelReply={() => setReplyingTo(null)}
             />
 
             <MemberListModal
