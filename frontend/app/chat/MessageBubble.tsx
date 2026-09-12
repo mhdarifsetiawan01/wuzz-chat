@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Message } from '@/lib/types'
 
 interface MessageBubbleProps {
@@ -39,6 +41,14 @@ function renderReceipt(status?: Message['status']) {
 
 export function MessageBubble({ message, selfId, selfNickname, onReply, onReact }: MessageBubbleProps) {
   const isSystem = message.type === 'system'
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [isReaderModalOpen, setIsReaderModalOpen] = useState(false)
+
+  // Cek apakah pesan tergolong panjang (> 300 karakter atau > 7 baris)
+  const isLongMessage = !isSystem && Boolean(
+    (message.content && message.content.length > 300) ||
+    (message.content && message.content.split('\n').length > 7)
+  )
   
   // Penentuan self yang andal: utamakan kecocokan nickname, fallback ke client ID
   const isSelf = isSystem
@@ -112,10 +122,33 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact 
             </div>
           )}
 
-          {/* Isi Pesan */}
-          <div className="message-text-content">
+          {/* Isi Pesan dengan Read Mode */}
+          <div className={`message-text-content ${isLongMessage && !isExpanded ? 'message-text-clamped' : ''}`}>
             {message.content}
           </div>
+
+          {/* Tombol Aksi Read Mode / Baca Selengkapnya */}
+          {isLongMessage && (
+            <div className="read-more-actions">
+              <button
+                type="button"
+                className="read-more-toggle-btn"
+                onClick={() => setIsExpanded(!isExpanded)}
+                aria-expanded={isExpanded}
+                title={isExpanded ? 'Sembunyikan sebagian teks' : 'Baca seluruh isi teks'}
+              >
+                {isExpanded ? '▲ Sembunyikan' : '📖 Baca Selengkapnya'}
+              </button>
+              <button
+                type="button"
+                className="read-mode-modal-btn"
+                onClick={() => setIsReaderModalOpen(true)}
+                title="Buka dalam tampilan Mode Baca penuh yang nyaman"
+              >
+                🔍 Mode Baca
+              </button>
+            </div>
+          )}
 
           {/* Timestamp & Receipt Status */}
           {!isSystem && (
@@ -181,6 +214,123 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact 
             )
           })}
         </div>
+      )}
+
+      {/* Modal Mode Baca Penuh (Zen Reader View via Portal) */}
+      {isReaderModalOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          className="modal-backdrop"
+          onClick={() => setIsReaderModalOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: 'var(--space-4)',
+          }}
+        >
+          <div
+            className="modal-card"
+            onClick={e => e.stopPropagation()}
+            style={{
+              backgroundColor: '#111b21',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: 'var(--radius-lg)',
+              width: '100%',
+              maxWidth: '680px',
+              maxHeight: '85vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9)',
+              animation: 'fadeIn 0.2s ease',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: 'var(--space-4) var(--space-5)',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                backgroundColor: '#1f2c34',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.25rem' }}>📖</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#e9edef' }}>Mode Baca</h3>
+                  <span style={{ fontSize: '0.75rem', color: '#8696a0' }}>
+                    Dari {message.nickname || (isSelf ? 'Kamu' : 'Pengguna')} • {time}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReaderModalOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#8696a0',
+                  fontSize: '1.25rem',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+                title="Tutup mode baca"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div
+              style={{
+                padding: 'var(--space-6)',
+                overflowY: 'auto',
+                fontSize: '1.05rem',
+                lineHeight: 1.8,
+                color: '#d1d7db',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                userSelect: 'text',
+                backgroundColor: '#111b21',
+              }}
+            >
+              {message.content}
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: 'var(--space-3) var(--space-5)',
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                backgroundColor: '#1f2c34',
+                display: 'flex',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setIsReaderModalOpen(false)}
+                className="btn btn-primary"
+                style={{ padding: '6px 18px', fontSize: '0.875rem' }}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )
