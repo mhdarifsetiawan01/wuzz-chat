@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { uploadMedia, getAppConfig } from '@/lib/api'
 import type { Message, MediaUploadResponse } from '@/lib/types'
+import { VoiceRecorder } from './VoiceRecorder'
 
 interface StagedMedia {
   file: File
@@ -38,6 +39,7 @@ export function MessageInput({
   const [mediaEnabled, setMediaEnabled] = useState(true)
   const [stagedMedia, setStagedMedia] = useState<StagedMedia | null>(null)
   const [isSending, setIsSending] = useState(false)
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -174,6 +176,32 @@ export function MessageInput({
     }
   }
 
+  // Kirim audio langsung dari rekaman VoiceRecorder
+  const handleSendAudio = async (audioFile: File) => {
+    if (disabled || isSending) return
+    setIsSending(true)
+
+    try {
+      const uploadRes = await uploadMedia(audioFile)
+      if (uploadRes.error || !uploadRes.data) {
+        alert('Gagal mengunggah pesan suara: ' + (uploadRes.error || 'Terjadi kesalahan jaringan'))
+        setIsSending(false)
+        return
+      }
+
+      onSend('', {
+        url: uploadRes.data.url,
+        media_type: 'audio',
+        file_name: uploadRes.data.file_name,
+        file_size: uploadRes.data.file_size,
+      })
+
+      setIsRecordingVoice(false)
+    } finally {
+      setIsSending(false)
+    }
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Enter = kirim, Shift+Enter = baris baru
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -182,7 +210,8 @@ export function MessageInput({
     }
   }
 
-  const canSend = (text.trim().length > 0 || stagedMedia !== null) && !disabled && !isSending
+  const hasTextOrMedia = text.trim().length > 0 || stagedMedia !== null
+  const canSend = hasTextOrMedia && !disabled && !isSending
 
   return (
     <div className="chat-input-area">
@@ -247,81 +276,105 @@ export function MessageInput({
         </div>
       )}
 
-      <div className="chat-input-wrapper">
-        {/* Hidden File Input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z,.tar,.gz,.txt,.csv,.json"
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-        />
-
-        {/* Tombol Lampiran (Hanya tampil jika media upload diaktifkan) */}
-        {mediaEnabled && (
-          <button
-            type="button"
-            className="chat-attach-btn"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || isSending}
-            title="Lampirkan Gambar atau Berkas"
-            aria-label="Lampirkan berkas"
-          >
-            📎
-          </button>
-        )}
-
-        <textarea
-          ref={textareaRef}
-          id="message-input"
-          className="chat-textarea"
-          placeholder={
-            disabled
-              ? 'Menunggu koneksi...'
-              : mediaEnabled
-              ? 'Ketik pesan atau paste gambar (Ctrl+V)...'
-              : 'Ketik pesan... (Enter untuk kirim)'
-          }
-          value={text}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
+      {/* Mode Perekaman Suara Aktif */}
+      {isRecordingVoice ? (
+        <VoiceRecorder
+          onSendAudio={handleSendAudio}
+          onCancel={() => setIsRecordingVoice(false)}
           disabled={disabled || isSending}
-          rows={1}
-          aria-label="Tulis pesan"
-          aria-multiline="true"
         />
+      ) : (
+        <div className="chat-input-wrapper">
+          {/* Hidden File Input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z,.tar,.gz,.txt,.csv,.json"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
 
-        <button
-          className="chat-send-btn"
-          onClick={handleSend}
-          disabled={!canSend}
-          id="send-btn"
-          aria-label="Kirim pesan"
-          type="button"
-        >
-          {isSending ? (
-            <span className="sending-spinner">⏳</span>
-          ) : (
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          {/* Tombol Lampiran (Hanya tampil jika media upload diaktifkan) */}
+          {mediaEnabled && (
+            <button
+              type="button"
+              className="chat-attach-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || isSending}
+              title="Lampirkan Gambar atau Berkas"
+              aria-label="Lampirkan berkas"
             >
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
+              📎
+            </button>
           )}
-        </button>
-      </div>
+
+          <textarea
+            ref={textareaRef}
+            id="message-input"
+            className="chat-textarea"
+            placeholder={
+              disabled
+                ? 'Menunggu koneksi...'
+                : mediaEnabled
+                ? 'Ketik pesan atau paste gambar (Ctrl+V)...'
+                : 'Ketik pesan... (Enter untuk kirim)'
+            }
+            value={text}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            disabled={disabled || isSending}
+            rows={1}
+            aria-label="Tulis pesan"
+            aria-multiline="true"
+          />
+
+          {/* Tombol Mikrofon (Saat teks & lampiran kosong) atau Tombol Kirim */}
+          {!hasTextOrMedia && mediaEnabled ? (
+            <button
+              type="button"
+              className="chat-mic-btn"
+              onClick={() => setIsRecordingVoice(true)}
+              disabled={disabled || isSending}
+              title="Rekam Pesan Suara"
+              aria-label="Rekam pesan suara"
+            >
+              🎙️
+            </button>
+          ) : (
+            <button
+              className="chat-send-btn"
+              onClick={handleSend}
+              disabled={!canSend}
+              id="send-btn"
+              aria-label="Kirim pesan"
+              type="button"
+            >
+              {isSending ? (
+                <span className="sending-spinner">⏳</span>
+              ) : (
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
       <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '0.375rem', paddingLeft: '0.25rem' }}>
-        Enter kirim · Shift+Enter baris baru {mediaEnabled && '· Paste gambar langsung (Ctrl+V)'}
+        Enter kirim · Shift+Enter baris baru {mediaEnabled && '· 🎙️ Rekam suara · Paste gambar (Ctrl+V)'}
       </p>
     </div>
   )

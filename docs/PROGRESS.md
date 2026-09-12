@@ -137,13 +137,18 @@
   - Format pembacaan ukuran berkas dinamis (`bytes` ➔ `KB` / `MB`).
   - Balon pesan kartu dokumen `message-doc-card` dengan nama file, metadata ukuran, dan tombol *Direct Download*.
   - Pemilihan berkas luas melalui file picker dialog di MessageInput.
+- [x] **Milestone 5.4: Voice Note Recording (MediaRecorder API) & Waveform Audio Player Bubble**:
+  - Perekam suara langsung di peramban via `VoiceRecorder.tsx`: permission guard, timer rekaman real-time (`00:05`), animasi live wave bar, tombol batal/hapus `🗑️`, dan tombol kirim `➤`.
+  - Otomatis membuat blob berkas audio terkompresi (`.webm` / `.mp4` / `.ogg`), mengunggah via `uploadMedia()`, dan mengirim pesan tipe `audio`.
+  - Pemutar audio kustom bergaya WhatsApp/Telegram (`AudioPlayerBubble.tsx`): tombol Play/Pause kustom, simulated dynamic waveform scrubber track, timer progres audio, dan toggle kecepatan pemutaran (`1x` / `1.5x` / `2x`).
+  - Single-active player auto-pause saat audio lain diputar.
 
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Milestone 5.1, 5.2, dan 5.3 telah selesai & terverifikasi 100%!**
-- Langkah berikutnya: **Milestone 5.4 (Voice Note Recorder & Custom Waveform Audio Player Bubble)**.
+- **Fase 5: Rich Media, Voice Notes & Attachments telah 100% Selesai & Terverifikasi!** (Storage Adapter, Upload API, Image Lightbox, Document Cards, Voice Notes & Waveform Player).
+- Siap melangkah ke **Fase 6: Distributed Scale & Reliability (Redis Pub/Sub & Multi-Server Cluster)** atau **OpenGraph Rich Link Preview**.
 
 ---
 

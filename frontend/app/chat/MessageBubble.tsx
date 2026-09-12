@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Message } from '@/lib/types'
+import { AudioPlayerBubble } from './AudioPlayerBubble'
 
 interface MessageBubbleProps {
   message: Message
@@ -216,6 +217,15 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
                 ⬇
               </a>
             </div>
+          )}
+
+          {/* Pratinjau Pesan Suara / Audio Voice Note */}
+          {message.media_url && message.media_type === 'audio' && (
+            <AudioPlayerBubble
+              audioUrl={message.media_url}
+              fileName={message.file_name}
+              isSelf={isSelf}
+            />
           )}
 
           {/* Isi Pesan dengan Read Mode */}
