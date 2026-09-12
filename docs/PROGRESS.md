@@ -78,12 +78,23 @@
   - Skema tabel `messages` diperkaya kolom `reply_to_id`, `reply_to_nickname`, `reply_to_content`, dan `reactions`.
   - Unit test `TestHubReplyAndReactions` lulus 100%.
 
+### E. Fase 3.5: Authentication Hardening & Security Polish (Sedang Berjalan)
+- [x] **Milestone 3.5.1: Next.js Auth Guard & Route Protection**:
+  - Proteksi penuh rute `/chat`: Pengguna yang belum login otomatis dialihkan ke `/login` (dengan preservasi parameter room `?room=...`).
+  - Proteksi rute `/login`, `/register`, dan Landing page `/`: Pengguna yang telah terautentikasi otomatis dialihkan ke `/chat`.
+  - HTTP 401 Unauthorized interceptor pada `frontend/lib/api.ts` yang otomatis menghapus session token lama dan mengarahkan user ke `/login?expired=1` dengan banner peringatan.
+  - Suspense-safe search params wrapper pada seluruh client route.
+- [ ] **Milestone 3.5.2: WebSocket JWT Handshake Authentication**:
+  - Validasi token JWT saat handshake `/ws` di backend Go dan bind identitas client langsung dari claims token.
+- [ ] **Milestone 3.5.3: User Profile & Status Bio Management**:
+  - Endpoint `PUT /api/auth/profile` dan drawer pengaturan profil di sidebar frontend.
+
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Fase 4: Modern Chat UX & Interactive Dynamics telah 100% Selesai & Terverifikasi!** (Sound FX, Live Typing Indicator, Real-Time Sidebar Snippets & Persistent Unread Badge, Message Receipts `pending`->`sent`->`delivered`->`read`, Emoji Reactions & Audio Alert, serta Reply/Quote Message dengan Interactive Click-to-Scroll & Glow).
-- Siap melangkah ke **Fase 5: Media Sharing, Attachments & File Transfer** (Image Preview, Drag & Drop Upload, Audio Voice Note / File Download).
+- **Milestone 3.5.1: Next.js Auth Guard & Route Protection** telah selesai diimplementasikan dan diverifikasi (`npm run build` sukses 100%, 0 error).
+- Menunggu konfirmasi user sebelum melanjutkan ke **Milestone 3.5.2 (WebSocket JWT Handshake)**.
 
 ---
 

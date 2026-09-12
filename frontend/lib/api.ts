@@ -26,6 +26,14 @@ export async function apiRequest<T>(
     const result = await res.json().catch(() => ({}))
 
     if (!res.ok) {
+      // Jika token expired / unauthorized dan bukan request login/register
+      if (res.status === 401 && typeof window !== 'undefined' && !endpoint.startsWith('/api/auth/login') && !endpoint.startsWith('/api/auth/register')) {
+        localStorage.removeItem('wuzz_auth_token')
+        localStorage.removeItem('wuzz_user_profile')
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login?expired=1'
+        }
+      }
       return { error: result.error || `Request gagal dengan status ${res.status}` }
     }
 

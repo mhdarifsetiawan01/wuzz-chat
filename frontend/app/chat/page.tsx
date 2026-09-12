@@ -159,13 +159,14 @@ function ChatPageContent() {
   useEffect(() => {
     if (isAuthLoading) return
 
-    // Ambil nickname dari user auth atau sessionStorage
-    const nickname = user?.display_name || user?.username || (typeof window !== 'undefined' ? sessionStorage.getItem('wuzz_nickname') : '')
-    if (!nickname) {
-      // Jika tidak ada nickname (misal direct open link tanpa login), arahkan ke login/landing
-      router.replace(roomId ? `/?room=${encodeURIComponent(roomId)}` : '/')
+    if (!user) {
+      // Jika user belum login, wajib alihkan ke halaman login
+      const targetUrl = roomId ? `/login?room=${encodeURIComponent(roomId)}` : '/login'
+      router.replace(targetUrl)
       return
     }
+
+    const nickname = user.display_name || user.username
 
     // Reset pesan & reply saat berpindah room
     dispatch({ type: 'SET_MESSAGES', payload: [] })
@@ -422,6 +423,17 @@ function ChatPageContent() {
     router.push(`/chat?room=${encodeURIComponent(newRoomId)}`)
   }
 
+  if (isAuthLoading || !user) {
+    return (
+      <div className="chat-app-container" style={{ alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: '2rem', marginBottom: 'var(--space-3)', animation: 'spin 1.5s linear infinite' }}>💬</div>
+          <p>Memverifikasi sesi akun...</p>
+        </div>
+      </div>
+    )
+  }
+
   const isConnected = state.status === 'connected'
 
   return (
@@ -454,7 +466,7 @@ function ChatPageContent() {
             <ChatWindow
               messages={state.messages}
               selfId={state.session?.clientId ?? ''}
-              selfNickname={state.session?.nickname ?? (typeof window !== 'undefined' ? sessionStorage.getItem('wuzz_nickname') ?? '' : '')}
+              selfNickname={state.session?.nickname ?? user.display_name ?? user.username ?? ''}
               isPeerTyping={state.isPeerTyping}
               typingNickname={state.typingNickname}
               onReply={setReplyingTo}

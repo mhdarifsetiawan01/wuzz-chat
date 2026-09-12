@@ -1,18 +1,29 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { apiRequest } from '@/lib/api'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
-  const { login } = useAuth()
+  const searchParams = useSearchParams()
+  const isExpired = searchParams.get('expired') === '1'
+  const redirectRoom = searchParams.get('room') || ''
+
+  const { user, isLoading: isAuthLoading, login } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(isExpired ? '⚠️ Sesi Anda telah berakhir. Silakan masuk kembali.' : '')
   const [isLoading, setIsLoading] = useState(false)
+
+  // Redirect ke /chat jika sudah terautentikasi
+  useEffect(() => {
+    if (!isAuthLoading && user) {
+      router.replace(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
+    }
+  }, [user, isAuthLoading, router, redirectRoom])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,8 +49,19 @@ export default function LoginPage() {
 
     if (data?.token && data?.user) {
       login(data.token, data.user)
-      router.push('/chat')
+      router.push(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
     }
+  }
+
+  if (isAuthLoading) {
+    return (
+      <main className="landing-page">
+        <div className="landing-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+          <div className="landing-logo-icon" style={{ animation: 'spin 1.5s linear infinite' }}>💬</div>
+          <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>Memeriksa sesi akun...</p>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -119,13 +141,24 @@ export default function LoginPage() {
           <Link href="/register" style={{ color: 'var(--accent-400)', fontWeight: 500 }}>
             Daftar di sini
           </Link>
-          <div style={{ marginTop: 'var(--space-2)' }}>
-            <Link href="/" style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
-              ← Masuk sebagai Tamu Anonim
-            </Link>
-          </div>
         </div>
       </div>
     </main>
   )
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <main className="landing-page">
+        <div className="landing-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+          <div className="landing-logo-icon" style={{ animation: 'spin 1.5s linear infinite' }}>💬</div>
+          <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>Memuat...</p>
+        </div>
+      </main>
+    }>
+      <LoginContent />
+    </Suspense>
+  )
+}
+

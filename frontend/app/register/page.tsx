@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
@@ -8,12 +8,19 @@ import { apiRequest } from '@/lib/api'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { login } = useAuth()
+  const { user, isLoading: isAuthLoading, login } = useAuth()
   const [username, setUsername] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // Redirect ke /chat jika sudah login
+  useEffect(() => {
+    if (!isAuthLoading && user) {
+      router.replace('/chat')
+    }
+  }, [user, isAuthLoading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,6 +62,17 @@ export default function RegisterPage() {
       login(data.token, data.user)
       router.push('/chat')
     }
+  }
+
+  if (isAuthLoading) {
+    return (
+      <main className="landing-page">
+        <div className="landing-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+          <div className="landing-logo-icon" style={{ animation: 'spin 1.5s linear infinite' }}>💬</div>
+          <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>Memeriksa sesi akun...</p>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -150,11 +168,6 @@ export default function RegisterPage() {
           <Link href="/login" style={{ color: 'var(--accent-400)', fontWeight: 500 }}>
             Masuk di sini
           </Link>
-          <div style={{ marginTop: 'var(--space-2)' }}>
-            <Link href="/" style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
-              ← Masuk sebagai Tamu Anonim
-            </Link>
-          </div>
         </div>
       </div>
     </main>
