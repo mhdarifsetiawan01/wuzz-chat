@@ -12,6 +12,7 @@ interface ChatWindowProps {
   typingNickname?: string | null
   onReply?: (message: Message) => void
   onReact?: (messageId: string, emoji: string) => void
+  onImageClick?: (imageUrl: string, fileName?: string) => void
 }
 
 export function ChatWindow({
@@ -22,6 +23,7 @@ export function ChatWindow({
   typingNickname,
   onReply,
   onReact,
+  onImageClick,
 }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -61,6 +63,7 @@ export function ChatWindow({
           selfNickname={selfNickname}
           onReply={onReply}
           onReact={onReact}
+          onImageClick={onImageClick}
         />
       ))}
 

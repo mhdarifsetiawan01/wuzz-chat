@@ -8,6 +8,7 @@ import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
 import { MemberListModal } from './MemberListModal'
+import { ImageLightboxModal } from './ImageLightboxModal'
 import { Sidebar } from './Sidebar'
 import { soundManager } from '@/lib/sound'
 import { useAuth } from '@/lib/auth-context'
@@ -351,7 +352,11 @@ function ChatPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, isAuthLoading, user?.username, user?.display_name])
 
-  const handleSend = useCallback((content: string) => {
+  const [lightboxData, setLightboxData] = useState<{ url: string; fileName?: string } | null>(null)
+  const [draggedFile, setDraggedFile] = useState<File | null>(null)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
+
+  const handleSend = useCallback((content: string, media?: { url: string; media_type: string; file_name: string; file_size: number }) => {
     if (!roomId) return
     const session = state.session
     const msgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'msg-' + Date.now()
@@ -371,6 +376,10 @@ function ChatPageContent() {
       room: roomId,
       nickname: session?.nickname,
       reply_to: replyPayload,
+      media_url: media?.url,
+      media_type: media?.media_type,
+      file_name: media?.file_name,
+      file_size: media?.file_size,
     })
 
     // Mainkan suara pop pengiriman pesan
@@ -387,6 +396,10 @@ function ChatPageContent() {
         room: roomId,
         status: 'pending',
         reply_to: replyPayload,
+        media_url: media?.url,
+        media_type: media?.media_type,
+        file_name: media?.file_name,
+        file_size: media?.file_size,
         timestamp: new Date().toISOString(),
       }
       dispatch({
@@ -424,6 +437,30 @@ function ChatPageContent() {
     router.push(`/chat?room=${encodeURIComponent(newRoomId)}`)
   }
 
+  // Drag & drop file ke area chat
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!isDraggingOver) setIsDraggingOver(true)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.currentTarget === e.target) {
+      setIsDraggingOver(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingOver(false)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setDraggedFile(e.dataTransfer.files[0])
+    }
+  }
+
   if (isAuthLoading || !user) {
     return (
       <div className="chat-app-container" style={{ alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
@@ -449,7 +486,22 @@ function ChatPageContent() {
       />
 
       {/* Main Chat Pane */}
-      <main className="chat-main-pane">
+      <main
+        className={`chat-main-pane ${isDraggingOver ? 'chat-drag-over' : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDraggingOver && (
+          <div className="chat-drag-overlay">
+            <div className="drag-overlay-card">
+              <span className="drag-overlay-icon">📥</span>
+              <p className="drag-overlay-title">Lepaskan file di sini</p>
+              <p className="drag-overlay-subtitle">File akan otomatis dilampirkan ke pesan</p>
+            </div>
+          </div>
+        )}
+
         {roomId ? (
           <>
             <StatusBar
@@ -472,6 +524,7 @@ function ChatPageContent() {
               typingNickname={state.typingNickname}
               onReply={setReplyingTo}
               onReact={handleReact}
+              onImageClick={(url, name) => setLightboxData({ url, fileName: name })}
             />
 
             <MessageInput
@@ -480,6 +533,8 @@ function ChatPageContent() {
               disabled={!isConnected}
               replyTo={replyingTo}
               onCancelReply={() => setReplyingTo(null)}
+              stagedExternalFile={draggedFile}
+              onClearStagedExternalFile={() => setDraggedFile(null)}
             />
 
             <MemberListModal
@@ -488,6 +543,13 @@ function ChatPageContent() {
               users={state.roomUsers}
               currentNickname={state.session?.nickname}
               roomId={roomId}
+            />
+
+            <ImageLightboxModal
+              isOpen={!!lightboxData}
+              imageUrl={lightboxData?.url || ''}
+              fileName={lightboxData?.fileName}
+              onClose={() => setLightboxData(null)}
             />
           </>
         ) : (

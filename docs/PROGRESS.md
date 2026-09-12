@@ -124,13 +124,20 @@
   - Auto-migration database non-destruktif menambah kolom `media_url`, `media_type`, `file_name`, dan `file_size` pada tabel `messages`.
   - Static file serving handler `/uploads/` dengan HTTP caching header.
   - Unit test `storage_test.go` dan `media_handler_test.go` lulus 100%.
+- [x] **Milestone 5.2: Frontend Image Sharing, Drag & Drop, Paste `Ctrl + V`, dan Image Lightbox Modal**:
+  - Tombol lampiran `📎` di MessageInput dengan pembacaan otomatis dynamic config toggle (`media_upload_enabled`).
+  - Fitur Clipboard Paste (`Ctrl + V`): otomatis menangkap gambar dari clipboard (misal tangkapan layar/screenshot).
+  - Drag & Drop Overlay Zone di `ChatWindow`: visual dropzone interaktif saat file diseret ke area obrolan.
+  - Staging Media Preview Bar di atas textarea: menampilkan thumbnail, nama file, ukuran MB, tombol pembatalan `✕`, dan animasi pengunggahan.
+  - Balon pesan gambar di linimasa chat (`MessageBubble`) dengan aspect-ratio rapi, lazy-loading, dan timestamp overlay.
+  - Komponen `ImageLightboxModal` (React Portal): fullscreen image viewer dengan dark glassmorphism backdrop, Zoom In (`+`), Zoom Out (`-`), Reset Zoom (`100%`), Unduh Berkas langsung, dan penutupan via tombol `✕` / tombol `Esc` / backdrop click.
 
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Milestone 5.1 (Backend Media Engine & Upload API) telah selesai & terverifikasi 100%!**
-- Langkah berikutnya: **Milestone 5.2 (Frontend UI Attachment Picker, Drag & Drop, Clipboard Paste `Ctrl + V`, dan Image Lightbox Viewer)**.
+- **Milestone 5.1 & Milestone 5.2 telah selesai & terverifikasi 100%!**
+- Langkah berikutnya: **Milestone 5.3 (Document & File Sharing Card: PDF, DOC, ZIP downloader bubble)**.
 
 ---
 

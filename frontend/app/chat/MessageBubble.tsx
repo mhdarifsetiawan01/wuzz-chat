@@ -10,6 +10,7 @@ interface MessageBubbleProps {
   selfNickname: string
   onReply?: (message: Message) => void
   onReact?: (messageId: string, emoji: string) => void
+  onImageClick?: (imageUrl: string, fileName?: string) => void
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
@@ -39,7 +40,7 @@ function renderReceipt(status?: Message['status']) {
   }
 }
 
-export function MessageBubble({ message, selfId, selfNickname, onReply, onReact }: MessageBubbleProps) {
+export function MessageBubble({ message, selfId, selfNickname, onReply, onReact, onImageClick }: MessageBubbleProps) {
   const isSystem = message.type === 'system'
   const [isExpanded, setIsExpanded] = useState(false)
   const [isReaderModalOpen, setIsReaderModalOpen] = useState(false)
@@ -122,10 +123,36 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact 
             </div>
           )}
 
+          {/* Pratinjau Gambar jika ada */}
+          {message.media_url && message.media_type === 'image' && (
+            <div
+              className="message-image-wrapper"
+              onClick={() => onImageClick?.(message.media_url!, message.file_name)}
+              role="button"
+              tabIndex={0}
+              title="Klik untuk memperbesar gambar"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onImageClick?.(message.media_url!, message.file_name)
+                }
+              }}
+            >
+              <img
+                src={message.media_url}
+                alt={message.file_name || 'Foto terlampir'}
+                className="message-image-img"
+                loading="lazy"
+              />
+            </div>
+          )}
+
           {/* Isi Pesan dengan Read Mode */}
-          <div className={`message-text-content ${isLongMessage && !isExpanded ? 'message-text-clamped' : ''}`}>
-            {message.content}
-          </div>
+          {message.content && (
+            <div className={`message-text-content ${isLongMessage && !isExpanded ? 'message-text-clamped' : ''}`}>
+              {message.content}
+            </div>
+          )}
 
           {/* Tombol Aksi Read Mode / Baca Selengkapnya */}
           {isLongMessage && (

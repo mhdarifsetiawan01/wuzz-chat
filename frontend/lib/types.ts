@@ -55,6 +55,14 @@ export interface AppConfig {
   storage_driver: string
 }
 
+export interface MediaUploadResponse {
+  url: string
+  file_name: string
+  file_size: number
+  media_type: 'image' | 'audio' | 'video' | 'document' | string
+  mime_type: string
+}
+
 // Status koneksi WebSocket
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting'
 
