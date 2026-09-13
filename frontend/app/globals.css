@@ -1268,7 +1268,9 @@ h4 { font-size: 1rem;   font-weight: 600; }
 
 /* Sidebar Obrolan */
 .chat-sidebar {
-  width: 340px;
+  width: 400px;
+  min-width: 360px;
+  max-width: 450px;
   background: var(--bg-surface);
   border-right: 1px solid var(--border-subtle);
   display: flex;
@@ -1417,6 +1419,9 @@ h4 { font-size: 1rem;   font-weight: 600; }
 .conv-details {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .conv-top {
@@ -1573,7 +1578,9 @@ h4 { font-size: 1rem;   font-weight: 600; }
     top: 0;
     bottom: 0;
     left: 0;
-    width: 280px;
+    width: min(340px, 85vw);
+    min-width: unset;
+    max-width: unset;
     transform: translateX(-100%);
     box-shadow: var(--shadow-lg);
   }

@@ -81,6 +81,10 @@
   - **Auto-Clamp Text**: Pesan panjang (> 300 karakter atau > 7 baris) otomatis dibatasi tingginya (`max-height: 160px`) dengan efek *smooth bottom gradient mask*.
   - **Inline Toggle**: Tombol `📖 Baca Selengkapnya / ▲ Sembunyikan` untuk memperluas teks langsung di linimasa balon chat.
   - **Zen Reader View Modal**: Menggunakan React Portal (`createPortal`) ke root `document.body` dengan overlay layar penuh, tema solid gelap `#111b21`, tipografi lega, dan bebas distraksi.
+- [x] **Milestone 4.7: Proportional Sidebar & Search Hierarchy Refinement**:
+  - **Lebar Sidebar Proporsional**: Peningkatan lebar desktop dari `340px` ke `400px` (`min-width: 360px`, `max-width: 450px`) untuk ruang obrolan kelas WhatsApp/Telegram Web yang lebih lega di layar widescreen.
+  - **Responsif Mobile**: Optimasi lebar drawer sidebar mobile menjadi `min(340px, 85vw)` yang adaptif.
+  - **Tata Letak 2-Baris Hasil Pencarian**: Pemisahan baris Display Name + @username dengan bio status di hasil pencarian kontak `Sidebar.tsx`.
 
 ### E. Fase 3.5: Authentication Hardening & Security Polish (Selesai)
 - [x] **Milestone 3.5.1: Next.js Auth Guard & Route Protection**:

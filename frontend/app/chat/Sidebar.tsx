@@ -303,10 +303,15 @@ export function Sidebar({
                       {u.avatar_url || (u.display_name || u.username)[0].toUpperCase()}
                     </div>
                     <div className="conv-details">
-                      <span className="conv-name">{u.display_name}</span>
-                      <span className="conv-last-msg" title={u.status_message || `@${u.username}`}>
-                        {u.status_message ? `${u.status_message} • @${u.username}` : `@${u.username}`}
-                      </span>
+                      <div className="conv-top">
+                        <span className="conv-name">{u.display_name || u.username}</span>
+                        <span className="conv-time" style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>@{u.username}</span>
+                      </div>
+                      <div className="conv-bottom">
+                        <span className="conv-last-msg" title={u.status_message || 'Tersedia untuk mengobrol'}>
+                          {u.status_message || 'Tersedia untuk mengobrol'}
+                        </span>
+                      </div>
                     </div>
                   </li>
                 ))}
