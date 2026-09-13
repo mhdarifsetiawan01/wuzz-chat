@@ -52,7 +52,7 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 
 ---
 
-## 🚀 Fitur yang Telah Selesai (Fase 1 s/d Fase 6)
+## 🚀 Fitur yang Telah Selesai (Fase 1 s/d Fase 7)
 
 - [x] **Bidirectional WebSocket Engine (Fase 1)**: Arsitektur hub Go dengan goroutine read/write pump dan graceful disconnect.
 - [x] **Next.js Reverse Proxy (`server.js`) (Fase 1)**: Menangani WebSocket upgrade event pada custom server dan me-reverse proxy `/api/*` serta `/uploads/*`, mengisolasi URL backend dari browser.
@@ -79,6 +79,8 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 - [x] **Live Production Backend di Fly.io (Fase 6)**: Container Docker Go Alpine super ringan (< 25MB) aktif di region Singapore (`sin`).
 - [x] **Dual-Platform Architecture (Desktop & WhatsApp Mobile Single-Screen)**: Tampilan desktop split 2-kolom dan mobile single-screen flow (Daftar Chat Fullscreen ⇄ Ruang Obrolan Fullscreen dengan tombol `← Back`), Dynamic Viewport `100dvh`, sticky header, safe area padding `env(safe-area-inset-bottom)`, dan sinkronisasi tanda terima `✓✓` biru serta unread counter instan 0ms.
 - [x] **End-to-End Encryption (E2EE) (Fase 7)**: Kriptografi standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API, penyimpanan private key di `IndexedDB` (`wuzz_crypto_db`), verifikasi nomor keamanan 30-digit (*Safety Number Fingerprint*), auto-decryption reaktif pada timeline obrolan dan cuplikan pesan di sidebar, serta zero-knowledge storage pada server database.
+- [x] **1-on-1 Voice / Audio Calling via WebRTC P2P (Fase 7 Milestone 7.2A)**: Panggilan suara real-time antar pengguna dengan backend WebSocket signaling hub, koneksi peer-to-peer latensi rendah dengan STUN + OpenRelay TURN fallback, Web Audio API procedural ringtones, overlay panggilan aktif dengan live timer dan microphone mute, serta modal panggilan masuk interaktif.
+- [x] **Contact Search Persistence & Instant Filter**: Pencarian kontak cepat dengan debounce 300ms, pemisahan state loading API dengan visibilitas hasil pencarian, dan reset filter yang bersih.
 
 ---
 

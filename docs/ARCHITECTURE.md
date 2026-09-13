@@ -241,3 +241,59 @@ Karena seluruh algoritma menggunakan standar resmi NIST & RFC:
 
 ### D. Verifikasi Keamanan Visual (Safety Number Fingerprint)
 - Digest SHA-256 dari gabungan kunci publik kedua pihak yang diurutkan secara deterministik, diformat menjadi 6 blok angka 5 digit (total 30 digit) untuk perbandingan manual visual antar pengguna.
+
+---
+
+## 📞 7. Arsitektur WebRTC 1-on-1 Voice Calling & Signaling
+
+WuzzChat mengintegrasikan kapabilitas komunikasi suara real-time berbasis **WebRTC P2P (Peer-to-Peer)** dengan latensi sangat rendah:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Pemanggil (Alice)
+    participant S as WebSocket Signaling Hub (Go)
+    participant B as Penerima (Bob)
+    
+    A->>S: call_offer (sdp, target_user_id)
+    S->>B: Forward call_offer
+    Note over A: playOutgoingRing (tuut... tuut...)
+    Note over B: playIncomingRing (ringtone C5-E5-G5-C6)
+    
+    alt Bob Menolak Panggilan
+        B->>S: call_reject (room)
+        S->>A: Forward call_reject
+        Note over A,B: stopCallSounds & Tutup Dialog
+    else Bob Menerima Panggilan
+        B->>S: call_answer (sdp, room)
+        S->>A: Forward call_answer
+        Note over A,B: stopCallSounds & Buka AudioCallOverlay
+        
+        loop Pertukaran ICE Candidate
+            A->>S: ice_candidate (candidate)
+            S->>B: Forward ice_candidate
+            B->>S: ice_candidate (candidate)
+            S->>A: Forward ice_candidate
+        end
+        
+        Note over A,B: Direct P2P Audio Stream (STUN / TURN Fallback)
+        
+        opt Salah satu mengakhiri panggilan
+            A->>S: call_end (room)
+            S->>B: Forward call_end
+            Note over A,B: Tutup AudioCallOverlay & Lepas Hardware Mic
+        end
+    end
+```
+
+### A. Infrastruktur Signaling & ICE Traversal
+- **Signaling Server**: Menggunakan koneksi WebSocket Go backend yang sudah ada tanpa perlu server signaling terpisah.
+- **ICE Servers**:
+  - Primary: Google Public STUN (`stun:stun.l.google.com:19302`).
+  - Fallback TURN: OpenRelay Public TURN (`openrelay.metered.ca:80` & `:443`) untuk traversal koneksi simetris NAT / Firewall ketat.
+- **Early Candidate Buffering**: Menyimpan kandidat ICE yang tiba sebelum `setRemoteDescription()` selesai untuk mencegah *ICE connection failure / race condition*.
+
+### B. Synthesizer Nada Dering Bebas File Eksternal (Web Audio API)
+- **Outgoing Ringtone**: `playOutgoingRing()` menggunakan generator osilator dual-sine 440Hz + 480Hz berulang (*cadence: 1.5s bunyi, 3s jeda*).
+- **Incoming Ringtone**: `playIncomingRing()` menggunakan rangkaian harmoni arpeggio 4-nada C5 ➔ E5 ➔ G5 ➔ C6 yang jernih dan berulang.
+- **Zero Asset Latency**: 100% diproduksi oleh browser audio chip tanpa dependensi file MP3/WAV.

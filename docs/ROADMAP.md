@@ -54,7 +54,8 @@ Membangun platform chatting modern yang:
 ┌──────────────────────────────────▼─────────────────────────────────────┐
 │  FASE 7: Security Hardening & WebRTC Calling (SEDANG BERJALAN ⏳)       │
 │  - Bagian 1: End-to-End Encryption (E2EE ECDH + AES-GCM) (SELESAI ✅)  │
-│  - Bagian 2: 1-on-1 Audio & Video Call via WebRTC (NEXT 🎯)            │
+│  - Bagian 2 (7.2A): 1-on-1 Voice / Audio Call WebRTC (SELESAI ✅)       │
+│  - Bagian 2 (7.2B): 1-on-1 Video Call WebRTC (NEXT 🎯)                  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
