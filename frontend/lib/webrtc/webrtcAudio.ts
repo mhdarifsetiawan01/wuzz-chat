@@ -5,12 +5,31 @@
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
+    // Google Public STUN Cluster
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun3.l.google.com:19302' },
     { urls: 'stun:stun4.l.google.com:19302' },
+    // OpenRelay Public STUN & TURN Relay Cluster (Fallback untuk NAT/Firewall/4G/5G)
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    {
+      urls: 'turn:standard.relay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:standard.relay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
+  iceCandidatePoolSize: 10,
 }
 
 export class WebRTCAudioSession {
@@ -68,11 +87,17 @@ export class WebRTCAudioSession {
     if (!this.remoteAudioElem) {
       this.remoteAudioElem = new Audio()
       this.remoteAudioElem.autoplay = true
+      this.remoteAudioElem.volume = 1.0
+      // Attribute penting untuk mobile Safari / Chrome
+      this.remoteAudioElem.setAttribute('playsinline', 'true')
     }
     this.remoteAudioElem.srcObject = stream
-    this.remoteAudioElem.play().catch(err => {
-      console.warn('[WebRTC Audio] Autoplay remote audio ditahan oleh browser:', err)
-    })
+    const playPromise = this.remoteAudioElem.play()
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.warn('[WebRTC Audio] Autoplay remote audio butuh interaksi pengguna:', err)
+      })
+    }
   }
 
   /**

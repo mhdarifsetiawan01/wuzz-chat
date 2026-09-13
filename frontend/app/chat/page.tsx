@@ -905,8 +905,8 @@ function ChatPageContent() {
         (connState: RTCPeerConnectionState) => {
           if (connState === 'connected') {
             stopCallSounds()
-            setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: Date.now() } : null))
-          } else if (connState === 'disconnected' || connState === 'failed') {
+            setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: prev.startTime || Date.now() } : null))
+          } else if (connState === 'failed') {
             handleEndCall()
           }
         }
@@ -954,8 +954,8 @@ function ChatPageContent() {
         },
         (connState: RTCPeerConnectionState) => {
           if (connState === 'connected') {
-            setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: Date.now() } : null))
-          } else if (connState === 'disconnected' || connState === 'failed') {
+            setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: prev.startTime || Date.now() } : null))
+          } else if (connState === 'failed') {
             handleEndCall()
           }
         }
