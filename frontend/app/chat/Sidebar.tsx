@@ -55,6 +55,7 @@ export function Sidebar({
   const router = useRouter()
   const { user, logout } = useAuth()
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const lastHandledMsgIdRef = useRef<string | null>(null)
   const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'groups' | 'direct'>('all')
@@ -74,13 +75,20 @@ export function Sidebar({
       method: 'DELETE',
     })
     setIsDeleting(false)
-    if (!error) {
-      setConversations(prev => prev.filter(c => c.id !== confirmDeleteConv.id))
-      if (activeRoomId === confirmDeleteConv.id) {
-        onSelectRoom('')
-      }
-      setConfirmDeleteConv(null)
+    if (error) {
+      alert(error)
+      return
     }
+    setConversations(prev => prev.filter(c => c.id !== confirmDeleteConv.id))
+    setUnreadCounts(prev => {
+      const next = { ...prev }
+      delete next[confirmDeleteConv.id]
+      return next
+    })
+    if (activeRoomId === confirmDeleteConv.id) {
+      onSelectRoom('')
+    }
+    setConfirmDeleteConv(null)
   }
 
 
@@ -125,6 +133,13 @@ export function Sidebar({
   // Real-time update snippet & unread counter saat ada pesan masuk
   useEffect(() => {
     if (!lastIncomingMessage || !lastIncomingMessage.room) return
+
+    // Cegah re-processing pesan yang sama saat activeRoomId berubah (misal tombol Back di HP)
+    const msgKey = lastIncomingMessage.id || `${lastIncomingMessage.room}_${lastIncomingMessage.timestamp}_${lastIncomingMessage.content}`
+    if (lastHandledMsgIdRef.current === msgKey) {
+      return
+    }
+    lastHandledMsgIdRef.current = msgKey
 
     const room = lastIncomingMessage.room
     const isFromOther = lastIncomingMessage.nickname !== user?.username && lastIncomingMessage.nickname !== user?.display_name
