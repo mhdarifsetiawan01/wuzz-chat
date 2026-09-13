@@ -7,7 +7,8 @@ import { useAuth } from '@/lib/auth-context'
 import type { Message, User, ConversationItem } from '@/lib/types'
 import { ProfileModal } from './ProfileModal'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
-import { isEncryptedMessage } from '@/lib/crypto/e2ee'
+import { isEncryptedMessage, decryptText } from '@/lib/crypto/e2ee'
+import { getSharedRoomAESKey, cachePeerPublicKey, getCachedPeerPublicKey } from '@/lib/crypto/keyStore'
 
 interface SidebarProps {
   activeRoomId: string
@@ -99,16 +100,69 @@ export function Sidebar({
     setConfirmDeleteConv(null)
   }
 
+  // Helper dekripsi snippet pesan terakhir percakapan E2EE
+  const decryptSnippet = async (conv: ConversationItem): Promise<string> => {
+    if (!conv.last_message || !isEncryptedMessage(conv.last_message) || !user?.id) {
+      return conv.last_message || ''
+    }
 
-  // Fetch daftar obrolan aktif beserta unread counts dari database
+    let peerId = conv.peer_id || ''
+    if (!peerId && conv.id.startsWith('dm_')) {
+      const parts = conv.id.replace('dm_', '').split('_')
+      if (parts.length === 2) {
+        peerId = parts[0] === user.id ? parts[1] : parts[0]
+      }
+    }
+
+    if (!peerId) return '🔒 Pesan Terenkripsi'
+
+    let peerPub = conv.peer_public_key || getCachedPeerPublicKey(peerId) || ''
+    if (!peerPub) {
+      try {
+        const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(peerId)}`)
+        if (profile && profile.public_key) {
+          peerPub = profile.public_key
+          cachePeerPublicKey(peerId, peerPub)
+        }
+      } catch {}
+    } else {
+      cachePeerPublicKey(peerId, peerPub)
+    }
+
+    if (peerPub) {
+      const aesKey = await getSharedRoomAESKey(user.id, peerId, peerPub, conv.id)
+      if (aesKey) {
+        try {
+          const plain = await decryptText(aesKey, conv.last_message)
+          return plain
+        } catch {
+          return '🔒 Pesan Terenkripsi'
+        }
+      }
+    }
+
+    return '🔒 Pesan Terenkripsi'
+  }
+
+  // Fetch daftar obrolan aktif beserta unread counts dari database & dekripsi snippet E2EE
   const loadConversations = async () => {
     if (!user) return
     setIsLoading(true)
     const { data } = await apiRequest<ConversationItem[]>('/api/conversations')
-    if (data) {
-      setConversations(data)
+    if (data && Array.isArray(data)) {
+      const decryptedData = await Promise.all(
+        data.map(async (c) => {
+          if (c.last_message && isEncryptedMessage(c.last_message)) {
+            const plain = await decryptSnippet(c)
+            return { ...c, last_message: plain }
+          }
+          return c
+        })
+      )
+
+      setConversations(decryptedData)
       const initialUnread: Record<string, number> = {}
-      data.forEach(c => {
+      decryptedData.forEach(c => {
         if (c.unread_count && c.unread_count > 0 && c.id !== activeRoomId) {
           initialUnread[c.id] = c.unread_count
         }
@@ -184,46 +238,81 @@ export function Sidebar({
         }))
       }
 
-      // Update snippet & pindahkan percakapan ke urutan teratas
-      const snippet = lastIncomingMessage.content && lastIncomingMessage.content.trim() !== ''
-        ? (isEncryptedMessage(lastIncomingMessage.content) ? '🔒 Pesan Terenkripsi' : lastIncomingMessage.content)
-        : lastIncomingMessage.media_type === 'image'
-        ? '📷 Foto'
-        : lastIncomingMessage.media_type === 'audio'
-        ? '🎙️ Pesan Suara'
-        : lastIncomingMessage.media_type === 'video'
-        ? '🎥 Video'
-        : lastIncomingMessage.media_url
-        ? `📎 ${lastIncomingMessage.file_name || 'Berkas'}`
-        : ''
-
-      setConversations(prev => {
-        const index = prev.findIndex(c => c.id === room)
-        const updatedItem: ConversationItem = index >= 0
-          ? {
-              ...prev[index],
-              unread_count: isInactiveRoom ? ((prev[index].unread_count || 0) + 1) : 0,
-              last_message: snippet,
-              last_sender: lastIncomingMessage.nickname || 'Pengguna',
-              last_status: lastIncomingMessage.status || 'sent',
-              updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
+      // Dekripsi snippet pesan teks baru jika terenkripsi E2EE
+      const processMessageSnippet = async () => {
+        let rawContent = lastIncomingMessage.content || ''
+        if (rawContent && isEncryptedMessage(rawContent) && user?.id) {
+          let peerId = ''
+          if (room.startsWith('dm_')) {
+            const parts = room.replace('dm_', '').split('_')
+            if (parts.length === 2) {
+              peerId = parts[0] === user.id ? parts[1] : parts[0]
             }
-          : {
-              id: room,
-              type: 'direct',
-              title: lastIncomingMessage.nickname || room,
-              unread_count: isInactiveRoom ? 1 : 0,
-              last_message: snippet,
-              last_sender: lastIncomingMessage.nickname || 'Pengguna',
-              last_status: lastIncomingMessage.status || 'sent',
-              updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
+          }
+          if (peerId) {
+            let peerPub = getCachedPeerPublicKey(peerId)
+            if (!peerPub) {
+              try {
+                const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(peerId)}`)
+                if (profile && profile.public_key) {
+                  peerPub = profile.public_key
+                  cachePeerPublicKey(peerId, peerPub)
+                }
+              } catch {}
             }
+            if (peerPub) {
+              const aesKey = await getSharedRoomAESKey(user.id, peerId, peerPub, room)
+              if (aesKey) {
+                try {
+                  rawContent = await decryptText(aesKey, rawContent)
+                } catch {}
+              }
+            }
+          }
+        }
 
-        const remaining = prev.filter(c => c.id !== room)
-        return [updatedItem, ...remaining]
-      })
+        const snippet = rawContent && rawContent.trim() !== ''
+          ? (isEncryptedMessage(rawContent) ? '🔒 Pesan Terenkripsi' : rawContent)
+          : lastIncomingMessage.media_type === 'image'
+          ? '📷 Foto'
+          : lastIncomingMessage.media_type === 'audio'
+          ? '🎙️ Pesan Suara'
+          : lastIncomingMessage.media_type === 'video'
+          ? '🎥 Video'
+          : lastIncomingMessage.media_url
+          ? `📎 ${lastIncomingMessage.file_name || 'Berkas'}`
+          : ''
+
+        setConversations(prev => {
+          const index = prev.findIndex(c => c.id === room)
+          const updatedItem: ConversationItem = index >= 0
+            ? {
+                ...prev[index],
+                unread_count: isInactiveRoom ? ((prev[index].unread_count || 0) + 1) : 0,
+                last_message: snippet,
+                last_sender: lastIncomingMessage.nickname || 'Pengguna',
+                last_status: lastIncomingMessage.status || 'sent',
+                updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
+              }
+            : {
+                id: room,
+                type: 'direct',
+                title: lastIncomingMessage.nickname || room,
+                unread_count: isInactiveRoom ? 1 : 0,
+                last_message: snippet,
+                last_sender: lastIncomingMessage.nickname || 'Pengguna',
+                last_status: lastIncomingMessage.status || 'sent',
+                updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
+              }
+
+          const remaining = prev.filter(c => c.id !== room)
+          return [updatedItem, ...remaining]
+        })
+      }
+
+      processMessageSnippet()
     }
-  }, [lastIncomingMessage, activeRoomId, user?.username, user?.display_name])
+  }, [lastIncomingMessage, activeRoomId, user?.id, user?.username, user?.display_name])
 
   const [searchError, setSearchError] = useState('')
 
