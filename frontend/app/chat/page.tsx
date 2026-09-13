@@ -222,6 +222,7 @@ function ChatPageContent() {
   const activeCallRef = useRef<ActiveCallInfo | null>(null)
   const webrtcAudioRef = useRef<WebRTCAudioSession | null>(null)
   const pendingOfferSdpRef = useRef<string | null>(null)
+  const earlyIceCandidatesRef = useRef<string[]>([])
   const clientRef = useRef<WsClient | null>(null)
   const roomAESKeyRef = useRef<CryptoKey | null>(null)
   const activePeerRef = useRef<{ id: string; publicKey: string } | null>(null)
@@ -609,16 +610,22 @@ function ChatPageContent() {
         }
 
         case 'ice_candidate': {
-          if (msg.candidate && webrtcAudioRef.current) {
-            webrtcAudioRef.current.addIceCandidate(msg.candidate).catch((err: unknown) => {
-              console.error('[WebRTC] Gagal proses ICE candidate:', err)
-            })
+          if (msg.candidate) {
+            if (webrtcAudioRef.current) {
+              webrtcAudioRef.current.addIceCandidate(msg.candidate).catch((err: unknown) => {
+                console.error('[WebRTC] Gagal proses ICE candidate:', err)
+              })
+            } else {
+              // Simpan kandidat yang tiba lebih awal sebelum tombol Terima ditekan
+              earlyIceCandidatesRef.current.push(msg.candidate)
+            }
           }
           break
         }
 
         case 'call_reject': {
           stopCallSounds()
+          earlyIceCandidatesRef.current = []
           if (webrtcAudioRef.current) {
             webrtcAudioRef.current.cleanup()
             webrtcAudioRef.current = null
@@ -632,6 +639,7 @@ function ChatPageContent() {
 
         case 'call_end': {
           stopCallSounds()
+          earlyIceCandidatesRef.current = []
           if (webrtcAudioRef.current) {
             webrtcAudioRef.current.cleanup()
             webrtcAudioRef.current = null
@@ -972,6 +980,16 @@ function ChatPageContent() {
           })
         }
       )
+
+      // Flush seluruh ICE candidate yang tiba sebelum tombol Terima ditekan
+      if (earlyIceCandidatesRef.current.length > 0) {
+        for (const earlyCand of earlyIceCandidatesRef.current) {
+          session.addIceCandidate(earlyCand).catch((err: unknown) => {
+            console.warn('[WebRTC] Gagal proses early candidate:', err)
+          })
+        }
+        earlyIceCandidatesRef.current = []
+      }
 
       clientRef.current.send({
         type: 'call_answer',

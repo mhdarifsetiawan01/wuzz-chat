@@ -527,11 +527,11 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 func (s *SQLUserStore) GetConversationMemberUsernames(conversationID string) ([]string, error) {
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT u.username, u.display_name FROM users u 
+		query = `SELECT u.id, u.username, u.display_name FROM users u 
 		         JOIN conversation_members cm ON u.id = cm.user_id 
 		         WHERE cm.conversation_id = $1`
 	} else {
-		query = `SELECT u.username, u.display_name FROM users u 
+		query = `SELECT u.id, u.username, u.display_name FROM users u 
 		         JOIN conversation_members cm ON u.id = cm.user_id 
 		         WHERE cm.conversation_id = ?`
 	}
@@ -544,8 +544,11 @@ func (s *SQLUserStore) GetConversationMemberUsernames(conversationID string) ([]
 
 	var names []string
 	for rows.Next() {
-		var username, displayName string
-		if err := rows.Scan(&username, &displayName); err == nil {
+		var id, username, displayName string
+		if err := rows.Scan(&id, &username, &displayName); err == nil {
+			if id != "" {
+				names = append(names, id)
+			}
 			if username != "" {
 				names = append(names, username)
 			}
