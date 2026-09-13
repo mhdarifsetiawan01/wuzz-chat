@@ -34,8 +34,8 @@ export default function RegisterPage() {
       return
     }
 
-    if (password.length < 4) {
-      setError('Password minimal 4 karakter')
+    if (password.length < 6) {
+      setError('Password minimal 6 karakter')
       return
     }
 
@@ -145,7 +145,7 @@ export default function RegisterPage() {
               id="password"
               className="form-input"
               type="password"
-              placeholder="minimal 4 karakter"
+              placeholder="minimal 6 karakter"
               value={password}
               onChange={e => setPassword(e.target.value)}
               autoComplete="new-password"

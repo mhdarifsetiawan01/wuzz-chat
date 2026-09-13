@@ -51,6 +51,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"Username dan password wajib diisi"}`, http.StatusBadRequest)
 		return
 	}
+	if len(req.Username) < 3 {
+		http.Error(w, `{"error":"Username minimal 3 karakter"}`, http.StatusBadRequest)
+		return
+	}
+	if len(req.Password) < 6 {
+		http.Error(w, `{"error":"Password minimal 6 karakter"}`, http.StatusBadRequest)
+		return
+	}
 	if req.DisplayName == "" {
 		req.DisplayName = req.Username
 	}

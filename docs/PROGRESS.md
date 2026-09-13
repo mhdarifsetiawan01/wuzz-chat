@@ -173,26 +173,33 @@
   - **Redis & In-Memory Caching (TTL 24 Jam)**: Caching MD5 key untuk menghindari redundant scraping dari URL yang sama.
   - **Frontend UI Card (`LinkPreviewCard.tsx`)**: Menampilkan kartu preview thumbnail, judul, deskripsi, favicon, dan domain badge di dalam balon chat [`MessageBubble.tsx`](frontend/app/chat/MessageBubble.tsx).
   - Unit test `link_preview_test.go` lulus 100% dan frontend build `npm run build` sukses 100%.
-- [x] **Milestone 6.4: Production Deployment Configuration & Live Fly.io Launch**:
+- [x] **Milestone 6.4: Production Deployment Configuration & Live Launch**:
   - **Multi-Stage Dockerfile (`backend/Dockerfile`)**: Build Go Alpine super ringan (< 25MB image size), unprivileged non-root user `appuser`, dan sertifikat SSL bawaan.
-  - **Live Production App di Fly.io**: App `wuzz-chat-backend` berhasil dideploy di region Singapura (`sin`) dengan auto-start/stop machine.
+  - **Live Production Backend di Fly.io**: App `wuzz-chat-backend` berhasil dideploy di region Singapura (`sin`) dengan auto-start/stop machine.
     - REST API URL: `https://wuzz-chat-backend.fly.dev`
     - WebSocket URL: `wss://wuzz-chat-backend.fly.dev/ws`
     - Health Check: `https://wuzz-chat-backend.fly.dev/health` (HTTP 200 OK)
-  - **Secrets Configured**: Seluruh secrets dari `.env` (`DATABASE_URL`, `STORAGE_DRIVER`, `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_STORAGE_BUCKET`, `REDIS_URL`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS="*"`) telah diinject ke Fly.io secrets.
-  - **Next.js Server-Side Rewrites (`frontend/next.config.ts`)**: Konfigurasi reverse proxy otomatis untuk `/api/*` dan `/uploads/*` ke URL backend `BACKEND_API_URL` (Vercel ke Fly.io).
-  - **Dynamic WebSocket URL Detection (`frontend/app/chat/page.tsx`)**: Otomatis mendeteksi `NEXT_PUBLIC_WS_URL` dan protocol matching `wss://` / `ws://`.
+  - **Live Production Frontend di Vercel & Custom Domain**:
+    - URL Produksi: `https://chat.wuzzhub.id` & `https://wuzz-chat.vercel.app`
+    - Cloudflare DNS unproxied (DNS-only CNAME ke `cname.vercel-dns.com`).
+  - **CORS Whitelist Dinamis**: Dikonfigurasi di Fly.io secrets untuk membatasi origin terverifikasi (`chat.wuzzhub.id`, `wuzz-chat.vercel.app`, `*.vercel.app`, `localhost`).
+  - **Security Hardening**:
+    - Dynamic multi-cloud IP resolution (`CF-Connecting-IP`, `Fly-Client-IP`, `True-Client-IP`, `X-Forwarded-For`).
+    - HTTP Security Headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`).
+    - Input validation enforcement (username ≥ 3 karakter, password ≥ 6 karakter).
 
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Backend Go telah berhasil LIVE di Fly.io (`https://wuzz-chat-backend.fly.dev`)!**
+- **Backend Go & Frontend Next.js telah LIVE di Production!**
+  - Backend: `https://wuzz-chat-backend.fly.dev`
+  - Frontend: `https://chat.wuzzhub.id`
 - Terhubung aktif ke:
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)
   - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
-- Siap melangkah ke **Fase 7: Advanced Security & WebRTC Calling (E2EE & P2P Audio/Video Call)** atau deployment frontend Next.js ke Vercel.
+- Siap melangkah ke **Fase 7: WebRTC Calling (P2P Audio/Video Call) & End-to-End Encryption (E2EE)**.
 
 ---
 
