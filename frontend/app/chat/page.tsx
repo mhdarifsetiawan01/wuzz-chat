@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useState, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WsClient } from '@/lib/ws-client'
-import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem } from '@/lib/types'
+import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User } from '@/lib/types'
 import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
@@ -13,6 +13,8 @@ import { Sidebar } from './Sidebar'
 import { soundManager } from '@/lib/sound'
 import { useAuth } from '@/lib/auth-context'
 import { deleteMessageApi, apiRequest } from '@/lib/api'
+import { isEncryptedMessage, encryptText, decryptText } from '@/lib/crypto/e2ee'
+import { initUserE2EE, getSharedRoomAESKey, cachePeerPublicKey } from '@/lib/crypto/keyStore'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -172,7 +174,20 @@ function ChatPageContent() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [isLoadingHistory, setIsLoadingHistory] = useState(Boolean(roomId))
   const [isHistoryError, setIsHistoryError] = useState(false)
+  const [peerPublicKeyJWK, setPeerPublicKeyJWK] = useState<string>('')
   const clientRef = useRef<WsClient | null>(null)
+  const roomAESKeyRef = useRef<CryptoKey | null>(null)
+  const activePeerRef = useRef<{ id: string; publicKey: string } | null>(null)
+
+  // Inisialisasi E2EE Identity Keys saat user login
+  useEffect(() => {
+    if (user?.id) {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
+      initUserE2EE(user.id, token).catch(err => {
+        console.warn('[E2EE] Inisialisasi kunci lokal gagal:', err)
+      })
+    }
+  }, [user?.id])
 
   // Timer untuk matikan typing indicator setelah 3 detik
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -293,9 +308,49 @@ function ChatPageContent() {
           setIsLoadingHistory(false)
           setIsHistoryError(false)
 
-          // Muat riwayat chat dari Supabase/Database
+          // Muat riwayat chat dari Supabase/Database & otomatis dekripsi jika terenkripsi E2EE
           if (roomId) {
-            dispatch({ type: 'SET_MESSAGES', payload: msg.messages || [] })
+            const rawMessages = msg.messages || []
+
+            const processHistory = async () => {
+              let key = roomAESKeyRef.current
+              if (!key && user?.id && activePeerRef.current?.id && activePeerRef.current?.publicKey) {
+                key = await getSharedRoomAESKey(user.id, activePeerRef.current.id, activePeerRef.current.publicKey, roomId)
+                roomAESKeyRef.current = key
+              }
+
+              const decryptedList = await Promise.all(
+                rawMessages.map(async (m: Message) => {
+                  if (isEncryptedMessage(m.content)) {
+                    if (key) {
+                      try {
+                        const plain = await decryptText(key, m.content!)
+                        let plainReply = m.reply_to?.content
+                        if (plainReply && isEncryptedMessage(plainReply)) {
+                          try {
+                            plainReply = await decryptText(key, plainReply)
+                          } catch {}
+                        }
+                        return {
+                          ...m,
+                          content: plain,
+                          reply_to: m.reply_to ? { ...m.reply_to, content: plainReply || '' } : undefined,
+                        }
+                      } catch (err) {
+                        return { ...m, content: '🔒 [Pesan Terenkripsi]' }
+                      }
+                    } else {
+                      return { ...m, content: '🔒 [Pesan Terenkripsi]' }
+                    }
+                  }
+                  return m
+                })
+              )
+
+              dispatch({ type: 'SET_MESSAGES', payload: decryptedList })
+            }
+
+            processHistory()
 
             if (msg.messages && msg.messages.length > 0) {
               // Jika peerNickname masih kosong, ambil dari nama pengirim pesan yang bukan kita
@@ -362,7 +417,41 @@ function ChatPageContent() {
             setIsLoadingHistory(false)
             setIsHistoryError(false)
 
-            dispatch({ type: 'ADD_MESSAGE', payload: msg })
+            const processIncomingMsg = async () => {
+              let decryptedMsg = msg
+              if (isEncryptedMessage(msg.content)) {
+                let key = roomAESKeyRef.current
+                if (!key && user?.id && activePeerRef.current?.id && activePeerRef.current?.publicKey) {
+                  key = await getSharedRoomAESKey(user.id, activePeerRef.current.id, activePeerRef.current.publicKey, roomId)
+                  roomAESKeyRef.current = key
+                }
+                if (key) {
+                  try {
+                    const plain = await decryptText(key, msg.content!)
+                    let plainReply = msg.reply_to?.content
+                    if (plainReply && isEncryptedMessage(plainReply)) {
+                      try {
+                        plainReply = await decryptText(key, plainReply)
+                      } catch {}
+                    }
+                    decryptedMsg = {
+                      ...msg,
+                      content: plain,
+                      reply_to: msg.reply_to ? { ...msg.reply_to, content: plainReply || '' } : undefined,
+                    }
+                  } catch (err) {
+                    decryptedMsg = { ...msg, content: '🔒 [Pesan Terenkripsi]' }
+                  }
+                } else {
+                  decryptedMsg = { ...msg, content: '🔒 [Pesan Terenkripsi]' }
+                }
+              }
+
+              dispatch({ type: 'ADD_MESSAGE', payload: decryptedMsg })
+            }
+
+            processIncomingMsg()
+
             if (msg.nickname && msg.nickname !== nickname) {
               dispatch({ type: 'SET_PEER_NICKNAME', payload: msg.nickname })
             }
@@ -453,22 +542,47 @@ function ChatPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, isAuthLoading, user?.username, user?.display_name])
 
-  // Muat detail judul percakapan / kontak saat room berubah
+  // Muat detail judul percakapan / kontak & kunci E2EE lawan bicara saat room berubah
   useEffect(() => {
-    if (!roomId) {
+    if (!roomId || !user?.id) {
       dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
+      setPeerPublicKeyJWK('')
+      roomAESKeyRef.current = null
+      activePeerRef.current = null
       return
     }
 
-    apiRequest<ConversationItem[]>('/api/conversations').then(({ data }) => {
+    apiRequest<ConversationItem[]>('/api/conversations').then(async ({ data }) => {
       if (data && Array.isArray(data)) {
         const found = data.find(c => c.id === roomId)
-        if (found && found.title) {
-          dispatch({ type: 'SET_PEER_NICKNAME', payload: found.title })
+        if (found) {
+          if (found.title) {
+            dispatch({ type: 'SET_PEER_NICKNAME', payload: found.title })
+          }
+
+          if (found.peer_id) {
+            let pubKey = found.peer_public_key || ''
+            if (!pubKey) {
+              // Fetch profil peer jika public_key belum ada di cache percakapan
+              const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(found.peer_id)}`)
+              if (profile && profile.public_key) {
+                pubKey = profile.public_key
+              }
+            }
+
+            if (pubKey) {
+              cachePeerPublicKey(found.peer_id, pubKey)
+              setPeerPublicKeyJWK(pubKey)
+              activePeerRef.current = { id: found.peer_id, publicKey: pubKey }
+
+              const aesKey = await getSharedRoomAESKey(user.id, found.peer_id, pubKey, roomId)
+              roomAESKeyRef.current = aesKey
+            }
+          }
         }
       }
     })
-  }, [roomId])
+  }, [roomId, user?.id])
 
   const [lightboxData, setLightboxData] = useState<{ url: string; fileName?: string } | null>(null)
   const [draggedFile, setDraggedFile] = useState<File | null>(null)
@@ -511,10 +625,27 @@ function ChatPageContent() {
     }
   }, [])
 
-  const handleSend = useCallback((content: string, media?: { url: string; media_type: string; file_name: string; file_size: number }) => {
+  const handleSend = useCallback(async (content: string, media?: { url: string; media_type: string; file_name: string; file_size: number }) => {
     if (!roomId) return
     const session = state.session
     const msgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'msg-' + Date.now()
+
+    let outgoingContent = content
+
+    // Enkripsi pesan teks via AES-256-GCM jika percakapan E2EE direct aktif
+    let key = roomAESKeyRef.current
+    if (!key && user?.id && activePeerRef.current?.id && activePeerRef.current?.publicKey) {
+      key = await getSharedRoomAESKey(user.id, activePeerRef.current.id, activePeerRef.current.publicKey, roomId)
+      roomAESKeyRef.current = key
+    }
+
+    if (key && content && content.trim() !== '') {
+      try {
+        outgoingContent = await encryptText(key, content)
+      } catch (err) {
+        console.warn('[E2EE] Enkripsi pesan gagal:', err)
+      }
+    }
 
     const replyPayload = replyingTo
       ? {
@@ -527,7 +658,7 @@ function ChatPageContent() {
     clientRef.current?.send({
       id: msgId,
       type: 'message',
-      content,
+      content: outgoingContent,
       room: roomId,
       nickname: session?.nickname,
       reply_to: replyPayload,
@@ -540,7 +671,7 @@ function ChatPageContent() {
     // Mainkan suara pop pengiriman pesan
     soundManager.playSend()
 
-    // Optimistic local render dengan status pending
+    // Optimistic local render dengan teks asli (plaintext)
     if (session) {
       const localMsg: Message = {
         id: msgId,
@@ -565,7 +696,7 @@ function ChatPageContent() {
     }
 
     setReplyingTo(null)
-  }, [state.session, roomId, replyingTo])
+  }, [state.session, roomId, replyingTo, user?.id])
 
   const handleTyping = useCallback(() => {
     if (!roomId) return
@@ -670,6 +801,8 @@ function ChatPageContent() {
               roomUsers={state.roomUsers}
               isPeerTyping={state.isPeerTyping}
               typingNickname={state.typingNickname}
+              currentUserId={user?.id}
+              peerPublicKeyJWK={peerPublicKeyJWK}
               onOpenMemberList={() => setIsMemberListOpen(true)}
               onBack={() => handleSelectRoom('')}
             />
@@ -682,6 +815,7 @@ function ChatPageContent() {
               typingNickname={state.typingNickname}
               isLoadingHistory={isLoadingHistory}
               isHistoryError={isHistoryError}
+              isE2EE={Boolean(roomId && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
               onRetryHistory={handleRetryHistory}
               onReply={setReplyingTo}
               onReact={handleReact}

@@ -92,6 +92,7 @@ export interface User {
   display_name: string
   status_message?: string
   avatar_url?: string
+  public_key?: string
   created_at?: string
 }
 
@@ -101,6 +102,7 @@ export interface ConversationItem {
   title: string
   peer_id?: string
   peer_nickname?: string
+  peer_public_key?: string
   last_message?: string
   last_sender?: string
   last_status?: MessageReceiptStatus

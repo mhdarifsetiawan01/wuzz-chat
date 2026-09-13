@@ -157,10 +157,15 @@ Membangun platform chatting modern yang:
 
 ### Fase 7: Advanced Security & WebRTC Calling
 *Tujuan: Keamanan tingkat tinggi dan fitur panggilan suara/video.*
-- **Audio & Video Call (1-on-1)**:
+- ✅ **End-to-End Encryption (E2EE) (SELESAI)**:
+  - Implementasi kriptografi kunci publik standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API.
+  - Private key tersimpan aman di `IndexedDB` browser pengguna (`wuzz_crypto_db`).
+  - Backend & Database Supabase hanya menerima dan menyimpan ciphertext (`e2ee:v1:iv:ciphertext`).
+  - Dekripsi otomatis di timeline obrolan penerima dengan fallback kompatibel untuk pesan lama.
+  - Verifikasi keamanan visual 30-digit (*Safety Number Fingerprint*) di UI.
+  - 100% interoperabel dan siap untuk klien mobile masa depan (Kotlin Android, Flutter, React Native, Swift iOS).
+- 🎯 **Audio & Video Call (1-on-1) (NEXT)**:
   - Signaling via WebSocket yang sudah ada, media stream P2P via WebRTC (STUN/TURN server).
-- **End-to-End Encryption (E2EE)**:
-  - Implementasi kriptografi kunci publik (ECDH + AES-GCM) di sisi browser client, sehingga server hanya menerima cipher teks yang tidak dapat diintip.
 
 ---
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import type { ConnectionStatus, SessionInfo, RoomUser } from '@/lib/types'
 import { soundManager } from '@/lib/sound'
 import { ContactProfileModal } from './ContactProfileModal'
+import { SafetyNumberModal } from './SafetyNumberModal'
 
 interface StatusBarProps {
   status: ConnectionStatus
@@ -13,6 +14,8 @@ interface StatusBarProps {
   roomUsers?: RoomUser[]
   isPeerTyping?: boolean
   typingNickname?: string | null
+  currentUserId?: string
+  peerPublicKeyJWK?: string
   onOpenMemberList: () => void
   onBack?: () => void
 }
@@ -32,12 +35,15 @@ export function StatusBar({
   roomUsers = [],
   isPeerTyping = false,
   typingNickname = null,
+  currentUserId = '',
+  peerPublicKeyJWK = '',
   onOpenMemberList,
   onBack,
 }: StatusBarProps) {
   const [copied, setCopied] = useState(false)
   const [soundMuted, setSoundMuted] = useState(false)
   const [isContactModalOpen, setIsContactModalOpen] = useState(false)
+  const [isSafetyModalOpen, setIsSafetyModalOpen] = useState(false)
 
   useEffect(() => {
     setSoundMuted(soundManager.isMuted())
@@ -162,6 +168,20 @@ export function StatusBar({
             </>
           )}
 
+          {/* Tombol Kunci Keamanan E2EE untuk Direct Message */}
+          {isDirectChat && (
+            <button
+              type="button"
+              onClick={() => setIsSafetyModalOpen(true)}
+              className="status-btn"
+              title="Obrolan Terenkripsi End-to-End. Klik untuk verifikasi nomor keamanan."
+              aria-label="Verifikasi Kunci Keamanan E2EE"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', fontSize: '0.85rem', width: '32px', height: '32px', borderRadius: 'var(--radius-full)' }}
+            >
+              <span>🔒</span>
+            </button>
+          )}
+
           {/* Tombol Toggle Sound FX Minimalis */}
           <button
             type="button"
@@ -198,6 +218,17 @@ export function StatusBar({
           />
         )
       })()}
+
+      {/* Modal Nomor Keamanan E2EE */}
+      {isDirectChat && (
+        <SafetyNumberModal
+          isOpen={isSafetyModalOpen}
+          onClose={() => setIsSafetyModalOpen(false)}
+          currentUserId={currentUserId}
+          peerNickname={peerName}
+          peerPublicKeyJWK={peerPublicKeyJWK}
+        />
+      )}
     </>
   )
 }

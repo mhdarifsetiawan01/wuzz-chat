@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context'
 import type { Message, User, ConversationItem } from '@/lib/types'
 import { ProfileModal } from './ProfileModal'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
+import { isEncryptedMessage } from '@/lib/crypto/e2ee'
 
 interface SidebarProps {
   activeRoomId: string
@@ -185,7 +186,7 @@ export function Sidebar({
 
       // Update snippet & pindahkan percakapan ke urutan teratas
       const snippet = lastIncomingMessage.content && lastIncomingMessage.content.trim() !== ''
-        ? lastIncomingMessage.content
+        ? (isEncryptedMessage(lastIncomingMessage.content) ? '🔒 Pesan Terenkripsi' : lastIncomingMessage.content)
         : lastIncomingMessage.media_type === 'image'
         ? '📷 Foto'
         : lastIncomingMessage.media_type === 'audio'
@@ -543,7 +544,7 @@ export function Sidebar({
                                   }
                                   return c.last_sender ? <strong>{c.last_sender}: </strong> : null
                                 })()}
-                                {c.last_message}
+                                {isEncryptedMessage(c.last_message) ? '🔒 Pesan Terenkripsi' : c.last_message}
                               </>
                             ) : (
                               'Belum ada pesan'

@@ -12,6 +12,7 @@ interface ChatWindowProps {
   typingNickname?: string | null
   isLoadingHistory?: boolean
   isHistoryError?: boolean
+  isE2EE?: boolean
   onRetryHistory?: () => void
   onReply?: (message: Message) => void
   onReact?: (messageId: string, emoji: string) => void
@@ -27,6 +28,7 @@ export function ChatWindow({
   typingNickname,
   isLoadingHistory,
   isHistoryError,
+  isE2EE = false,
   onRetryHistory,
   onReply,
   onReact,
@@ -83,6 +85,29 @@ export function ChatWindow({
   if (messages.length === 0 && !isPeerTyping) {
     return (
       <div className="chat-window" aria-label="Area percakapan">
+        {isE2EE && (
+          <div
+            style={{
+              margin: 'var(--space-2) auto var(--space-4) auto',
+              maxWidth: '440px',
+              textAlign: 'center',
+              padding: '8px 14px',
+              background: 'rgba(234, 179, 8, 0.1)',
+              border: '1px solid rgba(234, 179, 8, 0.25)',
+              borderRadius: '10px',
+              fontSize: '0.75rem',
+              color: 'var(--text-secondary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              lineHeight: 1.4,
+            }}
+          >
+            <span style={{ fontSize: '0.9rem' }}>🔒</span>
+            <span>Pesan di ruang ini terenkripsi end-to-end. Tidak ada pihak ketiga (bahkan server) yang dapat membacanya.</span>
+          </div>
+        )}
         <div className="chat-empty" role="status">
           <span className="chat-empty-icon" aria-hidden="true">💬</span>
           <p>Belum ada pesan di percakapan ini.</p>
@@ -103,6 +128,30 @@ export function ChatWindow({
       aria-live="polite"
       aria-relevant="additions"
     >
+      {isE2EE && (
+        <div
+          style={{
+            margin: 'var(--space-2) auto var(--space-4) auto',
+            maxWidth: '440px',
+            textAlign: 'center',
+            padding: '8px 14px',
+            background: 'rgba(234, 179, 8, 0.1)',
+            border: '1px solid rgba(234, 179, 8, 0.25)',
+            borderRadius: '10px',
+            fontSize: '0.75rem',
+            color: 'var(--text-secondary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            lineHeight: 1.4,
+          }}
+        >
+          <span style={{ fontSize: '0.9rem' }}>🔒</span>
+          <span>Pesan di ruang ini terenkripsi end-to-end. Tidak ada pihak ketiga yang dapat membaca isinya.</span>
+        </div>
+      )}
+
       {messages.map((msg, idx) => (
         <MessageBubble
           key={msg.id || `${msg.timestamp ?? ''}-${idx}`}

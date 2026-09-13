@@ -108,6 +108,29 @@ func TestSQLUserStore_Profile(t *testing.T) {
 	if err != nil || byDisplayName.StatusMessage != "🚀 Sedang coding Wuzz Chat" {
 		t.Fatalf("failed to get user by display name: %v, status: %v", err, byDisplayName)
 	}
+
+	// 5. Test Update and Retrieve E2EE PublicKey
+	testPublicKey := `{"kty":"EC","crv":"P-256","x":"test-x","y":"test-y"}`
+	if err := userStore.UpdatePublicKey(user.ID, testPublicKey); err != nil {
+		t.Fatalf("failed to update public key: %v", err)
+	}
+
+	fetchedUser, err := userStore.GetUserByID(user.ID)
+	if err != nil {
+		t.Fatalf("failed to get user by ID after key update: %v", err)
+	}
+	if fetchedUser.PublicKey != testPublicKey {
+		t.Errorf("expected PublicKey '%s', got '%s'", testPublicKey, fetchedUser.PublicKey)
+	}
+
+	// Verify SearchUsers also returns PublicKey
+	searchResults, err := userStore.SearchUsers("charlie", "other-id")
+	if err != nil || len(searchResults) == 0 {
+		t.Fatalf("SearchUsers failed: %v, len: %d", err, len(searchResults))
+	}
+	if searchResults[0].PublicKey != testPublicKey {
+		t.Errorf("expected SearchUsers to return PublicKey '%s', got '%s'", testPublicKey, searchResults[0].PublicKey)
+	}
 }
 
 func TestSQLUserStore_RoomAccessAuthorization(t *testing.T) {

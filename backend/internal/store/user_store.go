@@ -25,21 +25,23 @@ type User struct {
 	PasswordHash  string    `json:"-"`
 	StatusMessage string    `json:"status_message"`
 	AvatarURL     string    `json:"avatar_url"`
+	PublicKey     string    `json:"public_key,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
 // ConversationItem merepresentasikan entitas percakapan di daftar obrolan (Sidebar).
 type ConversationItem struct {
-	ID           string    `json:"id"`
-	Type         string    `json:"type"` // "direct" atau "group"
-	Title        string    `json:"title"`
-	PeerID       string    `json:"peer_id,omitempty"`
-	PeerNickname string    `json:"peer_nickname,omitempty"`
-	LastMessage  string    `json:"last_message"`
-	LastSender   string    `json:"last_sender"`
-	LastStatus   string    `json:"last_status,omitempty"`
-	UnreadCount  int       `json:"unread_count"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID            string    `json:"id"`
+	Type          string    `json:"type"` // "direct" atau "group"
+	Title         string    `json:"title"`
+	PeerID        string    `json:"peer_id,omitempty"`
+	PeerNickname  string    `json:"peer_nickname,omitempty"`
+	PeerPublicKey string    `json:"peer_public_key,omitempty"`
+	LastMessage   string    `json:"last_message"`
+	LastSender    string    `json:"last_sender"`
+	LastStatus    string    `json:"last_status,omitempty"`
+	UnreadCount   int       `json:"unread_count"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // UserStore mendefinisikan kontrak operasi user dan percakapan.
@@ -50,6 +52,7 @@ type UserStore interface {
 	GetUserByUsername(username string) (*User, error)
 	GetUserByUsernameOrDisplayName(name string) (*User, error)
 	UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*User, error)
+	UpdatePublicKey(userID, publicKey string) error
 	SearchUsers(query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
 	GetUserConversations(userID string) ([]ConversationItem, error)
@@ -130,14 +133,14 @@ func (s *SQLUserStore) Authenticate(username, password string) (*User, error) {
 func (s *SQLUserStore) GetUserByID(id string) (*User, error) {
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users WHERE id = $1`
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(public_key, ''), created_at FROM users WHERE id = $1`
 	} else {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users WHERE id = ?`
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(public_key, ''), created_at FROM users WHERE id = ?`
 	}
 
 	row := s.db.QueryRow(query, id)
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.PublicKey, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
@@ -150,14 +153,14 @@ func (s *SQLUserStore) GetUserByID(id string) (*User, error) {
 func (s *SQLUserStore) GetUserByUsername(username string) (*User, error) {
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users WHERE LOWER(username) = LOWER($1)`
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(public_key, ''), created_at FROM users WHERE LOWER(username) = LOWER($1)`
 	} else {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users WHERE LOWER(username) = LOWER(?)`
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(public_key, ''), created_at FROM users WHERE LOWER(username) = LOWER(?)`
 	}
 
 	row := s.db.QueryRow(query, username)
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.PublicKey, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
@@ -170,13 +173,13 @@ func (s *SQLUserStore) GetUserByUsername(username string) (*User, error) {
 func (s *SQLUserStore) GetUserByUsernameOrDisplayName(name string) (*User, error) {
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at 
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(public_key, ''), created_at 
 		         FROM users 
 		         WHERE LOWER(username) = LOWER($1) OR LOWER(display_name) = LOWER($1) 
 		         ORDER BY (CASE WHEN LOWER(username) = LOWER($1) THEN 0 ELSE 1 END), created_at DESC
 		         LIMIT 1`
 	} else {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at 
+		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(public_key, ''), created_at 
 		         FROM users 
 		         WHERE LOWER(username) = LOWER(?) OR LOWER(display_name) = LOWER(?) 
 		         ORDER BY (CASE WHEN LOWER(username) = LOWER(?) THEN 0 ELSE 1 END), created_at DESC
@@ -191,7 +194,7 @@ func (s *SQLUserStore) GetUserByUsernameOrDisplayName(name string) (*User, error
 	}
 
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.PublicKey, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
@@ -199,7 +202,6 @@ func (s *SQLUserStore) GetUserByUsernameOrDisplayName(name string) (*User, error
 	}
 	return &u, nil
 }
-
 
 // UpdateProfile memperbarui display_name, status_message, dan avatar_url milik user.
 func (s *SQLUserStore) UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*User, error) {
@@ -233,6 +235,22 @@ func (s *SQLUserStore) UpdateProfile(userID, displayName, statusMessage, avatarU
 	return user, nil
 }
 
+// UpdatePublicKey memperbarui public_key (E2EE) milik user.
+func (s *SQLUserStore) UpdatePublicKey(userID, publicKey string) error {
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE users SET public_key = $1 WHERE id = $2`
+	} else {
+		query = `UPDATE users SET public_key = ? WHERE id = ?`
+	}
+
+	_, err := s.db.Exec(query, strings.TrimSpace(publicKey), userID)
+	if err != nil {
+		return fmt.Errorf("gagal update public key: %w", err)
+	}
+	return nil
+}
+
 // SearchUsers mencari user berdasarkan username atau display_name.
 func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) {
 	searchPattern := "%" + query + "%"
@@ -241,12 +259,12 @@ func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) 
 	var err error
 
 	if s.driverName == "postgres" {
-		sqlQuery = `SELECT id, username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users 
+		sqlQuery = `SELECT id, username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(public_key, ''), created_at FROM users 
 		            WHERE id != $1 AND (LOWER(username) LIKE LOWER($2) OR LOWER(display_name) LIKE LOWER($2)) 
 		            ORDER BY username ASC LIMIT 20`
 		rows, err = s.db.Query(sqlQuery, excludeUserID, searchPattern)
 	} else {
-		sqlQuery = `SELECT id, username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), created_at FROM users 
+		sqlQuery = `SELECT id, username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(public_key, ''), created_at FROM users 
 		            WHERE id != ? AND (LOWER(username) LIKE LOWER(?) OR LOWER(display_name) LIKE LOWER(?)) 
 		            ORDER BY username ASC LIMIT 20`
 		rows, err = s.db.Query(sqlQuery, excludeUserID, searchPattern, searchPattern)
@@ -260,7 +278,7 @@ func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) 
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.StatusMessage, &u.AvatarURL, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.StatusMessage, &u.AvatarURL, &u.PublicKey, &u.CreatedAt); err != nil {
 			continue
 		}
 		users = append(users, u)
@@ -376,19 +394,19 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 			continue
 		}
 
-		// Jika direct message, cari nama peer (lawan bicara)
+		// Jika direct message, cari nama peer (lawan bicara) dan public key-nya
 		if item.Type == "direct" {
 			var peerQuery string
 			if s.driverName == "postgres" {
-				peerQuery = `SELECT u.id, u.display_name FROM users u 
+				peerQuery = `SELECT u.id, u.display_name, COALESCE(u.public_key, '') FROM users u 
 				             JOIN conversation_members cm ON u.id = cm.user_id 
 				             WHERE cm.conversation_id = $1 AND u.id != $2 LIMIT 1`
 			} else {
-				peerQuery = `SELECT u.id, u.display_name FROM users u 
+				peerQuery = `SELECT u.id, u.display_name, COALESCE(u.public_key, '') FROM users u 
 				             JOIN conversation_members cm ON u.id = cm.user_id 
 				             WHERE cm.conversation_id = ? AND u.id != ? LIMIT 1`
 			}
-			_ = s.db.QueryRow(peerQuery, item.ID, userID).Scan(&item.PeerID, &item.PeerNickname)
+			_ = s.db.QueryRow(peerQuery, item.ID, userID).Scan(&item.PeerID, &item.PeerNickname, &item.PeerPublicKey)
 			if item.Title == "" {
 				item.Title = item.PeerNickname
 			}

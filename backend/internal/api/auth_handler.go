@@ -173,3 +173,49 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(updatedUser)
 }
 
+type UpdatePublicKeyRequest struct {
+	PublicKey string `json:"public_key"`
+}
+
+// UpdatePublicKey memperbarui kunci publik kriptografi E2EE milik user saat ini.
+func (h *AuthHandler) UpdatePublicKey(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut && r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	var req UpdatePublicKeyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
+		return
+	}
+
+	req.PublicKey = strings.TrimSpace(req.PublicKey)
+	if req.PublicKey == "" {
+		http.Error(w, `{"error":"public_key tidak boleh kosong"}`, http.StatusBadRequest)
+		return
+	}
+	if len(req.PublicKey) > 4096 {
+		http.Error(w, `{"error":"public_key melebihi batas ukuran maksimum"}`, http.StatusBadRequest)
+		return
+	}
+
+	if err := h.userStore.UpdatePublicKey(claims.UserID, req.PublicKey); err != nil {
+		http.Error(w, `{"error":"Gagal memperbarui kunci publik"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "ok",
+		"message":    "Kunci publik berhasil disimpan",
+		"public_key": req.PublicKey,
+	})
+}
+

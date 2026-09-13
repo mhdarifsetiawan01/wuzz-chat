@@ -26,6 +26,7 @@ erDiagram
         varchar password_hash
         text avatar_url
         varchar status_message
+        text public_key "ECDH P-256 Public Key JWK"
         timestamp last_seen
         timestamp created_at
     }
@@ -133,9 +134,10 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `POST` | `/api/auth/login` | Login dan generate JWT token | Public |
 | `GET` | `/api/auth/me` | Mengambil profil user yang sedang login | Bearer Token |
 | `PUT` | `/api/auth/profile` | Memperbarui display name, status bio, dan avatar | Bearer Token |
-| `GET` | `/api/users/profile?id=&username=` | Mengambil profil publik pengguna lain via UUID atau @username | Bearer Token |
-| `GET` | `/api/users/search?q=` | Mencari user berdasarkan username/nama | Bearer Token |
-| `GET` | `/api/conversations` | Daftar obrolan aktif beserta pesan terakhir | Bearer Token |
+| `PUT` | `/api/users/public-key` | Mendaftarkan / memperbarui Public Key kriptografi E2EE | Bearer Token |
+| `GET` | `/api/users/profile?id=&username=` | Mengambil profil publik pengguna lain via UUID atau @username (termasuk `public_key`) | Bearer Token |
+| `GET` | `/api/users/search?q=` | Mencari user berdasarkan username/nama (termasuk `public_key`) | Bearer Token |
+| `GET` | `/api/conversations` | Daftar obrolan aktif beserta pesan terakhir dan `peer_public_key` | Bearer Token |
 | `POST` | `/api/conversations` | Membuat obrolan baru (Direct atau Group) | Bearer Token |
 | `DELETE` / `POST` | `/api/conversations?id=` / `/api/conversations/clear` | Menghapus riwayat percakapan untuk user pemanggil (*Delete for Me*) | Bearer Token |
 | `DELETE` / `POST` | `/api/messages?id=&type=` / `/api/messages/delete` | Menghapus pesan (*for_me* kapanpun, atau *for_everyone* ≤ 60s) | Bearer Token |
@@ -202,3 +204,34 @@ Aplikasi frontend WuzzChat dirancang untuk memberikan pengalaman optimal di dua 
 1. **Clean History State Sync**: Saat berpindah dari Home HP ke ruang obrolan, action `SET_MESSAGES` di `chatReducer` me-reset state bersih dari payload riwayat server (`messages: action.payload`), mencegah penggabungan dengan riwayat lama yang stale.
 2. **Anti-Stale Reprocessing Guard (`lastHandledMsgIdRef`)**: Ketika `activeRoomId` berganti menjadi `''` saat user menekan `← Back`, ref guard mencegah `useEffect` memproses ulang `lastIncomingMessage` lama sebagai pesan belum dibaca yang baru.
 3. **Real-Time Read Receipts & Dynamic Reload**: Event `receipt` diproses secara terpisah di Sidebar untuk memastikan pembaruan status centang (`✓` ➔ `✓✓` ➔ `✓✓` biru) seketika tanpa refresh, dan memicu reload daftar obrolan saat user kembali ke Home.
+
+---
+
+## 🔐 6. Spesifikasi End-to-End Encryption (E2EE)
+
+WuzzChat mengadopsi standar kriptografi terbuka (*Open RFC Cryptography*) yang menjamin privasi mutlak (*Zero-Knowledge Privacy*) sekaligus fleksibilitas lintas platform:
+
+### A. Primitif Kriptografi
+- **Key Agreement**: **ECDH (NIST P-256 / secp256r1)**.
+- **Key Derivation Function**: **HKDF-SHA256 (RFC 5869)** dengan room-level salt deterministik.
+- **Symmetric Cipher**: **AES-256-GCM (NIST SP 800-38D)** dengan 96-bit (12-byte) initialization vector (IV) unik acak per pesan.
+- **Ciphertext Wire Format**: `e2ee:v1:<base64(iv)>:<base64(ciphertext)>`.
+
+### B. Alur Enkripsi & Dekripsi
+```text
+[Pengirim (Alice)] ──(ECDH + HKDF ➔ AES-GCM Encrypt)──► [Ciphertext e2ee:v1:...]
+                                                               │
+                                                   (WebSocket & DB Supabase)
+                                                               │
+[Penerima (Bob)]   ◄──(ECDH + HKDF ➔ AES-GCM Decrypt)── [Ciphertext e2ee:v1:...]
+```
+
+### C. Kompatibilitas Multi-Platform (Cross-Platform Interoperability)
+Karena seluruh algoritma menggunakan standar resmi NIST & RFC:
+- **Web (Next.js)**: Menggunakan `window.crypto.subtle` bawaan browser dengan penyimpanan private key di `IndexedDB` (`wuzz_crypto_db`).
+- **Android Native (Kotlin)**: Dapat langsung menggunakan `java.security.KeyPairGenerator` (secp256r1) + `javax.crypto.Cipher` (AES/GCM/NoPadding) dengan private key di Android Keystore.
+- **Flutter / React Native**: Menggunakan package standard `cryptography` / `react-native-quick-crypto`.
+- Klien web dan klien mobile dapat saling berkirim pesan terenkripsi secara langsung tanpa hambatan format.
+
+### D. Verifikasi Keamanan Visual (Safety Number Fingerprint)
+- Digest SHA-256 dari gabungan kunci publik kedua pihak yang diurutkan secara deterministik, diformat menjadi 6 blok angka 5 digit (total 30 digit) untuk perbandingan manual visual antar pengguna.

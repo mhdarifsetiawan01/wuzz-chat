@@ -237,6 +237,28 @@
   - Dituangkan secara permanen ke dalam [`.agents/AGENTS.md`](../.agents/AGENTS.md) agar seluruh modifikasi frontend di masa mendatang wajib memverifikasi kompatibilitas Desktop (2-Kolom Split) dan Mobile (WhatsApp Single-Screen).
 - **Mandatory Backend Change Notification & Fly.io Deployment Warning SOP**:
   - Dituangkan ke dalam [`.agents/AGENTS.md`](../.agents/AGENTS.md) agar setiap modifikasi pada kode backend Go selalu menyertakan peringatan & konfirmasi deployment ulang ke Fly.io demi mencegah desinkronisasi protokol/query dengan frontend produksi.
+- **Fase 7 (Bagian 1): End-to-End Encryption (E2EE) Signal Protocol / Web Crypto API (SELESAI)**:
+  - **Arsitektur Kriptografi Standar Terbuka (Multi-Platform Ready)**:
+    - Key Exchange: **ECDH (NIST P-256 / secp256r1)** via Web Crypto API.
+    - Key Derivation: **HKDF-SHA256 (RFC 5869)** dengan room-level salt.
+    - Symmetric Cipher: **AES-256-GCM (NIST SP 800-38D)** dengan 96-bit random initialization vector (IV).
+    - Payload Format: `e2ee:v1:<base64_iv>:<base64_ciphertext>`.
+    - 100% interoperabel dengan klien mobile masa depan (**Kotlin Android**, **Flutter**, **React Native**, **Swift iOS**).
+  - **Backend Public Key Registry & Storage**:
+    - Auto-migration kolom non-destruktif `public_key TEXT DEFAULT ''` pada tabel `users`.
+    - Endpoint REST API: `PUT /api/users/public-key` (upload/update key) & `GET /api/users/profile?id=...` (retrieval).
+    - Optimasi query `GetUserConversations` yang menyertakan `peer_public_key` untuk mengeliminasi extra HTTP round-trip saat membuka chat.
+  - **Frontend KeyStore & Cryptographic Pipeline (`frontend/lib/crypto/`)**:
+    - `e2ee.ts`: Primitif Web Crypto untuk generate key pair, derive AES key, encrypt, decrypt, dan fingerprint generation.
+    - `keyStore.ts`: Manajemen penyimpanan aman private key di `IndexedDB` (`wuzz_crypto_db`) dan in-memory cache derived AES key.
+    - Inisialisasi otomatis key pair saat user login atau registrasi.
+  - **Integrasi Seamless di Chat & UI Indicator**:
+    - Pengiriman pesan otomatis terenkripsi di kabel WebSocket & database Supabase (`e2ee:v1:...`).
+    - Render lokal pengirim tetap optimistik (plaintext instan 0ms).
+    - Riwayat pesan lama & pesan masuk baru otomatis terdekripsi di timeline penerima.
+    - Banner edukasi gembok kuning/emas 🔒 di atas timeline obrolan (*"Pesan di ruang ini terenkripsi end-to-end..."*).
+    - Format snippet sidebar cerdas: `🔒 Pesan Terenkripsi`.
+    - Modal Verifikasi Nomor Keamanan (*Safety Number Fingerprint 30-digit*) di `SafetyNumberModal.tsx` dengan integrasi tombol 🔒 di status bar dan tombol salin kode.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id` & `https://wuzz-chat.vercel.app`
@@ -244,7 +266,7 @@
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)
   - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
-- Siap melangkah ke **Fase 7: WebRTC Calling (P2P Audio/Video Call) & End-to-End Encryption (E2EE)**.
+- Siap melangkah ke **Fase 7 (Bagian 2): WebRTC Calling (P2P 1-on-1 Audio/Video Call)**.
 
 ---
 
