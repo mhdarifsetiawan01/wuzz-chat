@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { Message } from '@/lib/types'
 import { AudioPlayerBubble } from './AudioPlayerBubble'
+import { LinkPreviewCard } from './LinkPreviewCard'
 import { getCachedMediaBlob, setCachedMediaBlob } from '@/lib/mediaCache'
 import { acknowledgeMediaDownload } from '@/lib/api'
 
@@ -347,6 +348,11 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
             <div className={`message-text-content ${isLongMessage && !isExpanded ? 'message-text-clamped' : ''}`}>
               {message.content}
             </div>
+          )}
+
+          {/* Pratinjau Tautan Web (OpenGraph Link Preview) */}
+          {message.content && message.content.match(/(https?:\/\/[^\s]+)/i) && (
+            <LinkPreviewCard url={message.content.match(/(https?:\/\/[^\s]+)/i)![0]} />
           )}
 
           {/* Tombol Aksi Read Mode / Baca Selengkapnya */}

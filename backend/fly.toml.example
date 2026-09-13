@@ -1,0 +1,31 @@
+# ==============================================================================
+# Fly.io Configuration Example for Wuzz Chat Backend (fly.toml.example)
+# ==============================================================================
+
+app = "wuzz-chat-backend"
+primary_region = "sin" # Singapore (paling dekat dan cepat untuk Indonesia)
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+# Environment Variables Publik (Konfigurasi sensitif seperti DATABASE_URL, SUPABASE_KEY,
+# REDIS_URL, dan JWT_SECRET wajib diatur via: `fly secrets set KEY=VALUE`)
+[env]
+  PORT = "8080"
+  ENABLE_MEDIA_UPLOAD = "true"
+  MEDIA_RETENTION_DAYS = "7"
+  MEDIA_AUTO_DELETE_ON_DOWNLOAD = "true"
+  STORAGE_DRIVER = "supabase"
+  CORS_ALLOWED_ORIGINS = "https://wuzz-chat.vercel.app,http://localhost:3000,http://localhost:3047"

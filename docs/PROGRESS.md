@@ -152,10 +152,41 @@
 
 ---
 
+### F. Fase 6: Distributed Scale & Reliability (Sedang Berjalan 🎯)
+- [x] **Milestone 6.1: Redis Pub/Sub Broker Layer & Multi-Instance Go WebSocket Synchronization**:
+  - Interface `MessageBroker` (`internal/broker/broker.go`) mendukung `Publish`, `Subscribe`, `Get`, `Set` (TTL cache), dan `Close`.
+  - **Graceful Fallback Mode**: `InMemoryBroker` aktif otomatis ketika `REDIS_URL` tidak diisi (bebas error di lokal).
+  - **Upstash & Production Ready**: `RedisBroker` (`internal/broker/redis_broker.go`) mendukung koneksi TCP TLS (`rediss://...`) dan standard TCP (`redis://...`) via `github.com/redis/go-redis/v9`.
+  - **WebSocket Hub Multi-Instance Sync**: `Hub` Go otomatis tersinkronisasi antar instan server melalui channel Redis `wuzz:cluster:events`.
+  - **Anti-Echo Loop Mechanism**: Setiap event disematkan `node_id` (UUID), node pengirim asal mengabaikan event miliknya sendiri saat kembali dari Redis.
+  - **Deduplikasi Database Write**: Penyimpanan ke database hanya dilakukan oleh node pengirim awal sehingga data di database tidak terduplikasi.
+  - Unit test `broker_test.go` & integration test `hub_cluster_test.go` lulus 100%.
+- [x] **Milestone 6.2: Dynamic Multi-Origin CORS & WebSocket Whitelist Configuration**:
+  - Struct `CORSValidator` (`internal/auth/cors.go`) mengelola whitelist domain dinamis untuk REST API dan WebSocket handshake.
+  - **Dukungan Domain Fleksibel**: Mendukung wildcard `*`, exact match (`http://localhost:3047`, `https://wuzz-chat.vercel.app`), serta wildcard subdomain (`https://*.vercel.app` untuk branch preview Vercel).
+  - **Integrasi Penuh**: `CheckWebSocketOrigin` terpasang di `upgrader` WebSocket handler dan `corsValidator.Middleware` membungkus seluruh REST API & static file serving di `main.go`.
+  - Unit test `cors_test.go` lulus 100%.
+- [x] **Milestone 6.3: OpenGraph Rich Link Previewer (WhatsApp / Telegram Grade)**:
+  - **Backend Safe Scraper (`internal/api/link_preview.go`)**: Endpoint `GET /api/link-preview?url=...` dengan autentikasi JWT.
+  - **Anti-SSRF Protection**: Validasi DNS resolution dan pemblokiran otomatis seluruh private IP subnets (`127.0.0.1`, `10.0.0.0/8`, `192.168.0.0/16`, `169.254.169.254`, `localhost`, `::1`).
+  - **OpenGraph Metadata Extraction**: Ekstraksi meta tag `og:title`, `og:description`, `og:image`, `og:site_name`, dan favicon dengan batasan ukuran body 512KB.
+  - **Redis & In-Memory Caching (TTL 24 Jam)**: Caching MD5 key untuk menghindari redundant scraping dari URL yang sama.
+  - **Frontend UI Card (`LinkPreviewCard.tsx`)**: Menampilkan kartu preview thumbnail, judul, deskripsi, favicon, dan domain badge di dalam balon chat [`MessageBubble.tsx`](frontend/app/chat/MessageBubble.tsx).
+  - Unit test `link_preview_test.go` lulus 100% dan frontend build `npm run build` sukses 100%.
+- [x] **Milestone 6.4: Production Deployment Configuration & Multi-Platform Readiness**:
+  - **Multi-Stage Dockerfile (`backend/Dockerfile`)**: Build Go Alpine super ringan (< 25MB image size), unprivileged non-root user `appuser`, dan sertifikat SSL bawaan.
+  - **Next.js Server-Side Rewrites (`frontend/next.config.ts`)**: Konfigurasi reverse proxy otomatis untuk `/api/*` dan `/uploads/*` ke URL backend `BACKEND_API_URL` (Vercel ke Fly.io).
+  - **Dynamic WebSocket URL Detection (`frontend/app/chat/page.tsx`)**: Otomatis mendeteksi `NEXT_PUBLIC_WS_URL` dan protocol matching `wss://` / `ws://`.
+  - **Fly.io Deployment Template (`backend/fly.toml.example`)**: Konfigurasi VM 256MB RAM region Singapura (`sin`) siap deploy.
+  - **Dokumentasi Variabel Lingkungan**: [`frontend/.env.example`](frontend/.env.example) dan [`backend/.env.example`](backend/.env.example).
+
+---
+
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Fase 5: Rich Media, Voice Notes, Attachments & Store-and-Forward Lifecycle telah 100% Selesai & Terverifikasi!**
-- Siap melangkah ke **Fase 6: Distributed Scale & Reliability (Redis Pub/Sub & Multi-Server Cluster)** atau **OpenGraph Rich Link Preview**.
+- **Fase 6: Distributed Scale & Reliability telah 100% Selesai & Terverifikasi!**
+- Seluruh unit test backend (`go test -v ./...`) dan build frontend (`npm run build`) lulus 100%.
+- Siap melangkah ke **Fase 7: Advanced Security & WebRTC Calling (E2EE & P2P Audio/Video Call)** jika diinginkan.
 
 ---
 

@@ -1,0 +1,261 @@
+package api
+
+import (
+	"context"
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"html"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/bms-del112/wuzz-chat/internal/broker"
+)
+
+var (
+	ogTitleRegex       = regexp.MustCompile(`(?i)<meta\s+[^>]*property=["'](?:og:title|twitter:title)["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*property=["'](?:og:title|twitter:title)["']`)
+	ogDescRegex        = regexp.MustCompile(`(?i)<meta\s+[^>]*property=["'](?:og:description|twitter:description)["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*property=["'](?:og:description|twitter:description)["']`)
+	ogImageRegex       = regexp.MustCompile(`(?i)<meta\s+[^>]*property=["'](?:og:image|twitter:image|twitter:image:src)["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*property=["'](?:og:image|twitter:image|twitter:image:src)["']`)
+	ogSiteNameRegex    = regexp.MustCompile(`(?i)<meta\s+[^>]*property=["']og:site_name["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*property=["']og:site_name["']`)
+	htmlTitleRegex     = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
+	faviconRegex       = regexp.MustCompile(`(?i)<link\s+[^>]*rel=["'](?:shortcut icon|icon|apple-touch-icon)["'][^>]*href=["']([^"']*)["']|<link\s+[^>]*href=["']([^"']*)["'][^>]*rel=["'](?:shortcut icon|icon|apple-touch-icon)["']`)
+)
+
+// LinkPreview merepresentasikan metadata OpenGraph dari sebuah URL.
+type LinkPreview struct {
+	URL         string `json:"url"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	Image       string `json:"image,omitempty"`
+	SiteName    string `json:"site_name,omitempty"`
+	Favicon     string `json:"favicon,omitempty"`
+}
+
+// LinkPreviewHandler mengelola scraping metadata OpenGraph yang aman dari SSRF.
+type LinkPreviewHandler struct {
+	broker broker.MessageBroker
+	client *http.Client
+}
+
+// NewLinkPreviewHandler membuat instance LinkPreviewHandler baru.
+func NewLinkPreviewHandler(b broker.MessageBroker) *LinkPreviewHandler {
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   3 * time.Second,
+			KeepAlive: 10 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   3 * time.Second,
+		ResponseHeaderTimeout: 3 * time.Second,
+		DisableKeepAlives:     true,
+	}
+
+	return &LinkPreviewHandler{
+		broker: b,
+		client: &http.Client{
+			Transport: transport,
+			Timeout:   4 * time.Second,
+		},
+	}
+}
+
+// ServeHTTP menangani request GET /api/link-preview?url=...
+func (h *LinkPreviewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	rawURL := strings.TrimSpace(r.URL.Query().Get("url"))
+	if rawURL == "" {
+		http.Error(w, "Query parameter 'url' is required", http.StatusBadRequest)
+		return
+	}
+
+	// 1. Validasi skema URL
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		http.Error(w, "Invalid URL scheme (only http and https allowed)", http.StatusBadRequest)
+		return
+	}
+
+	// 2. Proteksi SSRF (Server-Side Request Forgery)
+	if err := isSafeHost(parsedURL.Hostname()); err != nil {
+		http.Error(w, "URL host is not permitted: "+err.Error(), http.StatusForbidden)
+		return
+	}
+
+	// 3. Cek Cache (Redis / In-Memory)
+	cacheKey := "wuzz:preview:" + hashMD5(rawURL)
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	if h.broker != nil {
+		if cachedJSON, err := h.broker.Get(ctx, cacheKey); err == nil && cachedJSON != "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Cache", "HIT")
+			_, _ = w.Write([]byte(cachedJSON))
+			return
+		}
+	}
+
+	// 4. Scrape metadata dari URL
+	preview, err := h.fetchAndExtract(rawURL)
+	if err != nil {
+		http.Error(w, "Failed to scrape link preview: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+
+	// 5. Simpan hasil ke Cache (TTL 24 jam)
+	previewJSON, err := json.Marshal(preview)
+	if err == nil && h.broker != nil {
+		_ = h.broker.Set(ctx, cacheKey, string(previewJSON), 24*time.Hour)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Cache", "MISS")
+	_, _ = w.Write(previewJSON)
+}
+
+// fetchAndExtract mengambil HTML dari URL dan mengekstrak tag OpenGraph.
+func (h *LinkPreviewHandler) fetchAndExtract(targetURL string) (*LinkPreview, error) {
+	req, err := http.NewRequest("GET", targetURL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; WuzzBot/1.0; +https://github.com/bms-del112/wuzz-chat)")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("http fetch error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("remote returned HTTP %d", resp.StatusCode)
+	}
+
+	// Batasi pembacaan body maks 512KB untuk mencegah memory exhaustion
+	limitReader := io.LimitReader(resp.Body, 512*1024)
+	bodyBytes, err := io.ReadAll(limitReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read body: %w", err)
+	}
+
+	bodyStr := string(bodyBytes)
+	baseURL, _ := url.Parse(targetURL)
+
+	preview := &LinkPreview{
+		URL: targetURL,
+	}
+
+	// Ekstrak Title (og:title -> <title>)
+	if match := extractMatch(ogTitleRegex, bodyStr); match != "" {
+		preview.Title = cleanText(match)
+	} else if match := extractMatch(htmlTitleRegex, bodyStr); match != "" {
+		preview.Title = cleanText(match)
+	}
+
+	// Ekstrak Description (og:description -> meta description)
+	if match := extractMatch(ogDescRegex, bodyStr); match != "" {
+		preview.Description = cleanText(match)
+	}
+
+	// Ekstrak Image (og:image)
+	if match := extractMatch(ogImageRegex, bodyStr); match != "" {
+		preview.Image = resolveRelativeURL(baseURL, cleanText(match))
+	}
+
+	// Ekstrak Site Name (og:site_name -> fallback host)
+	if match := extractMatch(ogSiteNameRegex, bodyStr); match != "" {
+		preview.SiteName = cleanText(match)
+	} else if baseURL != nil {
+		preview.SiteName = baseURL.Hostname()
+	}
+
+	// Ekstrak Favicon
+	if match := extractMatch(faviconRegex, bodyStr); match != "" {
+		preview.Favicon = resolveRelativeURL(baseURL, cleanText(match))
+	} else if baseURL != nil {
+		preview.Favicon = fmt.Sprintf("%s://%s/favicon.ico", baseURL.Scheme, baseURL.Host)
+	}
+
+	return preview, nil
+}
+
+// isSafeHost memeriksa apakah hostname aman dan bukan IP privat/loopback (SSRF guard).
+func isSafeHost(hostname string) error {
+	if hostname == "" {
+		return errors.New("empty hostname")
+	}
+
+	hostLower := strings.ToLower(hostname)
+	if hostLower == "localhost" || strings.HasSuffix(hostLower, ".local") {
+		return errors.New("localhost/local addresses not allowed")
+	}
+
+	ips, err := net.LookupIP(hostname)
+	if err != nil {
+		return fmt.Errorf("dns resolution failed: %w", err)
+	}
+
+	for _, ip := range ips {
+		if ip.IsLoopback() {
+			return errors.New("loopback IP address not allowed")
+		}
+		if ip.IsPrivate() {
+			return errors.New("private IP subnet not allowed")
+		}
+		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+			return errors.New("link-local IP address not allowed")
+		}
+		if ip.IsUnspecified() {
+			return errors.New("unspecified IP address not allowed")
+		}
+	}
+
+	return nil
+}
+
+func extractMatch(re *regexp.Regexp, s string) string {
+	matches := re.FindStringSubmatch(s)
+	if len(matches) == 0 {
+		return ""
+	}
+	for i := 1; i < len(matches); i++ {
+		if matches[i] != "" {
+			return matches[i]
+		}
+	}
+	return ""
+}
+
+func cleanText(s string) string {
+	decoded := html.UnescapeString(s)
+	return strings.TrimSpace(decoded)
+}
+
+func resolveRelativeURL(base *url.URL, target string) string {
+	if target == "" || base == nil {
+		return target
+	}
+	parsed, err := url.Parse(target)
+	if err != nil {
+		return target
+	}
+	return base.ResolveReference(parsed).String()
+}
+
+func hashMD5(s string) string {
+	h := md5.Sum([]byte(s))
+	return hex.EncodeToString(h[:])
+}

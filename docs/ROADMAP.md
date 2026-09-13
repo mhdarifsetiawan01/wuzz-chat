@@ -40,17 +40,19 @@ Membangun platform chatting modern yang:
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 5: Rich Media & Attachments (NEXT 🎯)                            │
-│  - Image/Video upload (S3/Supabase Storage), Voice Notes, Link Preview │
+│  FASE 5: Rich Media & Attachments (SELESAI ✅)                         │
+│  - Store-and-Forward Media ($0 Cost), Voice Notes, Audio Player Wave   │
+│  - Document Sharing, Image Lightbox, Client WebP Compression           │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 6: Distributed Scaling & High Availability                       │
-│  - Redis Pub/Sub for Multi-Instance Go Hub, Offline Push Notifications │
+│  FASE 6: Distributed Scale & Reliability (SELESAI ✅)                  │
+│  - Upstash Redis Pub/Sub, Multi-Instance Hub, Anti-Echo Loop Node ID   │
+│  - Dynamic CORS Whitelist, OpenGraph Safe Link Preview, Dockerfile     │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 7: Security Hardening & WebRTC Calling                           │
+│  FASE 7: Security Hardening & WebRTC Calling (NEXT 🎯)                 │
 │  - E2EE Signal Protocol Option, 1-on-1 Audio/Video Call via WebRTC     │
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -121,13 +123,23 @@ Membangun platform chatting modern yang:
 
 ---
 
-### Fase 6: Distributed Scale & Reliability
-*Tujuan: Memastikan sistem dapat menampung ribuan/jutaan user bersamaan dengan multi-server.*
-- **Redis Pub/Sub Layer**:
-  - Menghubungkan banyak instance Go Backend agar user di server A bisa chat dengan user di server B secara transparan.
-- **Offline Message Queue & Push Notifications**:
-  - Web Push Notifications (Service Worker) saat tab browser sedang tertutup.
-  - Queueing pesan untuk user yang sedang offline dan dikirimkan saat mereka online kembali.
+### Fase 6: Distributed Scale & Reliability (Status: SELESAI ✅)
+*Tujuan: Memastikan sistem dapat menampung ribuan/jutaan user bersamaan dengan multi-server cluster, dynamic CORS whitelist, dan rich link preview.*
+- **Redis Pub/Sub Layer & Multi-Instance Sync**:
+  - Menghubungkan banyak instance Go Backend via Upstash Redis (`rediss://...`) dan standard TCP (`redis://...`) dengan `github.com/redis/go-redis/v9`.
+  - Anti-echo loop protection via Node UUID dan deduplikasi penyimpanan database.
+  - In-Memory fallback mode saat Redis URL tidak diisi.
+- **Dynamic Multi-Origin CORS & WebSocket Whitelist**:
+  - `CORSValidator` membaca `CORS_ALLOWED_ORIGINS` untuk exact match, wildcard `*`, dan wildcard subdomains (`https://*.vercel.app`).
+  - Proteksi WSS handshake via `websocket.Upgrader.CheckOrigin`.
+- **OpenGraph Rich Link Previewer (WhatsApp / Telegram Grade)**:
+  - Backend safe scraper dengan Anti-SSRF guard (blokir 127.0.0.1, private IP subnets, link-local, localhost).
+  - Ekstraksi meta tag OpenGraph dengan Redis/In-Memory cache TTL 24 jam.
+  - Kartu preview link thumbnail interaktif di frontend (`LinkPreviewCard.tsx`).
+- **Production Deployment Readiness**:
+  - Multi-stage build `Dockerfile` Go super ringan (< 25MB).
+  - Next.js server-side `rewrites()` di `next.config.ts` untuk reverse proxy API Vercel ke Fly.io.
+  - Template konfigurasi `fly.toml.example`.
 
 ---
 

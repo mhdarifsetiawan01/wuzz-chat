@@ -10,6 +10,7 @@ import (
 
 	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/broker"
 	"github.com/bms-del112/wuzz-chat/internal/storage"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
@@ -26,6 +27,14 @@ func main() {
 	// Baca port server
 	port := getEnv("PORT", "8080")
 	addr := ":" + port
+
+	// Inisialisasi Message Broker (Redis Pub/Sub atau In-Memory fallback)
+	messageBroker, err := broker.NewBrokerFromEnv()
+	if err != nil {
+		log.Printf("⚠️ Gagal inisialisasi broker: %v, fallback ke InMemory", err)
+		messageBroker = broker.NewInMemoryBroker()
+	}
+	defer messageBroker.Close()
 
 	// Inisialisasi storage layer
 	clientStore := store.NewMemoryClientStore()
@@ -72,9 +81,13 @@ func main() {
 	if userStore != nil {
 		hub.SetUserStore(userStore)
 	}
+	hub.SetBroker(messageBroker)
 
-	// Inisialisasi handler WebSocket
-	wsHandler := ws.NewHandler(hub)
+	// Inisialisasi CORS Validator dinamis (mendukung multi-domain, Vercel preview, dan localhost)
+	corsValidator := auth.NewCORSValidatorFromEnv()
+
+	// Inisialisasi handler WebSocket dengan validasi origin dinamis
+	wsHandler := ws.NewHandler(hub, corsValidator)
 
 	// Setup routing
 	mux := http.NewServeMux()
@@ -83,23 +96,14 @@ func main() {
 	authLimiter := auth.NewIPRateLimiter(15, 1*time.Minute)
 
 	// Helper CORS Middleware untuk REST API
-	corsOrigin := os.Getenv("CORS_ALLOWED_ORIGIN")
-	if corsOrigin == "" {
-		corsOrigin = "*"
-	}
-
 	withCORS := func(h http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", corsOrigin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			h(w, r)
+			corsValidator.Middleware(h).ServeHTTP(w, r)
 		}
 	}
+
+	// Inisialisasi Link Preview Handler (OpenGraph Scraper dengan Caching)
+	linkPreviewHandler := api.NewLinkPreviewHandler(messageBroker)
 
 	// Media Storage & Dynamic Config Routes
 	mux.HandleFunc("/api/config", withCORS(mediaHandler.Config))
@@ -110,6 +114,11 @@ func main() {
 		auth.RequireJWT()(http.HandlerFunc(mediaHandler.AcknowledgeDownload)).ServeHTTP(w, r)
 	}))
 
+	// Link Preview Route
+	mux.HandleFunc("/api/link-preview", withCORS(func(w http.ResponseWriter, r *http.Request) {
+		auth.RequireJWT()(http.HandlerFunc(linkPreviewHandler.ServeHTTP)).ServeHTTP(w, r)
+	}))
+
 	// Serving file statis jika menggunakan Local Storage
 	uploadDir := os.Getenv("UPLOAD_DIR")
 	if uploadDir == "" {
@@ -117,11 +126,11 @@ func main() {
 	}
 	_ = storage.EnsureDir(uploadDir)
 	fileServer := http.FileServer(http.Dir(uploadDir))
-	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fileHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=86400")
-		w.Header().Set("Access-Control-Allow-Origin", corsOrigin)
 		fileServer.ServeHTTP(w, r)
-	})))
+	})
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", corsValidator.Middleware(fileHandler)))
 
 	// REST API Routes (Auth) dengan Rate Limiting
 	if authHandler != nil {

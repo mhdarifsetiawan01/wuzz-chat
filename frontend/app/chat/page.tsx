@@ -177,7 +177,15 @@ function ChatPageContent() {
 
     // Buat koneksi WsClient (selalu aktif untuk menerima notifikasi pesan baru)
     const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
-    const wsUrl = `ws://${window.location.host}/ws${token ? `?token=${encodeURIComponent(token)}` : ''}`
+    const customWsBase = process.env.NEXT_PUBLIC_WS_URL
+    let wsEndpoint = ''
+    if (customWsBase) {
+      wsEndpoint = customWsBase
+    } else {
+      const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      wsEndpoint = `${protocol}//${typeof window !== 'undefined' ? window.location.host : 'localhost:3047'}/ws`
+    }
+    const wsUrl = `${wsEndpoint}${wsEndpoint.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
     const client = new WsClient(wsUrl)
     clientRef.current = client
 

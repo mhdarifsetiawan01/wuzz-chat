@@ -1,4 +1,4 @@
-import { AppConfig, MediaUploadResponse } from './types'
+import { AppConfig, MediaUploadResponse, LinkPreview } from './types'
 
 // API client helper untuk berkomunikasi dengan Go REST API
 
@@ -87,4 +87,22 @@ export async function acknowledgeMediaDownload(
     body: JSON.stringify({ message_id: messageId, room_id: roomId }),
   })
 }
+
+// In-memory frontend cache untuk link preview agar tidak redundant fetch
+const previewCache = new Map<string, LinkPreview>()
+
+export async function fetchLinkPreview(targetUrl: string): Promise<LinkPreview | null> {
+  if (!targetUrl) return null
+  if (previewCache.has(targetUrl)) {
+    return previewCache.get(targetUrl)!
+  }
+
+  const res = await apiRequest<LinkPreview>(`/api/link-preview?url=${encodeURIComponent(targetUrl)}`)
+  if (res.data && res.data.title) {
+    previewCache.set(targetUrl, res.data)
+    return res.data
+  }
+  return null
+}
+
 

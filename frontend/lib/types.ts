@@ -58,6 +58,15 @@ export interface AppConfig {
   auto_delete_on_download?: boolean
 }
 
+export interface LinkPreview {
+  url: string
+  title?: string
+  description?: string
+  image?: string
+  site_name?: string
+  favicon?: string
+}
+
 export interface MediaUploadResponse {
   url: string
   file_name: string

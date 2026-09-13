@@ -10,28 +10,37 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// upgrader mengkonfigurasi WebSocket upgrader dari gorilla/websocket.
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
 // Handler adalah HTTP handler untuk endpoint WebSocket (/ws).
 // Bertanggung jawab untuk:
-//  1. Validasi token JWT sebelum upgrade
-//  2. Upgrade HTTP ke WebSocket
-//  3. Mengikat identitas Client dari claims JWT
-//  4. Daftarkan Client ke Hub dan jalankan pump
+//  1. Validasi origin handshake WebSocket via CORSValidator
+//  2. Validasi token JWT sebelum upgrade
+//  3. Upgrade HTTP ke WebSocket
+//  4. Mengikat identitas Client dari claims JWT
+//  5. Daftarkan Client ke Hub dan jalankan pump
 type Handler struct {
-	hub *Hub
+	hub           *Hub
+	corsValidator *auth.CORSValidator
+	upgrader      websocket.Upgrader
 }
 
-// NewHandler membuat Handler baru dengan Hub yang di-inject.
-func NewHandler(hub *Hub) *Handler {
-	return &Handler{hub: hub}
+// NewHandler membuat Handler baru dengan Hub dan CORSValidator opsional.
+func NewHandler(hub *Hub, cv ...*auth.CORSValidator) *Handler {
+	var validator *auth.CORSValidator
+	if len(cv) > 0 && cv[0] != nil {
+		validator = cv[0]
+	} else {
+		validator = auth.NewCORSValidatorFromEnv()
+	}
+
+	return &Handler{
+		hub:           hub,
+		corsValidator: validator,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin:     validator.CheckWebSocketOrigin,
+		},
+	}
 }
 
 // ServeHTTP menangani request WebSocket upgrade dengan autentikasi JWT wajib.
@@ -58,7 +67,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Lakukan upgrade HTTP ke WebSocket
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("[Handler] WebSocket upgrade gagal: %v", err)
 		return

@@ -49,10 +49,15 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   6. TTL Background Purge Worker (`MEDIA_RETENTION_DAYS=7`).
   7. Client-Side Offline Storage (`IndexedDB` via `mediaCache.ts`) & graceful expired state.
   8. Client-Side Pre-Upload Image Compressor (`imageCompressor.ts`, max 1600px, WebP quality 0.82) dengan toggle di Profil.
-- 🎯 **Fase 6: Distributed Scale & Reliability (SEDANG / NEXT)** —
-  1. Redis Pub/Sub integration untuk sinkronisasi pesan antar multi-instance Go WebSocket servers.
-  2. Horizontal clustering & Load balancing ready.
-  3. Link previewer metadata OpenGraph (URL parsing & preview card).
+- ✅ **Fase 6: Distributed Scale & Reliability (SELESAI)** —
+  1. Upstash Redis Pub/Sub TCP TLS (`rediss://...`) dan In-Memory fallback broker.
+  2. Multi-Instance Go WebSocket synchronization dengan Anti-Echo loop Node UUID.
+  3. Dynamic Multi-Origin CORS & WebSocket Origin Whitelist (`CORS_ALLOWED_ORIGINS`).
+  4. OpenGraph Rich Link Previewer dengan Anti-SSRF guard, Redis Caching 24 jam, dan Frontend UI Card.
+  5. Multi-Stage Dockerfile (< 25MB), Next.js server-side rewrites, dan Fly.io deployment ready.
+- 🎯 **Fase 7: Advanced Security & WebRTC Calling (NEXT)** —
+  1. End-to-End Encryption (E2EE) Signal Protocol / Web Crypto API.
+  2. P2P 1-on-1 Audio & Video Call via WebRTC.
 
 ---
 
