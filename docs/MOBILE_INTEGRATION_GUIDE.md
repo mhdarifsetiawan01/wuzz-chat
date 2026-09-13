@@ -1,0 +1,296 @@
+# Panduan Integrasi Klien Mobile (Android & iOS) — Wuzz Chat
+
+Dokumen ini adalah panduan teknis komprehensif (*Mobile Client Integration Guide & Architecture Blueprint*) bagi engineer yang akan membangun aplikasi mobile native (**Android Kotlin**, **iOS Swift**) maupun cross-platform (**Flutter**, **React Native**) untuk ekosistem **Wuzz Chat**.
+
+---
+
+## 📱 1. Filosofi & Desain Platform-Agnostik
+
+Backend **Wuzz Chat** (Golang) dan Database (Supabase PostgreSQL) dibangun dengan prinsip **Headless API & Platform Agnostic**:
+- Tidak terikat pada teknologi frontend tertentu (Next.js hanya salah satu implementasi klien web).
+- Menggunakan standar industri terbuka: **JSON over REST API**, **WebSocket (RFC 6455)**, dan **Web Crypto / NIST RFC Cryptography**.
+- Pesan yang dikirim dari Android Native (Kotlin) dapat langsung didekripsi dan dibaca oleh iOS Native (Swift) maupun Web (Next.js) secara transparan.
+
+---
+
+## 📡 2. Layer Komunikasi & Jaringan
+
+### A. Konfigurasi Endpoint Server
+| Environment | REST API Base URL | WebSocket Endpoint |
+|---|---|---|
+| **Production (Live)** | `https://wuzz-chat-backend.fly.dev` | `wss://wuzz-chat-backend.fly.dev/ws?token=<JWT>` |
+| **Local Development** | `http://10.0.2.2:8080` (Android Emulator) / `http://localhost:8080` (iOS Sim) | `ws://10.0.2.2:8080/ws?token=<JWT>` |
+
+---
+
+### B. Autentikasi & Session Lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Pengguna HP
+    participant App as Mobile App (Kotlin/Swift/Flutter/RN)
+    participant REST as REST API Backend (Go)
+    participant WS as WebSocket Hub (Go)
+
+    User->>App: Buka App & Input Kredensial
+    App->>REST: POST /api/auth/login {username, password}
+    REST-->>App: 200 OK {token, user: {id, username, display_name, public_key}}
+    App->>App: Simpan JWT di Encrypted Secure Storage
+    App->>App: Cek Keypair E2EE Lokal (Generate jika belum ada)
+    App->>REST: PUT /api/users/public-key {public_key: "<JWK>"}
+    App->>WS: Connect wss://.../ws?token=<JWT>
+    WS-->>App: 101 Switching Protocols (Handshake Sukses)
+    WS-->>App: Event "system" {content: "ID kamu: <UUID>"}
+```
+
+1. **Login & Token Storage**:
+   - Simpan token JWT di secure storage perangkat (**EncryptedSharedPreferences** di Android, **Keychain** di iOS).
+2. **Koneksi WebSocket**:
+   - Selalu sertakan query `?token=<JWT>` saat inisialisasi socket.
+   - Implementasikan **Exponential Backoff Auto-Reconnect** (1s, 2s, 4s, 8s, maks 30s) saat koneksi terputus (misal saat HP berganti jaringan dari WiFi ke 4G/5G).
+
+---
+
+### C. Spesifikasi Event WebSocket (Kamus Event Real-Time)
+
+Setiap frame pesan WebSocket menggunakan format JSON:
+
+```json
+{
+  "id": "msg-uuid-v4",
+  "type": "message",
+  "room": "dm_5819a9c9_b06477ec",
+  "from": "user-uuid-pengirim",
+  "nickname": "Alice",
+  "content": "e2ee:v1:<base64-iv>:<base64-cipher>",
+  "status": "sent",
+  "reply_to": {
+    "id": "target-msg-id",
+    "nickname": "Bob",
+    "content": "Pesan yang dikutip"
+  },
+  "media_url": "https://...",
+  "media_type": "image",
+  "file_name": "foto.jpg",
+  "file_size": 245000,
+  "timestamp": "2026-09-14T01:00:00Z"
+}
+```
+
+| Tipe Event (`type`) | Arah | Tindakan Klien Mobile |
+|---|---|---|
+| `join` | Klien ➔ Server | Masuk ke ruang chat: `{"type":"join", "nickname":"...", "room":"..."}` |
+| `message` | Bidirectional | Dekripsi konten teks (`e2ee:v1:...`) ➔ Tambahkan ke list UI chat ➔ Balas `receipt: "delivered"` |
+| `receipt` | Bidirectional | Update status tanda centang pesan (`pending` ➔ `sent` ➔ `delivered` ➔ `read`) |
+| `typing` | Bidirectional | Tampilkan animasi indikator lawan bicara sedang mengetik |
+| `reaction` | Bidirectional | Update badge emoji reaction di balon chat terkait |
+| `message_deleted` | Server ➔ Klien | Tandai pesan sebagai ditarik (`🚫 Pesan ini telah dihapus`) |
+| `room_users` | Server ➔ Klien | Update daftar anggota online di room |
+| `history` | Server ➔ Klien | Array riwayat pesan (`messages: [...]`), lakukan dekripsi batch |
+
+---
+
+## 🔐 3. Standar Kriptografi End-to-End Encryption (E2EE)
+
+Untuk menjaga privasi mutlak dan interoperabilitas antar platform (Web, Android, iOS), klien mobile **WAJIB** mematuhi standar kriptografi berikut:
+
+### A. Parameter Algoritma
+- **Key Agreement**: **ECDH (Elliptic Curve Diffie-Hellman) NIST P-256** (`secp256r1` / `prime256v1`).
+- **Key Derivation**: **HKDF-SHA256 (RFC 5869)**:
+  - Input Keying Material (IKM): `sharedSecret` (32 bytes dari ECDH).
+  - Salt: UTF-8 bytes dari `roomId` (misal: `"dm_5819a9c9_b06477ec"`).
+  - Info: UTF-8 bytes `"wuzz-chat-e2ee-room-aes-key"`.
+  - Output: 256-bit (32 bytes) Symmetric Key.
+- **Symmetric Cipher**: **AES-256-GCM (NIST SP 800-38D)**:
+  - IV / Nonce: 12 bytes acak (*CSPRNG*).
+  - Auth Tag: 128 bit (16 bytes).
+- **Format String Kabel (Wire Format)**:
+  ```text
+  e2ee:v1:<Base64(IV_12bytes)>:<Base64(Ciphertext_With_Tag)>
+  ```
+- **Format Kunci Publik (Public Key)**: **JWK (JSON Web Key)**:
+  ```json
+  {"kty":"EC","crv":"P-256","x":"base64url...","y":"base64url...","ext":true,"key_ops":[]}
+  ```
+
+---
+
+### B. Referensi Implementasi Kriptografi per Bahasa / Platform
+
+#### 1. Android Native (Kotlin)
+- **Penyimpanan Kunci**: Android Keystore + `EncryptedSharedPreferences` / Room Database dengan SQLCipher.
+- **Library Kripto**: Standar `java.security` + `javax.crypto` (atau library Google Tink / BouncyCastle).
+
+```kotlin
+// Inisialisasi KeyPair P-256 di Android
+val keyPairGenerator = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC)
+keyPairGenerator.initialize(ECGenParameterSpec("secp256r1"))
+val keyPair = keyPairGenerator.generateKeyPair()
+
+// ECDH Key Agreement
+val keyAgreement = KeyAgreement.getInstance("ECDH")
+keyAgreement.init(localPrivateKey)
+keyAgreement.doPhase(peerPublicKey, true)
+val sharedSecret = keyAgreement.generateSecret()
+
+// Enkripsi AES-256-GCM
+val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+val iv = ByteArray(12).apply { SecureRandom().nextBytes(this) }
+val spec = GCMParameterSpec(128, iv)
+cipher.init(Cipher.ENCRYPT_MODE, derivedAESKey, spec)
+val ciphertext = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+
+// Format Wire
+val wireMessage = "e2ee:v1:${Base64.encodeToString(iv, Base64.NO_WRAP)}:${Base64.encodeToString(ciphertext, Base64.NO_WRAP)}"
+```
+
+#### 2. iOS Native (Swift)
+- **Penyimpanan Kunci**: Apple Keychain Services (`kSecClassKey`).
+- **Library Kripto**: Apple `CryptoKit` bawaan iOS 13+.
+
+```swift
+import CryptoKit
+
+// Inisialisasi KeyPair P-256
+let privateKey = P256.KeyAgreement.PrivateKey()
+let publicKey = privateKey.publicKey
+
+// ECDH Shared Secret
+let sharedSecret = try privateKey.sharedSecretFromKeyAgreement(with: peerPublicKey)
+
+// HKDF-SHA256 ke SymmetricKey
+let symmetricKey = sharedSecret.hkdfDerivedSymmetricKey(
+    using: SHA256.self,
+    salt: roomId.data(using: .utf8)!,
+    sharedInfo: "wuzz-chat-e2ee-room-aes-key".data(using: .utf8)!,
+    outputByteCount: 32
+)
+
+// Enkripsi AES-GCM
+let sealedBox = try AES.GCM.seal(plaintext.data(using: .utf8)!, using: symmetricKey)
+let ivBase64 = sealedBox.nonce.data.base64EncodedString()
+let cipherBase64 = (sealedBox.ciphertext + sealedBox.tag).base64EncodedString()
+let wireMessage = "e2ee:v1:\(ivBase64):\(cipherBase64)"
+```
+
+#### 3. Flutter (Dart)
+- **Library Kripto**: `cryptography` package (sangat cepat & didukung Web, Android, iOS).
+- **Penyimpanan Kunci**: `flutter_secure_storage`.
+
+```dart
+import 'package:cryptography/cryptography.dart';
+
+final ecdh = Ecdh.p256(length: 32);
+final keyPair = await ecdh.newKeyPair();
+
+// Derive shared secret & HKDF
+final sharedSecret = await ecdh.sharedSecretKey(keyPair: keyPair, remotePublicKey: peerPublicKey);
+final hkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
+final aesKey = await hkdf.deriveKey(
+  secretKey: sharedSecret,
+  nonce: utf8.encode(roomId),
+  info: utf8.encode("wuzz-chat-e2ee-room-aes-key"),
+);
+
+// Enkripsi AES-GCM
+final aesGcm = AesGcm.with256bits();
+final secretBox = await aesGcm.encrypt(utf8.encode(plaintext), secretKey: aesKey);
+final wireMessage = "e2ee:v1:${base64Encode(secretBox.nonce)}:${base64Encode(secretBox.cipherText + secretBox.mac.bytes)}";
+```
+
+#### 4. React Native (TypeScript)
+- **Library Kripto**: `react-native-quick-crypto` atau Web Crypto API polyfill.
+- **Penyimpanan Kunci**: `react-native-keychain` / `expo-secure-store`.
+
+---
+
+### C. Verifikasi Keamanan Visual (Safety Number 30-Digit)
+
+Untuk menghasilkan 30-digit Safety Number yang identik dengan Web:
+1. Urutkan Public Key JWK kedua pihak secara leksikografis (`userA < userB ? [A, B] : [B, A]`).
+2. Gabungkan string JWK dengan separator `|`.
+3. Hitung hash **SHA-256**.
+4. Ambil 16 byte pertama, bagi menjadi 6 blok angka 5 digit (`(bytes % 100000).padStart(5, '0')`).
+5. Tampilkan format: `12345 67890 12345 67890 12345 67890`.
+
+---
+
+## 📦 4. Penanganan Media (WhatsApp-Style Store-and-Forward)
+
+Aplikasi mobile Wuzz Chat menghemat kuota server dan penyimpanan cloud dengan arsitektur **Store-and-Forward Lifecycle ($0 Server Cost)**:
+
+```text
+[HP Pengirim] ──(1. Upload)──► [Server Buffer (Supabase)]
+                                       │
+                                (2. Notifikasi WS)
+                                       │
+[HP Penerima] ◄──(3. Download)─────────┘
+      │
+      └──(4. POST /api/media/ack)──► [Server Otomatis Hapus Berkas Fisik]
+      │
+      └──(5. Simpan Permanen di Galeri / Internal Storage HP)
+```
+
+### Langkah Implementasi Klien Mobile:
+1. **Pengiriman Media**:
+   - Kompres gambar di sisi klien sebelum dikirim (maks resolusi 1600px, WebP/JPEG kualitas ~80%).
+   - Unggah via `POST /api/media/upload` (Multipart Form Data).
+   - Kirim event WebSocket `type: "message"` dengan `media_url`, `media_type`, `file_name`, dan `file_size`.
+2. **Penerimaan & Caching Offline**:
+   - Saat menerima pesan media, unduh file dan simpan ke direktori lokal aplikasi (Scoped Storage di Android, Documents/Application Support di iOS).
+   - Segera kirim konfirmasi penerimaan via `POST /api/media/ack` (`body: {"url": "..."}`). Server akan langsung menghapus file fisik di cloud storage.
+   - UI obrolan selanjutnya membaca berkas langsung dari media lokal perangkat (dapat dibuka selamanya bahkan saat offline).
+
+---
+
+## 📹 5. Kesiapan Panggilan Suara & Video (WebRTC Calling)
+
+Untuk mendukung panggilan suara dan video 1-on-1 di mobile:
+
+1. **Signaling**:
+   - Gunakan koneksi WebSocket yang sudah aktif untuk bertukar payload signaling WebRTC (`call_offer`, `call_answer`, `ice_candidate`, `call_end`).
+2. **WebRTC SDK**:
+   - **Android**: `org.webrtc:google-webrtc`.
+   - **iOS**: `GoogleWebRTC` CocoaPod / Swift Package.
+   - **Flutter**: `flutter_webrtc`.
+   - **React Native**: `react-native-webrtc`.
+3. **STUN Configuration**:
+   - Gunakan Google Public STUN: `stun:stun.l.google.com:19302`.
+4. **Audio & Video Management**:
+   - Tangani lifecycle audio focus (saat ada panggilan telepon seluler masuk / headset Bluetooth tersambung).
+   - Integrasi CallKit (iOS) & ConnectionService / Telecom framework (Android) agar UI panggilan berdering layaknya telepon biasa.
+
+---
+
+## 🔔 6. Notifikasi Latar Belakang (Push Notifications)
+
+Ketika aplikasi mobile diminimize atau ditutup (*killed state*), koneksi WebSocket akan terputus untuk menghemat baterai HP.
+
+### Arsitektur Push Notification:
+1. **Pendaftaran Token**:
+   - Klien mobile mendapatkan FCM Token (Android) atau APNs Token (iOS).
+   - Klien mengirim token ke backend: `POST /api/users/push-token`.
+2. **Pemicu Notifikasi dari Backend**:
+   - Ketika WebSocket mendeteksi pengguna tujuan sedang *offline* saat pesan masuk, Go Backend memicu push notification ke Firebase Cloud Messaging (FCM) / Apple Push Notification Service (APNs).
+3. **Privasi Pesan di Notifikasi**:
+   - Karena pesan dienkripsi E2EE, payload push notification cukup berisi notifikasi senyap (*Silent Notification / Data-Only Push*), lalu *Notification Service Extension* di HP mendekripsi pesan secara lokal sebelum menampilkan judul dan isi balon notifikasi ke layar HP pengguna.
+
+---
+
+## 📋 7. Checklist Definition of Done (DoD) Klien Mobile
+
+Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
+- [ ] Login & Register dengan JWT tersimpan di secure storage.
+- [ ] Auto-reconnect WebSocket dengan status bar koneksi (`Menghubungkan...` / `Terhubung`).
+- [ ] Keypair E2EE tersimpan di Android Keystore / iOS Keychain.
+- [ ] Pesan teks terkirim dalam format `e2ee:v1:...` dan dapat didekripsi oleh Web & Mobile lain.
+- [ ] Indikator status centang 3 tahap (`🕒` ➔ `✓` ➔ `✓✓` ➔ `✓✓` biru) 100% sinkron.
+- [ ] Perekaman voice note & pemutaran audio lancar tanpa patah-patah.
+- [ ] Auto-ACK media download (`/api/media/ack`) dan penyimpanan berkas lokal.
+- [ ] Safety Number 30-digit cocok dengan tampilan Web.
+- [ ] Hapus pesan (*For Me* dan *For Everyone*) berjalan real-time.
+
+---
+
+*Dokumentasi ini adalah bagian resmi dari arsitektur Wuzz Chat dan wajib dijadikan acuan utama dalam pengembangan klien mobile.*

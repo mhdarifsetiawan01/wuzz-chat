@@ -18,8 +18,9 @@
 Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen berikut:
 1. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap dari Fase 1 hingga Fase 7.
 2. 🏛️ **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi desain database (ERD), skema tabel, dan protokol WebSocket.
-3. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
-4. 📜 **[`PRD-websocket-chat-app.md`](PRD-websocket-chat-app.md)**: Spesifikasi awal produk.
+3. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
+4. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
+5. 📜 **[`PRD-websocket-chat-app.md`](PRD-websocket-chat-app.md)**: Spesifikasi awal produk.
 
 ---
 
@@ -55,9 +56,9 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   3. Dynamic Multi-Origin CORS & WebSocket Origin Whitelist (`CORS_ALLOWED_ORIGINS`).
   4. OpenGraph Rich Link Previewer dengan Anti-SSRF guard, Redis Caching 24 jam, dan Frontend UI Card.
   5. Multi-Stage Dockerfile (< 25MB), Next.js server-side rewrites, dan Fly.io Production Deployment (`https://wuzz-chat-backend.fly.dev` & `https://chat.wuzzhub.id`).
-- 🎯 **Fase 7: Advanced Security & WebRTC Calling (NEXT)** —
-  1. End-to-End Encryption (E2EE) Signal Protocol / Web Crypto API.
-  2. P2P 1-on-1 Audio & Video Call via WebRTC.
+- ⏳ **Fase 7: Advanced Security & WebRTC Calling (SEDANG BERJALAN)** —
+  1. ✅ **End-to-End Encryption (E2EE) (SELESAI)**: Kriptografi standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API, penyimpanan private key di `IndexedDB` (`wuzz_crypto_db`), verifikasi nomor keamanan 30-digit (*Safety Number Fingerprint*), auto-decryption reaktif pada timeline obrolan dan cuplikan pesan di sidebar, serta zero-knowledge storage pada server database.
+  2. 🎯 **P2P 1-on-1 Audio & Video Call via WebRTC (NEXT)**: WebSocket signaling (`call_offer`, `call_answer`, `ice_candidate`), Google STUN server, In-Call Overlay UI, dan nada dering panggilan masuk.
 
 ---
 

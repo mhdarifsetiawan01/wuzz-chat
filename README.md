@@ -46,6 +46,7 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 
 - 🗺️ **[ROADMAP.md](docs/ROADMAP.md)** — Rencana jangka panjang, milestone tahapan dari Fase 1 hingga Fase 7 (Auth, Group Chat, Rich Media, Receipts, WebRTC, Scaling).
 - 🏛️ **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Spesifikasi desain database relasional (ERD), protokol WebSocket, REST API endpoints, dan Store-and-Forward media lifecycle.
+- 📱 **[MOBILE_INTEGRATION_GUIDE.md](docs/MOBILE_INTEGRATION_GUIDE.md)** — Panduan teknis arsitektur & implementasi klien mobile (Kotlin Android, Swift iOS, Flutter, React Native).
 - 📄 **[PROGRESS.md](docs/PROGRESS.md)** — Laporan status pengerjaan detail per fase & milestone.
 - 📄 **[PRD-websocket-chat-app.md](PRD-websocket-chat-app.md)** — Dokumen spesifikasi kebutuhan produk awal.
 
@@ -77,6 +78,7 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 - [x] **OpenGraph Rich Link Previewer (Fase 6)**: Ekstraksi metadata URL OpenGraph dengan proteksi Anti-SSRF (blokir IP privat), Redis caching 24 jam, dan komponen kartu thumbnail interaktif.
 - [x] **Live Production Backend di Fly.io (Fase 6)**: Container Docker Go Alpine super ringan (< 25MB) aktif di region Singapore (`sin`).
 - [x] **Dual-Platform Architecture (Desktop & WhatsApp Mobile Single-Screen)**: Tampilan desktop split 2-kolom dan mobile single-screen flow (Daftar Chat Fullscreen ⇄ Ruang Obrolan Fullscreen dengan tombol `← Back`), Dynamic Viewport `100dvh`, sticky header, safe area padding `env(safe-area-inset-bottom)`, dan sinkronisasi tanda terima `✓✓` biru serta unread counter instan 0ms.
+- [x] **End-to-End Encryption (E2EE) (Fase 7)**: Kriptografi standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API, penyimpanan private key di `IndexedDB` (`wuzz_crypto_db`), verifikasi nomor keamanan 30-digit (*Safety Number Fingerprint*), auto-decryption reaktif pada timeline obrolan dan cuplikan pesan di sidebar, serta zero-knowledge storage pada server database.
 
 ---
 

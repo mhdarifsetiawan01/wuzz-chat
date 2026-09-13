@@ -257,7 +257,7 @@
     - Render lokal pengirim tetap optimistik (plaintext instan 0ms).
     - Riwayat pesan lama & pesan masuk baru otomatis terdekripsi di timeline penerima.
     - Banner edukasi gembok kuning/emas 🔒 di atas timeline obrolan (*"Pesan di ruang ini terenkripsi end-to-end..."*).
-    - Format snippet sidebar cerdas: `🔒 Pesan Terenkripsi`.
+    - **Auto-Decryption Snippet Sidebar**: Cuplikan pesan terakhir di Sidebar daftar chat didekripsi otomatis secara paralel dan real-time menggunakan `foundConv.peer_id` & `foundConv.peer_public_key` untuk tampilan teks biasa yang mulus.
     - Modal Verifikasi Nomor Keamanan (*Safety Number Fingerprint 30-digit*) di `SafetyNumberModal.tsx` dengan integrasi tombol 🔒 di status bar dan tombol salin kode.
     - **Reactive Auto-Decryption & Ciphertext Preservation Engine**: Riwayat pesan (`raw_content`) disimpan aman di memori dan otomatis ter-dekripsi secara instan begitu kunci AES percakapan selesai dimuat tanpa terpengaruh race-condition jaringan.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
