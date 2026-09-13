@@ -465,7 +465,7 @@ h4 { font-size: 1rem;   font-weight: 600; }
   border-radius: var(--radius-full);
 }
 
-/* Empty state */
+/* Empty state & Sync Loading State */
 .chat-empty {
   display: flex;
   flex-direction: column;
@@ -481,6 +481,85 @@ h4 { font-size: 1rem;   font-weight: 600; }
 .chat-empty-icon {
   font-size: 2.5rem;
   opacity: 0.4;
+}
+
+.chat-status-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: var(--space-6);
+}
+
+.chat-sync-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  max-width: 380px;
+  padding: var(--space-6) var(--space-5);
+  background: rgba(17, 27, 33, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  animation: fadeIn 0.3s ease;
+}
+
+.chat-sync-card.error {
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.sync-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--accent-500);
+  border-right-color: var(--accent-400);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: var(--space-4);
+}
+
+.sync-icon {
+  font-size: 2.2rem;
+  margin-bottom: var(--space-3);
+  opacity: 0.9;
+}
+
+.sync-title {
+  margin: 0 0 6px 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.sync-desc {
+  margin: 0 0 var(--space-4) 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.sync-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.sync-retry-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
 }
 
 /* Message Bubbles */

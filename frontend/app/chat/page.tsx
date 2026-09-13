@@ -170,10 +170,14 @@ function ChatPageContent() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [lastIncomingMessage, setLastIncomingMessage] = useState<Message | null>(null)
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(Boolean(roomId))
+  const [isHistoryError, setIsHistoryError] = useState(false)
   const clientRef = useRef<WsClient | null>(null)
 
   // Timer untuk matikan typing indicator setelah 3 detik
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Timer timeout sinkronisasi riwayat pesan (7.5 detik)
+  const historyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (isAuthLoading) return
@@ -194,6 +198,16 @@ function ChatPageContent() {
     setReplyingTo(null)
     setLightboxData(null)
     setIsMemberListOpen(false)
+    setIsLoadingHistory(Boolean(roomId))
+    setIsHistoryError(false)
+
+    if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
+    if (roomId) {
+      historyTimeoutRef.current = setTimeout(() => {
+        setIsLoadingHistory(false)
+        setIsHistoryError(true)
+      }, 7500)
+    }
 
     // Buat koneksi WsClient (selalu aktif untuk menerima notifikasi pesan baru)
     const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
@@ -275,28 +289,34 @@ function ChatPageContent() {
         }
 
         case 'history': {
+          if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
+          setIsLoadingHistory(false)
+          setIsHistoryError(false)
+
           // Muat riwayat chat dari Supabase/Database
-          if (msg.messages && msg.messages.length > 0 && roomId) {
-            dispatch({ type: 'SET_MESSAGES', payload: msg.messages })
+          if (roomId) {
+            dispatch({ type: 'SET_MESSAGES', payload: msg.messages || [] })
 
-            // Jika peerNickname masih kosong, ambil dari nama pengirim pesan yang bukan kita
-            const otherMsg = msg.messages.slice().reverse().find((m: Message) => 
-              m.nickname && 
-              m.nickname !== nickname && 
-              m.nickname !== user?.display_name && 
-              m.nickname !== user?.username
-            )
-            if (otherMsg && otherMsg.nickname) {
-              dispatch({ type: 'SET_PEER_NICKNAME', payload: otherMsg.nickname })
-            }
+            if (msg.messages && msg.messages.length > 0) {
+              // Jika peerNickname masih kosong, ambil dari nama pengirim pesan yang bukan kita
+              const otherMsg = msg.messages.slice().reverse().find((m: Message) => 
+                m.nickname && 
+                m.nickname !== nickname && 
+                m.nickname !== user?.display_name && 
+                m.nickname !== user?.username
+              )
+              if (otherMsg && otherMsg.nickname) {
+                dispatch({ type: 'SET_PEER_NICKNAME', payload: otherMsg.nickname })
+              }
 
-            // Kirim tanda 'read' untuk seluruh pesan di room jika jendela chat sedang aktif
-            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-              client.send({
-                type: 'receipt',
-                room: roomId,
-                status: 'read',
-              })
+              // Kirim tanda 'read' untuk seluruh pesan di room jika jendela chat sedang aktif
+              if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+                client.send({
+                  type: 'receipt',
+                  room: roomId,
+                  status: 'read',
+                })
+              }
             }
           }
           break
@@ -338,6 +358,10 @@ function ChatPageContent() {
 
           // Jika pesan adalah untuk room yang sedang aktif dibuka
           if (roomId && msg.room === roomId) {
+            if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
+            setIsLoadingHistory(false)
+            setIsHistoryError(false)
+
             dispatch({ type: 'ADD_MESSAGE', payload: msg })
             if (msg.nickname && msg.nickname !== nickname) {
               dispatch({ type: 'SET_PEER_NICKNAME', payload: msg.nickname })
@@ -424,6 +448,7 @@ function ChatPageContent() {
       }
       client.destroy()
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+      if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, isAuthLoading, user?.username, user?.display_name])
@@ -448,6 +473,26 @@ function ChatPageContent() {
   const [lightboxData, setLightboxData] = useState<{ url: string; fileName?: string } | null>(null)
   const [draggedFile, setDraggedFile] = useState<File | null>(null)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
+
+  // Callback untuk mencoba ulang sinkronisasi riwayat pesan
+  const handleRetryHistory = useCallback(() => {
+    if (!roomId || !user) return
+    setIsLoadingHistory(true)
+    setIsHistoryError(false)
+
+    if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
+    historyTimeoutRef.current = setTimeout(() => {
+      setIsLoadingHistory(false)
+      setIsHistoryError(true)
+    }, 7500)
+
+    const nickname = user.display_name || user.username
+    clientRef.current?.send({
+      type: 'join',
+      nickname,
+      room: roomId,
+    })
+  }, [roomId, user])
 
   const handleDeleteMessage = useCallback(async (messageId: string, type: 'for_me' | 'for_everyone') => {
     try {
@@ -635,6 +680,9 @@ function ChatPageContent() {
               selfNickname={state.session?.nickname ?? user.display_name ?? user.username ?? ''}
               isPeerTyping={state.isPeerTyping}
               typingNickname={state.typingNickname}
+              isLoadingHistory={isLoadingHistory}
+              isHistoryError={isHistoryError}
+              onRetryHistory={handleRetryHistory}
               onReply={setReplyingTo}
               onReact={handleReact}
               onImageClick={(url, name) => setLightboxData({ url, fileName: name })}

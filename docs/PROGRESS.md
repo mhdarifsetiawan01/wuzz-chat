@@ -225,6 +225,10 @@
     - **Real-Time Read Receipt Sync in Sidebar**: Memisahkan listener event `receipt` di Sidebar agar status centang 2 biru langsung terupdate secara real-time pada daftar obrolan tanpa tertahan oleh filter ID, dan me-reload daftar obrolan saat kembali ke Home di HP.
     - **Mobile Backpress Modal Interception & Stale Lightbox Guard**: Menambahkan hook `useModalBackHandler` untuk mencegat event `popstate` browser mobile saat gambar (Lightbox) atau modal (MemberList, Profile, Contact, Reader, Delete) terbuka sehingga backpress HP hanya menutup modal tanpa keluar dari obrolan, serta mereset `lightboxData` saat perpindahan room untuk mencegah error gambar kadaluwarsa/revoked blob.
     - **Centered Delete Modal**: Memperbaiki posisi modal konfirmasi hapus percakapan agar presisi di tengah layar (fixed viewport backdrop).
+    - **Modern Chat History Synchronization Indicator & Graceful Timeout**:
+      - Menerapkan indikator sinkronisasi modern dengan dark-mode glassmorphic card (`.chat-sync-card`), spinner gradien halus, dan teks yang manusiawi (*"Menyinkronkan Percakapan - Mengambil riwayat pesan terbaru dengan aman..."*) untuk mengeliminasi efek kedipan *Flash of Empty State* saat room dibuka.
+      - **Backend Guarantee (`internal/ws/hub.go`)**: Backend dipastikan selalu mengirim event `history` dengan payload list (meskipun room kosong) sehingga frontend mendapat sinyal pasti kapan proses fetch selesai.
+      - **Graceful Timeout & Retry Action**: Dilengkapi safety timeout (7.5s) dan tombol interaktif *🔄 Coba Sinkronkan Lagi* jika koneksi database/jaringan terhambat, dengan jaminan pesan user tetap aman.
 - **Mandatory Dual-Platform Frontend Architecture SOP**:
   - Dituangkan secara permanen ke dalam [`.agents/AGENTS.md`](../.agents/AGENTS.md) agar seluruh modifikasi frontend di masa mendatang wajib memverifikasi kompatibilitas Desktop (2-Kolom Split) dan Mobile (WhatsApp Single-Screen).
 - **Backend Go & Frontend Next.js telah LIVE di Production!**

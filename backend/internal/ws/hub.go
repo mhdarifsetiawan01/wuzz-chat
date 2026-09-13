@@ -341,14 +341,18 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 	history, err := h.messageStore.GetRoomHistoryForUser(roomID, clientID, 50)
 	if err != nil {
 		log.Printf("[Hub %s] gagal mengambil history untuk room %s: %v", h.nodeID[:8], roomID, err)
+		h.notifyClient(clientID, Message{
+			Type:      TypeHistory,
+			From:      "server",
+			To:        clientID,
+			Room:      roomID,
+			Timestamp: time.Now().UTC(),
+			Messages:  []Message{},
+		})
 		return
 	}
 
-	if len(history) == 0 {
-		return
-	}
-
-	var msgs []Message
+	msgs := make([]Message, 0, len(history))
 	for _, m := range history {
 		status := StatusSent
 		if m.Status != "" {
