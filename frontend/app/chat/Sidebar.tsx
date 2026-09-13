@@ -106,14 +106,7 @@ export function Sidebar({
       return conv.last_message || ''
     }
 
-    let peerId = conv.peer_id || ''
-    if (!peerId && conv.id.startsWith('dm_')) {
-      const parts = conv.id.replace('dm_', '').split('_')
-      if (parts.length === 2) {
-        peerId = parts[0] === user.id ? parts[1] : parts[0]
-      }
-    }
-
+    const peerId = conv.peer_id || ''
     if (!peerId) return '🔒 Pesan Terenkripsi'
 
     let peerPub = conv.peer_public_key || getCachedPeerPublicKey(peerId) || ''
@@ -242,15 +235,11 @@ export function Sidebar({
       const processMessageSnippet = async () => {
         let rawContent = lastIncomingMessage.content || ''
         if (rawContent && isEncryptedMessage(rawContent) && user?.id) {
-          let peerId = ''
-          if (room.startsWith('dm_')) {
-            const parts = room.replace('dm_', '').split('_')
-            if (parts.length === 2) {
-              peerId = parts[0] === user.id ? parts[1] : parts[0]
-            }
-          }
+          const foundConv = conversations.find(c => c.id === room)
+          const peerId = foundConv?.peer_id || ''
+
           if (peerId) {
-            let peerPub = getCachedPeerPublicKey(peerId)
+            let peerPub = foundConv?.peer_public_key || getCachedPeerPublicKey(peerId) || ''
             if (!peerPub) {
               try {
                 const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(peerId)}`)

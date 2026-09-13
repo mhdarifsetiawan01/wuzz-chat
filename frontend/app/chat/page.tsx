@@ -477,9 +477,6 @@ function ChatPageContent() {
         }
 
         case 'message': {
-          // Teruskan ke snippet sidebar & unread counter
-          setLastIncomingMessage(msg)
-
           // Jika pesan adalah untuk room yang sedang aktif dibuka
           if (roomId && msg.room === roomId) {
             if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
@@ -495,6 +492,8 @@ function ChatPageContent() {
 
               const decryptedMsg = await decryptSingleMessage(msg, key)
               dispatch({ type: 'ADD_MESSAGE', payload: decryptedMsg })
+              // Teruskan pesan yang telah terdekripsi ke sidebar agar snippet langsung teks biasa
+              setLastIncomingMessage(decryptedMsg)
             }
 
             processIncomingMsg()
@@ -502,6 +501,9 @@ function ChatPageContent() {
             if (msg.nickname && msg.nickname !== nickname) {
               dispatch({ type: 'SET_PEER_NICKNAME', payload: msg.nickname })
             }
+          } else {
+            // Pesan dari room lain: teruskan ke snippet sidebar & unread counter
+            setLastIncomingMessage(msg)
           }
 
           // Balas receipt ke pengirim jika pesan dari lawan bicara
