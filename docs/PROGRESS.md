@@ -1,7 +1,7 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
-**Tanggal:** 12 September 2026  
-**Status Proyek:** Fase 1, 2, dan 3 Selesai (100% Berfungsi & Terverifikasi)  
+**Tanggal:** 13 September 2026  
+**Status Proyek:** Fase 1 s/d 6 Selesai + Optimasi Dual-Platform Mobile/Desktop (100% Berfungsi & Terverifikasi)  
 **Branch Aktif:** `dev`
 
 ---
@@ -214,18 +214,21 @@
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan & Peningkatan Terbaru (Current State)
 
-- **UI/UX Enhancement (WhatsApp Mobile Single-Screen)**:
+- **UI/UX Enhancement (WhatsApp Mobile Single-Screen & Dual-Platform Architecture)**:
   - Transformasi tampilan mobile dari konsep *sidebar drawer* menjadi **WhatsApp Single-Screen Flow**:
     - **Layar 1 (Daftar Chat Fullscreen)**: Header WuzzChat, Search Bar terintegrasi, Filter Pills (`Semua`, `Belum Dibaca`, `Langsung`, `Grup`), Floating Action Button (FAB) hijau, dan Bottom Navigation Bar.
     - **Layar 2 (Ruang Obrolan Fullscreen)**: Header kontak dengan tombol navigasi `← Back` untuk kembali ke daftar chat, timeline pesan responsif, dan sticky message input.
     - **Optimasi Browser Handphone**: Menerapkan Dynamic Viewport Height (`100dvh`), `position: sticky; top: 0;` pada status bar obrolan, safe area padding `env(safe-area-inset-bottom)` pada navigasi bawah, dan membersihkan teks shortcut desktop di layar HP.
     - **Real-Time Unread Badge & Read Receipts**: Sinkronisasi instan *unread counter* di Sidebar tanpa reload (Optimistic UI 0ms saat room dibuka), filter pill "Belum Dibaca" akurat, dan pengiriman bulk `read` receipt otomatis via WebSocket & Page Visibility API.
-    - **Room Transition History State Fix**: Memperbaiki `chatReducer` agar riwayat pesan selalu tersinkronisasi bersih dari database saat berpindah room tanpa menahan state lama, sehingga pesan terbaru langsung tampil seketika saat room dibuka dari home.
+    - **Room Transition History State Fix**: Memperbaiki `chatReducer` agar riwayat pesan selalu tersinkronisasi bersih dari database (`messages: action.payload`) saat berpindah room tanpa menahan atau menggabungkan state lama, sehingga pesan terbaru langsung tampil seketika saat room dibuka dari home HP.
     - **Mobile Back Navigation Stale Message Guard**: Menambahkan `lastHandledMsgIdRef` pada `Sidebar.tsx` untuk mencegah pesan lama di-reprocess sebagai "pesan belum dibaca baru" saat pengguna menekan tombol `← Back` di handphone.
-    - **Real-Time Read Receipt Sync in Sidebar**: Memperbaiki listener event `receipt` di Sidebar agar status centang 2 biru langsung terupdate secara real-time pada daftar obrolan tanpa tertahan oleh filter ID, dan me-reload daftar obrolan saat kembali ke Home di HP.
+    - **Real-Time Read Receipt Sync in Sidebar**: Memisahkan listener event `receipt` di Sidebar agar status centang 2 biru langsung terupdate secara real-time pada daftar obrolan tanpa tertahan oleh filter ID, dan me-reload daftar obrolan saat kembali ke Home di HP.
+    - **Centered Delete Modal**: Memperbaiki posisi modal konfirmasi hapus percakapan agar presisi di tengah layar (fixed viewport backdrop).
+- **Mandatory Dual-Platform Frontend Architecture SOP**:
+  - Dituangkan secara permanen ke dalam [`.agents/AGENTS.md`](../.agents/AGENTS.md) agar seluruh modifikasi frontend di masa mendatang wajib memverifikasi kompatibilitas Desktop (2-Kolom Split) dan Mobile (WhatsApp Single-Screen).
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
-  - Frontend: `https://chat.wuzzhub.id`
+  - Frontend: `https://chat.wuzzhub.id` & `https://wuzz-chat.vercel.app`
 - Terhubung aktif ke:
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)

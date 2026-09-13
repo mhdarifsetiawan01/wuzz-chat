@@ -176,5 +176,28 @@ type MediaStorage interface {
 3. **Konfigurasi `.env`**: Cukup atur nilai `STORAGE_DRIVER=<nama_provider>` dan tambahkan kredensial terkait.
 4. **Zero-Touch Codebase**: Seluruh endpoint REST API, WebSocket Hub, database query, dan frontend Next.js **tidak perlu diubah sama sekali**.
 
+---
 
+## 📱💻 5. Arsitektur Frontend Dual-Platform (Desktop & Mobile)
 
+Aplikasi frontend WuzzChat dirancang untuk memberikan pengalaman optimal di dua form-factor utama:
+
+### A. Pola Layout Dual-Platform
+- **Desktop / Laptop (Split 2-Column Mode)**:
+  - Sidebar (daftar chat) dan Chat Main Pane (ruang obrolan) aktif berdampingan di satu layar.
+  - Event chat masuk langsung ter-append secara live ke timeline chat aktif via `ADD_MESSAGE`.
+- **Mobile / Handphone (WhatsApp Single-Screen Flow)**:
+  - Layar bergantian penuh: **Layar 1 (Daftar Chat Fullscreen)** ⇄ **Layar 2 (Ruang Obrolan Fullscreen)**.
+  - Transisi antar layar menggunakan tombol `← Back` (`activeRoomId = ''`).
+  - Viewport menggunakan Dynamic Viewport Height (`100dvh`), header sticky (`position: sticky; top: 0; z-index: 50;`), dan safe area insets `env(safe-area-inset-bottom)`.
+
+### B. Siklus Hidup State & Anti-Stale Lifecycle Guards
+```text
+[Home HP (Daftar Chat)] ──(Klik Chat)──► [Ruang Obrolan Fullscreen]
+       ▲                                            │
+       │                                            │ (Kirim/Terima Chat & Read Receipt)
+       └──────────────(Klik ← Back)─────────────────┘
+```
+1. **Clean History State Sync**: Saat berpindah dari Home HP ke ruang obrolan, action `SET_MESSAGES` di `chatReducer` me-reset state bersih dari payload riwayat server (`messages: action.payload`), mencegah penggabungan dengan riwayat lama yang stale.
+2. **Anti-Stale Reprocessing Guard (`lastHandledMsgIdRef`)**: Ketika `activeRoomId` berganti menjadi `''` saat user menekan `← Back`, ref guard mencegah `useEffect` memproses ulang `lastIncomingMessage` lama sebagai pesan belum dibaca yang baru.
+3. **Real-Time Read Receipts & Dynamic Reload**: Event `receipt` diproses secara terpisah di Sidebar untuk memastikan pembaruan status centang (`✓` ➔ `✓✓` ➔ `✓✓` biru) seketika tanpa refresh, dan memicu reload daftar obrolan saat user kembali ke Home.

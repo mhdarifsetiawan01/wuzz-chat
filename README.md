@@ -76,6 +76,7 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 - [x] **Dynamic Multi-Origin CORS & WebSocket Whitelist (Fase 6)**: Konfigurasi whitelist dinamis (`*`, exact domain, dan wildcard subdomains seperti `https://*.vercel.app`) untuk REST API dan WebSocket handshake.
 - [x] **OpenGraph Rich Link Previewer (Fase 6)**: Ekstraksi metadata URL OpenGraph dengan proteksi Anti-SSRF (blokir IP privat), Redis caching 24 jam, dan komponen kartu thumbnail interaktif.
 - [x] **Live Production Backend di Fly.io (Fase 6)**: Container Docker Go Alpine super ringan (< 25MB) aktif di region Singapore (`sin`).
+- [x] **Dual-Platform Architecture (Desktop & WhatsApp Mobile Single-Screen)**: Tampilan desktop split 2-kolom dan mobile single-screen flow (Daftar Chat Fullscreen ⇄ Ruang Obrolan Fullscreen dengan tombol `← Back`), Dynamic Viewport `100dvh`, sticky header, safe area padding `env(safe-area-inset-bottom)`, dan sinkronisasi tanda terima `✓✓` biru serta unread counter instan 0ms.
 
 ---
 

@@ -39,7 +39,7 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 - ✅ **Fase 1: Real-Time Engine Foundation (SELESAI)** — Hub WebSocket Go, Read/Write pumps, Custom Server Proxy, Dark Mode CSS.
 - ✅ **Fase 2: Persistence & Presence (SELESAI)** — Supabase PostgreSQL integration, room code routing (`room-XXXX`), auto-migration, drawer anggota online (`👥 X Online`).
 - ✅ **Fase 3: User Identity, JWT Auth & Direct Messages (SELESAI)** — Register (`bcrypt`), Login JWT 7 hari, profil user, pencarian kontak (`/api/users/search`), obrolan langsung (Direct Message), layout 2-kolom WhatsApp-grade lengkap dengan Standby / Welcome Screen.
-- ✅ **Fase 4: Modern Chat UX & Interactive Dynamics (SELESAI)** — Unread Badge Counter persisten, Web Audio API Sound FX, 3-Stage Receipts (`sent`, `delivered`, `read`), Live Typing Indicator, Emoji Reactions & Quote Reply (Click-to-Scroll & Glow), Sidebar Receipt Icons, dan Anti-Spam Clean Timeline.
+- ✅ **Fase 4: Modern Chat UX & Interactive Dynamics (SELESAI)** — Unread Badge Counter persisten, Web Audio API Sound FX, 3-Stage Receipts (`sent`, `delivered`, `read`), Live Typing Indicator, Emoji Reactions & Quote Reply (Click-to-Scroll & Glow), Sidebar Receipt Icons, Anti-Spam Clean Timeline, Hapus Pesan (For Me / For Everyone 1 min), Hapus Percakapan (`cleared_at`), dan Arsitektur Dual-Platform (Desktop 2-Kolom Split & Mobile WhatsApp Single-Screen Flow).
 - ✅ **Fase 5: Rich Media, Voice Notes, Attachments & Store-and-Forward Lifecycle (SELESAI)** —
   1. Upload Media & Storage Driver Factory (Supabase Storage & Local disk fallback).
   2. Paste gambar clipboard (`Ctrl+V`), Drag-and-Drop file, dan Modal Lightbox viewer interaktif.
@@ -54,7 +54,7 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   2. Multi-Instance Go WebSocket synchronization dengan Anti-Echo loop Node UUID.
   3. Dynamic Multi-Origin CORS & WebSocket Origin Whitelist (`CORS_ALLOWED_ORIGINS`).
   4. OpenGraph Rich Link Previewer dengan Anti-SSRF guard, Redis Caching 24 jam, dan Frontend UI Card.
-  5. Multi-Stage Dockerfile (< 25MB), Next.js server-side rewrites, dan Fly.io Production Deployment.
+  5. Multi-Stage Dockerfile (< 25MB), Next.js server-side rewrites, dan Fly.io Production Deployment (`https://wuzz-chat-backend.fly.dev` & `https://chat.wuzzhub.id`).
 - 🎯 **Fase 7: Advanced Security & WebRTC Calling (NEXT)** —
   1. End-to-End Encryption (E2EE) Signal Protocol / Web Crypto API.
   2. P2P 1-on-1 Audio & Video Call via WebRTC.
@@ -65,17 +65,20 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 
 1. **Aturan Siklus Hidup Server**:
    - Jika AI menyalakan server sementara untuk verifikasi (misal: `go run main.go` atau `npm run dev`), AI **WAJIB mematikan port tersebut (`fuser -k <port>/tcp`)** sebelum mengakhiri respons, KECUALI user meminta dibiarkan berjalan.
-2. **Aturan Keamanan Git, Branching & Konfirmasi Commit (SOP)**:
+2. **Aturan Arsitektur Frontend Dual-Platform (Mobile & Desktop) (SOP)**:
+   - Setiap modifikasi frontend (CSS, komponen React, state management, routing, event handling) **WAJIB** mempertimbangkan dan menguji kompatibilitas untuk KEDUA platform: Mobile (Handphone) dan Desktop (Laptop/PC).
+   - Pastikan viewport `100dvh`, sticky header, safe area padding `env(safe-area-inset-bottom)`, dan guard anti-stale lifecycle (`lastHandledMsgIdRef` & clean history reset) terpenuhi.
+3. **Aturan Keamanan Git, Branching & Konfirmasi Commit (SOP)**:
    - **DILARANG KERAS melakukan perubahan, modifikasi kode, atau pengerjaan tugas langsung di branch `main`.**
    - Seluruh pekerjaan wajib dilakukan di branch `dev` atau feature branch baru (`feature/...`).
    - Alur promosi bertingkat: **Feature Branch ➔ `dev` (Pengujian & Stabilitas) ➔ `main` (Persiapan Rilis) ➔ `git push origin main` (Setelah disetujui tertulis)**.
    - **DILARANG KERAS melakukan `git commit` tanpa persetujuan / konfirmasi eksplisit dari pengguna.**
    - Setiap kali suatu task/tugas selesai, AI wajib konfirmasi ke user. Jika user menyatakan **"selesai"** / menyetujui, barulah AI boleh melakukan `git commit`.
    - Jika user menganggap belum selesai / ada perbaikan, percakapan selanjutnya di sesi tersebut **tetap melanjutkan percakapan sebelumnya** tanpa melakukan commit.
-   - **DILARANG KERAS melakukan `git push`** ke branch remote manapun tanpa instruksi tertulis terpisah dari user.
-3. **Aturan Keamanan Database**:
+   - **DILARANG KERAS melakukan `git push`** ke branch remote manapun tanpa instruksi tertulis terpisah dari user. Khususnya, **jangan pernah push `dev` ke remote** kecuali diminta secara eksplisit.
+4. **Aturan Keamanan Database**:
    - Dilarang menjalankan query destruktif (`DROP TABLE`, `DROP DATABASE`, `TRUNCATE`) tanpa konfirmasi tertulis eksplisit dari pengguna.
-4. **Kualitas Kode**:
+5. **Kualitas Kode**:
    - Pastikan backend selalu lulus `go test -v ./...` dan frontend selalu lulus `npm run build` sebelum menyelesaikan tugas.
 
 ---
