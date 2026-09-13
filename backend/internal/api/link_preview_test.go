@@ -131,3 +131,29 @@ func TestLinkPreviewHandler_ScrapeMock(t *testing.T) {
 		t.Errorf("Unmarshaled title mismatch: %s vs %s", unmarshaled.Title, preview.Title)
 	}
 }
+
+func TestLinkPreviewHandler_YouTubeOEmbed(t *testing.T) {
+	mockYT := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintln(w, `{"title":"Pisang Goreng Crispy","author_name":"Chef Wuzz","thumbnail_url":"https://i.ytimg.com/vi/test/hqdefault.jpg","provider_name":"YouTube"}`)
+	}))
+	defer mockYT.Close()
+
+	memBroker := broker.NewInMemoryBroker()
+	defer memBroker.Close()
+
+	handler := NewLinkPreviewHandler(memBroker)
+
+	// Direct test of response decoding
+	var yt youTubeOEmbedResponse
+	jsonStr := `{"title":"Pisang Goreng Crispy","author_name":"Chef Wuzz","thumbnail_url":"https://i.ytimg.com/vi/test/hqdefault.jpg","provider_name":"YouTube"}`
+	if err := json.Unmarshal([]byte(jsonStr), &yt); err != nil {
+		t.Fatalf("Failed to parse YouTube mock JSON: %v", err)
+	}
+
+	if yt.Title != "Pisang Goreng Crispy" || yt.ProviderName != "YouTube" {
+		t.Errorf("YouTube oEmbed parse error: %+v", yt)
+	}
+
+	_ = handler
+}

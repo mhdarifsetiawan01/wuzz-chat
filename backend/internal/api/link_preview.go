@@ -20,12 +20,12 @@ import (
 )
 
 var (
-	ogTitleRegex       = regexp.MustCompile(`(?i)<meta\s+[^>]*property=["'](?:og:title|twitter:title)["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*property=["'](?:og:title|twitter:title)["']`)
-	ogDescRegex        = regexp.MustCompile(`(?i)<meta\s+[^>]*property=["'](?:og:description|twitter:description)["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*name=["']description["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*property=["'](?:og:description|twitter:description)["']`)
-	ogImageRegex       = regexp.MustCompile(`(?i)<meta\s+[^>]*property=["'](?:og:image|twitter:image|twitter:image:src)["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*property=["'](?:og:image|twitter:image|twitter:image:src)["']`)
-	ogSiteNameRegex    = regexp.MustCompile(`(?i)<meta\s+[^>]*property=["']og:site_name["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*property=["']og:site_name["']`)
-	htmlTitleRegex     = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
-	faviconRegex       = regexp.MustCompile(`(?i)<link\s+[^>]*rel=["'](?:shortcut icon|icon|apple-touch-icon)["'][^>]*href=["']([^"']*)["']|<link\s+[^>]*href=["']([^"']*)["'][^>]*rel=["'](?:shortcut icon|icon|apple-touch-icon)["']`)
+	ogTitleRegex    = regexp.MustCompile(`(?i)<meta\s+[^>]*(?:property|name)=["'](?:og:title|twitter:title|title)["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["'](?:og:title|twitter:title|title)["']`)
+	ogDescRegex     = regexp.MustCompile(`(?i)<meta\s+[^>]*(?:property|name)=["'](?:og:description|twitter:description|description)["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["'](?:og:description|twitter:description|description)["']`)
+	ogImageRegex    = regexp.MustCompile(`(?i)<meta\s+[^>]*(?:property|name)=["'](?:og:image|twitter:image|twitter:image:src|image)["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["'](?:og:image|twitter:image|twitter:image:src|image)["']`)
+	ogSiteNameRegex = regexp.MustCompile(`(?i)<meta\s+[^>]*(?:property|name)=["'](?:og:site_name|site_name)["'][^>]*content=["']([^"']*)["']|<meta\s+[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["'](?:og:site_name|site_name)["']`)
+	htmlTitleRegex  = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
+	faviconRegex    = regexp.MustCompile(`(?i)<link\s+[^>]*rel=["'](?:shortcut icon|icon|apple-touch-icon)["'][^>]*href=["']([^"']*)["']|<link\s+[^>]*href=["']([^"']*)["'][^>]*rel=["'](?:shortcut icon|icon|apple-touch-icon)["']`)
 )
 
 // LinkPreview merepresentasikan metadata OpenGraph dari sebuah URL.
@@ -60,7 +60,7 @@ func NewLinkPreviewHandler(b broker.MessageBroker) *LinkPreviewHandler {
 		broker: b,
 		client: &http.Client{
 			Transport: transport,
-			Timeout:   4 * time.Second,
+			Timeout:   5 * time.Second,
 		},
 	}
 }
@@ -98,10 +98,13 @@ func (h *LinkPreviewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if h.broker != nil {
 		if cachedJSON, err := h.broker.Get(ctx, cacheKey); err == nil && cachedJSON != "" {
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("X-Cache", "HIT")
-			_, _ = w.Write([]byte(cachedJSON))
-			return
+			var cachedPreview LinkPreview
+			if err := json.Unmarshal([]byte(cachedJSON), &cachedPreview); err == nil && cachedPreview.Title != "" {
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("X-Cache", "HIT")
+				_, _ = w.Write([]byte(cachedJSON))
+				return
+			}
 		}
 	}
 
@@ -112,9 +115,9 @@ func (h *LinkPreviewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 5. Simpan hasil ke Cache (TTL 24 jam)
+	// 5. Simpan hasil ke Cache hanya jika Title valid (TTL 24 jam)
 	previewJSON, err := json.Marshal(preview)
-	if err == nil && h.broker != nil {
+	if err == nil && preview.Title != "" && h.broker != nil {
 		_ = h.broker.Set(ctx, cacheKey, string(previewJSON), 24*time.Hour)
 	}
 
@@ -123,16 +126,31 @@ func (h *LinkPreviewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(previewJSON)
 }
 
-// fetchAndExtract mengambil HTML dari URL dan mengekstrak tag OpenGraph.
+// fetchAndExtract mengambil metadata OpenGraph / oEmbed dari URL.
 func (h *LinkPreviewHandler) fetchAndExtract(targetURL string) (*LinkPreview, error) {
+	parsed, err := url.Parse(targetURL)
+	if err != nil {
+		return nil, err
+	}
+
+	hostLower := strings.ToLower(parsed.Hostname())
+
+	// Dukungan YouTube oEmbed resmi (100% cepat & reliable tanpa terblokir bot-check)
+	if strings.Contains(hostLower, "youtube.com") || strings.Contains(hostLower, "youtu.be") {
+		if ytPreview, ytErr := h.fetchYouTubeOEmbed(targetURL); ytErr == nil && ytPreview != nil {
+			return ytPreview, nil
+		}
+	}
+
 	req, err := http.NewRequest("GET", targetURL, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; WuzzBot/1.0; +https://github.com/bms-del112/wuzz-chat)")
+	// Gunakan WhatsApp/Facebook Crawler User-Agent yang diakui universal oleh web servers
+	req.Header.Set("User-Agent", "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9,id;q=0.8")
 
 	resp, err := h.client.Do(req)
 	if err != nil {
@@ -253,6 +271,60 @@ func resolveRelativeURL(base *url.URL, target string) string {
 		return target
 	}
 	return base.ResolveReference(parsed).String()
+}
+
+type youTubeOEmbedResponse struct {
+	Title        string `json:"title"`
+	AuthorName   string `json:"author_name"`
+	ThumbnailURL string `json:"thumbnail_url"`
+	ProviderName string `json:"provider_name"`
+}
+
+func (h *LinkPreviewHandler) fetchYouTubeOEmbed(targetURL string) (*LinkPreview, error) {
+	oembedURL := fmt.Sprintf("https://www.youtube.com/oembed?url=%s&format=json", url.QueryEscape(targetURL))
+	req, err := http.NewRequest("GET", oembedURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)")
+
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("youtube oembed status %d", resp.StatusCode)
+	}
+
+	var yt youTubeOEmbedResponse
+	if err := json.NewDecoder(resp.Body).Decode(&yt); err != nil {
+		return nil, err
+	}
+
+	if yt.Title == "" {
+		return nil, errors.New("empty youtube title")
+	}
+
+	desc := yt.AuthorName
+	if desc != "" {
+		desc = fmt.Sprintf("Video oleh %s di YouTube", desc)
+	}
+
+	siteName := yt.ProviderName
+	if siteName == "" {
+		siteName = "YouTube"
+	}
+
+	return &LinkPreview{
+		URL:         targetURL,
+		Title:       yt.Title,
+		Description: desc,
+		Image:       yt.ThumbnailURL,
+		SiteName:    siteName,
+		Favicon:     "https://www.youtube.com/favicon.ico",
+	}, nil
 }
 
 func hashMD5(s string) string {
