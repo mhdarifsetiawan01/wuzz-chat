@@ -121,6 +121,107 @@ class SoundManager {
       // Ignore audio synthesis errors on locked browsers
     }
   }
+
+  private callInterval: ReturnType<typeof setInterval> | null = null
+
+  /**
+   * Nada sambung panggilan keluar (Outgoing Ringing Tone - Tuuut... Tuuut...)
+   */
+  public playOutgoingRing(): void {
+    if (this.muted) return
+    this.stopCallSounds()
+
+    const triggerBurst = () => {
+      const ctx = this.getAudioContext()
+      if (!ctx) return
+      try {
+        const now = ctx.currentTime
+        const osc1 = ctx.createOscillator()
+        const osc2 = ctx.createOscillator()
+        const gain = ctx.createGain()
+
+        osc1.type = 'sine'
+        osc1.frequency.setValueAtTime(440, now) // A4
+        osc2.type = 'sine'
+        osc2.frequency.setValueAtTime(480, now)
+
+        gain.gain.setValueAtTime(0.08, now)
+        gain.gain.setValueAtTime(0.08, now + 1.2)
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.3)
+
+        osc1.connect(gain)
+        osc2.connect(gain)
+        gain.connect(ctx.destination)
+
+        osc1.start(now)
+        osc2.start(now)
+        osc1.stop(now + 1.35)
+        osc2.stop(now + 1.35)
+      } catch {}
+    }
+
+    triggerBurst()
+    this.callInterval = setInterval(triggerBurst, 3500)
+  }
+
+  /**
+   * Nada dering panggilan masuk (Incoming Melodic Ringing Tone)
+   */
+  public playIncomingRing(): void {
+    if (this.muted) return
+    this.stopCallSounds()
+
+    const triggerMelody = () => {
+      const ctx = this.getAudioContext()
+      if (!ctx) return
+      try {
+        const notes = [
+          { freq: 523.25, time: 0.00, dur: 0.15 }, // C5
+          { freq: 659.25, time: 0.18, dur: 0.15 }, // E5
+          { freq: 783.99, time: 0.36, dur: 0.15 }, // G5
+          { freq: 1046.50, time: 0.54, dur: 0.35 }, // C6
+          { freq: 783.99, time: 1.00, dur: 0.15 }, // G5
+          { freq: 1046.50, time: 1.18, dur: 0.40 }, // C6
+        ]
+
+        const baseNow = ctx.currentTime
+        notes.forEach(({ freq, time, dur }) => {
+          const osc = ctx.createOscillator()
+          const gain = ctx.createGain()
+          const start = baseNow + time
+
+          osc.type = 'triangle'
+          osc.frequency.setValueAtTime(freq, start)
+
+          gain.gain.setValueAtTime(0.15, start)
+          gain.gain.exponentialRampToValueAtTime(0.001, start + dur)
+
+          osc.connect(gain)
+          gain.connect(ctx.destination)
+
+          osc.start(start)
+          osc.stop(start + dur + 0.05)
+        })
+      } catch {}
+    }
+
+    triggerMelody()
+    this.callInterval = setInterval(triggerMelody, 3200)
+  }
+
+  /**
+   * Menghentikan seluruh suara panggilan (nada sambung & nada dering)
+   */
+  public stopCallSounds(): void {
+    if (this.callInterval) {
+      clearInterval(this.callInterval)
+      this.callInterval = null
+    }
+  }
 }
 
 export const soundManager = new SoundManager()
+
+export const playOutgoingRing = () => soundManager.playOutgoingRing()
+export const playIncomingRing = () => soundManager.playIncomingRing()
+export const stopCallSounds = () => soundManager.stopCallSounds()

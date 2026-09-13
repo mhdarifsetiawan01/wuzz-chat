@@ -123,6 +123,12 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `room_users`| Server ➔ Client | Daftar anggota aktif dalam satu obrolan (presence realtime) |
 | `history` | Server ➔ Client | Pengiriman riwayat pesan persisten saat user join ke obrolan |
 | `join` | Client ➔ Server | Permintaan bergabung ke room tertentu dengan nickname/identitas |
+| `call_offer` | Bidirectional | Sinyal WebRTC SDP Offer saat pemanggil memulai panggilan suara/video |
+| `call_answer`| Bidirectional | Sinyal WebRTC SDP Answer saat penerima menerima panggilan suara/video |
+| `ice_candidate` | Bidirectional | Pertukaran ICE candidate WebRTC untuk traversal NAT/STUN |
+| `call_reject` | Bidirectional | Notifikasi penolakan panggilan oleh penerima |
+| `call_end` | Bidirectional | Notifikasi pengakhiran panggilan oleh salah satu pihak |
+| `call_busy` | Bidirectional | Notifikasi bahwa penerima sedang sibuk dalam panggilan lain |
 
 ---
 

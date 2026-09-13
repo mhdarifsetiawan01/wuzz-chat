@@ -3,14 +3,17 @@
 import { useEffect, useReducer, useState, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WsClient } from '@/lib/ws-client'
-import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User } from '@/lib/types'
+import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User, ActiveCallInfo } from '@/lib/types'
 import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
 import { MemberListModal } from './MemberListModal'
 import { ImageLightboxModal } from './ImageLightboxModal'
+import { IncomingCallModal } from './IncomingCallModal'
+import { AudioCallOverlay } from './AudioCallOverlay'
 import { Sidebar } from './Sidebar'
-import { soundManager } from '@/lib/sound'
+import { soundManager, playOutgoingRing, playIncomingRing, stopCallSounds } from '@/lib/sound'
+import { WebRTCAudioSession } from '@/lib/webrtc/webrtcAudio'
 import { useAuth } from '@/lib/auth-context'
 import { deleteMessageApi, apiRequest } from '@/lib/api'
 import { isEncryptedMessage, encryptText, decryptText } from '@/lib/crypto/e2ee'
@@ -214,10 +217,20 @@ function ChatPageContent() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(Boolean(roomId))
   const [isHistoryError, setIsHistoryError] = useState(false)
   const [peerPublicKeyJWK, setPeerPublicKeyJWK] = useState<string>('')
+  const [activeCall, setActiveCall] = useState<ActiveCallInfo | null>(null)
+  const [isCallMuted, setIsCallMuted] = useState(false)
+  const activeCallRef = useRef<ActiveCallInfo | null>(null)
+  const webrtcAudioRef = useRef<WebRTCAudioSession | null>(null)
+  const pendingOfferSdpRef = useRef<string | null>(null)
   const clientRef = useRef<WsClient | null>(null)
   const roomAESKeyRef = useRef<CryptoKey | null>(null)
   const activePeerRef = useRef<{ id: string; publicKey: string } | null>(null)
   const messagesRef = useRef<Message[]>([])
+
+  // Selalu sinkronkan activeCallRef dengan activeCall
+  useEffect(() => {
+    activeCallRef.current = activeCall
+  }, [activeCall])
 
   // Selalu sinkronkan messagesRef dengan state.messages
   useEffect(() => {
@@ -561,6 +574,88 @@ function ChatPageContent() {
           dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
           break
         }
+
+        case 'call_offer': {
+          const currentCall = activeCallRef.current
+          if (currentCall && currentCall.status !== 'ended' && currentCall.status !== 'idle') {
+            client.send({
+              type: 'call_busy',
+              room: msg.room || roomId,
+            })
+            break
+          }
+          pendingOfferSdpRef.current = msg.sdp || null
+          setActiveCall({
+            room: msg.room || roomId,
+            peerId: msg.nickname || '',
+            peerNickname: msg.nickname || 'Pengguna',
+            mediaType: 'audio',
+            isCaller: false,
+            status: 'incoming_ringing',
+          })
+          playIncomingRing()
+          break
+        }
+
+        case 'call_answer': {
+          stopCallSounds()
+          if (msg.sdp && webrtcAudioRef.current) {
+            webrtcAudioRef.current.handleAnswer(msg.sdp).catch((err: unknown) => {
+              console.error('[WebRTC] Gagal proses remote answer:', err)
+            })
+          }
+          setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: Date.now() } : null))
+          break
+        }
+
+        case 'ice_candidate': {
+          if (msg.candidate && webrtcAudioRef.current) {
+            webrtcAudioRef.current.addIceCandidate(msg.candidate).catch((err: unknown) => {
+              console.error('[WebRTC] Gagal proses ICE candidate:', err)
+            })
+          }
+          break
+        }
+
+        case 'call_reject': {
+          stopCallSounds()
+          if (webrtcAudioRef.current) {
+            webrtcAudioRef.current.cleanup()
+            webrtcAudioRef.current = null
+          }
+          setActiveCall(prev => (prev ? { ...prev, status: 'ended' } : null))
+          setTimeout(() => {
+            setActiveCall(null)
+          }, 1500)
+          break
+        }
+
+        case 'call_end': {
+          stopCallSounds()
+          if (webrtcAudioRef.current) {
+            webrtcAudioRef.current.cleanup()
+            webrtcAudioRef.current = null
+          }
+          setActiveCall(prev => (prev ? { ...prev, status: 'ended' } : null))
+          setTimeout(() => {
+            setActiveCall(null)
+          }, 1200)
+          break
+        }
+
+        case 'call_busy': {
+          stopCallSounds()
+          if (webrtcAudioRef.current) {
+            webrtcAudioRef.current.cleanup()
+            webrtcAudioRef.current = null
+          }
+          setActiveCall(prev => (prev ? { ...prev, status: 'ended' } : null))
+          alert('Pengguna sedang sibuk dalam panggilan lain.')
+          setTimeout(() => {
+            setActiveCall(null)
+          }, 1500)
+          break
+        }
       }
     })
 
@@ -763,6 +858,165 @@ function ChatPageContent() {
     })
   }, [roomId])
 
+  // ----------------------------------------------------------------
+  // WebRTC Audio Call Action Handlers
+  // ----------------------------------------------------------------
+
+  const handleEndCall = useCallback(() => {
+    stopCallSounds()
+    const call = activeCallRef.current
+    if (call && clientRef.current) {
+      clientRef.current.send({
+        type: 'call_end',
+        room: call.room,
+      })
+    }
+    if (webrtcAudioRef.current) {
+      webrtcAudioRef.current.cleanup()
+      webrtcAudioRef.current = null
+    }
+    setActiveCall(prev => (prev ? { ...prev, status: 'ended' } : null))
+    setTimeout(() => {
+      setActiveCall(null)
+    }, 1200)
+  }, [])
+
+  const handleStartAudioCall = useCallback(async () => {
+    if (!roomId || !user?.id || !clientRef.current) return
+    if (activeCallRef.current && activeCallRef.current.status !== 'idle' && activeCallRef.current.status !== 'ended') return
+
+    const peerName = state.peerNickname || 'Teman Obrolan'
+    setActiveCall({
+      room: roomId,
+      peerId: peerName,
+      peerNickname: peerName,
+      mediaType: 'audio',
+      isCaller: true,
+      status: 'outgoing_ringing',
+    })
+    setIsCallMuted(false)
+    playOutgoingRing()
+
+    try {
+      const session = new WebRTCAudioSession(
+        () => {
+          // Audio remote stream auto-attached by WebRTCAudioSession
+        },
+        (connState: RTCPeerConnectionState) => {
+          if (connState === 'connected') {
+            stopCallSounds()
+            setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: Date.now() } : null))
+          } else if (connState === 'disconnected' || connState === 'failed') {
+            handleEndCall()
+          }
+        }
+      )
+
+      webrtcAudioRef.current = session
+      const offerSdp = await session.createOffer((candidateJson: string) => {
+        clientRef.current?.send({
+          type: 'ice_candidate',
+          room: roomId,
+          candidate: candidateJson,
+        })
+      })
+
+      clientRef.current.send({
+        type: 'call_offer',
+        room: roomId,
+        nickname: user.display_name || user.username || 'Pengguna',
+        sdp: offerSdp,
+      })
+    } catch (err) {
+      console.error('[WebRTC] Start audio call error:', err)
+      stopCallSounds()
+      if (webrtcAudioRef.current) {
+        webrtcAudioRef.current.cleanup()
+        webrtcAudioRef.current = null
+      }
+      setActiveCall(null)
+      alert('Gagal mengakses mikrofon untuk panggilan suara. Pastikan izin mikrofon telah diberikan pada browser.')
+    }
+  }, [roomId, user?.id, user?.display_name, user?.username, state.peerNickname, handleEndCall])
+
+  const handleAcceptCall = useCallback(async () => {
+    stopCallSounds()
+    const call = activeCallRef.current
+    if (!call || !clientRef.current || !pendingOfferSdpRef.current) return
+
+    setActiveCall(prev => (prev ? { ...prev, status: 'connecting' } : null))
+    setIsCallMuted(false)
+
+    try {
+      const session = new WebRTCAudioSession(
+        () => {
+          // Audio remote stream auto-attached by WebRTCAudioSession
+        },
+        (connState: RTCPeerConnectionState) => {
+          if (connState === 'connected') {
+            setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: Date.now() } : null))
+          } else if (connState === 'disconnected' || connState === 'failed') {
+            handleEndCall()
+          }
+        }
+      )
+
+      webrtcAudioRef.current = session
+      const answerSdp = await session.handleOfferAndCreateAnswer(
+        pendingOfferSdpRef.current,
+        (candidateJson: string) => {
+          clientRef.current?.send({
+            type: 'ice_candidate',
+            room: call.room,
+            candidate: candidateJson,
+          })
+        }
+      )
+
+      clientRef.current.send({
+        type: 'call_answer',
+        room: call.room,
+        nickname: user?.display_name || user?.username || 'Pengguna',
+        sdp: answerSdp,
+      })
+      setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: Date.now() } : null))
+    } catch (err) {
+      console.error('[WebRTC] Accept audio call error:', err)
+      if (webrtcAudioRef.current) {
+        webrtcAudioRef.current.cleanup()
+        webrtcAudioRef.current = null
+      }
+      setActiveCall(null)
+      alert('Gagal mengakses mikrofon untuk menerima panggilan.')
+    }
+  }, [user?.display_name, user?.username, handleEndCall])
+
+  const handleRejectCall = useCallback(() => {
+    stopCallSounds()
+    const call = activeCallRef.current
+    if (call && clientRef.current) {
+      clientRef.current.send({
+        type: 'call_reject',
+        room: call.room,
+      })
+    }
+    if (webrtcAudioRef.current) {
+      webrtcAudioRef.current.cleanup()
+      webrtcAudioRef.current = null
+    }
+    setActiveCall(null)
+  }, [])
+
+  const handleToggleCallMute = useCallback(() => {
+    if (webrtcAudioRef.current) {
+      setIsCallMuted(prev => {
+        const next = !prev
+        webrtcAudioRef.current?.setMute(next)
+        return next
+      })
+    }
+  }, [])
+
   const handleSelectRoom = (newRoomId: string) => {
     setLightboxData(null)
     setIsMemberListOpen(false)
@@ -849,6 +1103,7 @@ function ChatPageContent() {
               peerPublicKeyJWK={peerPublicKeyJWK}
               onOpenMemberList={() => setIsMemberListOpen(true)}
               onBack={() => handleSelectRoom('')}
+              onStartAudioCall={handleStartAudioCall}
             />
 
             <ChatWindow
@@ -915,6 +1170,21 @@ function ChatPageContent() {
           </div>
         )}
       </main>
+
+      {/* Modal Dialog Panggilan Suara Masuk */}
+      <IncomingCallModal
+        callInfo={activeCall}
+        onAccept={handleAcceptCall}
+        onReject={handleRejectCall}
+      />
+
+      {/* Layar / Overlay Panggilan Suara Berlangsung */}
+      <AudioCallOverlay
+        callInfo={activeCall}
+        isMuted={isCallMuted}
+        onToggleMute={handleToggleCallMute}
+        onEndCall={handleEndCall}
+      />
     </div>
   )
 }

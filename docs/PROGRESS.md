@@ -260,6 +260,22 @@
     - **Auto-Decryption Snippet Sidebar**: Cuplikan pesan terakhir di Sidebar daftar chat didekripsi otomatis secara paralel dan real-time menggunakan `foundConv.peer_id` & `foundConv.peer_public_key` untuk tampilan teks biasa yang mulus.
     - Modal Verifikasi Nomor Keamanan (*Safety Number Fingerprint 30-digit*) di `SafetyNumberModal.tsx` dengan integrasi tombol 🔒 di status bar dan tombol salin kode.
     - **Reactive Auto-Decryption & Ciphertext Preservation Engine**: Riwayat pesan (`raw_content`) disimpan aman di memori dan otomatis ter-dekripsi secara instan begitu kunci AES percakapan selesai dimuat tanpa terpengaruh race-condition jaringan.
+- **Fase 7 (Bagian 2 - Milestone 7.2A): WebRTC 1-on-1 Voice / Audio Calling (SELESAI)**:
+  - **Backend Go WebSocket Signaling Hub**:
+    - Penambahan tipe pesan signaling: `call_offer`, `call_answer`, `ice_candidate`, `call_reject`, `call_end`, `call_busy`.
+    - Payload forwarding ringan dengan atribut `sdp` dan `candidate` tanpa overhead penyimpanan database server.
+  - **Procedural Ringtone Synthesizer (Web Audio API)**:
+    - `playOutgoingRing()`: Nada sambung panggilan keluar (*tuuut... tuuut...*) frekuensi dual-sine 440Hz / 480Hz.
+    - `playIncomingRing()`: Nada dering panggilan masuk harmonik C5-E5-G5-C6.
+    - `stopCallSounds()`: Penghentian instan saat panggilan tersambung, ditolak, atau diakhiri.
+  - **WebRTC Audio Session Engine (`webrtcAudio.ts`)**:
+    - Manajemen koneksi P2P `RTCPeerConnection` dengan Google Public STUN (`stun:stun.l.google.com:19302`).
+    - Auto-attach mikrofon lokal dengan *echo cancellation*, *noise suppression*, dan *auto gain control*.
+    - Auto-playback remote audio stream, toggle mute lokal mikrofon, dan lifecycle cleanup hardware menyeluruh.
+  - **UI Overlays & Modals**:
+    - `IncomingCallModal.tsx`: Dialog pop-up panggilan masuk dengan animasi denyut avatar dan aksi Terima / Tolak.
+    - `AudioCallOverlay.tsx`: Layar panggilan berlangsung dengan avatar wave, timer durasi live, tombol mute mikrofon, dan tombol akhiri panggilan.
+    - Tombol panggil suara 📞 pada status bar obrolan direct 1-on-1.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id` & `https://wuzz-chat.vercel.app`
@@ -267,7 +283,7 @@
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)
   - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
-- Siap melangkah ke **Fase 7 (Bagian 2): WebRTC Calling (P2P 1-on-1 Audio/Video Call)**.
+- Siap melangkah ke **Milestone 7.2B: WebRTC 1-on-1 Video Calling**.
 
 ---
 

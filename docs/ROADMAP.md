@@ -157,7 +157,7 @@ Membangun platform chatting modern yang:
 ---
 
 ### Fase 7: Advanced Security & WebRTC Calling
-*Tujuan: Keamanan tingkat tinggi dan fitur panggilan suara/video.*
+*Tujuan: Keamanan tingkat tinggi dan fitur panggilan suara/video interaktif ultra low-latency.*
 - ✅ **End-to-End Encryption (E2EE) (SELESAI)**:
   - Implementasi kriptografi kunci publik standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API.
   - Private key tersimpan aman di `IndexedDB` browser pengguna (`wuzz_crypto_db`).
@@ -165,8 +165,14 @@ Membangun platform chatting modern yang:
   - Dekripsi otomatis di timeline obrolan penerima dengan fallback kompatibel untuk pesan lama.
   - Verifikasi keamanan visual 30-digit (*Safety Number Fingerprint*) di UI.
   - 100% interoperabel dan siap untuk klien mobile masa depan (Kotlin Android, Flutter, React Native, Swift iOS).
-- 🎯 **Audio & Video Call (1-on-1) (NEXT)**:
-  - Signaling via WebSocket yang sudah ada, media stream P2P via WebRTC (STUN/TURN server).
+- ✅ **Milestone 7.2A: 1-on-1 Voice / Audio Calling (WebRTC P2P) (SELESAI)**:
+  - Signaling full duplex via WebSocket Go Backend (`call_offer`, `call_answer`, `ice_candidate`, `call_reject`, `call_end`, `call_busy`).
+  - Web Audio API procedural sound synthesizer untuk nada sambung keluar (*tuuut...*) dan nada dering masuk melodis.
+  - Dialog pop-up panggilan masuk interaktif (`IncomingCallModal.tsx`) dengan animasi avatar denyut dan tombol Terima/Tolak.
+  - Layar overlay panggilan suara aktif (`AudioCallOverlay.tsx`) dengan avatar wave, timer durasi live, toggle mute microphone, dan tombol akhiri panggilan.
+  - Koneksi P2P direct audio stream latensi rendah via Google Public STUN (`stun:stun.l.google.com:19302`) tanpa beban bandwidth server.
+- 🎯 **Milestone 7.2B: 1-on-1 Video Calling (WebRTC P2P) (NEXT)**:
+  - Streaming kamera video 1-on-1 dengan Picture-in-Picture (PiP) local stream preview dan toggle kamera depan/belakang/off.
 
 ---
 

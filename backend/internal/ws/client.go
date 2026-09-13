@@ -130,6 +130,8 @@ func (c *Client) handleMessage(msg Message) {
 		c.onReceipt(msg)
 	case TypeReaction:
 		c.onReaction(msg)
+	case TypeCallOffer, TypeCallAnswer, TypeIceCandidate, TypeCallReject, TypeCallEnd, TypeCallBusy:
+		c.onCallSignaling(msg)
 	case TypeLeave:
 		c.conn.Close()
 	default:
@@ -381,6 +383,26 @@ func (c *Client) onReaction(msg Message) {
 	msg.Reactions = reactions
 	msg.ID = msg.Reaction.MessageID
 	c.hub.BroadcastRoom(targetRoom, msg, "")
+}
+
+// onCallSignaling memproses pesan sinyal WebRTC (offer, answer, candidate, reject, end, busy)
+// dan langsung mem-forward ke anggota room selain pengirim tanpa menyimpan ke database.
+func (c *Client) onCallSignaling(msg Message) {
+	targetRoom := msg.Room
+	if targetRoom == "" {
+		targetRoom = c.RoomID
+	}
+	if targetRoom == "" {
+		return
+	}
+
+	msg.Room = targetRoom
+	msg.From = c.ID
+	msg.Nickname = c.Nickname
+	msg.Timestamp = time.Now().UTC()
+
+	// Broadcast pesan sinyal WebRTC ke seluruh peer di room selain pengirim
+	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
 }
 
 // sendError mengirimkan pesan error sistem ke client ini sendiri.

@@ -16,6 +16,14 @@ const (
 	TypeHistory   MessageType = "history"    // riwayat pesan percakapan dari database
 	TypeRoomUsers MessageType = "room_users" // daftar user yang sedang aktif di room
 	TypeMessageDeleted MessageType = "message_deleted" // pesan dihapus / ditarik untuk semua orang
+
+	// WebRTC Signaling Event Types (P2P Calling)
+	TypeCallOffer    MessageType = "call_offer"    // SDP offer dari pemanggil
+	TypeCallAnswer   MessageType = "call_answer"   // SDP answer dari penerima
+	TypeIceCandidate MessageType = "ice_candidate" // Pertukaran ICE candidate
+	TypeCallReject   MessageType = "call_reject"   // Panggilan ditolak oleh penerima
+	TypeCallEnd      MessageType = "call_end"      // Panggilan diakhiri / dibatalkan
+	TypeCallBusy     MessageType = "call_busy"     // Penerima sedang sibuk di panggilan lain
 )
 
 // MessageStatus merepresentasikan status tanda terima pesan
@@ -76,6 +84,8 @@ type Message struct {
 	FileSize    int64            `json:"file_size,omitempty"`    // Ukuran berkas dalam bytes
 	MediaStatus string           `json:"media_status,omitempty"` // 'active', 'downloaded', 'expired'
 	IsDeleted   bool             `json:"is_deleted,omitempty"`   // Tanda apakah pesan telah dihapus untuk semua orang
+	SDP         string           `json:"sdp,omitempty"`          // WebRTC Session Description Protocol (SDP) offer/answer
+	Candidate   string           `json:"candidate,omitempty"`    // WebRTC ICE Candidate string
 	Messages    []Message        `json:"messages,omitempty"`     // Kumpulan pesan untuk TypeHistory
 	Users       []RoomUser       `json:"users,omitempty"`        // Daftar user aktif di room
 }

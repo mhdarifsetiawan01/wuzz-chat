@@ -405,4 +405,113 @@ func TestHubReplyAndReactions(t *testing.T) {
 	}
 }
 
+func TestHubWebRTCCallingSignaling(t *testing.T) {
+	cs := store.NewMemoryClientStore()
+	ms := store.NewMemoryMessageStore()
+	hub := NewHub(cs, ms)
+
+	c1 := &Client{
+		ID:       "client-alice",
+		Nickname: "Alice",
+		RoomID:   "dm_alice_bob",
+		JoinedAt: time.Now().UTC(),
+		send:     make(chan Message, 10),
+		hub:      hub,
+	}
+	c2 := &Client{
+		ID:       "client-bob",
+		Nickname: "Bob",
+		RoomID:   "dm_alice_bob",
+		JoinedAt: time.Now().UTC(),
+		send:     make(chan Message, 10),
+		hub:      hub,
+	}
+
+	hub.Register(c1)
+	hub.Register(c2)
+	hub.JoinRoom(c1, "dm_alice_bob")
+	hub.JoinRoom(c2, "dm_alice_bob")
+
+	// Drain initial presence events
+	for len(c1.send) > 0 {
+		<-c1.send
+	}
+	for len(c2.send) > 0 {
+		<-c2.send
+	}
+
+	// 1. Alice sends call_offer to Bob
+	c1.onCallSignaling(Message{
+		Type: TypeCallOffer,
+		Room: "dm_alice_bob",
+		SDP:  "v=0\r\no=alice 1234 5678 IN IP4 0.0.0.0...",
+	})
+
+	select {
+	case offerMsg := <-c2.send:
+		if offerMsg.Type != TypeCallOffer || offerMsg.SDP == "" || offerMsg.From != "client-alice" {
+			t.Errorf("expected TypeCallOffer from Alice on Bob's channel, got: %+v", offerMsg)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timed out waiting for call_offer on Bob's channel")
+	}
+
+	// 2. Bob answers with call_answer to Alice
+	c2.onCallSignaling(Message{
+		Type: TypeCallAnswer,
+		Room: "dm_alice_bob",
+		SDP:  "v=0\r\no=bob 8765 4321 IN IP4 0.0.0.0...",
+	})
+
+	select {
+	case answerMsg := <-c1.send:
+		if answerMsg.Type != TypeCallAnswer || answerMsg.SDP == "" || answerMsg.From != "client-bob" {
+			t.Errorf("expected TypeCallAnswer from Bob on Alice's channel, got: %+v", answerMsg)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timed out waiting for call_answer on Alice's channel")
+	}
+
+	// 3. ICE Candidate exchange
+	c1.onCallSignaling(Message{
+		Type:      TypeIceCandidate,
+		Room:      "dm_alice_bob",
+		Candidate: `{"candidate":"candidate:1 1 UDP 2130706431 192.168.1.1 50000 typ host","sdpMid":"0","sdpMLineIndex":0}`,
+	})
+
+	select {
+	case iceMsg := <-c2.send:
+		if iceMsg.Type != TypeIceCandidate || iceMsg.Candidate == "" {
+			t.Errorf("expected TypeIceCandidate on Bob's channel, got: %+v", iceMsg)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timed out waiting for ice_candidate on Bob's channel")
+	}
+
+	// 4. End Call
+	c2.onCallSignaling(Message{
+		Type: TypeCallEnd,
+		Room: "dm_alice_bob",
+	})
+
+	select {
+	case endMsg := <-c1.send:
+		if endMsg.Type != TypeCallEnd {
+			t.Errorf("expected TypeCallEnd on Alice's channel, got: %+v", endMsg)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatalf("timed out waiting for call_end on Alice's channel")
+	}
+
+	// 5. Verify database store is not polluted by signaling payloads
+	history, err := ms.GetRoomHistory("dm_alice_bob", 10)
+	if err != nil {
+		t.Fatalf("failed to check room history: %v", err)
+	}
+	if len(history) != 0 {
+		t.Errorf("expected 0 history items for call signaling messages, got %d", len(history))
+	}
+}
+
+
 

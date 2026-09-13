@@ -1,7 +1,35 @@
 // Tipe pesan yang dipertukarkan — sinkron dengan backend Go (internal/ws/message.go)
-export type MessageType = 'join' | 'message' | 'typing' | 'receipt' | 'reaction' | 'leave' | 'system' | 'history' | 'room_users' | 'message_deleted'
+export type MessageType =
+  | 'join'
+  | 'message'
+  | 'typing'
+  | 'receipt'
+  | 'reaction'
+  | 'leave'
+  | 'system'
+  | 'history'
+  | 'room_users'
+  | 'message_deleted'
+  | 'call_offer'
+  | 'call_answer'
+  | 'ice_candidate'
+  | 'call_reject'
+  | 'call_end'
+  | 'call_busy'
 
 export type MessageReceiptStatus = 'pending' | 'sent' | 'delivered' | 'read'
+
+export type CallStatus = 'idle' | 'outgoing_ringing' | 'incoming_ringing' | 'connecting' | 'connected' | 'ended'
+
+export interface ActiveCallInfo {
+  room: string
+  peerId: string
+  peerNickname: string
+  mediaType: 'audio' | 'video'
+  isCaller: boolean
+  status: CallStatus
+  startTime?: number
+}
 
 export interface ReplyTarget {
   id: string
@@ -48,6 +76,8 @@ export interface Message {
   file_size?: number
   media_status?: 'active' | 'downloaded' | 'expired' | string
   is_deleted?: boolean
+  sdp?: string
+  candidate?: string
   messages?: Message[]   // Digunakan saat type = 'history'
   users?: RoomUser[]     // Digunakan saat type = 'room_users'
 }

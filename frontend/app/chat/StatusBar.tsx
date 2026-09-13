@@ -18,6 +18,7 @@ interface StatusBarProps {
   peerPublicKeyJWK?: string
   onOpenMemberList: () => void
   onBack?: () => void
+  onStartAudioCall?: () => void
 }
 
 const statusLabel: Record<ConnectionStatus, string> = {
@@ -39,6 +40,7 @@ export function StatusBar({
   peerPublicKeyJWK = '',
   onOpenMemberList,
   onBack,
+  onStartAudioCall,
 }: StatusBarProps) {
   const [copied, setCopied] = useState(false)
   const [soundMuted, setSoundMuted] = useState(false)
@@ -166,6 +168,20 @@ export function StatusBar({
                 👥 {roomUsers.length}
               </button>
             </>
+          )}
+
+          {/* Tombol Panggilan Suara (Audio Call) untuk Direct Chat */}
+          {isDirectChat && onStartAudioCall && (
+            <button
+              type="button"
+              onClick={onStartAudioCall}
+              className="status-btn"
+              title="Mulai Panggilan Suara"
+              aria-label="Mulai Panggilan Suara"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', fontSize: '0.9rem', width: '32px', height: '32px', borderRadius: 'var(--radius-full)' }}
+            >
+              <span>📞</span>
+            </button>
           )}
 
           {/* Tombol Kunci Keamanan E2EE untuk Direct Message */}
