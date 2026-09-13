@@ -116,7 +116,7 @@ export function Sidebar({
     }
   }, [user])
 
-  // Reset unread counter untuk room yang sedang aktif dibuka
+  // Reset unread counter untuk room yang sedang aktif dibuka, dan refresh percakapan saat kembali ke Home di HP
   useEffect(() => {
     if (activeRoomId) {
       setUnreadCounts(prev => {
@@ -127,34 +127,51 @@ export function Sidebar({
       setConversations(prev =>
         prev.map(c => (c.id === activeRoomId ? { ...c, unread_count: 0 } : c))
       )
+    } else if (user) {
+      // Saat kembali ke Home / Daftar Chat di HP, muat ulang percakapan agar status centang 2 biru & unread 100% sinkron
+      loadConversations()
     }
   }, [activeRoomId])
 
-  // Real-time update snippet & unread counter saat ada pesan masuk
+  // Real-time update snippet & unread counter saat ada pesan masuk atau receipt
   useEffect(() => {
     if (!lastIncomingMessage || !lastIncomingMessage.room) return
 
-    // Cegah re-processing pesan yang sama saat activeRoomId berubah (misal tombol Back di HP)
-    const msgKey = lastIncomingMessage.id || `${lastIncomingMessage.room}_${lastIncomingMessage.timestamp}_${lastIncomingMessage.content}`
-    if (lastHandledMsgIdRef.current === msgKey) {
+    const room = lastIncomingMessage.room
+
+    // 1. Update tanda centang receipt (sent -> delivered -> read) secara real-time
+    if (lastIncomingMessage.type === 'receipt' && lastIncomingMessage.status) {
+      setConversations(prev =>
+        prev.map(c => {
+          if (c.id === room) {
+            return { ...c, last_status: lastIncomingMessage.status }
+          }
+          return c
+        })
+      )
       return
     }
-    lastHandledMsgIdRef.current = msgKey
 
-    const room = lastIncomingMessage.room
-    const isFromOther = lastIncomingMessage.nickname !== user?.username && lastIncomingMessage.nickname !== user?.display_name
-    const isInactiveRoom = room !== activeRoomId
-
-    // Jika pesan masuk ke room yang sedang tidak aktif dibuka, naikkan badge unread
-    if (isInactiveRoom && isFromOther && lastIncomingMessage.type === 'message') {
-      setUnreadCounts(prev => ({
-        ...prev,
-        [room]: (prev[room] || 0) + 1,
-      }))
-    }
-
-    // Update snippet & pindahkan percakapan ke urutan teratas
+    // 2. Cegah re-processing pesan yang sama saat activeRoomId berubah (misal tombol Back di HP)
     if (lastIncomingMessage.type === 'message') {
+      const msgKey = lastIncomingMessage.id || `${lastIncomingMessage.room}_${lastIncomingMessage.timestamp}_${lastIncomingMessage.content}`
+      if (lastHandledMsgIdRef.current === msgKey) {
+        return
+      }
+      lastHandledMsgIdRef.current = msgKey
+
+      const isFromOther = lastIncomingMessage.nickname !== user?.username && lastIncomingMessage.nickname !== user?.display_name
+      const isInactiveRoom = room !== activeRoomId
+
+      // Jika pesan masuk ke room yang sedang tidak aktif dibuka, naikkan badge unread
+      if (isInactiveRoom && isFromOther) {
+        setUnreadCounts(prev => ({
+          ...prev,
+          [room]: (prev[room] || 0) + 1,
+        }))
+      }
+
+      // Update snippet & pindahkan percakapan ke urutan teratas
       const snippet = lastIncomingMessage.content && lastIncomingMessage.content.trim() !== ''
         ? lastIncomingMessage.content
         : lastIncomingMessage.media_type === 'image'
@@ -192,16 +209,6 @@ export function Sidebar({
         const remaining = prev.filter(c => c.id !== room)
         return [updatedItem, ...remaining]
       })
-    } else if (lastIncomingMessage.type === 'receipt' && lastIncomingMessage.status) {
-      // Update tanda centang pesan terakhir di sidebar secara real-time
-      setConversations(prev =>
-        prev.map(c => {
-          if (c.id === room) {
-            return { ...c, last_status: lastIncomingMessage.status }
-          }
-          return c
-        })
-      )
     }
   }, [lastIncomingMessage, activeRoomId, user?.username, user?.display_name])
 

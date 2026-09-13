@@ -222,6 +222,7 @@
     - **Real-Time Unread Badge & Read Receipts**: Sinkronisasi instan *unread counter* di Sidebar tanpa reload (Optimistic UI 0ms saat room dibuka), filter pill "Belum Dibaca" akurat, dan pengiriman bulk `read` receipt otomatis via WebSocket & Page Visibility API.
     - **Room Transition History State Fix**: Memperbaiki `chatReducer` agar riwayat pesan selalu tersinkronisasi bersih dari database saat berpindah room tanpa menahan state lama, sehingga pesan terbaru langsung tampil seketika saat room dibuka dari home.
     - **Mobile Back Navigation Stale Message Guard**: Menambahkan `lastHandledMsgIdRef` pada `Sidebar.tsx` untuk mencegah pesan lama di-reprocess sebagai "pesan belum dibaca baru" saat pengguna menekan tombol `← Back` di handphone.
+    - **Real-Time Read Receipt Sync in Sidebar**: Memperbaiki listener event `receipt` di Sidebar agar status centang 2 biru langsung terupdate secara real-time pada daftar obrolan tanpa tertahan oleh filter ID, dan me-reload daftar obrolan saat kembali ke Home di HP.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id`
