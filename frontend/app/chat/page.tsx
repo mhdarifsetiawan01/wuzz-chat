@@ -138,14 +138,7 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
     }
     case 'SET_MESSAGES': {
-      // Gabungkan riwayat chat dari database tanpa duplikasi
-      const existingKeys = new Set(
-        state.messages.map(m => m.id || `${m.from}_${m.timestamp}_${m.content}`)
-      )
-      const newMessages = action.payload.filter(
-        m => !existingKeys.has(m.id || `${m.from}_${m.timestamp}_${m.content}`)
-      )
-      return { ...state, messages: [...newMessages, ...state.messages] }
+      return { ...state, messages: action.payload }
     }
     case 'SET_PEER_NICKNAME':
       return { ...state, peerNickname: action.payload }
