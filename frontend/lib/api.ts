@@ -1,8 +1,7 @@
 import { AppConfig, MediaUploadResponse, LinkPreview } from './types'
 
 // API client helper untuk berkomunikasi dengan Go REST API
-
-const API_BASE = typeof window !== 'undefined' ? '' : 'http://localhost:8080'
+const API_BASE = typeof window !== 'undefined' ? '' : (process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'http://localhost:8080')
 
 export async function apiRequest<T>(
   endpoint: string,

@@ -152,7 +152,7 @@
 
 ---
 
-### F. Fase 6: Distributed Scale & Reliability (Sedang Berjalan 🎯)
+### F. Fase 6: Distributed Scale & Reliability (100% Selesai & Terdeploy di Fly.io 🚀)
 - [x] **Milestone 6.1: Redis Pub/Sub Broker Layer & Multi-Instance Go WebSocket Synchronization**:
   - Interface `MessageBroker` (`internal/broker/broker.go`) mendukung `Publish`, `Subscribe`, `Get`, `Set` (TTL cache), dan `Close`.
   - **Graceful Fallback Mode**: `InMemoryBroker` aktif otomatis ketika `REDIS_URL` tidak diisi (bebas error di lokal).
@@ -173,20 +173,26 @@
   - **Redis & In-Memory Caching (TTL 24 Jam)**: Caching MD5 key untuk menghindari redundant scraping dari URL yang sama.
   - **Frontend UI Card (`LinkPreviewCard.tsx`)**: Menampilkan kartu preview thumbnail, judul, deskripsi, favicon, dan domain badge di dalam balon chat [`MessageBubble.tsx`](frontend/app/chat/MessageBubble.tsx).
   - Unit test `link_preview_test.go` lulus 100% dan frontend build `npm run build` sukses 100%.
-- [x] **Milestone 6.4: Production Deployment Configuration & Multi-Platform Readiness**:
+- [x] **Milestone 6.4: Production Deployment Configuration & Live Fly.io Launch**:
   - **Multi-Stage Dockerfile (`backend/Dockerfile`)**: Build Go Alpine super ringan (< 25MB image size), unprivileged non-root user `appuser`, dan sertifikat SSL bawaan.
+  - **Live Production App di Fly.io**: App `wuzz-chat-backend` berhasil dideploy di region Singapura (`sin`) dengan auto-start/stop machine.
+    - REST API URL: `https://wuzz-chat-backend.fly.dev`
+    - WebSocket URL: `wss://wuzz-chat-backend.fly.dev/ws`
+    - Health Check: `https://wuzz-chat-backend.fly.dev/health` (HTTP 200 OK)
+  - **Secrets Configured**: Seluruh secrets dari `.env` (`DATABASE_URL`, `STORAGE_DRIVER`, `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_STORAGE_BUCKET`, `REDIS_URL`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS="*"`) telah diinject ke Fly.io secrets.
   - **Next.js Server-Side Rewrites (`frontend/next.config.ts`)**: Konfigurasi reverse proxy otomatis untuk `/api/*` dan `/uploads/*` ke URL backend `BACKEND_API_URL` (Vercel ke Fly.io).
   - **Dynamic WebSocket URL Detection (`frontend/app/chat/page.tsx`)**: Otomatis mendeteksi `NEXT_PUBLIC_WS_URL` dan protocol matching `wss://` / `ws://`.
-  - **Fly.io Deployment Template (`backend/fly.toml.example`)**: Konfigurasi VM 256MB RAM region Singapura (`sin`) siap deploy.
-  - **Dokumentasi Variabel Lingkungan**: [`frontend/.env.example`](frontend/.env.example) dan [`backend/.env.example`](backend/.env.example).
 
 ---
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
 
-- **Fase 6: Distributed Scale & Reliability telah 100% Selesai & Terverifikasi!**
-- Seluruh unit test backend (`go test -v ./...`) dan build frontend (`npm run build`) lulus 100%.
-- Siap melangkah ke **Fase 7: Advanced Security & WebRTC Calling (E2EE & P2P Audio/Video Call)** jika diinginkan.
+- **Backend Go telah berhasil LIVE di Fly.io (`https://wuzz-chat-backend.fly.dev`)!**
+- Terhubung aktif ke:
+  - Supabase PostgreSQL Database (`DATABASE_URL`)
+  - Supabase Storage Bucket (`wuzz-chat-media`)
+  - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
+- Siap melangkah ke **Fase 7: Advanced Security & WebRTC Calling (E2EE & P2P Audio/Video Call)** atau deployment frontend Next.js ke Vercel.
 
 ---
 

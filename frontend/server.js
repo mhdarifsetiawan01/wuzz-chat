@@ -8,6 +8,10 @@
 //
 // Referensi: PRD bagian 4.1
 
+const { loadEnvConfig } = require('@next/env')
+// Muat .env, .env.local, dan .env.development ke process.env
+loadEnvConfig(process.cwd())
+
 const { createServer } = require('http')
 const next = require('next')
 const httpProxy = require('http-proxy')
@@ -16,7 +20,7 @@ const dev = process.env.NODE_ENV !== 'production'
 const port = parseInt(process.env.PORT || '3047', 10)
 
 // URL backend Go — tidak pernah terekspos ke browser
-const BACKEND_WS_URL = process.env.BACKEND_URL || 'http://localhost:8080'
+const BACKEND_WS_URL = process.env.BACKEND_URL || process.env.BACKEND_API_URL || 'http://localhost:8080'
 
 const app = next({ dev })
 const handle = app.getRequestHandler()
@@ -37,7 +41,10 @@ app.prepare().then(() => {
   const server = createServer((req, res) => {
     // Forward /api/* dan /uploads/* requests langsung ke Go backend
     if (req.url && (req.url.startsWith('/api/') || req.url.startsWith('/uploads/'))) {
-      proxy.web(req, res, { target: BACKEND_WS_URL })
+      proxy.web(req, res, { 
+        target: BACKEND_WS_URL,
+        changeOrigin: true,
+      })
       return
     }
 
@@ -58,6 +65,7 @@ app.prepare().then(() => {
         proxy.ws(req, socket, head, {
           target: BACKEND_WS_URL,
           ws: true,
+          changeOrigin: true,
         })
       } else if (upgradeHandler) {
         upgradeHandler(req, socket, head)
