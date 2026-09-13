@@ -54,7 +54,7 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   2. Multi-Instance Go WebSocket synchronization dengan Anti-Echo loop Node UUID.
   3. Dynamic Multi-Origin CORS & WebSocket Origin Whitelist (`CORS_ALLOWED_ORIGINS`).
   4. OpenGraph Rich Link Previewer dengan Anti-SSRF guard, Redis Caching 24 jam, dan Frontend UI Card.
-  5. Multi-Stage Dockerfile (< 25MB), Next.js server-side rewrites, dan Fly.io deployment ready.
+  5. Multi-Stage Dockerfile (< 25MB), Next.js server-side rewrites, dan Fly.io Production Deployment.
 - 🎯 **Fase 7: Advanced Security & WebRTC Calling (NEXT)** —
   1. End-to-End Encryption (E2EE) Signal Protocol / Web Crypto API.
   2. P2P 1-on-1 Audio & Video Call via WebRTC.

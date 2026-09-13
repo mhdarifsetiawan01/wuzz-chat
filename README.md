@@ -51,7 +51,7 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 
 ---
 
-## 🚀 Fitur yang Telah Selesai (Fase 1 s/d Fase 5)
+## 🚀 Fitur yang Telah Selesai (Fase 1 s/d Fase 6)
 
 - [x] **Bidirectional WebSocket Engine (Fase 1)**: Arsitektur hub Go dengan goroutine read/write pump dan graceful disconnect.
 - [x] **Next.js Reverse Proxy (`server.js`) (Fase 1)**: Menangani WebSocket upgrade event pada custom server dan me-reverse proxy `/api/*` serta `/uploads/*`, mengisolasi URL backend dari browser.
@@ -72,6 +72,10 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 - [x] **Background TTL Auto-Purge Worker (Fase 5)**: Goroutine pembersih berkas kedaluwarsa yang belum diunduh melebihi `MEDIA_RETENTION_DAYS` (default 7 hari).
 - [x] **Client-Side Offline Caching (`IndexedDB`) (Fase 5)**: Berkas media tersimpan di IndexedDB browser klien sehingga pengguna tetap bisa membuka media secara offline meskipun file di server telah dihapus.
 - [x] **Client-Side Pre-Upload Image Compressor (Fase 5)**: Kompresi otomatis gambar sebelum diunggah (resize max 1600px, WebP quality 0.82) untuk menghemat kuota dan mempercepat transmisi, dengan tombol toggle on/off di modal Profil.
+- [x] **Redis Pub/Sub Layer & Multi-Instance Synchronization (Fase 6)**: Sinkronisasi real-time antar multi-instance Go WebSocket via Upstash Redis (`rediss://...`) dengan anti-echo loop UUID & deduplikasi database write.
+- [x] **Dynamic Multi-Origin CORS & WebSocket Whitelist (Fase 6)**: Konfigurasi whitelist dinamis (`*`, exact domain, dan wildcard subdomains seperti `https://*.vercel.app`) untuk REST API dan WebSocket handshake.
+- [x] **OpenGraph Rich Link Previewer (Fase 6)**: Ekstraksi metadata URL OpenGraph dengan proteksi Anti-SSRF (blokir IP privat), Redis caching 24 jam, dan komponen kartu thumbnail interaktif.
+- [x] **Live Production Backend di Fly.io (Fase 6)**: Container Docker Go Alpine super ringan (< 25MB) aktif di region Singapore (`sin`).
 
 ---
 
@@ -79,10 +83,21 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 
 | Layer | Teknologi | Keterangan |
 |---|---|---|
-| **Backend** | Go (Golang) 1.24+ | Gorilla WebSocket, Lib/PQ, Modernc SQLite |
+| **Backend** | Go (Golang) 1.24+ | Gorilla WebSocket, Lib/PQ, Go-Redis v9, Modernc SQLite |
 | **Frontend** | Next.js 16 (App Router) + React 19 + TypeScript | Vanilla CSS Design System, Responsive Dark Mode |
-| **Database** | PostgreSQL (Supabase Pooler) / SQLite | Relational schema, auto-migrations, indexing |
+| **Database** | PostgreSQL (Supabase) / SQLite | Relational schema, auto-migrations, indexing |
+| **Pub/Sub & Cache**| Redis (Upstash) / In-Memory Fallback | Multi-node WebSocket sync & link preview cache |
+| **Storage** | Supabase Storage (S3 API) / Local Disk | Media transit buffer with Store-and-Forward |
+| **Hosting** | Fly.io (Backend) & Vercel (Frontend) | Low-latency Singapore region (`sin`) |
 | **Testing** | Go Testing Suite + TypeScript Check | 100% test passing & zero linter errors |
+
+---
+
+## 🌐 Production Endpoints (Fly.io)
+
+- **REST API Base URL**: `https://<your-backend-app>.fly.dev`
+- **WebSocket Endpoint**: `wss://<your-backend-app>.fly.dev/ws`
+- **Health Check**: `https://<your-backend-app>.fly.dev/health`
 
 ---
 
@@ -92,20 +107,20 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 - **Go** (v1.22 atau lebih baru)
 - **Node.js** (v18 atau lebih baru) & **npm**
 
-### 1. Jalankan Backend Go
+### 1. Jalankan Backend Go (Lokal)
 ```bash
 cd backend
 go run main.go
 ```
 > Server backend berjalan di `ws://localhost:8080/ws` (Health check: `http://localhost:8080/health`).
 
-### 2. Jalankan Frontend Next.js
+### 2. Jalankan Frontend Next.js (Lokal)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-> Aplikasi web berjalan di `http://localhost:3047`.
+> Aplikasi web berjalan di `http://localhost:3047` (Otomatis membaca `.env.local`).
 
 ---
 
@@ -125,7 +140,7 @@ npx tsc --noEmit
 
 ---
 
-## 🚢 Rencana Deployment
+## 🚢 Deployment Status
 
-- **Backend (Golang)**: Dideploy ke **[Fly.io](https://fly.io)** (support persistent WebSocket connections).
-- **Frontend (Next.js)**: Dideploy ke **[Vercel](https://vercel.com)** dengan environment variable `NEXT_PUBLIC_WS_URL` yang mengarah ke endpoint Fly.io.
+- **Backend (Golang)**: Dideploy ke **[Fly.io](https://fly.io)** (Singapore `sin` region, support persistent WebSocket connection).
+- **Frontend (Next.js)**: Dideploy ke **[Vercel](https://vercel.com)** dengan environment variable `BACKEND_API_URL` dan `NEXT_PUBLIC_WS_URL`.
