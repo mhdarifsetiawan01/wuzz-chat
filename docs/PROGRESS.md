@@ -85,6 +85,12 @@
   - **Lebar Sidebar Proporsional**: Peningkatan lebar desktop dari `340px` ke `400px` (`min-width: 360px`, `max-width: 450px`) untuk ruang obrolan kelas WhatsApp/Telegram Web yang lebih lega di layar widescreen.
   - **Responsif Mobile**: Optimasi lebar drawer sidebar mobile menjadi `min(340px, 85vw)` yang adaptif.
   - **Tata Letak 2-Baris Hasil Pencarian**: Pemisahan baris Display Name + @username dengan bio status di hasil pencarian kontak `Sidebar.tsx`.
+- [x] **Milestone 4.8: Delete Conversation for Me (Privacy & Asymmetric Clear Chat)**:
+  - **Kolom `cleared_at` Non-Destruktif**: Auto-migration `conversation_members` dengan kolom `cleared_at TIMESTAMP DEFAULT NULL`.
+  - **Filter Privasi & Keamanan Lawan Bicara**: User yang menghapus percakapan tidak akan melihat chat lama sebelum `cleared_at`. Riwayat lawan bicara tetap utuh 100%. Percakapan muncul kembali secara otomatis jika ada pesan baru setelah `cleared_at`.
+  - **REST API Endpoints**: `DELETE /api/conversations?id=...` dan `POST /api/conversations/clear` dengan otorisasi JWT.
+  - **UI Modal Konfirmasi**: Ikon 🗑️ saat hover item obrolan di `Sidebar.tsx` dengan modal konfirmasi protektif.
+  - Unit test `TestClearConversation_PrivacyFilter` lulus 100%.
 
 ### E. Fase 3.5: Authentication Hardening & Security Polish (Selesai)
 - [x] **Milestone 3.5.1: Next.js Auth Guard & Route Protection**:

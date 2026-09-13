@@ -234,6 +234,10 @@ func (s *MemoryMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredM
 	return result, nil
 }
 
+func (s *MemoryMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int) ([]StoredMessage, error) {
+	return s.GetRoomHistory(roomID, limit)
+}
+
 func (s *MemoryMessageStore) AcknowledgeMediaDownload(msgID string) (string, string, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

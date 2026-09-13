@@ -157,5 +157,127 @@ func TestSQLUserStore_RoomAccessAuthorization(t *testing.T) {
 	}
 }
 
+func TestClearConversation_PrivacyFilter(t *testing.T) {
+	tmpDB := "test_clear_conv.db"
+	defer os.Remove(tmpDB)
+
+	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
+	if err != nil {
+		t.Fatalf("failed to init SQLite store: %v", err)
+	}
+	defer sqlStore.Close()
+
+	userStore := NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+
+	userAlice, _ := userStore.Register("alice_clear", "Alice Clear", "pass123")
+	userBob, _ := userStore.Register("bob_clear", "Bob Clear", "pass123")
+
+	dmRoomID, err := userStore.GetOrCreateDirectConversation(userAlice.ID, userBob.ID)
+	if err != nil {
+		t.Fatalf("failed to create DM: %v", err)
+	}
+
+	// 1. Kirim pesan sebelum clear
+	time1 := time.Now().UTC().Add(-10 * time.Minute)
+	time2 := time.Now().UTC().Add(-5 * time.Minute)
+
+	_ = sqlStore.Save(StoredMessage{
+		ID:        "msg-1",
+		RoomID:    dmRoomID,
+		FromID:    userAlice.ID,
+		Nickname:  "Alice Clear",
+		ToID:      userBob.ID,
+		Content:   "Pesan lama dari Alice",
+		Timestamp: time1,
+	})
+
+	_ = sqlStore.Save(StoredMessage{
+		ID:        "msg-2",
+		RoomID:    dmRoomID,
+		FromID:    userBob.ID,
+		Nickname:  "Bob Clear",
+		ToID:      userAlice.ID,
+		Content:   "Pesan lama dari Bob",
+		Timestamp: time2,
+	})
+
+	// 2. Cek history awal untuk Alice dan Bob
+	histAlice, _ := sqlStore.GetRoomHistoryForUser(dmRoomID, userAlice.ID, 10)
+	if len(histAlice) != 2 {
+		t.Fatalf("Alice should see 2 messages initially, got %d", len(histAlice))
+	}
+	histBob, _ := sqlStore.GetRoomHistoryForUser(dmRoomID, userBob.ID, 10)
+	if len(histBob) != 2 {
+		t.Fatalf("Bob should see 2 messages initially, got %d", len(histBob))
+	}
+
+	// 3. Alice melakukan ClearConversation
+	time.Sleep(50 * time.Millisecond)
+	if err := userStore.ClearConversation(dmRoomID, userAlice.ID); err != nil {
+		t.Fatalf("ClearConversation failed: %v", err)
+	}
+
+	// 4. Verifikasi: Percakapan hilang dari sidebar Alice
+	convsAlice, _ := userStore.GetUserConversations(userAlice.ID)
+	if len(convsAlice) != 0 {
+		t.Fatalf("Alice sidebar should be empty after clear, got %d conversations", len(convsAlice))
+	}
+
+	// 5. Verifikasi: Percakapan TETAP ADA di sidebar Bob
+	convsBob, _ := userStore.GetUserConversations(userBob.ID)
+	if len(convsBob) != 1 {
+		t.Fatalf("Bob sidebar should still have 1 conversation, got %d", len(convsBob))
+	}
+
+	// 6. Verifikasi: History Alice kosong, History Bob tetap lengkap
+	histAliceAfter, _ := sqlStore.GetRoomHistoryForUser(dmRoomID, userAlice.ID, 10)
+	if len(histAliceAfter) != 0 {
+		t.Fatalf("Alice history should be empty after clear, got %d messages", len(histAliceAfter))
+	}
+
+	histBobAfter, _ := sqlStore.GetRoomHistoryForUser(dmRoomID, userBob.ID, 10)
+	if len(histBobAfter) != 2 {
+		t.Fatalf("Bob history should still have 2 messages, got %d", len(histBobAfter))
+	}
+
+	// 7. Bob kirim pesan baru setelah Alice clear
+	time.Sleep(50 * time.Millisecond)
+	time3 := time.Now().UTC()
+	_ = sqlStore.Save(StoredMessage{
+		ID:        "msg-3",
+		RoomID:    dmRoomID,
+		FromID:    userBob.ID,
+		Nickname:  "Bob Clear",
+		ToID:      userAlice.ID,
+		Content:   "Pesan baru setelah clear",
+		Timestamp: time3,
+	})
+
+	// 8. Verifikasi: Percakapan MUNCUL KEMBALI di sidebar Alice dengan snippet pesan baru
+	convsAliceNew, _ := userStore.GetUserConversations(userAlice.ID)
+	if len(convsAliceNew) != 1 {
+		t.Fatalf("Alice sidebar should reappear with new message, got %d conversations", len(convsAliceNew))
+	}
+	if convsAliceNew[0].LastMessage != "Pesan baru setelah clear" {
+		t.Errorf("Alice last message should be new message, got: %s", convsAliceNew[0].LastMessage)
+	}
+
+	// 9. Verifikasi: History Alice HANYA berisi pesan baru (msg-3), bukan pesan lama (msg-1, msg-2)
+	histAliceFinal, _ := sqlStore.GetRoomHistoryForUser(dmRoomID, userAlice.ID, 10)
+	if len(histAliceFinal) != 1 {
+		t.Fatalf("Alice history should only have 1 new message, got %d", len(histAliceFinal))
+	}
+	if histAliceFinal[0].ID != "msg-3" {
+		t.Errorf("Alice history should have msg-3, got %s", histAliceFinal[0].ID)
+	}
+
+	// 10. Verifikasi: History Bob berisi SELURUH 3 pesan (msg-1, msg-2, msg-3)
+	histBobFinal, _ := sqlStore.GetRoomHistoryForUser(dmRoomID, userBob.ID, 10)
+	if len(histBobFinal) != 3 {
+		t.Fatalf("Bob history should have all 3 messages, got %d", len(histBobFinal))
+	}
+}
+
+
 
 

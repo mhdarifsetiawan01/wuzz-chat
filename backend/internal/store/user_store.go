@@ -53,6 +53,7 @@ type UserStore interface {
 	SearchUsers(query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
 	GetUserConversations(userID string) ([]ConversationItem, error)
+	ClearConversation(conversationID, userID string) error
 	GetConversationMemberUsernames(conversationID string) ([]string, error)
 	IsUserInConversation(conversationID, userID string) (bool, error)
 }
@@ -310,13 +311,34 @@ func (s *SQLUserStore) GetOrCreateDirectConversation(userA, userB string) (strin
 	return directRoomID, nil
 }
 
+// ClearConversation mencatat waktu pembersihan percakapan (cleared_at) untuk userID tertentu.
+// Riwayat percakapan tidak akan terhapus bagi lawan bicara.
+func (s *SQLUserStore) ClearConversation(conversationID, userID string) error {
+	now := time.Now().UTC()
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE conversation_members SET cleared_at = $1 WHERE conversation_id = $2 AND user_id = $3`
+	} else {
+		query = `UPDATE conversation_members SET cleared_at = ? WHERE conversation_id = ? AND user_id = ?`
+	}
+	res, err := s.db.Exec(query, now, conversationID, userID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return errors.New("percakapan atau keanggotaan tidak ditemukan")
+	}
+	return nil
+}
+
 // GetUserConversations mengambil daftar obrolan aktif milik seorang user.
 func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, error) {
 	// Query percakapan yang diikuti user
 	var query string
 	if s.driverName == "postgres" {
 		query = `
-			SELECT c.id, c.type, c.title, c.updated_at
+			SELECT c.id, c.type, c.title, c.updated_at, cm.cleared_at
 			FROM conversations c
 			JOIN conversation_members cm ON c.id = cm.conversation_id
 			WHERE cm.user_id = $1
@@ -324,7 +346,7 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 		`
 	} else {
 		query = `
-			SELECT c.id, c.type, c.title, c.updated_at
+			SELECT c.id, c.type, c.title, c.updated_at, cm.cleared_at
 			FROM conversations c
 			JOIN conversation_members cm ON c.id = cm.conversation_id
 			WHERE cm.user_id = ?
@@ -349,7 +371,8 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 	var items []ConversationItem
 	for rows.Next() {
 		var item ConversationItem
-		if err := rows.Scan(&item.ID, &item.Type, &item.Title, &item.UpdatedAt); err != nil {
+		var clearedAt sql.NullTime
+		if err := rows.Scan(&item.ID, &item.Type, &item.Title, &item.UpdatedAt, &clearedAt); err != nil {
 			continue
 		}
 
@@ -373,52 +396,108 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 
 		// Ambil pesan terakhir (termasuk format snippet untuk media)
 		var msgQuery string
-		if s.driverName == "postgres" {
-			msgQuery = `SELECT 
-				CASE 
-					WHEN content IS NOT NULL AND content != '' THEN content
-					WHEN media_type = 'image' THEN '📷 Foto'
-					WHEN media_type = 'audio' THEN '🎙️ Pesan Suara'
-					WHEN media_type = 'video' THEN '🎥 Video'
-					WHEN media_url IS NOT NULL AND media_url != '' THEN '📎 ' || COALESCE(NULLIF(file_name, ''), 'Berkas')
-					ELSE ''
-				END AS snippet, 
-				from_nickname, COALESCE(status, 'sent'), created_at 
-			FROM messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT 1`
-		} else {
-			msgQuery = `SELECT 
-				CASE 
-					WHEN content IS NOT NULL AND content != '' THEN content
-					WHEN media_type = 'image' THEN '📷 Foto'
-					WHEN media_type = 'audio' THEN '🎙️ Pesan Suara'
-					WHEN media_type = 'video' THEN '🎥 Video'
-					WHEN media_url IS NOT NULL AND media_url != '' THEN '📎 ' || COALESCE(NULLIF(file_name, ''), 'Berkas')
-					ELSE ''
-				END AS snippet, 
-				from_nickname, COALESCE(status, 'sent'), created_at 
-			FROM messages WHERE room_id = ? ORDER BY created_at DESC LIMIT 1`
-		}
+		var msgErr error
 		var msgTime time.Time
-		if err := s.db.QueryRow(msgQuery, item.ID).Scan(&item.LastMessage, &item.LastSender, &item.LastStatus, &msgTime); err == nil {
+
+		if clearedAt.Valid {
+			if s.driverName == "postgres" {
+				msgQuery = `SELECT 
+					CASE 
+						WHEN content IS NOT NULL AND content != '' THEN content
+						WHEN media_type = 'image' THEN '📷 Foto'
+						WHEN media_type = 'audio' THEN '🎙️ Pesan Suara'
+						WHEN media_type = 'video' THEN '🎥 Video'
+						WHEN media_url IS NOT NULL AND media_url != '' THEN '📎 ' || COALESCE(NULLIF(file_name, ''), 'Berkas')
+						ELSE ''
+					END AS snippet, 
+					from_nickname, COALESCE(status, 'sent'), created_at 
+				FROM messages WHERE room_id = $1 AND created_at > $2 ORDER BY created_at DESC LIMIT 1`
+			} else {
+				msgQuery = `SELECT 
+					CASE 
+						WHEN content IS NOT NULL AND content != '' THEN content
+						WHEN media_type = 'image' THEN '📷 Foto'
+						WHEN media_type = 'audio' THEN '🎙️ Pesan Suara'
+						WHEN media_type = 'video' THEN '🎥 Video'
+						WHEN media_url IS NOT NULL AND media_url != '' THEN '📎 ' || COALESCE(NULLIF(file_name, ''), 'Berkas')
+						ELSE ''
+					END AS snippet, 
+					from_nickname, COALESCE(status, 'sent'), created_at 
+				FROM messages WHERE room_id = ? AND created_at > ? ORDER BY created_at DESC LIMIT 1`
+			}
+			msgErr = s.db.QueryRow(msgQuery, item.ID, clearedAt.Time).Scan(&item.LastMessage, &item.LastSender, &item.LastStatus, &msgTime)
+			if msgErr == sql.ErrNoRows {
+				// Percakapan telah di-clear oleh user dan belum ada pesan baru -> sembunyikan dari sidebar
+				continue
+			}
+		} else {
+			if s.driverName == "postgres" {
+				msgQuery = `SELECT 
+					CASE 
+						WHEN content IS NOT NULL AND content != '' THEN content
+						WHEN media_type = 'image' THEN '📷 Foto'
+						WHEN media_type = 'audio' THEN '🎙️ Pesan Suara'
+						WHEN media_type = 'video' THEN '🎥 Video'
+						WHEN media_url IS NOT NULL AND media_url != '' THEN '📎 ' || COALESCE(NULLIF(file_name, ''), 'Berkas')
+						ELSE ''
+					END AS snippet, 
+					from_nickname, COALESCE(status, 'sent'), created_at 
+				FROM messages WHERE room_id = $1 ORDER BY created_at DESC LIMIT 1`
+			} else {
+				msgQuery = `SELECT 
+					CASE 
+						WHEN content IS NOT NULL AND content != '' THEN content
+						WHEN media_type = 'image' THEN '📷 Foto'
+						WHEN media_type = 'audio' THEN '🎙️ Pesan Suara'
+						WHEN media_type = 'video' THEN '🎥 Video'
+						WHEN media_url IS NOT NULL AND media_url != '' THEN '📎 ' || COALESCE(NULLIF(file_name, ''), 'Berkas')
+						ELSE ''
+					END AS snippet, 
+					from_nickname, COALESCE(status, 'sent'), created_at 
+				FROM messages WHERE room_id = ? ORDER BY created_at DESC LIMIT 1`
+			}
+			msgErr = s.db.QueryRow(msgQuery, item.ID).Scan(&item.LastMessage, &item.LastSender, &item.LastStatus, &msgTime)
+		}
+
+		if msgErr == nil {
 			item.UpdatedAt = msgTime
 		}
 
 		// Hitung jumlah pesan belum dibaca dari lawan bicara
 		var unreadQuery string
-		if s.driverName == "postgres" {
-			unreadQuery = `SELECT COUNT(*) FROM messages 
-			               WHERE room_id = $1 
-			                 AND LOWER(from_nickname) != LOWER($2) 
-			                 AND LOWER(from_nickname) != LOWER($3) 
-			                 AND status != 'read'`
+		if clearedAt.Valid {
+			if s.driverName == "postgres" {
+				unreadQuery = `SELECT COUNT(*) FROM messages 
+				               WHERE room_id = $1 
+				                 AND LOWER(from_nickname) != LOWER($2) 
+				                 AND LOWER(from_nickname) != LOWER($3) 
+				                 AND status != 'read'
+				                 AND created_at > $4`
+			} else {
+				unreadQuery = `SELECT COUNT(*) FROM messages 
+				               WHERE room_id = ? 
+				                 AND LOWER(from_nickname) != LOWER(?) 
+				                 AND LOWER(from_nickname) != LOWER(?) 
+				                 AND status != 'read'
+				                 AND created_at > ?`
+			}
+			_ = s.db.QueryRow(unreadQuery, item.ID, currentName, currentUsername, clearedAt.Time).Scan(&item.UnreadCount)
 		} else {
-			unreadQuery = `SELECT COUNT(*) FROM messages 
-			               WHERE room_id = ? 
-			                 AND LOWER(from_nickname) != LOWER(?) 
-			                 AND LOWER(from_nickname) != LOWER(?) 
-			                 AND status != 'read'`
+			if s.driverName == "postgres" {
+				unreadQuery = `SELECT COUNT(*) FROM messages 
+				               WHERE room_id = $1 
+				                 AND LOWER(from_nickname) != LOWER($2) 
+				                 AND LOWER(from_nickname) != LOWER($3) 
+				                 AND status != 'read'`
+			} else {
+				unreadQuery = `SELECT COUNT(*) FROM messages 
+				               WHERE room_id = ? 
+				                 AND LOWER(from_nickname) != LOWER(?) 
+				                 AND LOWER(from_nickname) != LOWER(?) 
+				                 AND status != 'read'`
+			}
+			_ = s.db.QueryRow(unreadQuery, item.ID, currentName, currentUsername).Scan(&item.UnreadCount)
 		}
-		_ = s.db.QueryRow(unreadQuery, item.ID, currentName, currentUsername).Scan(&item.UnreadCount)
 
 		items = append(items, item)
 	}

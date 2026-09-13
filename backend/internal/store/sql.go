@@ -116,6 +116,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_name VARCHAR(255) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size BIGINT DEFAULT 0;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_status VARCHAR(32) DEFAULT 'active';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMP DEFAULT NULL;`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -130,9 +131,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN file_name VARCHAR(255) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN file_size BIGINT DEFAULT 0;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN media_status VARCHAR(32) DEFAULT 'active';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN cleared_at TIMESTAMP DEFAULT NULL;`)
 	}
 
-	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members', dan 'messages' (dengan status receipts, reply, reactions, media lifecycle, dan user bio) berhasil dipastikan ada!")
+	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members' (dengan cleared_at), dan 'messages' (dengan status receipts, reply, reactions, media lifecycle, dan user bio) berhasil dipastikan ada!")
 	return nil
 }
 
@@ -352,42 +354,87 @@ func (s *SQLMessageStore) MarkUserMessagesAsDelivered(userNickname string) ([]st
 	return roomIDs, err
 }
 
-// GetRoomHistory mengambil riwayat pesan dalam suatu room/percakapan.
+// GetRoomHistory mengambil riwayat pesan dalam suatu room/percakapan (default).
 func (s *SQLMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredMessage, error) {
+	return s.GetRoomHistoryForUser(roomID, "", limit)
+}
+
+// GetRoomHistoryForUser mengambil riwayat pesan dalam suatu room yang difilter berdasarkan cleared_at milik userID (jika ada).
+func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int) ([]StoredMessage, error) {
 	if limit <= 0 {
 		limit = 50
 	}
 
 	var query string
-	if s.driverName == "postgres" {
-		query = `
-		SELECT id, room_id, from_id, from_nickname, to_id, content, 
-		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
-		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
-		FROM (
-			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at
-			FROM messages
-			WHERE room_id = $1
-			ORDER BY created_at DESC
-			LIMIT $2
-		) sub
-		ORDER BY created_at ASC;`
+	var rows *sql.Rows
+	var err error
+
+	if userID != "" {
+		if s.driverName == "postgres" {
+			query = `
+			SELECT id, room_id, from_id, from_nickname, to_id, content, 
+			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
+			FROM (
+				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.created_at
+				FROM messages m
+				LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = $1
+				WHERE m.room_id = $2
+				  AND (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)
+				ORDER BY m.created_at DESC
+				LIMIT $3
+			) sub
+			ORDER BY created_at ASC;`
+			rows, err = s.db.Query(query, userID, roomID, limit)
+		} else {
+			query = `
+			SELECT id, room_id, from_id, from_nickname, to_id, content, 
+			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
+			FROM (
+				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.created_at
+				FROM messages m
+				LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = ?
+				WHERE m.room_id = ?
+				  AND (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)
+				ORDER BY m.created_at DESC
+				LIMIT ?
+			) sub
+			ORDER BY created_at ASC;`
+			rows, err = s.db.Query(query, userID, roomID, limit)
+		}
 	} else {
-		query = `
-		SELECT id, room_id, from_id, from_nickname, to_id, content, 
-		       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
-		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
-		FROM (
-			SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at
-			FROM messages
-			WHERE room_id = ?
-			ORDER BY created_at DESC
-			LIMIT ?
-		) sub
-		ORDER BY created_at ASC;`
+		if s.driverName == "postgres" {
+			query = `
+			SELECT id, room_id, from_id, from_nickname, to_id, content, 
+			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
+			FROM (
+				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at
+				FROM messages
+				WHERE room_id = $1
+				ORDER BY created_at DESC
+				LIMIT $2
+			) sub
+			ORDER BY created_at ASC;`
+			rows, err = s.db.Query(query, roomID, limit)
+		} else {
+			query = `
+			SELECT id, room_id, from_id, from_nickname, to_id, content, 
+			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
+			FROM (
+				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at
+				FROM messages
+				WHERE room_id = ?
+				ORDER BY created_at DESC
+				LIMIT ?
+			) sub
+			ORDER BY created_at ASC;`
+			rows, err = s.db.Query(query, roomID, limit)
+		}
 	}
 
-	rows, err := s.db.Query(query, roomID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("gagal query history: %w", err)
 	}

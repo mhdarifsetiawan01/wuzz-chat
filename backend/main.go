@@ -159,9 +159,14 @@ func main() {
 		mux.HandleFunc("/api/conversations", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPost {
 				auth.RequireJWT()(http.HandlerFunc(chatHandler.StartDirectChat)).ServeHTTP(w, r)
+			} else if r.Method == http.MethodDelete {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.ClearConversation)).ServeHTTP(w, r)
 			} else {
 				auth.RequireJWT()(http.HandlerFunc(chatHandler.GetConversations)).ServeHTTP(w, r)
 			}
+		}))
+		mux.HandleFunc("/api/conversations/clear", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(chatHandler.ClearConversation)).ServeHTTP(w, r)
 		}))
 	}
 

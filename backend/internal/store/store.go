@@ -72,6 +72,9 @@ type MessageStore interface {
 	// limit = 0 berarti default 50 pesan.
 	GetRoomHistory(roomID string, limit int) ([]StoredMessage, error)
 
+	// GetRoomHistoryForUser mengambil riwayat pesan yang difilter berdasarkan cleared_at milik userID.
+	GetRoomHistoryForUser(roomID, userID string, limit int) ([]StoredMessage, error)
+
 	// AcknowledgeMediaDownload mencatat bahwa client telah mengunduh media.
 	// Mengembalikan mediaURL, mediaStatus terkini, dan apakah file sudah dapat dihapus dari server.
 	AcknowledgeMediaDownload(msgID string) (mediaURL string, mediaStatus string, canDelete bool, err error)

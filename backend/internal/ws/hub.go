@@ -338,7 +338,7 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 
 // sendRoomHistory mengambil riwayat pesan dari database dan mengirimkannya ke client spesifik.
 func (h *Hub) sendRoomHistory(clientID, roomID string) {
-	history, err := h.messageStore.GetRoomHistory(roomID, 50)
+	history, err := h.messageStore.GetRoomHistoryForUser(roomID, clientID, 50)
 	if err != nil {
 		log.Printf("[Hub %s] gagal mengambil history untuk room %s: %v", h.nodeID[:8], roomID, err)
 		return

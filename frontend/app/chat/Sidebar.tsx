@@ -61,6 +61,25 @@ export function Sidebar({
   const [isSearching, setIsSearching] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [confirmDeleteConv, setConfirmDeleteConv] = useState<ConversationItem | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  // Eksekusi hapus percakapan (Delete for Me)
+  const handleExecuteDeleteConversation = async () => {
+    if (!confirmDeleteConv) return
+    setIsDeleting(true)
+    const { error } = await apiRequest(`/api/conversations?id=${encodeURIComponent(confirmDeleteConv.id)}`, {
+      method: 'DELETE',
+    })
+    setIsDeleting(false)
+    if (!error) {
+      setConversations(prev => prev.filter(c => c.id !== confirmDeleteConv.id))
+      if (activeRoomId === confirmDeleteConv.id) {
+        onSelectRoom('')
+      }
+      setConfirmDeleteConv(null)
+    }
+  }
 
 
   // Fetch daftar obrolan aktif beserta unread counts dari database
@@ -362,7 +381,22 @@ export function Sidebar({
                       <div className="conv-details">
                         <div className="conv-top">
                           <span className="conv-name">{c.title || c.id}</span>
-                          {timeStr && <span className="conv-time">{timeStr}</span>}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {timeStr && <span className="conv-time">{timeStr}</span>}
+                            <div className="conv-actions">
+                              <button
+                                type="button"
+                                className="conv-delete-btn"
+                                title="Hapus percakapan dari daftar Anda"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setConfirmDeleteConv(c)
+                                }}
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
                         </div>
                         <div className="conv-bottom">
                           <span className="conv-last-msg">
@@ -401,6 +435,54 @@ export function Sidebar({
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
       />
+
+      {/* Modal Konfirmasi Hapus Percakapan */}
+      {confirmDeleteConv && (
+        <div className="modal-overlay" onClick={() => !isDeleting && setConfirmDeleteConv(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div className="modal-header">
+              <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🗑️</span> Hapus Percakapan?
+              </h3>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => !isDeleting && setConfirmDeleteConv(null)}
+                disabled={isDeleting}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              <p>
+                Apakah Anda yakin ingin menghapus percakapan dengan <strong>{confirmDeleteConv.title}</strong>?
+              </p>
+              <div style={{ marginTop: 12, padding: '10px 12px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: '0.8125rem', color: 'var(--accent-300)' }}>
+                ℹ️ Riwayat obrolan ini hanya akan dibersihkan untuk akun Anda dan <strong>tidak akan terhapus</strong> di sisi lawan bicara.
+              </div>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setConfirmDeleteConv(null)}
+                disabled={isDeleting}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ background: 'var(--color-error)', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600 }}
+                onClick={handleExecuteDeleteConversation}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Menghapus...' : 'Hapus Percakapan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   )
 }

@@ -96,6 +96,57 @@ func (h *ChatHandler) StartDirectChat(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ClearConversation membersihkan percakapan untuk user saat ini (Delete for Me).
+func (h *ChatHandler) ClearConversation(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	var conversationID string
+	conversationID = strings.TrimSpace(r.URL.Query().Get("id"))
+	if conversationID == "" {
+		conversationID = strings.TrimSpace(r.URL.Query().Get("conversation_id"))
+	}
+	if conversationID == "" && r.Body != nil {
+		var req struct {
+			ConversationID string `json:"conversation_id"`
+			ID             string `json:"id"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.ConversationID != "" {
+			conversationID = req.ConversationID
+		} else if req.ID != "" {
+			conversationID = req.ID
+		}
+	}
+
+	if conversationID == "" {
+		http.Error(w, `{"error":"parameter id atau conversation_id wajib diisi"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Validasi bahwa user memang anggota percakapan
+	allowed, err := h.userStore.IsUserInConversation(conversationID, claims.UserID)
+	if err != nil || !allowed {
+		http.Error(w, `{"error":"Akses ditolak: Anda bukan anggota percakapan ini"}`, http.StatusForbidden)
+		return
+	}
+
+	if err := h.userStore.ClearConversation(conversationID, claims.UserID); err != nil {
+		http.Error(w, `{"error":"Gagal menghapus percakapan: `+err.Error()+`"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"message": "Percakapan berhasil dibersihkan untuk akun Anda",
+		"id":      conversationID,
+	})
+}
+
 // GetUserProfile mengambil profil publik user lain berdasarkan ID atau username.
 func (h *ChatHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 	_, ok := auth.GetUserFromContext(r.Context())
