@@ -232,7 +232,7 @@
     - **Security Hardening, Stability Guards & Search Debouncing**:
       - **Backend SSRF Redirect Hardening (`internal/api/link_preview.go`)**: Menambahkan `CheckRedirect` pada OpenGraph scraper HTTP client yang memvalidasi host tujuan di setiap lompatan HTTP 30x untuk mencegah bypass SSRF menuju IP privat/internal loopback.
       - **Safe String Slice Bounds Panic Guard (`internal/store/user_store.go` & `internal/ws/client.go`)**: Menambahkan helper `safePrefix` pada pemotongan ID pengguna untuk menjamin server backend bebas dari fatal crash `runtime error: slice bounds out of range`.
-      - **Frontend Contact Search Debouncing (`Sidebar.tsx`)**: Menerapkan debounce 300ms dan batas minimum 2 karakter pada pencarian kontak untuk menghemat beban query database dan lalu lintas jaringan.
+      - **Frontend Contact Search Debouncing (`Sidebar.tsx`)**: Menerapkan debounce 450ms dan batas minimum 2 karakter pada pencarian kontak untuk menghemat beban query database dan lalu lintas jaringan.
 - **Mandatory Dual-Platform Frontend Architecture SOP**:
   - Dituangkan secara permanen ke dalam [`.agents/AGENTS.md`](../.agents/AGENTS.md) agar seluruh modifikasi frontend di masa mendatang wajib memverifikasi kompatibilitas Desktop (2-Kolom Split) dan Mobile (WhatsApp Single-Screen).
 - **Mandatory Backend Change Notification & Fly.io Deployment Warning SOP**:

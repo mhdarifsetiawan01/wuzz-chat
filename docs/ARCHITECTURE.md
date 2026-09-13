@@ -141,6 +141,7 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `DELETE` / `POST` | `/api/messages?id=&type=` / `/api/messages/delete` | Menghapus pesan (*for_me* kapanpun, atau *for_everyone* ≤ 60s) | Bearer Token |
 | `POST` | `/api/media/upload` | Upload file gambar/dokumen/audio ke storage | Bearer Token |
 | `POST` | `/api/media/ack` | Konfirmasi download file oleh client (memicu auto-delete file fisik) | Bearer Token |
+| `GET` | `/api/link-preview?url=` | Scraping aman metadata OpenGraph (SSRF protected & cached) | Bearer Token |
 | `GET` | `/api/config` | Mengambil status konfigurasi publik (media upload toggle & retention) | Public |
 
 ---

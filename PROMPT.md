@@ -78,7 +78,9 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
    - **DILARANG KERAS melakukan `git push`** ke branch remote manapun tanpa instruksi tertulis terpisah dari user. Khususnya, **jangan pernah push `dev` ke remote** kecuali diminta secara eksplisit.
 4. **Aturan Keamanan Database**:
    - Dilarang menjalankan query destruktif (`DROP TABLE`, `DROP DATABASE`, `TRUNCATE`) tanpa konfirmasi tertulis eksplisit dari pengguna.
-5. **Kualitas Kode**:
+5. **Aturan Peringatan & Konfirmasi Deployment Backend (SOP)**:
+   - Setiap ada modifikasi kode pada direktori `backend/`, AI **WAJIB** memberikan peringatan dan konfirmasi eksplisit kepada user bahwa server live di Fly.io perlu dideploy ulang (`fly deploy --remote-only`) demi mencegah desinkronisasi protokol/query dengan frontend live.
+6. **Kualitas Kode**:
    - Pastikan backend selalu lulus `go test -v ./...` dan frontend selalu lulus `npm run build` sebelum menyelesaikan tugas.
 
 ---
