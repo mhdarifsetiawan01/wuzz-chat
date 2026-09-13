@@ -73,8 +73,8 @@ export function ContactProfileModal({
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(0, 0, 0, 0.7)',
-        backdropFilter: 'blur(4px)',
+        background: 'rgba(0, 0, 0, 0.75)',
+        backdropFilter: 'blur(8px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -85,12 +85,12 @@ export function ContactProfileModal({
       <div
         className="modal-card"
         style={{
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border-color)',
+          background: '#161b22',
+          border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-lg)',
           width: '100%',
           maxWidth: '400px',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.7)',
           overflow: 'hidden',
           animation: 'fadeIn 0.2s ease',
         }}
@@ -102,11 +102,11 @@ export function ContactProfileModal({
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: 'var(--space-4) var(--space-5)',
-            borderBottom: '1px solid var(--border-color)',
-            background: 'var(--bg-tertiary)',
+            borderBottom: '1px solid var(--border-subtle)',
+            background: '#21262d',
           }}
         >
-          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600 }}>Info Kontak</h3>
+          <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>Info Kontak</h3>
           <button
             type="button"
             onClick={onClose}
@@ -169,8 +169,8 @@ export function ContactProfileModal({
               {/* Status Bio Box */}
               <div
                 style={{
-                  background: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border-color)',
+                  background: '#21262d',
+                  border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-md)',
                   padding: 'var(--space-4)',
                   textAlign: 'left',
@@ -193,7 +193,7 @@ export function ContactProfileModal({
                   padding: 'var(--space-2) var(--space-1)',
                   fontSize: '0.8125rem',
                   color: 'var(--text-muted)',
-                  borderTop: '1px solid var(--border-color)',
+                  borderTop: '1px solid var(--border-subtle)',
                   marginTop: 'var(--space-4)',
                 }}
               >

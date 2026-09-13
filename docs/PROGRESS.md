@@ -212,8 +212,12 @@
 
 ---
 
-## ⏳ 3. Apa yang Sedang Dikerjakan (Current State)
+## ⏳ 3. Apa yang Sedang Dikerjakan & Peningkatan Terbaru (Current State)
 
+- **UI/UX Enhancement (WhatsApp Mobile Single-Screen)**:
+  - Transformasi tampilan mobile dari konsep *sidebar drawer* menjadi **WhatsApp Single-Screen Flow**:
+    - **Layar 1 (Daftar Chat Fullscreen)**: Header WuzzChat, Search Bar terintegrasi, Filter Pills (`Semua`, `Belum Dibaca`, `Langsung`, `Grup`), Floating Action Button (FAB) hijau, dan Bottom Navigation Bar.
+    - **Layar 2 (Ruang Obrolan Fullscreen)**: Header kontak dengan tombol navigasi `← Back` untuk kembali ke daftar chat, timeline pesan responsif, dan sticky message input.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id`

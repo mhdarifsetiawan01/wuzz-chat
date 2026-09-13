@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useState, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WsClient } from '@/lib/ws-client'
-import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem } from '@/lib/types'
+import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem } from '@/lib/types'
 import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
@@ -12,7 +12,7 @@ import { ImageLightboxModal } from './ImageLightboxModal'
 import { Sidebar } from './Sidebar'
 import { soundManager } from '@/lib/sound'
 import { useAuth } from '@/lib/auth-context'
-import { deleteMessageApi } from '@/lib/api'
+import { deleteMessageApi, apiRequest } from '@/lib/api'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -275,6 +275,17 @@ function ChatPageContent() {
           if (msg.messages && msg.messages.length > 0 && roomId) {
             dispatch({ type: 'SET_MESSAGES', payload: msg.messages })
 
+            // Jika peerNickname masih kosong, ambil dari nama pengirim pesan yang bukan kita
+            const otherMsg = msg.messages.slice().reverse().find((m: Message) => 
+              m.nickname && 
+              m.nickname !== nickname && 
+              m.nickname !== user?.display_name && 
+              m.nickname !== user?.username
+            )
+            if (otherMsg && otherMsg.nickname) {
+              dispatch({ type: 'SET_PEER_NICKNAME', payload: otherMsg.nickname })
+            }
+
             // Kirim tanda 'read' untuk seluruh pesan di room jika jendela chat sedang aktif
             if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
               client.send({
@@ -395,6 +406,23 @@ function ChatPageContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, isAuthLoading, user?.username, user?.display_name])
+
+  // Muat detail judul percakapan / kontak saat room berubah
+  useEffect(() => {
+    if (!roomId) {
+      dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
+      return
+    }
+
+    apiRequest<ConversationItem[]>('/api/conversations').then(({ data }) => {
+      if (data && Array.isArray(data)) {
+        const found = data.find(c => c.id === roomId)
+        if (found && found.title) {
+          dispatch({ type: 'SET_PEER_NICKNAME', payload: found.title })
+        }
+      }
+    })
+  }, [roomId])
 
   const [lightboxData, setLightboxData] = useState<{ url: string; fileName?: string } | null>(null)
   const [draggedFile, setDraggedFile] = useState<File | null>(null)
@@ -536,8 +564,8 @@ function ChatPageContent() {
   const isConnected = state.status === 'connected'
 
   return (
-    <div className="chat-app-container">
-      {/* Sidebar Obrolan & Kontak */}
+    <div className={`chat-app-container ${roomId ? 'mobile-chat-active' : 'mobile-list-active'}`}>
+      {/* Sidebar Obrolan & Kontak (Fullscreen di Mobile saat tidak ada chat aktif) */}
       <Sidebar
         activeRoomId={roomId}
         onSelectRoom={handleSelectRoom}
@@ -546,7 +574,7 @@ function ChatPageContent() {
         lastIncomingMessage={lastIncomingMessage}
       />
 
-      {/* Main Chat Pane */}
+      {/* Main Chat Pane (Fullscreen di Mobile saat ada chat aktif) */}
       <main
         className={`chat-main-pane ${isDraggingOver ? 'chat-drag-over' : ''}`}
         onDragOver={handleDragOver}
@@ -574,7 +602,7 @@ function ChatPageContent() {
               isPeerTyping={state.isPeerTyping}
               typingNickname={state.typingNickname}
               onOpenMemberList={() => setIsMemberListOpen(true)}
-              onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+              onBack={() => handleSelectRoom('')}
             />
 
             <ChatWindow

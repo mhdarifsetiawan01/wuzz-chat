@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { apiRequest } from '@/lib/api'
 import type { User } from '@/lib/types'
@@ -22,7 +23,8 @@ const PRESET_BIOS = [
 ]
 
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
-  const { user, updateUser } = useAuth()
+  const router = useRouter()
+  const { user, updateUser, logout } = useAuth()
 
   const [displayName, setDisplayName] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
@@ -124,15 +126,15 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       <div
         className="modal-card"
         style={{
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border-color)',
+          background: '#161b22',
+          border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-lg)',
           width: '100%',
           maxWidth: '460px',
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.7)',
           overflow: 'hidden',
         }}
       >
@@ -143,13 +145,13 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: 'var(--space-4) var(--space-5)',
-            borderBottom: '1px solid var(--border-color)',
-            background: 'var(--bg-tertiary)',
+            borderBottom: '1px solid var(--border-subtle)',
+            background: '#21262d',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <span style={{ fontSize: '1.25rem' }}>⚙️</span>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Profil & Pengaturan</h3>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Profil & Pengaturan</h3>
           </div>
           <button
             type="button"
@@ -393,7 +395,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             )}
           </div>
 
-          {/* Buttons */}
+          {/* Action Buttons */}
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-5)' }}>
             <button
               type="button"
@@ -410,6 +412,46 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               style={{ flex: 1, justifyContent: 'center' }}
             >
               {isSaving ? 'Menyimpan...' : 'Simpan Profil'}
+            </button>
+          </div>
+
+          {/* Section: Keluar dari Akun (Logout) */}
+          <div
+            style={{
+              marginTop: 'var(--space-5)',
+              paddingTop: 'var(--space-4)',
+              borderTop: '1px solid var(--border-color)',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Apakah Anda yakin ingin keluar dari akun ini?')) {
+                  logout()
+                  onClose()
+                  router.push('/login')
+                }
+              }}
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: 'var(--radius-md)',
+                color: '#ef4444',
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseOver={e => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)')}
+              onMouseOut={e => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)')}
+            >
+              <span style={{ fontSize: '1rem' }}>⏻</span> Keluar dari Akun
             </button>
           </div>
         </form>

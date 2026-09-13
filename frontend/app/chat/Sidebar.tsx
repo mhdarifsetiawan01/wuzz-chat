@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
@@ -54,8 +54,10 @@ export function Sidebar({
 }: SidebarProps) {
   const router = useRouter()
   const { user, logout } = useAuth()
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
+  const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'groups' | 'direct'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<User[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -224,14 +226,58 @@ export function Sidebar({
     }
   }
 
+  // Filter percakapan berdasarkan tab aktif (Semua, Belum Dibaca, Langsung, Grup)
+  const filteredConversations = conversations.filter(c => {
+    if (activeFilter === 'unread') {
+      const unread = unreadCounts[c.id] || 0
+      return unread > 0 || (c.unread_count && c.unread_count > 0)
+    }
+    if (activeFilter === 'groups') {
+      return c.type === 'group' || (c.id.startsWith('room-') && !c.id.startsWith('dm_'))
+    }
+    if (activeFilter === 'direct') {
+      return c.type === 'direct' || c.id.startsWith('dm_')
+    }
+    return true
+  })
+
+  const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0)
+
   return (
     <aside className={`chat-sidebar ${isOpenMobile ? 'sidebar-open' : ''}`}>
-      {/* Header Profil User */}
+      {/* WhatsApp-Style Top Header */}
       <div className="sidebar-header">
+        <div className="sidebar-brand-row">
+          <div className="sidebar-brand-title">
+            <span className="brand-wuzz">Wuzz</span><span className="brand-chat">Chat</span>
+          </div>
+          <div className="sidebar-brand-actions">
+            <button
+              type="button"
+              className="sidebar-header-btn"
+              onClick={() => setIsProfileModalOpen(true)}
+              title="Profil & Pengaturan"
+            >
+              ⚙️
+            </button>
+            {!user && (
+              <button
+                type="button"
+                onClick={() => router.push('/login')}
+                className="btn btn-primary"
+                style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+              >
+                Masuk
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* User Card Summary Bar (Desktop / Profile Quick Click) */}
         <div
           className="sidebar-user-info"
           onClick={() => setIsProfileModalOpen(true)}
-          style={{ cursor: 'pointer', flex: 1 }}
+          style={{ cursor: 'pointer', marginTop: 'var(--space-2)' }}
           title="Klik untuk mengedit profil & status bio"
         >
           <div className="sidebar-avatar" style={{ fontSize: user?.avatar_url ? '1.25rem' : '0.9rem' }}>
@@ -255,57 +301,88 @@ export function Sidebar({
             </span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          <button
-            type="button"
-            onClick={() => setIsProfileModalOpen(true)}
-            className="sidebar-logout-btn"
-            title="Edit Profil Akun"
-            style={{ fontSize: '0.95rem' }}
-          >
-            ⚙️
-          </button>
-          {user ? (
+      </div>
+
+      {/* Input Pencarian WhatsApp Style */}
+      <div className="sidebar-search-box">
+        <div className="search-input-wrapper">
+          <span className="search-input-icon">🔍</span>
+          <input
+            ref={searchInputRef}
+            type="text"
+            className="sidebar-search-input"
+            placeholder="Cari kontak atau obrolan..."
+            value={searchQuery}
+            onChange={e => handleSearch(e.target.value)}
+          />
+          {searchQuery && (
             <button
               type="button"
-              onClick={() => {
-                logout()
-                router.push('/login')
-              }}
-              className="sidebar-logout-btn"
-              title="Keluar dari akun"
+              className="search-clear-btn"
+              onClick={() => handleSearch('')}
+              title="Bersihkan pencarian"
             >
-              ⏻
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => router.push('/login')}
-              className="btn btn-primary"
-              style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-            >
-              Masuk
+              ✕
             </button>
           )}
         </div>
       </div>
 
-      {/* Input Pencarian Kontak */}
-      <div className="sidebar-search-box">
-        <input
-          type="text"
-          className="sidebar-search-input"
-          placeholder="🔍 Cari kontak atau username..."
-          value={searchQuery}
-          onChange={e => handleSearch(e.target.value)}
-        />
-      </div>
+      {/* Filter Pills WhatsApp Style */}
+      {!isSearching && (
+        <div className="sidebar-filter-pills">
+          <button
+            type="button"
+            className={`filter-pill ${activeFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('all')}
+          >
+            Semua
+          </button>
+          <button
+            type="button"
+            className={`filter-pill ${activeFilter === 'unread' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('unread')}
+          >
+            Belum Dibaca
+            {totalUnread > 0 && (
+              <span className="filter-pill-badge">{totalUnread}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            className={`filter-pill ${activeFilter === 'direct' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('direct')}
+          >
+            Langsung
+          </button>
+          <button
+            type="button"
+            className={`filter-pill ${activeFilter === 'groups' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('groups')}
+          >
+            Grup
+          </button>
+        </div>
+      )}
 
       {/* Daftar Obrolan atau Hasil Pencarian */}
       <div className="sidebar-body">
         {isSearching ? (
           <div className="search-results-pane">
-            <p className="sidebar-section-title">Hasil Pencarian</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px 8px' }}>
+              <span className="sidebar-section-title">Hasil Pencarian Kontak</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSearching(false)
+                  setSearchQuery('')
+                  setSearchResults([])
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--accent-400)', cursor: 'pointer', fontSize: '0.8125rem' }}
+              >
+                Tutup
+              </button>
+            </div>
             {searchError ? (
               <p className="sidebar-empty" style={{ color: 'var(--color-error)' }}>{searchError}</p>
             ) : searchResults.length === 0 ? (
@@ -340,7 +417,9 @@ export function Sidebar({
         ) : (
           <div className="conversations-pane">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px 8px' }}>
-              <span className="sidebar-section-title">Obrolan Terbaru</span>
+              <span className="sidebar-section-title">
+                {activeFilter === 'unread' ? 'Belum Dibaca' : activeFilter === 'groups' ? 'Grup Obrolan' : activeFilter === 'direct' ? 'Obrolan Langsung' : 'Semua Obrolan'}
+              </span>
               <button
                 type="button"
                 onClick={loadConversations}
@@ -351,16 +430,16 @@ export function Sidebar({
               </button>
             </div>
 
-            {conversations.length === 0 ? (
+            {filteredConversations.length === 0 ? (
               <div className="sidebar-empty">
-                <p>Belum ada percakapan.</p>
+                <p>Belum ada percakapan {activeFilter !== 'all' ? `pada kategori ini` : ''}.</p>
                 <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>
-                  Gunakan kolom pencarian di atas untuk mencari teman dan memulai obrolan!
+                  Gunakan kolom pencarian di atas atau tombol + di bawah untuk memulai obrolan!
                 </p>
               </div>
             ) : (
               <ul className="conversations-list">
-                {conversations.map(c => {
+                {filteredConversations.map(c => {
                   const isActive = c.id === activeRoomId
                   const initial = (c.title || '#')[0].toUpperCase()
                   const unread = unreadCounts[c.id] || 0
@@ -430,6 +509,65 @@ export function Sidebar({
           </div>
         )}
       </div>
+
+      {/* WhatsApp Floating Action Button (FAB) di Mobile */}
+      <button
+        type="button"
+        className="sidebar-fab"
+        onClick={() => {
+          setIsSearching(true)
+          setTimeout(() => {
+            searchInputRef.current?.focus()
+          }, 100)
+        }}
+        aria-label="Mulai obrolan baru"
+        title="Mulai obrolan baru / Cari kontak"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          <line x1="12" y1="8" x2="12" y2="14"></line>
+          <line x1="9" y1="11" x2="15" y2="11"></line>
+        </svg>
+      </button>
+
+      {/* WhatsApp Mobile Bottom Navigation */}
+      <nav className="mobile-bottom-nav">
+        <button
+          type="button"
+          className={`bottom-nav-item ${!isSearching ? 'active' : ''}`}
+          onClick={() => {
+            setIsSearching(false)
+            setSearchQuery('')
+          }}
+        >
+          <span className="bottom-nav-icon">💬</span>
+          <span className="bottom-nav-label">Chats</span>
+          {totalUnread > 0 && (
+            <span className="bottom-nav-badge">{totalUnread}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          className={`bottom-nav-item ${isSearching ? 'active' : ''}`}
+          onClick={() => {
+            setIsSearching(true)
+            setTimeout(() => {
+              searchInputRef.current?.focus()
+            }, 100)
+          }}
+        >
+          <span className="bottom-nav-icon">🔍</span>
+          <span className="bottom-nav-label">Kontak</span>
+        </button>
+        <button
+          type="button"
+          className="bottom-nav-item"
+          onClick={() => setIsProfileModalOpen(true)}
+        >
+          <span className="bottom-nav-icon">👤</span>
+          <span className="bottom-nav-label">Profil</span>
+        </button>
+      </nav>
 
       <ProfileModal
         isOpen={isProfileModalOpen}

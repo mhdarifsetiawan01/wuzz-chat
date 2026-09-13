@@ -14,7 +14,7 @@ interface StatusBarProps {
   isPeerTyping?: boolean
   typingNickname?: string | null
   onOpenMemberList: () => void
-  onToggleSidebar?: () => void
+  onBack?: () => void
 }
 
 const statusLabel: Record<ConnectionStatus, string> = {
@@ -33,7 +33,7 @@ export function StatusBar({
   isPeerTyping = false,
   typingNickname = null,
   onOpenMemberList,
-  onToggleSidebar,
+  onBack,
 }: StatusBarProps) {
   const [copied, setCopied] = useState(false)
   const [soundMuted, setSoundMuted] = useState(false)
@@ -55,22 +55,29 @@ export function StatusBar({
     }
   }
 
-  const isDirectChat = roomId.startsWith('dm_') || Boolean(peerNickname)
-  const peerName = (peerNickname && peerNickname.trim()) ? peerNickname : (roomId ? `Room: ${roomId}` : 'Ruang Obrolan')
-  const initial = (peerNickname && peerNickname.trim() ? peerNickname.trim()[0] : (roomId && roomId.trim() ? roomId.trim()[0] : '#')).toUpperCase()
+  const isDirectChat = roomId.startsWith('dm_') || !roomId.startsWith('room-')
+  const isPeerOnline = roomUsers.some(u => (session && u.id !== session.clientId) || (peerNickname && u.nickname === peerNickname))
+  const peerName = (peerNickname && peerNickname.trim())
+    ? peerNickname
+    : (isDirectChat ? 'Memuat kontak...' : (roomId.startsWith('room-') ? `Grup ${roomId.replace('room-', '')}` : roomId))
+  const initial = (peerName && peerName.trim() ? peerName.trim()[0] : '#').toUpperCase()
 
   return (
     <>
       <header className="status-bar" role="banner">
         <div className="status-bar-left">
-          {onToggleSidebar && (
+          {onBack && (
             <button
               type="button"
-              className="mobile-menu-btn"
-              onClick={onToggleSidebar}
-              aria-label="Buka daftar obrolan"
+              className="mobile-back-btn"
+              onClick={onBack}
+              aria-label="Kembali ke daftar obrolan"
+              title="Kembali ke daftar obrolan"
             >
-              ☰
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
             </button>
           )}
 
@@ -86,86 +93,95 @@ export function StatusBar({
               alignItems: 'center',
               gap: 'var(--space-3)',
               cursor: (isDirectChat && peerNickname) ? 'pointer' : 'default',
+              minWidth: 0,
             }}
             title={isDirectChat && peerNickname ? 'Klik untuk melihat profil lengkap kontak ini' : undefined}
           >
-            <div className="status-avatar" aria-hidden="true">
+            <div className="status-avatar" aria-hidden="true" style={{ position: 'relative' }}>
               {initial}
+              {isPeerOnline && isDirectChat && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: 0,
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    background: '#22c55e',
+                    border: '2px solid var(--bg-surface)',
+                  }}
+                  title="Online"
+                />
+              )}
             </div>
 
             <div className="status-info">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span className="status-name" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {peerName}
-                  {isDirectChat && peerNickname && (
-                    <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>ℹ️</span>
-                  )}
-                </span>
-                {roomId && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      copyRoomLink()
-                    }}
-                    className="status-btn"
-                    title="Salin link chat ini untuk dibagikan ke teman"
-                  >
-                    {copied ? '✓ Link Tersalin!' : '📋 Salin Link'}
-                  </button>
-                )}
-                {/* Tombol Daftar Anggota */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onOpenMemberList()
-                  }}
-                  className="status-btn member-badge-btn"
-                  title="Lihat daftar anggota yang sedang online di room ini"
-                >
-                  👥 {roomUsers.length} Online
-                </button>
-              </div>
-              {isPeerTyping ? (
-                <div className="status-sub">
-                  <span className="status-typing-label">
-                    <span>✍️</span>
-                    <span>{typingNickname ? `${typingNickname} sedang mengetik...` : 'sedang mengetik...'}</span>
+              <span className="status-name" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {peerName}
+              </span>
+              <div className="status-sub">
+                {isPeerTyping ? (
+                  <span className="status-typing-label" style={{ color: 'var(--accent-400)' }}>
+                    <span>✍️</span> {typingNickname ? `${typingNickname} sedang mengetik...` : 'sedang mengetik...'}
                   </span>
-                </div>
-              ) : session ? (
-                <div className="status-sub">
-                  Kamu: <strong>{session.nickname}</strong>
-                </div>
-              ) : null}
+                ) : isDirectChat ? (
+                  <span style={{ color: isPeerOnline ? 'var(--accent-400)' : 'var(--text-muted)' }}>
+                    {isPeerOnline ? 'online' : 'offline'}
+                  </span>
+                ) : (
+                  <span>{roomUsers.length} anggota</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Tombol Toggle Sound FX */}
+          {/* Untuk Grup: Tombol Salin Link & Anggota */}
+          {!isDirectChat && roomId && (
+            <>
+              <button
+                type="button"
+                onClick={copyRoomLink}
+                className="status-btn"
+                title="Salin link room ini"
+                style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+              >
+                {copied ? '✓ Tersalin' : '📋 Link'}
+              </button>
+              <button
+                type="button"
+                onClick={onOpenMemberList}
+                className="status-btn member-badge-btn"
+                title="Lihat daftar anggota room"
+                style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+              >
+                👥 {roomUsers.length}
+              </button>
+            </>
+          )}
+
+          {/* Tombol Toggle Sound FX Minimalis */}
           <button
             type="button"
             onClick={() => soundManager.toggleMute()}
             className={`status-btn ${soundMuted ? 'muted' : ''}`}
             title={soundMuted ? 'Nyalakan efek suara pesan' : 'Matikan efek suara pesan'}
             aria-label={soundMuted ? 'Nyalakan efek suara pesan' : 'Matikan efek suara pesan'}
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', fontSize: '0.8125rem' }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', fontSize: '0.85rem', width: '32px', height: '32px', borderRadius: 'var(--radius-full)' }}
           >
             <span>{soundMuted ? '🔇' : '🔊'}</span>
-            <span className="hide-on-mobile">{soundMuted ? 'Muted' : 'Sound'}</span>
           </button>
 
-          {/* Status koneksi */}
+          {/* Indikator Bulat Koneksi (Dot-Only tanpa tulisan) */}
           <div
-            className={`status-indicator ${status}`}
+            className={`status-indicator-dot-only ${status}`}
             role="status"
-            aria-live="polite"
             aria-label={`Status koneksi: ${statusLabel[status]}`}
+            title={`Status koneksi: ${statusLabel[status]}`}
           >
             <span className="status-dot" aria-hidden="true" />
-            {statusLabel[status]}
           </div>
         </div>
       </header>
