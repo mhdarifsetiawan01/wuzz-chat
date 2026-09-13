@@ -67,9 +67,26 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
    - AI **HANYA BOLEH** mengeksekusi `git commit` jika user telah secara eksplisit menyatakan selesai (misal: *"selesai"*, *"ya commit"*, *"oke commit"*).
 
 3. **Kondisi Belum Selesai / Iterasi Lanjutan**:
-   - Jika user menganggap task belum selesai, menemukan bug, atau memberikan pertanyaan/perbaikan lanjutan, AI harus **tetap melanjutkan percakapan/pekerjaan sebelumnya** dalam sesi tersebut tanpa melakukan commit.
+## 🌿 Strict Branching Strategy & Promotion Lifecycle Rule (MANDATORY)
 
-4. **Proteksi Git Push**:
-   - Persetujuan lokal `git commit` **TIDAK MEMBERIKAN IZIN** untuk melakukan `git push`. `git push` ke remote tetap membutuhkan perintah tertulis terpisah dari user.
+**DILARANG KERAS melakukan perubahan, modifikasi kode, atau mengerjakan tugas langsung di branch `main`.**
+
+### Alur Kerja Branching (SOP):
+
+1. **Aturan Larangan Branch `main`**:
+   - Branch `main` adalah branch produksi murni (*production release branch*).
+   - Setiap kali memulai tugas baru, perbaikan bug, atau penambahan fitur, AI **WAJIB memastikan branch aktif BUKAN `main`**. Pekerjaan wajib dilakukan di:
+     - Branch `dev` (untuk pengembangan reguler), ATAU
+     - Feature branch baru yang dibuat dari `dev` (misal: `feature/webrtc-calling`, `fix/cors-origin`).
+
+2. **Proses Penggabungan Bertingkat (Gradual Promotion Flow)**:
+   - **Tahap 1 (Feature ➔ `dev`)**: Jika bekerja di feature branch, setelah tugas selesai dan diverifikasi, lakukan merge ke branch `dev`.
+   - **Tahap 2 (Verifikasi di `dev`)**: Pastikan seluruh test (`go test ./...` & `npm run build`) lulus 100% dan kondisi branch `dev` stabil.
+   - **Tahap 3 (`dev` ➔ `main`)**: Hanya setelah branch `dev` dinyatakan aman, stabil, dan atas persetujuan user, lakukan merge dari `dev` ke `main` sebagai persiapan rilis.
+   - **Tahap 4 (`main` ➔ GitHub Remote)**: Eksekusi `git push origin main` hanya dilakukan setelah `main` siap dan terdapat instruksi/persetujuan tertulis eksplisit dari pengguna.
+
+3. **Guards & Verification**:
+   - Jika AI mendeteksi branch aktif adalah `main` saat pengguna memberikan instruksi pengerjaan fitur/perbaikan kode, AI **WAJIB STOP**, memperingatkan bahwa branch `main` terproteksi, dan beralih ke branch `dev` atau feature branch sebelum menyentuh file kode apapun.
+
 
 

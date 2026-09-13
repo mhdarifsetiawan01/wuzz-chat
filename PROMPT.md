@@ -65,12 +65,14 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 
 1. **Aturan Siklus Hidup Server**:
    - Jika AI menyalakan server sementara untuk verifikasi (misal: `go run main.go` atau `npm run dev`), AI **WAJIB mematikan port tersebut (`fuser -k <port>/tcp`)** sebelum mengakhiri respons, KECUALI user meminta dibiarkan berjalan.
-2. **Aturan Keamanan Git & Konfirmasi Commit (SOP)**:
+2. **Aturan Keamanan Git, Branching & Konfirmasi Commit (SOP)**:
+   - **DILARANG KERAS melakukan perubahan, modifikasi kode, atau pengerjaan tugas langsung di branch `main`.**
+   - Seluruh pekerjaan wajib dilakukan di branch `dev` atau feature branch baru (`feature/...`).
+   - Alur promosi bertingkat: **Feature Branch ➔ `dev` (Pengujian & Stabilitas) ➔ `main` (Persiapan Rilis) ➔ `git push origin main` (Setelah disetujui tertulis)**.
    - **DILARANG KERAS melakukan `git commit` tanpa persetujuan / konfirmasi eksplisit dari pengguna.**
    - Setiap kali suatu task/tugas selesai, AI wajib konfirmasi ke user. Jika user menyatakan **"selesai"** / menyetujui, barulah AI boleh melakukan `git commit`.
    - Jika user menganggap belum selesai / ada perbaikan, percakapan selanjutnya di sesi tersebut **tetap melanjutkan percakapan sebelumnya** tanpa melakukan commit.
    - **DILARANG KERAS melakukan `git push`** ke branch remote manapun tanpa instruksi tertulis terpisah dari user.
-   - Semua pekerjaan dilakukan di branch `dev`.
 3. **Aturan Keamanan Database**:
    - Dilarang menjalankan query destruktif (`DROP TABLE`, `DROP DATABASE`, `TRUNCATE`) tanpa konfirmasi tertulis eksplisit dari pengguna.
 4. **Kualitas Kode**:
