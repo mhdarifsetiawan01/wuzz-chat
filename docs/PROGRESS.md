@@ -231,6 +231,8 @@
       - **Graceful Timeout & Retry Action**: Dilengkapi safety timeout (7.5s) dan tombol interaktif *🔄 Coba Sinkronkan Lagi* jika koneksi database/jaringan terhambat, dengan jaminan pesan user tetap aman.
 - **Mandatory Dual-Platform Frontend Architecture SOP**:
   - Dituangkan secara permanen ke dalam [`.agents/AGENTS.md`](../.agents/AGENTS.md) agar seluruh modifikasi frontend di masa mendatang wajib memverifikasi kompatibilitas Desktop (2-Kolom Split) dan Mobile (WhatsApp Single-Screen).
+- **Mandatory Backend Change Notification & Fly.io Deployment Warning SOP**:
+  - Dituangkan ke dalam [`.agents/AGENTS.md`](../.agents/AGENTS.md) agar setiap modifikasi pada kode backend Go selalu menyertakan peringatan & konfirmasi deployment ulang ke Fly.io demi mencegah desinkronisasi protokol/query dengan frontend produksi.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id` & `https://wuzz-chat.vercel.app`

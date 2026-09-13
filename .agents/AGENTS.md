@@ -124,5 +124,28 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
 3. **Guards & Verification**:
    - Jika AI mendeteksi branch aktif adalah `main` saat pengguna memberikan instruksi pengerjaan fitur/perbaikan kode, AI **WAJIB STOP**, memperingatkan bahwa branch `main` terproteksi, dan beralih ke branch `dev` atau feature branch sebelum menyentuh file kode apapun.
 
+---
+
+## ☁️ Mandatory Backend Change Notification & Fly.io Deployment Warning Rule (MANDATORY)
+
+**Setiap kali ada perubahan, perbaikan bug, atau penambahan fitur di direktori `backend/`, AI WAJIB memberikan konfirmasi dan peringatan eksplisit kepada pengguna bahwa server backend (Fly.io) perlu di-deploy ulang.**
+
+### Aturan konkret:
+
+1. **Peringatan Desinkronisasi Backend vs Live Production**:
+   - Frontend produksi (`https://chat.wuzzhub.id` dan `https://wuzz-chat.vercel.app`) terhubung langsung ke live backend di Fly.io (`https://wuzz-chat-backend.fly.dev` dan `wss://wuzz-chat-backend.fly.dev/ws`).
+   - Jika kode backend diubah namun Fly.io belum di-deploy ulang, frontend produksi akan tetap berkomunikasi dengan binary backend lama, yang berpotensi menimbulkan *mismatch* protokol WebSocket, query error, atau timeout sinkronisasi.
+
+2. **Kewajiban AI saat Menyelesaikan Tugas Backend**:
+   - Di setiap akhir penjelasan/respons yang melibatkan perubahan kode backend Go:
+     - AI **WAJIB** menyertakan kotak peringatan / catatan:
+       > ⚠️ **Pemberitahuan Deployment Backend**: Terdapat perubahan pada kode backend (`backend/internal/...`). Agar perubahan ini aktif di server live production (`chat.wuzzhub.id`), backend di Fly.io wajib di-deploy ulang menggunakan perintah `fly deploy --remote-only`.
+     - AI **WAJIB** menanyakan konfirmasi kepada user apakah ingin langsung dideploy ke Fly.io.
+
+3. **Prosedur Deploy Backend**:
+   - AI hanya boleh menjalankan `fly deploy` jika user telah memberikan persetujuan/instruksi eksplisit (misal: *"ya deploy"*, *"deploy ke fly.io"*).
+   - Selalu lakukan health check `curl -sI https://wuzz-chat-backend.fly.dev/health` setelah deploy untuk memastikan status HTTP 200 OK.
+
+
 
 
