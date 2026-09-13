@@ -387,7 +387,7 @@ export function MessageInput({
         </div>
       )}
 
-      <p style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '0.375rem', paddingLeft: '0.25rem' }}>
+      <p className="chat-input-hints" style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '0.375rem', paddingLeft: '0.25rem' }}>
         Enter kirim · Shift+Enter baris baru {mediaEnabled && '· 🎙️ Rekam suara · Paste gambar (Ctrl+V)'}
       </p>
     </div>
