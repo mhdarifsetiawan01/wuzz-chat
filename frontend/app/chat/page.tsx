@@ -14,7 +14,7 @@ import { soundManager } from '@/lib/sound'
 import { useAuth } from '@/lib/auth-context'
 import { deleteMessageApi, apiRequest } from '@/lib/api'
 import { isEncryptedMessage, encryptText, decryptText } from '@/lib/crypto/e2ee'
-import { initUserE2EE, getSharedRoomAESKey, cachePeerPublicKey } from '@/lib/crypto/keyStore'
+import { initUserE2EE, getSharedRoomAESKey, cachePeerPublicKey, getCachedPeerPublicKey } from '@/lib/crypto/keyStore'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -158,6 +158,45 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
 }
 
 // ----------------------------------------------------------------
+// E2EE Helper Dekripsi Pesan
+// ----------------------------------------------------------------
+
+async function decryptSingleMessage(m: Message, key: CryptoKey | null): Promise<Message> {
+  const cipher = m.raw_content || m.content || ''
+  if (!isEncryptedMessage(cipher)) {
+    return m
+  }
+  if (!key) {
+    return {
+      ...m,
+      raw_content: cipher,
+      content: '🔒 [Pesan Terenkripsi]',
+    }
+  }
+  try {
+    const plain = await decryptText(key, cipher)
+    let plainReply = m.reply_to?.content
+    if (plainReply && isEncryptedMessage(plainReply)) {
+      try {
+        plainReply = await decryptText(key, plainReply)
+      } catch {}
+    }
+    return {
+      ...m,
+      raw_content: cipher,
+      content: plain,
+      reply_to: m.reply_to ? { ...m.reply_to, content: plainReply || '' } : undefined,
+    }
+  } catch (err) {
+    return {
+      ...m,
+      raw_content: cipher,
+      content: '🔒 [Pesan Terenkripsi]',
+    }
+  }
+}
+
+// ----------------------------------------------------------------
 // Chat Page Component
 // ----------------------------------------------------------------
 
@@ -178,6 +217,12 @@ function ChatPageContent() {
   const clientRef = useRef<WsClient | null>(null)
   const roomAESKeyRef = useRef<CryptoKey | null>(null)
   const activePeerRef = useRef<{ id: string; publicKey: string } | null>(null)
+  const messagesRef = useRef<Message[]>([])
+
+  // Selalu sinkronkan messagesRef dengan state.messages
+  useEffect(() => {
+    messagesRef.current = state.messages
+  }, [state.messages])
 
   // Inisialisasi E2EE Identity Keys saat user login
   useEffect(() => {
@@ -193,6 +238,51 @@ function ChatPageContent() {
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Timer timeout sinkronisasi riwayat pesan (7.5 detik)
   const historyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Resolusi kunci publik lawan bicara & auto-dekripsi reaktif
+  const resolvePeerKeyAndDecrypt = useCallback(async (peerId: string, pubKeyParam?: string) => {
+    if (!user?.id || !roomId || !peerId) return
+
+    let pubKey = pubKeyParam || ''
+    if (!pubKey) {
+      const cached = getCachedPeerPublicKey(peerId)
+      if (cached) {
+        pubKey = cached
+      } else {
+        try {
+          const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(peerId)}`)
+          if (profile && profile.public_key) {
+            pubKey = profile.public_key
+          }
+        } catch (err) {
+          console.warn('[E2EE] Gagal fetch profil peer:', err)
+        }
+      }
+    }
+
+    if (pubKey) {
+      cachePeerPublicKey(peerId, pubKey)
+      setPeerPublicKeyJWK(pubKey)
+      activePeerRef.current = { id: peerId, publicKey: pubKey }
+
+      const aesKey = await getSharedRoomAESKey(user.id, peerId, pubKey, roomId)
+      if (aesKey) {
+        roomAESKeyRef.current = aesKey
+
+        // Re-dekripsi semua pesan yang sedang tampil di layar secara instan
+        const currentList = messagesRef.current
+        if (currentList && currentList.length > 0) {
+          const hasEncrypted = currentList.some(m => isEncryptedMessage(m.raw_content || m.content))
+          if (hasEncrypted) {
+            const decryptedList = await Promise.all(
+              currentList.map(m => decryptSingleMessage(m, aesKey))
+            )
+            dispatch({ type: 'SET_MESSAGES', payload: decryptedList })
+          }
+        }
+      }
+    }
+  }, [user?.id, roomId])
 
   useEffect(() => {
     if (isAuthLoading) return
@@ -292,10 +382,13 @@ function ChatPageContent() {
           // Update daftar member aktif di room
           if (msg.users && roomId) {
             dispatch({ type: 'SET_ROOM_USERS', payload: msg.users })
-            // Jika ada member selain kita, set nama peer
+            // Jika ada member selain kita, set nama peer dan resolve kunci E2EE
             const otherUsers = msg.users.filter(u => u.nickname !== nickname)
             if (otherUsers.length === 1) {
               dispatch({ type: 'SET_PEER_NICKNAME', payload: otherUsers[0].nickname })
+              if (otherUsers[0].id) {
+                resolvePeerKeyAndDecrypt(otherUsers[0].id)
+              }
             } else if (otherUsers.length > 1) {
               dispatch({ type: 'SET_PEER_NICKNAME', payload: `${otherUsers.length} Peserta` })
             }
@@ -320,31 +413,7 @@ function ChatPageContent() {
               }
 
               const decryptedList = await Promise.all(
-                rawMessages.map(async (m: Message) => {
-                  if (isEncryptedMessage(m.content)) {
-                    if (key) {
-                      try {
-                        const plain = await decryptText(key, m.content!)
-                        let plainReply = m.reply_to?.content
-                        if (plainReply && isEncryptedMessage(plainReply)) {
-                          try {
-                            plainReply = await decryptText(key, plainReply)
-                          } catch {}
-                        }
-                        return {
-                          ...m,
-                          content: plain,
-                          reply_to: m.reply_to ? { ...m.reply_to, content: plainReply || '' } : undefined,
-                        }
-                      } catch (err) {
-                        return { ...m, content: '🔒 [Pesan Terenkripsi]' }
-                      }
-                    } else {
-                      return { ...m, content: '🔒 [Pesan Terenkripsi]' }
-                    }
-                  }
-                  return m
-                })
+                rawMessages.map((m: Message) => decryptSingleMessage(m, key))
               )
 
               dispatch({ type: 'SET_MESSAGES', payload: decryptedList })
@@ -418,35 +487,13 @@ function ChatPageContent() {
             setIsHistoryError(false)
 
             const processIncomingMsg = async () => {
-              let decryptedMsg = msg
-              if (isEncryptedMessage(msg.content)) {
-                let key = roomAESKeyRef.current
-                if (!key && user?.id && activePeerRef.current?.id && activePeerRef.current?.publicKey) {
-                  key = await getSharedRoomAESKey(user.id, activePeerRef.current.id, activePeerRef.current.publicKey, roomId)
-                  roomAESKeyRef.current = key
-                }
-                if (key) {
-                  try {
-                    const plain = await decryptText(key, msg.content!)
-                    let plainReply = msg.reply_to?.content
-                    if (plainReply && isEncryptedMessage(plainReply)) {
-                      try {
-                        plainReply = await decryptText(key, plainReply)
-                      } catch {}
-                    }
-                    decryptedMsg = {
-                      ...msg,
-                      content: plain,
-                      reply_to: msg.reply_to ? { ...msg.reply_to, content: plainReply || '' } : undefined,
-                    }
-                  } catch (err) {
-                    decryptedMsg = { ...msg, content: '🔒 [Pesan Terenkripsi]' }
-                  }
-                } else {
-                  decryptedMsg = { ...msg, content: '🔒 [Pesan Terenkripsi]' }
-                }
+              let key = roomAESKeyRef.current
+              if (!key && user?.id && activePeerRef.current?.id && activePeerRef.current?.publicKey) {
+                key = await getSharedRoomAESKey(user.id, activePeerRef.current.id, activePeerRef.current.publicKey, roomId)
+                roomAESKeyRef.current = key
               }
 
+              const decryptedMsg = await decryptSingleMessage(msg, key)
               dispatch({ type: 'ADD_MESSAGE', payload: decryptedMsg })
             }
 
@@ -540,7 +587,7 @@ function ChatPageContent() {
       if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, isAuthLoading, user?.username, user?.display_name])
+  }, [roomId, isAuthLoading, user?.username, user?.display_name, resolvePeerKeyAndDecrypt])
 
   // Muat detail judul percakapan / kontak & kunci E2EE lawan bicara saat room berubah
   useEffect(() => {
@@ -552,6 +599,17 @@ function ChatPageContent() {
       return
     }
 
+    // Resolusi instan dari roomId jika berbentuk dm_userA_userB
+    if (roomId.startsWith('dm_')) {
+      const parts = roomId.replace('dm_', '').split('_')
+      if (parts.length === 2) {
+        const potentialPeerId = parts[0] === user.id ? parts[1] : parts[0]
+        if (potentialPeerId) {
+          resolvePeerKeyAndDecrypt(potentialPeerId)
+        }
+      }
+    }
+
     apiRequest<ConversationItem[]>('/api/conversations').then(async ({ data }) => {
       if (data && Array.isArray(data)) {
         const found = data.find(c => c.id === roomId)
@@ -561,28 +619,12 @@ function ChatPageContent() {
           }
 
           if (found.peer_id) {
-            let pubKey = found.peer_public_key || ''
-            if (!pubKey) {
-              // Fetch profil peer jika public_key belum ada di cache percakapan
-              const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(found.peer_id)}`)
-              if (profile && profile.public_key) {
-                pubKey = profile.public_key
-              }
-            }
-
-            if (pubKey) {
-              cachePeerPublicKey(found.peer_id, pubKey)
-              setPeerPublicKeyJWK(pubKey)
-              activePeerRef.current = { id: found.peer_id, publicKey: pubKey }
-
-              const aesKey = await getSharedRoomAESKey(user.id, found.peer_id, pubKey, roomId)
-              roomAESKeyRef.current = aesKey
-            }
+            resolvePeerKeyAndDecrypt(found.peer_id, found.peer_public_key)
           }
         }
       }
     })
-  }, [roomId, user?.id])
+  }, [roomId, user?.id, resolvePeerKeyAndDecrypt])
 
   const [lightboxData, setLightboxData] = useState<{ url: string; fileName?: string } | null>(null)
   const [draggedFile, setDraggedFile] = useState<File | null>(null)

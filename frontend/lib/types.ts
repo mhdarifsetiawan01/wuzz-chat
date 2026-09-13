@@ -36,6 +36,7 @@ export interface Message {
   room?: string
   nickname?: string
   content?: string
+  raw_content?: string
   timestamp?: string
   status?: MessageReceiptStatus
   reply_to?: ReplyTarget
