@@ -576,47 +576,122 @@ export function Sidebar({
 
       {/* Modal Konfirmasi Hapus Percakapan */}
       {confirmDeleteConv && (
-        <div className="modal-overlay" onClick={() => !isDeleting && setConfirmDeleteConv(null)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <div className="modal-header">
-              <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div
+          className="modal-backdrop"
+          onClick={e => {
+            if (e.target === e.currentTarget && !isDeleting) setConfirmDeleteConv(null)
+          }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 120,
+            padding: 'var(--space-4)',
+          }}
+        >
+          <div
+            className="modal-card"
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#161b22',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-lg)',
+              width: '100%',
+              maxWidth: '420px',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.7)',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: 'var(--space-4) var(--space-5)',
+                borderBottom: '1px solid var(--border-subtle)',
+                background: '#21262d',
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>🗑️</span> Hapus Percakapan?
               </h3>
               <button
                 type="button"
-                className="modal-close-btn"
                 onClick={() => !isDeleting && setConfirmDeleteConv(null)}
                 disabled={isDeleting}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  fontSize: '1.25rem',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  lineHeight: 1,
+                  padding: '4px',
+                }}
               >
                 ✕
               </button>
             </div>
-            <div className="modal-body" style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              <p>
+
+            {/* Modal Body */}
+            <div style={{ padding: 'var(--space-5)', color: 'var(--text-secondary)', fontSize: '0.875rem', lineHeight: 1.6 }}>
+              <p style={{ margin: '0 0 12px 0', color: 'var(--text-primary)' }}>
                 Apakah Anda yakin ingin menghapus percakapan dengan <strong>{confirmDeleteConv.title}</strong>?
               </p>
-              <div style={{ marginTop: 12, padding: '10px 12px', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: '0.8125rem', color: 'var(--accent-300)' }}>
+              <div
+                style={{
+                  padding: '10px 12px',
+                  background: 'rgba(16, 185, 129, 0.08)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  fontSize: '0.8125rem',
+                  color: 'var(--accent-300)',
+                  lineHeight: 1.5,
+                }}
+              >
                 ℹ️ Riwayat obrolan ini hanya akan dibersihkan untuk akun Anda dan <strong>tidak akan terhapus</strong> di sisi lawan bicara.
               </div>
-            </div>
-            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setConfirmDeleteConv(null)}
-                disabled={isDeleting}
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                className="btn"
-                style={{ background: 'var(--color-error)', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600 }}
-                onClick={handleExecuteDeleteConversation}
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Menghapus...' : 'Hapus Percakapan'}
-              </button>
+
+              {/* Modal Footer Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: 'var(--space-5)' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setConfirmDeleteConv(null)}
+                  disabled={isDeleting}
+                  style={{ padding: '8px 16px', fontSize: '0.875rem' }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    background: 'var(--color-error)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    cursor: isDeleting ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    transition: 'all 0.15s ease',
+                    opacity: isDeleting ? 0.7 : 1,
+                  }}
+                  onClick={handleExecuteDeleteConversation}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Menghapus...' : 'Hapus Percakapan'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
