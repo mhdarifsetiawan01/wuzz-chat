@@ -305,7 +305,7 @@ export function Sidebar({
 
   const [searchError, setSearchError] = useState('')
 
-  // Cari user lain dengan debounce 450ms untuk optimasi performa dan mencegah request flooding
+  // Cari user lain dengan debounce 300ms untuk optimasi performa dan mencegah request flooding
   const handleSearch = (query: string) => {
     setSearchQuery(query)
     setSearchError('')
@@ -315,7 +315,7 @@ export function Sidebar({
     }
 
     const trimmed = query.trim()
-    if (!trimmed || trimmed.length < 2) {
+    if (!trimmed) {
       setSearchResults([])
       setIsSearching(false)
       return
@@ -330,7 +330,7 @@ export function Sidebar({
       } else if (error) {
         setSearchError(error)
       }
-    }, 450)
+    }, 300)
   }
 
   // Mulai direct chat dengan user hasil pencarian
@@ -368,6 +368,7 @@ export function Sidebar({
   })
 
   const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0)
+  const isSearchActive = searchQuery.trim().length > 0
 
   return (
     <aside className={`chat-sidebar ${isOpenMobile ? 'sidebar-open' : ''}`}>
@@ -380,33 +381,31 @@ export function Sidebar({
           <div className="sidebar-brand-actions">
             <button
               type="button"
-              className="sidebar-header-btn"
+              className="sidebar-action-btn"
               onClick={() => setIsProfileModalOpen(true)}
-              title="Profil & Pengaturan"
+              title="Profil & Pengaturan Akun"
             >
               ⚙️
             </button>
-            {!user && (
-              <button
-                type="button"
-                onClick={() => router.push('/login')}
-                className="btn btn-primary"
-                style={{ fontSize: '0.75rem', padding: '4px 8px' }}
-              >
-                Masuk
-              </button>
-            )}
+            <button
+              type="button"
+              className="sidebar-action-btn"
+              onClick={logout}
+              title="Keluar / Logout"
+            >
+              🚪
+            </button>
           </div>
         </div>
 
-        {/* User Card Summary Bar (Desktop / Profile Quick Click) */}
+        {/* User Card Profile Mini */}
         <div
-          className="sidebar-user-info"
+          className="sidebar-user-card"
           onClick={() => setIsProfileModalOpen(true)}
-          style={{ cursor: 'pointer', marginTop: 'var(--space-2)' }}
-          title="Klik untuk mengedit profil & status bio"
+          title="Klik untuk ubah profil"
+          style={{ cursor: 'pointer' }}
         >
-          <div className="sidebar-avatar" style={{ fontSize: user?.avatar_url ? '1.25rem' : '0.9rem' }}>
+          <div className="sidebar-avatar user-avatar-pulse">
             {user?.avatar_url || (user?.display_name || user?.username || 'A')[0].toUpperCase()}
           </div>
           <div className="sidebar-user-details" style={{ overflow: 'hidden' }}>
@@ -455,7 +454,7 @@ export function Sidebar({
       </div>
 
       {/* Filter Pills WhatsApp Style */}
-      {!isSearching && (
+      {!isSearchActive && (
         <div className="sidebar-filter-pills">
           <button
             type="button"
@@ -493,26 +492,36 @@ export function Sidebar({
 
       {/* Daftar Obrolan atau Hasil Pencarian */}
       <div className="sidebar-body">
-        {isSearching ? (
+        {isSearchActive ? (
           <div className="search-results-pane">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px 8px' }}>
               <span className="sidebar-section-title">Hasil Pencarian Kontak</span>
               <button
                 type="button"
                 onClick={() => {
-                  setIsSearching(false)
                   setSearchQuery('')
                   setSearchResults([])
+                  setIsSearching(false)
+                  setSearchError('')
                 }}
                 style={{ background: 'none', border: 'none', color: 'var(--accent-400)', cursor: 'pointer', fontSize: '0.8125rem' }}
               >
                 Tutup
               </button>
             </div>
-            {searchError ? (
+            {isSearching ? (
+              <div className="sidebar-empty">
+                <p>🔍 Mencari &quot;{searchQuery}&quot;...</p>
+              </div>
+            ) : searchError ? (
               <p className="sidebar-empty" style={{ color: 'var(--color-error)' }}>{searchError}</p>
             ) : searchResults.length === 0 ? (
-              <p className="sidebar-empty">Tidak ada pengguna ditemukan</p>
+              <div className="sidebar-empty">
+                <p>Tidak ada pengguna ditemukan untuk &quot;{searchQuery}&quot;</p>
+                <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                  Coba cari dengan username atau nama tampilan lain.
+                </p>
+              </div>
             ) : (
               <ul className="conversations-list">
                 {searchResults.map(u => (

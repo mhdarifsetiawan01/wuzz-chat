@@ -276,6 +276,8 @@
     - `IncomingCallModal.tsx`: Dialog pop-up panggilan masuk dengan animasi denyut avatar dan aksi Terima / Tolak.
     - `AudioCallOverlay.tsx`: Layar panggilan berlangsung dengan avatar wave, timer durasi live, tombol mute mikrofon, dan tombol akhiri panggilan.
     - Tombol panggil suara 📞 pada status bar obrolan direct 1-on-1.
+- **Bug Fix & UI Polish**:
+  - **Contact Search Persistence**: Memisahkan state loading API `isSearching` dengan state visibilitas panel pencarian `isSearchActive` di `Sidebar.tsx` sehingga hasil pencarian kontak tetap menetap dan tidak tertutup otomatis setelah 1 detik.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id` & `https://wuzz-chat.vercel.app`
@@ -283,7 +285,7 @@
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)
   - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
-- Siap melangkah ke **Milestone 7.2B: WebRTC 1-on-1 Video Calling**.
+- Siap melangkah ke **Milestone 7.2B: WebRTC 1-on-1 Video Calling** (dijadwalkan berikutnya).
 
 ---
 
