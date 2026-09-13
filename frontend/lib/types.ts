@@ -1,5 +1,5 @@
 // Tipe pesan yang dipertukarkan — sinkron dengan backend Go (internal/ws/message.go)
-export type MessageType = 'join' | 'message' | 'typing' | 'receipt' | 'reaction' | 'leave' | 'system' | 'history' | 'room_users'
+export type MessageType = 'join' | 'message' | 'typing' | 'receipt' | 'reaction' | 'leave' | 'system' | 'history' | 'room_users' | 'message_deleted'
 
 export type MessageReceiptStatus = 'pending' | 'sent' | 'delivered' | 'read'
 
@@ -46,6 +46,7 @@ export interface Message {
   file_name?: string
   file_size?: number
   media_status?: 'active' | 'downloaded' | 'expired' | string
+  is_deleted?: boolean
   messages?: Message[]   // Digunakan saat type = 'history'
   users?: RoomUser[]     // Digunakan saat type = 'room_users'
 }

@@ -2,6 +2,7 @@ package store
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -236,6 +237,77 @@ func (s *MemoryMessageStore) GetRoomHistory(roomID string, limit int) ([]StoredM
 
 func (s *MemoryMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int) ([]StoredMessage, error) {
 	return s.GetRoomHistory(roomID, limit)
+}
+
+func (s *MemoryMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, msgs := range s.messages {
+		for _, m := range msgs {
+			if m.ID == msgID {
+				msgCopy := m
+				return &msgCopy, nil
+			}
+		}
+	}
+	return nil, errors.New("pesan tidak ditemukan")
+}
+
+func (s *MemoryMessageStore) DeleteMessage(msgID, userID, userNickname string, deleteForEveryone bool) (*StoredMessage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for roomID, msgs := range s.messages {
+		for i, m := range msgs {
+			if m.ID == msgID {
+				if deleteForEveryone {
+					// Validasi kepemilikan pesan
+					isAuthor := (m.FromID != "" && m.FromID == userID) ||
+						(m.Nickname != "" && (strings.EqualFold(m.Nickname, userNickname) || strings.EqualFold(m.Nickname, userID)))
+					if !isAuthor {
+						return nil, errors.New("hanya pengirim yang dapat menghapus pesan untuk semua orang")
+					}
+					// Validasi batas waktu 1 menit (60 detik)
+					if time.Since(m.Timestamp) > 60*time.Second {
+						return nil, errors.New("pesan sudah lebih dari 1 menit dan tidak dapat dihapus untuk semua orang")
+					}
+
+					s.messages[roomID][i].Content = "🚫 Pesan ini telah dihapus"
+					s.messages[roomID][i].MediaURL = ""
+					s.messages[roomID][i].MediaType = ""
+					s.messages[roomID][i].FileName = ""
+					s.messages[roomID][i].FileSize = 0
+					s.messages[roomID][i].Reactions = "[]"
+					s.messages[roomID][i].IsDeleted = true
+
+					res := s.messages[roomID][i]
+					return &res, nil
+				} else {
+					// Hapus untuk saya saja: tambahkan userID ke deleted_for_users
+					var deletedUsers []string
+					if m.DeletedForUsers != "" && m.DeletedForUsers != "[]" {
+						_ = json.Unmarshal([]byte(m.DeletedForUsers), &deletedUsers)
+					}
+					alreadyDeleted := false
+					for _, u := range deletedUsers {
+						if u == userID {
+							alreadyDeleted = true
+							break
+						}
+					}
+					if !alreadyDeleted {
+						deletedUsers = append(deletedUsers, userID)
+					}
+					bytes, _ := json.Marshal(deletedUsers)
+					s.messages[roomID][i].DeletedForUsers = string(bytes)
+					res := s.messages[roomID][i]
+					return &res, nil
+				}
+			}
+		}
+	}
+	return nil, errors.New("pesan tidak ditemukan")
 }
 
 func (s *MemoryMessageStore) AcknowledgeMediaDownload(msgID string) (string, string, bool, error) {

@@ -47,6 +47,8 @@ type StoredMessage struct {
 	FileName        string    `json:"file_name,omitempty"`
 	FileSize        int64     `json:"file_size,omitempty"`
 	MediaStatus     string    `json:"media_status,omitempty"` // "active", "downloaded", "expired"
+	IsDeleted       bool      `json:"is_deleted,omitempty"`
+	DeletedForUsers string    `json:"deleted_for_users,omitempty"` // JSON array string
 	Timestamp       time.Time `json:"timestamp"`
 }
 
@@ -54,6 +56,12 @@ type StoredMessage struct {
 type MessageStore interface {
 	// Save menyimpan pesan yang sudah terkirim ke database.
 	Save(msg StoredMessage) error
+
+	// GetMessageByID mengambil satu pesan berdasarkan ID.
+	GetMessageByID(msgID string) (*StoredMessage, error)
+
+	// DeleteMessage menghapus pesan (untuk saya saja atau untuk semua orang).
+	DeleteMessage(msgID, userID, userNickname string, deleteForEveryone bool) (*StoredMessage, error)
 
 	// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
 	UpdateMessageStatus(msgID string, status string) error

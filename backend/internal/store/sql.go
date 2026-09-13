@@ -117,6 +117,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size BIGINT DEFAULT 0;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_status VARCHAR(32) DEFAULT 'active';`)
 		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMP DEFAULT NULL;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_for_users TEXT DEFAULT '[]';`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -132,9 +134,11 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN file_size BIGINT DEFAULT 0;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN media_status VARCHAR(32) DEFAULT 'active';`)
 		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN cleared_at TIMESTAMP DEFAULT NULL;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN deleted_for_users TEXT DEFAULT '[]';`)
 	}
 
-	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members' (dengan cleared_at), dan 'messages' (dengan status receipts, reply, reactions, media lifecycle, dan user bio) berhasil dipastikan ada!")
+	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members' (dengan cleared_at), dan 'messages' (dengan status receipts, reply, reactions, media lifecycle, is_deleted, dan user bio) berhasil dipastikan ada!")
 	return nil
 }
 
@@ -162,14 +166,18 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 	if mediaStatus == "" {
 		mediaStatus = "active"
 	}
+	deletedForUsers := msg.DeletedForUsers
+	if deletedForUsers == "" {
+		deletedForUsers = "[]"
+	}
 
 	var query string
 	if s.driverName == "postgres" {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at)
-		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, created_at)
+		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`
 	} else {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at)
-		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, created_at)
+		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
 	_, err := s.db.Exec(
@@ -190,6 +198,8 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 		msg.FileName,
 		msg.FileSize,
 		mediaStatus,
+		msg.IsDeleted,
+		deletedForUsers,
 		msg.Timestamp.UTC(),
 	)
 	return err
@@ -374,9 +384,10 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			query = `
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
-			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
+			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
 			FROM (
-				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.created_at
+				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.is_deleted, m.deleted_for_users, m.created_at
 				FROM messages m
 				LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = $1
 				WHERE m.room_id = $2
@@ -390,9 +401,10 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			query = `
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
-			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
+			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
 			FROM (
-				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.created_at
+				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.is_deleted, m.deleted_for_users, m.created_at
 				FROM messages m
 				LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = ?
 				WHERE m.room_id = ?
@@ -408,9 +420,10 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			query = `
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
-			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
+			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
 			FROM (
-				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at
+				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, created_at
 				FROM messages
 				WHERE room_id = $1
 				ORDER BY created_at DESC
@@ -422,9 +435,10 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			query = `
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
-			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
+			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
 			FROM (
-				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, created_at
+				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, created_at
 				FROM messages
 				WHERE room_id = ?
 				ORDER BY created_at DESC
@@ -447,6 +461,9 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 		var status, replyToID, replyToNickname, replyToContent, reactions string
 		var mediaURL, mediaType, fileName, mediaStatus string
 		var fileSize int64
+		var isDeleted bool
+		var deletedForUsers string
+
 		if err := rows.Scan(
 			&m.ID,
 			&m.RoomID,
@@ -464,10 +481,30 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			&fileName,
 			&fileSize,
 			&mediaStatus,
+			&isDeleted,
+			&deletedForUsers,
 			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("gagal scan baris history: %w", err)
 		}
+
+		// Filter pesan jika user telah menghapus untuk diri sendiri (Delete for Me)
+		if userID != "" && deletedForUsers != "" && deletedForUsers != "[]" {
+			var delUsers []string
+			if err := json.Unmarshal([]byte(deletedForUsers), &delUsers); err == nil {
+				skip := false
+				for _, u := range delUsers {
+					if u == userID {
+						skip = true
+						break
+					}
+				}
+				if skip {
+					continue
+				}
+			}
+		}
+
 		m.Status = status
 		m.ReplyToID = replyToID
 		m.ReplyToNickname = replyToNickname
@@ -478,6 +515,8 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 		m.FileName = fileName
 		m.FileSize = fileSize
 		m.MediaStatus = mediaStatus
+		m.IsDeleted = isDeleted
+		m.DeletedForUsers = deletedForUsers
 		m.Timestamp = createdAt.UTC()
 		history = append(history, m)
 	}
@@ -487,6 +526,152 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 	}
 
 	return history, nil
+}
+
+// GetMessageByID mengambil record pesan tunggal berdasarkan ID.
+func (s *SQLMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
+	var query string
+	if s.driverName == "postgres" {
+		query = `SELECT id, room_id, from_id, from_nickname, to_id, content, 
+		                COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+		                COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
+		                COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
+		         FROM messages WHERE id = $1`
+	} else {
+		query = `SELECT id, room_id, from_id, from_nickname, to_id, content, 
+		                COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+		                COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
+		                COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
+		         FROM messages WHERE id = ?`
+	}
+
+	var m StoredMessage
+	var createdAt time.Time
+	var status, replyToID, replyToNickname, replyToContent, reactions string
+	var mediaURL, mediaType, fileName, mediaStatus string
+	var fileSize int64
+	var isDeleted bool
+	var deletedForUsers string
+
+	err := s.db.QueryRow(query, msgID).Scan(
+		&m.ID,
+		&m.RoomID,
+		&m.FromID,
+		&m.Nickname,
+		&m.ToID,
+		&m.Content,
+		&status,
+		&replyToID,
+		&replyToNickname,
+		&replyToContent,
+		&reactions,
+		&mediaURL,
+		&mediaType,
+		&fileName,
+		&fileSize,
+		&mediaStatus,
+		&isDeleted,
+		&deletedForUsers,
+		&createdAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("pesan tidak ditemukan")
+		}
+		return nil, err
+	}
+
+	m.Status = status
+	m.ReplyToID = replyToID
+	m.ReplyToNickname = replyToNickname
+	m.ReplyToContent = replyToContent
+	m.Reactions = reactions
+	m.MediaURL = mediaURL
+	m.MediaType = mediaType
+	m.FileName = fileName
+	m.FileSize = fileSize
+	m.MediaStatus = mediaStatus
+	m.IsDeleted = isDeleted
+	m.DeletedForUsers = deletedForUsers
+	m.Timestamp = createdAt.UTC()
+	return &m, nil
+}
+
+// DeleteMessage menghapus pesan (untuk saya saja atau untuk semua orang).
+func (s *SQLMessageStore) DeleteMessage(msgID, userID, userNickname string, deleteForEveryone bool) (*StoredMessage, error) {
+	msg, err := s.GetMessageByID(msgID)
+	if err != nil {
+		return nil, err
+	}
+
+	if deleteForEveryone {
+		// Validasi kepemilikan pesan
+		isAuthor := (msg.FromID != "" && msg.FromID == userID) ||
+			(msg.Nickname != "" && (strings.EqualFold(msg.Nickname, userNickname) || strings.EqualFold(msg.Nickname, userID)))
+		if !isAuthor {
+			return nil, fmt.Errorf("hanya pengirim yang dapat menghapus pesan untuk semua orang")
+		}
+		// Validasi usia pesan <= 60 detik (1 menit)
+		if time.Since(msg.Timestamp) > 60*time.Second {
+			return nil, fmt.Errorf("pesan sudah lebih dari 1 menit dan tidak dapat dihapus untuk semua orang")
+		}
+
+		var query string
+		if s.driverName == "postgres" {
+			query = `UPDATE messages 
+			         SET content = '🚫 Pesan ini telah dihapus', 
+			             media_url = '', media_type = '', file_name = '', file_size = 0, 
+			             reactions = '[]', is_deleted = TRUE 
+			         WHERE id = $1`
+		} else {
+			query = `UPDATE messages 
+			         SET content = '🚫 Pesan ini telah dihapus', 
+			             media_url = '', media_type = '', file_name = '', file_size = 0, 
+			             reactions = '[]', is_deleted = TRUE 
+			         WHERE id = ?`
+		}
+		if _, err := s.db.Exec(query, msgID); err != nil {
+			return nil, err
+		}
+		msg.Content = "🚫 Pesan ini telah dihapus"
+		msg.MediaURL = ""
+		msg.MediaType = ""
+		msg.FileName = ""
+		msg.FileSize = 0
+		msg.Reactions = "[]"
+		msg.IsDeleted = true
+		return msg, nil
+	} else {
+		// Hapus untuk saya saja: tambahkan userID ke deleted_for_users
+		var deletedUsers []string
+		if msg.DeletedForUsers != "" && msg.DeletedForUsers != "[]" {
+			_ = json.Unmarshal([]byte(msg.DeletedForUsers), &deletedUsers)
+		}
+		alreadyDeleted := false
+		for _, u := range deletedUsers {
+			if u == userID {
+				alreadyDeleted = true
+				break
+			}
+		}
+		if !alreadyDeleted {
+			deletedUsers = append(deletedUsers, userID)
+		}
+		bytes, _ := json.Marshal(deletedUsers)
+		jsonStr := string(bytes)
+
+		var query string
+		if s.driverName == "postgres" {
+			query = `UPDATE messages SET deleted_for_users = $1 WHERE id = $2`
+		} else {
+			query = `UPDATE messages SET deleted_for_users = ? WHERE id = ?`
+		}
+		if _, err := s.db.Exec(query, jsonStr, msgID); err != nil {
+			return nil, err
+		}
+		msg.DeletedForUsers = jsonStr
+		return msg, nil
+	}
 }
 
 // AcknowledgeMediaDownload mencatat bahwa client telah mengunduh media.

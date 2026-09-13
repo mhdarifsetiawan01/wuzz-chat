@@ -15,6 +15,7 @@ const (
 	TypeSystem    MessageType = "system"     // pesan sistem dari server ke client
 	TypeHistory   MessageType = "history"    // riwayat pesan percakapan dari database
 	TypeRoomUsers MessageType = "room_users" // daftar user yang sedang aktif di room
+	TypeMessageDeleted MessageType = "message_deleted" // pesan dihapus / ditarik untuk semua orang
 )
 
 // MessageStatus merepresentasikan status tanda terima pesan
@@ -74,6 +75,7 @@ type Message struct {
 	FileName    string           `json:"file_name,omitempty"`    // Nama asli berkas (misal: laporan.pdf)
 	FileSize    int64            `json:"file_size,omitempty"`    // Ukuran berkas dalam bytes
 	MediaStatus string           `json:"media_status,omitempty"` // 'active', 'downloaded', 'expired'
+	IsDeleted   bool             `json:"is_deleted,omitempty"`   // Tanda apakah pesan telah dihapus untuk semua orang
 	Messages    []Message        `json:"messages,omitempty"`     // Kumpulan pesan untuk TypeHistory
 	Users       []RoomUser       `json:"users,omitempty"`        // Daftar user aktif di room
 }

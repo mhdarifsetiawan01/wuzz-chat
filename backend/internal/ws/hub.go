@@ -385,6 +385,7 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 			FileName:    m.FileName,
 			FileSize:    m.FileSize,
 			MediaStatus: m.MediaStatus,
+			IsDeleted:   m.IsDeleted,
 			Timestamp:   m.Timestamp,
 		})
 	}

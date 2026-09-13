@@ -104,4 +104,15 @@ export async function fetchLinkPreview(targetUrl: string): Promise<LinkPreview |
   return null
 }
 
+export async function deleteMessageApi(
+  messageId: string,
+  deleteType: 'for_me' | 'for_everyone'
+): Promise<{ data?: { status: string }; error?: string }> {
+  return apiRequest<{ status: string }>('/api/messages/delete', {
+    method: 'POST',
+    body: JSON.stringify({ message_id: messageId, type: deleteType }),
+  })
+}
+
+
 

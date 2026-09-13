@@ -278,6 +278,94 @@ func TestClearConversation_PrivacyFilter(t *testing.T) {
 	}
 }
 
+func TestDeleteMessage_Scenarios(t *testing.T) {
+	tmpDB := "test_del_msg.db"
+	defer os.Remove(tmpDB)
+
+	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
+	if err != nil {
+		t.Fatalf("failed to init SQLite store: %v", err)
+	}
+	defer sqlStore.Close()
+
+	userStore := NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+
+	userAlice, _ := userStore.Register("alice_del", "Alice Del", "pass123")
+	userBob, _ := userStore.Register("bob_del", "Bob Del", "pass123")
+
+	dmRoomID, _ := userStore.GetOrCreateDirectConversation(userAlice.ID, userBob.ID)
+
+	// 1. Pesan baru (< 60 detik)
+	now := time.Now().UTC()
+	_ = sqlStore.Save(StoredMessage{
+		ID:        "msg-recent",
+		RoomID:    dmRoomID,
+		FromID:    userAlice.ID,
+		Nickname:  "Alice Del",
+		ToID:      userBob.ID,
+		Content:   "Pesan baru yang ingin ditarik",
+		Timestamp: now,
+	})
+
+	// 2. Pesan lama (> 60 detik)
+	_ = sqlStore.Save(StoredMessage{
+		ID:        "msg-old",
+		RoomID:    dmRoomID,
+		FromID:    userAlice.ID,
+		Nickname:  "Alice Del",
+		ToID:      userBob.ID,
+		Content:   "Pesan lama yang sudah 5 menit",
+		Timestamp: now.Add(-5 * time.Minute),
+	})
+
+	// Skenario A: Hapus untuk Semua Orang pada pesan lama (> 1 menit) -> HARUS GAGAL
+	_, err = sqlStore.DeleteMessage("msg-old", userAlice.ID, userAlice.DisplayName, true)
+	if err == nil {
+		t.Errorf("Delete for everyone on message > 1 min should FAIL")
+	}
+
+	// Skenario B: Hapus untuk Semua Orang oleh pihak lain (Bob) -> HARUS GAGAL
+	_, err = sqlStore.DeleteMessage("msg-recent", userBob.ID, userBob.DisplayName, true)
+	if err == nil {
+		t.Errorf("Delete for everyone by non-author should FAIL")
+	}
+
+	// Skenario C: Hapus untuk Semua Orang pada pesan baru (< 1 menit) oleh pemilik -> HARUS SUKSES
+	deletedMsg, err := sqlStore.DeleteMessage("msg-recent", userAlice.ID, userAlice.DisplayName, true)
+	if err != nil {
+		t.Fatalf("Delete for everyone within 1 min should SUCCEED: %v", err)
+	}
+	if deletedMsg.Content != "🚫 Pesan ini telah dihapus" || !deletedMsg.IsDeleted {
+		t.Errorf("expected deleted placeholder, got: %s (is_deleted: %v)", deletedMsg.Content, deletedMsg.IsDeleted)
+	}
+
+	// Verifikasi: History menampilkan placeholder untuk kedua pihak
+	histAlice, _ := sqlStore.GetRoomHistoryForUser(dmRoomID, userAlice.ID, 10)
+	histBob, _ := sqlStore.GetRoomHistoryForUser(dmRoomID, userBob.ID, 10)
+	if histAlice[1].Content != "🚫 Pesan ini telah dihapus" || histBob[1].Content != "🚫 Pesan ini telah dihapus" {
+		t.Errorf("History should show deleted placeholder to both users")
+	}
+
+	// Skenario D: Hapus untuk Saya Saja pada pesan lama (Bob menghapus pesan msg-old untuk dirinya saja) -> HARUS SUKSES
+	_, err = sqlStore.DeleteMessage("msg-old", userBob.ID, userBob.DisplayName, false)
+	if err != nil {
+		t.Fatalf("Delete for me should SUCCEED: %v", err)
+	}
+
+	// Verifikasi: msg-old HILANG untuk Bob, tapi TETAP ADA untuk Alice
+	histBobAfterForMe, _ := sqlStore.GetRoomHistoryForUser(dmRoomID, userBob.ID, 10)
+	histAliceAfterForMe, _ := sqlStore.GetRoomHistoryForUser(dmRoomID, userAlice.ID, 10)
+
+	// Bob hanya melihat msg-recent (yang telah ditarik), msg-old sudah hilang
+	if len(histBobAfterForMe) != 1 || histBobAfterForMe[0].ID != "msg-recent" {
+		t.Errorf("Bob should only see msg-recent after deleting msg-old for me, got %d messages", len(histBobAfterForMe))
+	}
+	// Alice tetap melihat 2 pesan
+	if len(histAliceAfterForMe) != 2 {
+		t.Errorf("Alice should still see 2 messages, got %d", len(histAliceAfterForMe))
+	}
+}
+
 
 
 

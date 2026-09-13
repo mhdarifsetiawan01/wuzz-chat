@@ -4,14 +4,17 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/store"
+	"github.com/bms-del112/wuzz-chat/internal/ws"
 )
 
 type ChatHandler struct {
 	userStore    store.UserStore
 	messageStore store.MessageStore
+	hub          *ws.Hub
 }
 
 func NewChatHandler(us store.UserStore, ms store.MessageStore) *ChatHandler {
@@ -19,6 +22,10 @@ func NewChatHandler(us store.UserStore, ms store.MessageStore) *ChatHandler {
 		userStore:    us,
 		messageStore: ms,
 	}
+}
+
+func (h *ChatHandler) SetHub(hub *ws.Hub) {
+	h.hub = hub
 }
 
 // SearchUsers mencari user lain untuk diajak chat.
@@ -181,5 +188,77 @@ func (h *ChatHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(user)
+}
+
+// DeleteMessage menghapus pesan spesifik (Delete for Me atau Delete for Everyone).
+func (h *ChatHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		MessageID         string `json:"message_id"`
+		ID                string `json:"id"`
+		DeleteForEveryone bool   `json:"delete_for_everyone"`
+	}
+
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+	msgID := req.MessageID
+	if msgID == "" {
+		msgID = req.ID
+	}
+	if msgID == "" {
+		msgID = strings.TrimSpace(r.URL.Query().Get("id"))
+	}
+	if msgID == "" {
+		msgID = strings.TrimSpace(r.URL.Query().Get("message_id"))
+	}
+	if !req.DeleteForEveryone && (r.URL.Query().Get("for_everyone") == "true" || r.URL.Query().Get("delete_for_everyone") == "true") {
+		req.DeleteForEveryone = true
+	}
+
+	if msgID == "" {
+		http.Error(w, `{"error":"message_id atau id wajib disertakan"}`, http.StatusBadRequest)
+		return
+	}
+
+	updatedMsg, err := h.messageStore.DeleteMessage(msgID, claims.UserID, claims.DisplayName, req.DeleteForEveryone)
+	if err != nil {
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "lebih dari 1 menit") || strings.Contains(errMsg, "hanya pengirim") {
+			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusBadRequest)
+			return
+		}
+		if strings.Contains(errMsg, "tidak ditemukan") {
+			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusNotFound)
+			return
+		}
+		http.Error(w, `{"error":"Gagal menghapus pesan: `+errMsg+`"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Jika delete for everyone, broadcast real-time event ke seluruh client di room
+	if req.DeleteForEveryone && h.hub != nil && updatedMsg != nil {
+		h.hub.BroadcastRoom(updatedMsg.RoomID, ws.Message{
+			ID:        updatedMsg.ID,
+			Type:      ws.TypeMessageDeleted,
+			Room:      updatedMsg.RoomID,
+			Content:   "🚫 Pesan ini telah dihapus",
+			IsDeleted: true,
+			Timestamp: time.Now().UTC(),
+		}, "")
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success":             true,
+		"message_id":          msgID,
+		"delete_for_everyone": req.DeleteForEveryone,
+		"message":             "Pesan berhasil dihapus",
+	})
 }
 

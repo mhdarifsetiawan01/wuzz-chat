@@ -41,11 +41,12 @@ erDiagram
     }
 
     CONVERSATION_MEMBERS {
-        uuid conversation_id PK,FK
-        uuid user_id PK,FK
+        uuid id PK
+        uuid conversation_id FK
+        uuid user_id FK
         varchar role "admin / member"
+        timestamp cleared_at "nullable timestamp for user clear chat"
         timestamp joined_at
-        timestamp last_read_at
     }
 
     MESSAGES {
@@ -61,7 +62,8 @@ erDiagram
         varchar type "text / image / video / audio / document"
         text content
         boolean is_edited
-        boolean is_deleted
+        boolean is_deleted "true if message was recalled for everyone"
+        text deleted_for_users "JSON array of user IDs who deleted message for themselves"
         timestamp created_at
         timestamp updated_at
     }
@@ -113,6 +115,7 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | Event Type | Arah | Penjelasan |
 |---|---|---|
 | `message` | Bidirectional | Pengiriman dan penerimaan pesan teks/media |
+| `message_deleted` | Server ➔ Client | Broadcast notifikasi pesan ditarik/dihapus untuk semua orang |
 | `typing` | Bidirectional | Notifikasi bahwa user sedang mengetik di obrolan |
 | `receipt` | Bidirectional | Laporan status pesan (`sent`, `delivered`, `read`) secara single atau bulk room |
 | `reaction`| Bidirectional | Toggle penambahan/penghapusan reaksi emoji pada pesan |
@@ -134,6 +137,8 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `GET` | `/api/users/search?q=` | Mencari user berdasarkan username/nama | Bearer Token |
 | `GET` | `/api/conversations` | Daftar obrolan aktif beserta pesan terakhir | Bearer Token |
 | `POST` | `/api/conversations` | Membuat obrolan baru (Direct atau Group) | Bearer Token |
+| `DELETE` / `POST` | `/api/conversations?id=` / `/api/conversations/clear` | Menghapus riwayat percakapan untuk user pemanggil (*Delete for Me*) | Bearer Token |
+| `DELETE` / `POST` | `/api/messages?id=&type=` / `/api/messages/delete` | Menghapus pesan (*for_me* kapanpun, atau *for_everyone* ≤ 60s) | Bearer Token |
 | `POST` | `/api/media/upload` | Upload file gambar/dokumen/audio ke storage | Bearer Token |
 | `POST` | `/api/media/ack` | Konfirmasi download file oleh client (memicu auto-delete file fisik) | Bearer Token |
 | `GET` | `/api/config` | Mengambil status konfigurasi publik (media upload toggle & retention) | Public |

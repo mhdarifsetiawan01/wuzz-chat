@@ -91,6 +91,18 @@
   - **REST API Endpoints**: `DELETE /api/conversations?id=...` dan `POST /api/conversations/clear` dengan otorisasi JWT.
   - **UI Modal Konfirmasi**: Ikon 🗑️ saat hover item obrolan di `Sidebar.tsx` dengan modal konfirmasi protektif.
   - Unit test `TestClearConversation_PrivacyFilter` lulus 100%.
+- [x] **Milestone 4.9: Delete Specific Message (For Me vs For Everyone with 1-Minute Limit)**:
+  - **Skema Database Non-Destruktif**: Kolom `is_deleted BOOLEAN DEFAULT FALSE` dan `deleted_for_users TEXT DEFAULT '[]'` pada tabel `messages` dengan auto-migration di SQLite dan Supabase PostgreSQL.
+  - **Business Logic Validasi**:
+    - *Hapus untuk Saya*: Selalu diizinkan kapan saja, menambahkan `userID` ke `deleted_for_users` JSON array.
+    - *Hapus untuk Semua Orang*: Hanya diizinkan jika pesan dikirim oleh pemanggil (`from_id == userID`) DAN usia pesan **≤ 1 menit (60 detik)**. Melebihi 1 menit ditolak dengan HTTP 400 Bad Request.
+    - Menghapus media fisik dari transit buffer jika pesan ditarik untuk semua orang, mengubah isi pesan menjadi `🚫 Pesan ini telah dihapus`, dan mengosongkan reaksi.
+  - **Real-Time WebSocket Sync**: Broadcast event `message_deleted` (`TypeMessageDeleted`) ke seluruh client di room obrolan seketika tanpa refresh.
+  - **Frontend UI & Interactive Countdown**:
+    - Tombol tempat sampah (🗑️) pada floating action toolbar di `MessageBubble.tsx`.
+    - Modal opsi hapus: *"Hapus untuk Semua Orang"* (dengan badge live countdown detik sisa waktu) & *"Hapus untuk Saya Saja"*.
+    - Render balon chat terhapus dengan styling transparan bergaris putus-putus dan teks italic `🚫 Pesan ini telah dihapus`.
+  - Unit test `TestDeleteMessage_Scenarios` lulus 100%.
 
 ### E. Fase 3.5: Authentication Hardening & Security Polish (Selesai)
 - [x] **Milestone 3.5.1: Next.js Auth Guard & Route Protection**:

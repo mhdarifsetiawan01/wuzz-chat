@@ -98,8 +98,15 @@ Membangun platform chatting modern yang:
 - **Interactive UX & Feedback**:
   - Typing indicator live (*"Alice sedang mengetik..."*) dengan debouncing.
   - Audio sound effects (Web Audio API): Suara 'pop' saat kirim pesan dan 'ding' saat pesan masuk / reaksi masuk.
-  - Emoji & Reaction picker cepat (`👍 ❤️ 😂 😮 😢 🙏`) pada setiap balon pesan dengan toggle interaktif.
-  - Fitur Reply / Quote pesan dengan banner pratinjau dan **Click-to-Scroll & Glow Highlight** ke pesan asli.
+  - **Emoji Reactions & Quoted Reply**:
+    - Hover action bar pada balon chat: quick emoji bar (`👍 ❤️ 😂 😮 😢 🙏`) dan tombol Balas (`↩️`).
+    - Reaction pills badge di bawah balon chat dengan toggle counter real-time.
+    - Quoted reply preview block yang bisa diklik untuk auto-scroll ke pesan target dengan efek animasi *glow pulse*.
+- **Conversation & Message Deletion Management**:
+  - **Hapus Percakapan untuk Saya (*Delete Conversation for Me*)**: Menyembunyikan riwayat obrolan dari daftar pengguna tanpa menghapus riwayat lawan bicara via timestamp `cleared_at`. Percakapan otomatis muncul kembali jika ada pesan baru setelah waktu clear.
+  - **Hapus Pesan Spesifik (*Delete Message: For Me vs For Everyone*)**:
+    - *Hapus untuk Saya*: Sembunyikan pesan tertentu kapan saja untuk diri sendiri (`deleted_for_users`).
+    - *Hapus untuk Semua Orang*: Tarik pesan untuk seluruh peserta obrolan jika pesan dikirim sendiri dan berusia **≤ 1 menit (60 detik)**. Mengubah teks menjadi `🚫 Pesan ini telah dihapus` dan broadcast event real-time `message_deleted` via WebSocket.
   - Clean Timeline (Anti-spam join/leave/welcome message).
 
 ---

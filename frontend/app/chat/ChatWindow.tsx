@@ -13,6 +13,7 @@ interface ChatWindowProps {
   onReply?: (message: Message) => void
   onReact?: (messageId: string, emoji: string) => void
   onImageClick?: (imageUrl: string, fileName?: string) => void
+  onDeleteMessage?: (messageId: string, type: 'for_me' | 'for_everyone') => void
 }
 
 export function ChatWindow({
@@ -24,6 +25,7 @@ export function ChatWindow({
   onReply,
   onReact,
   onImageClick,
+  onDeleteMessage,
 }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -64,6 +66,7 @@ export function ChatWindow({
           onReply={onReply}
           onReact={onReact}
           onImageClick={onImageClick}
+          onDeleteMessage={onDeleteMessage}
         />
       ))}
 

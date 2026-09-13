@@ -150,6 +150,8 @@ func main() {
 
 	// REST API Routes (Chat & Users)
 	if chatHandler != nil {
+		chatHandler.SetHub(hub)
+
 		mux.HandleFunc("/api/users/search", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(chatHandler.SearchUsers)).ServeHTTP(w, r)
 		}))
@@ -167,6 +169,16 @@ func main() {
 		}))
 		mux.HandleFunc("/api/conversations/clear", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(chatHandler.ClearConversation)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/messages", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodDelete || r.Method == http.MethodPost {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.DeleteMessage)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+		}))
+		mux.HandleFunc("/api/messages/delete", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(chatHandler.DeleteMessage)).ServeHTTP(w, r)
 		}))
 	}
 

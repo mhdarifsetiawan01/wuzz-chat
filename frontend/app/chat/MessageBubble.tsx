@@ -15,6 +15,7 @@ interface MessageBubbleProps {
   onReply?: (message: Message) => void
   onReact?: (messageId: string, emoji: string) => void
   onImageClick?: (imageUrl: string, fileName?: string) => void
+  onDeleteMessage?: (messageId: string, type: 'for_me' | 'for_everyone') => void
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
@@ -86,10 +87,21 @@ function renderReceipt(status?: Message['status']) {
   }
 }
 
-export function MessageBubble({ message, selfId, selfNickname, onReply, onReact, onImageClick }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  selfId,
+  selfNickname,
+  onReply,
+  onReact,
+  onImageClick,
+  onDeleteMessage,
+}: MessageBubbleProps) {
   const isSystem = message.type === 'system'
   const [isExpanded, setIsExpanded] = useState(false)
   const [isReaderModalOpen, setIsReaderModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [remainingSeconds, setRemainingSeconds] = useState(0)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Media Offline Caching & Expiration State (Store-and-Forward)
   const [resolvedMediaUrl, setResolvedMediaUrl] = useState<string | null>(null)
@@ -102,6 +114,40 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
     : message.nickname && selfNickname
       ? message.nickname === selfNickname
       : message.from === selfId
+
+  // Timer countdown untuk 'Hapus untuk Semua Orang' (1 menit / 60 detik batas waktu)
+  useEffect(() => {
+    if (!isDeleteModalOpen) return
+
+    const calculateRemaining = () => {
+      if (!message.timestamp) return 0
+      const ageMs = Date.now() - new Date(message.timestamp).getTime()
+      const rem = Math.max(0, Math.ceil((60000 - ageMs) / 1000))
+      return rem
+    }
+
+    setRemainingSeconds(calculateRemaining())
+
+    const timer = setInterval(() => {
+      const rem = calculateRemaining()
+      setRemainingSeconds(rem)
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [isDeleteModalOpen, message.timestamp])
+
+  const canDeleteForEveryone = isSelf && remainingSeconds > 0 && !message.is_deleted
+
+  const handleDeleteConfirm = async (type: 'for_me' | 'for_everyone') => {
+    if (!message.id || !onDeleteMessage) return
+    setIsDeleting(true)
+    try {
+      await onDeleteMessage(message.id, type)
+      setIsDeleteModalOpen(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   // Resolusi Caching IndexedDB untuk Media (WhatsApp-Style)
   useEffect(() => {
@@ -201,6 +247,36 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
 
   const rowClass = isSystem ? 'system' : isSelf ? 'self' : 'peer'
   const time = formatTime(message.timestamp)
+
+  // Tampilan jika pesan telah ditarik / dihapus (WhatsApp style)
+  if (message.is_deleted) {
+    return (
+      <div
+        id={message.id ? `msg-${message.id}` : undefined}
+        className={`message-row ${rowClass}`}
+        role="listitem"
+      >
+        {!isSystem && !isSelf && message.nickname && (
+          <span className="message-sender">{message.nickname}</span>
+        )}
+        <div className="message-bubble-wrapper">
+          <div className="message-bubble deleted-bubble">
+            <div className="message-deleted-text">
+              <span>🚫</span>
+              <span>Pesan ini telah dihapus</span>
+            </div>
+            <div className="message-meta-row">
+              {time && (
+                <span className="message-meta" aria-label={`Dihapus pukul ${time}`}>
+                  {time}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const handleQuickReact = (emoji: string) => {
     if (message.id && onReact) {
@@ -395,7 +471,7 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
           )}
         </div>
 
-        {/* Floating Action Bar on Hover (Reply & Quick Reactions) */}
+        {/* Floating Action Bar on Hover (Reply, Delete & Quick Reactions) */}
         {!isSystem && message.id && (
           <div className="bubble-action-bar" aria-label="Aksi pesan">
             <div className="quick-emoji-list">
@@ -418,6 +494,14 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
               title="Balas pesan ini"
             >
               ↩️
+            </button>
+            <button
+              type="button"
+              className="bubble-action-btn delete-btn"
+              onClick={() => setIsDeleteModalOpen(true)}
+              title="Hapus pesan"
+            >
+              🗑️
             </button>
           </div>
         )}
@@ -442,6 +526,156 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
             )
           })}
         </div>
+      )}
+
+      {/* Modal Pilihan Hapus Pesan */}
+      {isDeleteModalOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          className="modal-backdrop"
+          onClick={() => !isDeleting && setIsDeleteModalOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: 'var(--space-4)',
+          }}
+        >
+          <div
+            className="modal-card"
+            onClick={e => e.stopPropagation()}
+            style={{
+              backgroundColor: '#111b21',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              borderRadius: 'var(--radius-lg)',
+              width: '100%',
+              maxWidth: '440px',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9)',
+              animation: 'fadeIn 0.2s ease',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: 'var(--space-4) var(--space-5)',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                backgroundColor: '#1f2c34',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.25rem' }}>🗑️</span>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#e9edef' }}>
+                  Hapus Pesan?
+                </h3>
+              </div>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setIsDeleteModalOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#8696a0',
+                  fontSize: '1.25rem',
+                  cursor: 'pointer',
+                  padding: '4px',
+                }}
+                title="Tutup dialog"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div
+              style={{
+                padding: 'var(--space-5)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+              }}
+            >
+              {/* Option 1: Hapus untuk Semua Orang */}
+              {isSelf && (
+                <button
+                  type="button"
+                  className="delete-choice-card danger"
+                  disabled={!canDeleteForEveryone || isDeleting}
+                  onClick={() => handleDeleteConfirm('for_everyone')}
+                >
+                  <span className="delete-choice-icon">📢</span>
+                  <div className="delete-choice-info">
+                    <span className="delete-choice-title">Hapus untuk Semua Orang</span>
+                    <span className="delete-choice-desc">
+                      {canDeleteForEveryone
+                        ? 'Pesan akan ditarik dan diganti dengan keterangan terhapus untuk semua peserta chat.'
+                        : 'Hanya dapat ditarik dalam waktu 1 menit setelah pesan terkirim.'}
+                    </span>
+                    {canDeleteForEveryone && (
+                      <span className="delete-countdown-badge">
+                        ⏱️ Sisa waktu tarik: {remainingSeconds} detik
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )}
+
+              {/* Option 2: Hapus untuk Saya */}
+              <button
+                type="button"
+                className="delete-choice-card"
+                disabled={isDeleting}
+                onClick={() => handleDeleteConfirm('for_me')}
+              >
+                <span className="delete-choice-icon">👤</span>
+                <div className="delete-choice-info">
+                  <span className="delete-choice-title">Hapus untuk Saya Saja</span>
+                  <span className="delete-choice-desc">
+                    Pesan hanya akan dihapus dari layar Anda. Lawan bicara tetap dapat melihat pesan ini.
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: 'var(--space-3) var(--space-5)',
+                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                backgroundColor: '#1f2c34',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+              }}
+            >
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="btn btn-secondary"
+                style={{ padding: '6px 14px', fontSize: '0.875rem' }}
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal Mode Baca Penuh (Zen Reader View via Portal) */}
@@ -563,3 +797,4 @@ export function MessageBubble({ message, selfId, selfNickname, onReply, onReact,
     </div>
   )
 }
+

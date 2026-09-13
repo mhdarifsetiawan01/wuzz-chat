@@ -12,6 +12,7 @@ import { ImageLightboxModal } from './ImageLightboxModal'
 import { Sidebar } from './Sidebar'
 import { soundManager } from '@/lib/sound'
 import { useAuth } from '@/lib/auth-context'
+import { deleteMessageApi } from '@/lib/api'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -33,6 +34,8 @@ type ChatAction =
   | { type: 'ADD_MESSAGE'; payload: Message }
   | { type: 'UPDATE_MESSAGE_STATUS'; payload: { id?: string; status: MessageReceiptStatus } }
   | { type: 'UPDATE_MESSAGE_REACTIONS'; payload: { id: string; reactions: ReactionItem[] } }
+  | { type: 'DELETE_MESSAGE_LOCAL'; payload: { id: string } }
+  | { type: 'UPDATE_MESSAGE_DELETED'; payload: { id: string; content?: string } }
   | { type: 'SET_MESSAGES'; payload: Message[] }
   | { type: 'SET_PEER_NICKNAME'; payload: string }
   | { type: 'SET_PEER_TYPING'; payload: { typing: boolean; nickname?: string | null } }
@@ -110,6 +113,28 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         messages: state.messages.map(m => (m.id === id ? { ...m, reactions } : m)),
+      }
+    }
+    case 'DELETE_MESSAGE_LOCAL': {
+      return {
+        ...state,
+        messages: state.messages.filter(m => m.id !== action.payload.id),
+      }
+    }
+    case 'UPDATE_MESSAGE_DELETED': {
+      return {
+        ...state,
+        messages: state.messages.map(m =>
+          m.id === action.payload.id
+            ? {
+                ...m,
+                is_deleted: true,
+                content: action.payload.content || '🚫 Pesan ini telah dihapus',
+                media_url: undefined,
+                reactions: [],
+              }
+            : m
+        ),
       }
     }
     case 'SET_MESSAGES': {
@@ -344,6 +369,17 @@ function ChatPageContent() {
           break
         }
 
+        case 'message_deleted': {
+          // Update pesan yang ditarik secara real-time
+          if (msg.id) {
+            dispatch({
+              type: 'UPDATE_MESSAGE_DELETED',
+              payload: { id: msg.id, content: msg.content },
+            })
+          }
+          break
+        }
+
         case 'leave': {
           dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
           break
@@ -363,6 +399,23 @@ function ChatPageContent() {
   const [lightboxData, setLightboxData] = useState<{ url: string; fileName?: string } | null>(null)
   const [draggedFile, setDraggedFile] = useState<File | null>(null)
   const [isDraggingOver, setIsDraggingOver] = useState(false)
+
+  const handleDeleteMessage = useCallback(async (messageId: string, type: 'for_me' | 'for_everyone') => {
+    try {
+      const res = await deleteMessageApi(messageId, type)
+      if (res.error) {
+        alert(res.error)
+        return
+      }
+      if (type === 'for_me') {
+        dispatch({ type: 'DELETE_MESSAGE_LOCAL', payload: { id: messageId } })
+      } else {
+        dispatch({ type: 'UPDATE_MESSAGE_DELETED', payload: { id: messageId } })
+      }
+    } catch (err: any) {
+      alert(err.message || 'Gagal menghapus pesan')
+    }
+  }, [])
 
   const handleSend = useCallback((content: string, media?: { url: string; media_type: string; file_name: string; file_size: number }) => {
     if (!roomId) return
@@ -533,6 +586,7 @@ function ChatPageContent() {
               onReply={setReplyingTo}
               onReact={handleReact}
               onImageClick={(url, name) => setLightboxData({ url, fileName: name })}
+              onDeleteMessage={handleDeleteMessage}
             />
 
             <MessageInput
