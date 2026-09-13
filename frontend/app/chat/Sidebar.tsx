@@ -57,6 +57,7 @@ export function Sidebar({
   const { user, logout } = useAuth()
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastHandledMsgIdRef = useRef<string | null>(null)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'groups' | 'direct'>('all')
@@ -119,6 +120,11 @@ export function Sidebar({
   useEffect(() => {
     if (user) {
       loadConversations()
+    }
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
     }
   }, [user])
 
@@ -220,23 +226,32 @@ export function Sidebar({
 
   const [searchError, setSearchError] = useState('')
 
-  // Cari user lain
-  const handleSearch = async (query: string) => {
+  // Cari user lain dengan debounce 300ms untuk optimasi performa dan mencegah request flooding
+  const handleSearch = (query: string) => {
     setSearchQuery(query)
     setSearchError('')
-    if (!query.trim()) {
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+
+    const trimmed = query.trim()
+    if (!trimmed || trimmed.length < 2) {
       setSearchResults([])
       setIsSearching(false)
       return
     }
 
     setIsSearching(true)
-    const { data, error } = await apiRequest<User[]>(`/api/users/search?q=${encodeURIComponent(query.trim())}`)
-    if (data) {
-      setSearchResults(Array.isArray(data) ? data : [])
-    } else if (error) {
-      setSearchError(error)
-    }
+    searchDebounceRef.current = setTimeout(async () => {
+      const { data, error } = await apiRequest<User[]>(`/api/users/search?q=${encodeURIComponent(trimmed)}`)
+      setIsSearching(false)
+      if (data) {
+        setSearchResults(Array.isArray(data) ? data : [])
+      } else if (error) {
+        setSearchError(error)
+      }
+    }, 300)
   }
 
   // Mulai direct chat dengan user hasil pencarian

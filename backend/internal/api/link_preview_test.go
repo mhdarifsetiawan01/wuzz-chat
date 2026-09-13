@@ -157,3 +157,23 @@ func TestLinkPreviewHandler_YouTubeOEmbed(t *testing.T) {
 
 	_ = handler
 }
+
+func TestLinkPreviewHandler_RedirectSSRFGuard(t *testing.T) {
+	// Mock server yang me-redirect ke 127.0.0.1 (private loopback)
+	redirectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://127.0.0.1:8080/internal-secret", http.StatusFound)
+	}))
+	defer redirectServer.Close()
+
+	memBroker := broker.NewInMemoryBroker()
+	defer memBroker.Close()
+
+	handler := NewLinkPreviewHandler(memBroker)
+
+	// Fetch target yang me-redirect ke internal IP harus diblokir oleh CheckRedirect
+	_, err := handler.fetchAndExtract(redirectServer.URL)
+	if err == nil {
+		t.Fatal("Expected error due to redirect to private IP, but got nil")
+	}
+}
+

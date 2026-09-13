@@ -278,7 +278,7 @@ func (s *SQLUserStore) GetOrCreateDirectConversation(userA, userB string) (strin
 		firstUser, secondUser = userB, userA
 	}
 
-	directRoomID := fmt.Sprintf("dm_%s_%s", firstUser[:8], secondUser[:8])
+	directRoomID := fmt.Sprintf("dm_%s_%s", safePrefix(firstUser, 8), safePrefix(secondUser, 8))
 
 	// Periksa apakah percakapan sudah ada
 	var existingID string
@@ -587,5 +587,15 @@ func (s *SQLUserStore) IsUserInConversation(conversationID, userID string) (bool
 	// 4. Untuk room publik / ad-hoc group biasa (misal 'room-123', 'room-kopi'), siapapun yang memegang link diizinkan
 	return true, nil
 }
+
+// safePrefix mengembalikan substring awal secara aman tanpa memicu panic jika panjang s < maxLen.
+func safePrefix(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	return string(runes[:maxLen])
+}
+
 
 

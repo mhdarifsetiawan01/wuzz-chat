@@ -151,7 +151,7 @@ func (c *Client) onJoin(msg Message) {
 		targetRoom = msg.To
 	}
 	if targetRoom == "" {
-		targetRoom = "room-" + c.ID[:8]
+		targetRoom = "room-" + safePrefix(c.ID, 8)
 	}
 
 	// Validasi Hak Akses Room (BOLA Prevention)
@@ -418,4 +418,14 @@ func (c *Client) allowRateLimit(limit int, window time.Duration) bool {
 	c.msgTimestamps = recent
 	return true
 }
+
+// safePrefix mengembalikan substring awal secara aman tanpa memicu panic jika panjang s < maxLen.
+func safePrefix(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	return string(runes[:maxLen])
+}
+
 

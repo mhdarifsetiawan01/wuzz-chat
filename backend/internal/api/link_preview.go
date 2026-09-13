@@ -61,6 +61,16 @@ func NewLinkPreviewHandler(b broker.MessageBroker) *LinkPreviewHandler {
 		client: &http.Client{
 			Transport: transport,
 			Timeout:   5 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 3 {
+					return errors.New("terlalu banyak redirect (maksimal 3)")
+				}
+				// Validasi keamanan host target redirect (SSRF Protection)
+				if err := isSafeHost(req.URL.Hostname()); err != nil {
+					return fmt.Errorf("redirect ke host dilarang (%s): %w", req.URL.Hostname(), err)
+				}
+				return nil
+			},
 		},
 	}
 }
