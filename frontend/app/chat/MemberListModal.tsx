@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { RoomUser } from '@/lib/types'
 import { ContactProfileModal } from './ContactProfileModal'
+import { useModalBackHandler } from '@/lib/useModalBackHandler'
 
 interface MemberListModalProps {
   isOpen: boolean
@@ -20,6 +21,7 @@ export function MemberListModal({
   roomId,
 }: MemberListModalProps) {
   const [selectedUser, setSelectedUser] = useState<RoomUser | null>(null)
+  const handleClose = useModalBackHandler(isOpen, onClose, 'member_list')
 
   if (!isOpen) return null
 
@@ -27,7 +29,7 @@ export function MemberListModal({
     <>
       <div
         className="modal-backdrop"
-        onClick={onClose}
+        onClick={handleClose}
         role="dialog"
         aria-modal="true"
         aria-labelledby="member-modal-title"
@@ -48,7 +50,7 @@ export function MemberListModal({
             <button
               type="button"
               className="member-drawer-close"
-              onClick={onClose}
+              onClick={handleClose}
               aria-label="Tutup daftar anggota"
             >
               ✕

@@ -7,6 +7,7 @@ import { AudioPlayerBubble } from './AudioPlayerBubble'
 import { LinkPreviewCard } from './LinkPreviewCard'
 import { getCachedMediaBlob, setCachedMediaBlob } from '@/lib/mediaCache'
 import { acknowledgeMediaDownload } from '@/lib/api'
+import { useModalBackHandler } from '@/lib/useModalBackHandler'
 
 interface MessageBubbleProps {
   message: Message
@@ -102,6 +103,17 @@ export function MessageBubble({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [remainingSeconds, setRemainingSeconds] = useState(0)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleCloseDelete = useModalBackHandler(
+    isDeleteModalOpen,
+    () => setIsDeleteModalOpen(false),
+    'msg_delete_modal'
+  )
+  const handleCloseReader = useModalBackHandler(
+    isReaderModalOpen,
+    () => setIsReaderModalOpen(false),
+    'msg_reader_modal'
+  )
 
   // Media Offline Caching & Expiration State (Store-and-Forward)
   const [resolvedMediaUrl, setResolvedMediaUrl] = useState<string | null>(null)
@@ -532,7 +544,7 @@ export function MessageBubble({
       {isDeleteModalOpen && typeof document !== 'undefined' && createPortal(
         <div
           className="modal-backdrop"
-          onClick={() => !isDeleting && setIsDeleteModalOpen(false)}
+          onClick={() => !isDeleting && handleCloseDelete()}
           style={{
             position: 'fixed',
             top: 0,
@@ -586,7 +598,7 @@ export function MessageBubble({
               <button
                 type="button"
                 disabled={isDeleting}
-                onClick={() => setIsDeleteModalOpen(false)}
+                onClick={handleCloseDelete}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -666,7 +678,7 @@ export function MessageBubble({
               <button
                 type="button"
                 disabled={isDeleting}
-                onClick={() => setIsDeleteModalOpen(false)}
+                onClick={handleCloseDelete}
                 className="btn btn-secondary"
                 style={{ padding: '6px 14px', fontSize: '0.875rem' }}
               >
@@ -682,7 +694,7 @@ export function MessageBubble({
       {isReaderModalOpen && typeof document !== 'undefined' && createPortal(
         <div
           className="modal-backdrop"
-          onClick={() => setIsReaderModalOpen(false)}
+          onClick={handleCloseReader}
           style={{
             position: 'fixed',
             top: 0,
@@ -739,7 +751,7 @@ export function MessageBubble({
               </div>
               <button
                 type="button"
-                onClick={() => setIsReaderModalOpen(false)}
+                onClick={handleCloseReader}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -783,7 +795,7 @@ export function MessageBubble({
             >
               <button
                 type="button"
-                onClick={() => setIsReaderModalOpen(false)}
+                onClick={handleCloseReader}
                 className="btn btn-primary"
                 style={{ padding: '6px 18px', fontSize: '0.875rem' }}
               >

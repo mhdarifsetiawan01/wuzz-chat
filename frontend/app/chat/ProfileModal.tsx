@@ -7,6 +7,7 @@ import { apiRequest } from '@/lib/api'
 import type { User } from '@/lib/types'
 import { isImageCompressionEnabled, setImageCompressionEnabled } from '@/lib/imageCompressor'
 import { getMediaCacheStats, clearMediaCache } from '@/lib/mediaCache'
+import { useModalBackHandler } from '@/lib/useModalBackHandler'
 
 interface ProfileModalProps {
   isOpen: boolean
@@ -25,6 +26,7 @@ const PRESET_BIOS = [
 export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const router = useRouter()
   const { user, updateUser, logout } = useAuth()
+  const handleClose = useModalBackHandler(isOpen, onClose, 'profile_modal')
 
   const [displayName, setDisplayName] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
@@ -97,7 +99,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       updateUser(data)
       setSuccessMsg('✅ Profil berhasil diperbarui!')
       setTimeout(() => {
-        onClose()
+        handleClose()
       }, 700)
     }
   }
@@ -106,7 +108,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     <div
       className="modal-backdrop"
       onClick={e => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) handleClose()
       }}
       style={{
         position: 'fixed',
@@ -155,7 +157,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             style={{
               background: 'none',
               border: 'none',
@@ -399,7 +401,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-5)' }}>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="btn btn-secondary"
               style={{ flex: 1, justifyContent: 'center' }}
             >

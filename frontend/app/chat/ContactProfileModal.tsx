@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { apiRequest } from '@/lib/api'
 import type { User } from '@/lib/types'
+import { useModalBackHandler } from '@/lib/useModalBackHandler'
 
 interface ContactProfileModalProps {
   isOpen: boolean
@@ -22,6 +23,8 @@ export function ContactProfileModal({
   const [profile, setProfile] = useState<User | null>(initialUser || null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const handleClose = useModalBackHandler(isOpen, onClose, 'contact_profile')
 
   useEffect(() => {
     if (!isOpen) return
@@ -65,7 +68,7 @@ export function ContactProfileModal({
     <div
       className="modal-backdrop"
       onClick={e => {
-        if (e.target === e.currentTarget) onClose()
+        if (e.target === e.currentTarget) handleClose()
       }}
       style={{
         position: 'fixed',
@@ -109,7 +112,7 @@ export function ContactProfileModal({
           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>Info Kontak</h3>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             style={{
               background: 'none',
               border: 'none',
@@ -205,7 +208,7 @@ export function ContactProfileModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="btn btn-primary"
             style={{ width: '100%', marginTop: 'var(--space-5)', justifyContent: 'center' }}
           >

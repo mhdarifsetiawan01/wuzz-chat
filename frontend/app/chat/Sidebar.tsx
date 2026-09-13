@@ -6,6 +6,7 @@ import { apiRequest } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import type { Message, User, ConversationItem } from '@/lib/types'
 import { ProfileModal } from './ProfileModal'
+import { useModalBackHandler } from '@/lib/useModalBackHandler'
 
 interface SidebarProps {
   activeRoomId: string
@@ -66,6 +67,11 @@ export function Sidebar({
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [confirmDeleteConv, setConfirmDeleteConv] = useState<ConversationItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const handleCloseDeleteConv = useModalBackHandler(
+    Boolean(confirmDeleteConv),
+    () => setConfirmDeleteConv(null),
+    'delete_conv_modal'
+  )
 
   // Eksekusi hapus percakapan (Delete for Me)
   const handleExecuteDeleteConversation = async () => {
@@ -613,7 +619,7 @@ export function Sidebar({
         <div
           className="modal-backdrop"
           onClick={e => {
-            if (e.target === e.currentTarget && !isDeleting) setConfirmDeleteConv(null)
+            if (e.target === e.currentTarget && !isDeleting) handleCloseDeleteConv()
           }}
           style={{
             position: 'fixed',
@@ -660,7 +666,7 @@ export function Sidebar({
               </h3>
               <button
                 type="button"
-                onClick={() => !isDeleting && setConfirmDeleteConv(null)}
+                onClick={() => !isDeleting && handleCloseDeleteConv()}
                 disabled={isDeleting}
                 style={{
                   background: 'none',
@@ -700,7 +706,7 @@ export function Sidebar({
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setConfirmDeleteConv(null)}
+                  onClick={() => handleCloseDeleteConv()}
                   disabled={isDeleting}
                   style={{ padding: '8px 16px', fontSize: '0.875rem' }}
                 >

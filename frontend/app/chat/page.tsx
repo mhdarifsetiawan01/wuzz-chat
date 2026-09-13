@@ -192,6 +192,8 @@ function ChatPageContent() {
     dispatch({ type: 'SET_ROOM_USERS', payload: [] })
     dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
     setReplyingTo(null)
+    setLightboxData(null)
+    setIsMemberListOpen(false)
 
     // Buat koneksi WsClient (selalu aktif untuk menerima notifikasi pesan baru)
     const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
@@ -542,7 +544,10 @@ function ChatPageContent() {
   }, [roomId])
 
   const handleSelectRoom = (newRoomId: string) => {
-    router.push(`/chat?room=${encodeURIComponent(newRoomId)}`)
+    setLightboxData(null)
+    setIsMemberListOpen(false)
+    setReplyingTo(null)
+    router.push(newRoomId ? `/chat?room=${encodeURIComponent(newRoomId)}` : '/chat')
   }
 
   // Drag & drop file ke area chat

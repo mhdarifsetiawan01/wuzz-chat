@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useModalBackHandler } from '@/lib/useModalBackHandler'
 
 interface ImageLightboxModalProps {
   isOpen: boolean
@@ -18,6 +19,9 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
 }) => {
   const [mounted, setMounted] = useState(false)
   const [scale, setScale] = useState(1)
+  const [imageError, setImageError] = useState(false)
+
+  const handleClose = useModalBackHandler(isOpen, onClose, 'image_lightbox')
 
   useEffect(() => {
     setMounted(true)
@@ -26,15 +30,9 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setScale(1)
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          onClose()
-        }
-      }
-      window.addEventListener('keydown', handleKeyDown)
-      return () => window.removeEventListener('keydown', handleKeyDown)
+      setImageError(false)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, imageUrl])
 
   if (!mounted || !isOpen || !imageUrl) return null
 
@@ -68,7 +66,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
   return createPortal(
     <div
       className="lightbox-overlay"
-      onClick={onClose}
+      onClick={handleClose}
       role="dialog"
       aria-modal="true"
       aria-label="Image Preview Lightbox"
@@ -79,45 +77,49 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
           {fileName || 'Pratinjau Gambar'}
         </div>
         <div className="lightbox-controls">
-          <button
-            type="button"
-            className="lightbox-btn"
-            onClick={handleZoomOut}
-            title="Zoom Out (-)"
-            disabled={scale <= 0.5}
-          >
-            🔍−
-          </button>
-          <button
-            type="button"
-            className="lightbox-btn"
-            onClick={handleResetZoom}
-            title="Reset Zoom (100%)"
-          >
-            {Math.round(scale * 100)}%
-          </button>
-          <button
-            type="button"
-            className="lightbox-btn"
-            onClick={handleZoomIn}
-            title="Zoom In (+)"
-            disabled={scale >= 3.0}
-          >
-            🔍+
-          </button>
-          <button
-            type="button"
-            className="lightbox-btn"
-            onClick={handleDownload}
-            title="Download Gambar"
-          >
-            ⬇ Unduh
-          </button>
+          {!imageError && (
+            <>
+              <button
+                type="button"
+                className="lightbox-btn"
+                onClick={handleZoomOut}
+                title="Zoom Out (-)"
+                disabled={scale <= 0.5}
+              >
+                🔍−
+              </button>
+              <button
+                type="button"
+                className="lightbox-btn"
+                onClick={handleResetZoom}
+                title="Reset Zoom (100%)"
+              >
+                {Math.round(scale * 100)}%
+              </button>
+              <button
+                type="button"
+                className="lightbox-btn"
+                onClick={handleZoomIn}
+                title="Zoom In (+)"
+                disabled={scale >= 3.0}
+              >
+                🔍+
+              </button>
+              <button
+                type="button"
+                className="lightbox-btn"
+                onClick={handleDownload}
+                title="Download Gambar"
+              >
+                ⬇ Unduh
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="lightbox-btn lightbox-close-btn"
-            onClick={onClose}
-            title="Tutup (Esc)"
+            onClick={handleClose}
+            title="Tutup (Esc / Back)"
           >
             ✕
           </button>
@@ -130,22 +132,56 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
         onClick={(e) => {
           // Hanya tutup jika klik area kosong di luar gambar
           if (e.target === e.currentTarget) {
-            onClose()
+            handleClose()
           }
         }}
       >
-        <img
-          src={imageUrl}
-          alt={fileName || 'Pratinjau Gambar'}
-          className="lightbox-image"
-          style={{
-            transform: `scale(${scale})`,
-            transition: 'transform 0.15s ease-out',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        />
+        {imageError ? (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#8696a0',
+              textAlign: 'center',
+              padding: '2rem',
+              maxWidth: '400px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</span>
+            <h3 style={{ color: '#e9edef', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
+              Gagal Memuat Pratinjau Gambar
+            </h3>
+            <p style={{ fontSize: '0.875rem', lineHeight: '1.5', marginBottom: '1.5rem' }}>
+              Gambar mungkin sudah kedaluwarsa di server atau terjadi gangguan pada cache browser.
+            </p>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleClose}
+              style={{ fontSize: '0.875rem', padding: '8px 20px' }}
+            >
+              Tutup Pratinjau
+            </button>
+          </div>
+        ) : (
+          <img
+            src={imageUrl}
+            alt={fileName || 'Pratinjau Gambar'}
+            className="lightbox-image"
+            style={{
+              transform: `scale(${scale})`,
+              transition: 'transform 0.15s ease-out',
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onError={() => setImageError(true)}
+          />
+        )}
       </div>
     </div>,
     document.body
   )
 }
+
