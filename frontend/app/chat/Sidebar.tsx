@@ -226,7 +226,7 @@ export function Sidebar({
 
   const [searchError, setSearchError] = useState('')
 
-  // Cari user lain dengan debounce 300ms untuk optimasi performa dan mencegah request flooding
+  // Cari user lain dengan debounce 450ms untuk optimasi performa dan mencegah request flooding
   const handleSearch = (query: string) => {
     setSearchQuery(query)
     setSearchError('')
@@ -251,7 +251,7 @@ export function Sidebar({
       } else if (error) {
         setSearchError(error)
       }
-    }, 300)
+    }, 450)
   }
 
   // Mulai direct chat dengan user hasil pencarian
