@@ -97,7 +97,7 @@ export function Sidebar({
           initialUnread[c.id] = c.unread_count
         }
       })
-      setUnreadCounts(prev => ({ ...initialUnread, ...prev }))
+      setUnreadCounts(initialUnread)
     }
     setIsLoading(false)
   }
@@ -112,11 +112,13 @@ export function Sidebar({
   useEffect(() => {
     if (activeRoomId) {
       setUnreadCounts(prev => {
-        if (!prev[activeRoomId]) return prev
         const next = { ...prev }
         delete next[activeRoomId]
         return next
       })
+      setConversations(prev =>
+        prev.map(c => (c.id === activeRoomId ? { ...c, unread_count: 0 } : c))
+      )
     }
   }, [activeRoomId])
 
@@ -155,6 +157,7 @@ export function Sidebar({
         const updatedItem: ConversationItem = index >= 0
           ? {
               ...prev[index],
+              unread_count: isInactiveRoom ? ((prev[index].unread_count || 0) + 1) : 0,
               last_message: snippet,
               last_sender: lastIncomingMessage.nickname || 'Pengguna',
               last_status: lastIncomingMessage.status || 'sent',
@@ -164,6 +167,7 @@ export function Sidebar({
               id: room,
               type: 'direct',
               title: lastIncomingMessage.nickname || room,
+              unread_count: isInactiveRoom ? 1 : 0,
               last_message: snippet,
               last_sender: lastIncomingMessage.nickname || 'Pengguna',
               last_status: lastIncomingMessage.status || 'sent',
@@ -230,7 +234,7 @@ export function Sidebar({
   const filteredConversations = conversations.filter(c => {
     if (activeFilter === 'unread') {
       const unread = unreadCounts[c.id] || 0
-      return unread > 0 || (c.unread_count && c.unread_count > 0)
+      return unread > 0
     }
     if (activeFilter === 'groups') {
       return c.type === 'group' || (c.id.startsWith('room-') && !c.id.startsWith('dm_'))
@@ -450,6 +454,14 @@ export function Sidebar({
                       key={c.id}
                       className={`conversation-item ${isActive ? 'active' : ''}`}
                       onClick={() => {
+                        setUnreadCounts(prev => {
+                          const next = { ...prev }
+                          delete next[c.id]
+                          return next
+                        })
+                        setConversations(prev =>
+                          prev.map(item => (item.id === c.id ? { ...item, unread_count: 0 } : item))
+                        )
                         onSelectRoom(c.id)
                         if (onCloseMobile) onCloseMobile()
                       }}

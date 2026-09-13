@@ -233,6 +233,15 @@ function ChatPageContent() {
           nickname,
           room: roomId || '',
         })
+
+        // Jika membuka ruang obrolan saat tab aktif, kirim bulk read receipt seketika
+        if (roomId && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+          client.send({
+            type: 'receipt',
+            room: roomId,
+            status: 'read',
+          })
+        }
       }
     })
 
@@ -398,9 +407,26 @@ function ChatPageContent() {
       }
     })
 
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && roomId && clientRef.current) {
+        clientRef.current.send({
+          type: 'receipt',
+          room: roomId,
+          status: 'read',
+        })
+      }
+    }
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    }
+
     client.connect()
 
     return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange)
+      }
       client.destroy()
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
     }

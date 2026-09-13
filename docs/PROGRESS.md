@@ -219,6 +219,7 @@
     - **Layar 1 (Daftar Chat Fullscreen)**: Header WuzzChat, Search Bar terintegrasi, Filter Pills (`Semua`, `Belum Dibaca`, `Langsung`, `Grup`), Floating Action Button (FAB) hijau, dan Bottom Navigation Bar.
     - **Layar 2 (Ruang Obrolan Fullscreen)**: Header kontak dengan tombol navigasi `← Back` untuk kembali ke daftar chat, timeline pesan responsif, dan sticky message input.
     - **Optimasi Browser Handphone**: Menerapkan Dynamic Viewport Height (`100dvh`), `position: sticky; top: 0;` pada status bar obrolan, safe area padding `env(safe-area-inset-bottom)` pada navigasi bawah, dan membersihkan teks shortcut desktop di layar HP.
+    - **Real-Time Unread Badge & Read Receipts**: Sinkronisasi instan *unread counter* di Sidebar tanpa reload (Optimistic UI 0ms saat room dibuka), filter pill "Belum Dibaca" akurat, dan pengiriman bulk `read` receipt otomatis via WebSocket & Page Visibility API.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id`
