@@ -31,6 +31,11 @@ func NewSQLMessageStore(driverName, dataSourceName string) (*SQLMessageStore, er
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
+	if driverName == "sqlite" {
+		_, _ = db.Exec("PRAGMA journal_mode=WAL;")
+		_, _ = db.Exec("PRAGMA busy_timeout=5000;")
+	}
+
 	// Uji koneksi
 	if err := db.Ping(); err != nil {
 		_ = db.Close()

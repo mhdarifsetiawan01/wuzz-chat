@@ -1,14 +1,13 @@
 package store
 
 import (
-	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestSQLMessageStore_SQLite(t *testing.T) {
-	tmpDB := "test_wuzz.db"
-	defer os.Remove(tmpDB)
+	tmpDB := filepath.Join(t.TempDir(), "test_wuzz.db")
 
 	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
 	if err != nil {
@@ -61,8 +60,7 @@ func TestSQLMessageStore_SQLite(t *testing.T) {
 }
 
 func TestSQLUserStore_Profile(t *testing.T) {
-	tmpDB := "test_user_profile.db"
-	defer os.Remove(tmpDB)
+	tmpDB := filepath.Join(t.TempDir(), "test_user_profile.db")
 
 	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
 	if err != nil {
@@ -134,8 +132,7 @@ func TestSQLUserStore_Profile(t *testing.T) {
 }
 
 func TestSQLUserStore_RoomAccessAuthorization(t *testing.T) {
-	tmpDB := "test_user_auth_room.db"
-	defer os.Remove(tmpDB)
+	tmpDB := filepath.Join(t.TempDir(), "test_user_auth_room.db")
 
 	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
 	if err != nil {
@@ -181,8 +178,7 @@ func TestSQLUserStore_RoomAccessAuthorization(t *testing.T) {
 }
 
 func TestClearConversation_PrivacyFilter(t *testing.T) {
-	tmpDB := "test_clear_conv.db"
-	defer os.Remove(tmpDB)
+	tmpDB := filepath.Join(t.TempDir(), "test_clear_conv.db")
 
 	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
 	if err != nil {
@@ -302,8 +298,7 @@ func TestClearConversation_PrivacyFilter(t *testing.T) {
 }
 
 func TestDeleteMessage_Scenarios(t *testing.T) {
-	tmpDB := "test_del_msg.db"
-	defer os.Remove(tmpDB)
+	tmpDB := filepath.Join(t.TempDir(), "test_del_msg.db")
 
 	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
 	if err != nil {

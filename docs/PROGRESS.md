@@ -278,6 +278,10 @@
     - Tombol panggil suara 📞 pada status bar obrolan direct 1-on-1.
 - **Bug Fix & UI Polish**:
   - **Contact Search Persistence**: Memisahkan state loading API `isSearching` dengan state visibilitas panel pencarian `isSearchActive` di `Sidebar.tsx` sehingga hasil pencarian kontak tetap menetap dan tidak tertutup otomatis setelah 1 detik.
+- [x] **Milestone Security & Scale Hardening (Tahap 1 Selesai ✅)**:
+  - **BOLA / IDOR Protection**: Memvalidasi kepemilikan dan hak akses keanggotaan room (`isAuthorizedForRoom`) pada seluruh event WebSocket (`call_offer`, `call_answer`, `ice_candidate`, `receipt`, `reaction`, `typing`, `message`, `join`) di `backend/internal/ws/client.go`.
+  - **End-to-End (E2E) Test Suite**: Dibuat suite pengujian live server komprehensif di `backend/internal/ws/e2e_full_flow_test.go` (`TestE2E_FullChatAndSecurityLifecycle`) yang menguji alur multi-user chat, WebRTC calling, dan penolakan penetrasi penyusup (attacker isolation).
+  - **SQLite Concurrency & Busy Timeout**: Konfigurasi `PRAGMA journal_mode=WAL` dan `PRAGMA busy_timeout=5000` di `backend/internal/store/sql.go` untuk keandalan concurrency multi-goroutine.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id` & `https://wuzz-chat.vercel.app`
@@ -285,7 +289,7 @@
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)
   - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
-- Siap melangkah ke **Milestone 7.2B: WebRTC 1-on-1 Video Calling** (dijadwalkan berikutnya).
+- Siap melangkah ke **Tahap 2: Proteksi IDOR pada Media File ACK Deletion** & **Milestone 7.2B: WebRTC 1-on-1 Video Calling**.
 
 ---
 

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -259,4 +260,83 @@ func TestWebSocketJWTAuthentication(t *testing.T) {
 			t.Fatalf("expected oversized content error, got: %+v", errOversized)
 		}
 	})
+
+	// 8. Uji Penolakan Call Signaling, Reaction, & Receipt dari Non-Anggota (BOLA Prevention)
+	t.Run("Reject unauthorized call signaling, reaction, and receipt from non-members", func(t *testing.T) {
+		tempDBPath := filepath.Join(t.TempDir(), "sec_events.db")
+		msgStore, err := store.NewSQLMessageStore("sqlite", tempDBPath)
+		if err != nil {
+			t.Fatalf("failed to init sql message store: %v", err)
+		}
+		userStore := store.NewSQLUserStore(msgStore.DB(), msgStore.DriverName())
+		secHub := NewHub(store.NewMemoryClientStore(), msgStore)
+		secHub.SetUserStore(userStore)
+
+		secServer := httptest.NewServer(NewHandler(secHub))
+		defer secServer.Close()
+
+		userAlice, _ := userStore.Register("alice_events", "Alice", "pass")
+		userBob, _ := userStore.Register("bob_events", "Bob", "pass")
+		userEve, _ := userStore.Register("eve_intruder", "Eve", "pass")
+
+		dmRoom, _ := userStore.GetOrCreateDirectConversation(userAlice.ID, userBob.ID)
+
+		eveToken, _ := auth.GenerateToken(userEve.ID, userEve.Username, userEve.DisplayName)
+		eveURL := "ws" + strings.TrimPrefix(secServer.URL, "http") + "?token=" + eveToken
+
+		eveConn, _, err := websocket.DefaultDialer.Dial(eveURL, nil)
+		if err != nil {
+			t.Fatalf("Eve failed to connect: %v", err)
+		}
+		defer eveConn.Close()
+
+		// A. Eve mencoba kirim call_offer ke dmRoom Alice-Bob
+		_ = eveConn.WriteJSON(Message{
+			Type: TypeCallOffer,
+			Room: dmRoom,
+			SDP:  "v=0\r\no=...",
+		})
+
+		var callErr Message
+		if err := eveConn.ReadJSON(&callErr); err != nil {
+			t.Fatalf("failed to read ws error for call_offer: %v", err)
+		}
+		if callErr.Type != TypeSystem || !strings.Contains(callErr.Content, "Akses ditolak") {
+			t.Fatalf("expected call_offer rejection, got: %+v", callErr)
+		}
+
+		// B. Eve mencoba kirim reaction ke dmRoom Alice-Bob
+		_ = eveConn.WriteJSON(Message{
+			Type: TypeReaction,
+			Room: dmRoom,
+			Reaction: &ReactionPayload{
+				MessageID: "msg-123",
+				Emoji:     "❤️",
+			},
+		})
+
+		var reactErr Message
+		if err := eveConn.ReadJSON(&reactErr); err != nil {
+			t.Fatalf("failed to read ws error for reaction: %v", err)
+		}
+		if reactErr.Type != TypeSystem || !strings.Contains(reactErr.Content, "Akses ditolak") {
+			t.Fatalf("expected reaction rejection, got: %+v", reactErr)
+		}
+
+		// C. Eve mencoba kirim receipt ke dmRoom Alice-Bob
+		_ = eveConn.WriteJSON(Message{
+			Type:   TypeReceipt,
+			Room:   dmRoom,
+			Status: StatusRead,
+		})
+
+		var receiptErr Message
+		if err := eveConn.ReadJSON(&receiptErr); err != nil {
+			t.Fatalf("failed to read ws error for receipt: %v", err)
+		}
+		if receiptErr.Type != TypeSystem || !strings.Contains(receiptErr.Content, "Akses ditolak") {
+			t.Fatalf("expected receipt rejection, got: %+v", receiptErr)
+		}
+	})
 }
+

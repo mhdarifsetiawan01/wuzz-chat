@@ -157,13 +157,9 @@ func (c *Client) onJoin(msg Message) {
 	}
 
 	// Validasi Hak Akses Room (BOLA Prevention)
-	if c.hub.userStore != nil && targetRoom != "" {
-		allowed, err := c.hub.userStore.IsUserInConversation(targetRoom, c.ID)
-		if err == nil && !allowed {
-			log.Printf("[Security] Akses ditolak: User %s (%s) bukan anggota room %s", c.ID, c.Nickname, targetRoom)
-			c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
-			return
-		}
+	if !c.isAuthorizedForRoom(targetRoom) {
+		c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
+		return
 	}
 
 	c.RoomID = targetRoom
@@ -215,12 +211,9 @@ func (c *Client) onMessage(msg Message) {
 	}
 
 	// Validasi Hak Akses Room Pengirim (BOLA Prevention)
-	if c.hub.userStore != nil && targetRoom != "" {
-		allowed, err := c.hub.userStore.IsUserInConversation(targetRoom, c.ID)
-		if err == nil && !allowed {
-			c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
-			return
-		}
+	if !c.isAuthorizedForRoom(targetRoom) {
+		c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
+		return
 	}
 
 	// Rate Limiting Pengiriman Pesan: Maksimal 10 pesan per 2 detik per koneksi (Anti-Flood)
@@ -315,6 +308,12 @@ func (c *Client) onReceipt(msg Message) {
 		return
 	}
 
+	// Validasi Hak Akses Room (BOLA Prevention)
+	if !c.isAuthorizedForRoom(targetRoom) {
+		c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
+		return
+	}
+
 	if msg.ID != "" {
 		// Update status single message di database / memory store
 		if err := c.hub.messageStore.UpdateMessageStatus(msg.ID, string(msg.Status)); err != nil {
@@ -340,6 +339,12 @@ func (c *Client) onTyping(msg Message) {
 	if targetRoom == "" {
 		return
 	}
+
+	// Validasi Hak Akses Room (BOLA Prevention)
+	if !c.isAuthorizedForRoom(targetRoom) {
+		return
+	}
+
 	msg.Room = targetRoom
 	msg.Nickname = c.Nickname
 	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
@@ -362,6 +367,12 @@ func (c *Client) onReaction(msg Message) {
 		targetRoom = c.RoomID
 	}
 	if targetRoom == "" {
+		return
+	}
+
+	// Validasi Hak Akses Room (BOLA Prevention)
+	if !c.isAuthorizedForRoom(targetRoom) {
+		c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
 		return
 	}
 
@@ -396,6 +407,12 @@ func (c *Client) onCallSignaling(msg Message) {
 		return
 	}
 
+	// Validasi Hak Akses Room (BOLA Prevention)
+	if !c.isAuthorizedForRoom(targetRoom) {
+		c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
+		return
+	}
+
 	msg.Room = targetRoom
 	msg.From = c.ID
 	msg.Nickname = c.Nickname
@@ -403,6 +420,19 @@ func (c *Client) onCallSignaling(msg Message) {
 
 	// Broadcast pesan sinyal WebRTC ke seluruh peer di room selain pengirim
 	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
+}
+
+// isAuthorizedForRoom memeriksa apakah user saat ini merupakan anggota sah dari percakapan roomID.
+func (c *Client) isAuthorizedForRoom(roomID string) bool {
+	if c.hub.userStore == nil || roomID == "" {
+		return true
+	}
+	allowed, err := c.hub.userStore.IsUserInConversation(roomID, c.ID)
+	if err == nil && !allowed {
+		log.Printf("[Security] Akses ditolak: User %s (%s) bukan anggota room %s", c.ID, c.Nickname, roomID)
+		return false
+	}
+	return true
 }
 
 // sendError mengirimkan pesan error sistem ke client ini sendiri.
