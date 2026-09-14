@@ -190,6 +190,38 @@ func (h *ChatHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(user)
 }
 
+// GetUserPublicKey mengembalikan public_key milik user (endpoint publik untuk E2EE Service Worker).
+func (h *ChatHandler) GetUserPublicKey(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.URL.Query().Get("id"))
+	if id == "" {
+		id = strings.TrimSpace(r.URL.Query().Get("username"))
+	}
+	if id == "" {
+		http.Error(w, `{"error":"id atau username wajib diisi"}`, http.StatusBadRequest)
+		return
+	}
+
+	cleanID := strings.TrimPrefix(id, "@")
+	user, err := h.userStore.GetUserByID(cleanID)
+	if err != nil || user == nil {
+		user, err = h.userStore.GetUserByUsername(cleanID)
+		if err != nil || user == nil {
+			user, err = h.userStore.GetUserByUsernameOrDisplayName(cleanID)
+		}
+	}
+
+	if err != nil || user == nil {
+		http.Error(w, `{"error":"User tidak ditemukan"}`, http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"user_id":    user.ID,
+		"public_key": user.PublicKey,
+	})
+}
+
 // DeleteMessage menghapus pesan spesifik (Delete for Me atau Delete for Everyone).
 func (h *ChatHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.GetUserFromContext(r.Context())

@@ -1,6 +1,6 @@
 // Service Worker untuk Wuzz Chat Push Notification
 // Standard W3C Web Push & Service Worker API dengan Zero-Knowledge Client-Side E2EE Background Decryption
-// Version: 1.0.3
+// Version: 1.0.4
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -10,9 +10,11 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Helper Base64 to Uint8Array
+// Helper Base64 to Uint8Array (Aman untuk format standard & URL-safe Base64)
 function base64ToBytes(base64) {
-  const binary = atob(base64);
+  const normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = '='.repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(normalized + padding);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
@@ -20,8 +22,23 @@ function base64ToBytes(base64) {
   return bytes;
 }
 
-// Mengambil Private Key milik user lokal dari IndexedDB wuzz_crypto_db dengan timeout guard
-function getStoredLocalPrivateKey() {
+// Mengambil Private Key milik user lokal dari CacheStorage (instan < 1ms) atau IndexedDB
+async function getStoredLocalPrivateKey() {
+  // 1. Coba baca dari CacheStorage (Sangat cepat < 1ms, tahan banting saat PWA di-kill OS Android)
+  try {
+    if (typeof caches !== 'undefined') {
+      const cache = await caches.open('wuzz-crypto-keys');
+      const resp = await cache.match('/__e2ee_identity');
+      if (resp) {
+        const data = await resp.json();
+        if (data && data.privateKeyJWK) {
+          return data.privateKeyJWK;
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 2. Fallback baca dari IndexedDB wuzz_crypto_db
   return new Promise((resolve) => {
     let resolved = false;
     const timer = setTimeout(() => {
@@ -120,11 +137,11 @@ async function tryDecryptPushContent(encryptedPayload, roomId, senderPubKeyJWK, 
     let pubKeyRaw = senderPubKeyJWK;
     if (!pubKeyRaw && senderId) {
       try {
-        const resp = await fetch(`/api/users/profile?id=${encodeURIComponent(senderId)}`);
+        const resp = await fetch(`/api/users/public-key?id=${encodeURIComponent(senderId)}`);
         if (resp.ok) {
-          const profileData = await resp.json();
-          if (profileData && profileData.user && profileData.user.public_key) {
-            pubKeyRaw = profileData.user.public_key;
+          const keyData = await resp.json();
+          if (keyData && keyData.public_key) {
+            pubKeyRaw = keyData.public_key;
           }
         }
       } catch (e) {}

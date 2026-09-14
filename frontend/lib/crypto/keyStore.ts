@@ -92,12 +92,28 @@ export async function getLocalUserKeyPair(userId: string): Promise<{
   }
 }
 
-// Menyimpan KeyPair ke IndexedDB
+// Simpan juga ke CacheStorage agar Service Worker di Android dapat membaca instan (< 1ms) tanpa LevelDB lock
+async function saveToCacheStorage(userId: string, privateKeyJWK: string, publicKeyJWK: string) {
+  try {
+    if (typeof window !== 'undefined' && 'caches' in window) {
+      const cache = await window.caches.open('wuzz-crypto-keys')
+      await cache.put(
+        '/__e2ee_identity',
+        new Response(JSON.stringify({ userId, privateKeyJWK, publicKeyJWK }), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    }
+  } catch {}
+}
+
+// Menyimpan KeyPair ke IndexedDB dan CacheStorage
 async function saveLocalUserKeyPair(
   userId: string,
   privateKeyJWK: string,
   publicKeyJWK: string
 ): Promise<void> {
+  saveToCacheStorage(userId, privateKeyJWK, publicKeyJWK)
   const db = await openCryptoDB()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite')
@@ -153,8 +169,9 @@ export async function initUserE2EE(
     }
   }
 
-  // Jika key pair sudah ada, pastikan server juga punya (idempotent check)
+  // Jika key pair sudah ada, pastikan server dan CacheStorage juga punya
   try {
+    saveToCacheStorage(userId, keyPair.privateKey ? await exportPrivateKeyJWK(keyPair.privateKey) : '', keyPair.publicKeyJWK)
     apiRequest('/api/users/public-key', {
       method: 'PUT',
       body: JSON.stringify({ public_key: keyPair.publicKeyJWK }),
