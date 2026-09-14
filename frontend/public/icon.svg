@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E1B4B" />
+      <stop offset="50%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+
+    <!-- Bubble Gradient -->
+    <linearGradient id="bubbleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1" />
+      <stop offset="50%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+
+    <!-- Bolt Gradient -->
+    <linearGradient id="boltGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="50%" stop-color="#FDE047" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+
+    <!-- Outer Glow -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <!-- Shadow -->
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
+  </defs>
+
+  <!-- Base Squircle -->
+  <rect width="512" height="512" rx="115" fill="url(#bgGradient)" />
+
+  <!-- Subtle Border Rim -->
+  <rect x="2" y="2" width="508" height="508" rx="113" stroke="rgba(255,255,255,0.12)" stroke-width="4" fill="none" />
+
+  <!-- Background Ambient Glow -->
+  <circle cx="256" cy="240" r="160" fill="#6366F1" opacity="0.2" filter="url(#glow)" />
+
+  <!-- Main Chat Bubble -->
+  <g filter="url(#dropShadow)">
+    <path d="M120 220C120 153.726 173.726 100 240 100H272C338.274 100 392 153.726 392 220C392 286.274 338.274 340 272 340H220L150 395C140 402 120 395 120 380V340C120 340 120 340 120 220Z" 
+          fill="url(#bubbleGradient)" />
+  </g>
+
+  <!-- Inner Chat Bubble Highlight Ring -->
+  <path d="M124 220C124 155.935 175.935 104 240 104H272C336.065 104 388 155.935 388 220C388 284.065 336.065 336 272 336H218L156 385C150 390 124 382 124 372V336C124 336 124 336 124 220Z" 
+        stroke="rgba(255,255,255,0.25)" stroke-width="3" fill="none" />
+
+  <!-- Lightning Bolt / Fast 'W' Icon -->
+  <g filter="url(#glow)">
+    <!-- Lightning Bolt -->
+    <path d="M278 140L195 245H252L234 320L317 215H260L278 140Z" 
+          fill="url(#boltGradient)" />
+  </g>
+
+  <!-- Speed Dots / Particle Accents -->
+  <circle cx="350" cy="150" r="8" fill="#38BDF8" opacity="0.8" />
+  <circle cx="365" cy="180" r="5" fill="#818CF8" opacity="0.6" />
+</svg>
