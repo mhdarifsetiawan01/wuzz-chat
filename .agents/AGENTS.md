@@ -33,23 +33,30 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
 
 ---
 
-## 📚 Continuous Documentation Synchronization Rule (MANDATORY)
+## 📚 Continuous & Holistic Documentation Synchronization Rule (MANDATORY)
 
-**Setiap ada perubahan kode, penambahan fitur, endpoint baru, atau perubahan skema sekecil apapun, AI WAJIB memperbarui dokumentasi terkait sebelum tugas dinyatakan selesai.**
+**Jika pengguna meminta "update dokumentasi" / "sinkronkan docs", atau setiap kali ada penambahan fitur/perubahan skema/refactoring sekecil apapun, AI WAJIB melakukan audit menyeluruh (360-Degree Check) dan memperbarui SELURUH dokumen proyek tanpa ada yang terlewat.**
 
-### Aturan konkret:
+### Aturan konkret & SOP Audit Dokumentasi:
 
-1. **Mapping Perubahan ke Dokumen:**
-   - **Fitur Baru / Milestone Selesai** ➔ Update [`docs/PROGRESS.md`](../docs/PROGRESS.md) & [`docs/ROADMAP.md`](../docs/ROADMAP.md).
-   - **Perubahan Database, REST API, atau Format WebSocket** ➔ Update [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
-   - **Perubahan Konfigurasi, Environment, atau Cara Menjalankan Aplikasi** ➔ Update [`README.md`](../README.md) & [`PROMPT.md`](../PROMPT.md).
+1. **Prinsip Audit Menyeluruh (*All-Docs Checklist*)**:
+   Ketika instruksi pembaruan dokumentasi diterima, AI **DILARANG HANYA MENGUBAH 1 ATAU 2 FILE**. AI wajib memeriksa dan menyinkronkan seluruh daftar dokumen berikut:
+   - 📄 **[`README.md`](../README.md)**: Ringkasan proyek, daftar centang fitur selesai, struktur monorepo, tech stack, dan panduan menjalankan aplikasi.
+   - 🗺️ **[`docs/ROADMAP.md`](../docs/ROADMAP.md)**: Status milestone jangka panjang dari Fase 1 s/d Fase 7 (Tandai yang selesai vs pending).
+   - 📈 **[`docs/PROGRESS.md`](../docs/PROGRESS.md)**: Riwayat pengerjaan detail, catatan teknis implementasi, dan handover status per milestone.
+   - 🏛️ **[`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)**: Diagram ERD database, skema tabel relasional, kamus endpoint REST API, alur WebSocket, dan media lifecycle.
+   - 🛡️ **[`docs/SECURITY_AND_PERFORMANCE.md`](../docs/SECURITY_AND_PERFORMANCE.md)**: Proteksi BOLA/IDOR, Anti-SSRF Socket IP Pinning, $O(1)$ batch CTE query, indeks database, mitigasi concurrency SQLite, dan matriks E2E.
+   - 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](../docs/MOBILE_INTEGRATION_GUIDE.md)**: Kamus event WebSocket klien mobile, skema signaling WebRTC (`call_offer`, `call_answer`), STUN/TURN, standar E2EE, dan media Store-and-Forward ACK.
+   - 🤖 **[`PROMPT.md`](../PROMPT.md)**: Context primer sesi AI, single source of truth links, tech stack notes, live endpoints, dan status fase terkini.
 
-2. **Definition of Done (DoD) Gate:**
-   - Tugas **TIDAK DIANGGAP SELESAI** jika kode sudah diubah namun dokumen terkait belum disinkronkan.
-   - Setiap `git commit` di branch `dev` harus menyertakan pembaruan dokumentasi jika ada penambahan atau modifikasi fitur.
+2. **Langkah Kerja Eksekusi SOP (*Step-by-Step Execution*)**:
+   - **Langkah 1 (Analisis Diff & Fitur Baru)**: Identifikasi seluruh perubahan kode, endpoint baru, event WebSocket baru, atau perbaikan performa/keamanan dari commit/perubahan terkini.
+   - **Langkah 2 (Multi-File Inspection)**: Buka setiap file dokumentasi di atas untuk memeriksa apakah ada deskripsi yang sudah usang (*outdated*) atau belum sinkron.
+   - **Langkah 3 (Sinkronisasi Konten)**: Perbarui informasi di setiap file secara presisi dan konsisten.
+   - **Langkah 4 (Laporan Matriks Sinkronisasi)**: Sajikan laporan ringkas berupa tabel status sinkronisasi seluruh dokumen kepada pengguna.
 
-3. **Anti-Stale Documentation:**
-   - Dilarang membiarkan file dokumentasi menjadi usang (*outdated*). Seluruh diagram ERD, daftar endpoint, dan daftar file harus selalu merefleksikan kondisi codebase terbaru.
+3. **Definition of Done (DoD) Gate**:
+   - Tugas pengerjaan fitur maupun permintaan dokumentasi **TIDAK DIANGGAP SELESAI** jika salah satu dokumen di atas tertinggal atau berstatus usang.
 
 ---
 
