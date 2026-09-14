@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/storage"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
@@ -43,6 +44,7 @@ type MediaAckRequest struct {
 type MediaHandler struct {
 	storage              storage.MediaStorage
 	msgStore             store.MessageStore
+	userStore            store.UserStore
 	enabled              bool
 	maxFileSizeMB        int64
 	retentionDays        int
@@ -85,6 +87,11 @@ func NewMediaHandler(mediaStorage storage.MediaStorage, msgStore store.MessageSt
 		retentionDays:        retentionDays,
 		autoDeleteOnDownload: autoDelete,
 	}
+}
+
+// SetUserStore menyuntikkan UserStore untuk validasi otorisasi anggota percakapan.
+func (h *MediaHandler) SetUserStore(us store.UserStore) {
+	h.userStore = us
 }
 
 // SetEnabled mengubah status aktif fitur upload (untuk dynamic toggling runtime / test).
@@ -237,6 +244,28 @@ func (h *MediaHandler) AcknowledgeDownload(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "acknowledged"})
 		return
+	}
+
+	// Validasi Otorisasi (IDOR Prevention): Pastikan user pengirim ACK adalah anggota sah dari percakapan pesan ini
+	claims, _ := auth.GetUserFromContext(r.Context())
+	if claims != nil && claims.UserID != "" && h.userStore != nil {
+		msg, err := h.msgStore.GetMessageByID(req.MessageID)
+		if err != nil || msg == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Pesan media tidak ditemukan"})
+			return
+		}
+		if msg.RoomID != "" {
+			allowed, err := h.userStore.IsUserInConversation(msg.RoomID, claims.UserID)
+			if err == nil && !allowed {
+				log.Printf("[Security] Akses ditolak: User %s (%s) bukan anggota room %s untuk ACK media %s", claims.UserID, claims.Username, msg.RoomID, req.MessageID)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "Akses ditolak: Anda bukan anggota percakapan media ini"})
+				return
+			}
+		}
 	}
 
 	mediaURL, status, canDelete, err := h.msgStore.AcknowledgeMediaDownload(req.MessageID)

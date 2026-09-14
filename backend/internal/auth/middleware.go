@@ -44,6 +44,11 @@ func RequireJWT() func(http.Handler) http.Handler {
 	}
 }
 
+// SetUserContext memasukkan UserClaims ke context HTTP request (berguna untuk testing dan middleware internal).
+func SetUserContext(ctx context.Context, claims *UserClaims) context.Context {
+	return context.WithValue(ctx, UserContextKey, claims)
+}
+
 // GetUserFromContext mengekstrak UserClaims dari context HTTP request.
 func GetUserFromContext(ctx context.Context) (*UserClaims, bool) {
 	claims, ok := ctx.Value(UserContextKey).(*UserClaims)

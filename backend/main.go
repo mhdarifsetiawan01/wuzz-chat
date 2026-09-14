@@ -64,6 +64,9 @@ func main() {
 		log.Printf("⚠️ Gagal inisialisasi media storage: %v", err)
 	}
 	mediaHandler := api.NewMediaHandler(mediaStorage, messageStore)
+	if userStore != nil {
+		mediaHandler.SetUserStore(userStore)
+	}
 
 	// Inisialisasi Purge Worker untuk membersihkan file media kedaluwarsa (TTL)
 	retentionDays := 7
