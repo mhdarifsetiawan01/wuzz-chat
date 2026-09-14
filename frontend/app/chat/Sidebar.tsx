@@ -9,6 +9,12 @@ import { ProfileModal } from './ProfileModal'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { isEncryptedMessage, decryptText } from '@/lib/crypto/e2ee'
 import { getSharedRoomAESKey, cachePeerPublicKey, getCachedPeerPublicKey } from '@/lib/crypto/keyStore'
+import {
+  isPushNotificationSupported,
+  getNotificationPermission,
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
+} from '@/lib/pushNotification'
 
 interface SidebarProps {
   activeRoomId: string
@@ -56,7 +62,7 @@ export function Sidebar({
   lastIncomingMessage,
 }: SidebarProps) {
   const router = useRouter()
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastHandledMsgIdRef = useRef<string | null>(null)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -74,11 +80,80 @@ export function Sidebar({
   const [installPrompt, setInstallPrompt] = useState<any>(null)
   const [isStandalone, setIsStandalone] = useState(true) // default true to avoid flash before check
 
+  // Settings: Push Notification
+  const [pushSupported, setPushSupported] = useState(true)
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('default')
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [isPushLoading, setIsPushLoading] = useState(false)
+  const [pushToast, setPushToast] = useState('')
+
   const handleCloseDeleteConv = useModalBackHandler(
     Boolean(confirmDeleteConv),
     () => setConfirmDeleteConv(null),
     'delete_conv_modal'
   )
+
+  // Sinkronisasi status push notification
+  useEffect(() => {
+    const checkPushState = () => {
+      const supported = isPushNotificationSupported()
+      setPushSupported(supported)
+      if (supported) {
+        const perm = getNotificationPermission()
+        setPushPermission(perm)
+        const localPref = typeof window !== 'undefined' ? localStorage.getItem('wuzz_push_enabled') : null
+        setPushEnabled(perm === 'granted' && localPref !== 'false')
+      }
+    }
+
+    checkPushState()
+
+    window.addEventListener('focus', checkPushState)
+    window.addEventListener('storage', checkPushState)
+    return () => {
+      window.removeEventListener('focus', checkPushState)
+      window.removeEventListener('storage', checkPushState)
+    }
+  }, [])
+
+  const handleTogglePush = async () => {
+    if (!pushSupported) {
+      setPushToast('❌ Browser tidak mendukung Push Notification')
+      setTimeout(() => setPushToast(''), 3000)
+      return
+    }
+
+    if (pushPermission === 'denied') {
+      setPushToast('⚠️ Izin notifikasi diblokir browser. Izinkan di setelan situs/URL.')
+      setTimeout(() => setPushToast(''), 4000)
+      return
+    }
+
+    setIsPushLoading(true)
+    setPushToast('')
+
+    if (!pushEnabled) {
+      const res = await subscribeToPushNotifications()
+      setIsPushLoading(false)
+      if (res.success) {
+        setPushEnabled(true)
+        setPushPermission('granted')
+        setPushToast('🔔 Notifikasi push aktif!')
+        setTimeout(() => setPushToast(''), 3000)
+      } else {
+        setPushEnabled(false)
+        setPushPermission(getNotificationPermission())
+        setPushToast(`❌ ${res.error || 'Gagal mengaktifkan notifikasi'}`)
+        setTimeout(() => setPushToast(''), 4000)
+      }
+    } else {
+      const res = await unsubscribeFromPushNotifications()
+      setIsPushLoading(false)
+      setPushEnabled(false)
+      setPushToast('🔕 Notifikasi push dinonaktifkan')
+      setTimeout(() => setPushToast(''), 3000)
+    }
+  }
 
   // Deteksi status PWA Standalone & tangkap event beforeinstallprompt
   useEffect(() => {
@@ -498,22 +573,38 @@ export function Sidebar({
             )}
             <button
               type="button"
+              className={`sidebar-action-btn ${pushEnabled ? 'push-active' : ''} ${pushPermission === 'denied' ? 'push-denied' : ''}`}
+              onClick={handleTogglePush}
+              disabled={isPushLoading}
+              title={
+                !pushSupported
+                  ? 'Peramban ini tidak mendukung Notifikasi Push'
+                  : pushPermission === 'denied'
+                  ? '⚠️ Izin notifikasi diblokir browser. Klik atau buka setelan browser untuk mengizinkan.'
+                  : pushEnabled
+                  ? '🔔 Notifikasi Push Aktif (Klik untuk menonaktifkan)'
+                  : '🔕 Notifikasi Push Nonaktif (Klik untuk mengaktifkan)'
+              }
+            >
+              {isPushLoading ? '⏳' : pushEnabled ? '🔔' : '🔕'}
+            </button>
+            <button
+              type="button"
               className="sidebar-action-btn"
               onClick={() => setIsProfileModalOpen(true)}
               title="Profil & Pengaturan Akun"
             >
               ⚙️
             </button>
-            <button
-              type="button"
-              className="sidebar-action-btn"
-              onClick={logout}
-              title="Keluar / Logout"
-            >
-              🚪
-            </button>
           </div>
         </div>
+
+        {/* Mini Toast Alert untuk Push Notifications */}
+        {pushToast && (
+          <div className="sidebar-push-toast">
+            {pushToast}
+          </div>
+        )}
 
         {/* User Card Profile Mini */}
         <div

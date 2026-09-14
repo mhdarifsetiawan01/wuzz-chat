@@ -8,13 +8,7 @@ import type { User } from '@/lib/types'
 import { isImageCompressionEnabled, setImageCompressionEnabled } from '@/lib/imageCompressor'
 import { getMediaCacheStats, clearMediaCache } from '@/lib/mediaCache'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
-import {
-  isPushNotificationSupported,
-  getNotificationPermission,
-  subscribeToPushNotifications,
-  unsubscribeFromPushNotifications,
-  getActiveServiceWorkerVersion,
-} from '@/lib/pushNotification'
+import { getActiveServiceWorkerVersion } from '@/lib/pushNotification'
 
 interface ProfileModalProps {
   isOpen: boolean
@@ -46,13 +40,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [compressImages, setCompressImages] = useState(true)
   const [cacheStats, setCacheStats] = useState<{ count: number; totalBytes: number }>({ count: 0, totalBytes: 0 })
   const [cacheClearMsg, setCacheClearMsg] = useState('')
-
-  // Settings: Push Notification
-  const [pushSupported, setPushSupported] = useState(true)
-  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('default')
-  const [pushEnabled, setPushEnabled] = useState(false)
-  const [isPushLoading, setIsPushLoading] = useState(false)
-  const [pushMsg, setPushMsg] = useState('')
   const [swVersion, setSwVersion] = useState<string | null>(null)
 
   useEffect(() => {
@@ -65,47 +52,10 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       setCompressImages(isImageCompressionEnabled())
       getMediaCacheStats().then(setCacheStats)
       getActiveServiceWorkerVersion().then(setSwVersion)
-
-      const supported = isPushNotificationSupported()
-      setPushSupported(supported)
-      if (supported) {
-        const perm = getNotificationPermission()
-        setPushPermission(perm)
-        const localPref = localStorage.getItem('wuzz_push_enabled')
-        setPushEnabled(perm === 'granted' && localPref !== 'false')
-      }
     }
   }, [user, isOpen])
 
   if (!isOpen || !user) return null
-
-  const handleTogglePush = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const checked = e.target.checked
-    setIsPushLoading(true)
-    setPushMsg('')
-
-    if (checked) {
-      const res = await subscribeToPushNotifications()
-      setIsPushLoading(false)
-      if (res.success) {
-        setPushEnabled(true)
-        setPushPermission('granted')
-        setPushMsg('🔔 Notifikasi berhasil diaktifkan!')
-        setTimeout(() => setPushMsg(''), 2500)
-      } else {
-        setPushEnabled(false)
-        setPushPermission(getNotificationPermission())
-        setPushMsg(`❌ ${res.error || 'Gagal mengaktifkan notifikasi'}`)
-        setTimeout(() => setPushMsg(''), 3500)
-      }
-    } else {
-      const res = await unsubscribeFromPushNotifications()
-      setIsPushLoading(false)
-      setPushEnabled(false)
-      setPushMsg('🔕 Notifikasi dinonaktifkan')
-      setTimeout(() => setPushMsg(''), 2500)
-    }
-  }
 
   const handleToggleCompression = (e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked
@@ -446,65 +396,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             {cacheClearMsg && (
               <div style={{ fontSize: '0.75rem', color: '#22c55e', marginTop: '6px', textAlign: 'right' }}>
                 {cacheClearMsg}
-              </div>
-            )}
-          </div>
-
-          {/* Section: Pengaturan Notifikasi (Web Push) */}
-          <div
-            style={{
-              marginTop: 'var(--space-4)',
-              paddingTop: 'var(--space-4)',
-              borderTop: '1px solid var(--border-color)',
-            }}
-          >
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>
-              🔔 Pengaturan Notifikasi
-            </h4>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 12px',
-                background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-md)',
-              }}
-            >
-              <div style={{ paddingRight: '12px' }}>
-                <div style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--text-primary)' }}>
-                  Notifikasi Pesan (Push Notification)
-                </div>
-                <div style={{ fontSize: '0.72rem', color: pushPermission === 'denied' ? 'var(--color-error)' : 'var(--text-muted)' }}>
-                  {!pushSupported
-                    ? 'Peramban ini tidak mendukung Web Push'
-                    : pushPermission === 'denied'
-                    ? '⚠️ Izin notifikasi diblokir browser. Izinkan di ikon gembok URL.'
-                    : pushEnabled
-                    ? '🟢 Aktif: Notifikasi muncul saat tab tertutup / background'
-                    : '⚪ Nonaktif: Anda tidak akan menerima notifikasi jika tab ditutup'}
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={pushEnabled}
-                disabled={!pushSupported || pushPermission === 'denied' || isPushLoading}
-                onChange={handleTogglePush}
-                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--accent-500)' }}
-              />
-            </div>
-
-            {pushMsg && (
-              <div
-                style={{
-                  fontSize: '0.75rem',
-                  color: pushMsg.startsWith('❌') ? 'var(--color-error)' : '#22c55e',
-                  marginTop: '6px',
-                  textAlign: 'right',
-                }}
-              >
-                {pushMsg}
               </div>
             )}
           </div>

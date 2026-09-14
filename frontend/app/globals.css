@@ -1486,24 +1486,67 @@ h4 { font-size: 1rem;   font-weight: 600; }
   font-size: 0.85rem;
 }
 
+.sidebar-action-btn,
 .sidebar-header-btn {
-  background: none;
-  border: 1px solid var(--border-default);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-default, rgba(255, 255, 255, 0.1));
   color: var(--text-muted);
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md, 8px);
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.95rem;
-  transition: all var(--transition-fast) ease;
+  font-size: 1rem;
+  transition: all var(--transition-fast, 0.15s) ease;
+  position: relative;
+  flex-shrink: 0;
+  user-select: none;
 }
 
+.sidebar-action-btn:hover,
 .sidebar-header-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.12);
   color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.sidebar-action-btn:active,
+.sidebar-header-btn:active {
+  transform: translateY(0);
+}
+
+.sidebar-action-btn.push-active {
+  background: rgba(35, 165, 89, 0.18);
+  border-color: rgba(35, 165, 89, 0.5);
+  color: #4ade80;
+  box-shadow: 0 0 8px rgba(35, 165, 89, 0.25);
+}
+
+.sidebar-action-btn.push-active:hover {
+  background: rgba(35, 165, 89, 0.3);
+  border-color: #4ade80;
+  color: #86efac;
+}
+
+.sidebar-action-btn.push-denied {
+  opacity: 0.6;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.sidebar-push-toast {
+  background: var(--bg-surface, #1e293b);
+  color: var(--text-primary, #f8fafc);
+  border: 1px solid var(--accent-500, #22c55e);
+  padding: 6px 12px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-align: center;
+  animation: fadeIn 0.2s ease-in-out;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  margin-top: 2px;
 }
 
 .sidebar-user-info {
