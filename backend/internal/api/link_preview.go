@@ -38,19 +38,26 @@ type LinkPreview struct {
 	Favicon     string `json:"favicon,omitempty"`
 }
 
-// LinkPreviewHandler mengelola scraping metadata OpenGraph yang aman dari SSRF.
+// LinkPreviewHandler mengelola scraping metadata OpenGraph yang aman dari SSRF & DNS Rebinding.
 type LinkPreviewHandler struct {
 	broker broker.MessageBroker
 	client *http.Client
 }
 
-// NewLinkPreviewHandler membuat instance LinkPreviewHandler baru.
+// SetClient menyetel HTTP client kustom (terutama untuk unit test / mocking).
+func (h *LinkPreviewHandler) SetClient(c *http.Client) {
+	h.client = c
+}
+
+// NewLinkPreviewHandler membuat instance LinkPreviewHandler baru dengan safeDialContext.
 func NewLinkPreviewHandler(b broker.MessageBroker) *LinkPreviewHandler {
+	dialer := &net.Dialer{
+		Timeout:   3 * time.Second,
+		KeepAlive: 10 * time.Second,
+	}
+
 	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   3 * time.Second,
-			KeepAlive: 10 * time.Second,
-		}).DialContext,
+		DialContext:           safeDialContext(dialer),
 		TLSHandshakeTimeout:   3 * time.Second,
 		ResponseHeaderTimeout: 3 * time.Second,
 		DisableKeepAlives:     true,
@@ -64,6 +71,9 @@ func NewLinkPreviewHandler(b broker.MessageBroker) *LinkPreviewHandler {
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) >= 3 {
 					return errors.New("terlalu banyak redirect (maksimal 3)")
+				}
+				if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
+					return errors.New("skema URL redirect tidak didukung")
 				}
 				// Validasi keamanan host target redirect (SSRF Protection)
 				if err := isSafeHost(req.URL.Hostname()); err != nil {
@@ -220,7 +230,96 @@ func (h *LinkPreviewHandler) fetchAndExtract(targetURL string) (*LinkPreview, er
 	return preview, nil
 }
 
-// isSafeHost memeriksa apakah hostname aman dan bukan IP privat/loopback (SSRF guard).
+// validateIP memeriksa apakah suatu alamat IP adalah alamat privat/internal/loopback/link-local/metadata/CGNAT.
+func validateIP(ip net.IP) error {
+	if ip == nil {
+		return errors.New("nil IP address")
+	}
+
+	// Unwrap IPv4-mapped IPv6 (misal ::ffff:127.0.0.1)
+	if ip4 := ip.To4(); ip4 != nil {
+		ip = ip4
+	}
+
+	if ip.IsLoopback() {
+		return errors.New("loopback IP address not allowed (127.0.0.0/8, ::1)")
+	}
+	if ip.IsPrivate() {
+		return errors.New("private IP subnet not allowed (RFC 1918, RFC 4193)")
+	}
+	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return errors.New("link-local IP address not allowed (169.254.0.0/16, fe80::/10)")
+	}
+	if ip.IsUnspecified() {
+		return errors.New("unspecified IP address not allowed (0.0.0.0, ::)")
+	}
+
+	// Cloud metadata IP explicit check: 169.254.169.254
+	if ip.String() == "169.254.169.254" {
+		return errors.New("cloud metadata endpoint not allowed")
+	}
+
+	// Carrier-Grade NAT (RFC 6598: 100.64.0.0/10)
+	cgnat := net.IPNet{
+		IP:   net.ParseIP("100.64.0.0"),
+		Mask: net.CIDRMask(10, 32),
+	}
+	if cgnat.Contains(ip) {
+		return errors.New("carrier-grade NAT IP address not allowed (100.64.0.0/10)")
+	}
+
+	return nil
+}
+
+// safeDialContext membuat DialContext yang memvalidasi setiap IP saat koneksi TCP dibuka
+// dan mem-pin koneksi langsung ke IP yang telah diverifikasi untuk mencegah DNS Rebinding / TOCTOU SSRF.
+func safeDialContext(dialer *net.Dialer) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+
+		hostLower := strings.ToLower(host)
+		if hostLower == "localhost" || strings.HasSuffix(hostLower, ".local") {
+			return nil, errors.New("localhost/local addresses not allowed")
+		}
+
+		// Jika host berupa literal IP
+		if ip := net.ParseIP(host); ip != nil {
+			if err := validateIP(ip); err != nil {
+				return nil, err
+			}
+			return dialer.DialContext(ctx, network, addr)
+		}
+
+		// Lookup IP langsung saat dial
+		ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+		if err != nil {
+			return nil, fmt.Errorf("dns lookup failed: %w", err)
+		}
+		if len(ips) == 0 {
+			return nil, errors.New("no IP address found for host")
+		}
+
+		var targetIP net.IP
+		for _, ip := range ips {
+			if err := validateIP(ip); err != nil {
+				return nil, fmt.Errorf("ip %s is forbidden: %w", ip.String(), err)
+			}
+			if targetIP == nil {
+				targetIP = ip
+			}
+		}
+
+		// PENTING: Sambungkan koneksi ke targetIP yang SUDAH divalidasi (bukan host).
+		// Ini mem-pin IP koneksi dan mencegah secondary DNS resolution yang dapat dimanipulasi attacker!
+		targetAddr := net.JoinHostPort(targetIP.String(), port)
+		return dialer.DialContext(ctx, network, targetAddr)
+	}
+}
+
+// isSafeHost memeriksa apakah hostname aman dan bukan IP privat/loopback (SSRF guard pre-check).
 func isSafeHost(hostname string) error {
 	if hostname == "" {
 		return errors.New("empty hostname")
@@ -231,23 +330,18 @@ func isSafeHost(hostname string) error {
 		return errors.New("localhost/local addresses not allowed")
 	}
 
+	if ip := net.ParseIP(hostname); ip != nil {
+		return validateIP(ip)
+	}
+
 	ips, err := net.LookupIP(hostname)
 	if err != nil {
 		return fmt.Errorf("dns resolution failed: %w", err)
 	}
 
 	for _, ip := range ips {
-		if ip.IsLoopback() {
-			return errors.New("loopback IP address not allowed")
-		}
-		if ip.IsPrivate() {
-			return errors.New("private IP subnet not allowed")
-		}
-		if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-			return errors.New("link-local IP address not allowed")
-		}
-		if ip.IsUnspecified() {
-			return errors.New("unspecified IP address not allowed")
+		if err := validateIP(ip); err != nil {
+			return err
 		}
 	}
 

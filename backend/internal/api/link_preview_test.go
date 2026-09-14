@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -84,6 +85,7 @@ func TestLinkPreviewHandler_ScrapeMock(t *testing.T) {
 	defer memBroker.Close()
 
 	handler := NewLinkPreviewHandler(memBroker)
+	handler.SetClient(mockServer.Client())
 
 	// Uji fetch dan ekstrak langsung
 	preview, err := handler.fetchAndExtract(mockServer.URL)
@@ -133,17 +135,6 @@ func TestLinkPreviewHandler_ScrapeMock(t *testing.T) {
 }
 
 func TestLinkPreviewHandler_YouTubeOEmbed(t *testing.T) {
-	mockYT := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{"title":"Pisang Goreng Crispy","author_name":"Chef Wuzz","thumbnail_url":"https://i.ytimg.com/vi/test/hqdefault.jpg","provider_name":"YouTube"}`)
-	}))
-	defer mockYT.Close()
-
-	memBroker := broker.NewInMemoryBroker()
-	defer memBroker.Close()
-
-	handler := NewLinkPreviewHandler(memBroker)
-
 	// Direct test of response decoding
 	var yt youTubeOEmbedResponse
 	jsonStr := `{"title":"Pisang Goreng Crispy","author_name":"Chef Wuzz","thumbnail_url":"https://i.ytimg.com/vi/test/hqdefault.jpg","provider_name":"YouTube"}`
@@ -154,26 +145,82 @@ func TestLinkPreviewHandler_YouTubeOEmbed(t *testing.T) {
 	if yt.Title != "Pisang Goreng Crispy" || yt.ProviderName != "YouTube" {
 		t.Errorf("YouTube oEmbed parse error: %+v", yt)
 	}
-
-	_ = handler
 }
 
 func TestLinkPreviewHandler_RedirectSSRFGuard(t *testing.T) {
-	// Mock server yang me-redirect ke 127.0.0.1 (private loopback)
-	redirectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "http://127.0.0.1:8080/internal-secret", http.StatusFound)
+	// Server yang mencoba me-redirect ke internal IP (127.0.0.1)
+	mockEvilServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://127.0.0.1:8080/secret", http.StatusFound)
 	}))
-	defer redirectServer.Close()
+	defer mockEvilServer.Close()
 
 	memBroker := broker.NewInMemoryBroker()
 	defer memBroker.Close()
 
 	handler := NewLinkPreviewHandler(memBroker)
-
-	// Fetch target yang me-redirect ke internal IP harus diblokir oleh CheckRedirect
-	_, err := handler.fetchAndExtract(redirectServer.URL)
+	// Do request directly via handler's production client
+	req, err := http.NewRequest("GET", mockEvilServer.URL, nil)
 	if err == nil {
-		t.Fatal("Expected error due to redirect to private IP, but got nil")
+		_, doErr := handler.client.Do(req)
+		if doErr == nil {
+			t.Errorf("Expected SSRF protection to block redirect to 127.0.0.1, but request succeeded!")
+		}
 	}
 }
 
+func TestLinkPreviewHandler_ValidateIP_Subnets(t *testing.T) {
+	tests := []struct {
+		ipStr     string
+		expectErr bool
+	}{
+		// Public IPs -> Safe
+		{"8.8.8.8", false},
+		{"1.1.1.1", false},
+		{"93.184.216.34", false},
+		{"2606:4700:4700::1111", false},
+
+		// Loopback -> Forbidden
+		{"127.0.0.1", true},
+		{"127.0.1.1", true},
+		{"::1", true},
+
+		// Private RFC 1918 -> Forbidden
+		{"10.0.0.1", true},
+		{"172.16.0.1", true},
+		{"172.31.255.255", true},
+		{"192.168.1.1", true},
+
+		// Link-Local & Cloud Metadata -> Forbidden
+		{"169.254.169.254", true},
+		{"169.254.1.1", true},
+		{"fe80::1", true},
+
+		// Unspecified -> Forbidden
+		{"0.0.0.0", true},
+		{"::", true},
+
+		// Carrier-Grade NAT (100.64.0.0/10) -> Forbidden
+		{"100.64.0.1", true},
+		{"100.127.255.255", true},
+
+		// IPv4-mapped IPv6 -> Forbidden
+		{"::ffff:127.0.0.1", true},
+		{"::ffff:10.0.0.1", true},
+		{"::ffff:169.254.169.254", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.ipStr, func(t *testing.T) {
+			ip := net.ParseIP(tt.ipStr)
+			if ip == nil {
+				t.Fatalf("Failed to parse IP: %s", tt.ipStr)
+			}
+			err := validateIP(ip)
+			if tt.expectErr && err == nil {
+				t.Errorf("Expected IP %s to be rejected, but it passed!", tt.ipStr)
+			} else if !tt.expectErr && err != nil {
+				t.Errorf("Expected IP %s to be allowed, but got error: %v", tt.ipStr, err)
+			}
+		})
+	}
+}
