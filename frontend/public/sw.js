@@ -2,12 +2,23 @@
 // Standard W3C Web Push & Service Worker API dengan Zero-Knowledge Client-Side E2EE Background Decryption
 // Version: 1.0.4
 
+const SW_VERSION = '1.0.4';
+
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
+});
+
+// Listener untuk menjawab permintaan versi Service Worker dari frontend
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'GET_SW_VERSION') {
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage({ version: SW_VERSION });
+    }
+  }
 });
 
 // Helper Base64 to Uint8Array (Aman untuk format standard & URL-safe Base64)

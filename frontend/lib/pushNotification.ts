@@ -213,3 +213,24 @@ export async function autoSyncPushSubscription(): Promise<void> {
     }
   }
 }
+
+// Mengambil versi Service Worker yang sedang aktif berjalan di browser
+export async function getActiveServiceWorkerVersion(): Promise<string | null> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return null
+  try {
+    const reg = await navigator.serviceWorker.getRegistration()
+    if (!reg || !reg.active) return null
+
+    return new Promise((resolve) => {
+      const channel = new MessageChannel()
+      const timer = setTimeout(() => resolve(null), 800)
+      channel.port1.onmessage = (event) => {
+        clearTimeout(timer)
+        resolve(event.data?.version || null)
+      }
+      reg.active?.postMessage({ type: 'GET_SW_VERSION' }, [channel.port2])
+    })
+  } catch {
+    return null
+  }
+}

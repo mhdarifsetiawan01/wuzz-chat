@@ -13,6 +13,7 @@ import {
   getNotificationPermission,
   subscribeToPushNotifications,
   unsubscribeFromPushNotifications,
+  getActiveServiceWorkerVersion,
 } from '@/lib/pushNotification'
 
 interface ProfileModalProps {
@@ -52,6 +53,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [pushEnabled, setPushEnabled] = useState(false)
   const [isPushLoading, setIsPushLoading] = useState(false)
   const [pushMsg, setPushMsg] = useState('')
+  const [swVersion, setSwVersion] = useState<string | null>(null)
 
   useEffect(() => {
     if (user && isOpen) {
@@ -62,6 +64,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       setSuccessMsg('')
       setCompressImages(isImageCompressionEnabled())
       getMediaCacheStats().then(setCacheStats)
+      getActiveServiceWorkerVersion().then(setSwVersion)
 
       const supported = isPushNotificationSupported()
       setPushSupported(supported)
@@ -564,6 +567,21 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             >
               <span style={{ fontSize: '1rem' }}>⏻</span> Keluar dari Akun
             </button>
+          </div>
+
+          {/* Discreet App & SW Version Footer */}
+          <div
+            style={{
+              marginTop: '12px',
+              textAlign: 'center',
+              fontSize: '0.675rem',
+              color: 'var(--text-muted)',
+              opacity: 0.55,
+              userSelect: 'none',
+              letterSpacing: '0.02em',
+            }}
+          >
+            Wuzz Chat v1.0.0{swVersion ? ` • SW v${swVersion}` : ''}
           </div>
         </form>
       </div>
