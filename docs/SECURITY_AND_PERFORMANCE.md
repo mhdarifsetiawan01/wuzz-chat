@@ -14,6 +14,7 @@ Dokumen ini menyajikan panduan arsitektur komprehensif mengenai seluruh lapisan 
    - 2.5 [Pencegahan Tabrakan Deterministik Room ID (Zero Collision)](#25-pencegahan-tabrakan-deterministik-room-id-zero-collision)
    - 2.6 [Filter Privasi Asimetris & Non-Destructive Message Lifecycle](#26-filter-privasi-asimetris--non-destructive-message-lifecycle)
    - 2.7 [CORS Dynamic Validator & IP Rate Limiting](#27-cors-dynamic-validator--ip-rate-limiting)
+   - 2.8 [Zero-Knowledge Push Notification & Client-Side Background Decryption](#28-zero-knowledge-push-notification--client-side-background-decryption)
 3. [Arsitektur Performa & Skalabilitas (Performance Optimization)](#-3-arsitektur-performa--skalabilitas-performance-optimization)
    - 3.1 [Penyelesaian Masalah $N+1$ Query pada `GetUserConversations`](#31-penyelesaian-masalah-n1-query-pada-getuserconversations)
    - 3.2 [Indeks Performa Database (PostgreSQL & SQLite)](#32-indeks-performa-database-postgresql--sqlite)
@@ -116,6 +117,13 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - Validator CORS mendukung pencocokan domain produksi `chat.wuzzhub.id` dan wildcard subdomain preview Vercel (`*.vercel.app`) secara aman tanpa membuka `*` (wildcard bebas).
   - Rate limiter berbasis sliding window per IP melindungi endpoint autentikasi (`/api/auth/login`, `/api/auth/register`) dari serangan brute-force.
 
+### 2.8 Zero-Knowledge Push Notification & Client-Side Background Decryption
+* **Lokasi Kode**: [`backend/internal/push/push.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/push/push.go) & [`frontend/public/sw.js`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/public/sw.js)
+* **Prinsip Keamanan**:
+  - **Zero Server Decryption**: Backend Go TIDAK PERNAH memegang private key pengguna dan TIDAK BISA mendekripsi payload `e2ee:v1:...`.
+  - **Client-Side Background Decryption**: Service Worker (`sw.js`) membaca private key penerima dari IndexedDB (`wuzz_crypto_db`) dan kunci publik pengirim dari push data, lalu melakukan derivasi kunci AES-256-GCM via Web Crypto API untuk mendekripsi teks pesan secara lokal sebelum diteruskan ke Notification API sistem operasi.
+  - **Graceful Fallback**: Jika browser belum memiliki kunci privat atau decrypt gagal, notifikasi jatuh kembali secara aman ke teks fallback `🔒 Pesan Baru (Terenkripsi)` tanpa memicu kebocoran data.
+
 ---
 
 ## ⚡ 3. Arsitektur Performa & Skalabilitas (Performance Optimization)
@@ -186,6 +194,7 @@ Seluruh lapisan keamanan dan optimasi performa di atas dilindungi oleh suite pen
 | **SSRF & DNS Rebinding E2E** | [`backend/internal/api/link_preview_e2e_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/link_preview_e2e_test.go) | • Block 14 vektor SSRF (Loopback, Cloud Metadata, CGNAT)<br>• Block Redirect SSRF & Loop<br>• Safe scraping & Redis caching | ✅ **100% PASS** |
 | **Collision & Deterministic Direct Room E2E** | [`backend/internal/store/sql_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql_test.go) | • Stress-test prefix collision (0 tabrakan)<br>• Order-invariance & idempotency<br>• Legacy direct room backward compatibility | ✅ **100% PASS** |
 | **Purge Worker & Storage Lifecycle** | [`backend/internal/storage/purge_worker_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/purge_worker_test.go) | • Store-and-forward physical file purging | ✅ **100% PASS** |
+| **Push Notification Lifecycle E2E** | [`backend/internal/ws/e2e_push_notification_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/e2e_push_notification_test.go) | • Subscribe VAPID endpoint<br>• Offline push dispatch<br>• Unsubscribe endpoint & cleanup | ✅ **100% PASS** |
 
 ---
 

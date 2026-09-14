@@ -206,7 +206,7 @@ Membangun platform chatting modern yang:
   - Auto keypair generation VAPID di backend Go.
   - REST Endpoints: `GET /api/notifications/vapid-public-key`, `POST /api/notifications/subscribe`, `POST /api/notifications/unsubscribe`.
   - Asynchronous push dispatcher pada WebSocket Hub saat user penerima sedang offline/idle.
-  - Service Worker (`public/sw.js`) dengan event `push` dan `notificationclick` (deep-linking ke room obrolan).
+  - Service Worker (`public/sw.js`) dengan event `push`, `notificationclick` (deep-linking), dan **Zero-Knowledge Client-Side Background Decryption** (Web Crypto API + IndexedDB) sehingga teks pesan E2EE terdekripsi langsung di notifikasi OS layaknya WhatsApp Web.
   - UI Toggle Notifikasi dan status izin di `ProfileModal.tsx`.
 - 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**:
   - Pembuatan grup obrolan multi-kontak, manajemen role Admin & Member, Group Info Drawer, multicast WebSocket broadcast, dan unread count per anggota.

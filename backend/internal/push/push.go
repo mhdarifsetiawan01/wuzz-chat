@@ -211,6 +211,14 @@ func (s *Service) NotifyOfflineRecipients(
 			title = "Wuzz Chat"
 		}
 
+		// Ambil public key pengirim untuk mempermudah dekripsi client-side di Service Worker
+		var senderPubKey string
+		if senderUser, err := us.GetUserByID(senderID); err == nil && senderUser != nil {
+			senderPubKey = senderUser.PublicKey
+		} else if senderUser, err := us.GetUserByUsernameOrDisplayName(senderNickname); err == nil && senderUser != nil {
+			senderPubKey = senderUser.PublicKey
+		}
+
 		payloadObj := NotificationPayload{
 			Title: title,
 			Body:  bodyText,
@@ -218,9 +226,13 @@ func (s *Service) NotifyOfflineRecipients(
 			Badge: "/favicon.ico",
 			Tag:   "chat-" + roomID,
 			Data: map[string]interface{}{
-				"room_id":   roomID,
-				"sender_id": senderID,
-				"url":       "/chat?room=" + roomID,
+				"room_id":           roomID,
+				"sender_id":         senderID,
+				"sender_nickname":   senderNickname,
+				"sender_public_key": senderPubKey,
+				"encrypted_content": content,
+				"media_type":        mediaType,
+				"url":               "/chat?room=" + roomID,
 			},
 			Timestamp: time.Now().UnixMilli(),
 		}

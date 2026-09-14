@@ -343,13 +343,15 @@ Untuk mendukung panggilan suara dan video 1-on-1 di mobile:
 Ketika aplikasi mobile diminimize atau ditutup (*killed state*), koneksi WebSocket akan terputus untuk menghemat baterai HP.
 
 ### Arsitektur Push Notification:
-1. **Pendaftaran Token**:
+1. **Pendaftaran Token / Subscription**:
    - Klien mobile mendapatkan FCM Token (Android) atau APNs Token (iOS).
-   - Klien mengirim token ke backend: `POST /api/users/push-token`.
+   - Klien mengirim token ke backend: `POST /api/notifications/subscribe` dengan body `{ "platform": "android", "endpoint": "https://fcm.googleapis.com/fcm/send/<FCM_TOKEN>" }`.
 2. **Pemicu Notifikasi dari Backend**:
-   - Ketika WebSocket mendeteksi pengguna tujuan sedang *offline* saat pesan masuk, Go Backend memicu push notification ke Firebase Cloud Messaging (FCM) / Apple Push Notification Service (APNs).
-3. **Privasi Pesan di Notifikasi**:
-   - Karena pesan dienkripsi E2EE, payload push notification cukup berisi notifikasi senyap (*Silent Notification / Data-Only Push*), lalu *Notification Service Extension* di HP mendekripsi pesan secara lokal sebelum menampilkan judul dan isi balon notifikasi ke layar HP pengguna.
+   - Ketika WebSocket mendeteksi pengguna tujuan sedang *offline* saat pesan masuk, Go Backend memicu push notification asynchronous non-blocking ke endpoint target.
+3. **Privasi Pesan di Notifikasi (Zero-Knowledge Background Decryption)**:
+   - Payload push membawa `encrypted_content`, `room_id`, dan `sender_public_key`.
+   - Android (`FirebaseMessagingService`) dan iOS (`UNNotificationServiceExtension`) membaca private key user dari Keystore / Keychain lokal, melakukan derivasi kunci AES-256-GCM, mendekripsi teks pesan secara lokal, lalu menampilkan judul dan cuplikan teks pesan asli pada notifikasi OS (sama seperti alur Service Worker pada Web).
+   - Server backend tetap 100% Zero-Knowledge dan tidak pernah melihat plaintext pesan.
 
 ---
 

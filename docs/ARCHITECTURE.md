@@ -311,3 +311,35 @@ sequenceDiagram
 - **Outgoing Ringtone**: `playOutgoingRing()` menggunakan generator osilator dual-sine 440Hz + 480Hz berulang (*cadence: 1.5s bunyi, 3s jeda*).
 - **Incoming Ringtone**: `playIncomingRing()` menggunakan rangkaian harmoni arpeggio 4-nada C5 ➔ E5 ➔ G5 ➔ C6 yang jernih dan berulang.
 - **Zero Asset Latency**: 100% diproduksi oleh browser audio chip tanpa dependensi file MP3/WAV.
+
+---
+
+## 🔔 8. Arsitektur Push Notification & Zero-Knowledge Client-Side Background Decryption
+
+WuzzChat mengimplementasikan pipeline Push Notification berbasis standar industri W3C Web Push (RFC 8291/8292) dengan enkripsi Zero-Knowledge end-to-end:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Pengirim (Alice)
+    participant S as Golang Backend (Fly.io)
+    participant B as Browser Push Service (Google/Apple/Mozilla)
+    participant W as Service Worker (sw.js)
+    participant OS as OS Notification Center (Bob)
+
+    A->>S: Kirim pesan E2EE (e2ee:v1:...) via WebSocket
+    Note over S: Deteksi Bob Offline / Room Berbeda
+    S->>S: Ambil Public Key Alice & Subscription Bob
+    S->>B: Send VAPID Web Push Payload (encrypted_content, sender_public_key)
+    B->>W: Push Event ke Service Worker
+    Note over W: Baca Private Key Bob dari IndexedDB (wuzz_crypto_db)
+    Note over W: Web Crypto Decrypt (ECDH + HKDF + AES-GCM)
+    W->>OS: self.registration.showNotification(Title, Decrypted Plaintext)
+    Note over OS: Notifikasi OS Menampilkan Plaintext Pesan Asli
+```
+
+### A. Fitur & Keunggulan
+1. **Zero-Knowledge Privacy**: Server Go sama sekali tidak pernah mendekripsi atau membaca isi pesan. Plaintext hanya muncul di perangkat fisik penerima setelah didekripsi oleh Service Worker di latar belakang.
+2. **Instant Offline Decryption**: Data public key pengirim (`sender_public_key`) disertakan dalam payload push sehingga Service Worker dapat mendekripsi secara instan (1-2 ms) tanpa perlu melakukan HTTP request tambahan ke server.
+3. **Graceful Fallback**: Jika private key belum ada di perangkat (misal user belum login di browser tersebut), notifikasi akan tetap tampil aman dengan teks default `🔒 Pesan Baru (Terenkripsi)`.
+

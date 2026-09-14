@@ -5,6 +5,12 @@ import { AuthProvider } from '@/lib/auth-context'
 export const metadata: Metadata = {
   title: 'Wuzz Chat — Real-time Modern Chat Platform',
   description: 'Chat real-time bertenaga Go WebSocket & Next.js.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Wuzz Chat',
+  },
 }
 
 export const viewport: Viewport = {
