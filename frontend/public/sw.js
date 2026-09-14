@@ -1,5 +1,6 @@
 // Service Worker untuk Wuzz Chat Push Notification
 // Standard W3C Web Push & Service Worker API dengan Zero-Knowledge Client-Side E2EE Background Decryption
+// Version: 1.0.2
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -19,26 +20,47 @@ function base64ToBytes(base64) {
   return bytes;
 }
 
-// Mengambil Private Key milik user lokal dari IndexedDB wuzz_crypto_db
+// Mengambil Private Key milik user lokal dari IndexedDB wuzz_crypto_db dengan timeout guard
 function getStoredLocalPrivateKey() {
   return new Promise((resolve) => {
+    let resolved = false;
+    const timer = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve(null);
+      }
+    }, 2000);
+
     try {
       if (typeof indexedDB === 'undefined') {
+        clearTimeout(timer);
         return resolve(null);
       }
       const request = indexedDB.open('wuzz_crypto_db', 1);
-      request.onerror = () => resolve(null);
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains('e2ee_identity_keys')) {
-          db.createObjectStore('e2ee_identity_keys', { keyPath: 'userId' });
+      request.onerror = () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(null);
+        }
+      };
+      request.onblocked = () => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timer);
+          resolve(null);
         }
       };
       request.onsuccess = () => {
         const db = request.result;
         if (!db.objectStoreNames.contains('e2ee_identity_keys')) {
           db.close();
-          return resolve(null);
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            resolve(null);
+          }
+          return;
         }
         const tx = db.transaction('e2ee_identity_keys', 'readonly');
         const store = tx.objectStore('e2ee_identity_keys');
@@ -46,21 +68,32 @@ function getStoredLocalPrivateKey() {
         req.onsuccess = () => {
           const records = req.result;
           db.close();
-          if (records && records.length > 0) {
-            // Ambil record yang terakhir disimpan
-            const latest = records[records.length - 1];
-            resolve(latest && latest.privateKeyJWK ? latest.privateKeyJWK : null);
-          } else {
-            resolve(null);
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            if (records && records.length > 0) {
+              const latest = records[records.length - 1];
+              resolve(latest && latest.privateKeyJWK ? latest.privateKeyJWK : null);
+            } else {
+              resolve(null);
+            }
           }
         };
         req.onerror = () => {
           db.close();
-          resolve(null);
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            resolve(null);
+          }
         };
       };
     } catch (e) {
-      resolve(null);
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timer);
+        resolve(null);
+      }
     }
   });
 }
@@ -231,27 +264,50 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Tangani klik pada notifikasi
+// Tangani klik pada notifikasi secara aman (Anti-ANR / Anti-Hang di Android)
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/chat';
+  const rawUrl = (event.notification.data && event.notification.data.url) || '/chat';
+  const urlToOpen = new URL(rawUrl, self.location.origin).href;
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // 1. Jika ada window Wuzz Chat yang sudah terbuka, fokuskan dan navigasikan
-      for (const client of clientList) {
-        if (client.url && client.url.includes('/chat') && 'focus' in client) {
-          if ('navigate' in client && targetUrl) {
-            client.navigate(targetUrl);
+    (async () => {
+      try {
+        const clientList = await self.clients.matchAll({
+          type: 'window',
+          includeUncontrolled: true,
+        });
+
+        // 1. Jika ada window Wuzz Chat / PWA yang sudah terbuka di origin ini
+        for (const client of clientList) {
+          if (client.url && client.url.startsWith(self.location.origin)) {
+            if ('focus' in client) {
+              await client.focus();
+            }
+            if ('navigate' in client && client.url !== urlToOpen) {
+              try {
+                await client.navigate(urlToOpen);
+              } catch (navErr) {
+                // Abaikan jika navigasi dibatalkan
+              }
+            }
+            return;
           }
-          return client.focus();
+        }
+
+        // 2. Jika belum ada window yang terbuka, buka window/PWA baru
+        if (self.clients.openWindow) {
+          await self.clients.openWindow(urlToOpen);
+        }
+      } catch (err) {
+        console.error('[SW Push] Error menangani notificationclick:', err);
+        if (self.clients.openWindow) {
+          try {
+            await self.clients.openWindow(urlToOpen);
+          } catch (e) {}
         }
       }
-      // 2. Jika belum ada window yang terbuka, buka tab / window baru
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(targetUrl);
-      }
-    })
+    })()
   );
 });
