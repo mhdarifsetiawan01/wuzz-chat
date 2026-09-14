@@ -118,13 +118,17 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - Rate limiter berbasis sliding window per IP melindungi endpoint autentikasi (`/api/auth/login`, `/api/auth/register`) dari serangan brute-force.
 
 ### 2.8 Zero-Knowledge Push Notification & Client-Side Background Decryption
-* **Lokasi Kode**: [`backend/internal/push/push.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/push/push.go) & [`frontend/public/sw.js`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/public/sw.js)
-* **Prinsip Keamanan**:
+* **Lokasi Kode**: [`backend/internal/push/push.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/push/push.go), [`frontend/public/sw.js`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/public/sw.js), & [`frontend/lib/pushNotification.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/pushNotification.ts)
+* **Prinsip Keamanan & Keandalan**:
   - **Zero Server Decryption**: Backend Go TIDAK PERNAH memegang private key pengguna dan TIDAK BISA mendekripsi payload `e2ee:v1:...`.
-  - **Client-Side Background Decryption**: Service Worker (`sw.js`) membaca private key penerima dari IndexedDB (`wuzz_crypto_db`) dan kunci publik pengirim dari push data, lalu melakukan derivasi kunci AES-256-GCM via Web Crypto API untuk mendekripsi teks pesan secara lokal sebelum diteruskan ke Notification API sistem operasi.
+  - **Static VAPID Key Persistence**: Pasangan kunci VAPID publik-privat statis dikelola aman via Fly.io Secrets dan Environment Variables, mencegah rotasi kunci acak saat server me-restart yang dapat membatalkan token FCM/Web Push di browser pengguna.
+  - **CacheStorage Fast Retrieval (< 1ms)**: Service Worker (`sw.js` v1.0.5) memprioritaskan pembacaan private key dari `CacheStorage` (`wuzz-crypto-keys`) untuk membypass locking LevelDB IndexedDB saat PWA berada dalam status killed/background di OS Android.
+  - **Automatic Subscription Re-sync**: Helper `pushNotification.ts` secara otomatis membandingkan `applicationServerKey` subscription aktif dengan kunci server. Jika kunci berubah, browser secara otomatis melakukan `unsubscribe()` dan registrasi ulang instan.
+  - **Client-Side Background Decryption**: Service Worker membaca private key penerima dan kunci publik pengirim dari push data, lalu melakukan derivasi kunci AES-256-GCM via Web Crypto API untuk mendekripsi teks pesan secara lokal sebelum diteruskan ke Notification API sistem operasi.
   - **Graceful Fallback**: Jika browser belum memiliki kunci privat atau decrypt gagal, notifikasi jatuh kembali secara aman ke teks fallback `🔒 Pesan Baru (Terenkripsi)` tanpa memicu kebocoran data.
 
 ---
+
 
 ## ⚡ 3. Arsitektur Performa & Skalabilitas (Performance Optimization)
 
