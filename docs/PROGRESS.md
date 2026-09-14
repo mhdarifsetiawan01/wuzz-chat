@@ -278,11 +278,12 @@
     - Tombol panggil suara 📞 pada status bar obrolan direct 1-on-1.
 - **Bug Fix & UI Polish**:
   - **Contact Search Persistence**: Memisahkan state loading API `isSearching` dengan state visibilitas panel pencarian `isSearchActive` di `Sidebar.tsx` sehingga hasil pencarian kontak tetap menetap dan tidak tertutup otomatis setelah 1 detik.
-- [x] **Milestone Security & Scale Hardening (Tahap 1 & 2 Selesai ✅)**:
+- [x] **Milestone Security & Scale Hardening (Tahap 1, 2, & 3 Selesai ✅)**:
   - **Tahap 1: BOLA / IDOR WebSocket Protection**: Memvalidasi kepemilikan dan hak akses keanggotaan room (`isAuthorizedForRoom`) pada seluruh event WebSocket (`call_offer`, `call_answer`, `ice_candidate`, `receipt`, `reaction`, `typing`, `message`, `join`) di `backend/internal/ws/client.go`.
   - **Tahap 1: End-to-End (E2E) Test Suite**: Dibuat suite pengujian live server komprehensif di `backend/internal/ws/e2e_full_flow_test.go` (`TestE2E_FullChatAndSecurityLifecycle`) yang menguji alur multi-user chat, WebRTC calling, dan penolakan penetrasi penyusup (attacker isolation).
   - **Tahap 1: SQLite Concurrency & Busy Timeout**: Konfigurasi `PRAGMA journal_mode=WAL` dan `PRAGMA busy_timeout=5000` di `backend/internal/store/sql.go` untuk keandalan concurrency multi-goroutine.
   - **Tahap 2: IDOR Media File ACK Deletion Protection**: Memvalidasi kepemilikan room pada endpoint `POST /api/media/ack` di `backend/internal/api/media_handler.go`. Mencegah penyerang (attacker/intruder) menghapus file fisik transit media milik percakapan privat user lain. Dilengkapi unit test `TestMediaHandler_AcknowledgeDownload_IDORProtection`.
+  - **Tahap 3: Solusi Query $N+1$ pada `GetUserConversations` & Indeks Database**: Merefaktor pemuatan daftar percakapan sidebar dari $1 + 3N$ queries menjadi **$O(1)$ batched queries (tepat 3 query database)** menggunakan Common Table Expressions (CTE), `ROW_NUMBER() OVER (PARTITION BY ...)` dan `LEFT JOIN`. Menambahkan database performance index untuk `conversation_members` dan `messages` di PostgreSQL & SQLite.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id` & `https://wuzz-chat.vercel.app`
@@ -290,7 +291,7 @@
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)
   - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
-- Siap melangkah ke **Tahap 3: Solusi Query $N+1$ pada `GetUserConversations` & Optimasi Indeks Database**.
+- Siap melangkah ke **Tahap 4: Mitigasi TOCTOU / DNS Rebinding pada SSRF Link Preview** & **Tahap 5: Pencegahan Tabrakan Deterministik Room ID**.
 
 ---
 

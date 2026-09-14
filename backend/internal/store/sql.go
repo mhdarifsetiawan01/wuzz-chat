@@ -100,6 +100,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		// Index Messages
 		`CREATE INDEX IF NOT EXISTS idx_messages_room_time ON messages(room_id, created_at);`,
+		`CREATE INDEX IF NOT EXISTS idx_conv_members_user ON conversation_members(user_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_conv_members_conv ON conversation_members(conversation_id);`,
 	}
 
 	for _, query := range migrations {
@@ -126,6 +128,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMP DEFAULT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_for_users TEXT DEFAULT '[]';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(room_id, status);`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_to_status ON messages(to_id, status);`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -144,6 +148,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN cleared_at TIMESTAMP DEFAULT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN deleted_for_users TEXT DEFAULT '[]';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(room_id, status);`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_to_status ON messages(to_id, status);`)
 	}
 
 	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members' (dengan cleared_at), dan 'messages' (dengan status receipts, reply, reactions, media lifecycle, is_deleted, dan user bio) berhasil dipastikan ada!")
