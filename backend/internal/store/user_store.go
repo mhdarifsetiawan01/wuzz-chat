@@ -1,6 +1,7 @@
 package store
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -289,7 +290,33 @@ func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) 
 
 // GetOrCreateDirectConversation membuat atau mengembalikan ID percakapan 1-on-1 antar dua user.
 func (s *SQLUserStore) GetOrCreateDirectConversation(userA, userB string) (string, error) {
-	// Pastikan urutan deterministik untuk mencari room direct yang sudah ada
+	// 1. Cek terlebih dahulu apakah sudah ada percakapan direct aktif antara userA dan userB via relational membership
+	var existingQuery string
+	if s.driverName == "postgres" {
+		existingQuery = `
+			SELECT c.id FROM conversations c
+			JOIN conversation_members cm1 ON c.id = cm1.conversation_id AND cm1.user_id = $1
+			JOIN conversation_members cm2 ON c.id = cm2.conversation_id AND cm2.user_id = $2
+			WHERE c.type = 'direct'
+			LIMIT 1
+		`
+	} else {
+		existingQuery = `
+			SELECT c.id FROM conversations c
+			JOIN conversation_members cm1 ON c.id = cm1.conversation_id AND cm1.user_id = ?
+			JOIN conversation_members cm2 ON c.id = cm2.conversation_id AND cm2.user_id = ?
+			WHERE c.type = 'direct'
+			LIMIT 1
+		`
+	}
+
+	var existingID string
+	err := s.db.QueryRow(existingQuery, userA, userB).Scan(&existingID)
+	if err == nil && existingID != "" {
+		return existingID, nil
+	}
+
+	// 2. Tentukan ID percakapan deterministik bebas tabrakan (collision-free)
 	var firstUser, secondUser string
 	if userA < userB {
 		firstUser, secondUser = userA, userB
@@ -297,33 +324,23 @@ func (s *SQLUserStore) GetOrCreateDirectConversation(userA, userB string) (strin
 		firstUser, secondUser = userB, userA
 	}
 
-	directRoomID := fmt.Sprintf("dm_%s_%s", safePrefix(firstUser, 8), safePrefix(secondUser, 8))
-
-	// Periksa apakah percakapan sudah ada
-	var existingID string
-	var query string
-	if s.driverName == "postgres" {
-		query = `SELECT id FROM conversations WHERE id = $1`
-	} else {
-		query = `SELECT id FROM conversations WHERE id = ?`
+	directRoomID := fmt.Sprintf("dm_%s_%s", firstUser, secondUser)
+	if len(directRoomID) > 128 {
+		h := sha256.Sum256([]byte(firstUser + ":" + secondUser))
+		directRoomID = fmt.Sprintf("dm_%x", h)
 	}
 
-	err := s.db.QueryRow(query, directRoomID).Scan(&existingID)
-	if err == nil {
-		return existingID, nil
-	}
-
-	// Buat conversation baru
+	// 3. Simpan percakapan baru dan daftarkan kedua user sebagai anggota
 	now := time.Now().UTC()
 	if s.driverName == "postgres" {
-		_, err = s.db.Exec(`INSERT INTO conversations (id, type, title, created_at, updated_at) VALUES ($1, 'direct', '', $2, $2)`, directRoomID, now)
+		_, err = s.db.Exec(`INSERT INTO conversations (id, type, title, created_at, updated_at) VALUES ($1, 'direct', '', $2, $2) ON CONFLICT (id) DO NOTHING`, directRoomID, now)
 		if err == nil {
-			_, _ = s.db.Exec(`INSERT INTO conversation_members (conversation_id, user_id, joined_at) VALUES ($1, $2, $3), ($1, $4, $3)`, directRoomID, userA, now, userB)
+			_, _ = s.db.Exec(`INSERT INTO conversation_members (conversation_id, user_id, joined_at) VALUES ($1, $2, $3), ($1, $4, $3) ON CONFLICT DO NOTHING`, directRoomID, userA, now, userB)
 		}
 	} else {
-		_, err = s.db.Exec(`INSERT INTO conversations (id, type, title, created_at, updated_at) VALUES (?, 'direct', '', ?, ?)`, directRoomID, now, now)
+		_, err = s.db.Exec(`INSERT OR IGNORE INTO conversations (id, type, title, created_at, updated_at) VALUES (?, 'direct', '', ?, ?)`, directRoomID, now, now)
 		if err == nil {
-			_, _ = s.db.Exec(`INSERT INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?), (?, ?, ?)`, directRoomID, userA, now, directRoomID, userB, now)
+			_, _ = s.db.Exec(`INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?), (?, ?, ?)`, directRoomID, userA, now, directRoomID, userB, now)
 		}
 	}
 
