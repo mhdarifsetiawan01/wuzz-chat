@@ -99,15 +99,32 @@ function getStoredLocalPrivateKey() {
 }
 
 // Melakukan dekripsi E2EE di background Service Worker
-async function tryDecryptPushContent(encryptedPayload, roomId, senderPubKeyJWK) {
+async function tryDecryptPushContent(encryptedPayload, roomId, senderPubKeyJWK, senderId) {
   try {
     if (!encryptedPayload || typeof encryptedPayload !== 'string' || !encryptedPayload.startsWith('e2ee:v1:')) {
       return null;
     }
-    if (!senderPubKeyJWK || !roomId) {
+    if (!roomId) {
       return null;
     }
     if (!self.crypto || !self.crypto.subtle) {
+      return null;
+    }
+
+    let pubKeyRaw = senderPubKeyJWK;
+    if (!pubKeyRaw && senderId) {
+      try {
+        const resp = await fetch(`/api/users/profile?id=${encodeURIComponent(senderId)}`);
+        if (resp.ok) {
+          const profileData = await resp.json();
+          if (profileData && profileData.user && profileData.user.public_key) {
+            pubKeyRaw = profileData.user.public_key;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!pubKeyRaw) {
       return null;
     }
 
@@ -116,15 +133,23 @@ async function tryDecryptPushContent(encryptedPayload, roomId, senderPubKeyJWK) 
       return null;
     }
 
-    const privKeyObj = typeof myPrivateKeyJWK === 'string' ? JSON.parse(myPrivateKeyJWK) : myPrivateKeyJWK;
-    const pubKeyObj = typeof senderPubKeyJWK === 'string' ? JSON.parse(senderPubKeyJWK) : senderPubKeyJWK;
+    const privKeyObj = typeof myPrivateKeyJWK === 'string' ? JSON.parse(myPrivateKeyJWK) : { ...myPrivateKeyJWK };
+    const pubKeyObj = typeof pubKeyRaw === 'string' ? JSON.parse(pubKeyRaw) : { ...pubKeyRaw };
+
+    // Hapus key_ops, use, dan alg agar impor Web Crypto P-256 selalu valid 100% tanpa DataError
+    delete privKeyObj.key_ops;
+    delete privKeyObj.use;
+    delete privKeyObj.alg;
+    delete pubKeyObj.key_ops;
+    delete pubKeyObj.use;
+    delete pubKeyObj.alg;
 
     const myPrivateKey = await self.crypto.subtle.importKey(
       'jwk',
       privKeyObj,
       { name: 'ECDH', namedCurve: 'P-256' },
       false,
-      ['deriveBits']
+      ['deriveBits', 'deriveKey']
     );
 
     const theirPublicKey = await self.crypto.subtle.importKey(
@@ -215,13 +240,13 @@ self.addEventListener('push', (event) => {
         customData.encrypted_content &&
         typeof customData.encrypted_content === 'string' &&
         customData.encrypted_content.startsWith('e2ee:v1:') &&
-        customData.sender_public_key &&
         customData.room_id
       ) {
         const decrypted = await tryDecryptPushContent(
           customData.encrypted_content,
           customData.room_id,
-          customData.sender_public_key
+          customData.sender_public_key,
+          customData.sender_id
         );
 
         if (decrypted) {
