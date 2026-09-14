@@ -46,7 +46,21 @@ sequenceDiagram
 
 1. **Login & Token Storage**:
    - Simpan token JWT di secure storage perangkat (**EncryptedSharedPreferences** di Android, **Keychain** di iOS).
-2. **Koneksi WebSocket**:
+2. **Push Notification Registration (FCM / APNs)**:
+   - Setelah login, ambil token perangkat via `FirebaseMessaging.getInstance().getToken()` (Android) atau APNs (iOS).
+   - Daftarkan token ke backend Go:
+     ```http
+     POST /api/notifications/subscribe
+     Authorization: Bearer <JWT>
+     Content-Type: application/json
+
+     {
+       "platform": "android",
+       "endpoint": "https://fcm.googleapis.com/fcm/send/<FCM_REGISTRATION_TOKEN>"
+     }
+     ```
+   - Saat logout, panggil `POST /api/notifications/unsubscribe` dengan body `{ "endpoint": "..." }`.
+3. **Koneksi WebSocket**:
    - Selalu sertakan query `?token=<JWT>` saat inisialisasi socket.
    - Implementasikan **Exponential Backoff Auto-Reconnect** (1s, 2s, 4s, 8s, maks 30s) saat koneksi terputus (misal saat HP berganti jaringan dari WiFi ke 4G/5G).
 

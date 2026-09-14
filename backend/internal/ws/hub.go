@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/broker"
+	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/google/uuid"
 )
@@ -36,6 +37,7 @@ type Hub struct {
 	clientStore  store.ClientStore
 	messageStore store.MessageStore
 	userStore    store.UserStore
+	pushService  *push.Service
 	broker       broker.MessageBroker
 }
 
@@ -48,6 +50,13 @@ func NewHub(cs store.ClientStore, ms store.MessageStore) *Hub {
 		clientStore:  cs,
 		messageStore: ms,
 	}
+}
+
+// SetPushService menyuntikkan push.Service untuk pengiriman notifikasi pesan saat user offline.
+func (h *Hub) SetPushService(ps *push.Service) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pushService = ps
 }
 
 // SetUserStore menyuntikkan UserStore opsional untuk resolusi anggota percakapan.
@@ -310,6 +319,21 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 		})
 		if err != nil {
 			log.Printf("[Hub %s] gagal menyimpan pesan ke database: %v", h.nodeID[:8], err)
+		}
+
+		// Kirim Push Notification ke seluruh anggota percakapan yang sedang offline/tidak di room
+		h.mu.RLock()
+		ps := h.pushService
+		var onlineIDs []string
+		if room, ok := h.rooms[roomID]; ok {
+			for _, c := range room {
+				onlineIDs = append(onlineIDs, c.ID, c.Nickname, c.Username)
+			}
+		}
+		h.mu.RUnlock()
+
+		if ps != nil {
+			ps.NotifyOfflineRecipients(roomID, msg.From, msg.Nickname, msg.Content, msg.MediaType, onlineIDs)
 		}
 	}
 

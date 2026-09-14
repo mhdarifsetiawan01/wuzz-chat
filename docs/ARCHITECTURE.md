@@ -13,6 +13,7 @@ erDiagram
     USERS ||--o{ CONVERSATION_MEMBERS : joins
     USERS ||--o{ MESSAGES : sends
     USERS ||--o{ MESSAGE_RECEIPTS : reads
+    USERS ||--o{ PUSH_SUBSCRIPTIONS : registers
     CONVERSATIONS ||--o{ CONVERSATION_MEMBERS : contains
     CONVERSATIONS ||--o{ MESSAGES : has
     MESSAGES ||--o{ MESSAGE_RECEIPTS : tracked_by
@@ -28,6 +29,16 @@ erDiagram
         varchar status_message
         text public_key "ECDH P-256 Public Key JWK"
         timestamp last_seen
+        timestamp created_at
+    }
+
+    PUSH_SUBSCRIPTIONS {
+        uuid id PK
+        uuid user_id FK
+        varchar platform "web / android / ios"
+        text endpoint UK
+        text p256dh_key
+        text auth_key
         timestamp created_at
     }
 
@@ -149,6 +160,9 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `DELETE` / `POST` | `/api/messages?id=&type=` / `/api/messages/delete` | Menghapus pesan (*for_me* kapanpun, atau *for_everyone* ≤ 60s) | Bearer Token |
 | `POST` | `/api/media/upload` | Upload file gambar/dokumen/audio ke storage | Bearer Token |
 | `POST` | `/api/media/ack` | Konfirmasi download file oleh client (memicu auto-delete file fisik) | Bearer Token |
+| `GET` | `/api/notifications/vapid-public-key` | Mengambil VAPID Public Key untuk PushManager browser | Public |
+| `POST` | `/api/notifications/subscribe` | Mendaftarkan endpoint & kunci push subscription per perangkat | Bearer Token |
+| `POST` | `/api/notifications/unsubscribe` | Mencabut endpoint push subscription saat logout/toggle off | Bearer Token |
 | `GET` | `/api/link-preview?url=` | Scraping aman metadata OpenGraph (SSRF protected & cached) | Bearer Token |
 | `GET` | `/api/config` | Mengambil status konfigurasi publik (media upload toggle & retention) | Public |
 

@@ -59,11 +59,15 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   3. Dynamic Multi-Origin CORS & WebSocket Origin Whitelist (`CORS_ALLOWED_ORIGINS`).
   4. OpenGraph Rich Link Previewer dengan Anti-SSRF guard (Socket-Level IP Pinning), Redis Caching 24 jam, dan Frontend UI Card.
   5. Multi-Stage Dockerfile (< 25MB), Next.js server-side rewrites, dan Fly.io Production Deployment (`https://wuzz-chat-backend.fly.dev` & `https://chat.wuzzhub.id`).
-- ⏳ **Fase 7: Advanced Security & WebRTC Calling (SEDANG BERJALAN)** —
-  1. ✅ **End-to-End Encryption (E2EE) (SELESAI)**: Kriptografi standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API, penyimpanan private key di `IndexedDB` (`wuzz_crypto_db`), verifikasi nomor keamanan 30-digit (*Safety Number Fingerprint*), auto-decryption reaktif pada timeline obrolan dan cuplikan pesan di sidebar, serta zero-knowledge storage pada server database.
-  2. ✅ **1-on-1 Audio Calling via WebRTC P2P (Milestone 7.2A - SELESAI)**: WebSocket signaling (`call_offer`, `call_answer`, `ice_candidate`), STUN + OpenRelay TURN fallback, Web Audio API procedural ringtones, In-Call Overlay UI dengan live timer dan microphone mute, serta modal panggilan masuk interaktif.
-  3. ✅ **Security & Scalability Hardening (SELESAI)**: Mitigasi BOLA/IDOR WebSocket (`isAuthorizedForRoom`), IDOR Media ACK check, Anti-SSRF Socket-Level IP Pinning (14 subnet), eliminasi $N+1$ query via $O(1)$ batched CTE window function, database indexing, dan SQLite WAL mode concurrency.
-  4. 🎯 **1-on-1 Video Calling via WebRTC P2P (Milestone 7.2B - NEXT)**: Stream video dua arah, flip camera, floating video preview, dan integrasi kontrol kamera.
+- ✅ **Fase 7: Advanced Security & WebRTC Audio Calling (SELESAI)** —
+  1. **End-to-End Encryption (E2EE)**: Kriptografi standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API, private key tersimpan di `IndexedDB` (`wuzz_crypto_db`), Safety Number Fingerprint 30-digit, dan zero-knowledge backend.
+  2. **1-on-1 Voice / Audio Calling via WebRTC P2P (Milestone 7.2A)**: WebSocket signaling (`call_offer`, `call_answer`, `ice_candidate`), STUN + OpenRelay TURN fallback, Web Audio API procedural ringtones, In-Call Overlay UI dengan live timer dan microphone mute, serta modal panggilan masuk interaktif.
+  3. **Security & Scalability Hardening**: Mitigasi BOLA/IDOR WebSocket (`isAuthorizedForRoom`), IDOR Media ACK check, Anti-SSRF Socket-Level IP Pinning (14 subnet), eliminasi $N+1$ query via $O(1)$ batched CTE window function, database indexing, dan SQLite WAL mode concurrency.
+  4. *(Milestone 7.2B: 1-on-1 Video Calling di-hold sementara untuk memprioritaskan fitur inti komunikasi).*
+- ⏳ **Fase 8: Core Parity (Push Notifications, Group Chat & Message Management) (SEDANG BERJALAN)** —
+  1. ✅ **Milestone 8.1: Universal Push Notification Engine (SELESAI)**: Integrasi W3C Web Push (VAPID RFC 8292) via `SherClockHolmes/webpush-go`, auto key generation, REST endpoints (`/api/notifications/subscribe`, `unsubscribe`, `vapid-public-key`), background dispatcher di Go WebSocket Hub saat user offline, Service Worker (`sw.js`), toggle notifikasi di ProfileModal, dan arsitektur Multi-Platform Gateway (Web, PWA & Android FCM Ready).
+  2. 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**: Percakapan multi-user, multicast WebSocket broadcast, role Admin/Member, modal buat grup, Group Info Drawer, dan group mention system.
+  3. ⏳ **Milestone 8.3: Message Management Suite**: Edit pesan (15 menit), forward pesan, pin chat & pin message, starred message, dan in-chat search.
 
 ---
 

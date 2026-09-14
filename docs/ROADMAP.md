@@ -52,10 +52,32 @@ Membangun platform chatting modern yang:
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 7: Security Hardening & WebRTC Calling (SEDANG BERJALAN ⏳)       │
+│  FASE 7: Security Hardening & WebRTC Calling (SELESAI ✅)              │
 │  - Bagian 1: End-to-End Encryption (E2EE ECDH + AES-GCM) (SELESAI ✅)  │
 │  - Bagian 2 (7.2A): 1-on-1 Voice / Audio Call WebRTC (SELESAI ✅)       │
-│  - Bagian 2 (7.2B): 1-on-1 Video Call WebRTC (NEXT 🎯)                  │
+│  - (7.2B Video Call di-hold sementara untuk prioritas core parity)     │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+┌──────────────────────────────────▼─────────────────────────────────────┐
+│  FASE 8: Core Parity (Push, Group Chat & Message Mgmt) (SEDANG JALAN⏳) │
+│  - Milestone 8.1: Universal Push Notification Engine (SELESAI ✅)       │
+│  - Milestone 8.2: Group Chat Engine & Member Management (NEXT 🎯)       │
+│  - Milestone 8.3: Message Management Suite (Edit, Forward, Pin, Star)  │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+┌──────────────────────────────────▼─────────────────────────────────────┐
+│  FASE 9: Seamless Continuity (Multi-Device Sync & Offline Resilience)  │
+│  - Multi-Device Sessions, Cross-Device E2EE Keys, Offline Outbox Queue │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+┌──────────────────────────────────▼─────────────────────────────────────┐
+│  FASE 10: Broadcast Power (Public/Private Channels & Discovery)        │
+│  - 1-to-Many Channels, Broadcast Lists, Discussion Threads             │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+┌──────────────────────────────────▼─────────────────────────────────────┐
+│  FASE 11: AI-Native Chat Experience (Competitive Differentiator)       │
+│  - Voice Note AI Transcriber, Chat Summarizer TL;DR, Copilot Bot       │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -157,7 +179,7 @@ Membangun platform chatting modern yang:
 
 ---
 
-### Fase 7: Advanced Security & WebRTC Calling
+### Fase 7: Advanced Security & WebRTC Calling (Status: SELESAI ✅)
 *Tujuan: Keamanan tingkat tinggi dan fitur panggilan suara/video interaktif ultra low-latency.*
 - ✅ **End-to-End Encryption (E2EE) (SELESAI)**:
   - Implementasi kriptografi kunci publik standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API.
@@ -172,8 +194,24 @@ Membangun platform chatting modern yang:
   - Dialog pop-up panggilan masuk interaktif (`IncomingCallModal.tsx`) dengan animasi avatar denyut dan tombol Terima/Tolak.
   - Layar overlay panggilan suara aktif (`AudioCallOverlay.tsx`) dengan avatar wave, timer durasi live, toggle mute microphone, dan tombol akhiri panggilan.
   - Koneksi P2P direct audio stream latensi rendah via Google Public STUN (`stun:stun.l.google.com:19302`) tanpa beban bandwidth server.
-- 🎯 **Milestone 7.2B: 1-on-1 Video Calling (WebRTC P2P) (NEXT)**:
-  - Streaming kamera video 1-on-1 dengan Picture-in-Picture (PiP) local stream preview dan toggle kamera depan/belakang/off.
+- ⏸️ *(Milestone 7.2B Video Calling di-hold sementara untuk memprioritaskan fitur inti komunikasi).*
+
+---
+
+### Fase 8: Core Parity — Push Notifications, Group Chat & Message Management (Status: SEDANG BERJALAN ⏳)
+*Tujuan: Menghadirkan kesetaraan fitur komunikasi inti (*Core Parity*) dengan WhatsApp & Telegram.*
+- ✅ **Milestone 8.1: Universal Push Notification Engine (SELESAI)**:
+  - Standard W3C Web Push (VAPID RFC 8292) dengan integrasi `SherClockHolmes/webpush-go`.
+  - Skema tabel multi-platform `push_subscriptions` (`web`, `android`, `ios`).
+  - Auto keypair generation VAPID di backend Go.
+  - REST Endpoints: `GET /api/notifications/vapid-public-key`, `POST /api/notifications/subscribe`, `POST /api/notifications/unsubscribe`.
+  - Asynchronous push dispatcher pada WebSocket Hub saat user penerima sedang offline/idle.
+  - Service Worker (`public/sw.js`) dengan event `push` dan `notificationclick` (deep-linking ke room obrolan).
+  - UI Toggle Notifikasi dan status izin di `ProfileModal.tsx`.
+- 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**:
+  - Pembuatan grup obrolan multi-kontak, manajemen role Admin & Member, Group Info Drawer, multicast WebSocket broadcast, dan unread count per anggota.
+- ⏳ **Milestone 8.3: Message Management Suite**:
+  - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, dan in-chat text search.
 
 ---
 

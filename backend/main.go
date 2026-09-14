@@ -11,6 +11,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/broker"
+	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/storage"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
@@ -50,12 +51,17 @@ func main() {
 		userStore = store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
 	}
 
+	// Inisialisasi Push Notification Service (Web Push VAPID & Multi-Platform Gateway)
+	pushService := push.NewService(userStore)
+
 	// Inisialisasi REST Handlers
 	var authHandler *api.AuthHandler
 	var chatHandler *api.ChatHandler
+	var notificationHandler *api.NotificationHandler
 	if userStore != nil {
 		authHandler = api.NewAuthHandler(userStore)
 		chatHandler = api.NewChatHandler(userStore, messageStore)
+		notificationHandler = api.NewNotificationHandler(pushService, userStore)
 	}
 
 	// Inisialisasi Media Storage & Handler
@@ -84,6 +90,7 @@ func main() {
 	if userStore != nil {
 		hub.SetUserStore(userStore)
 	}
+	hub.SetPushService(pushService)
 	hub.SetBroker(messageBroker)
 
 	// Inisialisasi CORS Validator dinamis (mendukung multi-domain, Vercel preview, dan localhost)
@@ -188,6 +195,17 @@ func main() {
 		}))
 		mux.HandleFunc("/api/messages/delete", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(chatHandler.DeleteMessage)).ServeHTTP(w, r)
+		}))
+	}
+
+	// REST API Routes (Push Notifications)
+	if notificationHandler != nil {
+		mux.HandleFunc("/api/notifications/vapid-public-key", withCORS(notificationHandler.GetVAPIDPublicKey))
+		mux.HandleFunc("/api/notifications/subscribe", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(notificationHandler.Subscribe)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/notifications/unsubscribe", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(notificationHandler.Unsubscribe)).ServeHTTP(w, r)
 		}))
 	}
 

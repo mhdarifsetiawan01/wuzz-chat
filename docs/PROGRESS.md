@@ -288,6 +288,23 @@
 - [x] **Optimasi UX & Bug Fixes (E2EE Sidebar & Conversation Lifecycle ✅)**:
   - **Instant E2EE Sidebar Snippet Decryption**: Mengeliminasi ketergantungan *stale state closure* pada `useEffect` di `Sidebar.tsx` dengan memanfaatkan `conversationsRef`, fallback resolusi `peer_id` dari event WebSocket `lastIncomingMessage.from` / `to`, serta auto-fetch profil dan derivasi kunci AES secara reaktif. Cuplikan teks pesan terenkripsi langsung didekripsi seketika (0ms) menjadi teks asli tanpa perlu me-refresh halaman.
   - **Auto-Close Active Room on Conversation Deletion**: Memperbaiki logika penghapusan percakapan (`Delete for Me`) di `Sidebar.tsx` dengan pencocokan multi-identifier (`activeRoomId === conv.id`, `activeRoomId.includes(conv.peer_id)`, dan substring UUID). Menambahkan pembersihan state linimasa pesan dan room users pada `page.tsx` (`handleSelectRoom('')`), sehingga saat percakapan yang sedang dibuka dihapus, tampilan otomatis kembali ke layar Welcome Standby tanpa perlu navigasi manual.
+- [x] **Milestone 8.1: Universal Push Notification Engine (Fase 8 - Selesai ✅)**:
+  - **Standar W3C Web Push & VAPID RFC 8292**: Integrasi library `github.com/SherClockHolmes/webpush-go` di backend Golang dengan auto-generation keypair VAPID yang persisten.
+  - **Skema Database Multi-Platform `push_subscriptions`**: Mendukung penyimpanan endpoint dan cryptographic keys untuk platform `'web'`, `'android'`, dan `'ios'` dengan relasi cascading ke `users`.
+  - **Backend REST API**:
+    - `GET /api/notifications/vapid-public-key`: Pengambilan public key untuk handshake browser.
+    - `POST /api/notifications/subscribe`: Pendaftaran endpoint subscription (Protected JWT).
+    - `POST /api/notifications/unsubscribe`: Pencabutan endpoint subscription saat logout atau toggle off.
+  - **Asynchronous Offline Dispatcher di Go WebSocket Hub**: Saat pesan teks/media masuk (`TypeMessage`), Hub mendeteksi recipient yang sedang offline/tidak berada di room dan mengirimkan push notification via goroutine non-blocking (dengan auto-cleanup subscription expired HTTP 404/410).
+  - **Frontend Service Worker & Helper**:
+    - Service Worker standard di `frontend/public/sw.js` menangani event `push` dan `notificationclick` (deep link navigasi langsung ke room obrolan).
+    - Helper `lib/pushNotification.ts` untuk registrasi VAPID, subscribe, unsubscribe, dan auto-sync.
+  - **UI/UX Pengaturan Notifikasi**:
+    - Toggle ON/OFF Push Notification di `ProfileModal.tsx` dengan indikator status izin (*Diizinkan / Diblokir Browser / Belum Diizinkan*).
+  - **Pengujian E2E & Unit Test 100% PASS**:
+    - `TestSQLUserStore_PushSubscriptions`: CRUD database SQLite.
+    - `TestNotificationHandler_Endpoints`: Verifikasi REST handler VAPID, Subscribe, dan Unsubscribe.
+    - `TestE2E_PushNotificationLifecycle`: Pengujian alur utuh registrasi -> offline push dispatch -> unsubscribe.
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id` & `https://wuzz-chat.vercel.app`
@@ -295,7 +312,7 @@
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)
   - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
-- Seluruh 5 tahapan audit keamanan dan skalabilitas telah tuntas 100%. Siap melangkah ke fitur berikutnya (**Milestone 7.2B: WebRTC 1-on-1 Video Calling**).
+- Seluruh 5 tahapan audit keamanan dan Milestone 8.1 telah tuntas 100%. Siap melangkah ke fitur berikutnya (**Milestone 8.2: Group Chat Engine & Member Management**).
 
 ---
 

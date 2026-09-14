@@ -18,6 +18,7 @@ import { useAuth } from '@/lib/auth-context'
 import { deleteMessageApi, apiRequest } from '@/lib/api'
 import { isEncryptedMessage, encryptText, decryptText } from '@/lib/crypto/e2ee'
 import { initUserE2EE, getSharedRoomAESKey, cachePeerPublicKey, getCachedPeerPublicKey } from '@/lib/crypto/keyStore'
+import { autoSyncPushSubscription } from '@/lib/pushNotification'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -246,12 +247,15 @@ function ChatPageContent() {
     messagesRef.current = state.messages
   }, [state.messages])
 
-  // Inisialisasi E2EE Identity Keys saat user login
+  // Inisialisasi E2EE Identity Keys & Push Notification saat user login
   useEffect(() => {
     if (user?.id) {
       const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
       initUserE2EE(user.id, token).catch(err => {
         console.warn('[E2EE] Inisialisasi kunci lokal gagal:', err)
+      })
+      autoSyncPushSubscription().catch(err => {
+        console.warn('[Push] Auto-sync push notification gagal:', err)
       })
     }
   }, [user?.id])

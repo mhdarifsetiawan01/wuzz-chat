@@ -450,6 +450,96 @@ func TestGetOrCreateDirectConversation_CollisionAndLegacy(t *testing.T) {
 	}
 }
 
+func TestSQLUserStore_PushSubscriptions(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test_push_sub.db")
+	sqlStore, err := NewSQLMessageStore("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("Failed to create SQLMessageStore: %v", err)
+	}
+	defer sqlStore.Close()
+
+	userStore := NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+
+	userAlice, err := userStore.Register("alice_push", "Alice Push", "password123")
+	if err != nil {
+		t.Fatalf("Failed to register alice: %v", err)
+	}
+	userBob, err := userStore.Register("bob_push", "Bob Push", "password123")
+	if err != nil {
+		t.Fatalf("Failed to register bob: %v", err)
+	}
+
+	// 1. Simpan push subscription untuk Alice
+	subAlice1 := &PushSubscription{
+		UserID:    userAlice.ID,
+		Platform:  "web",
+		Endpoint:  "https://push.browser.com/sub/alice/1",
+		P256dhKey: "p256dh_alice_1",
+		AuthKey:   "auth_alice_1",
+	}
+	if err := userStore.SavePushSubscription(subAlice1); err != nil {
+		t.Fatalf("Failed to save subAlice1: %v", err)
+	}
+
+	// Simpan subscription kedua untuk Alice (misal di browser HP)
+	subAlice2 := &PushSubscription{
+		UserID:    userAlice.ID,
+		Platform:  "web",
+		Endpoint:  "https://push.browser.com/sub/alice/2",
+		P256dhKey: "p256dh_alice_2",
+		AuthKey:   "auth_alice_2",
+	}
+	if err := userStore.SavePushSubscription(subAlice2); err != nil {
+		t.Fatalf("Failed to save subAlice2: %v", err)
+	}
+
+	// Simpan push subscription untuk Bob
+	subBob := &PushSubscription{
+		UserID:    userBob.ID,
+		Platform:  "android",
+		Endpoint:  "https://fcm.googleapis.com/fcm/send/bob_token",
+		P256dhKey: "",
+		AuthKey:   "",
+	}
+	if err := userStore.SavePushSubscription(subBob); err != nil {
+		t.Fatalf("Failed to save subBob: %v", err)
+	}
+
+	// 2. Query push subscriptions milik Alice
+	aliceSubs, err := userStore.GetPushSubscriptionsByUserID(userAlice.ID)
+	if err != nil {
+		t.Fatalf("Failed to get Alice subs: %v", err)
+	}
+	if len(aliceSubs) != 2 {
+		t.Fatalf("Expected 2 subscriptions for Alice, got %d", len(aliceSubs))
+	}
+
+	// 3. Query push subscriptions untuk sekumpulan penerima (Alice dan Bob)
+	allSubs, err := userStore.GetPushSubscriptionsForRecipients([]string{userAlice.ID, userBob.ID})
+	if err != nil {
+		t.Fatalf("Failed to get all subs: %v", err)
+	}
+	if len(allSubs) != 3 {
+		t.Fatalf("Expected 3 subscriptions total, got %d", len(allSubs))
+	}
+
+	// 4. Test Unsubscribe endpoint spesifik milik Alice
+	if err := userStore.DeletePushSubscriptionByUser(userAlice.ID, subAlice1.Endpoint); err != nil {
+		t.Fatalf("Failed to delete subAlice1: %v", err)
+	}
+
+	aliceSubsAfterDelete, err := userStore.GetPushSubscriptionsByUserID(userAlice.ID)
+	if err != nil {
+		t.Fatalf("Failed to get Alice subs after delete: %v", err)
+	}
+	if len(aliceSubsAfterDelete) != 1 {
+		t.Fatalf("Expected 1 subscription for Alice after delete, got %d", len(aliceSubsAfterDelete))
+	}
+	if aliceSubsAfterDelete[0].Endpoint != subAlice2.Endpoint {
+		t.Errorf("Remaining sub endpoint mismatch: got %s, want %s", aliceSubsAfterDelete[0].Endpoint, subAlice2.Endpoint)
+	}
+}
+
 
 
 

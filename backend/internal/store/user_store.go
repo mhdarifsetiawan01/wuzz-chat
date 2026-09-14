@@ -46,6 +46,17 @@ type ConversationItem struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+// PushSubscription merepresentasikan entitas token/kunci push notification per perangkat.
+type PushSubscription struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Platform  string    `json:"platform"` // "web", "android", "ios"
+	Endpoint  string    `json:"endpoint"`
+	P256dhKey string    `json:"p256dh_key,omitempty"`
+	AuthKey   string    `json:"auth_key,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // UserStore mendefinisikan kontrak operasi user dan percakapan.
 type UserStore interface {
 	Register(username, displayName, password string) (*User, error)
@@ -61,6 +72,11 @@ type UserStore interface {
 	ClearConversation(conversationID, userID string) error
 	GetConversationMemberUsernames(conversationID string) ([]string, error)
 	IsUserInConversation(conversationID, userID string) (bool, error)
+	SavePushSubscription(sub *PushSubscription) error
+	DeletePushSubscription(endpoint string) error
+	DeletePushSubscriptionByUser(userID, endpoint string) error
+	GetPushSubscriptionsByUserID(userID string) ([]PushSubscription, error)
+	GetPushSubscriptionsForRecipients(recipientUserIDs []string) ([]PushSubscription, error)
 }
 
 // SQLUserStore adalah implementasi UserStore menggunakan SQL (SQLite & Postgres).
@@ -699,6 +715,162 @@ func safePrefix(s string, maxLen int) string {
 		return s
 	}
 	return string(runes[:maxLen])
+}
+
+// SavePushSubscription menyimpan atau memperbarui token/endpoint push notification.
+func (s *SQLUserStore) SavePushSubscription(sub *PushSubscription) error {
+	if sub == nil || sub.UserID == "" || sub.Endpoint == "" {
+		return errors.New("parameter push subscription tidak valid")
+	}
+
+	if sub.ID == "" {
+		sub.ID = uuid.New().String()
+	}
+	if sub.Platform == "" {
+		sub.Platform = "web"
+	}
+	if sub.CreatedAt.IsZero() {
+		sub.CreatedAt = time.Now().UTC()
+	}
+
+	// Hapus subscription lama dengan endpoint yang sama jika ada (clean replace)
+	var delQuery string
+	if s.driverName == "postgres" {
+		delQuery = `DELETE FROM push_subscriptions WHERE endpoint = $1`
+	} else {
+		delQuery = `DELETE FROM push_subscriptions WHERE endpoint = ?`
+	}
+	_, _ = s.db.Exec(delQuery, sub.Endpoint)
+
+	var insertQuery string
+	if s.driverName == "postgres" {
+		insertQuery = `INSERT INTO push_subscriptions (id, user_id, platform, endpoint, p256dh_key, auth_key, created_at)
+		               VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	} else {
+		insertQuery = `INSERT INTO push_subscriptions (id, user_id, platform, endpoint, p256dh_key, auth_key, created_at)
+		               VALUES (?, ?, ?, ?, ?, ?, ?)`
+	}
+
+	_, err := s.db.Exec(insertQuery, sub.ID, sub.UserID, sub.Platform, sub.Endpoint, sub.P256dhKey, sub.AuthKey, sub.CreatedAt)
+	return err
+}
+
+// DeletePushSubscription menghapus push subscription berdasarkan endpoint.
+func (s *SQLUserStore) DeletePushSubscription(endpoint string) error {
+	if endpoint == "" {
+		return nil
+	}
+
+	var query string
+	if s.driverName == "postgres" {
+		query = `DELETE FROM push_subscriptions WHERE endpoint = $1`
+	} else {
+		query = `DELETE FROM push_subscriptions WHERE endpoint = ?`
+	}
+
+	_, err := s.db.Exec(query, endpoint)
+	return err
+}
+
+// DeletePushSubscriptionByUser menghapus push subscription milik user tertentu berdasarkan endpoint.
+func (s *SQLUserStore) DeletePushSubscriptionByUser(userID, endpoint string) error {
+	if userID == "" || endpoint == "" {
+		return nil
+	}
+
+	var query string
+	if s.driverName == "postgres" {
+		query = `DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2`
+	} else {
+		query = `DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?`
+	}
+
+	_, err := s.db.Exec(query, userID, endpoint)
+	return err
+}
+
+// GetPushSubscriptionsByUserID mengambil seluruh push subscription aktif untuk satu user ID.
+func (s *SQLUserStore) GetPushSubscriptionsByUserID(userID string) ([]PushSubscription, error) {
+	if userID == "" {
+		return []PushSubscription{}, nil
+	}
+
+	var query string
+	if s.driverName == "postgres" {
+		query = `SELECT id, user_id, platform, endpoint, p256dh_key, auth_key, created_at
+		         FROM push_subscriptions WHERE user_id = $1`
+	} else {
+		query = `SELECT id, user_id, platform, endpoint, p256dh_key, auth_key, created_at
+		         FROM push_subscriptions WHERE user_id = ?`
+	}
+
+	rows, err := s.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subs []PushSubscription
+	for rows.Next() {
+		var sub PushSubscription
+		if err := rows.Scan(&sub.ID, &sub.UserID, &sub.Platform, &sub.Endpoint, &sub.P256dhKey, &sub.AuthKey, &sub.CreatedAt); err != nil {
+			return nil, err
+		}
+		subs = append(subs, sub)
+	}
+
+	return subs, rows.Err()
+}
+
+// GetPushSubscriptionsForRecipients mengambil push subscriptions untuk sekumpulan user ID.
+func (s *SQLUserStore) GetPushSubscriptionsForRecipients(recipientUserIDs []string) ([]PushSubscription, error) {
+	if len(recipientUserIDs) == 0 {
+		return []PushSubscription{}, nil
+	}
+
+	// Filter deduplikasi dan non-empty
+	seen := make(map[string]bool)
+	var cleanIDs []string
+	for _, id := range recipientUserIDs {
+		if id != "" && !seen[id] {
+			seen[id] = true
+			cleanIDs = append(cleanIDs, id)
+		}
+	}
+	if len(cleanIDs) == 0 {
+		return []PushSubscription{}, nil
+	}
+
+	var placeholders []string
+	var args []interface{}
+	for i, id := range cleanIDs {
+		if s.driverName == "postgres" {
+			placeholders = append(placeholders, fmt.Sprintf("$%d", i+1))
+		} else {
+			placeholders = append(placeholders, "?")
+		}
+		args = append(args, id)
+	}
+
+	query := fmt.Sprintf(`SELECT id, user_id, platform, endpoint, p256dh_key, auth_key, created_at
+	                      FROM push_subscriptions WHERE user_id IN (%s)`, strings.Join(placeholders, ", "))
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var subs []PushSubscription
+	for rows.Next() {
+		var sub PushSubscription
+		if err := rows.Scan(&sub.ID, &sub.UserID, &sub.Platform, &sub.Endpoint, &sub.P256dhKey, &sub.AuthKey, &sub.CreatedAt); err != nil {
+			return nil, err
+		}
+		subs = append(subs, sub)
+	}
+
+	return subs, rows.Err()
 }
 
 

@@ -1,0 +1,257 @@
+package push
+
+import (
+	"context"
+	"encoding/json"
+	"log"
+	"net/http"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/SherClockHolmes/webpush-go"
+	"github.com/bms-del112/wuzz-chat/internal/store"
+)
+
+// Service mengelola pengiriman push notification via standard Web Push (VAPID) dan gateway FCM.
+type Service struct {
+	vapidPublicKey  string
+	vapidPrivateKey string
+	vapidSubject    string
+	userStore       store.UserStore
+	mu              sync.RWMutex
+}
+
+// NotificationPayload merepresentasikan struktur payload data JSON yang dikirimkan ke Service Worker.
+type NotificationPayload struct {
+	Title     string                 `json:"title"`
+	Body      string                 `json:"body"`
+	Icon      string                 `json:"icon,omitempty"`
+	Badge     string                 `json:"badge,omitempty"`
+	Tag       string                 `json:"tag,omitempty"`
+	Data      map[string]interface{} `json:"data,omitempty"`
+	Timestamp int64                  `json:"timestamp"`
+}
+
+// NewService membuat dan menginisialisasi Push Service.
+func NewService(userStore store.UserStore) *Service {
+	pubKey := strings.TrimSpace(os.Getenv("VAPID_PUBLIC_KEY"))
+	privKey := strings.TrimSpace(os.Getenv("VAPID_PRIVATE_KEY"))
+	subject := strings.TrimSpace(os.Getenv("VAPID_SUBJECT"))
+	if subject == "" {
+		subject = "mailto:admin@wuzzhub.id"
+	}
+
+	// Jika kunci belum diset di environment, generate VAPID keys otomatis
+	if pubKey == "" || privKey == "" {
+		generatedPrivKey, generatedPubKey, err := webpush.GenerateVAPIDKeys()
+		if err != nil {
+			log.Printf("⚠️ [Push] Gagal generate VAPID keys: %v", err)
+		} else {
+			pubKey = generatedPubKey
+			privKey = generatedPrivKey
+			log.Printf("🔑 [Push] VAPID Keys otomatis digenerate (Public: %s...)", safePrefix(pubKey, 16))
+		}
+	}
+
+	return &Service{
+		vapidPublicKey:  pubKey,
+		vapidPrivateKey: privKey,
+		vapidSubject:    subject,
+		userStore:       userStore,
+	}
+}
+
+// SetUserStore memperbarui referensi UserStore.
+func (s *Service) SetUserStore(us store.UserStore) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.userStore = us
+}
+
+// VAPIDPublicKey mengembalikan Public Key VAPID untuk dikonsumsi oleh frontend browser.
+func (s *Service) VAPIDPublicKey() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.vapidPublicKey
+}
+
+// SendWebPush mengirimkan push notification ke satu subscription endpoint.
+func (s *Service) SendWebPush(ctx context.Context, sub store.PushSubscription, payload []byte) error {
+	if sub.Endpoint == "" || s.vapidPublicKey == "" || s.vapidPrivateKey == "" {
+		return nil
+	}
+
+	sSubscription := &webpush.Subscription{
+		Endpoint: sub.Endpoint,
+		Keys: webpush.Keys{
+			P256dh: sub.P256dhKey,
+			Auth:   sub.AuthKey,
+		},
+	}
+
+	resp, err := webpush.SendNotification(payload, sSubscription, &webpush.Options{
+		Subscriber:      s.vapidSubject,
+		VAPIDPublicKey:  s.vapidPublicKey,
+		VAPIDPrivateKey: s.vapidPrivateKey,
+		TTL:             86400, // 24 jam
+		Urgency:         webpush.UrgencyHigh,
+	})
+
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Jika endpoint sudah kedaluwarsa atau tidak terdaftar lagi di browser push service (404/410),
+	// hapus otomatis dari database agar tidak membebani pengiriman selanjutnya.
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
+		s.mu.RLock()
+		us := s.userStore
+		s.mu.RUnlock()
+		if us != nil {
+			_ = us.DeletePushSubscription(sub.Endpoint)
+			log.Printf("🧹 [Push] Subscription kedaluwarsa (%d) otomatis dihapus: %s", resp.StatusCode, safePrefix(sub.Endpoint, 32))
+		}
+	}
+
+	return nil
+}
+
+// NotifyOfflineRecipients menyaring anggota yang sedang offline dan mengirimkan push notification.
+func (s *Service) NotifyOfflineRecipients(
+	roomID string,
+	senderID string,
+	senderNickname string,
+	content string,
+	mediaType string,
+	onlineUserIDs []string,
+) {
+	s.mu.RLock()
+	us := s.userStore
+	s.mu.RUnlock()
+
+	if us == nil || roomID == "" {
+		return
+	}
+
+	// Jalankan dalam goroutine terisolasi agar tidak menghalangi WebSocket event loop
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ [Push] Recovered from panic in NotifyOfflineRecipients: %v", r)
+			}
+		}()
+
+		// 1. Dapatkan seluruh ID / Username anggota percakapan
+		memberUsernames, err := us.GetConversationMemberUsernames(roomID)
+		if err != nil || len(memberUsernames) == 0 {
+			return
+		}
+
+		// Buat lookup set untuk user yang sedang online
+		onlineMap := make(map[string]bool)
+		for _, id := range onlineUserIDs {
+			onlineMap[strings.ToLower(id)] = true
+		}
+		onlineMap[strings.ToLower(senderID)] = true
+		onlineMap[strings.ToLower(senderNickname)] = true
+
+		// 2. Kumpulkan target user ID penerima yang sedang offline
+		var targetUserIDs []string
+		for _, memberName := range memberUsernames {
+			if memberName == "" || onlineMap[strings.ToLower(memberName)] {
+				continue
+			}
+
+			// Cari profil user untuk mendapatkan UUID jika memberName adalah username
+			if user, err := us.GetUserByUsernameOrDisplayName(memberName); err == nil && user != nil {
+				if !onlineMap[strings.ToLower(user.ID)] {
+					targetUserIDs = append(targetUserIDs, user.ID)
+				}
+			} else {
+				targetUserIDs = append(targetUserIDs, memberName)
+			}
+		}
+
+		if len(targetUserIDs) == 0 {
+			return
+		}
+
+		// 3. Ambil push subscriptions untuk target user ID
+		subs, err := us.GetPushSubscriptionsForRecipients(targetUserIDs)
+		if err != nil || len(subs) == 0 {
+			return
+		}
+
+		// 4. Susun pesan notifikasi yang ramah dan aman
+		bodyText := content
+		if strings.HasPrefix(content, "e2ee:v1:") {
+			bodyText = "🔒 Pesan Baru (Terenkripsi)"
+		} else if mediaType != "" {
+			switch mediaType {
+			case "image":
+				bodyText = "📷 Mengirim foto"
+			case "audio":
+				bodyText = "🎤 Mengirim pesan suara"
+			case "document":
+				bodyText = "📄 Mengirim dokumen"
+			case "video":
+				bodyText = "🎥 Mengirim video"
+			default:
+				bodyText = "📎 Mengirim lampiran"
+			}
+		} else if len(bodyText) > 120 {
+			bodyText = safePrefix(bodyText, 117) + "..."
+		}
+
+		title := senderNickname
+		if title == "" {
+			title = "Wuzz Chat"
+		}
+
+		payloadObj := NotificationPayload{
+			Title: title,
+			Body:  bodyText,
+			Icon:  "/favicon.ico",
+			Badge: "/favicon.ico",
+			Tag:   "chat-" + roomID,
+			Data: map[string]interface{}{
+				"room_id":   roomID,
+				"sender_id": senderID,
+				"url":       "/chat?room=" + roomID,
+			},
+			Timestamp: time.Now().UnixMilli(),
+		}
+
+		payloadBytes, err := json.Marshal(payloadObj)
+		if err != nil {
+			return
+		}
+
+		// 5. Kirimkan push notification ke setiap subscription
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		var wg sync.WaitGroup
+		for _, sub := range subs {
+			wg.Add(1)
+			go func(subscription store.PushSubscription) {
+				defer wg.Done()
+				if err := s.SendWebPush(ctx, subscription, payloadBytes); err != nil {
+					log.Printf("⚠️ [Push] Gagal mengirim push ke endpoint %s: %v", safePrefix(subscription.Endpoint, 24), err)
+				}
+			}(sub)
+		}
+		wg.Wait()
+	}()
+}
+
+func safePrefix(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	return string(runes[:maxLen])
+}

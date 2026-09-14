@@ -102,6 +102,18 @@ func (s *SQLMessageStore) autoMigrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_messages_room_time ON messages(room_id, created_at);`,
 		`CREATE INDEX IF NOT EXISTS idx_conv_members_user ON conversation_members(user_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_conv_members_conv ON conversation_members(conversation_id);`,
+		// Tabel Push Subscriptions (Multi-Platform: Web, Android, iOS)
+		`CREATE TABLE IF NOT EXISTS push_subscriptions (
+			id VARCHAR(64) PRIMARY KEY,
+			user_id VARCHAR(64) NOT NULL,
+			platform VARCHAR(32) NOT NULL DEFAULT 'web',
+			endpoint TEXT NOT NULL,
+			p256dh_key TEXT DEFAULT '',
+			auth_key TEXT DEFAULT '',
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_push_subs_user_id ON push_subscriptions(user_id);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subs_endpoint ON push_subscriptions(endpoint);`,
 	}
 
 	for _, query := range migrations {
