@@ -1039,7 +1039,16 @@ function ChatPageContent() {
     setLightboxData(null)
     setIsMemberListOpen(false)
     setReplyingTo(null)
-    router.push(newRoomId ? `/chat?room=${encodeURIComponent(newRoomId)}` : '/chat')
+    if (!newRoomId) {
+      dispatch({ type: 'SET_MESSAGES', payload: [] })
+      dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
+      dispatch({ type: 'SET_ROOM_USERS', payload: [] })
+      roomAESKeyRef.current = null
+      activePeerRef.current = null
+      router.push('/chat')
+    } else {
+      router.push(`/chat?room=${encodeURIComponent(newRoomId)}`)
+    }
   }
 
   // Drag & drop file ke area chat

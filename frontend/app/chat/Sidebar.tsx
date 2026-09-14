@@ -60,6 +60,7 @@ export function Sidebar({
   const searchInputRef = useRef<HTMLInputElement>(null)
   const lastHandledMsgIdRef = useRef<string | null>(null)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const conversationsRef = useRef<ConversationItem[]>([])
   const [conversations, setConversations] = useState<ConversationItem[]>([])
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({})
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'groups' | 'direct'>('all')
@@ -76,6 +77,11 @@ export function Sidebar({
     'delete_conv_modal'
   )
 
+  // Sinkronkan ref setiap kali state conversations berubah
+  useEffect(() => {
+    conversationsRef.current = conversations
+  }, [conversations])
+
   // Eksekusi hapus percakapan (Delete for Me)
   const handleExecuteDeleteConversation = async () => {
     if (!confirmDeleteConv) return
@@ -88,45 +94,74 @@ export function Sidebar({
       alert(error)
       return
     }
-    setConversations(prev => prev.filter(c => c.id !== confirmDeleteConv.id))
+    setConversations(prev => {
+      const next = prev.filter(c => c.id !== confirmDeleteConv.id)
+      conversationsRef.current = next
+      return next
+    })
     setUnreadCounts(prev => {
       const next = { ...prev }
       delete next[confirmDeleteConv.id]
       return next
     })
-    if (activeRoomId === confirmDeleteConv.id) {
+    const isCurrentActive = Boolean(
+      activeRoomId && (
+        activeRoomId === confirmDeleteConv.id ||
+        (confirmDeleteConv.peer_id && (
+          activeRoomId === confirmDeleteConv.peer_id ||
+          activeRoomId.includes(confirmDeleteConv.peer_id) ||
+          (confirmDeleteConv.peer_id.length >= 8 && activeRoomId.includes(confirmDeleteConv.peer_id.substring(0, 8)))
+        )) ||
+        (confirmDeleteConv.id && (
+          activeRoomId === confirmDeleteConv.id ||
+          activeRoomId.includes(confirmDeleteConv.id) ||
+          confirmDeleteConv.id.includes(activeRoomId)
+        ))
+      )
+    )
+    if (isCurrentActive) {
       onSelectRoom('')
     }
     setConfirmDeleteConv(null)
   }
 
   // Helper dekripsi snippet pesan terakhir percakapan E2EE
-  const decryptSnippet = async (conv: ConversationItem): Promise<string> => {
-    if (!conv.last_message || !isEncryptedMessage(conv.last_message) || !user?.id) {
-      return conv.last_message || ''
+  const decryptSnippet = async (
+    rawContent?: string,
+    roomId?: string,
+    peerId?: string,
+    peerPublicKey?: string
+  ): Promise<string> => {
+    if (!rawContent || !isEncryptedMessage(rawContent) || !user?.id || !roomId) {
+      return rawContent || ''
     }
 
-    const peerId = conv.peer_id || ''
-    if (!peerId) return '🔒 Pesan Terenkripsi'
+    let pId = peerId || ''
+    if (!pId) {
+      const found = conversationsRef.current.find(c => c.id === roomId)
+      pId = found?.peer_id || ''
+    }
 
-    let peerPub = conv.peer_public_key || getCachedPeerPublicKey(peerId) || ''
+    if (!pId) return '🔒 Pesan Terenkripsi'
+
+    let peerPub = peerPublicKey || conversationsRef.current.find(c => c.id === roomId)?.peer_public_key || getCachedPeerPublicKey(pId) || ''
     if (!peerPub) {
       try {
-        const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(peerId)}`)
+        const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(pId)}`)
         if (profile && profile.public_key) {
           peerPub = profile.public_key
-          cachePeerPublicKey(peerId, peerPub)
+          cachePeerPublicKey(pId, peerPub)
         }
       } catch {}
     } else {
-      cachePeerPublicKey(peerId, peerPub)
+      cachePeerPublicKey(pId, peerPub)
     }
 
     if (peerPub) {
-      const aesKey = await getSharedRoomAESKey(user.id, peerId, peerPub, conv.id)
+      const aesKey = await getSharedRoomAESKey(user.id, pId, peerPub, roomId)
       if (aesKey) {
         try {
-          const plain = await decryptText(aesKey, conv.last_message)
+          const plain = await decryptText(aesKey, rawContent)
           return plain
         } catch {
           return '🔒 Pesan Terenkripsi'
@@ -146,13 +181,14 @@ export function Sidebar({
       const decryptedData = await Promise.all(
         data.map(async (c) => {
           if (c.last_message && isEncryptedMessage(c.last_message)) {
-            const plain = await decryptSnippet(c)
+            const plain = await decryptSnippet(c.last_message, c.id, c.peer_id, c.peer_public_key)
             return { ...c, last_message: plain }
           }
           return c
         })
       )
 
+      conversationsRef.current = decryptedData
       setConversations(decryptedData)
       const initialUnread: Record<string, number> = {}
       decryptedData.forEach(c => {
@@ -184,9 +220,11 @@ export function Sidebar({
         delete next[activeRoomId]
         return next
       })
-      setConversations(prev =>
-        prev.map(c => (c.id === activeRoomId ? { ...c, unread_count: 0 } : c))
-      )
+      setConversations(prev => {
+        const next = prev.map(c => (c.id === activeRoomId ? { ...c, unread_count: 0 } : c))
+        conversationsRef.current = next
+        return next
+      })
     } else if (user) {
       // Saat kembali ke Home / Daftar Chat di HP, muat ulang percakapan agar status centang 2 biru & unread 100% sinkron
       loadConversations()
@@ -201,14 +239,16 @@ export function Sidebar({
 
     // 1. Update tanda centang receipt (sent -> delivered -> read) secara real-time
     if (lastIncomingMessage.type === 'receipt' && lastIncomingMessage.status) {
-      setConversations(prev =>
-        prev.map(c => {
+      setConversations(prev => {
+        const next = prev.map(c => {
           if (c.id === room) {
             return { ...c, last_status: lastIncomingMessage.status }
           }
           return c
         })
-      )
+        conversationsRef.current = next
+        return next
+      })
       return
     }
 
@@ -234,30 +274,33 @@ export function Sidebar({
       // Dekripsi snippet pesan teks baru jika terenkripsi E2EE
       const processMessageSnippet = async () => {
         let rawContent = lastIncomingMessage.content || ''
-        if (rawContent && isEncryptedMessage(rawContent) && user?.id) {
-          const foundConv = conversations.find(c => c.id === room)
-          const peerId = foundConv?.peer_id || ''
+        const foundConv = conversationsRef.current.find(c => c.id === room)
 
-          if (peerId) {
-            let peerPub = foundConv?.peer_public_key || getCachedPeerPublicKey(peerId) || ''
-            if (!peerPub) {
-              try {
-                const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(peerId)}`)
-                if (profile && profile.public_key) {
-                  peerPub = profile.public_key
-                  cachePeerPublicKey(peerId, peerPub)
-                }
-              } catch {}
-            }
-            if (peerPub) {
-              const aesKey = await getSharedRoomAESKey(user.id, peerId, peerPub, room)
-              if (aesKey) {
-                try {
-                  rawContent = await decryptText(aesKey, rawContent)
-                } catch {}
-              }
-            }
+        // Tentukan peerId secara akurat:
+        // Jika dari lawan bicara -> lastIncomingMessage.from (atau foundConv.peer_id)
+        // Jika dari diri sendiri -> foundConv.peer_id atau lastIncomingMessage.to
+        let peerId = foundConv?.peer_id || ''
+        if (!peerId) {
+          if (lastIncomingMessage.from && lastIncomingMessage.from !== user?.id) {
+            peerId = lastIncomingMessage.from
+          } else if (lastIncomingMessage.to && lastIncomingMessage.to !== user?.id) {
+            peerId = lastIncomingMessage.to
           }
+        }
+
+        let peerPub = foundConv?.peer_public_key || (peerId ? getCachedPeerPublicKey(peerId) : '') || ''
+        if (!peerPub && peerId) {
+          try {
+            const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(peerId)}`)
+            if (profile && profile.public_key) {
+              peerPub = profile.public_key
+              cachePeerPublicKey(peerId, peerPub)
+            }
+          } catch {}
+        }
+
+        if (rawContent && isEncryptedMessage(rawContent) && user?.id && peerId) {
+          rawContent = await decryptSnippet(rawContent, room, peerId, peerPub)
         }
 
         const snippet = rawContent && rawContent.trim() !== ''
@@ -277,6 +320,8 @@ export function Sidebar({
           const updatedItem: ConversationItem = index >= 0
             ? {
                 ...prev[index],
+                peer_id: prev[index].peer_id || peerId,
+                peer_public_key: prev[index].peer_public_key || peerPub,
                 unread_count: isInactiveRoom ? ((prev[index].unread_count || 0) + 1) : 0,
                 last_message: snippet,
                 last_sender: lastIncomingMessage.nickname || 'Pengguna',
@@ -287,6 +332,8 @@ export function Sidebar({
                 id: room,
                 type: 'direct',
                 title: lastIncomingMessage.nickname || room,
+                peer_id: peerId,
+                peer_public_key: peerPub,
                 unread_count: isInactiveRoom ? 1 : 0,
                 last_message: snippet,
                 last_sender: lastIncomingMessage.nickname || 'Pengguna',
@@ -295,7 +342,9 @@ export function Sidebar({
               }
 
           const remaining = prev.filter(c => c.id !== room)
-          return [updatedItem, ...remaining]
+          const nextList = [updatedItem, ...remaining]
+          conversationsRef.current = nextList
+          return nextList
         })
       }
 
