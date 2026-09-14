@@ -1453,6 +1453,39 @@ h4 { font-size: 1rem;   font-weight: 600; }
   gap: 6px;
 }
 
+.sidebar-install-btn {
+  background: rgba(35, 165, 89, 0.15);
+  border: 1px solid rgba(35, 165, 89, 0.4);
+  color: #4ade80;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: all var(--transition-fast) ease;
+  white-space: nowrap;
+}
+
+.sidebar-install-btn:hover {
+  background: rgba(35, 165, 89, 0.25);
+  border-color: #4ade80;
+  color: #86efac;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(35, 165, 89, 0.2);
+}
+
+.sidebar-install-btn:active {
+  transform: translateY(0);
+}
+
+.sidebar-install-btn .install-icon {
+  font-size: 0.85rem;
+}
+
 .sidebar-header-btn {
   background: none;
   border: 1px solid var(--border-default);

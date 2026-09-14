@@ -71,11 +71,68 @@ export function Sidebar({
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [confirmDeleteConv, setConfirmDeleteConv] = useState<ConversationItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [installPrompt, setInstallPrompt] = useState<any>(null)
+  const [isStandalone, setIsStandalone] = useState(true) // default true to avoid flash before check
+
   const handleCloseDeleteConv = useModalBackHandler(
     Boolean(confirmDeleteConv),
     () => setConfirmDeleteConv(null),
     'delete_conv_modal'
   )
+
+  // Deteksi status PWA Standalone & tangkap event beforeinstallprompt
+  useEffect(() => {
+    const checkStandalone = () => {
+      if (typeof window === 'undefined') return
+      const isStandaloneMode =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true ||
+        document.referrer.includes('android-app://')
+      setIsStandalone(isStandaloneMode)
+    }
+
+    checkStandalone()
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e)
+    }
+
+    const handleAppInstalled = () => {
+      setInstallPrompt(null)
+      setIsStandalone(true)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+    }
+  }, [])
+
+  const handleInstallApp = async () => {
+    if (installPrompt) {
+      try {
+        installPrompt.prompt()
+        const choice = await installPrompt.userChoice
+        if (choice.outcome === 'accepted') {
+          setInstallPrompt(null)
+          setIsStandalone(true)
+        }
+      } catch (err) {
+        console.warn('Error saat memicu install prompt:', err)
+      }
+    } else {
+      const isIOS = typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+      if (isIOS) {
+        alert('📲 Untuk memasang Wuzz Chat di iPhone/iPad:\n1. Tekan tombol Bagikan (ikon kotak panah ke atas) di Safari.\n2. Gulir ke bawah dan pilih "Tambahkan ke Layar Utama" (Add to Home Screen).')
+      } else {
+        alert('📲 Untuk memasang Wuzz Chat sebagai aplikasi:\nTekan menu titik tiga (⋮) di pojok kanan atas browser Anda, lalu pilih "Instal aplikasi" atau "Tambahkan ke Layar Utama".')
+      }
+    }
+  }
 
   // Sinkronkan ref setiap kali state conversations berubah
   useEffect(() => {
@@ -428,6 +485,17 @@ export function Sidebar({
             <span className="brand-wuzz">Wuzz</span><span className="brand-chat">Chat</span>
           </div>
           <div className="sidebar-brand-actions">
+            {!isStandalone && (
+              <button
+                type="button"
+                className="sidebar-install-btn"
+                onClick={handleInstallApp}
+                title="Pasang Wuzz Chat sebagai aplikasi mandiri di HP atau Desktop"
+              >
+                <span className="install-icon">📲</span>
+                <span className="install-label">Instal App</span>
+              </button>
+            )}
             <button
               type="button"
               className="sidebar-action-btn"

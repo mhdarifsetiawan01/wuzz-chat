@@ -300,8 +300,9 @@
     - Service Worker standard di `frontend/public/sw.js` menangani event `push` dan `notificationclick` (deep link navigasi langsung ke room obrolan).
     - **Zero-Knowledge Client-Side Background Decryption**: Mengimplementasikan dekripsi kriptografi E2EE (Web Crypto ECDH P-256 + HKDF + AES-256-GCM) langsung di dalam Service Worker (`sw.js`) dengan membaca private key pengguna dari IndexedDB (`wuzz_crypto_db`). Server Go tetap memegang prinsip Zero-Knowledge (tidak mengetahui plaintext pesan), sementara notifikasi push OS menampilkan isi teks pesan asli secara aman dan transparan layaknya WhatsApp Web dan Signal.
     - Helper `lib/pushNotification.ts` untuk registrasi VAPID, subscribe, unsubscribe, dan auto-sync.
-  - **UI/UX Pengaturan Notifikasi**:
+  - **UI/UX Pengaturan Notifikasi & PWA Install Engine**:
     - Toggle ON/OFF Push Notification di `ProfileModal.tsx` dengan indikator status izin (*Diizinkan / Diblokir Browser / Belum Diizinkan*).
+    - Tombol Header **"📲 Instal App"** di `Sidebar.tsx` yang memicu dialog instalasi resmi sistem operasi via event `beforeinstallprompt`, serta otomatis tersembunyi 100% (*auto-hide*) saat aplikasi dibuka dalam Standalone PWA Mode.
   - **Pengujian E2E & Unit Test 100% PASS**:
     - `TestSQLUserStore_PushSubscriptions`: CRUD database SQLite.
     - `TestNotificationHandler_Endpoints`: Verifikasi REST handler VAPID, Subscribe, dan Unsubscribe.
