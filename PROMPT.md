@@ -16,11 +16,12 @@
 ## 🗺️ 2. Dokumen Sumber Kebenaran (Single Source of Truth)
 
 Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen berikut:
-1. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap dari Fase 1 hingga Fase 7.
-2. 🏛️ **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi desain database (ERD), skema tabel, dan protokol WebSocket.
-3. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
-4. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
-5. 📜 **[`PRD-websocket-chat-app.md`](PRD-websocket-chat-app.md)**: Spesifikasi awal produk.
+1. 🛡️ **[`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md)**: Panduan arsitektur keamanan (Anti-BOLA/IDOR, Anti-SSRF, IP Pinning) dan optimasi performa backend ($O(1)$ CTE batching, database indexes, SQLite WAL mode).
+2. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap dari Fase 1 hingga Fase 7.
+3. 🏛️ **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi desain database (ERD), skema tabel, dan protokol WebSocket.
+4. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
+5. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
+6. 📜 **[`PRD-websocket-chat-app.md`](PRD-websocket-chat-app.md)**: Spesifikasi awal produk.
 
 ---
 
@@ -28,10 +29,12 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 
 | Layer | Teknologi | Catatan Implementasi |
 |---|---|---|
-| **Backend** | Go (Golang 1.26+) | `gorilla/websocket`, `golang-jwt/jwt/v5`, `golang.org/x/crypto/bcrypt`, `lib/pq` (PostgreSQL), `modernc.org/sqlite` |
-| **Frontend** | Next.js 16 (App Router) + React 19 + TypeScript | Vanilla CSS Design System, Auth Context (`useAuth`), WebSocket Client (`ws-client.ts`), 2-Kolom Layout |
+| **Backend** | Go (Golang 1.26+) | `gorilla/websocket`, `golang-jwt/jwt/v5`, `golang.org/x/crypto/bcrypt`, `lib/pq` (PostgreSQL), `modernc.org/sqlite` (WAL Mode & Busy Timeout 5s) |
+| **Frontend** | Next.js 16 (App Router) + React 19 + TypeScript | Vanilla CSS Design System, Auth Context (`useAuth`), WebSocket Client (`ws-client.ts`), 2-Kolom Layout & Mobile Single-Screen Flow |
 | **Proxy Layer** | Custom Node.js Server (`server.js`) | Menangani HTTP upgrade `/ws` dan me-reverse proxy `/api/*` ke Go Backend (`http://localhost:8080`) |
-| **Database** | PostgreSQL (Supabase Pooler) | Auto-migration tabel `users`, `conversations`, `conversation_members`, `messages` saat backend start |
+| **Database** | PostgreSQL (Supabase Pooler) / SQLite | Auto-migration tabel `users`, `conversations`, `conversation_members`, `messages` dengan indeks komposit |
+| **Pub/Sub & Cache**| Redis (Upstash) / In-Memory Fallback | Multi-node WebSocket sync (`wuzz:cluster:events`) & link preview cache |
+| **Live Endpoints** | Fly.io (Backend) & Vercel (Frontend) | Live: `https://wuzz-chat-backend.fly.dev` & `https://chat.wuzzhub.id` |
 
 ---
 
@@ -54,11 +57,13 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   1. Upstash Redis Pub/Sub TCP TLS (`rediss://...`) dan In-Memory fallback broker.
   2. Multi-Instance Go WebSocket synchronization dengan Anti-Echo loop Node UUID.
   3. Dynamic Multi-Origin CORS & WebSocket Origin Whitelist (`CORS_ALLOWED_ORIGINS`).
-  4. OpenGraph Rich Link Previewer dengan Anti-SSRF guard, Redis Caching 24 jam, dan Frontend UI Card.
+  4. OpenGraph Rich Link Previewer dengan Anti-SSRF guard (Socket-Level IP Pinning), Redis Caching 24 jam, dan Frontend UI Card.
   5. Multi-Stage Dockerfile (< 25MB), Next.js server-side rewrites, dan Fly.io Production Deployment (`https://wuzz-chat-backend.fly.dev` & `https://chat.wuzzhub.id`).
 - ⏳ **Fase 7: Advanced Security & WebRTC Calling (SEDANG BERJALAN)** —
   1. ✅ **End-to-End Encryption (E2EE) (SELESAI)**: Kriptografi standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API, penyimpanan private key di `IndexedDB` (`wuzz_crypto_db`), verifikasi nomor keamanan 30-digit (*Safety Number Fingerprint*), auto-decryption reaktif pada timeline obrolan dan cuplikan pesan di sidebar, serta zero-knowledge storage pada server database.
-  2. 🎯 **P2P 1-on-1 Audio & Video Call via WebRTC (NEXT)**: WebSocket signaling (`call_offer`, `call_answer`, `ice_candidate`), Google STUN server, In-Call Overlay UI, dan nada dering panggilan masuk.
+  2. ✅ **1-on-1 Audio Calling via WebRTC P2P (Milestone 7.2A - SELESAI)**: WebSocket signaling (`call_offer`, `call_answer`, `ice_candidate`), STUN + OpenRelay TURN fallback, Web Audio API procedural ringtones, In-Call Overlay UI dengan live timer dan microphone mute, serta modal panggilan masuk interaktif.
+  3. ✅ **Security & Scalability Hardening (SELESAI)**: Mitigasi BOLA/IDOR WebSocket (`isAuthorizedForRoom`), IDOR Media ACK check, Anti-SSRF Socket-Level IP Pinning (14 subnet), eliminasi $N+1$ query via $O(1)$ batched CTE window function, database indexing, dan SQLite WAL mode concurrency.
+  4. 🎯 **1-on-1 Video Calling via WebRTC P2P (Milestone 7.2B - NEXT)**: Stream video dua arah, flip camera, floating video preview, dan integrasi kontrol kamera.
 
 ---
 

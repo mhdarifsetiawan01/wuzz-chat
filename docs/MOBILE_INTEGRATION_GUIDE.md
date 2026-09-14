@@ -86,8 +86,14 @@ Setiap frame pesan WebSocket menggunakan format JSON:
 | `typing` | Bidirectional | Tampilkan animasi indikator lawan bicara sedang mengetik |
 | `reaction` | Bidirectional | Update badge emoji reaction di balon chat terkait |
 | `message_deleted` | Server ➔ Klien | Tandai pesan sebagai ditarik (`🚫 Pesan ini telah dihapus`) |
+| `call_offer` | Bidirectional | Menerima sinyal panggilan masuk (SDP Offer) ➔ Tampilkan modal/layar panggilan berdering |
+| `call_answer` | Bidirectional | Menerima persetujuan panggilan (SDP Answer) ➔ Set remote description WebRTC |
+| `ice_candidate` | Bidirectional | Pertukaran kandidat jaringan ICE antar peer |
+| `call_end` / `call_reject` | Bidirectional | Mengakhiri / menolak panggilan suara & video |
 | `room_users` | Server ➔ Klien | Update daftar anggota online di room |
 | `history` | Server ➔ Klien | Array riwayat pesan (`messages: [...]`), lakukan dekripsi batch |
+
+> 🛡️ **Catatan Otorisasi Keamanan (BOLA/IDOR)**: Server backend secara ketat memvalidasi field `room` pada setiap event WebSocket. Klien mobile wajib memastikan bahwa user telah menjadi anggota sah dari room terkait sebelum memancarkan event, jika tidak server akan mengembalikan pesan `TypeSystem: Akses ditolak`.
 
 ---
 
@@ -239,7 +245,15 @@ Aplikasi mobile Wuzz Chat menghemat kuota server dan penyimpanan cloud dengan ar
    - Kirim event WebSocket `type: "message"` dengan `media_url`, `media_type`, `file_name`, dan `file_size`.
 2. **Penerimaan & Caching Offline**:
    - Saat menerima pesan media, unduh file dan simpan ke direktori lokal aplikasi (Scoped Storage di Android, Documents/Application Support di iOS).
-   - Segera kirim konfirmasi penerimaan via `POST /api/media/ack` (`body: {"url": "..."}`). Server akan langsung menghapus file fisik di cloud storage.
+   - Segera kirim konfirmasi penerimaan via `POST /api/media/ack` dengan menyertakan `url`, `message_id`, atau `room_id`:
+     ```json
+     {
+       "url": "https://wuzz-chat-backend.fly.dev/uploads/...",
+       "message_id": "msg-uuid-12345",
+       "room_id": "dm_userA_userB"
+     }
+     ```
+     Server memverifikasi keanggotaan room pemanggil (Anti-IDOR) sebelum menghapus file fisik di storage.
    - UI obrolan selanjutnya membaca berkas langsung dari media lokal perangkat (dapat dibuka selamanya bahkan saat offline).
 
 ---
@@ -248,15 +262,62 @@ Aplikasi mobile Wuzz Chat menghemat kuota server dan penyimpanan cloud dengan ar
 
 Untuk mendukung panggilan suara dan video 1-on-1 di mobile:
 
-1. **Signaling**:
-   - Gunakan koneksi WebSocket yang sudah aktif untuk bertukar payload signaling WebRTC (`call_offer`, `call_answer`, `ice_candidate`, `call_end`).
-2. **WebRTC SDK**:
+1. **Signaling Payload Schema**:
+   Gunakan koneksi WebSocket yang sudah aktif untuk bertukar payload signaling WebRTC:
+   - **Panggilan Masuk / Keluar (`call_offer`)**:
+     ```json
+     {
+       "type": "call_offer",
+       "room": "dm_userA_userB",
+       "sdp": { "type": "offer", "sdp": "v=0..." },
+       "media": "audio" // atau "video"
+     }
+     ```
+   - **Jawaban Panggilan (`call_answer`)**:
+     ```json
+     {
+       "type": "call_answer",
+       "room": "dm_userA_userB",
+       "sdp": { "type": "answer", "sdp": "v=0..." }
+     }
+     ```
+   - **Kandidat Jaringan (`ice_candidate`)**:
+     ```json
+     {
+       "type": "ice_candidate",
+       "room": "dm_userA_userB",
+       "candidate": { "candidate": "candidate:...", "sdpMid": "0", "sdpMLineIndex": 0 }
+     }
+     ```
+   - **Akhiri / Tolak Panggilan (`call_end` / `call_reject`)**:
+     ```json
+     {
+       "type": "call_end",
+       "room": "dm_userA_userB",
+       "reason": "user_hung_up"
+     }
+     ```
+
+2. **ICE Server Configuration (STUN & TURN Fallback)**:
+   ```json
+   {
+     "iceServers": [
+       { "urls": ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+       {
+         "urls": "turn:openrelay.metered.ca:80",
+         "username": "openrelayproject",
+         "credential": "openrelayproject"
+       }
+     ]
+   }
+   ```
+
+3. **WebRTC SDK**:
    - **Android**: `org.webrtc:google-webrtc`.
    - **iOS**: `GoogleWebRTC` CocoaPod / Swift Package.
    - **Flutter**: `flutter_webrtc`.
    - **React Native**: `react-native-webrtc`.
-3. **STUN Configuration**:
-   - Gunakan Google Public STUN: `stun:stun.l.google.com:19302`.
+
 4. **Audio & Video Management**:
    - Tangani lifecycle audio focus (saat ada panggilan telepon seluler masuk / headset Bluetooth tersambung).
    - Integrasi CallKit (iOS) & ConnectionService / Telecom framework (Android) agar UI panggilan berdering layaknya telepon biasa.
