@@ -206,7 +206,15 @@ async function decryptSingleMessage(m: Message, key: CryptoKey | null): Promise<
 function ChatPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const roomId = searchParams.get('room') || searchParams.get('peer') || ''
+  const searchParamRoom = searchParams.get('room') || searchParams.get('peer') || ''
+  const [selectedRoomId, setSelectedRoomId] = useState<string>(searchParamRoom)
+
+  // Sinkronkan state saat URL query param berubah dari navigasi luar/browser back
+  useEffect(() => {
+    setSelectedRoomId(searchParamRoom)
+  }, [searchParamRoom])
+
+  const roomId = selectedRoomId
   const { user, isLoading: isAuthLoading } = useAuth()
 
   const [state, dispatch] = useReducer(chatReducer, initialState)
@@ -1039,14 +1047,21 @@ function ChatPageContent() {
     setLightboxData(null)
     setIsMemberListOpen(false)
     setReplyingTo(null)
+    setSelectedRoomId(newRoomId)
     if (!newRoomId) {
       dispatch({ type: 'SET_MESSAGES', payload: [] })
       dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
       dispatch({ type: 'SET_ROOM_USERS', payload: [] })
       roomAESKeyRef.current = null
       activePeerRef.current = null
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', '/chat')
+      }
       router.push('/chat')
     } else {
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', `/chat?room=${encodeURIComponent(newRoomId)}`)
+      }
       router.push(`/chat?room=${encodeURIComponent(newRoomId)}`)
     }
   }
