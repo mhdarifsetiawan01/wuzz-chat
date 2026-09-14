@@ -32,6 +32,9 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     const registration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/',
     })
+    try {
+      await registration.update()
+    } catch {}
     await navigator.serviceWorker.ready
     return registration
   } catch (err) {
