@@ -302,9 +302,10 @@
 ```text
 wuzz-chat/
 ├── docs/
-│   ├── ROADMAP.md          -> Master Roadmap Fase 1 s/d 7
-│   ├── ARCHITECTURE.md     -> Desain database (ERD), WS protocol, & REST API
-│   └── PROGRESS.md         -> Dokumen status pengerjaan ini
+│   ├── ROADMAP.md                  -> Master Roadmap Fase 1 s/d 7
+│   ├── ARCHITECTURE.md             -> Desain database (ERD), WS protocol, & REST API
+│   ├── SECURITY_AND_PERFORMANCE.md -> Dokumentasi lengkap arsitektur keamanan & performa
+│   └── PROGRESS.md                 -> Dokumen status pengerjaan ini
 ├── backend/
 │   ├── internal/
 │   │   ├── api/            -> REST Handlers (auth_handler.go, chat_handler.go)
