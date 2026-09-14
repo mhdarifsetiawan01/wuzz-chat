@@ -164,7 +164,17 @@ export async function autoSyncPushSubscription(): Promise<void> {
     return
   }
 
-  // Jika izin sudah diberikan sebelumnya, pastikan subscription aktif dan terdaftar di server
+  // Jika izin belum pernah diminta (default), minta izin ke user
+  if (Notification.permission === 'default') {
+    try {
+      const perm = await Notification.requestPermission()
+      if (perm !== 'granted') return
+    } catch {
+      return
+    }
+  }
+
+  // Jika izin granted, pastikan subscription aktif dan terdaftar di database Supabase
   if (Notification.permission === 'granted') {
     try {
       const registration = await registerServiceWorker()
@@ -194,6 +204,7 @@ export async function autoSyncPushSubscription(): Promise<void> {
                 },
               }),
             })
+            localStorage.setItem('wuzz_push_enabled', 'true')
           }
         }
       }
