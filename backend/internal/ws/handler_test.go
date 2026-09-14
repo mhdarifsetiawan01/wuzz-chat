@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/store"
@@ -111,9 +112,17 @@ func TestWebSocketJWTAuthentication(t *testing.T) {
 		}
 
 		// Ambil client dari hub dan pastikan nickname tetap "Charlie Real" (bukan "Super Admin")
-		hub.mu.RLock()
-		client, exists := hub.clients["user-789"]
-		hub.mu.RUnlock()
+		var client *Client
+		var exists bool
+		for i := 0; i < 20; i++ {
+			hub.mu.RLock()
+			client, exists = hub.clients["user-789"]
+			hub.mu.RUnlock()
+			if exists {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
 
 		if !exists {
 			t.Fatalf("client user-789 tidak terdaftar di hub")
