@@ -43,7 +43,8 @@ func NewService(userStore store.UserStore) *Service {
 		subject = "mailto:admin@wuzzhub.id"
 	}
 
-	// Jika kunci belum diset di environment, generate VAPID keys otomatis
+	// Jika kunci belum diset di environment (misal saat unit test / dev lokal tanpa .env),
+	// generate VAPID keys otomatis untuk sesi lokal saat ini.
 	if pubKey == "" || privKey == "" {
 		generatedPrivKey, generatedPubKey, err := webpush.GenerateVAPIDKeys()
 		if err != nil {
@@ -51,8 +52,10 @@ func NewService(userStore store.UserStore) *Service {
 		} else {
 			pubKey = generatedPubKey
 			privKey = generatedPrivKey
-			log.Printf("🔑 [Push] VAPID Keys otomatis digenerate (Public: %s...)", safePrefix(pubKey, 16))
+			log.Printf("⚠️ [Push] VAPID Keys belum diset di environment. Menggunakan temporary keys (Public: %s...)", safePrefix(pubKey, 16))
 		}
+	} else {
+		log.Printf("🔑 [Push] VAPID Keys berhasil dimuat dari environment (Public: %s...)", safePrefix(pubKey, 16))
 	}
 
 	return &Service{
@@ -100,20 +103,26 @@ func (s *Service) SendWebPush(ctx context.Context, sub store.PushSubscription, p
 	})
 
 	if err != nil {
+		log.Printf("⚠️ [Push] Error kirim notification ke %s: %v", safePrefix(sub.Endpoint, 24), err)
 		return err
 	}
 	defer resp.Body.Close()
 
-	// Jika endpoint sudah kedaluwarsa atau tidak terdaftar lagi di browser push service (404/410),
-	// hapus otomatis dari database agar tidak membebani pengiriman selanjutnya.
-	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
-		s.mu.RLock()
-		us := s.userStore
-		s.mu.RUnlock()
-		if us != nil {
-			_ = us.DeletePushSubscription(sub.Endpoint)
-			log.Printf("🧹 [Push] Subscription kedaluwarsa (%d) otomatis dihapus: %s", resp.StatusCode, safePrefix(sub.Endpoint, 32))
+	if resp.StatusCode >= 400 {
+		log.Printf("⚠️ [Push] WebPush response code %d for endpoint %s", resp.StatusCode, safePrefix(sub.Endpoint, 32))
+		// Jika endpoint sudah kedaluwarsa, unauthorized, atau tidak valid di browser push service (400/401/403/404/410),
+		// bersihkan dari database agar tidak membebani pengiriman selanjutnya.
+		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
+			s.mu.RLock()
+			us := s.userStore
+			s.mu.RUnlock()
+			if us != nil {
+				_ = us.DeletePushSubscription(sub.Endpoint)
+				log.Printf("🧹 [Push] Subscription kedaluwarsa/invalid (%d) otomatis dihapus: %s", resp.StatusCode, safePrefix(sub.Endpoint, 32))
+			}
 		}
+	} else {
+		log.Printf("🚀 [Push] WebPush sukses terkirim (HTTP %d) ke endpoint: %s", resp.StatusCode, safePrefix(sub.Endpoint, 32))
 	}
 
 	return nil
@@ -146,7 +155,22 @@ func (s *Service) NotifyOfflineRecipients(
 
 		// 1. Dapatkan seluruh ID / Username anggota percakapan
 		memberUsernames, err := us.GetConversationMemberUsernames(roomID)
-		if err != nil || len(memberUsernames) == 0 {
+		if err != nil {
+			log.Printf("⚠️ [Push] Error GetConversationMemberUsernames for room %s: %v", roomID, err)
+		}
+
+		// Fallback untuk direct conversation jika formatnya dm_userA_userB dan belum ada di relational table
+		if len(memberUsernames) == 0 && strings.HasPrefix(roomID, "dm_") {
+			rawParts := strings.TrimPrefix(roomID, "dm_")
+			parts := strings.Split(rawParts, "_")
+			for _, p := range parts {
+				if p != "" {
+					memberUsernames = append(memberUsernames, p)
+				}
+			}
+		}
+
+		if len(memberUsernames) == 0 {
 			return
 		}
 

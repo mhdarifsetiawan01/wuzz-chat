@@ -307,6 +307,12 @@
     - `TestSQLUserStore_PushSubscriptions`: CRUD database SQLite.
     - `TestNotificationHandler_Endpoints`: Verifikasi REST handler VAPID, Subscribe, dan Unsubscribe.
     - `TestE2E_PushNotificationLifecycle`: Pengujian alur utuh registrasi -> offline push dispatch -> unsubscribe.
+- [x] **Milestone 7.4: Android PWA Background Web Push Reliability & Key Persistence (SW v1.0.5)**:
+  - **Static VAPID Key Persistence**: Mengonfigurasi pasangan kunci VAPID publik-privat statis permanen di Fly.io Secrets dan Go push engine fallback untuk mencegah rotasi kunci otomatis yang menggugurkan token FCM/Web Push browser.
+  - **Dynamic Subscription Re-sync on Key Mismatch**: Menambahkan verifikasi `applicationServerKey` pada `frontend/lib/pushNotification.ts`. Jika kunci server berubah atau token lama tidak cocok, browser otomatis melakukan `unsubscribe()` dan registrasi ulang instan.
+  - **Android LevelDB Lock Bypass via CacheStorage**: Memperbarui `frontend/public/sw.js` (v1.0.5) untuk membaca private key dari `CacheStorage` (`wuzz-crypto-keys`) dalam waktu < 1ms saat PWA di-kill atau dalam status background OS Android.
+  - **Direct Message Recipient Fallback**: Menambahkan resolusi anggota direct room `dm_userA_userB` di `backend/internal/push/push.go` agar notifikasi push tetap terkirim meskipun entri relational table belum diinisialisasi.
+
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
   - Frontend: `https://chat.wuzzhub.id` & `https://wuzz-chat.vercel.app`
@@ -314,7 +320,8 @@
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)
   - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
-- Seluruh 5 tahapan audit keamanan dan Milestone 8.1 telah tuntas 100%. Siap melangkah ke fitur berikutnya (**Milestone 8.2: Group Chat Engine & Member Management**).
+- Seluruh 5 tahapan audit keamanan dan Milestone 7.4 telah tuntas 100%. Siap melangkah ke fitur berikutnya (**Milestone 8.2: Group Chat Engine & Member Management**).
+
 
 ---
 

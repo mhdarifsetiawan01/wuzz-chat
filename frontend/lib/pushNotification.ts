@@ -52,6 +52,17 @@ export async function fetchVAPIDPublicKey(): Promise<string | null> {
   return null
 }
 
+// Helper perbandingan ArrayBuffer ApplicationServerKey
+function isSameApplicationServerKey(existingKeyBuffer: ArrayBuffer | null | undefined, newKeyArray: Uint8Array): boolean {
+  if (!existingKeyBuffer) return false
+  const existingArr = new Uint8Array(existingKeyBuffer)
+  if (existingArr.length !== newKeyArray.length) return false
+  for (let i = 0; i < existingArr.length; i++) {
+    if (existingArr[i] !== newKeyArray[i]) return false
+  }
+  return true
+}
+
 // Subscribe ke Push Notification
 export async function subscribeToPushNotifications(): Promise<{ success: boolean; error?: string }> {
   if (!isPushNotificationSupported()) {
@@ -81,6 +92,17 @@ export async function subscribeToPushNotifications(): Promise<{ success: boolean
 
     // 4. Daftarkan subscription ke PushManager browser
     let subscription = await registration.pushManager.getSubscription()
+    if (subscription) {
+      const currentKey = subscription.options?.applicationServerKey
+      if (!isSameApplicationServerKey(currentKey, applicationServerKey)) {
+        console.log('[Push] VAPID Key diperbarui di server, re-subscribing...')
+        try {
+          await subscription.unsubscribe()
+        } catch {}
+        subscription = null
+      }
+    }
+
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -179,15 +201,28 @@ export async function autoSyncPushSubscription(): Promise<void> {
     try {
       const registration = await registerServiceWorker()
       if (registration) {
+        const vapidKey = await fetchVAPIDPublicKey()
+        if (!vapidKey) return
+
+        const applicationServerKey = urlBase64ToUint8Array(vapidKey)
         let subscription = await registration.pushManager.getSubscription()
-        if (!subscription) {
-          const vapidKey = await fetchVAPIDPublicKey()
-          if (vapidKey) {
-            subscription = await registration.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(vapidKey) as any,
-            })
+
+        if (subscription) {
+          const currentKey = subscription.options?.applicationServerKey
+          if (!isSameApplicationServerKey(currentKey, applicationServerKey)) {
+            console.log('[Push] VAPID Key diperbarui di server, re-subscribing otomatis...')
+            try {
+              await subscription.unsubscribe()
+            } catch {}
+            subscription = null
           }
+        }
+
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey as any,
+          })
         }
 
         if (subscription) {
