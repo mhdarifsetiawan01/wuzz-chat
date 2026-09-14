@@ -10,6 +10,7 @@ import {
   importPrivateKeyJWK,
   deriveRoomAESKey,
 } from './e2ee'
+import { apiRequest } from '../api'
 
 const DB_NAME = 'wuzz_crypto_db'
 const DB_VERSION = 1
@@ -61,6 +62,7 @@ export async function getLocalUserKeyPair(userId: string): Promise<{
 
       req.onsuccess = async () => {
         const record = req.result as StoredKeyRecord | undefined
+        db.close()
         if (!record) {
           resolve(null)
           return
@@ -79,7 +81,10 @@ export async function getLocalUserKeyPair(userId: string): Promise<{
         }
       }
 
-      req.onerror = () => reject(req.error)
+      req.onerror = () => {
+        db.close()
+        reject(req.error)
+      }
     })
   } catch (err) {
     console.error('[E2EE KeyStore] Gagal membaca key dari IndexedDB:', err)
@@ -104,8 +109,14 @@ async function saveLocalUserKeyPair(
       createdAt: Date.now(),
     }
     const req = store.put(record)
-    req.onsuccess = () => resolve()
-    req.onerror = () => reject(req.error)
+    req.onsuccess = () => {
+      db.close()
+      resolve()
+    }
+    req.onerror = () => {
+      db.close()
+      reject(req.error)
+    }
   })
 }
 
@@ -113,7 +124,7 @@ async function saveLocalUserKeyPair(
 // Jika belum ada key di IndexedDB, generate baru & upload public key ke backend.
 export async function initUserE2EE(
   userId: string,
-  token: string
+  _token?: string
 ): Promise<{ publicKeyJWK: string; privateKey: CryptoKey; publicKey: CryptoKey }> {
   let keyPair = await getLocalUserKeyPair(userId)
 
@@ -125,14 +136,10 @@ export async function initUserE2EE(
 
     await saveLocalUserKeyPair(userId, privJWK, pubJWK)
 
-    // Upload public key ke backend Go
+    // Upload public key ke backend Go via apiRequest (otomatis pasang Bearer JWT token)
     try {
-      await fetch('/api/users/public-key', {
+      await apiRequest('/api/users/public-key', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify({ public_key: pubJWK }),
       })
     } catch (err) {
@@ -148,12 +155,8 @@ export async function initUserE2EE(
 
   // Jika key pair sudah ada, pastikan server juga punya (idempotent check)
   try {
-    fetch('/api/users/public-key', {
+    apiRequest('/api/users/public-key', {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
       body: JSON.stringify({ public_key: keyPair.publicKeyJWK }),
     }).catch(() => {})
   } catch {}

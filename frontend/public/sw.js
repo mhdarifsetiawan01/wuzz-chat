@@ -1,6 +1,6 @@
 // Service Worker untuk Wuzz Chat Push Notification
 // Standard W3C Web Push & Service Worker API dengan Zero-Knowledge Client-Side E2EE Background Decryption
-// Version: 1.0.2
+// Version: 1.0.3
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -37,6 +37,12 @@ function getStoredLocalPrivateKey() {
         return resolve(null);
       }
       const request = indexedDB.open('wuzz_crypto_db', 1);
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('e2ee_identity_keys')) {
+          db.createObjectStore('e2ee_identity_keys', { keyPath: 'userId' });
+        }
+      };
       request.onerror = () => {
         if (!resolved) {
           resolved = true;
