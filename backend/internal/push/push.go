@@ -150,24 +150,22 @@ func (s *Service) NotifyOfflineRecipients(
 			return
 		}
 
-		// Buat lookup set untuk user yang sedang online
-		onlineMap := make(map[string]bool)
-		for _, id := range onlineUserIDs {
-			onlineMap[strings.ToLower(id)] = true
+		// Buat lookup set untuk sender agar pengirim tidak menerima push notifikasi sendiri
+		senderMap := map[string]bool{
+			strings.ToLower(senderID):       true,
+			strings.ToLower(senderNickname): true,
 		}
-		onlineMap[strings.ToLower(senderID)] = true
-		onlineMap[strings.ToLower(senderNickname)] = true
 
-		// 2. Kumpulkan target user ID penerima yang sedang offline
+		// 2. Kumpulkan target user ID penerima (seluruh anggota percakapan selain pengirim)
 		var targetUserIDs []string
 		for _, memberName := range memberUsernames {
-			if memberName == "" || onlineMap[strings.ToLower(memberName)] {
+			if memberName == "" || senderMap[strings.ToLower(memberName)] {
 				continue
 			}
 
 			// Cari profil user untuk mendapatkan UUID jika memberName adalah username
 			if user, err := us.GetUserByUsernameOrDisplayName(memberName); err == nil && user != nil {
-				if !onlineMap[strings.ToLower(user.ID)] {
+				if !senderMap[strings.ToLower(user.ID)] {
 					targetUserIDs = append(targetUserIDs, user.ID)
 				}
 			} else {
