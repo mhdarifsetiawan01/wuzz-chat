@@ -123,14 +123,16 @@ export async function unsubscribeFromPushNotifications(): Promise<{ success: boo
   if (!isPushNotificationSupported()) return { success: true }
 
   try {
-    const registration = await navigator.serviceWorker.getRegistration('/sw.js')
+    const registration = (await navigator.serviceWorker.getRegistration()) || (await navigator.serviceWorker.ready)
     if (registration) {
       const subscription = await registration.pushManager.getSubscription()
       if (subscription) {
         const endpoint = subscription.endpoint
-        await subscription.unsubscribe()
+        try {
+          await subscription.unsubscribe()
+        } catch {}
 
-        // Beri tahu backend untuk menghapus subscription
+        // Beri tahu backend untuk menghapus subscription dari database Supabase
         await apiRequest('/api/notifications/unsubscribe', {
           method: 'POST',
           body: JSON.stringify({ endpoint }),

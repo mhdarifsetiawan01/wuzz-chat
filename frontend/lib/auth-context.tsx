@@ -5,12 +5,14 @@ import { apiRequest } from './api'
 
 import type { User } from './types'
 
+import { unsubscribeFromPushNotifications } from './pushNotification'
+
 interface AuthContextType {
   user: User | null
   token: string | null
   isLoading: boolean
   login: (token: string, user: User) => void
-  logout: () => void
+  logout: () => Promise<void>
   updateUser: (user: User) => void
 }
 
@@ -19,7 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   isLoading: true,
   login: () => {},
-  logout: () => {},
+  logout: async () => {},
   updateUser: () => {},
 })
 
@@ -62,7 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('wuzz_user_profile', JSON.stringify(newUser))
   }
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await unsubscribeFromPushNotifications()
+    } catch (err) {
+      console.warn('[Auth] Gagal unsubscribe push saat logout:', err)
+    }
     setToken(null)
     setUser(null)
     localStorage.removeItem('wuzz_auth_token')
