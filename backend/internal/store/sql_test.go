@@ -384,6 +384,72 @@ func TestDeleteMessage_Scenarios(t *testing.T) {
 	}
 }
 
+func TestGetOrCreateDirectConversation_CollisionAndLegacy(t *testing.T) {
+	tmpDB := filepath.Join(t.TempDir(), "test_collision.db")
+	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
+	if err != nil {
+		t.Fatalf("failed to init SQLite store: %v", err)
+	}
+	defer sqlStore.Close()
+
+	userStore := NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+
+	// 1. Uji Anti-Tabrakan: 4 pengguna dengan prefix ID 8 karakter yang identik
+	user1, _ := userStore.Register("user_col_1", "User 1", "pass123")
+	user2, _ := userStore.Register("user_col_2", "User 2", "pass123")
+	user3, _ := userStore.Register("user_col_3", "User 3", "pass123")
+	user4, _ := userStore.Register("user_col_4", "User 4", "pass123")
+
+	// Pasangan 1: user1 <-> user2
+	room12, err12 := userStore.GetOrCreateDirectConversation(user1.ID, user2.ID)
+	if err12 != nil {
+		t.Fatalf("Failed to create room12: %v", err12)
+	}
+
+	// Pasangan 2: user1 <-> user3
+	room13, err13 := userStore.GetOrCreateDirectConversation(user1.ID, user3.ID)
+	if err13 != nil {
+		t.Fatalf("Failed to create room13: %v", err13)
+	}
+
+	// Pasangan 3: user2 <-> user4
+	room24, err24 := userStore.GetOrCreateDirectConversation(user2.ID, user4.ID)
+	if err24 != nil {
+		t.Fatalf("Failed to create room24: %v", err24)
+	}
+
+	// Verifikasi: Seluruh room ID harus unik (0 collision)
+	if room12 == room13 || room12 == room24 || room13 == room24 {
+		t.Fatalf("COLLISION DETECTED: room IDs overlap! room12=%s, room13=%s, room24=%s", room12, room13, room24)
+	}
+
+	// 2. Uji Idempotensi & Order-Invariance:
+	// Memanggil (user1, user2) atau (user2, user1) harus menghasilkan room yang sama persis
+	room21, err21 := userStore.GetOrCreateDirectConversation(user2.ID, user1.ID)
+	if err21 != nil {
+		t.Fatalf("Failed to retrieve room21: %v", err21)
+	}
+	if room21 != room12 {
+		t.Errorf("Idempotency violation: room21 (%s) != room12 (%s)", room21, room12)
+	}
+
+	// 3. Uji Backward Compatibility Ruang Direct Legacy
+	// Simulasikan room legacy yang dibuat dengan format lama (dm_legacy_1_legacy_2)
+	legacyRoomID := "dm_legacy_1_legacy_2"
+	now := time.Now().UTC()
+	_, _ = sqlStore.DB().Exec(`INSERT INTO conversations (id, type, title, created_at, updated_at) VALUES (?, 'direct', '', ?, ?)`, legacyRoomID, now, now)
+	_, _ = sqlStore.DB().Exec(`INSERT INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?), (?, ?, ?)`, legacyRoomID, user3.ID, now, legacyRoomID, user4.ID, now)
+
+	// Panggil GetOrCreateDirectConversation untuk user3 dan user4
+	foundLegacyRoom, errLegacy := userStore.GetOrCreateDirectConversation(user3.ID, user4.ID)
+	if errLegacy != nil {
+		t.Fatalf("Failed to get legacy direct room: %v", errLegacy)
+	}
+	if foundLegacyRoom != legacyRoomID {
+		t.Errorf("Legacy room was not reused: expected %s, got %s", legacyRoomID, foundLegacyRoom)
+	}
+}
+
 
 
 
