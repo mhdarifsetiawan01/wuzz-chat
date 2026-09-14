@@ -157,7 +157,7 @@ func main() {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.UpdateProfile)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/public-key", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
+			if r.Method == http.MethodGet || r.Method == http.MethodHead {
 				if chatHandler != nil {
 					chatHandler.GetUserPublicKey(w, r)
 					return
@@ -166,7 +166,7 @@ func main() {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.UpdatePublicKey)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/users/public-key", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
+			if r.Method == http.MethodGet || r.Method == http.MethodHead {
 				if chatHandler != nil {
 					chatHandler.GetUserPublicKey(w, r)
 					return
