@@ -136,12 +136,69 @@ async function saveLocalUserKeyPair(
   })
 }
 
+// Helper unik device ID per peramban/aplikasi
+export function getOrCreateDeviceId(): string {
+  if (typeof window === 'undefined') return 'server_ssr'
+  const KEY = 'wuzz_device_id'
+  let id = localStorage.getItem(KEY)
+  if (!id) {
+    id = 'dev_' + (window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(2, 15))
+    localStorage.setItem(KEY, id)
+  }
+  return id
+}
+
+// Custom error untuk mendeteksi konflik perangkat aktif
+export class E2EEDeviceConflictError extends Error {
+  keyVersion?: number
+  isRotated?: boolean
+
+  constructor(message: string, keyVersion?: number, isRotated: boolean = false) {
+    super(message)
+    this.name = 'E2EEDeviceConflictError'
+    this.keyVersion = keyVersion
+    this.isRotated = isRotated
+  }
+}
+
+// Menghapus keypair lokal dari IndexedDB dan CacheStorage
+export async function clearLocalKeyPair(userId: string): Promise<void> {
+  try {
+    const db = await openCryptoDB()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite')
+      const store = tx.objectStore(STORE_NAME)
+      const req = store.delete(userId)
+      req.onsuccess = () => {
+        db.close()
+        resolve()
+      }
+      req.onerror = () => {
+        db.close()
+        reject(req.error)
+      }
+    })
+  } catch (err) {
+    console.warn('[E2EE KeyStore] Gagal hapus key lokal:', err)
+  }
+
+  // Bersihkan juga dari CacheStorage
+  try {
+    if (typeof window !== 'undefined' && 'caches' in window) {
+      const cache = await window.caches.open('wuzz-crypto-keys')
+      await cache.delete('/__e2ee_identity')
+    }
+  } catch {}
+}
+
 // Inisialisasi E2EE saat user login / buka aplikasi:
-// Jika belum ada key di IndexedDB, generate baru & upload public key ke backend.
+// Jika belum ada key di IndexedDB, generate baru & registrasikan ke backend.
+// Jika backend menolak (409 Conflict), lempar E2EEDeviceConflictError agar UI menampilkan modal pilihan.
 export async function initUserE2EE(
   userId: string,
   _token?: string
 ): Promise<{ publicKeyJWK: string; privateKey: CryptoKey; publicKey: CryptoKey }> {
+  const deviceId = getOrCreateDeviceId()
   let keyPair = await getLocalUserKeyPair(userId)
 
   if (!keyPair) {
@@ -150,17 +207,26 @@ export async function initUserE2EE(
     const pubJWK = await exportPublicKeyJWK(rawKeyPair.publicKey)
     const privJWK = await exportPrivateKeyJWK(rawKeyPair.privateKey)
 
-    await saveLocalUserKeyPair(userId, privJWK, pubJWK)
-
-    // Upload public key ke backend Go via apiRequest (otomatis pasang Bearer JWT token)
-    try {
-      await apiRequest('/api/users/public-key', {
+    // Upload public key ke backend Go dengan device_id
+    const res = await apiRequest<{ status: string; key_version?: number; error?: string }>(
+      '/api/users/public-key',
+      {
         method: 'PUT',
-        body: JSON.stringify({ public_key: pubJWK }),
-      })
-    } catch (err) {
-      console.warn('[E2EE KeyStore] Gagal sinkronisasi public key ke server:', err)
+        body: JSON.stringify({ public_key: pubJWK, device_id: deviceId }),
+      }
+    )
+
+    if (res.status === 409 || res.error?.includes('KEY_ALREADY_REGISTERED')) {
+      // Perangkat lain sedang aktif! JANGAN simpan key ini ke IndexedDB.
+      throw new E2EEDeviceConflictError(
+        'Akun ini sudah aktif di perangkat lain. Kunci keamanan tidak dapat ditimpa otomatis.',
+        res.data?.key_version,
+        false
+      )
     }
+
+    // Sukses atau fallback offline: Simpan key ke IndexedDB & CacheStorage
+    await saveLocalUserKeyPair(userId, privJWK, pubJWK)
 
     return {
       publicKeyJWK: pubJWK,
@@ -169,16 +235,69 @@ export async function initUserE2EE(
     }
   }
 
-  // Jika key pair sudah ada, pastikan server dan CacheStorage juga punya
+  // Jika key pair sudah ada di IndexedDB device ini:
+  // Simpan ke CacheStorage untuk Service Worker
   try {
     saveToCacheStorage(userId, keyPair.privateKey ? await exportPrivateKeyJWK(keyPair.privateKey) : '', keyPair.publicKeyJWK)
-    apiRequest('/api/users/public-key', {
-      method: 'PUT',
-      body: JSON.stringify({ public_key: keyPair.publicKeyJWK }),
-    }).catch(() => {})
-  } catch {}
+    
+    // Verifikasi device kepemilikan di backend
+    const res = await apiRequest<{ status: string; key_version?: number; error?: string }>(
+      '/api/users/public-key',
+      {
+        method: 'PUT',
+        body: JSON.stringify({ public_key: keyPair.publicKeyJWK, device_id: deviceId }),
+      }
+    )
+
+    if (res.status === 409 || res.error?.includes('KEY_ALREADY_REGISTERED')) {
+      // Kunci keamanan telah di-reset dari perangkat lain!
+      // Hapus kunci lokal yang usang agar tidak terjadi pembacaan pesan korup
+      await clearLocalKeyPair(userId)
+      throw new E2EEDeviceConflictError(
+        'Kunci keamanan telah di-reset dari perangkat lain. Sesi keamanan di perangkat ini telah berakhir.',
+        res.data?.key_version,
+        true
+      )
+    }
+  } catch (err) {
+    if (err instanceof E2EEDeviceConflictError) {
+      throw err
+    }
+  }
 
   return keyPair
+}
+
+// Force reset E2EE key saat user memilih "Reset & Masuk di Sini"
+export async function forceResetUserE2EE(
+  userId: string
+): Promise<{ publicKeyJWK: string; privateKey: CryptoKey; publicKey: CryptoKey }> {
+  const deviceId = getOrCreateDeviceId()
+
+  const rawKeyPair = await generateKeyPair()
+  const pubJWK = await exportPublicKeyJWK(rawKeyPair.publicKey)
+  const privJWK = await exportPrivateKeyJWK(rawKeyPair.privateKey)
+
+  const res = await apiRequest<{ status: string; key_version?: number; error?: string }>(
+    '/api/users/public-key/reset',
+    {
+      method: 'POST',
+      body: JSON.stringify({ public_key: pubJWK, device_id: deviceId }),
+    }
+  )
+
+  if (res.error) {
+    throw new Error(res.error)
+  }
+
+  await saveLocalUserKeyPair(userId, privJWK, pubJWK)
+  derivedAESKeyCache.clear()
+
+  return {
+    publicKeyJWK: pubJWK,
+    privateKey: rawKeyPair.privateKey,
+    publicKey: rawKeyPair.publicKey,
+  }
 }
 
 // Mengambil atau membuat Derived AES Key untuk percakapan direct dengan lawan bicara

@@ -1,0 +1,156 @@
+'use client'
+
+import { useState } from 'react'
+import { useModalBackHandler } from '@/lib/useModalBackHandler'
+
+interface DeviceConflictModalProps {
+  isOpen: boolean
+  isRotated?: boolean
+  keyVersion?: number
+  onClose: () => void
+  onConfirmReset: () => Promise<void>
+  onLogout: () => void
+}
+
+export function DeviceConflictModal({
+  isOpen,
+  isRotated,
+  keyVersion = 1,
+  onClose,
+  onConfirmReset,
+  onLogout,
+}: DeviceConflictModalProps) {
+  const [isResetting, setIsResetting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  // Menangani tombol back di browser HP
+  useModalBackHandler(isOpen, onClose)
+
+  if (!isOpen) return null
+
+  const handleReset = async () => {
+    setIsResetting(true)
+    setErrorMsg('')
+    try {
+      await onConfirmReset()
+      onClose()
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Gagal mereset kunci keamanan')
+      setIsResetting(false)
+    }
+  }
+
+  return (
+    <div
+      className="modal-backdrop"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 150,
+        padding: 'var(--space-4)',
+      }}
+    >
+      <div
+        className="modal-card"
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          width: '100%',
+          maxWidth: '460px',
+          padding: 'var(--space-6)',
+          boxShadow: 'var(--shadow-xl)',
+          color: 'var(--text-primary)',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ fontSize: '3rem', marginBottom: 'var(--space-3)' }}>
+          {isRotated ? '⚠️' : '🔐'}
+        </div>
+
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: 'var(--space-2)' }}>
+          {isRotated ? 'Kunci Keamanan Telah Diperbarui' : 'Perangkat Lain Sedang Aktif'}
+        </h3>
+
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)', lineHeight: 1.6 }}>
+          {isRotated ? (
+            <>
+              Kunci enkripsi akun Anda telah di-reset dari perangkat lain (Versi {keyVersion}). Sesi keamanan di perangkat ini telah dinonaktifkan demi melindungi integritas pesan End-to-End Encryption Anda.
+            </>
+          ) : (
+            <>
+              Akun Anda saat ini memiliki sesi enkripsi aktif di perangkat lain. Demi keamanan <em>End-to-End Encryption (E2EE)</em>, Wuzz Chat membatasi 1 perangkat aktif per akun.
+            </>
+          )}
+        </p>
+
+        {!isRotated && (
+          <div
+            style={{
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              borderRadius: '10px',
+              padding: 'var(--space-3)',
+              marginBottom: 'var(--space-5)',
+              fontSize: '0.825rem',
+              color: '#f87171',
+              textAlign: 'left',
+              lineHeight: 1.5,
+            }}
+          >
+            ℹ️ <strong>Perhatian:</strong> Mengaktifkan obrolan di perangkat ini akan mereset kunci keamanan ke Versi {keyVersion + 1}. Perangkat Anda sebelumnya tidak akan dapat mendekripsi pesan baru.
+          </div>
+        )}
+
+        {errorMsg && (
+          <div style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: 'var(--space-3)' }}>
+            {errorMsg}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+          {isRotated ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={onLogout}
+              style={{ width: '100%', padding: '12px', fontSize: '0.95rem' }}
+            >
+              🔄 Masuk Ulang untuk Memperbarui Sesi
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleReset}
+                disabled={isResetting}
+                style={{ width: '100%', padding: '12px', fontSize: '0.95rem' }}
+              >
+                {isResetting ? '⏳ Mengaktifkan Perangkat...' : '🔑 Reset & Masuk di Perangkat Ini'}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={onLogout}
+                disabled={isResetting}
+                style={{ width: '100%', padding: '10px', fontSize: '0.9rem' }}
+              >
+                Batalkan & Keluar
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -17,8 +17,16 @@ import { WebRTCAudioSession } from '@/lib/webrtc/webrtcAudio'
 import { useAuth } from '@/lib/auth-context'
 import { deleteMessageApi, apiRequest } from '@/lib/api'
 import { isEncryptedMessage, encryptText, decryptText } from '@/lib/crypto/e2ee'
-import { initUserE2EE, getSharedRoomAESKey, cachePeerPublicKey, getCachedPeerPublicKey } from '@/lib/crypto/keyStore'
+import {
+  initUserE2EE,
+  getSharedRoomAESKey,
+  cachePeerPublicKey,
+  getCachedPeerPublicKey,
+  forceResetUserE2EE,
+  E2EEDeviceConflictError,
+} from '@/lib/crypto/keyStore'
 import { autoSyncPushSubscription } from '@/lib/pushNotification'
+import { DeviceConflictModal } from './DeviceConflictModal'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -216,7 +224,7 @@ function ChatPageContent() {
   }, [searchParamRoom])
 
   const roomId = selectedRoomId
-  const { user, isLoading: isAuthLoading } = useAuth()
+  const { user, isLoading: isAuthLoading, logout } = useAuth()
 
   const [state, dispatch] = useReducer(chatReducer, initialState)
   const [isMemberListOpen, setIsMemberListOpen] = useState(false)
@@ -226,6 +234,11 @@ function ChatPageContent() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(Boolean(roomId))
   const [isHistoryError, setIsHistoryError] = useState(false)
   const [peerPublicKeyJWK, setPeerPublicKeyJWK] = useState<string>('')
+  const [deviceConflict, setDeviceConflict] = useState<{
+    isOpen: boolean
+    isRotated?: boolean
+    keyVersion?: number
+  }>({ isOpen: false })
   const [activeCall, setActiveCall] = useState<ActiveCallInfo | null>(null)
   const [isCallMuted, setIsCallMuted] = useState(false)
   const activeCallRef = useRef<ActiveCallInfo | null>(null)
@@ -252,6 +265,14 @@ function ChatPageContent() {
     if (user?.id) {
       const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
       initUserE2EE(user.id, token).catch(err => {
+        if (err instanceof E2EEDeviceConflictError) {
+          setDeviceConflict({
+            isOpen: true,
+            isRotated: err.isRotated,
+            keyVersion: err.keyVersion,
+          })
+          return
+        }
         console.warn('[E2EE] Inisialisasi kunci lokal gagal:', err)
       })
       autoSyncPushSubscription().catch(err => {
@@ -309,6 +330,21 @@ function ChatPageContent() {
       }
     }
   }, [user?.id, roomId])
+
+  // Handler konfirmasi reset kunci keamanan E2EE pada perangkat ini
+  const handleConfirmDeviceReset = useCallback(async () => {
+    if (!user?.id) return
+    await forceResetUserE2EE(user.id)
+    setDeviceConflict({ isOpen: false })
+    if (activePeerRef.current?.id) {
+      resolvePeerKeyAndDecrypt(activePeerRef.current.id, activePeerRef.current.publicKey)
+    }
+  }, [user?.id, resolvePeerKeyAndDecrypt])
+
+  // Handler logout saat terjadi konflik perangkat
+  const handleDeviceConflictLogout = useCallback(() => {
+    logout()
+  }, [logout])
 
   useEffect(() => {
     if (isAuthLoading) return
@@ -1230,6 +1266,16 @@ function ChatPageContent() {
         isMuted={isCallMuted}
         onToggleMute={handleToggleCallMute}
         onEndCall={handleEndCall}
+      />
+
+      {/* Modal Konflik Perangkat E2EE (Single Active Device) */}
+      <DeviceConflictModal
+        isOpen={deviceConflict.isOpen}
+        isRotated={deviceConflict.isRotated}
+        keyVersion={deviceConflict.keyVersion}
+        onClose={() => setDeviceConflict({ isOpen: false })}
+        onConfirmReset={handleConfirmDeviceReset}
+        onLogout={handleDeviceConflictLogout}
       />
     </div>
   )

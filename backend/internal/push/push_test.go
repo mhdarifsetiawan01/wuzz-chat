@@ -33,6 +33,15 @@ func (m *mockUserStoreForPush) UpdateProfile(userID, displayName, statusMessage,
 func (m *mockUserStoreForPush) UpdatePublicKey(userID, publicKey string) error {
 	return nil
 }
+func (m *mockUserStoreForPush) UpdatePublicKeyWithDevice(userID, publicKey, deviceID string) (int, error) {
+	return 1, nil
+}
+func (m *mockUserStoreForPush) ForceResetPublicKey(userID, publicKey, deviceID string) (int, error) {
+	return 2, nil
+}
+func (m *mockUserStoreForPush) GetE2EEInfo(userID string) (string, int, string, error) {
+	return "", 1, "", nil
+}
 func (m *mockUserStoreForPush) SearchUsers(query, excludeUserID string) ([]store.User, error) {
 	return nil, nil
 }

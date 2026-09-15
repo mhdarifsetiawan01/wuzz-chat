@@ -28,6 +28,8 @@ erDiagram
         text avatar_url
         varchar status_message
         text public_key "ECDH P-256 Public Key JWK"
+        integer key_version "Key generation/rotation counter (default 1)"
+        text active_device_id "Current device holding active E2EE session"
         timestamp last_seen
         timestamp created_at
     }
@@ -255,6 +257,12 @@ Karena seluruh algoritma menggunakan standar resmi NIST & RFC:
 
 ### D. Verifikasi Keamanan Visual (Safety Number Fingerprint)
 - Digest SHA-256 dari gabungan kunci publik kedua pihak yang diurutkan secara deterministik, diformat menjadi 6 blok angka 5 digit (total 30 digit) untuk perbandingan manual visual antar pengguna.
+
+### E. Single Active Device & Key Conflict Guard
+- **Active Device Tracking**: Server melacak `active_device_id` dan `key_version` per akun.
+- **Pencegahan Overwrite Diam-Diam**: Jika device baru mencoba upload kunci dengan device ID berbeda, server mengembalikan HTTP 409 Conflict (`KEY_ALREADY_REGISTERED`).
+- **Explicit Key Rotation**: Kunci hanya dapat dirotasi secara sadar melalui `POST /api/users/public-key/reset` yang menaikkan `key_version`. Sesi device lama otomatis kedaluwarsa.
+- **Forward-Compatible**: Arsitektur ini adalah fondasi bertahap untuk upgrade QR-link multi-device (seperti WhatsApp Web).
 
 ---
 

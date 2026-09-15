@@ -69,6 +69,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 			status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol',
 			avatar_url TEXT DEFAULT '',
 			public_key TEXT DEFAULT '',
+			key_version INTEGER DEFAULT 1,
+			active_device_id TEXT DEFAULT '',
 			created_at TIMESTAMP NOT NULL
 		);`,
 		// Index Users
@@ -127,6 +129,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS public_key TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS key_version INTEGER DEFAULT 1;`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS active_device_id TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS status VARCHAR(32) DEFAULT 'sent';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_id VARCHAR(64) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_nickname VARCHAR(64) DEFAULT '';`)
@@ -147,6 +151,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN public_key TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN key_version INTEGER DEFAULT 1;`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN active_device_id TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN status VARCHAR(32) DEFAULT 'sent';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reply_to_id VARCHAR(64) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN reply_to_nickname VARCHAR(64) DEFAULT '';`)

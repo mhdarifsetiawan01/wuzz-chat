@@ -15,6 +15,7 @@ Dokumen ini menyajikan panduan arsitektur komprehensif mengenai seluruh lapisan 
    - 2.6 [Filter Privasi Asimetris & Non-Destructive Message Lifecycle](#26-filter-privasi-asimetris--non-destructive-message-lifecycle)
    - 2.7 [CORS Dynamic Validator & IP Rate Limiting](#27-cors-dynamic-validator--ip-rate-limiting)
    - 2.8 [Zero-Knowledge Push Notification & Client-Side Background Decryption](#28-zero-knowledge-push-notification--client-side-background-decryption)
+   - 2.9 [Pencegahan Key Overwrite & Single Active Device Guard (E2EE)](#29-pencegahan-key-overwrite--single-active-device-guard-e2ee)
 3. [Arsitektur Performa & Skalabilitas (Performance Optimization)](#-3-arsitektur-performa--skalabilitas-performance-optimization)
    - 3.1 [Penyelesaian Masalah $N+1$ Query pada `GetUserConversations`](#31-penyelesaian-masalah-n1-query-pada-getuserconversations)
    - 3.2 [Indeks Performa Database (PostgreSQL & SQLite)](#32-indeks-performa-database-postgresql--sqlite)
@@ -126,6 +127,18 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Automatic Subscription Re-sync**: Helper `pushNotification.ts` secara otomatis membandingkan `applicationServerKey` subscription aktif dengan kunci server. Jika kunci berubah, browser secara otomatis melakukan `unsubscribe()` dan registrasi ulang instan.
   - **Client-Side Background Decryption**: Service Worker membaca private key penerima dan kunci publik pengirim dari push data, lalu melakukan derivasi kunci AES-256-GCM via Web Crypto API untuk mendekripsi teks pesan secara lokal sebelum diteruskan ke Notification API sistem operasi.
   - **Graceful Fallback**: Jika browser belum memiliki kunci privat atau decrypt gagal, notifikasi jatuh kembali secara aman ke teks fallback `🔒 Pesan Baru (Terenkripsi)` tanpa memicu kebocoran data.
+
+### 2.9 Pencegahan Key Overwrite & Single Active Device Guard (E2EE)
+* **Lokasi Kode**: [`backend/internal/store/user_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/user_store.go), [`backend/internal/api/auth_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/auth_handler.go), & [`frontend/lib/crypto/keyStore.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/crypto/keyStore.ts)
+* **Latar Belakang & Masalah**:
+  - Pada sistem E2EE murni (ECDH P-256), private key tersimpan secara lokal di peramban (`IndexedDB`).
+  - Jika pengguna membuka aplikasi di perangkat kedua (misal: HP PWA setelah laptop), perangkat kedua yang belum memiliki kunci lokal akan membuat keypair baru dan menimpa kunci publik di server.
+  - Akibatnya, fingerprint *Safety Number* 30-digit menjadi tidak sinkron dan lawan bicara tidak dapat mendekripsi pesan.
+* **Solusi & Proteksi**:
+  - **Pelacakan Perangkat Aktif (`active_device_id`) & Versi Kunci (`key_version`)**: Database melacak perangkat yang memegang sesi enkripsi aktif.
+  - **Penolakan Penimpaan Kunci (HTTP 409 Conflict)**: Endpoint `PUT /api/users/public-key` menolak pembaruan jika `device_id` berbeda dengan kode kesalahan `KEY_ALREADY_REGISTERED`.
+  - **Pencegahan Diam-diam di Frontend**: `initUserE2EE()` tidak lagi mengunggah kunci jika status konflik terdeteksi, mencegah korupsi kunci di database server.
+  - **Rotasi Kunci Eksplisit (`POST /api/users/public-key/reset`)**: Pengguna dapat mereset kunci ke perangkat baru secara sadar melalui modal UI konfirmasi (`DeviceConflictModal.tsx`). Versi kunci dinaikkan (`key_version + 1`) dan sesi perangkat lama dinonaktifkan secara aman.
 
 ---
 

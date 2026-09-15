@@ -38,7 +38,8 @@ sequenceDiagram
     REST-->>App: 200 OK {token, user: {id, username, display_name, public_key}}
     App->>App: Simpan JWT di Encrypted Secure Storage
     App->>App: Cek Keypair E2EE Lokal (Generate jika belum ada)
-    App->>REST: PUT /api/users/public-key {public_key: "<JWK>"}
+    App->>REST: PUT /api/users/public-key {public_key: "<JWK>", device_id: "<DEVICE_ID>"}
+    Note over App,REST: Jika HTTP 409 Conflict, panggil POST /api/users/public-key/reset untuk rotasi
     App->>WS: Connect wss://.../ws?token=<JWT>
     WS-->>App: 101 Switching Protocols (Handshake Sukses)
     WS-->>App: Event "system" {content: "ID kamu: <UUID>"}
@@ -63,6 +64,10 @@ sequenceDiagram
 3. **Koneksi WebSocket**:
    - Selalu sertakan query `?token=<JWT>` saat inisialisasi socket.
    - Implementasikan **Exponential Backoff Auto-Reconnect** (1s, 2s, 4s, 8s, maks 30s) saat koneksi terputus (misal saat HP berganti jaringan dari WiFi ke 4G/5G).
+4. **E2EE Key Management & Conflict Guard**:
+   - Selalu sertakan `device_id` unik perangkat saat sinkronisasi `PUT /api/users/public-key`.
+   - Jika menerima HTTP 409 Conflict (`KEY_ALREADY_REGISTERED`), tampilkan dialog konfirmasi apakah pengguna ingin mereset kunci ke perangkat ini via `POST /api/users/public-key/reset`.
+   - Ini memastikan *Safety Number* 30-digit selalu konsisten antar perangkat dan percakapan.
 
 ---
 

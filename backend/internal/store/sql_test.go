@@ -1,6 +1,7 @@
 package store
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -128,6 +129,72 @@ func TestSQLUserStore_Profile(t *testing.T) {
 	}
 	if searchResults[0].PublicKey != testPublicKey {
 		t.Errorf("expected SearchUsers to return PublicKey '%s', got '%s'", testPublicKey, searchResults[0].PublicKey)
+	}
+}
+
+func TestSQLUserStore_DeviceKeyManagement(t *testing.T) {
+	tmpDB := filepath.Join(t.TempDir(), "test_device_key.db")
+	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
+	if err != nil {
+		t.Fatalf("failed to create SQLMessageStore: %v", err)
+	}
+	defer sqlStore.Close()
+
+	userStore := NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+	user, err := userStore.Register("alice_e2ee", "Alice E2EE", "secret123")
+	if err != nil {
+		t.Fatalf("failed to register user: %v", err)
+	}
+
+	keyDeviceA := `{"kty":"EC","crv":"P-256","x":"alice-dev-a","y":"alice-dev-a"}`
+	keyDeviceB := `{"kty":"EC","crv":"P-256","x":"alice-dev-b","y":"alice-dev-b"}`
+
+	// 1. Device A sets initial key
+	ver, err := userStore.UpdatePublicKeyWithDevice(user.ID, keyDeviceA, "device_desktop")
+	if err != nil {
+		t.Fatalf("Device A update failed: %v", err)
+	}
+	if ver != 1 {
+		t.Errorf("expected initial key_version 1, got %d", ver)
+	}
+
+	// 2. Same Device A can update/sync its key freely
+	ver, err = userStore.UpdatePublicKeyWithDevice(user.ID, keyDeviceA, "device_desktop")
+	if err != nil {
+		t.Fatalf("Device A re-sync failed: %v", err)
+	}
+	if ver != 1 {
+		t.Errorf("expected key_version 1, got %d", ver)
+	}
+
+	// 3. Different Device B tries to overwrite with its own key -> MUST CONFLICT (ErrKeyConflict)
+	_, err = userStore.UpdatePublicKeyWithDevice(user.ID, keyDeviceB, "device_mobile_pwa")
+	if !errors.Is(err, ErrKeyConflict) {
+		t.Fatalf("expected ErrKeyConflict when Device B tries to overwrite, got: %v", err)
+	}
+
+	// 4. Force Reset by Device B -> MUST SUCCEED and increment key_version to 2
+	newVer, err := userStore.ForceResetPublicKey(user.ID, keyDeviceB, "device_mobile_pwa")
+	if err != nil {
+		t.Fatalf("ForceResetPublicKey failed: %v", err)
+	}
+	if newVer != 2 {
+		t.Errorf("expected key_version 2 after force reset, got %d", newVer)
+	}
+
+	// 5. Verify active key and device are now Device B
+	pubKey, curVer, activeDev, err := userStore.GetE2EEInfo(user.ID)
+	if err != nil {
+		t.Fatalf("GetE2EEInfo failed: %v", err)
+	}
+	if pubKey != keyDeviceB {
+		t.Errorf("expected active pubKey to be Device B, got: %s", pubKey)
+	}
+	if curVer != 2 {
+		t.Errorf("expected active key_version 2, got %d", curVer)
+	}
+	if activeDev != "device_mobile_pwa" {
+		t.Errorf("expected active_device_id 'device_mobile_pwa', got: %s", activeDev)
 	}
 }
 

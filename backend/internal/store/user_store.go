@@ -17,18 +17,21 @@ var (
 	ErrUserExists   = errors.New("username sudah digunakan")
 	ErrUserNotFound = errors.New("user tidak ditemukan")
 	ErrInvalidPass  = errors.New("password salah")
+	ErrKeyConflict  = errors.New("KEY_ALREADY_REGISTERED")
 )
 
 // User merepresentasikan entitas akun user terdaftar.
 type User struct {
-	ID            string    `json:"id"`
-	Username      string    `json:"username"`
-	DisplayName   string    `json:"display_name"`
-	PasswordHash  string    `json:"-"`
-	StatusMessage string    `json:"status_message"`
-	AvatarURL     string    `json:"avatar_url"`
-	PublicKey     string    `json:"public_key,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID             string    `json:"id"`
+	Username       string    `json:"username"`
+	DisplayName    string    `json:"display_name"`
+	PasswordHash   string    `json:"-"`
+	StatusMessage  string    `json:"status_message"`
+	AvatarURL      string    `json:"avatar_url"`
+	PublicKey      string    `json:"public_key,omitempty"`
+	KeyVersion     int       `json:"key_version,omitempty"`
+	ActiveDeviceID string    `json:"active_device_id,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // ConversationItem merepresentasikan entitas percakapan di daftar obrolan (Sidebar).
@@ -66,6 +69,9 @@ type UserStore interface {
 	GetUserByUsernameOrDisplayName(name string) (*User, error)
 	UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*User, error)
 	UpdatePublicKey(userID, publicKey string) error
+	UpdatePublicKeyWithDevice(userID, publicKey, deviceID string) (int, error)
+	ForceResetPublicKey(userID, publicKey, deviceID string) (int, error)
+	GetE2EEInfo(userID string) (publicKey string, keyVersion int, activeDeviceID string, err error)
 	SearchUsers(query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
 	GetUserConversations(userID string) ([]ConversationItem, error)
@@ -253,20 +259,101 @@ func (s *SQLUserStore) UpdateProfile(userID, displayName, statusMessage, avatarU
 	return user, nil
 }
 
-// UpdatePublicKey memperbarui public_key (E2EE) milik user.
-func (s *SQLUserStore) UpdatePublicKey(userID, publicKey string) error {
+// GetE2EEInfo mengambil informasi E2EE user saat ini (public_key, key_version, active_device_id).
+func (s *SQLUserStore) GetE2EEInfo(userID string) (string, int, string, error) {
 	var query string
 	if s.driverName == "postgres" {
-		query = `UPDATE users SET public_key = $1 WHERE id = $2`
+		query = `SELECT COALESCE(public_key, ''), COALESCE(key_version, 1), COALESCE(active_device_id, '') FROM users WHERE id = $1`
 	} else {
-		query = `UPDATE users SET public_key = ? WHERE id = ?`
+		query = `SELECT COALESCE(public_key, ''), COALESCE(key_version, 1), COALESCE(active_device_id, '') FROM users WHERE id = ?`
 	}
 
-	_, err := s.db.Exec(query, strings.TrimSpace(publicKey), userID)
+	var pubKey, activeDev string
+	var keyVer int
+	err := s.db.QueryRow(query, userID).Scan(&pubKey, &keyVer, &activeDev)
 	if err != nil {
-		return fmt.Errorf("gagal update public key: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", 0, "", ErrUserNotFound
+		}
+		return "", 0, "", fmt.Errorf("gagal query E2EE info: %w", err)
 	}
-	return nil
+	return pubKey, keyVer, activeDev, nil
+}
+
+// UpdatePublicKeyWithDevice memperbarui public_key dan active_device_id secara aman.
+// Jika user sudah memiliki public_key dan active_device_id berbeda dari deviceID yang dikirim,
+// operasi ini menolak update dan mengembalikan ErrKeyConflict beserta key_version saat ini.
+func (s *SQLUserStore) UpdatePublicKeyWithDevice(userID, publicKey, deviceID string) (int, error) {
+	pubKey, keyVer, activeDev, err := s.GetE2EEInfo(userID)
+	if err != nil {
+		return 0, err
+	}
+
+	trimmedKey := strings.TrimSpace(publicKey)
+	trimmedDev := strings.TrimSpace(deviceID)
+
+	// Jika sudah ada key terdaftar dan ada device terdaftar yang BERBEDA dari deviceID ini
+	if pubKey != "" && activeDev != "" && trimmedDev != "" && activeDev != trimmedDev {
+		return keyVer, ErrKeyConflict
+	}
+
+	// Jika deviceID kosong tapi sudah ada activeDev terdaftar, tolak jika key berbeda
+	if pubKey != "" && activeDev != "" && trimmedDev == "" && pubKey != trimmedKey {
+		return keyVer, ErrKeyConflict
+	}
+
+	if keyVer < 1 {
+		keyVer = 1
+	}
+
+	devToSave := activeDev
+	if trimmedDev != "" {
+		devToSave = trimmedDev
+	}
+
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE users SET public_key = $1, active_device_id = $2, key_version = $3 WHERE id = $4`
+	} else {
+		query = `UPDATE users SET public_key = ?, active_device_id = ?, key_version = ? WHERE id = ?`
+	}
+
+	_, err = s.db.Exec(query, trimmedKey, devToSave, keyVer, userID)
+	if err != nil {
+		return 0, fmt.Errorf("gagal update public key dengan device: %w", err)
+	}
+	return keyVer, nil
+}
+
+// ForceResetPublicKey memaksa reset public_key ke device baru dan menaikkan key_version.
+func (s *SQLUserStore) ForceResetPublicKey(userID, publicKey, deviceID string) (int, error) {
+	_, keyVer, _, err := s.GetE2EEInfo(userID)
+	if err != nil {
+		return 0, err
+	}
+
+	newKeyVer := keyVer + 1
+	trimmedKey := strings.TrimSpace(publicKey)
+	trimmedDev := strings.TrimSpace(deviceID)
+
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE users SET public_key = $1, active_device_id = $2, key_version = $3 WHERE id = $4`
+	} else {
+		query = `UPDATE users SET public_key = ?, active_device_id = ?, key_version = ? WHERE id = ?`
+	}
+
+	_, err = s.db.Exec(query, trimmedKey, trimmedDev, newKeyVer, userID)
+	if err != nil {
+		return 0, fmt.Errorf("gagal force reset public key: %w", err)
+	}
+	return newKeyVer, nil
+}
+
+// UpdatePublicKey memperbarui public_key (E2EE) milik user (backward-compatible).
+func (s *SQLUserStore) UpdatePublicKey(userID, publicKey string) error {
+	_, err := s.UpdatePublicKeyWithDevice(userID, publicKey, "")
+	return err
 }
 
 // SearchUsers mencari user berdasarkan username atau display_name.

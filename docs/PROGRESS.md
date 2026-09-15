@@ -312,6 +312,12 @@
   - **Dynamic Subscription Re-sync on Key Mismatch**: Menambahkan verifikasi `applicationServerKey` pada `frontend/lib/pushNotification.ts`. Jika kunci server berubah atau token lama tidak cocok, browser otomatis melakukan `unsubscribe()` dan registrasi ulang instan.
   - **Android LevelDB Lock Bypass via CacheStorage**: Memperbarui `frontend/public/sw.js` (v1.0.5) untuk membaca private key dari `CacheStorage` (`wuzz-crypto-keys`) dalam waktu < 1ms saat PWA di-kill atau dalam status background OS Android.
   - **Direct Message Recipient Fallback**: Menambahkan resolusi anggota direct room `dm_userA_userB` di `backend/internal/push/push.go` agar notifikasi push tetap terkirim meskipun entri relational table belum diinisialisasi.
+- [x] **Milestone 7.5: E2EE Single Active Device & Key Conflict Guard (Opsi A)**:
+  - **Database Schema Non-Destruktif**: Menambahkan kolom `key_version` (INTEGER DEFAULT 1) dan `active_device_id` (TEXT DEFAULT '') di tabel `users`.
+  - **Device-Aware Key Management**: `UpdatePublicKeyWithDevice` menolak penimpaan kunci dari device berbeda dengan error `ErrKeyConflict` (HTTP 409 Conflict `KEY_ALREADY_REGISTERED`).
+  - **Explicit Key Rotation**: Endpoint `POST /api/users/public-key/reset` untuk rotasi kunci resmi ke perangkat baru yang menginkrementasikan `key_version`.
+  - **Frontend UI Conflict Modal (`DeviceConflictModal.tsx`)**: Dialog interaktif untuk memilih antara membatalkan sesi atau mereset kunci ke perangkat baru, serta penanganan sesi kedaluwarsa saat kunci dirotasi dari perangkat lain.
+  - **Pencegahan Ketidaksinkronan Safety Number**: Menjamin fingerprint Safety Number selalu 100% konsisten antar perangkat dan percakapan.
 
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`
@@ -320,7 +326,7 @@
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)
   - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
-- Seluruh 5 tahapan audit keamanan dan Milestone 7.4 telah tuntas 100%. Siap melangkah ke fitur berikutnya (**Milestone 8.2: Group Chat Engine & Member Management**).
+- Seluruh pengujian unit & integrasi E2E lulus 100%. Siap melangkah ke fitur berikutnya (**Milestone 8.2: Group Chat Engine & Member Management**).
 
 
 ---

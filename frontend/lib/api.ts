@@ -6,7 +6,7 @@ const API_BASE = typeof window !== 'undefined' ? '' : (process.env.BACKEND_API_U
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
-): Promise<{ data?: T; error?: string }> {
+): Promise<{ data?: T; error?: string; status?: number }> {
   try {
     const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') : null
 
@@ -35,12 +35,12 @@ export async function apiRequest<T>(
           window.location.href = '/login?expired=1'
         }
       }
-      return { error: result.error || `Request gagal dengan status ${res.status}` }
+      return { error: result.error || `Request gagal dengan status ${res.status}`, status: res.status }
     }
 
-    return { data: result }
+    return { data: result, status: res.status }
   } catch (err: any) {
-    return { error: err.message || 'Gagal terhubung ke server' }
+    return { error: err.message || 'Gagal terhubung ke server', status: 500 }
   }
 }
 

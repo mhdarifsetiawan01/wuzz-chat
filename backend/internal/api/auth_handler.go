@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -175,6 +176,7 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 type UpdatePublicKeyRequest struct {
 	PublicKey string `json:"public_key"`
+	DeviceID  string `json:"device_id"`
 }
 
 // UpdatePublicKey memperbarui kunci publik kriptografi E2EE milik user saat ini.
@@ -206,16 +208,72 @@ func (h *AuthHandler) UpdatePublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.userStore.UpdatePublicKey(claims.UserID, req.PublicKey); err != nil {
+	keyVersion, err := h.userStore.UpdatePublicKeyWithDevice(claims.UserID, req.PublicKey, req.DeviceID)
+	if err != nil {
+		if errors.Is(err, store.ErrKeyConflict) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":       "KEY_ALREADY_REGISTERED",
+				"message":     "Akun ini sudah aktif di perangkat lain. Kunci keamanan tidak dapat ditimpa otomatis.",
+				"key_version": keyVersion,
+			})
+			return
+		}
 		http.Error(w, `{"error":"Gagal memperbarui kunci publik"}`, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":     "ok",
-		"message":    "Kunci publik berhasil disimpan",
-		"public_key": req.PublicKey,
+		"status":      "ok",
+		"message":     "Kunci publik berhasil disimpan",
+		"public_key":  req.PublicKey,
+		"key_version": keyVersion,
+	})
+}
+
+// ResetPublicKey mereset paksa kunci publik E2EE ke perangkat baru dan menaikkan key_version.
+func (h *AuthHandler) ResetPublicKey(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodPut {
+		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	var req UpdatePublicKeyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
+		return
+	}
+
+	req.PublicKey = strings.TrimSpace(req.PublicKey)
+	if req.PublicKey == "" {
+		http.Error(w, `{"error":"public_key tidak boleh kosong"}`, http.StatusBadRequest)
+		return
+	}
+	if len(req.PublicKey) > 4096 {
+		http.Error(w, `{"error":"public_key melebihi batas ukuran maksimum"}`, http.StatusBadRequest)
+		return
+	}
+
+	newKeyVer, err := h.userStore.ForceResetPublicKey(claims.UserID, req.PublicKey, req.DeviceID)
+	if err != nil {
+		http.Error(w, `{"error":"Gagal mereset kunci publik"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":      "ok",
+		"message":     "Kunci publik berhasil di-reset ke perangkat baru",
+		"public_key":  req.PublicKey,
+		"key_version": newKeyVer,
 	})
 }
 
