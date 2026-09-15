@@ -239,6 +239,7 @@ function ChatPageContent() {
     isRotated?: boolean
     keyVersion?: number
   }>({ isOpen: false })
+  const [e2eeVerified, setE2eeVerified] = useState(false)
   const [activeCall, setActiveCall] = useState<ActiveCallInfo | null>(null)
   const [isCallMuted, setIsCallMuted] = useState(false)
   const activeCallRef = useRef<ActiveCallInfo | null>(null)
@@ -264,17 +265,22 @@ function ChatPageContent() {
   useEffect(() => {
     if (user?.id) {
       const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
-      initUserE2EE(user.id, token).catch(err => {
-        if (err instanceof E2EEDeviceConflictError) {
-          setDeviceConflict({
-            isOpen: true,
-            isRotated: err.isRotated,
-            keyVersion: err.keyVersion,
-          })
-          return
-        }
-        console.warn('[E2EE] Inisialisasi kunci lokal gagal:', err)
-      })
+      initUserE2EE(user.id, token)
+        .then(() => {
+          setE2eeVerified(true)
+        })
+        .catch(err => {
+          setE2eeVerified(false)
+          if (err instanceof E2EEDeviceConflictError) {
+            setDeviceConflict({
+              isOpen: true,
+              isRotated: err.isRotated,
+              keyVersion: err.keyVersion,
+            })
+            return
+          }
+          console.warn('[E2EE] Inisialisasi kunci lokal gagal:', err)
+        })
       autoSyncPushSubscription().catch(err => {
         console.warn('[Push] Auto-sync push notification gagal:', err)
       })
@@ -336,6 +342,7 @@ function ChatPageContent() {
     if (!user?.id) return
     await forceResetUserE2EE(user.id)
     setDeviceConflict({ isOpen: false })
+    setE2eeVerified(true)
     if (activePeerRef.current?.id) {
       resolvePeerKeyAndDecrypt(activePeerRef.current.id, activePeerRef.current.publicKey)
     }
@@ -365,8 +372,9 @@ function ChatPageContent() {
       return
     }
 
-    // Tahan inisialisasi WebSocket jika terdeteksi konflik perangkat aktif
-    if (deviceConflict.isOpen) {
+    // STRICT GATEKEEPER: Tahan inisialisasi WebSocket sampai kunci E2EE terverifikasi sah!
+    // Mencegah perangkat baru menendang perangkat lama yang sedang aktif jika terjadi konflik
+    if (!e2eeVerified || deviceConflict.isOpen) {
       return
     }
 
@@ -763,7 +771,7 @@ function ChatPageContent() {
       if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, isAuthLoading, user?.username, user?.display_name, resolvePeerKeyAndDecrypt])
+  }, [roomId, isAuthLoading, user?.username, user?.display_name, e2eeVerified, resolvePeerKeyAndDecrypt])
 
   // Muat detail judul percakapan / kontak & kunci E2EE lawan bicara saat room berubah
   useEffect(() => {
