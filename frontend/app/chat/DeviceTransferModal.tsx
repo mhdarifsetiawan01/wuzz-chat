@@ -59,6 +59,7 @@ export function DeviceTransferModal({
   const [cameraError, setCameraError] = useState('')
   const qrScannerRef = useRef<Html5Qrcode | null>(null)
   const isStoppingRef = useRef(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -72,10 +73,12 @@ export function DeviceTransferModal({
   }
 
   const stopScanner = async () => {
-    if (qrScannerRef.current && isScannerRunning && !isStoppingRef.current) {
+    if (qrScannerRef.current && !isStoppingRef.current) {
       isStoppingRef.current = true
       try {
-        await qrScannerRef.current.stop()
+        if (isScannerRunning) {
+          await qrScannerRef.current.stop()
+        }
         qrScannerRef.current.clear()
       } catch (err) {
         console.warn('[DeviceTransferModal] Error stopping scanner:', err)
@@ -98,42 +101,115 @@ export function DeviceTransferModal({
       const scanner = new Html5Qrcode('qr-reader')
       qrScannerRef.current = scanner
 
+      // Konfigurasi dinamis tanpa memaksakan aspectRatio 1:1 yang sering ditolak driver kamera HP
       const config = {
         fps: 10,
-        qrbox: { width: 220, height: 220 },
-        aspectRatio: 1.0,
+        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const edge = Math.min(viewfinderWidth, viewfinderHeight)
+          const size = Math.max(160, Math.floor(edge * 0.75))
+          return { width: size, height: size }
+        },
       }
 
-      await scanner.start(
-        { facingMode: 'environment' },
-        config,
-        async (decodedText) => {
-          let token = decodedText.trim()
-          if (token.includes('token=')) {
-            const match = token.match(/token=([a-f0-9]{64})/i)
-            if (match) token = match[1]
-          }
-
-          if (/^[a-f0-9]{64}$/i.test(token)) {
-            await stopScanner()
-            await handleProcessToken(token)
-          } else {
-            setCameraError('QR Code tidak valid atau bukan sesi transfer Wuzz Chat.')
-          }
-        },
-        () => {
-          // Frame callback parsing
+      const onScanSuccess = async (decodedText: string) => {
+        let token = decodedText.trim()
+        if (token.includes('token=')) {
+          const match = token.match(/token=([a-f0-9]{64})/i)
+          if (match) token = match[1]
         }
-      )
+
+        if (/^[a-f0-9]{64}$/i.test(token)) {
+          await stopScanner()
+          await handleProcessToken(token)
+        } else {
+          setCameraError('QR Code tidak valid atau bukan sesi transfer Wuzz Chat.')
+        }
+      }
+
+      // Layer 1: Deteksi daftar kamera fisik perangkat (Sangat kompatibel untuk HP Android multi-camera)
+      let cameraStarted = false
+      try {
+        const cameras = await Html5Qrcode.getCameras()
+        if (cameras && cameras.length > 0) {
+          // Cari kamera belakang
+          const backCam = cameras.find((c) =>
+            /back|rear|belakang|environment|belak/i.test(c.label)
+          )
+          const selectedId = backCam
+            ? backCam.id
+            : cameras.length > 1
+            ? cameras[cameras.length - 1].id
+            : cameras[0].id
+          await scanner.start(selectedId, config, onScanSuccess, () => {})
+          cameraStarted = true
+        }
+      } catch (camErr) {
+        console.warn('[DeviceTransferModal] getCameras gagal, mencoba fallback facingMode:', camErr)
+      }
+
+      // Layer 2: Fallback ke standard environment constraint
+      if (!cameraStarted) {
+        try {
+          await scanner.start({ facingMode: 'environment' }, config, onScanSuccess, () => {})
+          cameraStarted = true
+        } catch (envErr) {
+          console.warn('[DeviceTransferModal] environment facingMode gagal, mencoba fallback user/any:', envErr)
+          // Layer 3: Fallback ke kamera default/user
+          await scanner.start({ facingMode: 'user' }, config, onScanSuccess, () => {})
+          cameraStarted = true
+        }
+      }
+
       setIsScannerRunning(true)
     } catch (err: any) {
       console.warn('[DeviceTransferModal] Gagal memulai scanner kamera:', err)
       setIsScannerRunning(false)
-      setCameraError(
-        err?.message?.includes('NotAllowedError') || err?.name === 'NotAllowedError'
-          ? 'Izin kamera ditolak. Silakan izinkan akses kamera di browser atau gunakan tab "Masukkan Kode Manual".'
-          : 'Kamera tidak dapat diakses di perangkat ini. Silakan gunakan tab "Masukkan Kode Manual".'
-      )
+      const msg = err?.message || String(err)
+      if (err?.name === 'NotAllowedError' || msg.includes('NotAllowedError') || msg.includes('Permission denied')) {
+        setCameraError('Izin kamera ditolak. Silakan izinkan akses kamera di setelan browser HP Anda, atau gunakan unggah foto / kode manual.')
+      } else if (err?.name === 'NotFoundError' || msg.includes('NotFoundError') || msg.includes('Requested device not found')) {
+        setCameraError('Kamera tidak ditemukan pada perangkat ini. Silakan gunakan unggah foto atau kode manual.')
+      } else {
+        setCameraError(`Kamera tidak dapat diakses (${msg || 'Device busy'}). Silakan coba tombol "Buka Kamera Sekarang", unggah foto QR, atau masukkan kode manual.`)
+      }
+    }
+  }
+
+  // Fallback scan langsung dari file gambar / screenshot / tangkapan kamera native HP
+  const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setErrorMsg('')
+    setCameraError('')
+    setIsSubmitting(true)
+    try {
+      await stopScanner()
+      const container = document.getElementById('qr-reader')
+      if (!container) throw new Error('Container pemindai tidak siap')
+
+      const scanner = new Html5Qrcode('qr-reader')
+      qrScannerRef.current = scanner
+
+      const decodedText = await scanner.scanFile(file, false)
+      let token = decodedText.trim()
+      if (token.includes('token=')) {
+        const match = token.match(/token=([a-f0-9]{64})/i)
+        if (match) token = match[1]
+      }
+
+      if (/^[a-f0-9]{64}$/i.test(token)) {
+        await handleProcessToken(token)
+      } else {
+        throw new Error('QR Code tidak valid atau bukan sesi transfer Wuzz Chat.')
+      }
+    } catch (err: any) {
+      console.warn('[DeviceTransferModal] Gagal memindai gambar QR:', err)
+      setErrorMsg(err?.message || 'Gagal membaca QR Code dari gambar. Pastikan gambar jelas dan tidak buram.')
+    } finally {
+      setIsSubmitting(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
@@ -607,7 +683,7 @@ export function DeviceTransferModal({
                     }}
                   >
                     <div>⚠️ <strong>Akses Kamera:</strong> {cameraError}</div>
-                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <button
                         type="button"
                         onClick={() => startScanner()}
@@ -615,6 +691,22 @@ export function DeviceTransferModal({
                         style={{ fontSize: '0.8rem', padding: '8px 12px', width: '100%', justifyContent: 'center' }}
                       >
                         🔄 Coba Akses Kamera Lagi
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="btn btn-secondary"
+                        style={{
+                          fontSize: '0.8rem',
+                          padding: '8px 12px',
+                          width: '100%',
+                          justifyContent: 'center',
+                          background: 'rgba(59, 130, 246, 0.15)',
+                          color: 'var(--accent-300)',
+                          borderColor: 'rgba(59, 130, 246, 0.3)',
+                        }}
+                      >
+                        📁 Pilih Foto QR / Buka Kamera HP
                       </button>
                       <button
                         type="button"
@@ -630,6 +722,34 @@ export function DeviceTransferModal({
                     </div>
                   </div>
                 )}
+
+                {/* Alternatif Upload File QR (selalu tampil di bawah scanner) */}
+                <div style={{ marginTop: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleFileScan}
+                    style={{ display: 'none' }}
+                  />
+                  {!cameraError && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="btn btn-secondary"
+                      style={{
+                        width: '100%',
+                        fontSize: '0.8rem',
+                        padding: '8px 12px',
+                        justifyContent: 'center',
+                        background: 'var(--bg-tertiary)',
+                        border: '1px dashed var(--border-color)',
+                      }}
+                    >
+                      📁 Atau Pindai dari File Gambar / Galeri HP
+                    </button>
+                  )}
+                </div>
 
                 {errorMsg && (
                   <div
