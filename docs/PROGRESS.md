@@ -324,6 +324,13 @@
   - **Kriptografi Hybrid E2EE**: Menggunakan AES-256-GCM dengan kunci turunan PBKDF2 (100.000 iterasi, SHA-256) dari 256-bit entropy random token, menjamin private key tidak pernah menyentuh server dalam bentuk plaintext.
   - **Komponen Frontend & Deep Link**: `DeviceTransferModal.tsx` (mode QR generator dengan live countdown timer dan fallback salin kode manual), tombol integrasi di `ProfileModal.tsx` dan `DeviceConflictModal.tsx`, serta halaman deep link otomatis `/transfer?token=...`.
   - **Unit Test Komprehensif**: `TestTransferHandler_Lifecycle` dan `TestTransferHandler_ExpiredSession` lulus 100% (atomic consume, anti-replay 410 Gone, unauthorized 403 Forbidden, expired TTL).
+- [x] **Milestone 7.7: Hard Blocker UI, In-App Camera QR Scanner, Fail-Closed E2EE Guard, & Single-Session WebSocket Kick**:
+  - **Hard Blocker UI Guard**: Layar chat di belakang modal konflik terkunci total dan tidak dirender ke DOM saat terjadi konflik perangkat. Tombol back HP dan gestur dismissal otomatis diarahkan ke `logout()` bersih.
+  - **In-App Camera QR Scanner (`html5-qrcode`)**: Terintegrasi viewfinder kamera pemindai QR langsung di dalam `DeviceTransferModal.tsx` dengan auto-detection token URL, eliminasi kebutuhan aplikasi luar, dan pembersihan stream kamera otomatis.
+  - **Smart Tab Filtering**: Tab "Buat QR (Perangkat Lama)" otomatis disembunyikan pada perangkat baru (`hideGenerate={true}`), mencegah kebingungan dan menghilangkan pesan error *"Kunci keamanan lokal tidak ditemukan"*.
+  - **Fail-Closed E2EE Guard**: Pengiriman pesan teks/media pada direct room otomatis dibatalkan jika kunci AES sesi belum terverifikasi di perangkat, menjamin 0% kebocoran pesan plaintext.
+  - **Single-Session WebSocket Kick**: Backend Go `Hub.Register` mendeteksi login baru dari UserID yang sama, mengirim event `SESSION_REPLACED`, dan memutus koneksi WebSocket perangkat lama secara instan.
+  - **Unit Test Baru**: `TestHub_SingleActiveDeviceKick` (100% PASS).
 
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`

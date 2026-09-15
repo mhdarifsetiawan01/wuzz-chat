@@ -111,6 +111,7 @@ Setiap frame pesan WebSocket menggunakan format JSON:
 | `call_end` / `call_reject` | Bidirectional | Mengakhiri / menolak panggilan suara & video |
 | `room_users` | Server ➔ Klien | Update daftar anggota online di room |
 | `history` | Server ➔ Klien | Array riwayat pesan (`messages: [...]`), lakukan dekripsi batch |
+| `system` | Server ➔ Klien | Pesan kontrol server. Jika `content` mengandung `SESSION_REPLACED`, putus koneksi socket dan arahkan pengguna ke layar login/re-auth (Single Active Device Kick). |
 
 > 🛡️ **Catatan Otorisasi Keamanan (BOLA/IDOR)**: Server backend secara ketat memvalidasi field `room` pada setiap event WebSocket. Klien mobile wajib memastikan bahwa user telah menjadi anggota sah dari room terkait sebelum memancarkan event, jika tidak server akan mengembalikan pesan `TypeSystem: Akses ditolak`.
 

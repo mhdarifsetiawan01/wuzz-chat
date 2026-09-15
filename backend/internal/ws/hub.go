@@ -109,8 +109,30 @@ func (h *Hub) NodeID() string {
 // Register menambahkan client baru ke registry.
 func (h *Hub) Register(c *Client) {
 	h.mu.Lock()
+	oldClient, exists := h.clients[c.ID]
 	h.clients[c.ID] = c
 	h.mu.Unlock()
+
+	// Single Active Device Enforcement: Kick sesi WebSocket lama dari UserID yang sama
+	if exists && oldClient != nil && oldClient != c {
+		log.Printf("[Hub %s] kick sesi lama client %s karena login baru terdeteksi", h.nodeID[:8], c.ID)
+		go func(old *Client) {
+			kickMsg := Message{
+				ID:        uuid.New().String(),
+				Type:      TypeSystem,
+				Content:   "SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.",
+				Timestamp: time.Now().UTC(),
+			}
+			select {
+			case old.send <- kickMsg:
+			default:
+			}
+			time.Sleep(50 * time.Millisecond)
+			if old.conn != nil {
+				_ = old.conn.Close()
+			}
+		}(oldClient)
+	}
 
 	if err := h.clientStore.Set(store.ClientRecord{
 		ID:       c.ID,

@@ -48,7 +48,13 @@
 ### DEC-017: QR Code E2EE Key Transfer (Opsi 2)
 - **Konteks:** Menghindari kehilangan riwayat pesan atau perbedaan fingerprint saat berganti perangkat tanpa membocorkan private key ke server.
 - **Keputusan:** Menggunakan mekanisme hybrid: Device aktif mengenkripsi keypair dengan AES-256-GCM (kunci PBKDF2 dari random 32-byte session token) dan mengunggah ciphertext ke tabel `device_transfer_sessions` (TTL 5 menit). Device baru memindai QR code, memanggil `/api/users/transfer/consume` yang secara atomik menandai `is_used = true` dan memindahkan `active_device_id` ke perangkat baru dalam 1 transaksi DB. Device baru mendekripsi ciphertext secara lokal dan menyimpan keypair ke IndexedDB tanpa merusak Zero-Knowledge.
-- **Status:** Dalam Proses Implementasi.
+- **Status:** Diimplementasikan & Berfungsi.
 
-
-
+### DEC-018: Hard Conflict Blocker, In-App QR Scanner & Fail-Closed E2EE Guard
+- **Konteks:** Ditemukan celah di mana penutupan modal konflik memungkinkan perangkat tanpa kunci mengakses chat dan mengirim pesan plaintext tanpa enkripsi. Selain itu, perangkat baru membingungkan user dengan tab "Buat QR" yang gagal serta ketiadaan pemindai kamera terintegrasi.
+- **Keputusan:**
+  1. Menjadikan modal konflik sebagai *hard blocker*: UI chat tidak dirender jika konflik belum diselesaikan, dan tombol keluar memaksa logout total.
+  2. Menyembunyikan tab "Buat QR" pada perangkat baru (`hideGenerate=true`) dan menambahkan scanner kamera in-app (`html5-qrcode`) agar pemindaian QR dapat dilakukan langsung dari web app.
+  3. Menerapkan *E2EE Fail-Closed Guard*: Pengiriman pesan pada direct room diblokir jika AES room key bernilai `null` (mencegah kebocoran plaintext).
+  4. Backend WebSocket Hub memutuskan koneksi perangkat lama secara instan jika akun yang sama terhubung dari perangkat baru.
+- **Status:** Disetujui & Siap Dieksekusi.
