@@ -45,10 +45,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Gagal menginisialisasi message store: %v", err)
 	}
-	// Inisialisasi User Store dari SQL DB
+	// Inisialisasi User Store & Transfer Store dari SQL DB
 	var userStore store.UserStore
+	var transferStore store.TransferStore
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		userStore = store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+		transferStore = store.NewSQLTransferStore(sqlStore.DB(), sqlStore.DriverName())
 	}
 
 	// Inisialisasi Push Notification Service (Web Push VAPID & Multi-Platform Gateway)
@@ -58,10 +60,25 @@ func main() {
 	var authHandler *api.AuthHandler
 	var chatHandler *api.ChatHandler
 	var notificationHandler *api.NotificationHandler
+	var transferHandler *api.TransferHandler
 	if userStore != nil {
 		authHandler = api.NewAuthHandler(userStore)
 		chatHandler = api.NewChatHandler(userStore, messageStore)
 		notificationHandler = api.NewNotificationHandler(pushService, userStore)
+	}
+	if transferStore != nil {
+		transferHandler = api.NewTransferHandler(transferStore)
+
+		// Background worker pembersih sesi transfer kedaluwarsa (setiap 10 menit)
+		go func() {
+			ticker := time.NewTicker(10 * time.Minute)
+			defer ticker.Stop()
+			for range ticker.C {
+				if _, err := transferStore.CleanupExpiredSessions(); err != nil {
+					log.Printf("⚠️ Gagal membersihkan sesi transfer kedaluwarsa: %v", err)
+				}
+			}
+		}()
 	}
 
 	// Inisialisasi Media Storage & Handler
@@ -179,6 +196,16 @@ func main() {
 		}))
 		mux.HandleFunc("/api/users/public-key/reset", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.ResetPublicKey)).ServeHTTP(w, r)
+		}))
+	}
+
+	// REST API Routes (E2EE Device Key Transfer via QR Code)
+	if transferHandler != nil {
+		mux.HandleFunc("/api/users/transfer/create", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(transferHandler.CreateSession)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/users/transfer/consume", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(transferHandler.ConsumeSession)).ServeHTTP(w, r)
 		}))
 	}
 

@@ -45,4 +45,10 @@
 - **Keputusan:** Menetapkan prinsip 1 device aktif dengan pelacakan `active_device_id` dan `key_version` di database. Backend menolak overwrite dari device berbeda dengan HTTP 409 Conflict (`KEY_ALREADY_REGISTERED`). Frontend menampilkan `DeviceConflictModal` yang memberi pilihan kepada user untuk membatalkan atau mereset sesi enkripsi ke perangkat baru secara sadar (`/api/users/public-key/reset`). Arsitektur ini forward-compatible dengan upgrade multi-device QR-link (Opsi B).
 - **Status:** Diimplementasikan & Terverifikasi (100% Pass).
 
+### DEC-017: QR Code E2EE Key Transfer (Opsi 2)
+- **Konteks:** Menghindari kehilangan riwayat pesan atau perbedaan fingerprint saat berganti perangkat tanpa membocorkan private key ke server.
+- **Keputusan:** Menggunakan mekanisme hybrid: Device aktif mengenkripsi keypair dengan AES-256-GCM (kunci PBKDF2 dari random 32-byte session token) dan mengunggah ciphertext ke tabel `device_transfer_sessions` (TTL 5 menit). Device baru memindai QR code, memanggil `/api/users/transfer/consume` yang secara atomik menandai `is_used = true` dan memindahkan `active_device_id` ke perangkat baru dalam 1 transaksi DB. Device baru mendekripsi ciphertext secara lokal dan menyimpan keypair ke IndexedDB tanpa merusak Zero-Knowledge.
+- **Status:** Dalam Proses Implementasi.
+
+
 

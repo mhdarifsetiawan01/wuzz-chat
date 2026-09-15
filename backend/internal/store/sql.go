@@ -116,6 +116,16 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_push_subs_user_id ON push_subscriptions(user_id);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subs_endpoint ON push_subscriptions(endpoint);`,
+		// Tabel Device Transfer Sessions (E2EE Key Transfer via QR Code / One-Time Token)
+		`CREATE TABLE IF NOT EXISTS device_transfer_sessions (
+			session_token VARCHAR(128) PRIMARY KEY,
+			user_id VARCHAR(64) NOT NULL,
+			encrypted_bundle TEXT NOT NULL,
+			is_used BOOLEAN DEFAULT FALSE,
+			created_at TIMESTAMP NOT NULL,
+			expires_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_transfer_user_exp ON device_transfer_sessions(user_id, expires_at);`,
 	}
 
 	for _, query := range migrations {

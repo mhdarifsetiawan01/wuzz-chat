@@ -9,6 +9,7 @@ import { isImageCompressionEnabled, setImageCompressionEnabled } from '@/lib/ima
 import { getMediaCacheStats, clearMediaCache } from '@/lib/mediaCache'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { getActiveServiceWorkerVersion } from '@/lib/pushNotification'
+import { DeviceTransferModal } from './DeviceTransferModal'
 
 interface ProfileModalProps {
   isOpen: boolean
@@ -41,6 +42,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [cacheStats, setCacheStats] = useState<{ count: number; totalBytes: number }>({ count: 0, totalBytes: 0 })
   const [cacheClearMsg, setCacheClearMsg] = useState('')
   const [swVersion, setSwVersion] = useState<string | null>(null)
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false)
 
   useEffect(() => {
     if (user && isOpen) {
@@ -400,6 +402,52 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             )}
           </div>
 
+          {/* Section: Keamanan & Transfer Perangkat (E2EE Zero-Knowledge) */}
+          <div
+            style={{
+              marginTop: 'var(--space-4)',
+              paddingTop: 'var(--space-4)',
+              borderTop: '1px solid var(--border-color)',
+            }}
+          >
+            <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+              🔐 Keamanan & Pindah Perangkat (E2EE)
+            </h4>
+
+            <div
+              style={{
+                background: 'var(--bg-tertiary)',
+                borderRadius: 'var(--radius-md)',
+                padding: '12px',
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              <div style={{ fontSize: '0.84rem', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                📱 Pindah ke Perangkat Lain via QR Code
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.4 }}>
+                Pindahkan kunci enkripsi akun Anda ke HP atau Laptop lain secara instan tanpa merusak riwayat pesan.
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsTransferModalOpen(true)}
+                className="btn btn-secondary"
+                style={{
+                  width: '100%',
+                  fontSize: '0.825rem',
+                  padding: '8px 12px',
+                  justifyContent: 'center',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: 'var(--accent-300)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                }}
+              >
+                📲 Buka QR Code Transfer Kunci
+              </button>
+            </div>
+          </div>
+
           {/* Action Buttons */}
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-5)' }}>
             <button
@@ -476,6 +524,14 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           </div>
         </form>
       </div>
+
+      {/* Nested Device Transfer Modal */}
+      <DeviceTransferModal
+        isOpen={isTransferModalOpen}
+        initialMode="generate"
+        currentUserId={user.id}
+        onClose={() => setIsTransferModalOpen(false)}
+      />
     </div>
   )
 }

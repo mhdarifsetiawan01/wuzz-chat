@@ -1304,9 +1304,14 @@ function ChatPageContent() {
         isOpen={deviceConflict.isOpen}
         isRotated={deviceConflict.isRotated}
         keyVersion={deviceConflict.keyVersion}
+        currentUserId={user?.id || ''}
         onClose={() => setDeviceConflict({ isOpen: false })}
         onConfirmReset={handleConfirmDeviceReset}
         onLogout={handleDeviceConflictLogout}
+        onTransferSuccess={() => {
+          setDeviceConflict({ isOpen: false })
+          window.location.reload()
+        }}
       />
     </div>
   )
