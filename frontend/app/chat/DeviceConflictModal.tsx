@@ -121,7 +121,12 @@ export function DeviceConflictModal({
             <button
               type="button"
               className="btn btn-primary"
-              onClick={onLogout}
+              onClick={() => {
+                onLogout()
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/login'
+                }
+              }}
               style={{ width: '100%', padding: '12px', fontSize: '0.95rem' }}
             >
               🔄 Masuk Ulang untuk Memperbarui Sesi
@@ -141,7 +146,12 @@ export function DeviceConflictModal({
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={onLogout}
+                onClick={() => {
+                  onLogout()
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/login'
+                  }
+                }}
                 disabled={isResetting}
                 style={{ width: '100%', padding: '10px', fontSize: '0.9rem' }}
               >

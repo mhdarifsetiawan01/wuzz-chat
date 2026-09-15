@@ -342,8 +342,13 @@ function ChatPageContent() {
   }, [user?.id, resolvePeerKeyAndDecrypt])
 
   // Handler logout saat terjadi konflik perangkat
-  const handleDeviceConflictLogout = useCallback(() => {
-    logout()
+  const handleDeviceConflictLogout = useCallback(async () => {
+    try {
+      await logout()
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
   }, [logout])
 
   useEffect(() => {
@@ -352,7 +357,11 @@ function ChatPageContent() {
     if (!user) {
       // Jika user belum login, wajib alihkan ke halaman login
       const targetUrl = roomId ? `/login?room=${encodeURIComponent(roomId)}` : '/login'
-      router.replace(targetUrl)
+      if (typeof window !== 'undefined') {
+        window.location.href = targetUrl
+      } else {
+        router.replace(targetUrl)
+      }
       return
     }
 
@@ -1130,12 +1139,34 @@ function ChatPageContent() {
     }
   }
 
-  if (isAuthLoading || !user) {
+  if (isAuthLoading) {
     return (
       <div className="chat-app-container" style={{ alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
         <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: '2rem', marginBottom: 'var(--space-3)', animation: 'spin 1.5s linear infinite' }}>💬</div>
           <p>Memverifikasi sesi akun...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="chat-app-container" style={{ alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+        <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 'var(--space-4)' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: 'var(--space-3)' }}>🔒</div>
+          <p style={{ marginBottom: 'var(--space-4)', color: 'var(--text-primary)', fontWeight: 500 }}>Sesi akun telah berakhir atau belum masuk.</p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.location.href = '/login'
+              }
+            }}
+          >
+            Masuk ke Akun
+          </button>
         </div>
       </div>
     )
