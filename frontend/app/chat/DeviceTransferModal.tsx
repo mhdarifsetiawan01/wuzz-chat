@@ -18,6 +18,7 @@ interface DeviceTransferModalProps {
   initialMode?: 'generate' | 'input' | 'scan'
   hideGenerate?: boolean
   currentUserId: string
+  disableBackHandler?: boolean
   onClose: () => void
   onTransferSuccess?: () => void
 }
@@ -27,6 +28,7 @@ export function DeviceTransferModal({
   initialMode = 'generate',
   hideGenerate = false,
   currentUserId,
+  disableBackHandler = false,
   onClose,
   onTransferSuccess,
 }: DeviceTransferModalProps) {
@@ -60,7 +62,7 @@ export function DeviceTransferModal({
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  useModalBackHandler(isOpen, onClose)
+  useModalBackHandler(!disableBackHandler && isOpen, onClose, 'device_transfer')
 
   const clearTimer = () => {
     if (timerRef.current) {
@@ -577,7 +579,15 @@ export function DeviceTransferModal({
                   {!isScannerRunning && !cameraError && (
                     <div style={{ padding: 'var(--space-4)', color: 'var(--text-muted)' }}>
                       <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📷</div>
-                      <p style={{ fontSize: '0.85rem' }}>Menyiapkan kamera...</p>
+                      <p style={{ fontSize: '0.85rem', marginBottom: '10px' }}>Menyiapkan kamera pemindai...</p>
+                      <button
+                        type="button"
+                        onClick={() => startScanner()}
+                        className="btn btn-secondary"
+                        style={{ fontSize: '0.8rem', padding: '6px 14px', margin: '0 auto' }}
+                      >
+                        📷 Buka Kamera Sekarang
+                      </button>
                     </div>
                   )}
                 </div>
@@ -588,7 +598,7 @@ export function DeviceTransferModal({
                       background: 'rgba(239, 68, 68, 0.1)',
                       border: '1px solid rgba(239, 68, 68, 0.3)',
                       color: '#f87171',
-                      padding: '10px 14px',
+                      padding: '12px 14px',
                       borderRadius: '10px',
                       fontSize: '0.825rem',
                       marginBottom: 'var(--space-4)',
@@ -596,8 +606,16 @@ export function DeviceTransferModal({
                       lineHeight: 1.5,
                     }}
                   >
-                    ⚠️ {cameraError}
-                    <div style={{ marginTop: '8px' }}>
+                    <div>⚠️ <strong>Akses Kamera:</strong> {cameraError}</div>
+                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => startScanner()}
+                        className="btn btn-primary"
+                        style={{ fontSize: '0.8rem', padding: '8px 12px', width: '100%', justifyContent: 'center' }}
+                      >
+                        🔄 Coba Akses Kamera Lagi
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -605,7 +623,7 @@ export function DeviceTransferModal({
                           setMode('input')
                         }}
                         className="btn btn-secondary"
-                        style={{ fontSize: '0.8rem', padding: '6px 12px', width: '100%', justifyContent: 'center' }}
+                        style={{ fontSize: '0.8rem', padding: '8px 12px', width: '100%', justifyContent: 'center' }}
                       >
                         ⌨️ Beralih ke Masukkan Kode Manual
                       </button>
