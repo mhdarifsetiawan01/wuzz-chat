@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { DeviceTransferModal } from './DeviceTransferModal'
 
@@ -28,14 +28,22 @@ export function DeviceConflictModal({
   const [isResetting, setIsResetting] = useState(false)
   const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const isTransferOpenRef = useRef(isTransferOpen)
+  isTransferOpenRef.current = isTransferOpen
 
-  // Menangani tombol back di browser HP: paksa logout jika sedang di modal konflik
-  useModalBackHandler(isOpen && !isTransferOpen, () => {
-    onLogout()
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login'
+  // Menangani tombol back di browser HP:
+  // Jika transfer modal sedang terbuka, tutup transfer modal dulu.
+  // Jika sudah di modal konflik, baru lakukan logout.
+  useModalBackHandler(isOpen, () => {
+    if (isTransferOpenRef.current) {
+      setIsTransferOpen(false)
+    } else {
+      onLogout()
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
     }
-  })
+  }, 'device_conflict')
 
   if (!isOpen) return null
 
@@ -52,8 +60,9 @@ export function DeviceConflictModal({
   }
 
   return (
-    <div
-      className="modal-backdrop"
+    <>
+      <div
+        className="modal-backdrop"
       style={{
         position: 'fixed',
         top: 0,
@@ -189,13 +198,15 @@ export function DeviceConflictModal({
           )}
         </div>
       </div>
+    </div>
 
-      {/* Device Transfer Modal (Scan/Input Mode untuk Perangkat Baru) */}
+    {/* Device Transfer Modal (Scan/Input Mode untuk Perangkat Baru) - Dipisah ke level root agar tidak terganggu stacking context flex backdrop parent */}
       <DeviceTransferModal
         isOpen={isTransferOpen}
         initialMode="scan"
         hideGenerate={true}
         currentUserId={currentUserId}
+        disableBackHandler={true}
         onClose={() => setIsTransferOpen(false)}
         onTransferSuccess={() => {
           setIsTransferOpen(false)
@@ -207,6 +218,6 @@ export function DeviceConflictModal({
           }
         }}
       />
-    </div>
+    </>
   )
 }

@@ -65,3 +65,12 @@
   1. WebSocket di `page.tsx` wajib ditahan (`e2eeVerified === true`) sampai inisialisasi kunci lokal terkonfirmasi sah oleh server. Perangkat baru yang mengalami konflik tidak akan membuka socket, sehingga perangkat lama tidak pernah tertendang sia-sia.
   2. Saat inisialisasi awal di `keyStore.ts`, penolakan HTTP 409 Conflict diubah menjadi `isRotated: false` dan menghapus kunci lokal usang. Perangkat baru akan menampilkan modal konflik normal yang berisi opsi *"Reset & Masuk"* dan *"Pindah via QR Code"*, membebaskan pengguna dari deadlock loop.
 - **Status:** Diimplementasikan & Terverifikasi (100% Pass).
+
+### DEC-020: Mobile Nested Modal History Decoupling & Camera Gesture Safeguard
+- **Konteks:** Di HP Android, mengklik tombol "Pindah Kunci via QR Code / Kode" tidak menampilkan aksi apapun. Analisis mengungkap bahwa hook `useModalBackHandler` di parent modal mengeksekusi `window.history.back()` saat state `!isTransferOpen` berubah, yang langsung ditangkap oleh modal transfer yang baru saja mount sehingga modal transfer tertutup seketika (< 10ms). Selain itu, nesting DOM di dalam parent backdrop ber-filter merusak stacking context di mobile browser, dan kamera scanner memerlukan direct user gesture.
+- **Keputusan:**
+  1. Menggunakan unified single-history controller pada `DeviceConflictModal` berbasis ref (`isTransferOpenRef`) dan menonaktifkan back handler internal pada `DeviceTransferModal` via `disableBackHandler={true}`.
+  2. Memisahkan struktur DOM modal menggunakan React Fragment `<> ... </>` sehingga modal transfer memiliki stacking context `zIndex: 160` yang bersih dan independen.
+  3. Menambahkan kontrol manual "📷 Buka Kamera Sekarang" dan "🔄 Coba Akses Kamera Lagi" untuk mematuhi Permissions Policy browser mobile (Android/Chrome).
+- **Status:** Diimplementasikan & Terverifikasi (100% Pass).
+
