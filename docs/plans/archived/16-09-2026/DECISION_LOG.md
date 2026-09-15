@@ -58,3 +58,10 @@
   3. Menerapkan *E2EE Fail-Closed Guard*: Pengiriman pesan pada direct room diblokir jika AES room key bernilai `null` (mencegah kebocoran plaintext).
   4. Backend WebSocket Hub memutuskan koneksi perangkat lama secara instan jika akun yang sama terhubung dari perangkat baru.
 - **Status:** Disetujui & Siap Dieksekusi.
+
+### DEC-019: Strict WebSocket E2EE Gatekeeper & Anti-Deadlock Conflict Mode
+- **Konteks:** Ditemukan kondisi balapan (race condition) di mana browser HP yang baru login langsung membuka WebSocket dan menendang laptop keluar sebelum pemeriksaan kunci E2EE selesai. Selain itu, penolakan 409 pada perangkat baru salah diklasifikasikan sebagai `isRotated: true`, menyebabkan kedua perangkat terkunci dalam modal kuning buntu "Kunci Keamanan Telah Diperbarui".
+- **Keputusan:**
+  1. WebSocket di `page.tsx` wajib ditahan (`e2eeVerified === true`) sampai inisialisasi kunci lokal terkonfirmasi sah oleh server. Perangkat baru yang mengalami konflik tidak akan membuka socket, sehingga perangkat lama tidak pernah tertendang sia-sia.
+  2. Saat inisialisasi awal di `keyStore.ts`, penolakan HTTP 409 Conflict diubah menjadi `isRotated: false` dan menghapus kunci lokal usang. Perangkat baru akan menampilkan modal konflik normal yang berisi opsi *"Reset & Masuk"* dan *"Pindah via QR Code"*, membebaskan pengguna dari deadlock loop.
+- **Status:** Diimplementasikan & Terverifikasi (100% Pass).

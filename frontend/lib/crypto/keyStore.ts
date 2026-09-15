@@ -250,13 +250,13 @@ export async function initUserE2EE(
     )
 
     if (res.status === 409 || res.error?.includes('KEY_ALREADY_REGISTERED')) {
-      // Kunci keamanan telah di-reset dari perangkat lain!
-      // Hapus kunci lokal yang usang agar tidak terjadi pembacaan pesan korup
+      // Kunci lokal perangkat ini tidak cocok dengan sesi aktif di server.
+      // Hapus kunci lokal yang usang agar siap untuk menerima transfer QR atau fresh reset.
       await clearLocalKeyPair(userId)
       throw new E2EEDeviceConflictError(
-        'Kunci keamanan telah di-reset dari perangkat lain. Sesi keamanan di perangkat ini telah berakhir.',
+        'Akun ini sedang memiliki sesi enkripsi aktif di perangkat lain. Kunci keamanan tidak dapat ditimpa otomatis.',
         res.data?.key_version,
-        true
+        false
       )
     }
   } catch (err) {
