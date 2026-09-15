@@ -181,16 +181,36 @@ export function DeviceTransferModal({
     if (!file) return
     setErrorMsg('')
     setCameraError('')
-    setIsSubmitting(true)
+    setIsLoading(true)
+
     try {
       await stopScanner()
-      const container = document.getElementById('qr-reader')
-      if (!container) throw new Error('Container pemindai tidak siap')
 
-      const scanner = new Html5Qrcode('qr-reader')
-      qrScannerRef.current = scanner
+      // Pastikan ada container off-screen mandiri di DOM yang tidak terpengaruh unmount state
+      let container = document.getElementById('qr-file-scanner-box')
+      if (!container) {
+        container = document.createElement('div')
+        container.id = 'qr-file-scanner-box'
+        container.style.position = 'fixed'
+        container.style.top = '-9999px'
+        container.style.left = '-9999px'
+        container.style.width = '300px'
+        container.style.height = '300px'
+        container.style.opacity = '0'
+        container.style.pointerEvents = 'none'
+        document.body.appendChild(container)
+      }
 
-      const decodedText = await scanner.scanFile(file, false)
+      const fileScanner = new Html5Qrcode('qr-file-scanner-box')
+      let decodedText = ''
+      try {
+        decodedText = await fileScanner.scanFile(file, false)
+      } finally {
+        try {
+          fileScanner.clear()
+        } catch (_) {}
+      }
+
       let token = decodedText.trim()
       if (token.includes('token=')) {
         const match = token.match(/token=([a-f0-9]{64})/i)
@@ -198,15 +218,22 @@ export function DeviceTransferModal({
       }
 
       if (/^[a-f0-9]{64}$/i.test(token)) {
+        setIsLoading(false)
         await handleProcessToken(token)
       } else {
-        throw new Error('QR Code tidak valid atau bukan sesi transfer Wuzz Chat.')
+        throw new Error('Gambar tidak mengandung QR Code sesi transfer Wuzz Chat yang valid.')
       }
     } catch (err: any) {
       console.warn('[DeviceTransferModal] Gagal memindai gambar QR:', err)
-      setErrorMsg(err?.message || 'Gagal membaca QR Code dari gambar. Pastikan gambar jelas dan tidak buram.')
+      setIsLoading(false)
+      const errStr = err?.message || String(err)
+      if (errStr.includes('No MultiFormat Readers') || errStr.includes('No barcode') || errStr.includes('not found')) {
+        setErrorMsg('QR Code tidak terdeteksi pada gambar. Pastikan gambar QR Code jelas, fokus, dan tidak terpotong.')
+      } else {
+        setErrorMsg(errStr)
+      }
     } finally {
-      setIsSubmitting(false)
+      setIsLoading(false)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -226,12 +253,9 @@ export function DeviceTransferModal({
 
       if (resolvedMode === 'generate' && !hideGenerate) {
         startGenerateFlow()
-      } else if (resolvedMode === 'scan') {
-        const timer = setTimeout(() => {
-          startScanner()
-        }, 300)
-        return () => clearTimeout(timer)
       }
+      // Catatan PWA: Jangan auto-start kamera di background timer agar tidak memicu NotAllowedError
+      // Kamera dimulai murni melalui klik tombol "Buka Kamera Sekarang" (direct user gesture)
     } else {
       clearTimer()
       stopScanner()
@@ -653,14 +677,16 @@ export function DeviceTransferModal({
                 >
                   <div id="qr-reader" style={{ width: '100%' }} />
                   {!isScannerRunning && !cameraError && (
-                    <div style={{ padding: 'var(--space-4)', color: 'var(--text-muted)' }}>
-                      <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📷</div>
-                      <p style={{ fontSize: '0.85rem', marginBottom: '10px' }}>Menyiapkan kamera pemindai...</p>
+                    <div style={{ padding: 'var(--space-6) var(--space-4)', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>📷</div>
+                      <p style={{ fontSize: '0.85rem', marginBottom: '14px', color: 'var(--text-secondary)' }}>
+                        Ketuk tombol di bawah untuk menyalakan kamera
+                      </p>
                       <button
                         type="button"
                         onClick={() => startScanner()}
-                        className="btn btn-secondary"
-                        style={{ fontSize: '0.8rem', padding: '6px 14px', margin: '0 auto' }}
+                        className="btn btn-primary"
+                        style={{ fontSize: '0.85rem', padding: '10px 18px', margin: '0 auto', fontWeight: 600 }}
                       >
                         📷 Buka Kamera Sekarang
                       </button>
@@ -682,7 +708,33 @@ export function DeviceTransferModal({
                       lineHeight: 1.5,
                     }}
                   >
-                    <div>⚠️ <strong>Akses Kamera:</strong> {cameraError}</div>
+                    <div>
+                      <div style={{ fontWeight: 600, marginBottom: '6px' }}>⚠️ Akses Kamera Bermasalah</div>
+                      <div style={{ fontSize: '0.8rem', color: '#fca5a5', lineHeight: 1.4 }}>
+                        {cameraError}
+                      </div>
+                      {cameraError.includes('Izin') && (
+                        <div
+                          style={{
+                            marginTop: '8px',
+                            padding: '8px 10px',
+                            background: 'rgba(0,0,0,0.25)',
+                            borderRadius: '8px',
+                            fontSize: '0.75rem',
+                            color: 'var(--text-secondary)',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          <strong>💡 Buka Izin Kamera di PWA Android:</strong>
+                          <br />
+                          1. Buka <strong>Setelan HP (Settings)</strong> ➔ <strong>Aplikasi (Apps)</strong>.
+                          <br />
+                          2. Pilih <strong>Wuzz Chat</strong> (atau Chrome) ➔ <strong>Izin (Permissions)</strong> ➔ Aktifkan <strong>Kamera</strong>.
+                          <br />
+                          3. Atau cukup gunakan tombol biru di bawah tanpa perlu ubah setelan!
+                        </div>
+                      )}
+                    </div>
                     <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <button
                         type="button"
@@ -697,13 +749,14 @@ export function DeviceTransferModal({
                         onClick={() => fileInputRef.current?.click()}
                         className="btn btn-secondary"
                         style={{
-                          fontSize: '0.8rem',
-                          padding: '8px 12px',
+                          fontSize: '0.85rem',
+                          padding: '10px 12px',
                           width: '100%',
                           justifyContent: 'center',
-                          background: 'rgba(59, 130, 246, 0.15)',
+                          background: 'rgba(59, 130, 246, 0.2)',
                           color: 'var(--accent-300)',
-                          borderColor: 'rgba(59, 130, 246, 0.3)',
+                          borderColor: 'rgba(59, 130, 246, 0.4)',
+                          fontWeight: 600,
                         }}
                       >
                         📁 Pilih Foto QR / Buka Kamera HP
