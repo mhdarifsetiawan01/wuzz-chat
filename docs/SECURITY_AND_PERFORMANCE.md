@@ -221,6 +221,8 @@ Seluruh lapisan keamanan dan optimasi performa di atas dilindungi oleh suite pen
 | **Collision & Deterministic Direct Room E2E** | [`backend/internal/store/sql_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql_test.go) | • Stress-test prefix collision (0 tabrakan)<br>• Order-invariance & idempotency<br>• Legacy direct room backward compatibility | ✅ **100% PASS** |
 | **Purge Worker & Storage Lifecycle** | [`backend/internal/storage/purge_worker_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/purge_worker_test.go) | • Store-and-forward physical file purging | ✅ **100% PASS** |
 | **Push Notification Lifecycle E2E** | [`backend/internal/ws/e2e_push_notification_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/e2e_push_notification_test.go) | • Subscribe VAPID endpoint<br>• Offline push dispatch<br>• Unsubscribe endpoint & cleanup | ✅ **100% PASS** |
+| **Zero-Knowledge Key Migration & Transfer** | [`backend/internal/api/transfer_handler_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/transfer_handler_test.go) | • Atomic session consume<br>• Anti-replay 410 Gone<br>• Unauthorized 403 Forbidden & Expired TTL | ✅ **100% PASS** |
+| **Single Active Device WebSocket Kick** | [`backend/internal/ws/hub_single_device_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub_single_device_test.go) | • Sesi WebSocket lama otomatis di-kick (`SESSION_REPLACED`) saat login baru<br>• Hard conflict blocker & 0% kebocoran plaintext | ✅ **100% PASS** |
 
 ---
 

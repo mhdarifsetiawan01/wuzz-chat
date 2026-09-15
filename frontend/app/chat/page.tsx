@@ -365,6 +365,11 @@ function ChatPageContent() {
       return
     }
 
+    // Tahan inisialisasi WebSocket jika terdeteksi konflik perangkat aktif
+    if (deviceConflict.isOpen) {
+      return
+    }
+
     const nickname = user.display_name || user.username
 
     // Reset pesan & reply saat berpindah room
@@ -434,6 +439,15 @@ function ChatPageContent() {
     client.onMessage(msg => {
       switch (msg.type) {
         case 'system': {
+          if (msg.content?.includes('SESSION_REPLACED')) {
+            client.destroy()
+            setDeviceConflict({
+              isOpen: true,
+              isRotated: true,
+            })
+            return
+          }
+
           const idMatch = msg.content?.match(/ID kamu: ([a-f0-9-]{36})/i)
           const clientId = idMatch ? idMatch[1] : (msg.to && msg.to !== 'server' && /^[a-f0-9-]{36}$/i.test(msg.to) ? msg.to : 'user')
           if (clientId) {
@@ -843,11 +857,20 @@ function ChatPageContent() {
       roomAESKeyRef.current = key
     }
 
+    // Fail-Closed Guard: Jika percakapan direct dan key tidak dapat dibuat, jangan kirim pesan!
+    if (activePeerRef.current?.id && !key) {
+      alert('Sesi enkripsi pada perangkat ini belum valid. Pesan tidak dikirim demi melindungi keamanan E2EE Anda.')
+      setDeviceConflict({ isOpen: true, isRotated: false })
+      return
+    }
+
     if (key && content && content.trim() !== '') {
       try {
         outgoingContent = await encryptText(key, content)
       } catch (err) {
         console.warn('[E2EE] Enkripsi pesan gagal:', err)
+        alert('Gagal mengenkripsi pesan. Pengiriman dibatalkan demi keamanan.')
+        return
       }
     }
 
@@ -1168,6 +1191,27 @@ function ChatPageContent() {
             Masuk ke Akun
           </button>
         </div>
+      </div>
+    )
+  }
+
+  // Hard Blocker: Jika terjadi konflik perangkat, kunci layar total dan jangan render chat UI
+  if (deviceConflict.isOpen) {
+    return (
+      <div className="chat-app-container" style={{ alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)' }}>
+        <DeviceConflictModal
+          isOpen={deviceConflict.isOpen}
+          isRotated={deviceConflict.isRotated}
+          keyVersion={deviceConflict.keyVersion}
+          currentUserId={user?.id || ''}
+          onClose={handleDeviceConflictLogout}
+          onConfirmReset={handleConfirmDeviceReset}
+          onLogout={handleDeviceConflictLogout}
+          onTransferSuccess={() => {
+            setDeviceConflict({ isOpen: false })
+            window.location.reload()
+          }}
+        />
       </div>
     )
   }

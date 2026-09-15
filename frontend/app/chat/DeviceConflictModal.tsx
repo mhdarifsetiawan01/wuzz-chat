@@ -29,8 +29,13 @@ export function DeviceConflictModal({
   const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Menangani tombol back di browser HP
-  useModalBackHandler(isOpen, onClose)
+  // Menangani tombol back di browser HP: paksa logout jika sedang di modal konflik
+  useModalBackHandler(isOpen && !isTransferOpen, () => {
+    onLogout()
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
+  })
 
   if (!isOpen) return null
 
@@ -185,10 +190,11 @@ export function DeviceConflictModal({
         </div>
       </div>
 
-      {/* Device Transfer Modal (Input Mode) */}
+      {/* Device Transfer Modal (Scan/Input Mode untuk Perangkat Baru) */}
       <DeviceTransferModal
         isOpen={isTransferOpen}
-        initialMode="input"
+        initialMode="scan"
+        hideGenerate={true}
         currentUserId={currentUserId}
         onClose={() => setIsTransferOpen(false)}
         onTransferSuccess={() => {

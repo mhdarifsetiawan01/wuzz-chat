@@ -258,11 +258,12 @@ Karena seluruh algoritma menggunakan standar resmi NIST & RFC:
 ### D. Verifikasi Keamanan Visual (Safety Number Fingerprint)
 - Digest SHA-256 dari gabungan kunci publik kedua pihak yang diurutkan secara deterministik, diformat menjadi 6 blok angka 5 digit (total 30 digit) untuk perbandingan manual visual antar pengguna.
 
-### E. Single Active Device & Key Conflict Guard
-- **Active Device Tracking**: Server melacak `active_device_id` dan `key_version` per akun.
-- **Pencegahan Overwrite Diam-Diam**: Jika device baru mencoba upload kunci dengan device ID berbeda, server mengembalikan HTTP 409 Conflict (`KEY_ALREADY_REGISTERED`).
+### E. Single Active Device, Hard Conflict Blocker & WebSocket Kick
+- **Active Device Tracking**: Server melacak `active_device_id` dan `key_version` per akun di tabel `users`.
+- **Hard Blocker UI Guard**: Jika akun sedang mengalami konflik perangkat, frontend memblokir total render UI chat (`chat-layout` tidak dimount ke DOM). Menutup modal atau gesture back HP otomatis mengarahkan ke `logout()` bersih.
+- **Fail-Closed E2EE Guard**: Pengiriman pesan langsung (direct chat) diwajibkan melewati enkripsi AES-256-GCM. Jika kunci sesi lokal `null`, pengiriman langsung dibatalkan (0% kebocoran plaintext).
+- **Single-Session WebSocket Kick**: Backend Go `Hub.Register` mendeteksi jika client baru terhubung dengan UserID yang sama dengan client aktif, mengirimkan event notifikasi penutupan `SESSION_REPLACED`, dan memutus koneksi WebSocket client lama seketika (`conn.Close()`).
 - **Explicit Key Rotation**: Kunci hanya dapat dirotasi secara sadar melalui `POST /api/users/public-key/reset` yang menaikkan `key_version`. Sesi device lama otomatis kedaluwarsa.
-- **Forward-Compatible**: Arsitektur ini adalah fondasi bertahap untuk upgrade QR-link multi-device (seperti WhatsApp Web).
 
 ### F. Zero-Knowledge QR Code Key Migration Protocol (Opsi 2)
 ```mermaid
@@ -279,7 +280,7 @@ sequenceDiagram
     Note over S: Simpan ke device_transfer_sessions (TTL 5 Menit, is_used=false)
     A->>A: Tampilkan QR Code (/transfer?token=session_token) + 5 Min Timer
 
-    B->>B: Scan QR Code / Input Kode Manual
+    B->>B: Buka In-App Camera Scanner (html5-qrcode) / Input Kode Manual
     B->>S: POST /api/users/transfer/consume (session_token, new_device_id)
     Note over S: Atomic DB Tx: Cek Token + is_used=true + users.active_device_id=new_device_id
     S->>B: Return encrypted_bundle
@@ -289,8 +290,9 @@ sequenceDiagram
 ```
 
 1. **Jaminan Keamanan Zero-Knowledge**: Private key tidak pernah menyentuh database server dalam bentuk plaintext. Hanya ciphertext terenkripsi AES-256-GCM dengan kunci turunan dari session token yang disimpan sementara di tabel `device_transfer_sessions`.
-2. **Atomic One-Time Use**: Operasi download dan pengalihan status sesi dikunci dalam 1 transaksi database SQL (`SELECT ... FOR UPDATE` di PostgreSQL / `BEGIN EXCLUSIVE` di SQLite) untuk mencegah race condition atau double-consumption.
-3. **Resilience & Fallback**: Sesi transfer otomatis kedaluwarsa dalam 5 menit. Jika kamera perangkat baru bermasalah, pengguna dapat menyalin kode manual 64 karakter (Hex) ke form input manual.
+2. **In-App Camera Scanner Terintegrasi**: Perangkat baru menggunakan library `html5-qrcode` langsung di dalam modal untuk memindai QR code dari layar perangkat lama, tanpa memerlukan aplikasi eksternal atau scanner pihak ketiga.
+3. **Atomic One-Time Use**: Operasi download dan pengalihan status sesi dikunci dalam 1 transaksi database SQL (`SELECT ... FOR UPDATE` di PostgreSQL / `BEGIN EXCLUSIVE` di SQLite) untuk mencegah race condition atau double-consumption.
+4. **Resilience & Fallback**: Sesi transfer otomatis kedaluwarsa dalam 5 menit. Jika kamera perangkat baru bermasalah atau izin kamera ditolak, pengguna dapat menyalin kode manual 64 karakter (Hex) ke form input manual.
 
 ---
 

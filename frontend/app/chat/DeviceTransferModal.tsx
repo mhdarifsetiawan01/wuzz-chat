@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import QRCode from 'qrcode'
+import { Html5Qrcode } from 'html5-qrcode'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { getLocalUserKeyPair } from '@/lib/crypto/keyStore'
 import { exportPrivateKeyJWK } from '@/lib/crypto/e2ee'
@@ -14,7 +15,8 @@ import {
 
 interface DeviceTransferModalProps {
   isOpen: boolean
-  initialMode?: 'generate' | 'input'
+  initialMode?: 'generate' | 'input' | 'scan'
+  hideGenerate?: boolean
   currentUserId: string
   onClose: () => void
   onTransferSuccess?: () => void
@@ -23,11 +25,20 @@ interface DeviceTransferModalProps {
 export function DeviceTransferModal({
   isOpen,
   initialMode = 'generate',
+  hideGenerate = false,
   currentUserId,
   onClose,
   onTransferSuccess,
 }: DeviceTransferModalProps) {
-  const [mode, setMode] = useState<'generate' | 'input'>(initialMode)
+  // Tentukan mode awal yang aman
+  const getDefaultMode = (): 'generate' | 'input' | 'scan' => {
+    if (hideGenerate) {
+      return initialMode === 'generate' ? 'scan' : initialMode
+    }
+    return initialMode
+  }
+
+  const [mode, setMode] = useState<'generate' | 'input' | 'scan'>(getDefaultMode())
   const [isLoading, setIsLoading] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
   const [sessionToken, setSessionToken] = useState<string>('')
@@ -41,26 +52,15 @@ export function DeviceTransferModal({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
 
+  // Scanner Mode state
+  const [isScannerRunning, setIsScannerRunning] = useState(false)
+  const [cameraError, setCameraError] = useState('')
+  const qrScannerRef = useRef<Html5Qrcode | null>(null)
+  const isStoppingRef = useRef(false)
+
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   useModalBackHandler(isOpen, onClose)
-
-  // Reset state when opening modal
-  useEffect(() => {
-    if (isOpen) {
-      setMode(initialMode)
-      setErrorMsg('')
-      setSuccessMsg('')
-      setCopied(false)
-      setInputToken('')
-      if (initialMode === 'generate') {
-        startGenerateFlow()
-      }
-    } else {
-      clearTimer()
-    }
-    return () => clearTimer()
-  }, [isOpen, initialMode])
 
   const clearTimer = () => {
     if (timerRef.current) {
@@ -68,6 +68,101 @@ export function DeviceTransferModal({
       timerRef.current = null
     }
   }
+
+  const stopScanner = async () => {
+    if (qrScannerRef.current && isScannerRunning && !isStoppingRef.current) {
+      isStoppingRef.current = true
+      try {
+        await qrScannerRef.current.stop()
+        qrScannerRef.current.clear()
+      } catch (err) {
+        console.warn('[DeviceTransferModal] Error stopping scanner:', err)
+      } finally {
+        qrScannerRef.current = null
+        isStoppingRef.current = false
+        setIsScannerRunning(false)
+      }
+    }
+  }
+
+  const startScanner = async () => {
+    setCameraError('')
+    setErrorMsg('')
+    try {
+      await stopScanner()
+      const container = document.getElementById('qr-reader')
+      if (!container) return
+
+      const scanner = new Html5Qrcode('qr-reader')
+      qrScannerRef.current = scanner
+
+      const config = {
+        fps: 10,
+        qrbox: { width: 220, height: 220 },
+        aspectRatio: 1.0,
+      }
+
+      await scanner.start(
+        { facingMode: 'environment' },
+        config,
+        async (decodedText) => {
+          let token = decodedText.trim()
+          if (token.includes('token=')) {
+            const match = token.match(/token=([a-f0-9]{64})/i)
+            if (match) token = match[1]
+          }
+
+          if (/^[a-f0-9]{64}$/i.test(token)) {
+            await stopScanner()
+            await handleProcessToken(token)
+          } else {
+            setCameraError('QR Code tidak valid atau bukan sesi transfer Wuzz Chat.')
+          }
+        },
+        () => {
+          // Frame callback parsing
+        }
+      )
+      setIsScannerRunning(true)
+    } catch (err: any) {
+      console.warn('[DeviceTransferModal] Gagal memulai scanner kamera:', err)
+      setIsScannerRunning(false)
+      setCameraError(
+        err?.message?.includes('NotAllowedError') || err?.name === 'NotAllowedError'
+          ? 'Izin kamera ditolak. Silakan izinkan akses kamera di browser atau gunakan tab "Masukkan Kode Manual".'
+          : 'Kamera tidak dapat diakses di perangkat ini. Silakan gunakan tab "Masukkan Kode Manual".'
+      )
+    }
+  }
+
+  // Reset state when opening modal
+  useEffect(() => {
+    if (isOpen) {
+      const resolvedMode = hideGenerate ? (initialMode === 'generate' ? 'scan' : initialMode) : initialMode
+      setMode(resolvedMode)
+      setErrorMsg('')
+      setSuccessMsg('')
+      setCopied(false)
+      setInputToken('')
+      setCameraError('')
+
+      if (resolvedMode === 'generate' && !hideGenerate) {
+        startGenerateFlow()
+      } else if (resolvedMode === 'scan') {
+        const timer = setTimeout(() => {
+          startScanner()
+        }, 300)
+        return () => clearTimeout(timer)
+      }
+    } else {
+      clearTimer()
+      stopScanner()
+    }
+    return () => {
+      clearTimer()
+      stopScanner()
+    }
+  }, [isOpen, initialMode, hideGenerate])
 
   // Flow membuat QR code di device lama
   const startGenerateFlow = async () => {
@@ -80,7 +175,6 @@ export function DeviceTransferModal({
     clearTimer()
 
     try {
-      // 1. Ambil keypair lokal
       const keyPair = await getLocalUserKeyPair(currentUserId)
       if (!keyPair || !keyPair.privateKey) {
         throw new Error('Kunci keamanan lokal tidak ditemukan di perangkat ini.')
@@ -89,16 +183,13 @@ export function DeviceTransferModal({
       const privJWK = await exportPrivateKeyJWK(keyPair.privateKey)
       const pubJWK = keyPair.publicKeyJWK
 
-      // 2. Generate token & enkripsi bundle
       const token = generateTransferSessionToken()
       const encryptedBundle = await encryptKeyBundleForTransfer(privJWK, pubJWK, token)
 
-      // 3. Upload ke backend (TTL 5 menit)
       const { expires_in } = await uploadTransferSession(token, encryptedBundle)
       setSessionToken(token)
       setTimeLeft(expires_in)
 
-      // 4. Generate QR code (mengarah ke URL deep link /transfer?token=...)
       const transferUrl = `${window.location.origin}/transfer?token=${token}`
       const qrUrl = await QRCode.toDataURL(transferUrl, {
         width: 260,
@@ -110,7 +201,6 @@ export function DeviceTransferModal({
       })
       setQrDataUrl(qrUrl)
 
-      // 5. Mulai countdown timer
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -129,17 +219,11 @@ export function DeviceTransferModal({
     }
   }
 
-  // Flow submit token manual di device baru
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const cleanToken = inputToken.trim()
-    if (!cleanToken) {
-      setErrorMsg('Silakan masukkan kode token sesi transfer.')
-      return
-    }
-
+  // Flow pemrosesan token transfer (dari scan maupun manual input)
+  const handleProcessToken = async (cleanToken: string) => {
     setIsSubmitting(true)
     setErrorMsg('')
+    setCameraError('')
     try {
       await consumeAndImportTransfer(currentUserId, cleanToken)
       setSuccessMsg('✅ Kunci keamanan berhasil dipindahkan! Sesi perangkat ini telah aktif.')
@@ -155,6 +239,17 @@ export function DeviceTransferModal({
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Flow submit token manual di device baru
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const cleanToken = inputToken.trim()
+    if (!cleanToken) {
+      setErrorMsg('Silakan masukkan kode token sesi transfer.')
+      return
+    }
+    await handleProcessToken(cleanToken)
   }
 
   const handleCopyToken = () => {
@@ -208,16 +303,42 @@ export function DeviceTransferModal({
       >
         {/* Header Tabs */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {!hideGenerate && (
+              <button
+                type="button"
+                onClick={() => {
+                  stopScanner()
+                  setMode('generate')
+                  startGenerateFlow()
+                }}
+                style={{
+                  background: mode === 'generate' ? 'var(--accent-500)' : 'var(--bg-tertiary)',
+                  color: mode === 'generate' ? '#ffffff' : 'var(--text-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                📱 Buat QR (Perangkat Ini)
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => {
-                setMode('generate')
-                startGenerateFlow()
+                setMode('scan')
+                clearTimer()
+                setErrorMsg('')
+                setSuccessMsg('')
+                setTimeout(() => startScanner(), 300)
               }}
               style={{
-                background: mode === 'generate' ? 'var(--accent-500)' : 'var(--bg-tertiary)',
-                color: mode === 'generate' ? '#ffffff' : 'var(--text-secondary)',
+                background: mode === 'scan' ? 'var(--accent-500)' : 'var(--bg-tertiary)',
+                color: mode === 'scan' ? '#ffffff' : 'var(--text-secondary)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 padding: '6px 12px',
@@ -226,11 +347,13 @@ export function DeviceTransferModal({
                 cursor: 'pointer',
               }}
             >
-              📱 Buat QR (Perangkat Lama)
+              📷 Pindai QR (Kamera)
             </button>
+
             <button
               type="button"
               onClick={() => {
+                stopScanner()
                 setMode('input')
                 clearTimer()
                 setErrorMsg('')
@@ -246,12 +369,16 @@ export function DeviceTransferModal({
                 cursor: 'pointer',
               }}
             >
-              🔑 Masukkan Kode (Perangkat Baru)
+              🔑 Masukkan Kode (Manual)
             </button>
           </div>
+
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              stopScanner()
+              onClose()
+            }}
             style={{
               background: 'none',
               border: 'none',
@@ -266,7 +393,7 @@ export function DeviceTransferModal({
         </div>
 
         {/* MODE 1: GENERATE QR */}
-        {mode === 'generate' && (
+        {mode === 'generate' && !hideGenerate && (
           <div>
             <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '6px' }}>
               Pindahkan Sesi ke Perangkat Baru
@@ -393,7 +520,120 @@ export function DeviceTransferModal({
           </div>
         )}
 
-        {/* MODE 2: INPUT MANUAL TOKEN */}
+        {/* MODE 2: SCAN QR VIA KAMERA */}
+        {mode === 'scan' && (
+          <div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '6px' }}>
+              Pindai QR Code Perangkat Lama
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
+              Arahkan kamera perangkat ini ke kode QR yang ditampilkan di perangkat lama Anda untuk memindahkan kunci enkripsi seketika.
+            </p>
+
+            {successMsg ? (
+              <div
+                style={{
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                  color: '#22c55e',
+                  padding: 'var(--space-4)',
+                  borderRadius: '12px',
+                  fontSize: '0.9rem',
+                  marginBottom: 'var(--space-4)',
+                }}
+              >
+                {successMsg}
+              </div>
+            ) : isSubmitting ? (
+              <div style={{ padding: 'var(--space-8) 0', color: 'var(--text-muted)' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>⏳</div>
+                <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--accent-300)' }}>
+                  Mengunduh & Memulihkan Kunci Keamanan...
+                </p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Mohon tunggu sebentar, sesi Anda sedang diaktifkan.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    maxWidth: '320px',
+                    margin: '0 auto var(--space-4)',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    background: '#000000',
+                    border: '2px solid var(--border-color)',
+                    minHeight: '260px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <div id="qr-reader" style={{ width: '100%' }} />
+                  {!isScannerRunning && !cameraError && (
+                    <div style={{ padding: 'var(--space-4)', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📷</div>
+                      <p style={{ fontSize: '0.85rem' }}>Menyiapkan kamera...</p>
+                    </div>
+                  )}
+                </div>
+
+                {cameraError && (
+                  <div
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#f87171',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      fontSize: '0.825rem',
+                      marginBottom: 'var(--space-4)',
+                      textAlign: 'left',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    ⚠️ {cameraError}
+                    <div style={{ marginTop: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          stopScanner()
+                          setMode('input')
+                        }}
+                        className="btn btn-secondary"
+                        style={{ fontSize: '0.8rem', padding: '6px 12px', width: '100%', justifyContent: 'center' }}
+                      >
+                        ⌨️ Beralih ke Masukkan Kode Manual
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {errorMsg && (
+                  <div
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#f87171',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      fontSize: '0.825rem',
+                      marginBottom: 'var(--space-4)',
+                    }}
+                  >
+                    {errorMsg}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* MODE 3: INPUT MANUAL TOKEN */}
         {mode === 'input' && (
           <div>
             <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '6px' }}>
@@ -475,7 +715,10 @@ export function DeviceTransferModal({
         <div style={{ marginTop: 'var(--space-4)' }}>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              stopScanner()
+              onClose()
+            }}
             className="btn btn-secondary"
             style={{ width: '100%', padding: '8px', fontSize: '0.85rem', justifyContent: 'center' }}
           >
