@@ -264,6 +264,34 @@ Karena seluruh algoritma menggunakan standar resmi NIST & RFC:
 - **Explicit Key Rotation**: Kunci hanya dapat dirotasi secara sadar melalui `POST /api/users/public-key/reset` yang menaikkan `key_version`. Sesi device lama otomatis kedaluwarsa.
 - **Forward-Compatible**: Arsitektur ini adalah fondasi bertahap untuk upgrade QR-link multi-device (seperti WhatsApp Web).
 
+### F. Zero-Knowledge QR Code Key Migration Protocol (Opsi 2)
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Perangkat Lama (Aktif)
+    participant S as Server (Fly.io)
+    participant B as Perangkat Baru (Target)
+
+    A->>A: Baca Keypair Lokal dari IndexedDB
+    A->>A: Generate random session_token (256-bit Hex)
+    A->>A: PBKDF2(session_token, 100k iter) ➔ AES-GCM Encrypt Keypair
+    A->>S: POST /api/users/transfer/create (session_token, encrypted_bundle)
+    Note over S: Simpan ke device_transfer_sessions (TTL 5 Menit, is_used=false)
+    A->>A: Tampilkan QR Code (/transfer?token=session_token) + 5 Min Timer
+
+    B->>B: Scan QR Code / Input Kode Manual
+    B->>S: POST /api/users/transfer/consume (session_token, new_device_id)
+    Note over S: Atomic DB Tx: Cek Token + is_used=true + users.active_device_id=new_device_id
+    S->>B: Return encrypted_bundle
+    B->>B: PBKDF2(session_token) ➔ AES-GCM Decrypt
+    B->>B: Simpan Keypair ke IndexedDB & CacheStorage
+    Note over B: Sesi Aktif Berpindah Tanpa Reset Kunci & History Tetap Utuh!
+```
+
+1. **Jaminan Keamanan Zero-Knowledge**: Private key tidak pernah menyentuh database server dalam bentuk plaintext. Hanya ciphertext terenkripsi AES-256-GCM dengan kunci turunan dari session token yang disimpan sementara di tabel `device_transfer_sessions`.
+2. **Atomic One-Time Use**: Operasi download dan pengalihan status sesi dikunci dalam 1 transaksi database SQL (`SELECT ... FOR UPDATE` di PostgreSQL / `BEGIN EXCLUSIVE` di SQLite) untuk mencegah race condition atau double-consumption.
+3. **Resilience & Fallback**: Sesi transfer otomatis kedaluwarsa dalam 5 menit. Jika kamera perangkat baru bermasalah, pengguna dapat menyalin kode manual 64 karakter (Hex) ke form input manual.
+
 ---
 
 ## 📞 7. Arsitektur WebRTC 1-on-1 Voice Calling & Signaling

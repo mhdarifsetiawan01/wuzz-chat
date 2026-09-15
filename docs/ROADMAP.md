@@ -188,6 +188,7 @@ Membangun platform chatting modern yang:
   - Dekripsi otomatis di timeline obrolan penerima dengan fallback kompatibel untuk pesan lama.
   - Verifikasi keamanan visual 30-digit (*Safety Number Fingerprint*) di UI.
   - **Single Active Device & Key Conflict Guard (Opsi A)**: Pelacakan `active_device_id` & `key_version` di DB, penolakan penimpaan kunci otomatis (HTTP 409 Conflict), endpoint resmi `POST /api/users/public-key/reset`, dan modal konflik UI (`DeviceConflictModal.tsx`) untuk memastikan Safety Number 100% konsisten antar perangkat.
+  - **QR Code E2EE Key Migration (Opsi 2 / Milestone 7.6)**: Pemindahan keypair E2EE antar perangkat secara Zero-Knowledge menggunakan QR code berdurasi 5 menit (`POST /api/users/transfer/create` dan `POST /api/users/transfer/consume`), enkripsi AES-256-GCM + PBKDF2 (100k iterasi), konsumsi atomik 1x pakai di database relasional, komponen `DeviceTransferModal.tsx` dengan fallback kode manual, dan deep link `/transfer?token=...`.
   - 100% interoperabel dan siap untuk klien mobile masa depan (Kotlin Android, Flutter, React Native, Swift iOS).
 - ✅ **Milestone 7.2A: 1-on-1 Voice / Audio Calling (WebRTC P2P) (SELESAI)**:
   - Signaling full duplex via WebSocket Go Backend (`call_offer`, `call_answer`, `ice_candidate`, `call_reject`, `call_end`, `call_busy`).

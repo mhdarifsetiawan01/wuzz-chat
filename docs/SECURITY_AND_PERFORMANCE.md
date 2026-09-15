@@ -140,6 +140,15 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Pencegahan Diam-diam di Frontend**: `initUserE2EE()` tidak lagi mengunggah kunci jika status konflik terdeteksi, mencegah korupsi kunci di database server.
   - **Rotasi Kunci Eksplisit (`POST /api/users/public-key/reset`)**: Pengguna dapat mereset kunci ke perangkat baru secara sadar melalui modal UI konfirmasi (`DeviceConflictModal.tsx`). Versi kunci dinaikkan (`key_version + 1`) dan sesi perangkat lama dinonaktifkan secara aman.
 
+### 2.10 Zero-Knowledge QR Code Key Migration & Atomic Transaction Guard
+* **Lokasi Kode**: [`backend/internal/store/transfer_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/transfer_store.go), [`backend/internal/api/transfer_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/transfer_handler.go), & [`frontend/lib/crypto/keyTransfer.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/crypto/keyTransfer.ts)
+* **Prinsip Keamanan & Mitigasi Kegagalan**:
+  - **Zero Server Plaintext Storage**: Server hanya menyimpan ciphertext terenkripsi AES-256-GCM. Kunci dekripsi diturunkan via PBKDF2 (100.000 iterasi, SHA-256) dari token sesi acak 32-byte (256-bit entropy) yang hanya berpindah via visual QR Code atau input manual pengguna.
+  - **Atomic Single-Use Retrieval (Anti-Replay / Anti-Double-Spend)**: Pengambilan paket kunci di endpoint `POST /api/users/transfer/consume` dikunci dalam transaksi database tunggal (`SELECT ... FOR UPDATE` di PostgreSQL / `BEGIN` di SQLite). Sesi langsung ditandai `is_used = true` dan `users.active_device_id` dialihkan ke perangkat baru secara atomik. Usaha konsumsi ulang seketika menghasilkan HTTP 410 Gone (`SESSION_ALREADY_USED`).
+  - **Strict Ownership Enforcement**: Endpoint menolak token transfer jika JWT user pemanggil berbeda dari pemilik sesi transfer (`403 Forbidden`).
+  - **Ephemeral TTL & Background Sweeper**: Sesi otomatis kedaluwarsa setelah 5 menit (300 detik), dan worker di Go backend secara berkala membersihkan entri usang setiap 10 menit.
+  - **State Isolation pada Kegagalan Dekripsi**: Jika dekripsi lokal di browser gagal, penyimpanan `IndexedDB` perangkat target tidak disentuh sama sekali, mencegah rusaknya state kriptografi lokal.
+
 ---
 
 

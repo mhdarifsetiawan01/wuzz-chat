@@ -11,6 +11,7 @@ function LoginContent() {
   const searchParams = useSearchParams()
   const isExpired = searchParams.get('expired') === '1'
   const redirectRoom = searchParams.get('room') || ''
+  const redirectUrl = searchParams.get('redirect') || ''
 
   const { user, isLoading: isAuthLoading, login } = useAuth()
   const [username, setUsername] = useState('')
@@ -18,12 +19,16 @@ function LoginContent() {
   const [error, setError] = useState(isExpired ? '⚠️ Sesi Anda telah berakhir. Silakan masuk kembali.' : '')
   const [isLoading, setIsLoading] = useState(false)
 
-  // Redirect ke /chat jika sudah terautentikasi
+  // Redirect ke /chat (atau URL tujuan) jika sudah terautentikasi
   useEffect(() => {
     if (!isAuthLoading && user) {
-      router.replace(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
+      if (redirectUrl) {
+        router.replace(redirectUrl)
+      } else {
+        router.replace(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
+      }
     }
-  }, [user, isAuthLoading, router, redirectRoom])
+  }, [user, isAuthLoading, router, redirectRoom, redirectUrl])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,7 +54,11 @@ function LoginContent() {
 
     if (data?.token && data?.user) {
       login(data.token, data.user)
-      router.push(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
+      if (redirectUrl) {
+        router.push(redirectUrl)
+      } else {
+        router.push(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
+      }
     }
   }
 

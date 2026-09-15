@@ -239,6 +239,21 @@ Untuk menghasilkan 30-digit Safety Number yang identik dengan Web:
 4. Ambil 16 byte pertama, bagi menjadi 6 blok angka 5 digit (`(bytes % 100000).padStart(5, '0')`).
 5. Tampilkan format: `12345 67890 12345 67890 12345 67890`.
 
+### D. Migrasi Kunci via QR Code (Zero-Knowledge Device Transfer)
+
+Klien mobile yang ingin memindahkan atau membagikan keypair E2EE:
+1. **Perangkat Sumber (Pengirim Kunci)**:
+   - Generate token acak 32-byte (Hex).
+   - Derivasi kunci AES-256-GCM menggunakan PBKDF2 (`hash=SHA256, iter=100000, salt=random16Bytes`).
+   - Enkripsi bundle `{"privateKeyJWK": "...", "publicKeyJWK": "...", "createdAt": 123456}`.
+   - Panggil `POST /api/users/transfer/create` dengan `{ session_token, encrypted_bundle }` (Bearer JWT Auth).
+   - Render QR code berisi URL: `https://chat.wuzzhub.id/transfer?token=<session_token>`.
+2. **Perangkat Target (Penerima Kunci)**:
+   - Pindai QR code via kamera native / MLKit Vision Scanner.
+   - Panggil `POST /api/users/transfer/consume` dengan `{ session_token, device_id }` (Bearer JWT Auth).
+   - Dekripsi ciphertext lokal dengan PBKDF2 token yang sama.
+   - Simpan private key ke Android Keystore / iOS Keychain.
+
 ---
 
 ## 📦 4. Penanganan Media (WhatsApp-Style Store-and-Forward)

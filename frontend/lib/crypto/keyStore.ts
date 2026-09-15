@@ -300,6 +300,43 @@ export async function forceResetUserE2EE(
   }
 }
 
+// Menyimpan keypair hasil transfer dari perangkat lain ke IndexedDB & CacheStorage,
+// lalu mendaftarkan public key baru ke backend (idempotent via reset endpoint)
+// agar active_device_id dan public_key di server konsisten.
+export async function importAndSaveTransferredKeyPair(
+  userId: string,
+  privateKeyJWK: string,
+  publicKeyJWK: string
+): Promise<{ publicKeyJWK: string; privateKey: CryptoKey; publicKey: CryptoKey }> {
+  const deviceId = getOrCreateDeviceId()
+  const privateKey = await importPrivateKeyJWK(privateKeyJWK)
+  const publicKey = await importPublicKeyJWK(publicKeyJWK)
+
+  // Daftarkan public key ke backend via reset endpoint (bypass conflict 409)
+  // sehingga server menyimpan public_key baru milik device ini
+  const res = await apiRequest<{ status: string; key_version?: number; error?: string }>(
+    '/api/users/public-key/reset',
+    {
+      method: 'POST',
+      body: JSON.stringify({ public_key: publicKeyJWK, device_id: deviceId }),
+    }
+  )
+
+  if (res.error) {
+    throw new Error(`Gagal mendaftarkan kunci ke server: ${res.error}`)
+  }
+
+  // Simpan ke IndexedDB & CacheStorage hanya setelah backend berhasil
+  await saveLocalUserKeyPair(userId, privateKeyJWK, publicKeyJWK)
+  derivedAESKeyCache.clear()
+
+  return {
+    publicKeyJWK,
+    privateKey,
+    publicKey,
+  }
+}
+
 // Mengambil atau membuat Derived AES Key untuk percakapan direct dengan lawan bicara
 export async function getSharedRoomAESKey(
   myUserId: string,

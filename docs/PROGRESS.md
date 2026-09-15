@@ -318,6 +318,12 @@
   - **Explicit Key Rotation**: Endpoint `POST /api/users/public-key/reset` untuk rotasi kunci resmi ke perangkat baru yang menginkrementasikan `key_version`.
   - **Frontend UI Conflict Modal (`DeviceConflictModal.tsx`)**: Dialog interaktif untuk memilih antara membatalkan sesi atau mereset kunci ke perangkat baru, serta penanganan sesi kedaluwarsa saat kunci dirotasi dari perangkat lain.
   - **Pencegahan Ketidaksinkronan Safety Number**: Menjamin fingerprint Safety Number selalu 100% konsisten antar perangkat dan percakapan.
+- [x] **Milestone 7.6: Zero-Knowledge QR Code Key Migration (Opsi 2)**:
+  - **Tabel `device_transfer_sessions`**: Penyimpanan paket ciphertext sesi sementara dengan batas waktu kedaluwarsa (`expires_at`, TTL 5 menit) dan status penggunaan sekali pakai (`is_used`).
+  - **Atomic Transaction & One-Time Retrieval**: Endpoint `POST /api/users/transfer/create` dan `POST /api/users/transfer/consume` yang menandai status `is_used = true` dan mengalihkan `users.active_device_id` ke perangkat baru secara atomik dalam 1 transaksi database.
+  - **Kriptografi Hybrid E2EE**: Menggunakan AES-256-GCM dengan kunci turunan PBKDF2 (100.000 iterasi, SHA-256) dari 256-bit entropy random token, menjamin private key tidak pernah menyentuh server dalam bentuk plaintext.
+  - **Komponen Frontend & Deep Link**: `DeviceTransferModal.tsx` (mode QR generator dengan live countdown timer dan fallback salin kode manual), tombol integrasi di `ProfileModal.tsx` dan `DeviceConflictModal.tsx`, serta halaman deep link otomatis `/transfer?token=...`.
+  - **Unit Test Komprehensif**: `TestTransferHandler_Lifecycle` dan `TestTransferHandler_ExpiredSession` lulus 100% (atomic consume, anti-replay 410 Gone, unauthorized 403 Forbidden, expired TTL).
 
 - **Backend Go & Frontend Next.js telah LIVE di Production!**
   - Backend: `https://wuzz-chat-backend.fly.dev`

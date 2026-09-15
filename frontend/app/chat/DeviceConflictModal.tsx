@@ -2,25 +2,31 @@
 
 import { useState } from 'react'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
+import { DeviceTransferModal } from './DeviceTransferModal'
 
 interface DeviceConflictModalProps {
   isOpen: boolean
   isRotated?: boolean
   keyVersion?: number
+  currentUserId?: string
   onClose: () => void
   onConfirmReset: () => Promise<void>
   onLogout: () => void
+  onTransferSuccess?: () => void
 }
 
 export function DeviceConflictModal({
   isOpen,
   isRotated,
   keyVersion = 1,
+  currentUserId = '',
   onClose,
   onConfirmReset,
   onLogout,
+  onTransferSuccess,
 }: DeviceConflictModalProps) {
   const [isResetting, setIsResetting] = useState(false)
+  const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
   // Menangani tombol back di browser HP
@@ -146,6 +152,23 @@ export function DeviceConflictModal({
               <button
                 type="button"
                 className="btn btn-secondary"
+                onClick={() => setIsTransferOpen(true)}
+                disabled={isResetting}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  fontSize: '0.9rem',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: 'var(--accent-300)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                }}
+              >
+                📲 Pindah Kunci via QR Code / Kode
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary"
                 onClick={() => {
                   onLogout()
                   if (typeof window !== 'undefined') {
@@ -161,6 +184,23 @@ export function DeviceConflictModal({
           )}
         </div>
       </div>
+
+      {/* Device Transfer Modal (Input Mode) */}
+      <DeviceTransferModal
+        isOpen={isTransferOpen}
+        initialMode="input"
+        currentUserId={currentUserId}
+        onClose={() => setIsTransferOpen(false)}
+        onTransferSuccess={() => {
+          setIsTransferOpen(false)
+          onClose()
+          if (onTransferSuccess) {
+            onTransferSuccess()
+          } else {
+            window.location.reload()
+          }
+        }}
+      />
     </div>
   )
 }
