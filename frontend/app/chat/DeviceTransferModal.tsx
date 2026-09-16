@@ -60,8 +60,22 @@ export function DeviceTransferModal({
   const qrScannerRef = useRef<Html5Qrcode | null>(null)
   const isStoppingRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // Ref untuk membuka kamera native HP langsung via capture="environment" (100% bypass WebRTC permission PWA)
+  const nativeCameraInputRef = useRef<HTMLInputElement | null>(null)
   // Ref untuk menyimpan pre-warm MediaStream (Android PWA gesture token fix)
   const mediaStreamRef = useRef<MediaStream | null>(null)
+
+  // Deteksi lingkungan mobile / PWA standalone
+  const [isMobileOrPWA, setIsMobileOrPWA] = useState(false)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true
+      const isMobile = /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
+      setIsMobileOrPWA(isStandalone || isMobile)
+    }
+  }, [])
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -284,6 +298,9 @@ export function DeviceTransferModal({
       setIsLoading(false)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
+      }
+      if (nativeCameraInputRef.current) {
+        nativeCameraInputRef.current.value = ''
       }
     }
   }
@@ -728,16 +745,58 @@ export function DeviceTransferModal({
                     <div style={{ padding: 'var(--space-6) var(--space-4)', color: 'var(--text-muted)' }}>
                       <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>📷</div>
                       <p style={{ fontSize: '0.85rem', marginBottom: '14px', color: 'var(--text-secondary)' }}>
-                        Ketuk tombol di bawah untuk menyalakan kamera
+                        {isMobileOrPWA
+                          ? 'Pilih metode pemindaian untuk perangkat HP Anda:'
+                          : 'Ketuk tombol di bawah untuk menyalakan kamera'}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => startScanner()}
-                        className="btn btn-primary"
-                        style={{ fontSize: '0.85rem', padding: '10px 18px', margin: '0 auto', fontWeight: 600 }}
-                      >
-                        📷 Buka Kamera Sekarang
-                      </button>
+
+                      {isMobileOrPWA ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                          <button
+                            type="button"
+                            onClick={() => nativeCameraInputRef.current?.click()}
+                            className="btn btn-primary"
+                            style={{
+                              fontSize: '0.925rem',
+                              padding: '12px 18px',
+                              fontWeight: 700,
+                              width: '100%',
+                              justifyContent: 'center',
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              border: 'none',
+                              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                            }}
+                          >
+                            📸 Buka Kamera HP (Foto QR)
+                          </button>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '-4px 0 4px', lineHeight: 1.4 }}>
+                            ✨ Langsung membuka kamera sistem HP Anda tanpa kendala izin browser/PWA.
+                          </p>
+
+                          <button
+                            type="button"
+                            onClick={() => startScanner()}
+                            className="btn btn-secondary"
+                            style={{
+                              fontSize: '0.825rem',
+                              padding: '9px 14px',
+                              width: '100%',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            🎥 Atau Coba Pemindai Kamera Langsung
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startScanner()}
+                          className="btn btn-primary"
+                          style={{ fontSize: '0.85rem', padding: '10px 18px', margin: '0 auto', fontWeight: 600 }}
+                        >
+                          📷 Buka Kamera Sekarang
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -748,8 +807,8 @@ export function DeviceTransferModal({
                       background: 'rgba(239, 68, 68, 0.1)',
                       border: '1px solid rgba(239, 68, 68, 0.3)',
                       color: '#f87171',
-                      padding: '12px 14px',
-                      borderRadius: '10px',
+                      padding: '14px 16px',
+                      borderRadius: '12px',
                       fontSize: '0.825rem',
                       marginBottom: 'var(--space-4)',
                       textAlign: 'left',
@@ -757,40 +816,31 @@ export function DeviceTransferModal({
                     }}
                   >
                     <div>
-                      <div style={{ fontWeight: 600, marginBottom: '6px' }}>⚠️ Akses Kamera Bermasalah</div>
-                      <div style={{ fontSize: '0.8rem', color: '#fca5a5', lineHeight: 1.4 }}>
-                        {cameraError}
+                      <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '6px' }}>
+                        ⚠️ Kamera Live Browser Dibatasi
                       </div>
-                      {cameraError.includes('Izin') && (
-                        <div
-                          style={{
-                            marginTop: '8px',
-                            padding: '8px 10px',
-                            background: 'rgba(0,0,0,0.25)',
-                            borderRadius: '8px',
-                            fontSize: '0.75rem',
-                            color: 'var(--text-secondary)',
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          <strong>💡 Buka Izin Kamera di PWA Android:</strong>
-                          <br />
-                          1. Buka <strong>Setelan HP (Settings)</strong> ➔ <strong>Aplikasi (Apps)</strong>.
-                          <br />
-                          2. Pilih <strong>Wuzz Chat</strong> (atau Chrome) ➔ <strong>Izin (Permissions)</strong> ➔ Aktifkan <strong>Kamera</strong>.
-                          <br />
-                          3. Atau cukup gunakan tombol biru di bawah tanpa perlu ubah setelan!
-                        </div>
-                      )}
+                      <div style={{ fontSize: '0.8rem', color: '#fca5a5', lineHeight: 1.45 }}>
+                        Sistem Android WebAPK PWA membatasi izin live streaming kamera di browser. Gunakan tombol kamera native di bawah ini untuk mengambil foto QR langsung melalui kamera sistem HP Anda.
+                      </div>
                     </div>
-                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <button
                         type="button"
-                        onClick={() => startScanner()}
+                        onClick={() => nativeCameraInputRef.current?.click()}
                         className="btn btn-primary"
-                        style={{ fontSize: '0.8rem', padding: '8px 12px', width: '100%', justifyContent: 'center' }}
+                        style={{
+                          fontSize: '0.9rem',
+                          padding: '12px 14px',
+                          width: '100%',
+                          justifyContent: 'center',
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          color: '#ffffff',
+                          border: 'none',
+                          fontWeight: 700,
+                          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
+                        }}
                       >
-                        🔄 Coba Akses Kamera Lagi
+                        📸 Buka Kamera HP (Foto QR Sekarang)
                       </button>
                       <button
                         type="button"
@@ -798,16 +848,24 @@ export function DeviceTransferModal({
                         className="btn btn-secondary"
                         style={{
                           fontSize: '0.85rem',
-                          padding: '10px 12px',
+                          padding: '9px 12px',
                           width: '100%',
                           justifyContent: 'center',
-                          background: 'rgba(59, 130, 246, 0.2)',
+                          background: 'rgba(59, 130, 246, 0.15)',
                           color: 'var(--accent-300)',
-                          borderColor: 'rgba(59, 130, 246, 0.4)',
+                          borderColor: 'rgba(59, 130, 246, 0.35)',
                           fontWeight: 600,
                         }}
                       >
-                        📁 Pilih Foto QR / Buka Kamera HP
+                        📁 Pilih dari Galeri / Screenshot
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => startScanner()}
+                        className="btn btn-secondary"
+                        style={{ fontSize: '0.8rem', padding: '8px 12px', width: '100%', justifyContent: 'center' }}
+                      >
+                        🔄 Coba Live Stream Lagi
                       </button>
                       <button
                         type="button"
@@ -824,8 +882,18 @@ export function DeviceTransferModal({
                   </div>
                 )}
 
-                {/* Alternatif Upload File QR (selalu tampil di bawah scanner) */}
+                {/* Alternatif Input Kamera Native & File Upload */}
                 <div style={{ marginTop: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                  {/* Input khusus kamera native Android / iOS via intent */}
+                  <input
+                    type="file"
+                    ref={nativeCameraInputRef}
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleFileScan}
+                    style={{ display: 'none' }}
+                  />
+                  {/* Input khusus galeri / file selector */}
                   <input
                     type="file"
                     ref={fileInputRef}
