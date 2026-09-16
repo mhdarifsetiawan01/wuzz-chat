@@ -154,6 +154,40 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
    - AI hanya boleh menjalankan `fly deploy` jika user telah memberikan persetujuan/instruksi eksplisit (misal: *"ya deploy"*, *"deploy ke fly.io"*).
    - Selalu lakukan health check `curl -sI https://wuzz-chat-backend.fly.dev/health` setelah deploy untuk memastikan status HTTP 200 OK.
 
+---
+
+## 🐢 Mandatory Slow & Flaky Server Resilience Rule (MANDATORY)
+
+**AI WAJIB SELALU BEKERJA DENGAN ASUMSI BAHWA SERVER DALAM KONDISI LAMBAT (MEDIUM-SLOW RESPONSE, LATENSI 200–800ms+), SERING MENGALAMI DISCONNECT / KONEKSI TERPUTUS, ATAU MENGALAMI TIMEOUT. DILARANG MENGANGGAP SERVER BEKERJA DALAM KONDISI IDEAL ATAU INSTAN.**
+
+### Aturan konkret & SOP Antisipasi Kegagalan Jaringan/Server:
+
+1. **Prinsip Anti-Race State Gatekeeping**:
+   - Dilarang hanya mengandalkan urutan waktu (*timing*) penutupan soket TCP untuk mencegah konflik sesi.
+   - Kebenaran data wajib dikunci di level handshake protokol backend (misal: validasi `device_id` vs `active_device_id` di database pada HTTP Upgrade Handshake). Jika perangkat usang mencoba konek kembali karena timeout soket lama, server wajib langsung menolak di gerbang HTTP (Status 403) sebelum upgrade soket diizinkan.
+
+2. **Jeda Grace Period & Batas Waktu Transmisi Longgar**:
+   - Dalam setiap operasi pemutusan atau penggantian sesi secara asinkron (misal: event `SESSION_REPLACED`), backend **WAJIB memberikan jeda flush minimal 500ms** dan batas waktu penulisan (*write deadline*) WebSocket Control Frame minimal 1000ms.
+   - Hal ini memastikan frame notifikasi dan Close Code (misal Code `4001`) benar-benar terkirim tuntas melewati buffer jaringan seluler / jitter sebelum proses `conn.Close()` dieksekusi.
+
+3. **Optimistic Local UI & Write-Through Offline Cache**:
+   - Frontend **DILARANG membuat pengguna menunggu respons server** untuk tindakan interaktif seperti mengirim pesan, memperbarui linimasa chat, atau membaca riwayat yang sudah pernah diunduh.
+   - Terapkan pola **Optimistic UI + Write-Through Cache** (IndexedDB): pesan baru langsung dirender ke layar dan disimpan ke penyimpanan lokal terlebih dahulu, lalu dikirim ke server di background.
+
+4. **Batas Waktu Terkelola (*Explicit Abort Timeout*) pada Seluruh Request REST**:
+   - Seluruh pemanggilan `fetch` atau REST API di frontend **WAJIB dibungkus dengan `AbortController`**:
+     - Maksimal **15 detik** untuk request data / query umum.
+     - Maksimal **60 detik** untuk upload file / media besar.
+   - Jika waktu habis, aplikasi dilarang menggantung (*freeze*) dan harus menampilkan pesan penanganan timeout yang ramah kepada pengguna (`status 408` / pesan jaringan tidak stabil).
+
+5. **Proteksi Reconnect Exponential Backoff & Terminal Code**:
+   - Klien WebSocket wajib menerapkan exponential backoff bertingkat (1s, 2s, 4s, 8s, ... hingga 30s) dengan batas maksimal percobaan (misal 5 kali) untuk mencegah badai koneksi (*thundering herd*) saat server sedang kelebihan beban atau pulih dari gangguan.
+   - Jika koneksi ditutup dengan Close Code terminal (seperti Code `4001: SESSION_REPLACED`), klien **WAJIB langsung menghentikan loop reconnect permanen** (`this.destroyed = true`).
+
+6. **Proteksi Double-Action & Loading State Guard**:
+   - Setiap tombol aksi kritis (Login, Register, Reset Kunci, Transfer Perangkat QR, Kirim Berkas) wajib langsung masuk ke state `disabled` / menampilkan spinner loading seketika saat diklik untuk mencegah duplikasi request (*double-click race condition*) ketika server lambat merespons.
+
+
 
 
 

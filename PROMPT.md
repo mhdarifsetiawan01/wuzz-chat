@@ -98,6 +98,9 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
    - Pastikan backend selalu lulus `go test -v ./...` dan frontend selalu lulus `npm run build` sebelum menyelesaikan tugas.
 7. **Aturan Audit & Sinkronisasi Dokumentasi Holistik (SOP)**:
    - Jika user meminta "update dokumentasi" atau saat menyelesaikan fitur/perubahan skema, AI **WAJIB melakukan 360-degree audit ke SEMUA dokumen**: [`README.md`](README.md), [`docs/BACKEND_API.md`](docs/BACKEND_API.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/PROGRESS.md`](docs/PROGRESS.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md), [`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md), dan [`PROMPT.md`](PROMPT.md). Dilarang hanya mengaudit sebagian dokumen.
+8. **Aturan Ketahanan Server Lambat & Jaringan Flaky (SOP)**:
+   - AI **WAJIB selalu bekerja dengan asumsi bahwa server berada dalam kondisi lambat (medium-slow response, latensi 200–800ms+), sering terputus, atau mengalami timeout**. Dilarang mengasumsikan kondisi ideal/instan.
+   - Setiap fitur wajib mengantisipasi kegagalan jaringan: State Gatekeeper di handshake HTTP WebSocket (status 403 untuk perangkat usang), jeda flush minimal 500ms + timeout 1000ms pada event pemutusan sesi, Optimistic UI + Write-Through IndexedDB cache, batas waktu terkelola (`AbortController` 15 detik untuk query / 60 detik untuk media upload), exponential backoff dengan terminal close code 4001, dan proteksi disabled button / loading state seketika untuk mencegah race condition klik ganda.
 
 ---
 
