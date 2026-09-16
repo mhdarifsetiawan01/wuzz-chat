@@ -899,9 +899,10 @@ Bagi pengembang yang mulai membangun frontend baru dari nol, ikuti urutan integr
 - [ ] **Langkah 4: Fetch Home Screen Chat List**
   - Panggil `GET /api/conversations` untuk merender daftar riwayat percakapan.
 - [ ] **Langkah 5: Buka Room Obrolan & Join**
+  - Muat cache lokal terlebih dahulu (IndexedDB / SQLite) untuk render instan 0ms (*Cache-First*).
   - Saat user memilih chat, kirim frame `{"type":"join","room":"<room_id>"}`.
   - Dengarkan event `history` untuk merender pesan lama.
-  - Dekripsi setiap pesan berawalan `e2ee:v1:...` menggunakan kunci lawan bicara.
+  - Dekripsi setiap pesan berawalan `e2ee:v1:...` menggunakan kunci lawan bicara, lalu simpan hasil plaintext ke database cache lokal (*write-through*) demi kontinuitas pembacaan saat kunci lawan berubah.
 - [ ] **Langkah 6: Pengiriman Pesan & Receipt Sync**
   - Saat mengetik pesan, kirim event `typing`.
   - Saat tombol kirim ditekan, enkripsi pesan dengan public key lawan bicara, lalu kirim frame `{"type":"message", ...}`.

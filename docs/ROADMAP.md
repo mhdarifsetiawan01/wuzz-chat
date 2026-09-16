@@ -61,6 +61,7 @@ Membangun platform chatting modern yang:
 ┌──────────────────────────────────▼─────────────────────────────────────┐
 │  FASE 8: Core Parity (Push, Group Chat & Message Mgmt) (SEDANG JALAN⏳) │
 │  - Milestone 8.1: Universal Push Notification Engine (SELESAI ✅)       │
+│  - Milestone 8.4: IndexedDB Message Cache & E2EE Continuity (SELESAI ✅)│
 │  - Milestone 8.2: Group Chat Engine & Member Management (NEXT 🎯)       │
 │  - Milestone 8.3: Message Management Suite (Edit, Forward, Pin, Star)  │
 └──────────────────────────────────┬─────────────────────────────────────┘
@@ -210,12 +211,20 @@ Membangun platform chatting modern yang:
   - Asynchronous push dispatcher pada WebSocket Hub saat user penerima sedang offline/idle.
   - Service Worker (`public/sw.js`) dengan event `push`, `notificationclick` (deep-linking), dan **Zero-Knowledge Client-Side Background Decryption** (Web Crypto API + IndexedDB) sehingga teks pesan E2EE terdekripsi langsung di notifikasi OS layaknya WhatsApp Web.
   - UI Toggle Notifikasi di `ProfileModal.tsx` dan Tombol Header **"📲 Instal App"** di `Sidebar.tsx` dengan auto-hide di mode Standalone PWA.
+- ✅ **Milestone 8.4: IndexedDB Message Cache & E2EE Continuity (SELESAI)**:
+  - **IndexedDB Persistent Decrypted Store** (`frontend/lib/messageCache.ts`): Database lokal `wuzzchat_msg_db` dengan object store `messages` (keyPath: `id`) dan index `by_room` untuk lookup O(log n) per percakapan.
+  - **Cache-First Load**: Saat room dibuka, pesan langsung tampil instan (0ms) dari IndexedDB sebelum respons server tiba, lalu server history diupsert untuk menyinkronkan pesan baru.
+  - **Write-Through Cache** pada 6 titik mutasi: incoming message, outgoing send (optimistic), update tanda terima, pesan ditarik, hapus untuk saya, dan hapus percakapan (`clearRoomCache`).
+  - **E2EE Continuity**: Riwayat chat tetap terbaca meskipun lawan bicara me-reset device dan mengunggah kunci kriptografi baru karena plaintext tersimpan persisten di IndexedDB masing-masing user.
+  - **Security Key Change Notification**: Deteksi perubahan public key lawan bicara via `localStorage` + `lastKnownPeerKeyRef`, inject pesan sistem amber ke timeline chat (mirip WhatsApp *"Security code changed"*).
+  - **Anti-Regression Status Guard**: Status tanda terima di cache tidak dapat didowngrade (bobot integer: pending=0, sent=1, delivered=2, read=3, deleted=99).
 - 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**:
   - Pembuatan grup obrolan multi-kontak, manajemen role Admin & Member, Group Info Drawer, multicast WebSocket broadcast, dan unread count per anggota.
 - ⏳ **Milestone 8.3: Message Management Suite**:
   - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, dan in-chat text search.
 
 ---
+
 
 ## 🏛️ Arsitektur Target Platform
 

@@ -98,6 +98,8 @@ export function MessageBubble({
   onDeleteMessage,
 }: MessageBubbleProps) {
   const isSystem = message.type === 'system'
+  // Deteksi khusus: pesan notifikasi perubahan kode keamanan E2EE
+  const isSecurityNotice = isSystem && Boolean(message.id?.startsWith('security-notice-'))
   const [isExpanded, setIsExpanded] = useState(false)
   const [isReaderModalOpen, setIsReaderModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -257,7 +259,9 @@ export function MessageBubble({
     (message.content && message.content.split('\n').length > 7)
   )
 
-  const rowClass = isSystem ? 'system' : isSelf ? 'self' : 'peer'
+  const rowClass = isSystem
+    ? isSecurityNotice ? 'system security-notice' : 'system'
+    : isSelf ? 'self' : 'peer'
   const time = formatTime(message.timestamp)
 
   // Tampilan jika pesan telah ditarik / dihapus (WhatsApp style)

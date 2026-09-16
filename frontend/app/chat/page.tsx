@@ -27,6 +27,15 @@ import {
 } from '@/lib/crypto/keyStore'
 import { autoSyncPushSubscription } from '@/lib/pushNotification'
 import { DeviceConflictModal } from './DeviceConflictModal'
+import {
+  getCachedMessages,
+  cacheMessages,
+  cacheMessage,
+  updateCachedMessageStatus,
+  deleteCachedMessage,
+  toCachedRecord,
+  type CachedMessageRecord,
+} from '@/lib/messageCache'
 
 // ----------------------------------------------------------------
 // State & Reducer
@@ -249,6 +258,9 @@ function ChatPageContent() {
   const clientRef = useRef<WsClient | null>(null)
   const roomAESKeyRef = useRef<CryptoKey | null>(null)
   const activePeerRef = useRef<{ id: string; publicKey: string } | null>(null)
+  // Menyimpan public key terakhir yang diketahui per peer, untuk deteksi perubahan kunci keamanan
+  // Format localStorage key: wuzz_peer_pk_<peerId>
+  const lastKnownPeerKeyRef = useRef<Record<string, string>>({})
   const messagesRef = useRef<Message[]>([])
 
   // Selalu sinkronkan activeCallRef dengan activeCall
@@ -351,6 +363,33 @@ function ChatPageContent() {
       setPeerPublicKeyJWK(pubKey)
       activePeerRef.current = { id: peerId, publicKey: pubKey }
 
+      // ----------------------------------------------------------------
+      // Deteksi Perubahan Kunci Keamanan (Milestone 4)
+      // Bandingkan public key saat ini dengan yang terakhir diketahui.
+      // Jika berbeda, inject pesan sistem ke timeline sebagai notifikasi.
+      // ----------------------------------------------------------------
+      const lsKey = `wuzz_peer_pk_${peerId}`
+      const storedKey = lastKnownPeerKeyRef.current[peerId]
+        || (typeof window !== 'undefined' ? localStorage.getItem(lsKey) || '' : '')
+
+      if (storedKey && storedKey !== pubKey) {
+        // Kunci berubah! Inject pesan sistem ke timeline
+        const securityNoticeMsg: Message = {
+          id: `security-notice-${peerId}-${Date.now()}`,
+          type: 'system',
+          content: '🔒 Kode keamanan lawan bicara ini telah berubah. Mereka mungkin menggunakan perangkat baru. Verifikasi Safety Number jika perlu.',
+          timestamp: new Date().toISOString(),
+          room: roomId,
+        }
+        dispatch({ type: 'ADD_MESSAGE', payload: securityNoticeMsg })
+      }
+
+      // Perbarui last known key di memory ref dan localStorage
+      lastKnownPeerKeyRef.current[peerId] = pubKey
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(lsKey, pubKey)
+      }
+
       const aesKey = await getSharedRoomAESKey(user.id, peerId, pubKey, roomId)
       if (aesKey) {
         roomAESKeyRef.current = aesKey
@@ -422,6 +461,46 @@ function ChatPageContent() {
     setIsMemberListOpen(false)
     setIsLoadingHistory(Boolean(roomId))
     setIsHistoryError(false)
+
+    // Cache-First Load: Baca riwayat pesan dari IndexedDB lokal sebelum server merespons.
+    // Ini membuat pesan muncul instan (0ms) tanpa harus menunggu fetch + dekripsi dari server.
+    if (roomId) {
+      getCachedMessages(roomId).then((cached) => {
+        if (cached.length > 0) {
+          // Konversi CachedMessageRecord → Message agar kompatibel dengan reducer
+          const cachedMsgs: Message[] = cached.map((c: CachedMessageRecord) => ({
+            id: c.id,
+            room_id: c.room_id,
+            conversation_id: c.room_id,
+            content: c.content,
+            sender_id: c.sender_id,
+            nickname: c.sender_display_name || c.sender_username || '',
+            display_name: c.sender_display_name,
+            username: c.sender_username,
+            avatar_url: c.sender_avatar_url,
+            created_at: c.created_at,
+            status: c.status as Message['status'],
+            type: c.type as Message['type'],
+            media_url: c.media_url,
+            media_mime_type: c.media_mime_type,
+            media_file_name: c.media_file_name,
+            media_size: c.media_size,
+            reply_to: c.reply_to
+              ? {
+                  id: c.reply_to.id,
+                  content: c.reply_to.content,
+                  sender_id: c.reply_to.sender_id,
+                  nickname: c.reply_to.sender_display_name || '',
+                }
+              : undefined,
+            reactions: c.reactions as Message['reactions'],
+          }))
+          dispatch({ type: 'SET_MESSAGES', payload: cachedMsgs })
+        }
+      }).catch(() => {
+        // Gagal baca cache — tidak apa-apa, server history akan mengisi ulang
+      })
+    }
 
     if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
     if (roomId) {
@@ -543,6 +622,42 @@ function ChatPageContent() {
               )
 
               dispatch({ type: 'SET_MESSAGES', payload: decryptedList })
+
+              // Write-Through ke IndexedDB: simpan seluruh pesan yang berhasil didekripsi.
+              // Hanya simpan pesan dengan konten yang bukan placeholder error enkripsi.
+              const toCache = decryptedList
+                .filter((m: Message) => m.id && m.content && m.content !== '🔒 [Pesan Terenkripsi]')
+                .map((m: Message) => toCachedRecord({
+                  id: m.id!,
+                  room_id: roomId,
+                  content: m.content || '',
+                  sender_id: m.from || '',
+                  sender_display_name: m.nickname || '',
+                  sender_username: m.nickname || '',
+                  created_at: m.timestamp || new Date().toISOString(),
+                  status: m.status || 'sent',
+                  type: (m.type === 'message' ? 'text' : m.type) || 'text',
+                  media_url: m.media_url,
+                  media_mime_type: m.media_type,
+                  media_file_name: m.file_name,
+                  media_size: m.file_size,
+                  reply_to: m.reply_to
+                    ? {
+                        id: m.reply_to.id,
+                        content: m.reply_to.content,
+                        sender_id: '',
+                        sender_display_name: m.reply_to.nickname,
+                      }
+                    : undefined,
+                  reactions: m.reactions
+                    ? Object.fromEntries(m.reactions.map(r => [r.emoji, r.users]))
+                    : undefined,
+                }))
+              if (toCache.length > 0) {
+                cacheMessages(toCache).catch(() => {
+                  // Cache write gagal — tidak memblokir UI
+                })
+              }
             }
 
             processHistory()
@@ -582,6 +697,13 @@ function ChatPageContent() {
               type: 'UPDATE_MESSAGE_STATUS',
               payload: { id: msg.id, status: msg.status },
             })
+            // Write-Through: sinkronkan status tanda terima ke cache IndexedDB
+            if (msg.id) {
+              updateCachedMessageStatus(msg.id, msg.status).catch(() => {})
+            } else if (roomId && msg.status === 'read') {
+              // Bulk read receipt tanpa ID spesifik — tandai semua pesan room di cache
+              // (opsional: cukup biarkan server history sync saat refresh berikutnya)
+            }
           }
           break
         }
@@ -620,6 +742,36 @@ function ChatPageContent() {
               dispatch({ type: 'ADD_MESSAGE', payload: decryptedMsg })
               // Teruskan pesan yang telah terdekripsi ke sidebar agar snippet langsung teks biasa
               setLastIncomingMessage(decryptedMsg)
+
+              // Write-Through: simpan pesan masuk yang berhasil didekripsi ke cache IndexedDB
+              if (decryptedMsg.id && decryptedMsg.content && decryptedMsg.content !== '🔒 [Pesan Terenkripsi]') {
+                cacheMessage(toCachedRecord({
+                  id: decryptedMsg.id,
+                  room_id: roomId,
+                  content: decryptedMsg.content || '',
+                  sender_id: decryptedMsg.from || '',
+                  sender_display_name: decryptedMsg.nickname || '',
+                  sender_username: decryptedMsg.nickname || '',
+                  created_at: decryptedMsg.timestamp || new Date().toISOString(),
+                  status: decryptedMsg.status || 'sent',
+                  type: (decryptedMsg.type === 'message' ? 'text' : decryptedMsg.type) || 'text',
+                  media_url: decryptedMsg.media_url,
+                  media_mime_type: decryptedMsg.media_type,
+                  media_file_name: decryptedMsg.file_name,
+                  media_size: decryptedMsg.file_size,
+                  reply_to: decryptedMsg.reply_to
+                    ? {
+                        id: decryptedMsg.reply_to.id,
+                        content: decryptedMsg.reply_to.content,
+                        sender_id: '',
+                        sender_display_name: decryptedMsg.reply_to.nickname,
+                      }
+                    : undefined,
+                  reactions: decryptedMsg.reactions
+                    ? Object.fromEntries(decryptedMsg.reactions.map(r => [r.emoji, r.users]))
+                    : undefined,
+                })).catch(() => {})
+              }
             }
 
             processIncomingMsg()
@@ -679,6 +831,8 @@ function ChatPageContent() {
               type: 'UPDATE_MESSAGE_DELETED',
               payload: { id: msg.id, content: msg.content },
             })
+            // Write-Through: tandai sebagai deleted di cache IndexedDB
+            updateCachedMessageStatus(msg.id, 'deleted').catch(() => {})
           }
           break
         }
@@ -876,8 +1030,12 @@ function ChatPageContent() {
       }
       if (type === 'for_me') {
         dispatch({ type: 'DELETE_MESSAGE_LOCAL', payload: { id: messageId } })
+        // Write-Through: hapus dari cache IndexedDB (hanya untuk saya)
+        deleteCachedMessage(messageId).catch(() => {})
       } else {
         dispatch({ type: 'UPDATE_MESSAGE_DELETED', payload: { id: messageId } })
+        // Write-Through: tandai sebagai deleted di cache (hapus untuk semua)
+        updateCachedMessageStatus(messageId, 'deleted').catch(() => {})
       }
     } catch (err: any) {
       alert(err.message || 'Gagal menghapus pesan')
@@ -961,6 +1119,31 @@ function ChatPageContent() {
         payload: localMsg,
       })
       setLastIncomingMessage(localMsg)
+
+      // Write-Through: simpan pesan terkirim ke cache IndexedDB secara optimistic
+      cacheMessage(toCachedRecord({
+        id: msgId,
+        room_id: roomId,
+        content,
+        sender_id: session.clientId,
+        sender_display_name: session.nickname || '',
+        sender_username: session.nickname || '',
+        created_at: new Date().toISOString(),
+        status: 'sent',
+        type: media?.media_type ? media.media_type.split('/')[0] || 'text' : 'text',
+        media_url: media?.url,
+        media_mime_type: media?.media_type,
+        media_file_name: media?.file_name,
+        media_size: media?.file_size,
+        reply_to: replyPayload
+          ? {
+              id: replyPayload.id,
+              content: replyPayload.content,
+              sender_id: '',
+              sender_display_name: replyPayload.nickname,
+            }
+          : undefined,
+      })).catch(() => {})
     }
 
     setReplyingTo(null)
