@@ -42,13 +42,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(JSON.parse(savedUser))
         
         // Sync fresh profile from server
-        apiRequest<User>('/api/auth/me').then(({ data, error }) => {
+        apiRequest<User>('/api/auth/me').then(({ data, error, status }) => {
           if (data) {
             setUser(data)
             localStorage.setItem('wuzz_user_profile', JSON.stringify(data))
-          } else if (error) {
-            // Token expired
+          } else if (status === 401) {
+            // Token benar-benar kadaluarsa / tidak valid
             logout()
+          } else {
+            console.warn('[Auth] Gagal sync profile terkini (koneksi lambat / offline):', error)
           }
         })
       } catch {

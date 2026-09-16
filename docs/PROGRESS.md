@@ -385,6 +385,22 @@
      - Diperbaiki menjadi `onClose={() => setDeviceConflict({ isOpen: false })}` sehingga Device 2 langsung masuk ke obrolan secara mulus.
      - Menambahkan pembersihan kunci lokal `clearLocalKeyPair(user.id)` saat logout konflik agar perangkat lama bersih dari sisa kunci usang saat user login ulang.
      - Menambahkan script pengujian simulasi otomatis 2-device ([`frontend/test-two-device-simulation.mjs`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/test-two-device-simulation.mjs)) yang memvalidasi otentikasi akun, 409 conflict detection, key reset, transfer sesi WebSocket, dan pengiriman `SESSION_REPLACED` ke Device 1 dengan 100% kelulusan.
+  7. [x] **Decoupled WebSocket Connection & Room Switcher (Eliminasi Self-Kick & Race Condition `page.tsx`)**:
+     - Memisahkan siklus hidup koneksi WebSocket dari state `roomId`. Sebelumnya, setiap kali user berpindah ruang obrolan atau menekan tombol `← Back` di mobile, koneksi WebSocket di-destroy dan dibuat ulang, yang memicu backend Hub mengirim `SESSION_REPLACED` ke koneksi lama yang belum tuntas di socket TCP (menendang diri sendiri).
+     - WebSocket kini hanya diinisialisasi **SATU KALI** per sesi login, dan perpindahan ruang obrolan hanya mengirimkan event `{ type: 'join', room: roomId }` seketika (0ms reconnect).
+  8. [x] **Anti-False-Logout on Slow Networks (`auth-context.tsx`)**:
+     - Memperbaiki pengecekan `/api/auth/me` pada startup di mana `logout()` sebelumnya dipicu oleh sembarang nilai `error` (seperti koneksi lambat, timeout, atau status 500).
+     - Kini `logout()` secara ketat **HANYA** dipanggil jika respon server adalah `status === 401` (Unauthorized/Token kadaluarsa sah), menjaga kestabilan sesi di jaringan seluler/HP yang lambat.
+  9. [x] **Safe-Merge Server History with IndexedDB Cache (Anti-Ciphertext Overwrite `page.tsx`)**:
+     - Mengatasi masalah di mana server history menimpa pesan yang sudah berhasil didekripsi di IndexedDB dengan placeholder `🔒 [Pesan Terenkripsi]` ketika lawan bicara pernah melakukan reset kunci di masa lalu.
+     - Sistem safe-merge secara cerdas memeriksa cache lokal IndexedDB: jika hasil dekripsi server gagal tetapi teks asli tersedia di IndexedDB, teks asli dari cache lokal dipertahankan 100%.
+  10. [x] **End-to-End Simulation 2-User (`test-two-user-e2ee-simulation.mjs`)**:
+      - Pengujian live otomatis antara Alice dan Bob: Alice Device 1 chat ke Bob -> Alice pindah ke Device 2 (reset key) -> verifikasi chat lama di Bob tetap 100% terbaca jelas via IndexedDB Cache (tidak rusak/terenkripsi), dan chat baru dari Device 2 tetap sukses didekripsi dengan kunci baru. Hasil: 100% PASS.
+  11. [x] **Android PWA vs Laptop Desktop Simulation (`test-android-pwa-simulation.mjs`)**:
+      - Simulasi interaksi lintas platform: Laptop Desktop ThinkPad (Chrome) vs Handphone Samsung Galaxy S24 (Wuzz Chat PWA Standalone WebAPK).
+      - Memvalidasi skenario Android OS Doze Mode / Background Sleep (socket teardown dan auto-reconnect tanpa memicu `SESSION_REPLACED` atau saling tendang).
+      - Pengujian CacheStorage mock untuk Service Worker push background key caching.
+      - Verifikasi kontinuitas linimasa di sisi Bob: pesan lama dari Laptop tetap terbaca jelas (IndexedDB cache) dan pesan baru dari Android PWA terdekripsi dengan kunci baru. Hasil: 100% PASS.
 
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management**.
