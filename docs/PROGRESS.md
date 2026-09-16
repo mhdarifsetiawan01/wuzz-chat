@@ -370,6 +370,17 @@
   #### 🔧 Bug Fix 3: Header Chat Keangkat Saat Keyboard Virtual Muncul
   6. [x] **Android Virtual Keyboard Header Fix** (`layout.tsx`, `globals.css`, `page.tsx`): Menambahkan `interactiveWidget: 'resizes-content'` pada viewport metadata agar layout di-resize (bukan di-pan) saat keyboard virtual muncul. Menghapus constraint `100dvh` yang rigid dari mobile container agar container beradaptasi smooth dengan ukuran keyboard. Menambahkan listener `visualViewport` dan `window scroll` di `page.tsx` untuk mengunci `window.scrollY` selalu di 0 sehingga header tidak pernah keluar dari viewport.
 
+---
+
+### 🚩 CHECKPOINT (16 September 2026, Sesi 3): Milestone 8.4 — IndexedDB Message Cache & E2EE Continuity
+
+- **Status Pengerjaan (100% Selesai & Terverifikasi Build 0 Error):**
+  1. [x] **Local Storage Engine (`messageCache.ts`)**: Modul IndexedDB kustom (`wuzzchat_msg_db`) dengan store `messages`, index `by_room`, anti-downgrade receipt status weight (`pending` < `sent` < `delivered` < `read`), dan fungsi batch `cacheMessages`, `getCachedMessages`, `updateCachedMessageStatus`, `revokeCachedMessage`, `deleteCachedMessage`, serta `clearRoomCache`.
+  2. [x] **Cache-First Instant Room Load (`page.tsx`)**: Mengurangi perceived loading time menjadi 0ms saat room dibuka dengan memuat snapshot lokal IndexedDB terlebih dahulu ke reducer UI sebelum server response tiba.
+  3. [x] **Write-Through Synchronization (`page.tsx`)**: Integrasi cache sinkron di seluruh titik mutasi pesan (pesan masuk WebSocket, pengiriman pesan mandiri optimistik & terkonfirmasi, pembaruan tanda terima, penarikan pesan untuk semua orang, penghapusan lokal untuk saya, dan hapus riwayat room).
+  4. [x] **E2EE Readability Continuity**: Bob tetap dapat membaca seluruh pesan lama secara utuh meskipun Alice me-reset perangkat dan mengunggah pasangan kunci E2EE baru, karena pesan tersimpan persisten dalam status terdekripsi di IndexedDB Bob.
+  5. [x] **Security Key Change Detection & UI (`page.tsx`, `MessageBubble.tsx`, `globals.css`)**: Deteksi perubahan public key lawan bicara via `localStorage` + `lastKnownPeerKeyRef` saat dekripsi, dengan penyisipan pesan sistem amber bertema `security-notice` ke timeline percakapan layaknya WhatsApp.
+
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management**.
   2. [ ] *(Opsional Future)* Android Native App untuk akses kamera native penuh (Live QR Scanner tanpa batasan WebAPK permissions).

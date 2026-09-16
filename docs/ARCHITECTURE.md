@@ -227,6 +227,18 @@ Aplikasi frontend WuzzChat dirancang untuk memberikan pengalaman optimal di dua 
 2. **Anti-Stale Reprocessing Guard (`lastHandledMsgIdRef`)**: Ketika `activeRoomId` berganti menjadi `''` saat user menekan `← Back`, ref guard mencegah `useEffect` memproses ulang `lastIncomingMessage` lama sebagai pesan belum dibaca yang baru.
 3. **Real-Time Read Receipts & Dynamic Reload**: Event `receipt` diproses secara terpisah di Sidebar untuk memastikan pembaruan status centang (`✓` ➔ `✓✓` ➔ `✓✓` biru) seketika tanpa refresh, dan memicu reload daftar obrolan saat user kembali ke Home.
 
+### C. Client-Side Persistent Message Cache (IndexedDB)
+```text
+[Buka Room] ──► [IndexedDB getCachedMessages] ──► Render Timeline (0ms Instant)
+                        ▲
+                        │ (Write-Through Merge)
+[Server Event / REST] ──┴───────────────────────► [IndexedDB cacheMessages]
+```
+1. **Penyimpanan Lokal Persisten**: Pesan terdekripsi disimpan di IndexedDB browser klien (`wuzzchat_msg_db`) dengan object store `messages` (keyPath: `id`) dan index `by_room` (`roomId, createdAt`).
+2. **Pola Cache-First**: Saat pengguna membuka percakapan, snapshot lokal segera dimuat ke UI untuk menghilangkan efek blank/loading, kemudian riwayat dari server digabungkan secara aman di latar belakang.
+3. **Kontinuitas E2EE**: Plaintext pesan lama tetap dapat diakses oleh penerima meskipun pengirim melakukan reset perangkat dan mengunggah kunci publik baru.
+4. **Anti-Downgrade Status Guard**: Bobot status numerik (`pending: 0, sent: 1, delivered: 2, read: 3, deleted: 99`) mencegah kemunduran status tanda terima saat server mengirimkan status lama.
+
 ---
 
 ## 🔐 6. Spesifikasi End-to-End Encryption (E2EE)

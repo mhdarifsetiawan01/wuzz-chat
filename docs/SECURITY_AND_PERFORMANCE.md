@@ -16,6 +16,8 @@ Dokumen ini menyajikan panduan arsitektur komprehensif mengenai seluruh lapisan 
    - 2.7 [CORS Dynamic Validator & IP Rate Limiting](#27-cors-dynamic-validator--ip-rate-limiting)
    - 2.8 [Zero-Knowledge Push Notification & Client-Side Background Decryption](#28-zero-knowledge-push-notification--client-side-background-decryption)
    - 2.9 [Pencegahan Key Overwrite & Single Active Device Guard (E2EE)](#29-pencegahan-key-overwrite--single-active-device-guard-e2ee)
+   - 2.10 [Zero-Knowledge QR Code Key Migration & Atomic Transaction Guard](#210-zero-knowledge-qr-code-key-migration--atomic-transaction-guard)
+   - 2.11 [Client-Side E2EE Decrypted Persistence & Anti-Downgrade Status Guard](#211-client-side-e2ee-decrypted-persistence--anti-downgrade-status-guard)
 3. [Arsitektur Performa & Skalabilitas (Performance Optimization)](#-3-arsitektur-performa--skalabilitas-performance-optimization)
    - 3.1 [Penyelesaian Masalah $N+1$ Query pada `GetUserConversations`](#31-penyelesaian-masalah-n1-query-pada-getuserconversations)
    - 3.2 [Indeks Performa Database (PostgreSQL & SQLite)](#32-indeks-performa-database-postgresql--sqlite)
@@ -148,6 +150,18 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Strict Ownership Enforcement**: Endpoint menolak token transfer jika JWT user pemanggil berbeda dari pemilik sesi transfer (`403 Forbidden`).
   - **Ephemeral TTL & Background Sweeper**: Sesi otomatis kedaluwarsa setelah 5 menit (300 detik), dan worker di Go backend secara berkala membersihkan entri usang setiap 10 menit.
   - **State Isolation pada Kegagalan Dekripsi**: Jika dekripsi lokal di browser gagal, penyimpanan `IndexedDB` perangkat target tidak disentuh sama sekali, mencegah rusaknya state kriptografi lokal.
+
+### 2.11 Client-Side E2EE Decrypted Persistence & Anti-Downgrade Status Guard
+* **Lokasi Kode**: [`frontend/lib/messageCache.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/messageCache.ts) & [`frontend/app/chat/page.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/app/chat/page.tsx)
+* **Latar Belakang & Tantangan**:
+  - Pada sistem E2EE murni, server database hanya menyimpan ciphertext (`e2ee:v1:...`).
+  - Ketika lawan bicara me-reset perangkatnya dan menerbitkan keypair baru, pesan-pesan lama di server tidak lagi bisa didekripsi dengan kunci baru tersebut.
+  - Selain itu, pemuatan riwayat pesan dari server memerlukan waktu roundtrip HTTP yang menimbulkan jeda rendering pada layar klien.
+* **Solusi & Proteksi**:
+  - **IndexedDB Decrypted Store (`wuzzchat_msg_db`)**: Pesan yang telah berhasil didekripsi disimpan persisten di browser klien masing-masing pengguna.
+  - **Pola Cache-First**: Saat ruang obrolan dibuka, pesan lokal dimuat seketika (0ms), lalu digabungkan secara aman dengan riwayat server tanpa menimpa teks yang sudah terdekripsi.
+  - **Anti-Downgrade Receipt Guard**: Status tanda terima dilindungi dengan bobot integer (`pending: 0, sent: 1, delivered: 2, read: 3, deleted: 99`) sehingga status centang biru (`read`) tidak dapat ter-downgrade menjadi `delivered` atau `sent` oleh riwayat lama server.
+  - **Security Key Change Alert**: Perubahan public key lawan bicara dideteksi saat proses dekripsi dan disisipkan sebagai notifikasi sistem visual amber (`security-notice`), menjamin transparansi kriptografi bagi pengguna.
 
 ---
 
