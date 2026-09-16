@@ -60,6 +60,8 @@ export function DeviceTransferModal({
   const qrScannerRef = useRef<Html5Qrcode | null>(null)
   const isStoppingRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // Ref untuk menyimpan pre-warm MediaStream (Android PWA gesture token fix)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -73,6 +75,11 @@ export function DeviceTransferModal({
   }
 
   const stopScanner = async () => {
+    // Cleanup pre-warm MediaStream jika masih ada
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop())
+      mediaStreamRef.current = null
+    }
     if (qrScannerRef.current && !isStoppingRef.current) {
       isStoppingRef.current = true
       try {
@@ -93,6 +100,47 @@ export function DeviceTransferModal({
   const startScanner = async () => {
     setCameraError('')
     setErrorMsg('')
+
+    // ✅ ANDROID PWA FIX — Pre-Warm Permission Strategy
+    // Cek ketersediaan mediaDevices (hanya tersedia di HTTPS / localhost)
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      setCameraError(
+        'Kamera tidak tersedia. Pastikan aplikasi diakses melalui HTTPS, atau gunakan tombol unggah foto / kode manual.'
+      )
+      return
+    }
+
+    // ✅ LANGKAH 1: Panggil getUserMedia() LANGSUNG di sini — masih dalam 1 tick user gesture.
+    // Ini WAJIB dilakukan sebelum await apapun agar Android Chrome menampilkan dialog permission.
+    // Tanpa ini, chain async yang panjang memutus "gesture token" dan dialog tidak pernah muncul.
+    let preWarmStream: MediaStream | null = null
+    let targetDeviceId: string | null = null
+    try {
+      preWarmStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+      })
+      mediaStreamRef.current = preWarmStream
+      // Extract deviceId dari track yang berhasil dibuka
+      const track = preWarmStream.getVideoTracks()[0]
+      if (track) {
+        const settings = track.getSettings()
+        targetDeviceId = settings.deviceId || null
+      }
+    } catch (permErr: any) {
+      // Permission ditolak atau kamera tidak ditemukan — tampilkan error dan hentikan
+      console.warn('[DeviceTransferModal] Pre-warm getUserMedia gagal:', permErr)
+      const permName = permErr?.name || ''
+      if (permName === 'NotAllowedError' || permName === 'PermissionDeniedError' || permErr?.message?.includes('Permission denied')) {
+        setCameraError('Izin kamera ditolak. Silakan izinkan akses kamera di setelan browser HP Anda, atau gunakan unggah foto / kode manual.')
+      } else if (permName === 'NotFoundError' || permName === 'DevicesNotFoundError') {
+        setCameraError('Kamera tidak ditemukan pada perangkat ini. Silakan gunakan unggah foto atau kode manual.')
+      } else {
+        setCameraError(`Kamera tidak dapat diakses (${permErr?.message || 'Device busy'}). Silakan gunakan unggah foto atau kode manual.`)
+      }
+      return
+    }
+
+    // ✅ LANGKAH 2: Setelah permission diberikan, baru jalankan proses Html5Qrcode
     try {
       await stopScanner()
       const container = document.getElementById('qr-reader')
@@ -126,35 +174,35 @@ export function DeviceTransferModal({
         }
       }
 
-      // Layer 1: Deteksi daftar kamera fisik perangkat (Sangat kompatibel untuk HP Android multi-camera)
-      let cameraStarted = false
-      try {
-        const cameras = await Html5Qrcode.getCameras()
-        if (cameras && cameras.length > 0) {
-          // Cari kamera belakang
-          const backCam = cameras.find((c) =>
-            /back|rear|belakang|environment|belak/i.test(c.label)
-          )
-          const selectedId = backCam
-            ? backCam.id
-            : cameras.length > 1
-            ? cameras[cameras.length - 1].id
-            : cameras[0].id
-          await scanner.start(selectedId, config, onScanSuccess, () => {})
-          cameraStarted = true
-        }
-      } catch (camErr) {
-        console.warn('[DeviceTransferModal] getCameras gagal, mencoba fallback facingMode:', camErr)
+      // ✅ LANGKAH 3: Stop pre-warm stream SEBELUM Html5Qrcode mulai
+      // (Html5Qrcode akan membuka stream baru sendiri; tidak boleh double-grab kamera)
+      if (preWarmStream) {
+        preWarmStream.getTracks().forEach((t) => t.stop())
+        mediaStreamRef.current = null
+        preWarmStream = null
       }
 
-      // Layer 2: Fallback ke standard environment constraint
+      // ✅ LANGKAH 4: Start Html5Qrcode — permission sudah pasti granted karena pre-warm sukses
+      // Prioritas: gunakan deviceId yang sudah terbukti bisa dibuka
+      let cameraStarted = false
+
+      if (targetDeviceId) {
+        try {
+          await scanner.start(targetDeviceId, config, onScanSuccess, () => {})
+          cameraStarted = true
+        } catch (idErr) {
+          console.warn('[DeviceTransferModal] start dengan deviceId gagal, mencoba facingMode fallback:', idErr)
+        }
+      }
+
+      // Fallback ke facingMode environment jika deviceId gagal
       if (!cameraStarted) {
         try {
           await scanner.start({ facingMode: 'environment' }, config, onScanSuccess, () => {})
           cameraStarted = true
         } catch (envErr) {
-          console.warn('[DeviceTransferModal] environment facingMode gagal, mencoba fallback user/any:', envErr)
-          // Layer 3: Fallback ke kamera default/user
+          console.warn('[DeviceTransferModal] environment facingMode gagal, mencoba user/any:', envErr)
+          // Last resort: kamera default/front
           await scanner.start({ facingMode: 'user' }, config, onScanSuccess, () => {})
           cameraStarted = true
         }
@@ -162,7 +210,7 @@ export function DeviceTransferModal({
 
       setIsScannerRunning(true)
     } catch (err: any) {
-      console.warn('[DeviceTransferModal] Gagal memulai scanner kamera:', err)
+      console.warn('[DeviceTransferModal] Gagal memulai Html5Qrcode scanner:', err)
       setIsScannerRunning(false)
       const msg = err?.message || String(err)
       if (err?.name === 'NotAllowedError' || msg.includes('NotAllowedError') || msg.includes('Permission denied')) {

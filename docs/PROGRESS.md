@@ -339,7 +339,25 @@
   - Supabase PostgreSQL Database (`DATABASE_URL`)
   - Supabase Storage Bucket (`wuzz-chat-media`)
   - Upstash Redis Cluster Pub/Sub (`REDIS_URL`)
-- Seluruh pengujian unit & integrasi E2E lulus 100%. Siap melangkah ke fitur berikutnya (**Milestone 8.2: Group Chat Engine & Member Management**).
+- Seluruh pengujian unit & integrasi E2E lulus 100%.
+
+---
+
+### 🚩 CHECKPOINT (16 September 2026): E2EE Device Conflict & PWA Key Transfer
+
+- **Status Pengerjaan Hari Ini (100% Sukses & Live di Production):**
+  1. [x] **Single-Active Device E2EE Stabilization**: Masalah bentrok saling tendang antara Device 1 & Device 2 selesai total (Strict `e2eeVerified` socket gatekeeper & graceful 409 handling).
+  2. [x] **Mobile Nested Modal History Decoupling**: Memperbaiki bug tombol *"Pindah Kunci via QR Code / Kode"* yang sebelumnya tertutup seketika (< 10ms) akibat benturan `window.history.back()` pada hook `useModalBackHandler`.
+  3. [x] **PWA Offscreen Image QR Processor**: Mengeliminasi error *"Container pemindai tidak siap"* saat upload foto/screenshot QR code dengan membuat dedicated offscreen processor (`qr-file-scanner-box`).
+  4. [x] **PWA Camera Gesture Guard**: Mematikan auto-start kamera background agar tidak diblokir oleh Android WebAPK Permissions Policy.
+  5. [x] **Pengguna Mengonfirmasi**: Transfer sesi dan pemindahan kunci E2EE di PWA telah berhasil (**"oke berhasil"**).
+
+- **🎯 Backlog / Agenda untuk Sesi Besok:**
+  1. [ ] **Android PWA Direct Camera Permission Optimization**:
+     - Meneliti dan menyempurnakan pemanggilan `navigator.mediaDevices.getUserMedia` di dalam aplikasi PWA Android (WebAPK) agar saat tombol *"📷 Buka Kamera Sekarang"* diklik, prompt izin sistem Android muncul secara mulus.
+     - Menggunakan `navigator.permissions.query({ name: 'camera' as PermissionName })` untuk mendeteksi status izin secara real-time (`granted`, `prompt`, `denied`).
+     - Menambahkan petunjuk interaktif intent ke setelan aplikasi jika statusnya `denied`.
+  2. [ ] **Milestone 8.2: Group Chat Engine & Member Management**.
 
 
 ---
