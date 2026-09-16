@@ -255,6 +255,9 @@ Klien mobile yang ingin memindahkan atau membagikan keypair E2EE:
    - Dekripsi ciphertext lokal dengan PBKDF2 token yang sama.
    - Simpan private key ke Android Keystore / iOS Keychain.
 
+> **⚠️ Catatan Platform Web PWA vs Native**:
+> Pada **Android PWA WebAPK**, izin kamera `getUserMedia()` terkadang tidak memicu dialog permission Android karena batasan `Permissions Policy` di lingkungan browser. Solusi sementara yang diterapkan di klien web adalah: (1) **Pre-Warm Permission Strategy** (panggil `getUserMedia` sebelum async chain), (2) **Fallback tombol Native Camera Intent** (`<input capture="environment">`), dan (3) deklarasi `"permissions": ["camera"]` di `manifest.json`. Untuk **Android Native App (Kotlin)**, izin kamera ditangani penuh via `ActivityResultContracts.RequestPermission` dan MLKit Barcode Scanner — tidak ada batasan WebAPK. Ini menjadi argumen kuat untuk investasi Android Native App di masa depan.
+
 ---
 
 ## 📦 4. Penanganan Media (WhatsApp-Style Store-and-Forward)
