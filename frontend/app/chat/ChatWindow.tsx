@@ -36,10 +36,18 @@ export function ChatWindow({
   onDeleteMessage,
 }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll ke bawah setiap ada pesan baru atau typing indicator
+  // Auto-scroll ke bawah setiap ada pesan baru atau typing indicator (terisolasi hanya di container, tidak men-scroll window)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior: 'smooth',
+      })
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages, isPeerTyping])
 
   // 1. Tampilan saat sedang menyinkronkan riwayat pesan dari server
@@ -84,7 +92,7 @@ export function ChatWindow({
   // 3. Tampilan jika obrolan belum memiliki pesan sama sekali
   if (messages.length === 0 && !isPeerTyping) {
     return (
-      <div className="chat-window" aria-label="Area percakapan">
+      <div ref={containerRef} className="chat-window" aria-label="Area percakapan">
         {isE2EE && (
           <div
             style={{
@@ -122,6 +130,7 @@ export function ChatWindow({
 
   return (
     <div
+      ref={containerRef}
       className="chat-window"
       role="list"
       aria-label="Pesan percakapan"

@@ -324,10 +324,16 @@ export function DeviceTransferModal({
     } else {
       clearTimer()
       stopScanner()
+      if (typeof window !== 'undefined') {
+        window.scrollTo(0, 0)
+      }
     }
     return () => {
       clearTimer()
       stopScanner()
+      if (typeof window !== 'undefined') {
+        window.scrollTo(0, 0)
+      }
     }
   }, [isOpen, initialMode, hideGenerate])
 
@@ -395,6 +401,9 @@ export function DeviceTransferModal({
       await consumeAndImportTransfer(currentUserId, cleanToken)
       setSuccessMsg('✅ Kunci keamanan berhasil dipindahkan! Sesi perangkat ini telah aktif.')
       setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          window.scrollTo(0, 0)
+        }
         if (onTransferSuccess) {
           onTransferSuccess()
         } else {

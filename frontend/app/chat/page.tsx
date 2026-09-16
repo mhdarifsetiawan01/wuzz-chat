@@ -261,6 +261,18 @@ function ChatPageContent() {
     messagesRef.current = state.messages
   }, [state.messages])
 
+  // Kunci scroll window ke (0,0) untuk mencegah pergeseran layout / header terpotong di PWA Android
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual'
+      }
+      window.scrollTo(0, 0)
+      document.body.scrollTop = 0
+      document.documentElement.scrollTop = 0
+    }
+  }, [roomId])
+
   // Inisialisasi E2EE Identity Keys & Push Notification saat user login
   useEffect(() => {
     if (user?.id) {
@@ -1217,6 +1229,9 @@ function ChatPageContent() {
           onLogout={handleDeviceConflictLogout}
           onTransferSuccess={() => {
             setDeviceConflict({ isOpen: false })
+            if (typeof window !== 'undefined') {
+              window.scrollTo(0, 0)
+            }
             window.location.reload()
           }}
         />
