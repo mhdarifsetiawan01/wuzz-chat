@@ -6,6 +6,7 @@ import { apiRequest } from './api'
 import type { User } from './types'
 
 import { unsubscribeFromPushNotifications } from './pushNotification'
+import { clearAllMessageCache } from './messageCache'
 
 interface AuthContextType {
   user: User | null
@@ -69,6 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await unsubscribeFromPushNotifications()
     } catch (err) {
       console.warn('[Auth] Gagal unsubscribe push saat logout:', err)
+    }
+    try {
+      await clearAllMessageCache()
+    } catch (err) {
+      console.warn('[Auth] Gagal membersihkan message cache saat logout:', err)
     }
     setToken(null)
     setUser(null)

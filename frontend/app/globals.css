@@ -616,6 +616,22 @@ h4 { font-size: 1rem;   font-weight: 600; }
   padding: var(--space-1) var(--space-4);
 }
 
+/* Notifikasi Perubahan Kode Keamanan E2EE — amber/kuning agar lebih mencolok */
+.message-row.system.security-notice {
+  max-width: 88%;
+}
+.message-row.system.security-notice .message-bubble {
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: #f59e0b;
+  font-size: 0.8rem;
+  text-align: center;
+  border-radius: var(--radius-lg);
+  padding: var(--space-2) var(--space-4);
+  line-height: 1.5;
+  font-weight: 500;
+}
+
 /* Read Mode & Clamped Long Messages */
 .message-text-content {
   white-space: pre-wrap;

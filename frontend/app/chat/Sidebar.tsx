@@ -15,6 +15,7 @@ import {
   subscribeToPushNotifications,
   unsubscribeFromPushNotifications,
 } from '@/lib/pushNotification'
+import { clearRoomCache } from '@/lib/messageCache'
 
 interface SidebarProps {
   activeRoomId: string
@@ -236,6 +237,8 @@ export function Sidebar({
       delete next[confirmDeleteConv.id]
       return next
     })
+    // Write-Through: bersihkan cache pesan lokal IndexedDB untuk percakapan ini
+    clearRoomCache(confirmDeleteConv.id).catch(() => {})
     const isCurrentActive = Boolean(
       activeRoomId && (
         activeRoomId === confirmDeleteConv.id ||

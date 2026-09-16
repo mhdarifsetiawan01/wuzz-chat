@@ -343,21 +343,47 @@
 
 ---
 
-### 🚩 CHECKPOINT (16 September 2026): E2EE Device Conflict & PWA Key Transfer
+### 🚩 CHECKPOINT (16 September 2026, Sesi 1): E2EE Device Conflict & PWA Key Transfer
 
-- **Status Pengerjaan Hari Ini (100% Sukses & Live di Production):**
+- **Status Pengerjaan (100% Sukses & Live di Production):**
   1. [x] **Single-Active Device E2EE Stabilization**: Masalah bentrok saling tendang antara Device 1 & Device 2 selesai total (Strict `e2eeVerified` socket gatekeeper & graceful 409 handling).
   2. [x] **Mobile Nested Modal History Decoupling**: Memperbaiki bug tombol *"Pindah Kunci via QR Code / Kode"* yang sebelumnya tertutup seketika (< 10ms) akibat benturan `window.history.back()` pada hook `useModalBackHandler`.
   3. [x] **PWA Offscreen Image QR Processor**: Mengeliminasi error *"Container pemindai tidak siap"* saat upload foto/screenshot QR code dengan membuat dedicated offscreen processor (`qr-file-scanner-box`).
   4. [x] **PWA Camera Gesture Guard**: Mematikan auto-start kamera background agar tidak diblokir oleh Android WebAPK Permissions Policy.
   5. [x] **Pengguna Mengonfirmasi**: Transfer sesi dan pemindahan kunci E2EE di PWA telah berhasil (**"oke berhasil"**).
 
-- **🎯 Backlog / Agenda untuk Sesi Besok:**
-  1. [ ] **Android PWA Direct Camera Permission Optimization**:
-     - Meneliti dan menyempurnakan pemanggilan `navigator.mediaDevices.getUserMedia` di dalam aplikasi PWA Android (WebAPK) agar saat tombol *"📷 Buka Kamera Sekarang"* diklik, prompt izin sistem Android muncul secara mulus.
-     - Menggunakan `navigator.permissions.query({ name: 'camera' as PermissionName })` untuk mendeteksi status izin secara real-time (`granted`, `prompt`, `denied`).
-     - Menambahkan petunjuk interaktif intent ke setelan aplikasi jika statusnya `denied`.
-  2. [ ] **Milestone 8.2: Group Chat Engine & Member Management**.
+---
+
+### 🚩 CHECKPOINT (16 September 2026, Sesi 2): PWA Android Camera & Mobile Viewport Bug Fixes
+
+- **Status Pengerjaan (100% Sukses & Live di Production via `main`):**
+
+  #### 🔧 Bug Fix 1: Camera Permission Dialog Tidak Muncul di Android PWA
+  1. [x] **Pre-Warm Permission Strategy** (`DeviceTransferModal.tsx`): Merefaktor `startScanner()` agar memanggil `navigator.mediaDevices.getUserMedia()` sebagai **langkah pertama sebelum `await` apapun**, sehingga gesture token user masih hidup dan dialog permission Android dapat muncul. Sebelumnya, 3+ lapisan `await` (`getCameras` → `Html5Qrcode.start`) memutus gesture token sehingga Chrome Android langsung `NotAllowedError` tanpa menampilkan dialog.
+  2. [x] **Native Camera Intent Capture** (`DeviceTransferModal.tsx`): Menambahkan fallback tombol "📷 Foto via Kamera Native" yang menggunakan `<input type="file" accept="image/*" capture="environment">` — memicu intent kamera native Android system camera yang terbukti berhasil meski izin kamera WebView belum diberikan. Tombol ini tampil setelah error kamera terdeteksi.
+  3. [x] **PWA Manifest Camera Permission Declaration** (`manifest.json`): Menambahkan `"permissions": ["camera"]` di manifest untuk deklarasi izin kamera pada saat instalasi WebAPK di Android, sehingga izin kamera muncul di daftar izin Pengaturan Aplikasi Android.
+  4. [x] **Catatan Platform**: Kamera streaming/live scan tetap hanya bisa diaktifkan sepenuhnya via HTTPS dengan izin kamera di browser settings; tombol kamera native (`capture`) terbukti berhasil sebagai workaround yang solid. Jika ingin akses kamera native penuh (live scanner), solusi terbaik adalah Android Native App.
+
+  #### 🔧 Bug Fix 2: Tampilan Chat Naik ke Atas Setelah Device Transfer
+  5. [x] **Mobile Viewport Displacement Fix** (`globals.css`, `ChatWindow.tsx`, `DeviceTransferModal.tsx`, `page.tsx`): Mengunci `.chat-app-container` pada mobile dengan `position: fixed` dan `overscroll-behavior: none` untuk mencegah displacement viewport. Mengganti `bottomRef.scrollIntoView()` dengan `containerRef.scrollTo()` di ChatWindow agar scroll tidak menggeser window keseluruhan. Menambahkan `window.scrollTo(0, 0)` pada transisi room dan penutupan modal transfer untuk memastikan halaman kembali ke posisi teratas.
+
+  #### 🔧 Bug Fix 3: Header Chat Keangkat Saat Keyboard Virtual Muncul
+  6. [x] **Android Virtual Keyboard Header Fix** (`layout.tsx`, `globals.css`, `page.tsx`): Menambahkan `interactiveWidget: 'resizes-content'` pada viewport metadata agar layout di-resize (bukan di-pan) saat keyboard virtual muncul. Menghapus constraint `100dvh` yang rigid dari mobile container agar container beradaptasi smooth dengan ukuran keyboard. Menambahkan listener `visualViewport` dan `window scroll` di `page.tsx` untuk mengunci `window.scrollY` selalu di 0 sehingga header tidak pernah keluar dari viewport.
+
+---
+
+### 🚩 CHECKPOINT (16 September 2026, Sesi 3): Milestone 8.4 — IndexedDB Message Cache & E2EE Continuity
+
+- **Status Pengerjaan (100% Selesai & Terverifikasi Build 0 Error):**
+  1. [x] **Local Storage Engine (`messageCache.ts`)**: Modul IndexedDB kustom (`wuzzchat_msg_db`) dengan store `messages`, index `by_room`, anti-downgrade receipt status weight (`pending` < `sent` < `delivered` < `read`), dan fungsi batch `cacheMessages`, `getCachedMessages`, `updateCachedMessageStatus`, `revokeCachedMessage`, `deleteCachedMessage`, serta `clearRoomCache`.
+  2. [x] **Cache-First Instant Room Load (`page.tsx`)**: Mengurangi perceived loading time menjadi 0ms saat room dibuka dengan memuat snapshot lokal IndexedDB terlebih dahulu ke reducer UI sebelum server response tiba.
+  3. [x] **Write-Through Synchronization (`page.tsx`)**: Integrasi cache sinkron di seluruh titik mutasi pesan (pesan masuk WebSocket, pengiriman pesan mandiri optimistik & terkonfirmasi, pembaruan tanda terima, penarikan pesan untuk semua orang, penghapusan lokal untuk saya, dan hapus riwayat room).
+  4. [x] **E2EE Readability Continuity**: Bob tetap dapat membaca seluruh pesan lama secara utuh meskipun Alice me-reset perangkat dan mengunggah pasangan kunci E2EE baru, karena pesan tersimpan persisten dalam status terdekripsi di IndexedDB Bob.
+  5. [x] **Security Key Change Detection & UI (`page.tsx`, `MessageBubble.tsx`, `globals.css`)**: Deteksi perubahan public key lawan bicara via `localStorage` + `lastKnownPeerKeyRef` saat dekripsi, dengan penyisipan pesan sistem amber bertema `security-notice` ke timeline percakapan layaknya WhatsApp.
+
+- **🎯 Next Milestone:**
+  1. [ ] **Milestone 8.2: Group Chat Engine & Member Management**.
+  2. [ ] *(Opsional Future)* Android Native App untuk akses kamera native penuh (Live QR Scanner tanpa batasan WebAPK permissions).
 
 
 ---

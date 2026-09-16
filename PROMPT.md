@@ -16,12 +16,13 @@
 ## 🗺️ 2. Dokumen Sumber Kebenaran (Single Source of Truth)
 
 Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen berikut:
-1. 🛡️ **[`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md)**: Panduan arsitektur keamanan (Anti-BOLA/IDOR, Anti-SSRF, IP Pinning) dan optimasi performa backend ($O(1)$ CTE batching, database indexes, SQLite WAL mode).
-2. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap dari Fase 1 hingga Fase 7.
-3. 🏛️ **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi desain database (ERD), skema tabel, dan protokol WebSocket.
-4. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
-5. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
-6. 📜 **[`PRD-websocket-chat-app.md`](PRD-websocket-chat-app.md)**: Spesifikasi awal produk.
+1. 🔌 **[`docs/BACKEND_API.md`](docs/BACKEND_API.md)**: Panduan integrasi teknis REST API, WebSocket event catalog, E2EE wire format, dan siklus hidup media untuk pengembang frontend baru.
+2. 🛡️ **[`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md)**: Panduan arsitektur keamanan (Anti-BOLA/IDOR, Anti-SSRF, IP Pinning) dan optimasi performa backend ($O(1)$ CTE batching, database indexes, SQLite WAL mode).
+3. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap dari Fase 1 hingga Fase 7.
+4. 🏛️ **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi desain database (ERD), skema tabel, dan protokol WebSocket.
+5. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
+6. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
+7. 📜 **[`PRD-websocket-chat-app.md`](PRD-websocket-chat-app.md)**: Spesifikasi awal produk.
 
 ---
 
@@ -62,14 +63,15 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 - ✅ **Fase 7: Advanced Security & WebRTC Audio Calling (SELESAI)** —
   1. **End-to-End Encryption (E2EE)**: Kriptografi standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API, private key tersimpan di `IndexedDB` (`wuzz_crypto_db`), Safety Number Fingerprint 30-digit, dan zero-knowledge backend.
   2. **E2EE Single Active Device & Key Conflict Guard**: Pelacakan `active_device_id` & `key_version`, HTTP 409 Conflict rejection, explicit `/api/users/public-key/reset`, Hard Blocker UI, tombol back HP auto-logout, Single-Session WebSocket Kick di backend (`SESSION_REPLACED`), Fail-Closed E2EE Guard, dan modal konflik UI (`DeviceConflictModal.tsx`).
-  3. **Zero-Knowledge QR Code Key Migration (Milestone 7.6 & 7.7 / Opsi 2)**: Fitur pemindahan identitas kriptografi antar perangkat via QR Code ephemeral (TTL 5 menit), enkripsi bundle AES-256-GCM berdasar 256-bit PBKDF2, atomic single-use retrieval di database SQL (`/api/users/transfer/create` & `/api/users/transfer/consume`), modal UI `DeviceTransferModal.tsx` dengan **In-App Camera QR Scanner (`html5-qrcode`)**, smart tab filtering (`hideGenerate=true`), gallery/image offscreen file scanner (`qr-file-scanner-box`), PWA gesture guard, dan deep link `/transfer?token=...`. *(Checkpoint 16 Sep 2026: Sinkronisasi kunci berhasil; backlog besok: optimasi native camera permission di Android WebAPK PWA).*
+  3. **Zero-Knowledge QR Code Key Migration (Milestone 7.6 & 7.7 / Opsi 2)**: Fitur pemindahan identitas kriptografi antar perangkat via QR Code ephemeral (TTL 5 menit), enkripsi bundle AES-256-GCM berdasar 256-bit PBKDF2, atomic single-use retrieval di database SQL (`/api/users/transfer/create` & `/api/users/transfer/consume`), modal UI `DeviceTransferModal.tsx` dengan **In-App Camera QR Scanner (`html5-qrcode`)**, **Pre-Warm Permission Strategy** (getUserMedia dipanggil sebelum async chain agar gesture token Android tetap hidup), **Native Camera Intent Capture fallback** (`<input capture="environment">`), **PWA Manifest `"permissions": ["camera"]`**, smart tab filtering (`hideGenerate=true`), gallery/image offscreen file scanner (`qr-file-scanner-box`), dan deep link `/transfer?token=...`. *(Live scanner penuh di Android WebAPK terbatas oleh platform Permissions Policy; workaround solid via native camera capture. Future: Android Native App). ✅ SELESAI TERMASUK BUG FIX PWA ANDROID.*
   4. **1-on-1 Voice / Audio Calling via WebRTC P2P (Milestone 7.2A)**: WebSocket signaling (`call_offer`, `call_answer`, `ice_candidate`), STUN + OpenRelay TURN fallback, Web Audio API procedural ringtones, In-Call Overlay UI dengan live timer dan microphone mute, serta modal panggilan masuk interaktif.
   5. **Security & Scalability Hardening**: Mitigasi BOLA/IDOR WebSocket (`isAuthorizedForRoom`), IDOR Media ACK check, Anti-SSRF Socket-Level IP Pinning (14 subnet), eliminasi $N+1$ query via $O(1)$ batched CTE window function, database indexing, dan SQLite WAL mode concurrency.
   6. *(Milestone 7.2B: 1-on-1 Video Calling di-hold sementara untuk memprioritaskan fitur inti komunikasi).*
 - ⏳ **Fase 8: Core Parity (Push Notifications, Group Chat & Message Management) (SEDANG BERJALAN)** —
   1. ✅ **Milestone 8.1: Universal Push Notification Engine & PWA Install (SELESAI)**: Integrasi W3C Web Push (VAPID RFC 8292) via `SherClockHolmes/webpush-go`, auto key generation, REST endpoints (`/api/notifications/subscribe`, `unsubscribe`, `vapid-public-key`), background dispatcher di Go WebSocket Hub saat user offline, Service Worker (`sw.js`) dengan **Zero-Knowledge Client-Side Background Decryption** (Web Crypto ECDH + HKDF + AES-GCM + IndexedDB) sehingga teks pesan E2EE tampil terdekripsi di notifikasi OS, toggle notifikasi di ProfileModal, tombol Header **"📲 Instal App"** dengan auto-hide di mode Standalone, dan arsitektur Multi-Platform Gateway (Web, PWA & Android FCM Ready).
-  2. 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**: Percakapan multi-user, multicast WebSocket broadcast, role Admin/Member, modal buat grup, Group Info Drawer, dan group mention system.
-  3. ⏳ **Milestone 8.3: Message Management Suite**: Edit pesan (15 menit), forward pesan, pin chat & pin message, starred message, dan in-chat search.
+  2. ✅ **Milestone 8.4: IndexedDB Message Cache & E2EE Continuity (SELESAI)**: Database lokal `wuzzchat_msg_db` (`frontend/lib/messageCache.ts`) dengan pola **Cache-First Load** (pesan tampil instan 0ms saat room dibuka), **Write-Through Cache** di 6 titik mutasi data, anti-regression status guard tanda terima, continuous readability (pesan lama tetap terbaca meski lawan bicara me-reset perangkat & ganti keypair kriptografi), serta notifikasi visual perubahan kode keamanan E2EE (`security-notice` amber bubble).
+  3. 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**: Percakapan multi-user, multicast WebSocket broadcast, role Admin/Member, modal buat grup, Group Info Drawer, dan group mention system.
+  4. ⏳ **Milestone 8.3: Message Management Suite**: Edit pesan (15 menit), forward pesan, pin chat & pin message, starred message, dan in-chat search.
 
 ---
 
@@ -79,7 +81,7 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
    - Jika AI menyalakan server sementara untuk verifikasi (misal: `go run main.go` atau `npm run dev`), AI **WAJIB mematikan port tersebut (`fuser -k <port>/tcp`)** sebelum mengakhiri respons, KECUALI user meminta dibiarkan berjalan.
 2. **Aturan Arsitektur Frontend Dual-Platform (Mobile & Desktop) (SOP)**:
    - Setiap modifikasi frontend (CSS, komponen React, state management, routing, event handling) **WAJIB** mempertimbangkan dan menguji kompatibilitas untuk KEDUA platform: Mobile (Handphone) dan Desktop (Laptop/PC).
-   - Pastikan viewport `100dvh`, sticky header, safe area padding `env(safe-area-inset-bottom)`, dan guard anti-stale lifecycle (`lastHandledMsgIdRef` & clean history reset) terpenuhi.
+   - Pastikan viewport dengan `interactiveWidget: 'resizes-content'` (bukan `pan`), sticky header, safe area padding `env(safe-area-inset-bottom)`, guard anti-stale lifecycle (`lastHandledMsgIdRef` & clean history reset), dan `window.scrollY` dikunci ke 0 via `visualViewport` listener terpenuhi.
 3. **Aturan Keamanan Git, Branching & Konfirmasi Commit (SOP)**:
    - **DILARANG KERAS melakukan perubahan, modifikasi kode, atau pengerjaan tugas langsung di branch `main`.**
    - Seluruh pekerjaan wajib dilakukan di branch `dev` atau feature branch baru (`feature/...`).
@@ -95,7 +97,7 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 6. **Kualitas Kode**:
    - Pastikan backend selalu lulus `go test -v ./...` dan frontend selalu lulus `npm run build` sebelum menyelesaikan tugas.
 7. **Aturan Audit & Sinkronisasi Dokumentasi Holistik (SOP)**:
-   - Jika user meminta "update dokumentasi" atau saat menyelesaikan fitur/perubahan skema, AI **WAJIB melakukan 360-degree audit ke SEMUA dokumen**: [`README.md`](README.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/PROGRESS.md`](docs/PROGRESS.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md), [`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md), dan [`PROMPT.md`](PROMPT.md). Dilarang hanya mengaudit sebagian dokumen.
+   - Jika user meminta "update dokumentasi" atau saat menyelesaikan fitur/perubahan skema, AI **WAJIB melakukan 360-degree audit ke SEMUA dokumen**: [`README.md`](README.md), [`docs/BACKEND_API.md`](docs/BACKEND_API.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/PROGRESS.md`](docs/PROGRESS.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md), [`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md), dan [`PROMPT.md`](PROMPT.md). Dilarang hanya mengaudit sebagian dokumen.
 
 ---
 

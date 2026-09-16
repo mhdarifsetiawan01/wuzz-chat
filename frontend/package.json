@@ -6,7 +6,8 @@
     "dev": "node server.js",
     "dev:next": "next dev",
     "build": "next build",
-    "start": "NODE_ENV=production node server.js"
+    "start": "NODE_ENV=production node server.js",
+    "test:cache": "node test-message-cache.mjs"
   },
   "dependencies": {
     "html5-qrcode": "^2.3.8",
@@ -22,6 +23,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "fake-indexeddb": "^6.2.5",
     "typescript": "^5"
   }
 }

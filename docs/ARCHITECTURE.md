@@ -227,6 +227,18 @@ Aplikasi frontend WuzzChat dirancang untuk memberikan pengalaman optimal di dua 
 2. **Anti-Stale Reprocessing Guard (`lastHandledMsgIdRef`)**: Ketika `activeRoomId` berganti menjadi `''` saat user menekan `← Back`, ref guard mencegah `useEffect` memproses ulang `lastIncomingMessage` lama sebagai pesan belum dibaca yang baru.
 3. **Real-Time Read Receipts & Dynamic Reload**: Event `receipt` diproses secara terpisah di Sidebar untuk memastikan pembaruan status centang (`✓` ➔ `✓✓` ➔ `✓✓` biru) seketika tanpa refresh, dan memicu reload daftar obrolan saat user kembali ke Home.
 
+### C. Client-Side Persistent Message Cache (IndexedDB)
+```text
+[Buka Room] ──► [IndexedDB getCachedMessages] ──► Render Timeline (0ms Instant)
+                        ▲
+                        │ (Write-Through Merge)
+[Server Event / REST] ──┴───────────────────────► [IndexedDB cacheMessages]
+```
+1. **Penyimpanan Lokal Persisten**: Pesan terdekripsi disimpan di IndexedDB browser klien (`wuzzchat_msg_db`) dengan object store `messages` (keyPath: `id`) dan index `by_room` (`roomId, createdAt`).
+2. **Pola Cache-First**: Saat pengguna membuka percakapan, snapshot lokal segera dimuat ke UI untuk menghilangkan efek blank/loading, kemudian riwayat dari server digabungkan secara aman di latar belakang.
+3. **Kontinuitas E2EE**: Plaintext pesan lama tetap dapat diakses oleh penerima meskipun pengirim melakukan reset perangkat dan mengunggah kunci publik baru.
+4. **Anti-Downgrade Status Guard**: Bobot status numerik (`pending: 0, sent: 1, delivered: 2, read: 3, deleted: 99`) mencegah kemunduran status tanda terima saat server mengirimkan status lama.
+
 ---
 
 ## 🔐 6. Spesifikasi End-to-End Encryption (E2EE)
@@ -290,9 +302,9 @@ sequenceDiagram
 ```
 
 1. **Jaminan Keamanan Zero-Knowledge**: Private key tidak pernah menyentuh database server dalam bentuk plaintext. Hanya ciphertext terenkripsi AES-256-GCM dengan kunci turunan dari session token yang disimpan sementara di tabel `device_transfer_sessions`.
-2. **In-App Camera Scanner Terintegrasi**: Perangkat baru menggunakan library `html5-qrcode` langsung di dalam modal untuk memindai QR code dari layar perangkat lama, tanpa memerlukan aplikasi eksternal atau scanner pihak ketiga.
+2. **In-App Camera Scanner Terintegrasi**: Perangkat baru menggunakan library `html5-qrcode` langsung di dalam modal untuk memindai QR code dari layar perangkat lama. Untuk Android PWA WebAPK, diterapkan **Pre-Warm Permission Strategy** (memanggil `getUserMedia()` sesegera mungkin sebelum async chain agar gesture token pengguna tidak kedaluwarsa) dan **Native Camera Intent Capture Fallback** (`<input type="file" accept="image/*" capture="environment">`) yang memicu intent kamera sistem Android native tanpa terbatas oleh `Permissions Policy` WebView. Manifest PWA juga mendeklarasikan `"permissions": ["camera"]` untuk instalasi WebAPK.
 3. **Atomic One-Time Use**: Operasi download dan pengalihan status sesi dikunci dalam 1 transaksi database SQL (`SELECT ... FOR UPDATE` di PostgreSQL / `BEGIN EXCLUSIVE` di SQLite) untuk mencegah race condition atau double-consumption.
-4. **Resilience & Fallback**: Sesi transfer otomatis kedaluwarsa dalam 5 menit. Jika kamera perangkat baru bermasalah atau izin kamera ditolak, pengguna dapat menyalin kode manual 64 karakter (Hex) ke form input manual.
+4. **Resilience & Fallback Berlapis**: Sesi transfer otomatis kedaluwarsa dalam 5 menit. Terdapat 3 jalur fallback: (a) **In-App Live Scanner** (`html5-qrcode` dengan pre-warm strategy), (b) **Native Camera Capture** (`<input capture="environment">` via sistem Android), dan (c) **Input Kode Manual** 64-karakter Hex untuk situasi tanpa kamera sama sekali. Untuk akses kamera live scanner penuh tanpa batasan platform, solusi optimal adalah **Android Native App** (MLKit BarcodeScanning API).
 
 ---
 
