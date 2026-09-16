@@ -113,8 +113,9 @@ func main() {
 	// Inisialisasi CORS Validator dinamis (mendukung multi-domain, Vercel preview, dan localhost)
 	corsValidator := auth.NewCORSValidatorFromEnv()
 
-	// Inisialisasi handler WebSocket dengan validasi origin dinamis
+	// Inisialisasi handler WebSocket dengan validasi origin dinamis & single device gatekeeper
 	wsHandler := ws.NewHandler(hub, corsValidator)
+	wsHandler.SetUserStore(userStore)
 
 	// Setup routing
 	mux := http.NewServeMux()

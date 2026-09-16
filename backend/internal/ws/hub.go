@@ -12,6 +12,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 const (
@@ -115,23 +116,38 @@ func (h *Hub) Register(c *Client) {
 
 	// Single Active Device Enforcement: Kick sesi WebSocket lama dari UserID yang sama
 	if exists && oldClient != nil && oldClient != c {
-		log.Printf("[Hub %s] kick sesi lama client %s karena login baru terdeteksi", h.nodeID[:8], c.ID)
-		go func(old *Client) {
-			kickMsg := Message{
-				ID:        uuid.New().String(),
-				Type:      TypeSystem,
-				Content:   "SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.",
-				Timestamp: time.Now().UTC(),
+		isSameDevice := oldClient.DeviceID != "" && c.DeviceID != "" && oldClient.DeviceID == c.DeviceID
+		log.Printf("[Hub %s] pergantian sesi client %s (isSameDevice=%v | oldDevice=%s newDevice=%s)", h.nodeID[:8], c.ID, isSameDevice, oldClient.DeviceID, c.DeviceID)
+		go func(old *Client, sameDev bool) {
+			if !sameDev {
+				kickMsg := Message{
+					ID:        uuid.New().String(),
+					Type:      TypeSystem,
+					Content:   "SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.",
+					Timestamp: time.Now().UTC(),
+				}
+				select {
+				case old.send <- kickMsg:
+				default:
+				}
+				// Berikan grace period flush 500ms agar pesan system sampai ke jaringan klien lambat/medium
+				time.Sleep(500 * time.Millisecond)
+				if old.conn != nil {
+					// Kirim WebSocket Close Control Frame resmi (Code 4001) sebelum soket ditutup
+					closeMsg := websocket.FormatCloseMessage(4001, "SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.")
+					_ = old.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(1000*time.Millisecond))
+					time.Sleep(100 * time.Millisecond)
+					_ = old.conn.Close()
+				}
+			} else {
+				// Reconnect dari perangkat yang sama (misal refresh browser / reconnect normal)
+				// Tutup soket lama secara tertib tanpa mengirim sinyal SESSION_REPLACED
+				time.Sleep(50 * time.Millisecond)
+				if old.conn != nil {
+					_ = old.conn.Close()
+				}
 			}
-			select {
-			case old.send <- kickMsg:
-			default:
-			}
-			time.Sleep(50 * time.Millisecond)
-			if old.conn != nil {
-				_ = old.conn.Close()
-			}
-		}(oldClient)
+		}(oldClient, isSameDevice)
 	}
 
 	if err := h.clientStore.Set(store.ClientRecord{

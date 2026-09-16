@@ -19,27 +19,40 @@ export async function apiRequest<T>(
       headers['Authorization'] = `Bearer ${token}`
     }
 
-    const res = await fetch(`${API_BASE}${endpoint}`, {
-      ...options,
-      headers,
-    })
+    // Safeguard jaringan slow/medium: batas waktu 15 detik untuk REST normal
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
+    const signal = options.signal || controller.signal
 
-    const result = await res.json().catch(() => ({}))
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+        signal,
+      })
 
-    if (!res.ok) {
-      // Jika token expired / unauthorized dan bukan request login/register
-      if (res.status === 401 && typeof window !== 'undefined' && !endpoint.startsWith('/api/auth/login') && !endpoint.startsWith('/api/auth/register')) {
-        localStorage.removeItem('wuzz_auth_token')
-        localStorage.removeItem('wuzz_user_profile')
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login?expired=1'
+      const result = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        // Jika token expired / unauthorized dan bukan request login/register
+        if (res.status === 401 && typeof window !== 'undefined' && !endpoint.startsWith('/api/auth/login') && !endpoint.startsWith('/api/auth/register')) {
+          localStorage.removeItem('wuzz_auth_token')
+          localStorage.removeItem('wuzz_user_profile')
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login?expired=1'
+          }
         }
+        return { error: result.error || `Request gagal dengan status ${res.status}`, status: res.status }
       }
-      return { error: result.error || `Request gagal dengan status ${res.status}`, status: res.status }
-    }
 
-    return { data: result, status: res.status }
+      return { data: result, status: res.status }
+    } finally {
+      clearTimeout(timeoutId)
+    }
   } catch (err: any) {
+    if (err.name === 'AbortError') {
+      return { error: 'Koneksi ke server timeout (server lambat/jaringan tidak stabil)', status: 408 }
+    }
     return { error: err.message || 'Gagal terhubung ke server', status: 500 }
   }
 }
@@ -55,18 +68,30 @@ export async function uploadMedia(file: File): Promise<{ data?: MediaUploadRespo
       headers['Authorization'] = `Bearer ${token}`
     }
 
-    const res = await fetch(`${API_BASE}/api/media/upload`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    })
+    // Safeguard upload media untuk jaringan slow/medium: batas waktu 60 detik
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 60000)
 
-    const result = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      return { error: result.error || `Upload gagal dengan status ${res.status}` }
+    try {
+      const res = await fetch(`${API_BASE}/api/media/upload`, {
+        method: 'POST',
+        headers,
+        body: formData,
+        signal: controller.signal,
+      })
+
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        return { error: result.error || `Upload gagal dengan status ${res.status}` }
+      }
+      return { data: result }
+    } finally {
+      clearTimeout(timeoutId)
     }
-    return { data: result }
   } catch (err: any) {
+    if (err.name === 'AbortError') {
+      return { error: 'Upload timeout: server lambat atau ukuran berkas terlalu besar untuk kecepatan jaringan saat ini' }
+    }
     return { error: err.message || 'Gagal mengunggah file ke server' }
   }
 }

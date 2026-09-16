@@ -25,6 +25,7 @@ type Client struct {
 	Username    string
 	DisplayName string
 	Nickname    string
+	DeviceID    string
 	RoomID      string
 	PeerID      string
 	JoinedAt    time.Time
