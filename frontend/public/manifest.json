@@ -7,6 +7,9 @@
   "background_color": "#0b0e14",
   "theme_color": "#0d1117",
   "orientation": "portrait-primary",
+  "permissions": [
+    "camera"
+  ],
   "icons": [
     {
       "src": "/icon-192x192.png",
