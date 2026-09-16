@@ -42,6 +42,7 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
 1. **Prinsip Audit Menyeluruh (*All-Docs Checklist*)**:
    Ketika instruksi pembaruan dokumentasi diterima, AI **DILARANG HANYA MENGUBAH 1 ATAU 2 FILE**. AI wajib memeriksa dan menyinkronkan seluruh daftar dokumen berikut:
    - 📄 **[`README.md`](../README.md)**: Ringkasan proyek, daftar centang fitur selesai, struktur monorepo, tech stack, dan panduan menjalankan aplikasi.
+   - 🔌 **[`docs/BACKEND_API.md`](../docs/BACKEND_API.md)**: Panduan integrasi teknis REST API (23 endpoints), katalog event WebSocket, standar wire format E2EE, siklus hidup media Store-and-Forward, dan checklist implementasi klien baru.
    - 🗺️ **[`docs/ROADMAP.md`](../docs/ROADMAP.md)**: Status milestone jangka panjang dari Fase 1 s/d Fase 7 (Tandai yang selesai vs pending).
    - 📈 **[`docs/PROGRESS.md`](../docs/PROGRESS.md)**: Riwayat pengerjaan detail, catatan teknis implementasi, dan handover status per milestone.
    - 🏛️ **[`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)**: Diagram ERD database, skema tabel relasional, kamus endpoint REST API, alur WebSocket, dan media lifecycle.

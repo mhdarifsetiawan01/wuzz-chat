@@ -16,12 +16,13 @@
 ## 🗺️ 2. Dokumen Sumber Kebenaran (Single Source of Truth)
 
 Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen berikut:
-1. 🛡️ **[`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md)**: Panduan arsitektur keamanan (Anti-BOLA/IDOR, Anti-SSRF, IP Pinning) dan optimasi performa backend ($O(1)$ CTE batching, database indexes, SQLite WAL mode).
-2. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap dari Fase 1 hingga Fase 7.
-3. 🏛️ **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi desain database (ERD), skema tabel, dan protokol WebSocket.
-4. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
-5. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
-6. 📜 **[`PRD-websocket-chat-app.md`](PRD-websocket-chat-app.md)**: Spesifikasi awal produk.
+1. 🔌 **[`docs/BACKEND_API.md`](docs/BACKEND_API.md)**: Panduan integrasi teknis REST API, WebSocket event catalog, E2EE wire format, dan siklus hidup media untuk pengembang frontend baru.
+2. 🛡️ **[`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md)**: Panduan arsitektur keamanan (Anti-BOLA/IDOR, Anti-SSRF, IP Pinning) dan optimasi performa backend ($O(1)$ CTE batching, database indexes, SQLite WAL mode).
+3. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap dari Fase 1 hingga Fase 7.
+4. 🏛️ **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi desain database (ERD), skema tabel, dan protokol WebSocket.
+5. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
+6. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
+7. 📜 **[`PRD-websocket-chat-app.md`](PRD-websocket-chat-app.md)**: Spesifikasi awal produk.
 
 ---
 
@@ -95,7 +96,7 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 6. **Kualitas Kode**:
    - Pastikan backend selalu lulus `go test -v ./...` dan frontend selalu lulus `npm run build` sebelum menyelesaikan tugas.
 7. **Aturan Audit & Sinkronisasi Dokumentasi Holistik (SOP)**:
-   - Jika user meminta "update dokumentasi" atau saat menyelesaikan fitur/perubahan skema, AI **WAJIB melakukan 360-degree audit ke SEMUA dokumen**: [`README.md`](README.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/PROGRESS.md`](docs/PROGRESS.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md), [`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md), dan [`PROMPT.md`](PROMPT.md). Dilarang hanya mengaudit sebagian dokumen.
+   - Jika user meminta "update dokumentasi" atau saat menyelesaikan fitur/perubahan skema, AI **WAJIB melakukan 360-degree audit ke SEMUA dokumen**: [`README.md`](README.md), [`docs/BACKEND_API.md`](docs/BACKEND_API.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/PROGRESS.md`](docs/PROGRESS.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md), [`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md), dan [`PROMPT.md`](PROMPT.md). Dilarang hanya mengaudit sebagian dokumen.
 
 ---
 

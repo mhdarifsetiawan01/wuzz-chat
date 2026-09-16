@@ -44,6 +44,7 @@ wuzz-chat/
 
 Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi berikut:
 
+- 🔌 **[BACKEND_API.md](docs/BACKEND_API.md)** — Panduan integrasi teknis REST API, WebSocket event catalog, E2EE wire format, dan siklus hidup media untuk pengembang frontend baru.
 - 🛡️ **[SECURITY_AND_PERFORMANCE.md](docs/SECURITY_AND_PERFORMANCE.md)** — Panduan komprehensif arsitektur keamanan (Anti-BOLA/IDOR, Anti-SSRF, IP Pinning) dan optimasi performa backend ($O(1)$ batch CTE query, indexing, SQLite WAL mode).
 - 🗺️ **[ROADMAP.md](docs/ROADMAP.md)** — Rencana jangka panjang, milestone tahapan dari Fase 1 hingga Fase 7 (Auth, Group Chat, Rich Media, Receipts, WebRTC, Scaling).
 - 🏛️ **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Spesifikasi desain database relasional (ERD), protokol WebSocket, REST API endpoints, dan Store-and-Forward media lifecycle.
