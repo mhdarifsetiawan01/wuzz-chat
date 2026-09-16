@@ -91,6 +91,7 @@ html, body {
   height: 100dvh;
   min-height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
   background-color: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -2095,12 +2096,16 @@ h4 { font-size: 1rem;   font-weight: 600; }
   }
 
   .chat-app-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
     height: 100dvh;
-    height: 100svh;
     overflow: hidden;
-    position: relative;
   }
 
   /* Single-Screen switching: When viewing chat list */
