@@ -237,10 +237,75 @@ export function DeviceTransferModal({
     }
   }
 
+  // Helper kompresi dan downscale gambar kamera HP beresolusi tinggi (12MP - 50MP)
+  // agar tidak crash memori canvas dan mudah dibaca oleh algoritma binarizer ZXing
+  const downscaleImageFile = async (rawFile: File, maxDimension: number = 1200): Promise<File> => {
+    if (!rawFile.type.startsWith('image/') || rawFile.size < 200 * 1024) {
+      return rawFile
+    }
+
+    return new Promise((resolve) => {
+      const img = new Image()
+      const url = URL.createObjectURL(rawFile)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        let { width, height } = img
+        if (width <= maxDimension && height <= maxDimension) {
+          resolve(rawFile)
+          return
+        }
+
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width)
+          width = maxDimension
+        } else {
+          width = Math.round((width * maxDimension) / height)
+          height = maxDimension
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          resolve(rawFile)
+          return
+        }
+
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(img, 0, 0, width, height)
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(rawFile)
+              return
+            }
+            const processed = new File([blob], rawFile.name || 'qr_photo.jpg', {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            })
+            resolve(processed)
+          },
+          'image/jpeg',
+          0.92
+        )
+      }
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url)
+        resolve(rawFile)
+      }
+
+      img.src = url
+    })
+  }
+
   // Fallback scan langsung dari file gambar / screenshot / tangkapan kamera native HP
   const handleFileScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const rawFile = e.target.files?.[0]
+    if (!rawFile) return
     setErrorMsg('')
     setCameraError('')
     setIsLoading(true)
@@ -263,10 +328,23 @@ export function DeviceTransferModal({
         document.body.appendChild(container)
       }
 
+      // Optimasi gambar kamera HP: downscale ke 1200px agar ZXing barcode reader cepat & presisi
+      const optimizedFile = await downscaleImageFile(rawFile, 1200)
+
       const fileScanner = new Html5Qrcode('qr-file-scanner-box')
       let decodedText = ''
       try {
-        decodedText = await fileScanner.scanFile(file, false)
+        decodedText = await fileScanner.scanFile(optimizedFile, false)
+      } catch (scanErr) {
+        // Fallback coba skala 800px jika 1200px masih gagal
+        console.warn('[DeviceTransferModal] Percobaan 1200px gagal, mencoba fallback skala 800px...', scanErr)
+        try {
+          const fallbackFile = await downscaleImageFile(rawFile, 800)
+          decodedText = await fileScanner.scanFile(fallbackFile, false)
+        } catch (_) {
+          // Percobaan terakhir: coba file raw asli
+          decodedText = await fileScanner.scanFile(rawFile, false)
+        }
       } finally {
         try {
           fileScanner.clear()

@@ -138,19 +138,39 @@ export function DeviceConflictModal({
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
           {isRotated ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                onLogout()
-                if (typeof window !== 'undefined') {
-                  window.location.href = '/login'
-                }
-              }}
-              style={{ width: '100%', padding: '12px', fontSize: '0.95rem' }}
-            >
-              🔄 Masuk Ulang untuk Memperbarui Sesi
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setIsTransferOpen(true)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: '0.95rem',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontWeight: 600,
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                }}
+              >
+                📲 Ambil Alih Sesi Kembali ke Perangkat Ini via QR
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => {
+                  onLogout()
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/login'
+                  }
+                }}
+                style={{ width: '100%', padding: '10px', fontSize: '0.9rem' }}
+              >
+                🔄 Atau Keluar & Masuk Ulang Akun
+              </button>
+            </>
           ) : (
             <>
               <button

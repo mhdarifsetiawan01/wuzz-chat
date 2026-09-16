@@ -304,30 +304,56 @@ export async function forceResetUserE2EE(
 // lalu mendaftarkan public key baru ke backend (idempotent via reset endpoint)
 // agar active_device_id dan public_key di server konsisten.
 export async function importAndSaveTransferredKeyPair(
-  userId: string,
+  userIdParam: string,
   privateKeyJWK: string,
   publicKeyJWK: string
 ): Promise<{ publicKeyJWK: string; privateKey: CryptoKey; publicKey: CryptoKey }> {
+  let userId = userIdParam
+  // Safeguard: Jika userId kosong, pulihkan dari localStorage agar IndexedDB key tidak korup
+  if (!userId && typeof window !== 'undefined') {
+    const cachedUserStr = localStorage.getItem('wuzz_auth_user')
+    if (cachedUserStr) {
+      try {
+        const parsed = JSON.parse(cachedUserStr)
+        if (parsed.id) userId = parsed.id
+      } catch (_) {}
+    }
+  }
+
   const deviceId = getOrCreateDeviceId()
   const privateKey = await importPrivateKeyJWK(privateKeyJWK)
   const publicKey = await importPublicKeyJWK(publicKeyJWK)
 
-  // Daftarkan public key ke backend via reset endpoint (bypass conflict 409)
-  // sehingga server menyimpan public_key baru milik device ini
-  const res = await apiRequest<{ status: string; key_version?: number; error?: string }>(
-    '/api/users/public-key/reset',
+  // Daftarkan kepemilikan kunci ke backend dengan device_id baru ini.
+  // Karena transfer/consume sudah mengalihkan active_device_id ke device ini,
+  // PUT /api/users/public-key akan berhasil (200 OK) tanpa merotasi/menaikkan key_version semu.
+  let res = await apiRequest<{ status: string; key_version?: number; error?: string }>(
+    '/api/users/public-key',
     {
-      method: 'POST',
+      method: 'PUT',
       body: JSON.stringify({ public_key: publicKeyJWK, device_id: deviceId }),
     }
   )
+
+  // Fallback: Jika terjadi conflict, gunakan reset endpoint untuk memastikan perangkat tetap aktif
+  if (res.status === 409 || res.error) {
+    res = await apiRequest<{ status: string; key_version?: number; error?: string }>(
+      '/api/users/public-key/reset',
+      {
+        method: 'POST',
+        body: JSON.stringify({ public_key: publicKeyJWK, device_id: deviceId }),
+      }
+    )
+  }
 
   if (res.error) {
     throw new Error(`Gagal mendaftarkan kunci ke server: ${res.error}`)
   }
 
   // Simpan ke IndexedDB & CacheStorage hanya setelah backend berhasil
-  await saveLocalUserKeyPair(userId, privateKeyJWK, publicKeyJWK)
+  if (userId) {
+    await saveLocalUserKeyPair(userId, privateKeyJWK, publicKeyJWK)
+  }
   derivedAESKeyCache.clear()
 
   return {

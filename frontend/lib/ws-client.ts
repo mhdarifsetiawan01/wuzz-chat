@@ -42,6 +42,13 @@ export class WsClient {
         url += (url.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`
       }
     }
+    // Sertakan device_id jika belum ada di URL untuk validasi Single Active Device Gatekeeper
+    if (!url.includes('device_id=') && typeof window !== 'undefined') {
+      const deviceId = localStorage.getItem('wuzz_device_id')
+      if (deviceId) {
+        url += (url.includes('?') ? '&' : '?') + `device_id=${encodeURIComponent(deviceId)}`
+      }
+    }
     return url
   }
 
@@ -126,6 +133,21 @@ export class WsClient {
 
     this.ws.onclose = (event) => {
       // code 1000 = close normal (dipanggil oleh destroy())
+      // code 4001 = SESSION_REPLACED (akun dibuka dari perangkat lain, dilarang reconnect!)
+      if (event.code === 4001 || event.reason?.includes('SESSION_REPLACED')) {
+        console.warn('[WsClient] Sesi digantikan oleh perangkat lain (Code 4001 / SESSION_REPLACED). Menghentikan auto-reconnect.')
+        this.destroyed = true
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
+        this._emitStatus('disconnected')
+        // Pastikan UI menerima event SESSION_REPLACED agar modal konflik muncul seketika
+        this.messageHandlers.forEach(h => h({
+          type: 'system',
+          content: 'SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.',
+          timestamp: new Date().toISOString(),
+        }))
+        return
+      }
+
       if (this.destroyed || event.code === 1000) return
       this._emitStatus('disconnected')
       this._scheduleReconnect()

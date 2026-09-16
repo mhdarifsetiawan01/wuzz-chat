@@ -349,3 +349,93 @@ func TestWebSocketJWTAuthentication(t *testing.T) {
 	})
 }
 
+func TestWebSocket_DeviceID_Gatekeeper(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_ws_device_gatekeeper.db")
+	sqlStore, err := store.NewSQLMessageStore("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("NewSQLMessageStore failed: %v", err)
+	}
+	defer sqlStore.Close()
+
+	userStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+	clientStore := store.NewMemoryClientStore()
+	hub := NewHub(clientStore, sqlStore)
+
+	handler := NewHandler(hub)
+	handler.SetUserStore(userStore)
+
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http")
+
+	// Buat user Alice di database dengan active_device_id "device_laptop_active"
+	alice, err := userStore.Register("alice_gatekeeper", "Alice Gatekeeper", "secret")
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	_, err = userStore.ForceResetPublicKey(alice.ID, "dummy_pubkey_alice", "device_laptop_active")
+	if err != nil {
+		t.Fatalf("ForceResetPublicKey failed: %v", err)
+	}
+
+	aliceToken, err := auth.GenerateToken(alice.ID, alice.Username, alice.DisplayName)
+	if err != nil {
+		t.Fatalf("GenerateToken failed: %v", err)
+	}
+
+	// 1. Device lama (HP usang) mencoba konek -> HARUS DITOLAK HTTP 403
+	t.Run("Reject stale device ID with 403 Forbidden", func(t *testing.T) {
+		staleURL := wsURL + "?token=" + aliceToken + "&device_id=device_handphone_stale"
+		_, resp, err := websocket.DefaultDialer.Dial(staleURL, nil)
+		if err == nil {
+			t.Fatalf("koneksi seharusnya ditolak karena device_id usang, tapi berhasil")
+		}
+		if resp == nil || resp.StatusCode != http.StatusForbidden {
+			t.Fatalf("ekspektasi status 403 Forbidden untuk device_id usang, didapat: %v", resp)
+		}
+	})
+
+	// 2. Klien tanpa device_id mencoba konek saat user punya active device -> HARUS DITOLAK HTTP 403
+	t.Run("Reject empty device ID when user has registered active device", func(t *testing.T) {
+		emptyDevURL := wsURL + "?token=" + aliceToken
+		_, resp, err := websocket.DefaultDialer.Dial(emptyDevURL, nil)
+		if err == nil {
+			t.Fatalf("koneksi tanpa device_id seharusnya ditolak saat user memiliki active device")
+		}
+		if resp == nil || resp.StatusCode != http.StatusForbidden {
+			t.Fatalf("ekspektasi status 403 Forbidden untuk empty device_id, didapat: %v", resp)
+		}
+	})
+
+	// 3. Device aktif sah (Laptop) konek via query param -> HARUS BERHASIL 101 Switching Protocols
+	t.Run("Accept active device ID connection via query param", func(t *testing.T) {
+		activeURL := wsURL + "?token=" + aliceToken + "&device_id=device_laptop_active"
+		conn, resp, err := websocket.DefaultDialer.Dial(activeURL, nil)
+		if err != nil {
+			t.Fatalf("koneksi device aktif sah gagal: %v", err)
+		}
+		if resp.StatusCode != http.StatusSwitchingProtocols {
+			t.Fatalf("ekspektasi status 101, didapat: %d", resp.StatusCode)
+		}
+		defer conn.Close()
+	})
+
+	// 4. Device aktif sah (Laptop) konek via header X-Device-ID -> HARUS BERHASIL 101 Switching Protocols
+	t.Run("Accept active device ID connection via X-Device-ID header", func(t *testing.T) {
+		activeURL := wsURL + "?token=" + aliceToken
+		header := http.Header{}
+		header.Set("X-Device-ID", "device_laptop_active")
+		conn, resp, err := websocket.DefaultDialer.Dial(activeURL, header)
+		if err != nil {
+			t.Fatalf("koneksi device aktif sah via header gagal: %v", err)
+		}
+		if resp.StatusCode != http.StatusSwitchingProtocols {
+			t.Fatalf("ekspektasi status 101, didapat: %d", resp.StatusCode)
+		}
+		defer conn.Close()
+	})
+}
+

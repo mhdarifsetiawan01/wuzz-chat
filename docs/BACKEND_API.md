@@ -568,8 +568,21 @@ Liveness dan readiness probe untuk load balancer / orchestrator (Fly.io).
 ### 4.1 Koneksi & Parameter URL
 Sambungkan koneksi WebSocket ke:
 ```
-wss://<backend-host>/ws?token=<JWT_TOKEN>
+wss://<backend-host>/ws?token=<JWT_TOKEN>&device_id=<DEVICE_ID>
 ```
+- **Query Params**:
+  - `token` (*wajib*): JWT token otentikasi.
+  - `device_id` (*opsional namun direkomendasikan*): UUID unik perangkat klien (`wuzz_device_id`). Dapat juga dikirim via header `X-Device-ID`.
+- **Single Active Device Gatekeeper**:
+  - Jika akun pengguna telah meregistrasikan perangkat aktif sah di database (`active_device_id`), koneksi yang mengirimkan `device_id` tidak cocok atau kosong akan **DITOLAK saat handshake HTTP** dengan status `HTTP 403 Forbidden`:
+    ```json
+    {
+      "error": "DEVICE_MISMATCH",
+      "code": "SESSION_REPLACED",
+      "message": "Akun Anda sedang aktif di perangkat lain."
+    }
+    ```
+  - Jika perangkat baru yang sah terhubung, sesi perangkat lama di Hub akan dikirimi event notifikasi `system` (`SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.`), diberikan jeda flush 250ms, lalu diputus secara tertib dengan WebSocket Close Control Frame **Code `4001`**. Klien wajib menghentikan auto-reconnect saat menerima Close Code `4001`.
 - **Write Deadline**: 10 detik.
 - **Pong Wait**: 60 detik.
 - **Ping Period**: 54 detik (Server otomatis mengirim Ping frame secara periodik).

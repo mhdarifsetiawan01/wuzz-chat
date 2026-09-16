@@ -401,6 +401,15 @@
       - Memvalidasi skenario Android OS Doze Mode / Background Sleep (socket teardown dan auto-reconnect tanpa memicu `SESSION_REPLACED` atau saling tendang).
       - Pengujian CacheStorage mock untuk Service Worker push background key caching.
       - Verifikasi kontinuitas linimasa di sisi Bob: pesan lama dari Laptop tetap terbaca jelas (IndexedDB cache) dan pesan baru dari Android PWA terdekripsi dengan kunci baru. Hasil: 100% PASS.
+  12. [x] **Device Key Transfer & Anti-Race Condition Hardening**:
+      - Backend Gatekeeper (`handler.go`): Validasi `device_id` saat HTTP upgrade handshake. Jika akun telah memiliki `active_device_id` di database dan klien yang mencoba konek memiliki `device_id` tidak cocok atau kosong, request ditolak langsung dengan status `HTTP 403 Forbidden` (`DEVICE_MISMATCH` / `SESSION_REPLACED`). Klien usang tidak akan pernah berhasil upgrade WebSocket dan tidak akan bisa menendang perangkat aktif yang sah.
+      - Backend Hub (`hub.go`): Mengirim WebSocket Close Control Frame resmi `4001: SESSION_REPLACED` dan memperpanjang grace period flush ke 500ms (write timeout 1000ms) sebelum `conn.Close()`, mengeliminasi silent socket drop (code 1005) pada perangkat lama bahkan di lingkungan server lambat-medium atau latensi tinggi.
+      - Frontend API Client (`api.ts`): Menambahkan safeguard timeout terkelola (15 detik untuk query REST umum, 60 detik untuk upload media) menggunakan `AbortController` agar UI tidak macet/menggantung jika server sedang lambat atau kelebihan beban.
+      - Frontend (`ws-client.ts` & `page.tsx`): Menautkan `device_id` pada URL koneksi (`/ws?token=...&device_id=...`) dan menambahkan proteksi pada `onclose` untuk code 4001 / `SESSION_REPLACED`, menghentikan auto-reconnect permanen agar tidak terjadi ping-pong disconnect / saling tendang antar perangkat.
+      - Frontend (`DeviceTransferModal.tsx`): Menambahkan helper `downscaleImageFile` yang otomatis mengompresi foto kamera HP beresolusi tinggi (12MP–50MP) ke dimensi optimal 1200px sebelum dipindai `Html5Qrcode`, menyelesaikan kegagalan deteksi barcode ZXing pada kamera smartphone modern.
+      - Frontend (`DeviceConflictModal.tsx`): Menambahkan tombol *"📲 Ambil Alih Sesi Kembali ke Perangkat Ini via QR"* saat `isRotated: true`, mengeliminasi dead-end UX yang memaksa user logout dan mengetik password ulang.
+      - Frontend (`keyStore.ts`): Memperbaiki `importAndSaveTransferredKeyPair` agar menggunakan `PUT /api/users/public-key` (zero-rotation) dan menambahkan safeguard pemulihan `userId` dari storage, menjaga versi kunci tetap konsisten tanpa rotasi semu.
+      - Test (`test-qr-device-transfer-simulation.mjs`): Script simulasi transfer 2-arah lengkap (HP -> Laptop via Kamera, Laptop -> HP via Foto QR) dengan pesan Bob tetap terbaca 100% di semua siklus dan Key Version tetap konstan.
 
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management**.

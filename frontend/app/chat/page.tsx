@@ -24,6 +24,7 @@ import {
   getCachedPeerPublicKey,
   forceResetUserE2EE,
   clearLocalKeyPair,
+  getOrCreateDeviceId,
   E2EEDeviceConflictError,
 } from '@/lib/crypto/keyStore'
 import { autoSyncPushSubscription } from '@/lib/pushNotification'
@@ -561,7 +562,8 @@ function ChatPageContent() {
       const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       wsEndpoint = `${protocol}//${typeof window !== 'undefined' ? window.location.host : 'localhost:3047'}/ws`
     }
-    const wsUrl = `${wsEndpoint}${wsEndpoint.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
+    const deviceId = getOrCreateDeviceId()
+    const wsUrl = `${wsEndpoint}${wsEndpoint.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}&device_id=${encodeURIComponent(deviceId)}`
     const client = new WsClient(wsUrl)
     clientRef.current = client
 

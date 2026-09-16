@@ -18,8 +18,8 @@ Backend **Wuzz Chat** (Golang) dan Database (Supabase PostgreSQL) dibangun denga
 ### A. Konfigurasi Endpoint Server
 | Environment | REST API Base URL | WebSocket Endpoint |
 |---|---|---|
-| **Production (Live)** | `https://wuzz-chat-backend.fly.dev` | `wss://wuzz-chat-backend.fly.dev/ws?token=<JWT>` |
-| **Local Development** | `http://10.0.2.2:8080` (Android Emulator) / `http://localhost:8080` (iOS Sim) | `ws://10.0.2.2:8080/ws?token=<JWT>` |
+| **Production (Live)** | `https://wuzz-chat-backend.fly.dev` | `wss://wuzz-chat-backend.fly.dev/ws?token=<JWT>&device_id=<DEVICE_ID>` |
+| **Local Development** | `http://10.0.2.2:8080` (Android Emulator) / `http://localhost:8080` (iOS Sim) | `ws://10.0.2.2:8080/ws?token=<JWT>&device_id=<DEVICE_ID>` |
 
 ---
 
@@ -40,9 +40,11 @@ sequenceDiagram
     App->>App: Cek Keypair E2EE Lokal (Generate jika belum ada)
     App->>REST: PUT /api/users/public-key {public_key: "<JWK>", device_id: "<DEVICE_ID>"}
     Note over App,REST: Jika HTTP 409 Conflict, panggil POST /api/users/public-key/reset untuk rotasi
-    App->>WS: Connect wss://.../ws?token=<JWT>
+    App->>WS: Connect wss://.../ws?token=<JWT>&device_id=<DEVICE_ID>
     WS-->>App: 101 Switching Protocols (Handshake Sukses)
     WS-->>App: Event "system" {content: "ID kamu: <UUID>"}
+    Note over App,WS: Jika device_id tidak cocok dg active_device_id server: 403 Forbidden (DEVICE_MISMATCH)
+    Note over App,WS: Jika akun dibuka dari device baru: Close Code 4001 (SESSION_REPLACED, jangan reconnect!)
 ```
 
 1. **Login & Token Storage**:
