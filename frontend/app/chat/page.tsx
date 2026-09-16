@@ -23,6 +23,7 @@ import {
   cachePeerPublicKey,
   getCachedPeerPublicKey,
   forceResetUserE2EE,
+  clearLocalKeyPair,
   E2EEDeviceConflictError,
 } from '@/lib/crypto/keyStore'
 import { autoSyncPushSubscription } from '@/lib/pushNotification'
@@ -423,12 +424,15 @@ function ChatPageContent() {
   // Handler logout saat terjadi konflik perangkat
   const handleDeviceConflictLogout = useCallback(async () => {
     try {
+      if (user?.id) {
+        await clearLocalKeyPair(user.id)
+      }
       await logout()
     } catch {}
     if (typeof window !== 'undefined') {
       window.location.href = '/login'
     }
-  }, [logout])
+  }, [logout, user?.id])
 
   useEffect(() => {
     if (isAuthLoading) return
@@ -1428,7 +1432,7 @@ function ChatPageContent() {
           isRotated={deviceConflict.isRotated}
           keyVersion={deviceConflict.keyVersion}
           currentUserId={user?.id || ''}
-          onClose={handleDeviceConflictLogout}
+          onClose={() => setDeviceConflict({ isOpen: false })}
           onConfirmReset={handleConfirmDeviceReset}
           onLogout={handleDeviceConflictLogout}
           onTransferSuccess={() => {
