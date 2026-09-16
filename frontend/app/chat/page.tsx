@@ -261,15 +261,36 @@ function ChatPageContent() {
     messagesRef.current = state.messages
   }, [state.messages])
 
-  // Kunci scroll window ke (0,0) untuk mencegah pergeseran layout / header terpotong di PWA Android
+  // Kunci scroll window ke (0,0) untuk mencegah pergeseran layout / header terangkat saat keyboard Android muncul
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if ('scrollRestoration' in history) {
-        history.scrollRestoration = 'manual'
+    if (typeof window === 'undefined') return
+
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual'
+    }
+
+    const resetWindowScroll = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0)
       }
-      window.scrollTo(0, 0)
-      document.body.scrollTop = 0
-      document.documentElement.scrollTop = 0
+      if (document.body.scrollTop !== 0) {
+        document.body.scrollTop = 0
+      }
+      if (document.documentElement.scrollTop !== 0) {
+        document.documentElement.scrollTop = 0
+      }
+    }
+
+    resetWindowScroll()
+
+    window.addEventListener('scroll', resetWindowScroll, { passive: true })
+    window.visualViewport?.addEventListener('scroll', resetWindowScroll, { passive: true })
+    window.visualViewport?.addEventListener('resize', resetWindowScroll, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', resetWindowScroll)
+      window.visualViewport?.removeEventListener('scroll', resetWindowScroll)
+      window.visualViewport?.removeEventListener('resize', resetWindowScroll)
     }
   }, [roomId])
 
