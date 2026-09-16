@@ -380,6 +380,11 @@
   3. [x] **Write-Through Synchronization (`page.tsx`)**: Integrasi cache sinkron di seluruh titik mutasi pesan (pesan masuk WebSocket, pengiriman pesan mandiri optimistik & terkonfirmasi, pembaruan tanda terima, penarikan pesan untuk semua orang, penghapusan lokal untuk saya, dan hapus riwayat room).
   4. [x] **E2EE Readability Continuity**: Bob tetap dapat membaca seluruh pesan lama secara utuh meskipun Alice me-reset perangkat dan mengunggah pasangan kunci E2EE baru, karena pesan tersimpan persisten dalam status terdekripsi di IndexedDB Bob.
   5. [x] **Security Key Change Detection & UI (`page.tsx`, `MessageBubble.tsx`, `globals.css`)**: Deteksi perubahan public key lawan bicara via `localStorage` + `lastKnownPeerKeyRef` saat dekripsi, dengan penyisipan pesan sistem amber bertema `security-notice` ke timeline percakapan layaknya WhatsApp.
+  6. [x] **Fix Bug 2-Device Conflict Reset Redirect & Anti-Race Condition (`page.tsx`)**:
+     - Memperbaiki bug di hard blocker `DeviceConflictModal` di mana `onClose` salah mengarahkan ke `handleDeviceConflictLogout` saat user mengklik "Reset & Masuk di Perangkat Ini", yang menyebabkan Device 2 terlempar kembali ke `/login` dan menimbulkan perebutan sesi enkripsi (*ping-pong race condition*).
+     - Diperbaiki menjadi `onClose={() => setDeviceConflict({ isOpen: false })}` sehingga Device 2 langsung masuk ke obrolan secara mulus.
+     - Menambahkan pembersihan kunci lokal `clearLocalKeyPair(user.id)` saat logout konflik agar perangkat lama bersih dari sisa kunci usang saat user login ulang.
+     - Menambahkan script pengujian simulasi otomatis 2-device ([`frontend/test-two-device-simulation.mjs`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/test-two-device-simulation.mjs)) yang memvalidasi otentikasi akun, 409 conflict detection, key reset, transfer sesi WebSocket, dan pengiriman `SESSION_REPLACED` ke Device 1 dengan 100% kelulusan.
 
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management**.
