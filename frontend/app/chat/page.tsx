@@ -274,6 +274,12 @@ function ChatPageContent() {
     messagesRef.current = state.messages
   }, [state.messages])
 
+  // Selalu sinkronkan roomIdRef dengan roomId aktif agar callback WS tidak stale
+  const roomIdRef = useRef<string>(roomId)
+  useEffect(() => {
+    roomIdRef.current = roomId
+  }, [roomId])
+
   // Kunci scroll window ke (0,0) untuk mencegah pergeseran layout / header terangkat saat keyboard Android muncul
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -432,14 +438,105 @@ function ChatPageContent() {
     if (typeof window !== 'undefined') {
       window.location.href = '/login'
     }
-  }, [logout, user?.id])
+  }, [logout])
 
+  // ----------------------------------------------------------------
+  // 1. Efek Perpindahan Ruang Obrolan (Room Switcher): 0ms Load & Join
+  //    Dijalankan saat `roomId` berubah TANPA disconnect WebSocket!
+  // ----------------------------------------------------------------
+  useEffect(() => {
+    if (!roomId) {
+      dispatch({ type: 'SET_MESSAGES', payload: [] })
+      dispatch({ type: 'SET_ROOM_USERS', payload: [] })
+      dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
+      setReplyingTo(null)
+      setLightboxData(null)
+      setIsMemberListOpen(false)
+      setIsLoadingHistory(false)
+      setIsHistoryError(false)
+      return
+    }
+
+    const nickname = user?.display_name || user?.username || ''
+
+    // Reset pesan & UI state saat berpindah room
+    dispatch({ type: 'SET_MESSAGES', payload: [] })
+    dispatch({ type: 'SET_ROOM_USERS', payload: [] })
+    dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
+    setReplyingTo(null)
+    setLightboxData(null)
+    setIsMemberListOpen(false)
+    setIsLoadingHistory(true)
+    setIsHistoryError(false)
+
+    // Cache-First Instant Load: Baca riwayat pesan dari IndexedDB lokal (0ms)
+    getCachedMessages(roomId).then((cached) => {
+      if (cached.length > 0 && roomIdRef.current === roomId) {
+        const cachedMsgs: Message[] = cached.map((c: CachedMessageRecord) => ({
+          id: c.id,
+          room_id: c.room_id,
+          conversation_id: c.room_id,
+          content: c.content,
+          sender_id: c.sender_id,
+          nickname: c.sender_display_name || c.sender_username || '',
+          display_name: c.sender_display_name,
+          username: c.sender_username,
+          avatar_url: c.sender_avatar_url,
+          created_at: c.created_at,
+          status: c.status as Message['status'],
+          type: c.type as Message['type'],
+          media_url: c.media_url,
+          media_mime_type: c.media_mime_type,
+          media_file_name: c.media_file_name,
+          media_size: c.media_size,
+          reply_to: c.reply_to
+            ? {
+                id: c.reply_to.id,
+                content: c.reply_to.content,
+                sender_id: c.reply_to.sender_id,
+                nickname: c.reply_to.sender_display_name || '',
+              }
+            : undefined,
+          reactions: c.reactions as Message['reactions'],
+        }))
+        dispatch({ type: 'SET_MESSAGES', payload: cachedMsgs })
+      }
+    }).catch(() => {})
+
+    if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
+    historyTimeoutRef.current = setTimeout(() => {
+      setIsLoadingHistory(false)
+      setIsHistoryError(true)
+    }, 7500)
+
+    // Bergabung ke room di WebSocket yang sedang aktif (0ms reconnect!)
+    if (clientRef.current) {
+      clientRef.current.send({
+        type: 'join',
+        nickname,
+        room: roomId,
+      })
+
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        clientRef.current.send({
+          type: 'receipt',
+          room: roomId,
+          status: 'read',
+        })
+      }
+    }
+  }, [roomId, user?.display_name, user?.username])
+
+  // ----------------------------------------------------------------
+  // 2. Efek Tunggal Inisialisasi WebSocket (Single Connection Lifecycle)
+  //    Dibuat satu kali saat login & E2EE valid; bebas dari re-connect saat ganti room.
+  // ----------------------------------------------------------------
   useEffect(() => {
     if (isAuthLoading) return
 
     if (!user) {
-      // Jika user belum login, wajib alihkan ke halaman login
-      const targetUrl = roomId ? `/login?room=${encodeURIComponent(roomId)}` : '/login'
+      const currentRoom = roomIdRef.current
+      const targetUrl = currentRoom ? `/login?room=${encodeURIComponent(currentRoom)}` : '/login'
       if (typeof window !== 'undefined') {
         window.location.href = targetUrl
       } else {
@@ -449,72 +546,12 @@ function ChatPageContent() {
     }
 
     // STRICT GATEKEEPER: Tahan inisialisasi WebSocket sampai kunci E2EE terverifikasi sah!
-    // Mencegah perangkat baru menendang perangkat lama yang sedang aktif jika terjadi konflik
     if (!e2eeVerified || deviceConflict.isOpen) {
       return
     }
 
     const nickname = user.display_name || user.username
 
-    // Reset pesan & reply saat berpindah room
-    dispatch({ type: 'SET_MESSAGES', payload: [] })
-    dispatch({ type: 'SET_ROOM_USERS', payload: [] })
-    dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
-    setReplyingTo(null)
-    setLightboxData(null)
-    setIsMemberListOpen(false)
-    setIsLoadingHistory(Boolean(roomId))
-    setIsHistoryError(false)
-
-    // Cache-First Load: Baca riwayat pesan dari IndexedDB lokal sebelum server merespons.
-    // Ini membuat pesan muncul instan (0ms) tanpa harus menunggu fetch + dekripsi dari server.
-    if (roomId) {
-      getCachedMessages(roomId).then((cached) => {
-        if (cached.length > 0) {
-          // Konversi CachedMessageRecord → Message agar kompatibel dengan reducer
-          const cachedMsgs: Message[] = cached.map((c: CachedMessageRecord) => ({
-            id: c.id,
-            room_id: c.room_id,
-            conversation_id: c.room_id,
-            content: c.content,
-            sender_id: c.sender_id,
-            nickname: c.sender_display_name || c.sender_username || '',
-            display_name: c.sender_display_name,
-            username: c.sender_username,
-            avatar_url: c.sender_avatar_url,
-            created_at: c.created_at,
-            status: c.status as Message['status'],
-            type: c.type as Message['type'],
-            media_url: c.media_url,
-            media_mime_type: c.media_mime_type,
-            media_file_name: c.media_file_name,
-            media_size: c.media_size,
-            reply_to: c.reply_to
-              ? {
-                  id: c.reply_to.id,
-                  content: c.reply_to.content,
-                  sender_id: c.reply_to.sender_id,
-                  nickname: c.reply_to.sender_display_name || '',
-                }
-              : undefined,
-            reactions: c.reactions as Message['reactions'],
-          }))
-          dispatch({ type: 'SET_MESSAGES', payload: cachedMsgs })
-        }
-      }).catch(() => {
-        // Gagal baca cache — tidak apa-apa, server history akan mengisi ulang
-      })
-    }
-
-    if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
-    if (roomId) {
-      historyTimeoutRef.current = setTimeout(() => {
-        setIsLoadingHistory(false)
-        setIsHistoryError(true)
-      }, 7500)
-    }
-
-    // Buat koneksi WsClient (selalu aktif untuk menerima notifikasi pesan baru)
     const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
     const customWsBase = process.env.NEXT_PUBLIC_WS_URL
     let wsEndpoint = ''
@@ -532,27 +569,26 @@ function ChatPageContent() {
     client.onStatus(status => {
       dispatch({ type: 'SET_STATUS', payload: status })
 
-      // Saat terhubung, daftarkan user ke Hub (dan join ke room jika ada)
       if (status === 'connected') {
+        const currentRoom = roomIdRef.current || ''
         dispatch({
           type: 'SET_SESSION',
           payload: {
             clientId: user.id || nickname,
             nickname,
-            peerId: roomId,
+            peerId: currentRoom,
           },
         })
         client.send({
           type: 'join',
           nickname,
-          room: roomId || '',
+          room: currentRoom,
         })
 
-        // Jika membuka ruang obrolan saat tab aktif, kirim bulk read receipt seketika
-        if (roomId && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        if (currentRoom && typeof document !== 'undefined' && document.visibilityState === 'visible') {
           client.send({
             type: 'receipt',
-            room: roomId,
+            room: currentRoom,
             status: 'read',
           })
         }
@@ -561,6 +597,7 @@ function ChatPageContent() {
 
     // Subscribe pesan masuk
     client.onMessage(msg => {
+      const currentRoom = roomIdRef.current || ''
       switch (msg.type) {
         case 'system': {
           if (msg.content?.includes('SESSION_REPLACED')) {
@@ -580,7 +617,7 @@ function ChatPageContent() {
               payload: {
                 clientId,
                 nickname,
-                peerId: roomId,
+                peerId: currentRoom,
               },
             })
           }
@@ -588,10 +625,8 @@ function ChatPageContent() {
         }
 
         case 'room_users': {
-          // Update daftar member aktif di room
-          if (msg.users && roomId) {
+          if (msg.users && currentRoom && (msg.room === currentRoom || !msg.room)) {
             dispatch({ type: 'SET_ROOM_USERS', payload: msg.users })
-            // Jika ada member selain kita, set nama peer dan resolve kunci E2EE
             const otherUsers = msg.users.filter(u => u.nickname !== nickname)
             if (otherUsers.length === 1) {
               dispatch({ type: 'SET_PEER_NICKNAME', payload: otherUsers[0].nickname })
@@ -610,30 +645,47 @@ function ChatPageContent() {
           setIsLoadingHistory(false)
           setIsHistoryError(false)
 
-          // Muat riwayat chat dari Supabase/Database & otomatis dekripsi jika terenkripsi E2EE
-          if (roomId) {
+          if (currentRoom && (msg.room === currentRoom || !msg.room)) {
             const rawMessages = msg.messages || []
 
             const processHistory = async () => {
               let key = roomAESKeyRef.current
               if (!key && user?.id && activePeerRef.current?.id && activePeerRef.current?.publicKey) {
-                key = await getSharedRoomAESKey(user.id, activePeerRef.current.id, activePeerRef.current.publicKey, roomId)
+                key = await getSharedRoomAESKey(user.id, activePeerRef.current.id, activePeerRef.current.publicKey, currentRoom)
                 roomAESKeyRef.current = key
               }
 
+              // SAFE-MERGE DENGAN INDEXEDDB CACHE (E2EE Continuity Protection):
+              // Ambil cache pesan lokal yang tersimpan dalam status terdekripsi
+              const localCachedList = await getCachedMessages(currentRoom).catch(() => [])
+              const localCacheMap = new Map<string, string>()
+              localCachedList.forEach(c => {
+                if (c.content && c.content !== '🔒 [Pesan Terenkripsi]') {
+                  localCacheMap.set(c.id, c.content)
+                }
+              })
+
               const decryptedList = await Promise.all(
-                rawMessages.map((m: Message) => decryptSingleMessage(m, key))
+                rawMessages.map(async (m: Message) => {
+                  const dec = await decryptSingleMessage(m, key)
+                  // JIKA server history gagal didekripsi (misal lawan bicara ganti kunci perangkat),
+                  // TETAPI kita punya teks aslinya di IndexedDB lokal:
+                  // PERTAHANKAN TEKS ASLI DARI CACHE LOKAL!
+                  if (dec.content === '🔒 [Pesan Terenkripsi]' && dec.id && localCacheMap.has(dec.id)) {
+                    dec.content = localCacheMap.get(dec.id)!
+                  }
+                  return dec
+                })
               )
 
               dispatch({ type: 'SET_MESSAGES', payload: decryptedList })
 
-              // Write-Through ke IndexedDB: simpan seluruh pesan yang berhasil didekripsi.
-              // Hanya simpan pesan dengan konten yang bukan placeholder error enkripsi.
+              // Write-Through ke IndexedDB
               const toCache = decryptedList
                 .filter((m: Message) => m.id && m.content && m.content !== '🔒 [Pesan Terenkripsi]')
                 .map((m: Message) => toCachedRecord({
                   id: m.id!,
-                  room_id: roomId,
+                  room_id: currentRoom,
                   content: m.content || '',
                   sender_id: m.from || '',
                   sender_display_name: m.nickname || '',
@@ -658,16 +710,13 @@ function ChatPageContent() {
                     : undefined,
                 }))
               if (toCache.length > 0) {
-                cacheMessages(toCache).catch(() => {
-                  // Cache write gagal — tidak memblokir UI
-                })
+                cacheMessages(toCache).catch(() => {})
               }
             }
 
             processHistory()
 
             if (msg.messages && msg.messages.length > 0) {
-              // Jika peerNickname masih kosong, ambil dari nama pengirim pesan yang bukan kita
               const otherMsg = msg.messages.slice().reverse().find((m: Message) => 
                 m.nickname && 
                 m.nickname !== nickname && 
@@ -678,11 +727,10 @@ function ChatPageContent() {
                 dispatch({ type: 'SET_PEER_NICKNAME', payload: otherMsg.nickname })
               }
 
-              // Kirim tanda 'read' untuk seluruh pesan di room jika jendela chat sedang aktif
               if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
                 client.send({
                   type: 'receipt',
-                  room: roomId,
+                  room: currentRoom,
                   status: 'read',
                 })
               }
@@ -692,35 +740,27 @@ function ChatPageContent() {
         }
 
         case 'receipt': {
-          // Teruskan ke sidebar agar icon centang di sidebar ikut terupdate
-          setLastIncomingMessage(msg)
-
-          // Update status tanda terima pesan (sent -> delivered -> read)
-          if (msg.status) {
-            dispatch({
-              type: 'UPDATE_MESSAGE_STATUS',
-              payload: { id: msg.id, status: msg.status },
-            })
-            // Write-Through: sinkronkan status tanda terima ke cache IndexedDB
-            if (msg.id) {
-              updateCachedMessageStatus(msg.id, msg.status).catch(() => {})
-            } else if (roomId && msg.status === 'read') {
-              // Bulk read receipt tanpa ID spesifik — tandai semua pesan room di cache
-              // (opsional: cukup biarkan server history sync saat refresh berikutnya)
+          if (currentRoom && (msg.room === currentRoom || !msg.room)) {
+            setLastIncomingMessage(msg)
+            if (msg.status) {
+              dispatch({
+                type: 'UPDATE_MESSAGE_STATUS',
+                payload: { id: msg.id, status: msg.status },
+              })
+              if (msg.id) {
+                updateCachedMessageStatus(msg.id, msg.status).catch(() => {})
+              }
             }
           }
           break
         }
 
         case 'reaction': {
-          // Update reaksi emoji terhadap pesan tertentu
           if (msg.id && msg.reactions) {
             dispatch({
               type: 'UPDATE_MESSAGE_REACTIONS',
               payload: { id: msg.id, reactions: msg.reactions },
             })
-
-            // Mainkan suara notifikasi jika reaksi diberikan oleh lawan bicara
             if (msg.nickname && msg.nickname !== nickname) {
               soundManager.playReceive()
             }
@@ -729,8 +769,7 @@ function ChatPageContent() {
         }
 
         case 'message': {
-          // Jika pesan adalah untuk room yang sedang aktif dibuka
-          if (roomId && msg.room === roomId) {
+          if (currentRoom && msg.room === currentRoom) {
             if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
             setIsLoadingHistory(false)
             setIsHistoryError(false)
@@ -738,20 +777,18 @@ function ChatPageContent() {
             const processIncomingMsg = async () => {
               let key = roomAESKeyRef.current
               if (!key && user?.id && activePeerRef.current?.id && activePeerRef.current?.publicKey) {
-                key = await getSharedRoomAESKey(user.id, activePeerRef.current.id, activePeerRef.current.publicKey, roomId)
+                key = await getSharedRoomAESKey(user.id, activePeerRef.current.id, activePeerRef.current.publicKey, currentRoom)
                 roomAESKeyRef.current = key
               }
 
               const decryptedMsg = await decryptSingleMessage(msg, key)
               dispatch({ type: 'ADD_MESSAGE', payload: decryptedMsg })
-              // Teruskan pesan yang telah terdekripsi ke sidebar agar snippet langsung teks biasa
               setLastIncomingMessage(decryptedMsg)
 
-              // Write-Through: simpan pesan masuk yang berhasil didekripsi ke cache IndexedDB
               if (decryptedMsg.id && decryptedMsg.content && decryptedMsg.content !== '🔒 [Pesan Terenkripsi]') {
                 cacheMessage(toCachedRecord({
                   id: decryptedMsg.id,
-                  room_id: roomId,
+                  room_id: currentRoom,
                   content: decryptedMsg.content || '',
                   sender_id: decryptedMsg.from || '',
                   sender_display_name: decryptedMsg.nickname || '',
@@ -784,58 +821,53 @@ function ChatPageContent() {
               dispatch({ type: 'SET_PEER_NICKNAME', payload: msg.nickname })
             }
           } else {
-            // Pesan dari room lain: teruskan ke snippet sidebar & unread counter
             setLastIncomingMessage(msg)
           }
 
-          // Balas receipt ke pengirim jika pesan dari lawan bicara
           if (msg.nickname && msg.nickname !== nickname && msg.id) {
             soundManager.playReceive()
 
-            // 1. Kirim tanda 'delivered'
             client.send({
               type: 'receipt',
               id: msg.id,
-              room: msg.room || roomId,
+              room: msg.room || currentRoom,
               status: 'delivered',
             })
 
-            // 2. Jika room ini sedang aktif dibuka & window terlihat, kirim juga status 'read'
-            if (roomId && msg.room === roomId && typeof document !== 'undefined' && document.visibilityState === 'visible') {
+            if (currentRoom && msg.room === currentRoom && typeof document !== 'undefined' && document.visibilityState === 'visible') {
               client.send({
                 type: 'receipt',
                 id: msg.id,
-                room: msg.room || roomId,
+                room: msg.room || currentRoom,
                 status: 'read',
               })
             }
           }
 
-          // Reset typing indicator saat pesan baru masuk
           dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
           break
         }
 
         case 'typing': {
-          dispatch({
-            type: 'SET_PEER_TYPING',
-            payload: { typing: true, nickname: msg.nickname || null },
-          })
-          if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
-          typingTimerRef.current = setTimeout(() => {
-            dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
-          }, 2500)
+          if (currentRoom && msg.room === currentRoom) {
+            dispatch({
+              type: 'SET_PEER_TYPING',
+              payload: { typing: true, nickname: msg.nickname || null },
+            })
+            if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+            typingTimerRef.current = setTimeout(() => {
+              dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
+            }, 2500)
+          }
           break
         }
 
         case 'message_deleted': {
-          // Update pesan yang ditarik secara real-time
           if (msg.id) {
             dispatch({
               type: 'UPDATE_MESSAGE_DELETED',
               payload: { id: msg.id, content: msg.content },
             })
-            // Write-Through: tandai sebagai deleted di cache IndexedDB
             updateCachedMessageStatus(msg.id, 'deleted').catch(() => {})
           }
           break
@@ -851,13 +883,13 @@ function ChatPageContent() {
           if (currentCall && currentCall.status !== 'ended' && currentCall.status !== 'idle') {
             client.send({
               type: 'call_busy',
-              room: msg.room || roomId,
+              room: msg.room || currentRoom,
             })
             break
           }
           pendingOfferSdpRef.current = msg.sdp || null
           setActiveCall({
-            room: msg.room || roomId,
+            room: msg.room || currentRoom,
             peerId: msg.nickname || '',
             peerNickname: msg.nickname || 'Pengguna',
             mediaType: 'audio',
@@ -886,7 +918,6 @@ function ChatPageContent() {
                 console.error('[WebRTC] Gagal proses ICE candidate:', err)
               })
             } else {
-              // Simpan kandidat yang tiba lebih awal sebelum tombol Terima ditekan
               earlyIceCandidatesRef.current.push(msg.candidate)
             }
           }
@@ -938,10 +969,11 @@ function ChatPageContent() {
     })
 
     const handleVisibilityChange = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && roomId && clientRef.current) {
+      const currentRoom = roomIdRef.current
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && currentRoom && clientRef.current) {
         clientRef.current.send({
           type: 'receipt',
-          room: roomId,
+          room: currentRoom,
           status: 'read',
         })
       }
@@ -958,11 +990,12 @@ function ChatPageContent() {
         document.removeEventListener('visibilitychange', handleVisibilityChange)
       }
       client.destroy()
+      clientRef.current = null
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
       if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomId, isAuthLoading, user?.username, user?.display_name, e2eeVerified, resolvePeerKeyAndDecrypt])
+  }, [isAuthLoading, user?.id, user?.display_name, user?.username, e2eeVerified, deviceConflict.isOpen, resolvePeerKeyAndDecrypt])
 
   // Muat detail judul percakapan / kontak & kunci E2EE lawan bicara saat room berubah
   useEffect(() => {
