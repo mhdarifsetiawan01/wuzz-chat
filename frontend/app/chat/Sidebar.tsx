@@ -557,12 +557,27 @@ export function Sidebar({
 
   return (
     <aside className={`chat-sidebar ${isOpenMobile ? 'sidebar-open' : ''}`}>
-      {/* WhatsApp-Style Top Header */}
+      {/* Ultra-Modern Aurora Top Header */}
       <div className="sidebar-header">
         <div className="sidebar-brand-row">
           <div className="sidebar-brand-title">
-            <span className="brand-wuzz">Wuzz</span><span className="brand-chat">Chat</span>
+            <div className="brand-logo-badge" title="Wuzz Chat">
+              <svg className="brand-logo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="url(#wuzz-lightning-grad)" stroke="rgba(147, 197, 253, 0.5)" strokeWidth="1" />
+                <defs>
+                  <linearGradient id="wuzz-lightning-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#38bdf8" />
+                    <stop offset="50%" stopColor="#60a5fa" />
+                    <stop offset="100%" stopColor="#c084fc" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <div className="brand-title-text">
+              <span className="brand-wuzz">Wuzz</span><span className="brand-chat">Chat</span>
+            </div>
           </div>
+
           <div className="sidebar-brand-actions">
             {!isStandalone && (
               <button
@@ -572,7 +587,7 @@ export function Sidebar({
                 title="Pasang Wuzz Chat sebagai aplikasi mandiri di HP atau Desktop"
               >
                 <span className="install-icon">📲</span>
-                <span className="install-label">Instal App</span>
+                <span className="install-label">Instal</span>
               </button>
             )}
             <button
@@ -592,13 +607,21 @@ export function Sidebar({
             >
               {isPushLoading ? '⏳' : pushEnabled ? '🔔' : '🔕'}
             </button>
+
+            {/* Profile Avatar Pill in Header */}
             <button
               type="button"
-              className="sidebar-action-btn"
+              className="sidebar-profile-btn"
               onClick={() => setIsProfileModalOpen(true)}
-              title="Profil & Pengaturan Akun"
+              title={`Profil & Pengaturan: ${user?.display_name || user?.username || 'Saya'}`}
             >
-              ⚙️
+              <div
+                className="sidebar-profile-avatar"
+                style={getAvatarStyle(user?.display_name || user?.username || 'me')}
+              >
+                {user?.avatar_url || (user?.display_name || user?.username || 'A')[0].toUpperCase()}
+                <span className="sidebar-profile-status-dot" title="Online"></span>
+              </div>
             </button>
           </div>
         </div>
@@ -609,43 +632,6 @@ export function Sidebar({
             {pushToast}
           </div>
         )}
-
-        {/* User Card Profile Mini */}
-        <div
-          className="sidebar-user-card"
-          onClick={() => setIsProfileModalOpen(true)}
-          title="Klik untuk ubah profil"
-          style={{ cursor: 'pointer' }}
-        >
-          <div
-            className="sidebar-avatar user-avatar-pulse"
-            style={getAvatarStyle(user?.display_name || user?.username || 'me')}
-          >
-            {user?.avatar_url || (user?.display_name || user?.username || 'A')[0].toUpperCase()}
-          </div>
-          <div className="sidebar-user-details" style={{ overflow: 'hidden' }}>
-            <span className="sidebar-user-name">{user?.display_name || user?.username || 'Pengguna'}</span>
-            <span
-              className="sidebar-user-handle"
-              style={{
-                fontSize: '0.75rem',
-                color: 'var(--text-muted)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: 'block',
-              }}
-              title={user?.status_message || 'Tersedia untuk mengobrol'}
-            >
-              {user?.status_message ? user.status_message : `@${user?.username || 'guest'}`}
-            </span>
-          </div>
-          <div className="sidebar-user-edit-hint" aria-hidden="true">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </div>
-        </div>
       </div>
 
       {/* Input Pencarian WhatsApp Style */}

@@ -1597,18 +1597,50 @@ h4 { font-size: 1rem;   font-weight: 600; }
   position: relative;
 }
 
+/* Ultra-Modern Aurora Top Header */
 .sidebar-header {
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+  overflow: hidden;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  background: rgba(15, 23, 42, 0.8);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
+  background: rgba(15, 23, 42, 0.85);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  z-index: 10;
+}
+
+/* Ambient Aurora Mesh Lighting in Header */
+.sidebar-header::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  left: -20px;
+  width: 190px;
+  height: 130px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.3) 0%, rgba(99, 102, 241, 0.16) 45%, transparent 70%);
+  filter: blur(28px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sidebar-header::after {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -10px;
+  width: 150px;
+  height: 110px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.22) 0%, rgba(244, 114, 182, 0.14) 45%, transparent 70%);
+  filter: blur(26px);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .sidebar-brand-row {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1616,26 +1648,105 @@ h4 { font-size: 1rem;   font-weight: 600; }
 }
 
 .sidebar-brand-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+/* Futuristic Logo Emblem Badge */
+.brand-logo-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.24) 0%, rgba(129, 140, 248, 0.14) 100%);
+  border: 1px solid rgba(147, 197, 253, 0.38);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast) ease;
+}
+
+.brand-logo-badge:hover {
+  transform: scale(1.06);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.brand-title-text {
+  display: flex;
+  align-items: baseline;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
 .brand-wuzz {
-  color: var(--text-primary);
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(255, 255, 255, 0.18);
 }
 
 .brand-chat {
-  color: var(--accent-400);
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
   margin-left: 2px;
 }
 
 .sidebar-brand-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+/* Integrated Header Profile Button */
+.sidebar-profile-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: transform var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-profile-btn:hover {
+  transform: scale(1.08);
+}
+
+.sidebar-profile-btn:active {
+  transform: scale(0.95);
+}
+
+.sidebar-profile-avatar {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.sidebar-profile-status-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid #0f172a;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.8);
 }
 
 .sidebar-install-btn {
@@ -2406,8 +2517,24 @@ h4 { font-size: 1rem;   font-weight: 600; }
   }
 
   .sidebar-header {
-    padding: var(--space-3) var(--space-4);
+    padding: 10px 14px;
     flex-shrink: 0;
+  }
+
+  .brand-title-text {
+    font-size: 1.18rem;
+  }
+
+  .brand-logo-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .sidebar-profile-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8125rem;
   }
 
   .sidebar-search-box {
