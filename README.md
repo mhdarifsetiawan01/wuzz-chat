@@ -27,7 +27,7 @@ wuzz-chat/
 │   │   ├── globals.css       # Dark-mode design system, dynamic waveforms & responsive CSS
 │   │   ├── layout.tsx
 │   │   └── page.tsx          # Landing page & anonymous nickname entry
-│   ├── lib/                  # WebSocket client, API helper, MediaCache (IndexedDB), ImageCompressor
+│   ├── lib/                  # WebSocket client, API helper, MediaCache (IndexedDB), avatarColor (Modular), ImageCompressor
 │   ├── server.js             # Custom server dengan WebSocket proxy & /uploads/ stream proxy
 │   └── package.json
 │
@@ -90,6 +90,7 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 - [x] **PWA Android Camera Workaround (Fase 7 DeviceTransfer)**: Tombol **\"📷 Foto via Kamera Native\"** (`<input capture="environment">`) sebagai fallback solid untuk scan QR Code di Android PWA, Pre-Warm `getUserMedia` Permission Strategy, dan deklarasi `"permissions": ["camera"]` di `manifest.json` untuk instalasi WebAPK.
 - [x] **Mobile Viewport Stability Fix (Post-Device Transfer)**: Mengunci `.chat-app-container` pada mobile dengan `position: fixed` dan `overscroll-behavior: none`, mengganti `scrollIntoView` dengan `containerRef.scrollTo` di ChatWindow, serta reset `window.scrollTo(0,0)` saat transisi room agar tampilan chat tidak naik ke atas setelah penutupan modal transfer.
 - [x] **Android Virtual Keyboard Header Fix**: Viewport metadata `interactiveWidget: 'resizes-content'` memastikan layout di-resize (bukan di-pan) saat keyboard virtual muncul. Listener `visualViewport` di `page.tsx` mengunci `window.scrollY` ke 0 agar header chat tidak pernah tergeser keluar viewport.
+- [x] **Soft Tri-Color Glassmorphism Redesign & Modular Avatar Architecture**: Redesain visual berkelas dengan kombinasi 3 warna harmonis (Soft Azure `#3b82f6` utama, Soft Lavender `#818cf8` sekunder, Soft Coral `#f472b6` tersier), utilitas avatar modular deterministik (`avatarColor.ts`) dengan 8 variasi warna pastel bergradien, Slate Frosted Glass pada bubble pesan masuk, penajaman kontras timestamp putih terang & read receipts Electric Cyan, dan ambient depth pada linimasa chat.
 
 ---
 

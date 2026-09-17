@@ -393,3 +393,19 @@ sequenceDiagram
 2. **Instant Offline Decryption**: Data public key pengirim (`sender_public_key`) disertakan dalam payload push sehingga Service Worker dapat mendekripsi secara instan (1-2 ms) tanpa perlu melakukan HTTP request tambahan ke server.
 3. **Graceful Fallback**: Jika private key belum ada di perangkat (misal user belum login di browser tersebut), notifikasi akan tetap tampil aman dengan teks default `🔒 Pesan Baru (Terenkripsi)`.
 
+---
+
+## 🎨 9. Arsitektur Frontend & Modular Design System (Soft Tri-Color Glassmorphism)
+
+Wuzz Chat mengadopsi prinsip desain modular berlapis yang memisahkan logika styling, pembuatan avatar kontak, dan tata letak dual-platform:
+
+1. **Modular Generator Avatar Deterministik (`frontend/lib/avatarColor.ts`)**:
+   - Menghasilkan palet gradien soft pastel dan border specular berbasis hashing string nama/ID kontak.
+   - Bersifat *pure function* tanpa state, digunakan secara konsisten oleh seluruh komponen UI (Sidebar, StatusBar, ContactProfileModal, MemberListModal, Call Overlay).
+2. **Centralized CSS Design Tokens (`frontend/app/globals.css`)**:
+   - Seluruh token warna primer (`Soft Azure`), sekunder (`Soft Lavender`), dan tersier (`Soft Coral Rose`) dikunci di `:root`.
+   - Permukaan *frosted glass* (`backdrop-filter: blur()`), kartu profil pengguna, dan *specular highlights* diatur secara terpusat untuk memudahkan pembaruan tema tanpa *breaking changes*.
+3. **High-Contrast Readability Guard**:
+   - Memenuhi standar WCAG untuk kenyamanan membaca di perangkat seluler dengan rasio kontras tinggi pada bubble pesan masuk (`Slate Frosted Glass`), timestamp putih terang (`rgba(255, 255, 255, 0.88)`), read receipts (`Electric Cyan #67e8f9`), dan kotak balasan pesan berbayang gelap.
+
+

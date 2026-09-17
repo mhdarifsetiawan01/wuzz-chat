@@ -8,6 +8,7 @@ import { LinkPreviewCard } from './LinkPreviewCard'
 import { getCachedMediaBlob, setCachedMediaBlob } from '@/lib/mediaCache'
 import { acknowledgeMediaDownload } from '@/lib/api'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
+import { getAvatarStyle } from '@/lib/avatarColor'
 
 interface MessageBubbleProps {
   message: Message
@@ -272,21 +273,35 @@ export function MessageBubble({
         className={`message-row ${rowClass}`}
         role="listitem"
       >
-        {!isSystem && !isSelf && message.nickname && (
-          <span className="message-sender">{message.nickname}</span>
-        )}
-        <div className="message-bubble-wrapper">
-          <div className="message-bubble deleted-bubble">
-            <div className="message-deleted-text">
-              <span>🚫</span>
-              <span>Pesan ini telah dihapus</span>
+        <div className="message-row-inner">
+          {!isSystem && !isSelf && (
+            <div
+              className="message-peer-avatar"
+              style={getAvatarStyle(message.nickname || message.from || '?')}
+              title={message.nickname || message.from || 'Pengguna'}
+              aria-hidden="true"
+            >
+              {((message.nickname || message.from || '?').trim()[0] || '?').toUpperCase()}
             </div>
-            <div className="message-meta-row">
-              {time && (
-                <span className="message-meta" aria-label={`Dihapus pukul ${time}`}>
-                  {time}
-                </span>
-              )}
+          )}
+          <div className="message-content-wrapper">
+            {!isSystem && !isSelf && message.nickname && (
+              <span className="message-sender">{message.nickname}</span>
+            )}
+            <div className="message-bubble-wrapper">
+              <div className="message-bubble deleted-bubble">
+                <div className="message-deleted-text">
+                  <span>🚫</span>
+                  <span>Pesan ini telah dihapus</span>
+                </div>
+                <div className="message-meta-row">
+                  {time && (
+                    <span className="message-meta" aria-label={`Dihapus pukul ${time}`}>
+                      {time}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -331,11 +346,24 @@ export function MessageBubble({
       className={`message-row ${rowClass}`}
       role="listitem"
     >
-      {!isSystem && !isSelf && message.nickname && (
-        <span className="message-sender">{message.nickname}</span>
-      )}
-      
-      <div className="message-bubble-wrapper">
+      <div className="message-row-inner">
+        {!isSystem && !isSelf && (
+          <div
+            className="message-peer-avatar"
+            style={getAvatarStyle(message.nickname || message.from || '?')}
+            title={message.nickname || message.from || 'Pengguna'}
+            aria-hidden="true"
+          >
+            {((message.nickname || message.from || '?').trim()[0] || '?').toUpperCase()}
+          </div>
+        )}
+
+        <div className="message-content-wrapper">
+          {!isSystem && !isSelf && message.nickname && (
+            <span className="message-sender">{message.nickname}</span>
+          )}
+          
+          <div className="message-bubble-wrapper">
         <div className="message-bubble">
           {/* Quoted / Reply Preview Block */}
           {message.reply_to && (
@@ -543,6 +571,8 @@ export function MessageBubble({
           })}
         </div>
       )}
+        </div>
+      </div>
 
       {/* Modal Pilihan Hapus Pesan */}
       {isDeleteModalOpen && typeof document !== 'undefined' && createPortal(

@@ -414,6 +414,10 @@
        - Frontend Tokens (`globals.css`): Implementasi palet 3 warna harmonis (Soft Azure `#3b82f6` utama, Soft Lavender `#818cf8` sekunder, Soft Coral `#f472b6` tersier) dengan specular border dan ambient background radial lighting.
        - Modular Avatar Generator (`avatarColor.ts`): Utilitas murni deterministik berbasis hash dengan 8 variasi warna pastel dan border glow, terintegrasi ke seluruh komponen (Sidebar, StatusBar, MemberListModal, ContactProfileModal, Call Modals).
        - Mobile & High-Contrast Polish: Slate Frosted Glass pada bubble pesan masuk (`rgba(30, 41, 59, 0.88)`), penajaman timestamp sendiri (`rgba(255, 255, 255, 0.88)`), read receipts Electric Cyan (`#67e8f9`), dan dark glass quote reply box (`rgba(0, 0, 0, 0.38)`).
+   14. [x] **Peer Message Avatar & Glassmorphism Detailing (Option 4)**:
+       - Peer Bubble Mini Avatar (`MessageBubble.tsx` & `globals.css`): Mini avatar deterministik (28px Desktop, 26px Mobile) di samping bubble pesan masuk (peer), terintegrasi dengan layout `.message-row-inner` dan `.message-content-wrapper` untuk pesan aktif maupun pesan ditarik/dihapus (`is_deleted`).
+       - Sidebar User Profile Card Polish (`Sidebar.tsx` & `globals.css`): Specular top-border highlight, inset glass shadow, dan indikator panah chevron mini untuk interaksi modal profil.
+       - Active Filter Pills Polish (`globals.css`): Soft Azure-Lavender specular gradient dengan glowing border pada pill kategori chat aktif.
 
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** / Bad Words Sensor Filter.
