@@ -293,6 +293,20 @@ function ChatPageContent() {
     roomIdRef.current = roomId
   }, [roomId])
 
+  // Lacak peer info terbaru (nickname, avatar, id) agar terhindar dari stale overwrite
+  const peerInfoRef = useRef<{ nickname: string | null; avatarUrl: string | null; userId: string | null }>({
+    nickname: null,
+    avatarUrl: null,
+    userId: null,
+  })
+  useEffect(() => {
+    peerInfoRef.current = {
+      nickname: state.peerNickname,
+      avatarUrl: state.peerAvatarUrl || null,
+      userId: state.peerUserId || null,
+    }
+  }, [state.peerNickname, state.peerAvatarUrl, state.peerUserId])
+
   // Kunci scroll window ke (0,0) untuk mencegah pergeseran layout / header terangkat saat keyboard Android muncul
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -754,7 +768,8 @@ function ChatPageContent() {
                 m.nickname !== user?.display_name && 
                 m.nickname !== user?.username
               )
-              if (otherMsg && otherMsg.nickname) {
+              // JANGAN menimpa peerNickname jika sudah diketahui dari percakapan / profil database
+              if (otherMsg && otherMsg.nickname && !peerInfoRef.current.nickname) {
                 dispatch({ type: 'SET_PEER_NICKNAME', payload: otherMsg.nickname })
               }
 
@@ -1044,7 +1059,21 @@ function ChatPageContent() {
       if (parts.length === 2) {
         const potentialPeerId = parts[0] === user.id ? parts[1] : parts[0]
         if (potentialPeerId) {
+          dispatch({ type: 'SET_PEER_INFO', payload: { userId: potentialPeerId } })
           resolvePeerKeyAndDecrypt(potentialPeerId)
+          // Selalu periksa data profil terbaru dari server
+          apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(potentialPeerId)}`).then(({ data: profile }) => {
+            if (profile) {
+              dispatch({
+                type: 'SET_PEER_INFO',
+                payload: {
+                  nickname: profile.display_name || profile.username,
+                  avatarUrl: profile.avatar_url || '',
+                  userId: profile.id,
+                },
+              })
+            }
+          }).catch(() => {})
         }
       }
     }
@@ -1064,6 +1093,19 @@ function ChatPageContent() {
 
           if (found.peer_id) {
             resolvePeerKeyAndDecrypt(found.peer_id, found.peer_public_key)
+            // Segarkan profil lawan bicara di background agar nama & foto selalu 100% sinkron
+            apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(found.peer_id)}`).then(({ data: profile }) => {
+              if (profile) {
+                dispatch({
+                  type: 'SET_PEER_INFO',
+                  payload: {
+                    nickname: profile.display_name || profile.username,
+                    avatarUrl: profile.avatar_url || '',
+                    userId: profile.id,
+                  },
+                })
+              }
+            }).catch(() => {})
           }
         }
       }
@@ -1573,6 +1615,9 @@ function ChatPageContent() {
               isLoadingHistory={isLoadingHistory}
               isHistoryError={isHistoryError}
               isE2EE={Boolean(roomId && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
+              isDirectChat={Boolean(roomId && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
+              peerAvatarUrl={state.peerAvatarUrl || ''}
+              peerNickname={state.peerNickname || ''}
               onRetryHistory={handleRetryHistory}
               onReply={setReplyingTo}
               onReact={handleReact}

@@ -13,6 +13,9 @@ interface ChatWindowProps {
   isLoadingHistory?: boolean
   isHistoryError?: boolean
   isE2EE?: boolean
+  isDirectChat?: boolean
+  peerAvatarUrl?: string
+  peerNickname?: string
   onRetryHistory?: () => void
   onReply?: (message: Message) => void
   onReact?: (messageId: string, emoji: string) => void
@@ -29,6 +32,9 @@ export function ChatWindow({
   isLoadingHistory,
   isHistoryError,
   isE2EE = false,
+  isDirectChat = false,
+  peerAvatarUrl = '',
+  peerNickname = '',
   onRetryHistory,
   onReply,
   onReact,
@@ -167,6 +173,9 @@ export function ChatWindow({
           message={msg}
           selfId={selfId}
           selfNickname={selfNickname}
+          isDirectChat={isDirectChat}
+          peerAvatarUrl={peerAvatarUrl}
+          peerNickname={peerNickname}
           onReply={onReply}
           onReact={onReact}
           onImageClick={onImageClick}
