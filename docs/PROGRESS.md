@@ -672,6 +672,15 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 
 **Solusi & Perbaikan**:
 - **Backend (`backend/internal/api/chat_handler.go`)**: Memperluas parser request agar secara fleksibel membaca `type`, `delete_type`, `delete_for_everyone`, dan URL query parameters (`?for_everyone=true`).
-- **Frontend (`frontend/lib/api.ts`)**: Memperbarui payload `deleteMessageApi` agar mengirimkan `delete_for_everyone: isForEveryone` sekaligus `type: deleteType` demi redundansi ganda.
+- **Frontend (`frontend/lib/api.ts`)**: Memperbarui payload `deleteMessageApi` agar mengirimkan `delete_for_everyone: isForEveryone` sekaligus `type: deleteType` demi redundansi ganda (backward compatible dengan klien lama).
 - **Automated Tests (`backend/internal/api/chat_handler_delete_test.go`)**: Menambahkan pengujian menyeluruh (4 skenario) untuk memverifikasi payload variasi format frontend, boolean, Delete for Me, dan proteksi otorisasi non-pengirim.
+
+**Definition of Done (DoD) Checklist**:
+- [x] Backend parser fleksibel: membaca `delete_for_everyone` (bool), `type` (string), `delete_type` (string), dan URL query `?for_everyone=true`
+- [x] Frontend `deleteMessageApi` mengirim payload redundan ganda: `delete_for_everyone: true` + `type: "for_everyone"`
+- [x] Backend broadcast event WebSocket `message_deleted` ke seluruh anggota room saat Delete for Everyone
+- [x] Automated tests 4 skenario lulus 100% (`chat_handler_delete_test.go`)
+- [x] Bug terverifikasi: lawan bicara sekarang menerima event `message_deleted` secara real-time
+- [x] Deployed ke Fly.io production (`wuzz-chat-backend.fly.dev`) — Health check HTTP 200 OK
+- [x] Merged `dev` → `main` → pushed ke GitHub remote
 

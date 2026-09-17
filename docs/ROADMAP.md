@@ -246,6 +246,10 @@ Membangun platform chatting modern yang:
   - **Receipts Filter Standardization**: `MarkRoomMessagesAsRead` dan `MarkUserMessagesAsDelivered` menggunakan filter UUID (`from_id != ?`), menghapus fallback string nickname.
   - **WebSocket Security Guard**: Siaran tanda terima `delivered` diproteksi guard `c.isAuthorizedForRoom(rID)` untuk mencegah kebocoran status ke room yang tidak sah.
   - **Frontend Timeline Peer Discovery**: Penentuan pesan lawan bicara di `page.tsx` murni membandingkan `senderId !== myUserId` (UUID).
+- ✅ **Bugfix — Normalisasi Kontrak Payload Delete for Everyone (SELESAI)**:
+  - **Root Cause**: Frontend mengirim `{ type: "for_everyone" }` sementara backend Go struct mengharapkan field `delete_for_everyone: bool`. Mismatch JSON key menyebabkan `DeleteForEveryone` selalu `false`, sehingga backend tidak pernah broadcast event `message_deleted` ke lawan bicara.
+  - **Solusi Dual-Format**: Backend kini menerima payload secara fleksibel (`delete_for_everyone`, `type`, `delete_type`, URL query `?for_everyone=true`). Frontend kini mengirim dua field sekaligus (`delete_for_everyone: true` + `type: "for_everyone"`) untuk maksimal kompatibilitas.
+  - **Test Coverage**: 4 skenario automated test (`chat_handler_delete_test.go`) — 100% lulus.
 - 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**:
   - Pembuatan grup obrolan multi-kontak, manajemen role Admin & Member, Group Info Drawer, multicast WebSocket broadcast, dan unread count per anggota.
 - ⏳ **Milestone 8.3: Message Management Suite**:

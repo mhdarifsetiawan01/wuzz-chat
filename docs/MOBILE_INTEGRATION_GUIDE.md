@@ -399,7 +399,17 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
 - [ ] Perekaman voice note & pemutaran audio lancar tanpa patah-patah.
 - [ ] Auto-ACK media download (`/api/media/ack`) dan penyimpanan berkas lokal.
 - [ ] Safety Number 30-digit cocok dengan tampilan Web.
-- [ ] Hapus pesan (*For Me* dan *For Everyone*) berjalan real-time.
+- [ ] **Hapus Pesan (*For Me* dan *For Everyone*)** berjalan real-time:
+  - Untuk *Delete for Everyone*, kirim payload **dua field sekaligus** ke `DELETE /api/messages` atau `POST /api/messages/delete`:
+    ```json
+    {
+      "message_id": "<uuid>",
+      "delete_for_everyone": true,
+      "type": "for_everyone"
+    }
+    ```
+  - Backend menerima format fleksibel: field `delete_for_everyone` (bool), `type` (string `"for_everyone"/"for_me"`), `delete_type` (string), atau URL query `?for_everyone=true`.
+  - Klien wajib menangani event WebSocket `message_deleted` dari server dan mengganti konten pesan dengan placeholder `🚫 Pesan ini telah dihapus`.
 - [ ] **Single Active Device Guard**: Saat menerima event `SESSION_REPLACED` dari WebSocket, putus koneksi dan arahkan pengguna ke layar login/re-autentikasi secara langsung.
 - [ ] **E2EE Key Conflict Handling**: Saat `PUT /api/users/public-key` mengembalikan HTTP 409 (`KEY_ALREADY_REGISTERED`), tampilkan dialog konfirmasi reset kunci, lalu panggil `POST /api/users/public-key/reset`.
 - [ ] **QR Code E2EE Device Transfer**: Implementasi `POST /api/users/transfer/create` (perangkat sumber) dan `POST /api/users/transfer/consume` (perangkat target) menggunakan MLKit Barcode Scanner / AVFoundation — tidak ada batasan permission kamera seperti di PWA WebAPK.
