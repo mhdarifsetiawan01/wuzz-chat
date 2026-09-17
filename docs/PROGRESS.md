@@ -446,6 +446,21 @@
        - **Offline Contact Profile Resolution (`StatusBar.tsx`)**: Memperbaiki modal Info Kontak (`ContactProfileModal`) agar mengutamakan `peerUserId` (UUID unik) alih-alih `peerNickname`, memastikan profil kontak selalu 100% ditemukan via `/api/users/profile?id=<UUID>` meskipun lawan bicara sedang offline.
        - **1-on-1 Direct Chat Sender Label Cleanup**: Menghilangkan label nama pengirim yang berlebihan di atas balon pesan pada percakapan 1-on-1 (`MessageBubble.tsx`) sesuai standar industri WhatsApp & Telegram, serta menghubungkan `UserAvatar` pada mini avatar pesan lawan bicara.
 
+
+    21. [x] **Security Hardening Registration & Anti-Impersonation Filter (17 September 2026)**:
+        - **Modular Validator Terpusat (`backend/internal/auth/validator.go`)**: Seluruh logika validasi pendaftaran dieksternalisasi ke `ValidateRegistration()` — dapat diuji secara mandiri.
+        - **Batasan Karakter & Panjang**: `username` 3-30 karakter (regex `^[a-zA-Z0-9_.-]+$`), `password` 6-128 karakter (Bcrypt DoS guard), `display_name` maks 50 karakter.
+        - **Filter Kata Terlarang Hybrid (3 Lapisan)**:
+          - *Substring* (blokir jika mengandung): `jancok`, `puki`, `pepek`, `semantic`.
+          - *Brand/sensitif prefix/suffix* (blokir jika diawali/diakhiri dengan pemisah): `admin`, `official`, `support`, `wuzz`, `verified`, `moderator`, `staff`, `helpdesk`, `security`, `team`, `service`, `contact`, `info`.
+          - *Exact match* (blokir hanya jika persis sama): `bot`, `dev`, `api`, `chat`, `null`, `undefined`, `root`, `system`, `anonymous`.
+        - **Anti-DoS Body Cap**: `http.MaxBytesReader` 64 KB pada endpoint registration.
+        - **Fail-Closed BOLA Guard (`ws/client.go`)**: `isAuthorizedForRoom` menolak akses jika ada error DB.
+        - **JWT Runtime Warning (`auth/jwt.go`)**: `sync.Once` warning jika `JWT_SECRET` kosong di environment.
+        - **Tests**: `validator_test.go` (33 cases) & `auth_register_test.go` (11 cases) — 100% pass.
+        - **Frontend Validation (`register/page.tsx`)**: Regex & batas panjang real-time sebelum request.
+        - **Deployment**: Live di Fly.io production — health check `{"status":"ok"}` selesai.
+
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** / Bad Words Sensor Filter.
   2. [ ] *(Opsional Future)* Android Native App untuk akses kamera native penuh (Live QR Scanner tanpa batasan WebAPK permissions).
