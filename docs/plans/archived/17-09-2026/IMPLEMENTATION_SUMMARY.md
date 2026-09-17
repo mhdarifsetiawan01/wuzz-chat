@@ -1,9 +1,10 @@
-# Implementation Summary: Soft Tri-Color Glassmorphism Redesign
+# Implementation Summary: Bugfix Kontrak Payload Delete for Everyone
 
-- **Status**: Menunggu Konfirmasi Sampel Visual dari Pengguna
+- **Status**: Selesai Diimplementasikan & Terverifikasi (100% Pass)
 - **Branch**: `dev`
-- **Fokus Utama**: Redesain UI Wuzz Chat menuju gaya **Soft Glassmorphism** dengan perpaduan 3 warna harmonis:
-  1. **Primer**: Soft Azure / Sky Blue (`#3b82f6` - `#60a5fa`)
-  2. **Sekunder**: Soft Lavender / Iris Violet (`#818cf8` - `#a78bfa`)
-  3. **Tersier (Aksen)**: Soft Coral / Rose Pink (`#f472b6` - `#fb7185`)
-- **Sampel Visual**: Tersedia di `implementation_plan.md`.
+- **Fokus Utama**: Memperbaiki inkonsistensi payload penghapusan pesan antara Frontend (`frontend/lib/api.ts`) dan Backend (`backend/internal/api/chat_handler.go`).
+- **Masalah**: Frontend mengirim `{ message_id, type: "for_everyone" }`, sedangkan backend Go mencari `{ delete_for_everyone: true }`. Akibatnya `DeleteForEveryone` selalu bernilai `false`, pesan hanya terhapus untuk diri sendiri (Delete for Me) dan teman bicara tetap melihat teks asli karena WebSocket event `message_deleted` tidak pernah dikirim.
+- **Solusi**:
+  1. Backend Go `chat_handler.go`: Normalisasi request parser agar mendukung `type: "for_everyone"`, `delete_type: "for_everyone"`, query string, dan boolean `delete_for_everyone`.
+  2. Frontend `api.ts`: Mengirimkan kedua properti (`delete_for_everyone: boolean` dan `type: deleteType`) demi redundansi & backwards compatibility.
+  3. Backend Unit Test: Menambahkan pengujian menyeluruh di test suite backend.

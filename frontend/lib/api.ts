@@ -133,9 +133,14 @@ export async function deleteMessageApi(
   messageId: string,
   deleteType: 'for_me' | 'for_everyone'
 ): Promise<{ data?: { status: string }; error?: string }> {
+  const isForEveryone = deleteType === 'for_everyone'
   return apiRequest<{ status: string }>('/api/messages/delete', {
     method: 'POST',
-    body: JSON.stringify({ message_id: messageId, type: deleteType }),
+    body: JSON.stringify({
+      message_id: messageId,
+      delete_for_everyone: isForEveryone,
+      type: deleteType,
+    }),
   })
 }
 

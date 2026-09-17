@@ -90,3 +90,11 @@
   2. **High-Contrast Readability Guard**: Menetapkan kontras tinggi pada bubble pesan masuk (`rgba(30, 41, 59, 0.88)` dengan border specular `0.14`), menajamkan timestamp sendiri ke `rgba(255, 255, 255, 0.88)`, read receipt ke Electric Cyan (`#67e8f9`), dan kotak balasan ke dark glass (`rgba(0, 0, 0, 0.38)`) dengan teks putih `95%`.
   3. **Ambient Frosted Glass Depth**: Menambahkan ambient radial gradient orbs di belakang linimasa `.chat-window` dan kontainer utama agar efek blur kaca buram tampak hidup dan dinamis di perangkat mobile maupun desktop.
 - **Status:** Diimplementasikan, Terverifikasi (Build Pass), & Disetujui Pengguna.
+
+### DEC-023: Payload Contract Normalization for Message Deletion (Delete for Everyone Bugfix)
+- **Konteks:** Ditemukan bug di mana penarikan pesan untuk semua orang (*Delete for Everyone*) gagal berefek pada lawan bicara. Frontend mengirim `{ message_id, type: "for_everyone" }` sedangkan backend Go mencari `{ delete_for_everyone: true }`. Ketidakcocokan ini membuat backend menganggap seluruh permintaan sebagai "Hapus untuk Saya Sendiri" (Delete for Me), tidak menyiarkan WebSocket event `message_deleted`, dan membiarkan konten pesan asli tetap terbaca oleh lawan bicara di database.
+- **Keputusan:**
+  1. Melakukan normalisasi parser di backend `chat_handler.go` agar secara fleksibel menerima `type: "for_everyone"`, `delete_type: "for_everyone"`, `delete_for_everyone: true`, dan URL query parameters `?for_everyone=true` / `?delete_for_everyone=true`.
+  2. Memperbarui fungsi klien frontend `deleteMessageApi` di `frontend/lib/api.ts` agar mengirimkan kedua format payload (`delete_for_everyone: boolean` dan `type: string`) demi redundansi serta kepatuhan ganda.
+  3. Menambahkan unit test di backend Go untuk menjamin kedua bentuk payload teruji dan berfungsi sebagaimana mestinya.
+- **Status:** Diimplementasikan & Terverifikasi (100% Pass).
