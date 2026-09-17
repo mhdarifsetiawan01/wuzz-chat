@@ -132,6 +132,7 @@ Membangun platform chatting modern yang:
   - **Mobile / Handphone (WhatsApp Single-Screen Flow)**: Transisi layar penuh antara Layar 1 (Daftar Chat Fullscreen + Search + Filter Pills + FAB + Bottom Nav) ⇄ Layar 2 (Ruang Obrolan Fullscreen + Tombol `← Back`).
   - **Viewport Standards**: Dynamic Viewport Height (`100dvh`), `position: sticky; top: 0;` pada status bar obrolan, dan safe area padding `env(safe-area-inset-bottom)`.
   - **Lifecycle & Anti-Stale State Sync**: Guard `lastHandledMsgIdRef` untuk mencegah re-processing pesan lama saat navigasi back, serta reset payload utuh `SET_MESSAGES` dari server saat membuka obrolan di mobile.
+  - **Browser History Stack & Mobile Back Navigation Hardening**: Mengeliminasi duplikasi entry browser history dengan membuang manual `window.history.pushState` ganda, menerapkan `router.push` tunggal saat memasuki room, dan `router.replace('/chat')` saat kembali ke home/sidebar sehingga tombol Back perangkat mobile dan browser desktop keluar linimasa secara sekuensial dan presisi tanpa history loop.
 - **Conversation & Message Deletion Management**:
   - **Hapus Percakapan untuk Saya (*Delete Conversation for Me*)**: Menyembunyikan riwayat obrolan dari daftar pengguna tanpa menghapus riwayat lawan bicara via timestamp `cleared_at`. Percakapan otomatis muncul kembali jika ada pesan baru setelah waktu clear.
   - **Hapus Pesan Spesifik (*Delete Message: For Me vs For Everyone*)**:
