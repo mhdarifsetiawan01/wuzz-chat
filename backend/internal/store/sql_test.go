@@ -404,19 +404,19 @@ func TestDeleteMessage_Scenarios(t *testing.T) {
 	})
 
 	// Skenario A: Hapus untuk Semua Orang pada pesan lama (> 1 menit) -> HARUS GAGAL
-	_, err = sqlStore.DeleteMessage("msg-old", userAlice.ID, userAlice.DisplayName, true)
+	_, err = sqlStore.DeleteMessage("msg-old", userAlice.ID, true)
 	if err == nil {
 		t.Errorf("Delete for everyone on message > 1 min should FAIL")
 	}
 
 	// Skenario B: Hapus untuk Semua Orang oleh pihak lain (Bob) -> HARUS GAGAL
-	_, err = sqlStore.DeleteMessage("msg-recent", userBob.ID, userBob.DisplayName, true)
+	_, err = sqlStore.DeleteMessage("msg-recent", userBob.ID, true)
 	if err == nil {
 		t.Errorf("Delete for everyone by non-author should FAIL")
 	}
 
 	// Skenario C: Hapus untuk Semua Orang pada pesan baru (< 1 menit) oleh pemilik -> HARUS SUKSES
-	deletedMsg, err := sqlStore.DeleteMessage("msg-recent", userAlice.ID, userAlice.DisplayName, true)
+	deletedMsg, err := sqlStore.DeleteMessage("msg-recent", userAlice.ID, true)
 	if err != nil {
 		t.Fatalf("Delete for everyone within 1 min should SUCCEED: %v", err)
 	}
@@ -432,7 +432,7 @@ func TestDeleteMessage_Scenarios(t *testing.T) {
 	}
 
 	// Skenario D: Hapus untuk Saya Saja pada pesan lama (Bob menghapus pesan msg-old untuk dirinya saja) -> HARUS SUKSES
-	_, err = sqlStore.DeleteMessage("msg-old", userBob.ID, userBob.DisplayName, false)
+	_, err = sqlStore.DeleteMessage("msg-old", userBob.ID, false)
 	if err != nil {
 		t.Fatalf("Delete for me should SUCCEED: %v", err)
 	}

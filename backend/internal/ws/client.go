@@ -169,13 +169,11 @@ func (c *Client) onJoin(msg Message) {
 	c.hub.JoinRoom(c, targetRoom)
 
 	// 1. Tandai seluruh pesan tertunda untuk user ini sebagai 'delivered' (centang 2 abu-abu)
+	// Selalu gunakan c.ID (UUID) — tidak pernah fallback ke Nickname
 	userIdent := c.ID
-	if userIdent == "" {
-		userIdent = c.Nickname
-	}
 	deliveredRooms, _ := c.hub.messageStore.MarkUserMessagesAsDelivered(userIdent)
 	for _, rID := range deliveredRooms {
-		if rID != targetRoom {
+		if rID != targetRoom && c.isAuthorizedForRoom(rID) {
 			c.hub.BroadcastRoom(rID, Message{
 				Type:      TypeReceipt,
 				Room:      rID,
@@ -326,10 +324,8 @@ func (c *Client) onReceipt(msg Message) {
 		}
 	} else if msg.Status == StatusRead {
 		// Bulk update status read untuk seluruh pesan di room ini
+		// Selalu gunakan c.ID (UUID) — tidak pernah fallback ke Nickname
 		userIdent := c.ID
-		if userIdent == "" {
-			userIdent = c.Nickname
-		}
 		_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, userIdent)
 	}
 
@@ -386,7 +382,8 @@ func (c *Client) onReaction(msg Message) {
 	}
 
 	// Toggle reaksi di database / memory store
-	reactionsJSON, err := c.hub.messageStore.ToggleReaction(msg.Reaction.MessageID, msg.Reaction.Emoji, c.Nickname)
+	// Gunakan c.ID (UUID) agar reaksi tetap valid meskipun user mengganti display_name
+	reactionsJSON, err := c.hub.messageStore.ToggleReaction(msg.Reaction.MessageID, msg.Reaction.Emoji, c.ID)
 	if err != nil {
 		log.Printf("[Client %s] gagal toggle reaction: %v", c.ID, err)
 		return

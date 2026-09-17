@@ -258,7 +258,7 @@ func (h *ChatHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updatedMsg, err := h.messageStore.DeleteMessage(msgID, claims.UserID, claims.DisplayName, req.DeleteForEveryone)
+	updatedMsg, err := h.messageStore.DeleteMessage(msgID, claims.UserID, req.DeleteForEveryone)
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "lebih dari 1 menit") || strings.Contains(errMsg, "hanya pengirim") {

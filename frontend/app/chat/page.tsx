@@ -770,15 +770,10 @@ function ChatPageContent() {
               const myUserId = state.session?.clientId || user?.id
               const otherMsg = msg.messages.slice().reverse().find((m: Message) => {
                 const senderId = m.from || m.sender_id
-                if (senderId && myUserId) {
-                  return senderId !== myUserId
-                }
-                return Boolean(
-                  m.nickname && 
-                  m.nickname !== nickname && 
-                  m.nickname !== user?.display_name && 
-                  m.nickname !== user?.username
-                )
+                // UUID-first: selalu bandingkan menggunakan senderId vs myUserId (UUID)
+                // Jika senderId tidak ada (data legacy), skip pesan tersebut
+                if (!senderId || !myUserId) return false
+                return senderId !== myUserId
               })
               // JANGAN menimpa peerNickname jika sudah diketahui dari percakapan / profil database
               if (otherMsg && otherMsg.nickname && !peerInfoRef.current.nickname) {

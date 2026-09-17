@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -262,8 +261,10 @@ func (s *SQLMessageStore) UpdateMessageStatus(msgID string, status string) error
 }
 
 // ToggleReaction menambah atau menghapus reaksi emoji user terhadap pesan tertentu.
-func (s *SQLMessageStore) ToggleReaction(msgID, emoji, userNickname string) (string, error) {
-	if msgID == "" || emoji == "" || userNickname == "" {
+// Menggunakan userID (users.id UUID) sebagai identifier — bukan nickname —
+// sehingga reaksi tetap valid meskipun user mengganti display_name.
+func (s *SQLMessageStore) ToggleReaction(msgID, emoji, userID string) (string, error) {
+	if msgID == "" || emoji == "" || userID == "" {
 		return "[]", nil
 	}
 
@@ -289,7 +290,7 @@ func (s *SQLMessageStore) ToggleReaction(msgID, emoji, userNickname string) (str
 		_ = json.Unmarshal([]byte(rawReactions.String), &items)
 	}
 
-	// 2. Toggle emoji untuk userNickname
+	// 2. Toggle emoji untuk userID (exact match UUID, tidak butuh EqualFold)
 	foundEmoji := false
 	var updatedItems []struct {
 		Emoji string   `json:"emoji"`
@@ -303,14 +304,14 @@ func (s *SQLMessageStore) ToggleReaction(msgID, emoji, userNickname string) (str
 			userExists := false
 			var newUsers []string
 			for _, u := range item.Users {
-				if strings.EqualFold(u, userNickname) {
+				if u == userID {
 					userExists = true
 				} else {
 					newUsers = append(newUsers, u)
 				}
 			}
 			if !userExists {
-				newUsers = append(newUsers, userNickname)
+				newUsers = append(newUsers, userID)
 			}
 			if len(newUsers) > 0 {
 				updatedItems = append(updatedItems, struct {
@@ -335,7 +336,7 @@ func (s *SQLMessageStore) ToggleReaction(msgID, emoji, userNickname string) (str
 			Count int      `json:"count"`
 		}{
 			Emoji: emoji,
-			Users: []string{userNickname},
+			Users: []string{userID},
 			Count: 1,
 		})
 	}
@@ -354,44 +355,45 @@ func (s *SQLMessageStore) ToggleReaction(msgID, emoji, userNickname string) (str
 	return jsonStr, err
 }
 
-// MarkRoomMessagesAsRead menandai seluruh pesan di room tertentu yang bukan dikirim oleh excludeIdentifier sebagai 'read'.
-func (s *SQLMessageStore) MarkRoomMessagesAsRead(roomID, excludeIdentifier string) error {
+// MarkRoomMessagesAsRead menandai seluruh pesan di room tertentu yang bukan dikirim oleh excludeUserID sebagai 'read'.
+// Menggunakan from_id (UUID) sebagai filter primer — tidak bergantung pada nickname.
+func (s *SQLMessageStore) MarkRoomMessagesAsRead(roomID, excludeUserID string) error {
 	var query string
-	if s.driverName == "postgres" {
-		query = `UPDATE messages SET status = 'read' WHERE room_id = $1 AND (from_id != $2 AND LOWER(from_nickname) != LOWER($2)) AND status != 'read'`
-	} else {
-		query = `UPDATE messages SET status = 'read' WHERE room_id = ? AND (from_id != ? AND LOWER(from_nickname) != LOWER(?)) AND status != 'read'`
-	}
 	var err error
-	if s.driverName == "postgres" {
-		_, err = s.db.Exec(query, roomID, excludeIdentifier)
+	if excludeUserID != "" {
+		if s.driverName == "postgres" {
+			query = `UPDATE messages SET status = 'read' WHERE room_id = $1 AND from_id != $2 AND status != 'read'`
+		} else {
+			query = `UPDATE messages SET status = 'read' WHERE room_id = ? AND from_id != ? AND status != 'read'`
+		}
+		_, err = s.db.Exec(query, roomID, excludeUserID)
 	} else {
-		_, err = s.db.Exec(query, roomID, excludeIdentifier, excludeIdentifier)
+		if s.driverName == "postgres" {
+			query = `UPDATE messages SET status = 'read' WHERE room_id = $1 AND status != 'read'`
+		} else {
+			query = `UPDATE messages SET status = 'read' WHERE room_id = ? AND status != 'read'`
+		}
+		_, err = s.db.Exec(query, roomID)
 	}
 	return err
 }
 
 // MarkUserMessagesAsDelivered menandai seluruh pesan berstatus 'sent' dari pengirim lain menjadi 'delivered'.
 // Mengembalikan daftar room_id yang terpengaruh.
-func (s *SQLMessageStore) MarkUserMessagesAsDelivered(userIdentifier string) ([]string, error) {
-	if userIdentifier == "" {
+// Menggunakan from_id (UUID) sebagai filter — tidak bergantung pada nickname.
+func (s *SQLMessageStore) MarkUserMessagesAsDelivered(userID string) ([]string, error) {
+	if userID == "" {
 		return nil, nil
 	}
 
 	var querySelect string
 	if s.driverName == "postgres" {
-		querySelect = `SELECT DISTINCT room_id FROM messages WHERE (from_id != $1 AND LOWER(from_nickname) != LOWER($1)) AND status = 'sent'`
+		querySelect = `SELECT DISTINCT room_id FROM messages WHERE from_id != $1 AND status = 'sent'`
 	} else {
-		querySelect = `SELECT DISTINCT room_id FROM messages WHERE (from_id != ? AND LOWER(from_nickname) != LOWER(?)) AND status = 'sent'`
+		querySelect = `SELECT DISTINCT room_id FROM messages WHERE from_id != ? AND status = 'sent'`
 	}
 
-	var rows *sql.Rows
-	var err error
-	if s.driverName == "postgres" {
-		rows, err = s.db.Query(querySelect, userIdentifier)
-	} else {
-		rows, err = s.db.Query(querySelect, userIdentifier, userIdentifier)
-	}
+	rows, err := s.db.Query(querySelect, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -411,15 +413,11 @@ func (s *SQLMessageStore) MarkUserMessagesAsDelivered(userIdentifier string) ([]
 
 	var queryUpdate string
 	if s.driverName == "postgres" {
-		queryUpdate = `UPDATE messages SET status = 'delivered' WHERE (from_id != $1 AND LOWER(from_nickname) != LOWER($1)) AND status = 'sent'`
+		queryUpdate = `UPDATE messages SET status = 'delivered' WHERE from_id != $1 AND status = 'sent'`
 	} else {
-		queryUpdate = `UPDATE messages SET status = 'delivered' WHERE (from_id != ? AND LOWER(from_nickname) != LOWER(?)) AND status = 'sent'`
+		queryUpdate = `UPDATE messages SET status = 'delivered' WHERE from_id != ? AND status = 'sent'`
 	}
-	if s.driverName == "postgres" {
-		_, err = s.db.Exec(queryUpdate, userIdentifier)
-	} else {
-		_, err = s.db.Exec(queryUpdate, userIdentifier, userIdentifier)
-	}
+	_, err = s.db.Exec(queryUpdate, userID)
 	return roomIDs, err
 }
 
@@ -657,17 +655,16 @@ func (s *SQLMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
 }
 
 // DeleteMessage menghapus pesan (untuk saya saja atau untuk semua orang).
-func (s *SQLMessageStore) DeleteMessage(msgID, userID, userNickname string, deleteForEveryone bool) (*StoredMessage, error) {
+// Ownership check HANYA menggunakan userID (users.id UUID) — bukan display_name/nickname.
+func (s *SQLMessageStore) DeleteMessage(msgID, userID string, deleteForEveryone bool) (*StoredMessage, error) {
 	msg, err := s.GetMessageByID(msgID)
 	if err != nil {
 		return nil, err
 	}
 
 	if deleteForEveryone {
-		// Validasi kepemilikan pesan
-		isAuthor := (msg.FromID != "" && msg.FromID == userID) ||
-			(msg.Nickname != "" && (strings.EqualFold(msg.Nickname, userNickname) || strings.EqualFold(msg.Nickname, userID)))
-		if !isAuthor {
+		// Validasi kepemilikan pesan: HANYA berdasarkan from_id (UUID)
+		if msg.FromID == "" || msg.FromID != userID {
 			return nil, fmt.Errorf("hanya pengirim yang dapat menghapus pesan untuk semua orang")
 		}
 		// Validasi usia pesan <= 60 detik (1 menit)
