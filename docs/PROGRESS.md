@@ -133,7 +133,8 @@
   - **Content Sanitization & Payload Limits**: Validasi pemotongan spasi kosong, penolakan pesan kosong, batasan panjang pesan maks 5.000 karakter, quote preview maks 500 karakter, dan emoji maks 16 karakter.
   - **Rate Limiting & Brute-Force Protection**: `IPRateLimiter` sliding window untuk endpoint login/register (15 req/menit per IP) dan WebSocket anti-flood limiter (10 pesan/2 detik per client).
   - **Configurable CORS Origin**: Menggunakan variabel `CORS_ALLOWED_ORIGIN` untuk mengunci domain request yang diizinkan di production.
-  - Unit test `TestIPRateLimiter`, `TestRateLimitMiddleware`, `TestSQLUserStore_RoomAccessAuthorization`, dan security sub-tests di `handler_test.go` lulus 100%.
+  - **Registration Hardening & Anti-Impersonation Filter**: Modul validator terpusat (`validator.go`), pembatasan body 64 KB, batas username 3–30 karakter, password 6–128 karakter (Bcrypt DoS guard), display name maks 50 karakter, regex karakter `^[a-zA-Z0-9_.-]+$`, serta filter kata terlarang hybrid (substring: `jancok`, `puki`, `pepek`, `semantic`; brand/sensitif: `admin`, `official`, `support`, `wuzz`, `verified`; exact: `bot`, `dev`, `api`, `chat`).
+  - Unit test `TestIPRateLimiter`, `TestRateLimitMiddleware`, `TestSQLUserStore_RoomAccessAuthorization`, `TestValidateRegistration`, dan `TestAuthHandler_RegisterValidation` lulus 100%.
 
 
 ---

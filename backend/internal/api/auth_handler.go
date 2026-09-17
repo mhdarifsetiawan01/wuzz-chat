@@ -40,26 +40,26 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Batasi ukuran request body maksimal 64 KB (Anti-DoS)
+	r.Body = http.MaxBytesReader(w, r.Body, 64*1024)
+
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
+		http.Error(w, `{"error":"Payload tidak valid atau ukuran melebihi batas (maks 64KB)"}`, http.StatusBadRequest)
 		return
 	}
 
 	req.Username = strings.TrimSpace(req.Username)
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
-	if req.Username == "" || req.Password == "" {
-		http.Error(w, `{"error":"Username dan password wajib diisi"}`, http.StatusBadRequest)
+
+	// Validasi input pendaftaran (panjang, karakter, dan filter kata terlarang)
+	if err := auth.ValidateRegistration(req.Username, req.DisplayName, req.Password); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
-	if len(req.Username) < 3 {
-		http.Error(w, `{"error":"Username minimal 3 karakter"}`, http.StatusBadRequest)
-		return
-	}
-	if len(req.Password) < 6 {
-		http.Error(w, `{"error":"Password minimal 6 karakter"}`, http.StatusBadRequest)
-		return
-	}
+
 	if req.DisplayName == "" {
 		req.DisplayName = req.Username
 	}

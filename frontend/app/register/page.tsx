@@ -24,18 +24,41 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!username.trim() || !password) {
+    const cleanUsername = username.trim()
+    const cleanDisplayName = displayName.trim()
+
+    if (!cleanUsername || !password) {
       setError('Username dan password wajib diisi')
       return
     }
 
-    if (username.length < 3) {
+    if (cleanUsername.length < 3) {
       setError('Username minimal 3 karakter')
+      return
+    }
+
+    if (cleanUsername.length > 30) {
+      setError('Username maksimal 30 karakter')
+      return
+    }
+
+    if (!/^[a-zA-Z0-9_.-]+$/.test(cleanUsername)) {
+      setError('Username hanya boleh berisi huruf, angka, titik, strip, dan underscore (tanpa spasi)')
       return
     }
 
     if (password.length < 6) {
       setError('Password minimal 6 karakter')
+      return
+    }
+
+    if (password.length > 128) {
+      setError('Password maksimal 128 karakter')
+      return
+    }
+
+    if (cleanDisplayName.length > 50) {
+      setError('Nama tampilan maksimal 50 karakter')
       return
     }
 
@@ -45,8 +68,8 @@ export default function RegisterPage() {
     const { data, error: err } = await apiRequest<{ token: string; user: any }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
-        username: username.trim(),
-        display_name: displayName.trim() || username.trim(),
+        username: cleanUsername,
+        display_name: cleanDisplayName || cleanUsername,
         password,
       }),
     })
