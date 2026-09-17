@@ -815,7 +815,10 @@ export function Sidebar({
                       />
                       <div className="conv-details">
                         <div className="conv-top">
-                          <span className="conv-name">{c.title || c.id}</span>
+                          <span className="conv-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            {c.title || c.id}
+                            {c.peer_is_verified && <VerifiedBadge size={14} />}
+                          </span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             {timeStr && <span className="conv-time">{timeStr}</span>}
                             <div className="conv-actions">

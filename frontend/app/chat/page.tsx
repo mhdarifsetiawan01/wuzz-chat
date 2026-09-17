@@ -50,6 +50,7 @@ interface ChatState {
   peerNickname: string | null
   peerAvatarUrl?: string | null
   peerUserId?: string | null
+  peerIsVerified?: boolean
   isPeerTyping: boolean
   typingNickname: string | null
   roomUsers: RoomUser[]
@@ -64,7 +65,7 @@ type ChatAction =
   | { type: 'DELETE_MESSAGE_LOCAL'; payload: { id: string } }
   | { type: 'UPDATE_MESSAGE_DELETED'; payload: { id: string; content?: string } }
   | { type: 'SET_MESSAGES'; payload: Message[] }
-  | { type: 'SET_PEER_INFO'; payload: { nickname?: string; avatarUrl?: string; userId?: string } }
+  | { type: 'SET_PEER_INFO'; payload: { nickname?: string; avatarUrl?: string; userId?: string; isVerified?: boolean } }
   | { type: 'SET_PEER_NICKNAME'; payload: string }
   | { type: 'SET_PEER_TYPING'; payload: { typing: boolean; nickname?: string | null } }
   | { type: 'SET_ROOM_USERS'; payload: RoomUser[] }
@@ -76,6 +77,7 @@ const initialState: ChatState = {
   peerNickname: null,
   peerAvatarUrl: null,
   peerUserId: null,
+  peerIsVerified: false,
   isPeerTyping: false,
   typingNickname: null,
   roomUsers: [],
@@ -176,6 +178,7 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...(action.payload.nickname !== undefined ? { peerNickname: action.payload.nickname } : {}),
         ...(action.payload.avatarUrl !== undefined ? { peerAvatarUrl: action.payload.avatarUrl } : {}),
         ...(action.payload.userId !== undefined ? { peerUserId: action.payload.userId } : {}),
+        ...(action.payload.isVerified !== undefined ? { peerIsVerified: action.payload.isVerified } : {}),
       }
     case 'SET_PEER_NICKNAME':
       return { ...state, peerNickname: action.payload }
@@ -1088,6 +1091,7 @@ function ChatPageContent() {
               nickname: found.title || found.peer_nickname || '',
               avatarUrl: found.peer_avatar_url || '',
               userId: found.peer_id || '',
+              isVerified: found.peer_is_verified || false,
             },
           })
 
@@ -1102,6 +1106,7 @@ function ChatPageContent() {
                     nickname: profile.display_name || profile.username,
                     avatarUrl: profile.avatar_url || '',
                     userId: profile.id,
+                    isVerified: profile.is_verified || false,
                   },
                 })
               }
@@ -1595,6 +1600,7 @@ function ChatPageContent() {
               peerNickname={state.peerNickname}
               peerAvatarUrl={state.peerAvatarUrl || ''}
               peerUserId={state.peerUserId || ''}
+              peerIsVerified={state.peerIsVerified || false}
               roomId={roomId}
               roomUsers={state.roomUsers}
               isPeerTyping={state.isPeerTyping}

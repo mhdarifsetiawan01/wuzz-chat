@@ -485,3 +485,94 @@ wuzz-chat/
 │   └── server.js           -> Custom Next.js server & proxy layer
 └── README.md
 ```
+
+---
+
+## 🔮 Future Backlog — Catatan Teknis Pengembangan Mendatang
+
+Bagian ini mencatat temuan arsitektur dan pekerjaan yang BELUM dikerjakan namun SUDAH dianalisa sehingga tidak perlu investigasi ulang saat waktunya tiba.
+
+### 📌 [BACKLOG-1] User Verified Account — Milestone 9.1
+
+**Tanggal Analisa**: 17 September 2026
+
+**Temuan**:
+- ✅ Backend `is_verified BOOLEAN` **sudah diimplementasi** di struct `User` Go (`user_store.go`) dan semua query SELECT
+- ✅ Auto-migration `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified` sudah ditambahkan di `sql.go`
+- ✅ Frontend `is_verified?: boolean` sudah ada di `frontend/lib/types.ts` (baris 57, 131, 141) sebagai optional type
+- ✅ Komponen `VerifiedBadge.tsx` sudah terimplementasi di frontend — tinggal data dari admin untuk men-set nilainya
+
+**Pekerjaan Tersisa**:
+1. Buat endpoint admin: `PATCH /api/admin/users/:id/verify` → toggle `is_verified`
+2. Buat tabel `admin_actions` untuk audit log setiap perubahan
+3. Tentukan business logic kriteria verifikasi (pilihan: manual admin review / konfirmasi email domain / tier subscription)
+4. Buat Admin Dashboard minimal untuk manajemen akun verified
+
+**Estimasi Kompleksitas**: 🟡 Medium (backend 1-2 hari, frontend admin panel 1-2 hari)
+
+---
+
+### 📌 [BACKLOG-2] Avatar Premium Asset System — Milestone 9.2
+
+**Tanggal Analisa**: 17 September 2026
+
+**Temuan**:
+- ✅ `users.avatar_url TEXT` sudah ada — ini tetap menjadi "slot aktif" yang dirender seluruh UI
+- ❌ Tidak ada tabel `avatar_assets` / `user_avatar_inventory` — perlu dibuat dari nol
+- ❌ Tidak ada sistem wallet / in-app currency — perlu desain terpisah
+- ✅ Frontend `UserAvatar.tsx` sudah universal — tidak perlu diubah, tinggal mengisi `avatar_url` dari sistem baru
+
+**Skema Tabel yang Perlu Dibuat (Migration)**:
+```sql
+-- Katalog avatar (dikelola admin)
+CREATE TABLE avatar_assets (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        VARCHAR(100) NOT NULL,
+    category    VARCHAR(50) NOT NULL,   -- 'emoji' | 'illustration' | 'animated'
+    preview_url TEXT NOT NULL,
+    asset_url   TEXT NOT NULL,
+    price       INTEGER NOT NULL DEFAULT 0,  -- 0 = gratis
+    is_free     BOOLEAN NOT NULL DEFAULT false,
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+
+-- Inventory avatar per user
+CREATE TABLE user_avatar_inventory (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    asset_id    UUID NOT NULL REFERENCES avatar_assets(id),
+    source      VARCHAR(20) NOT NULL DEFAULT 'purchased',  -- 'purchased' | 'gifted' | 'promo'
+    acquired_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(user_id, asset_id)
+);
+
+-- Audit log aksi admin
+CREATE TABLE admin_actions (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id       UUID NOT NULL REFERENCES users(id),
+    target_user_id UUID REFERENCES users(id),
+    action         VARCHAR(50) NOT NULL,  -- 'verify' | 'unverify' | 'ban'
+    notes          TEXT,
+    created_at     TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Endpoint REST yang Perlu Dibuat**:
+| Method | Path | Keterangan |
+|---|---|---|
+| `GET` | `/api/avatar/catalog` | Katalog + status `owned` user login |
+| `GET` | `/api/avatar/inventory` | Daftar avatar milik user |
+| `POST` | `/api/avatar/equip` | Aktifkan avatar dari inventory |
+| `POST` | `/api/wallet/purchase/avatar` | Beli dengan in-app currency |
+| `POST` | `/api/admin/avatar` | Upload avatar baru (admin) |
+| `DELETE` | `/api/admin/avatar/:id` | Hapus dari katalog (admin) |
+
+**Komponen Frontend yang Perlu Dibuat**:
+- `AvatarMarketplace.tsx` — Grid katalog avatar premium
+- `AvatarInventory.tsx` — Drawer koleksi milik user
+- Integrasi ke `AvatarStudio.tsx` sebagai opsi ke-4: *"Koleksi Premium-ku"*
+
+**Estimasi Kompleksitas**: 🔴 Tinggi (backend 3-5 hari, frontend 3-4 hari, payment/wallet design terpisah)
+
+**Referensi Arsitektur**: Lihat [`docs/ARCHITECTURE.md#10-arsitektur-monetisasi--trust`](./ARCHITECTURE.md) untuk desain lengkap alur sistem.
+

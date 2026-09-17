@@ -6,6 +6,7 @@ import { soundManager } from '@/lib/sound'
 import { ContactProfileModal } from './ContactProfileModal'
 import { SafetyNumberModal } from './SafetyNumberModal'
 import { UserAvatar } from './UserAvatar'
+import { VerifiedBadge } from './VerifiedBadge'
 
 interface StatusBarProps {
   status: ConnectionStatus
@@ -13,6 +14,7 @@ interface StatusBarProps {
   peerNickname: string | null
   peerAvatarUrl?: string
   peerUserId?: string
+  peerIsVerified?: boolean
   roomId: string
   roomUsers?: RoomUser[]
   isPeerTyping?: boolean
@@ -37,6 +39,7 @@ export function StatusBar({
   peerNickname,
   peerAvatarUrl = '',
   peerUserId = '',
+  peerIsVerified = false,
   roomId,
   roomUsers = [],
   isPeerTyping = false,
@@ -122,6 +125,7 @@ export function StatusBar({
             <div className="status-info">
               <span className="status-name" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 {peerName}
+                {peerIsVerified && <VerifiedBadge size={14} />}
               </span>
               <div className="status-sub">
                 {isPeerTyping ? (
