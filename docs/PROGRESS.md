@@ -426,6 +426,9 @@
        - Modular Emoji Catalog (`emojis.ts`): Modul katalog terisolasi dengan 5 kategori (Wajah, Gestur, Hati, Populer, Hewan & Alam) yang mudah diperluas tanpa menyentuh komponen UI.
        - Frosted Glass Emoji Picker Tray (`MessageInput.tsx` & `globals.css`): Panel popover pemilih emoticon dengan navigasi tab kategori, dismiss klik luar / Escape, dan penyisipan instan di kursor textarea.
        - Precision Flagship Input Layout: Placeholder `"Message"`, kapsul pil organik (`border-radius: 24px`), perataan optik seimbang (`😊` kiri, `📎` kanan teks), dan tombol aksi rekam suara / kirim melayang (*floating circular button 48x48px*) mandiri gaya WhatsApp & Telegram.
+   17. [x] **High-Contrast SVG Read Receipt & Electric Neon Cyan Glow Engine**:
+       - Reusable Vector Receipt Component (`ReceiptIcon.tsx`): Menggantikan karakter teks tipis `✓✓` dengan komponen vektor SVG standar WhatsApp/Telegram (`stroke-width: 2`, 45-degree parallel geometry) yang tajam di semua resolusi layar (baik di bubble chat maupun riwayat percakapan sidebar).
+       - Electric Neon Cyan Contrast Guard (`globals.css`): Memperbaiki isu kontras rendah *blue-on-blue* pada bubble pesan keluar (Soft Blue-Indigo) menggunakan warna Electric Neon Cyan (`#00f2fe`) yang didukung filter ganda: dark drop shadow (`rgba(0, 0, 0, 0.95)`) sebagai garis tepi kontras dan neon glow aura (`rgba(0, 242, 254, 0.9)`) sehingga status terbaca menyala tajam dan terbaca seketika.
 
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** / Bad Words Sensor Filter.
