@@ -5,6 +5,8 @@ import { apiRequest } from '@/lib/api'
 import type { User } from '@/lib/types'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { getAvatarStyle } from '@/lib/avatarColor'
+import { UserAvatar } from './UserAvatar'
+import { VerifiedBadge } from './VerifiedBadge'
 
 interface ContactProfileModalProps {
   isOpen: boolean
@@ -146,27 +148,22 @@ export function ContactProfileModal({
           ) : profile ? (
             <>
               {/* Big Avatar */}
-              <div
-                style={{
-                  ...getAvatarStyle(profile.display_name || profile.username || profile.id),
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: profile.avatar_url ? '2.5rem' : '2rem',
-                  fontWeight: 700,
-                  margin: '0 auto var(--space-4)',
-                }}
-              >
-                {avatarDisplay}
-              </div>
+              <UserAvatar
+                avatarUrl={profile.avatar_url}
+                name={profile.display_name || profile.username}
+                id={profile.id}
+                size={84}
+                fontSize="2.4rem"
+                style={{ margin: '0 auto var(--space-4)' }}
+              />
 
-              {/* Names */}
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 4px 0', color: 'var(--text-primary)' }}>
-                {profile.display_name}
-              </h2>
+              {/* Names with Verified Badge */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '4px' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  {profile.display_name}
+                </h2>
+                {profile.is_verified && <VerifiedBadge size={18} />}
+              </div>
               <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: 'var(--space-5)' }}>
                 @{profile.username}
               </div>

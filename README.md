@@ -95,7 +95,7 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 - [x] **Modular Emoji Picker & Flagship Precision Chat Input Bar**: Katalog emoji modular di `frontend/lib/emojis.ts` dengan 5 kategori Unicode native, Frosted Glass Emoji Picker Tray popover, kapsul pil input presisi (`border-radius: 24px`, tinggi 48px) dengan tombol aksi rekam suara / kirim melayang independen (*floating circular button 48x48px*) mandiri standar WhatsApp & Telegram.
 - [x] **High-Contrast SVG Read Receipt & Electric Neon Cyan Glow Engine (`ReceiptIcon.tsx`)**: Komponen vektor SVG standar WhatsApp/Telegram (`stroke-width: 2`, sudut paralel 45°) menggantikan karakter teks unicode tipis, dipadukan dengan warna Electric Neon Cyan (`#00f2fe`) dan dual-filter dark drop shadow (`rgba(0, 0, 0, 0.95)`) + pendaran neon untuk kontras tajam di atas bubble pesan keluar biru.
 - [x] **Browser History Stack & Mobile Back Navigation Hardening**: Mengeliminasi duplikasi entry browser history (`window.history.pushState` ganda) pada navigasi room di Next.js App Router, menerapkan transisi `router.replace('/chat')` saat kembali ke home, dan memastikan tombol Back pada browser HP/Desktop keluar dari linimasa dengan bersih tanpa berputar-putar dalam history loop.
-
+- [x] **Interactive Profile Studio, Verified Badge & Unified Real-Time Avatar Engine**: Redesain modal profil 3-tab (Profil, Media & Cache, Keamanan), Avatar Studio interaktif dengan kompresi WebP otomatis untuk foto asli, 3D preset emoji, pembuat avatar inisial warna gradien dinamis, lencana centang biru terpercaya (*VerifiedBadge*), komponen terpadu `UserAvatar.tsx` di seluruh layar obrolan, dan sinkronisasi kolom `peer_avatar_url` pada query SQL database backend Go.
 
 ---
 

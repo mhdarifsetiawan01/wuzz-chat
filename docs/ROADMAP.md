@@ -224,6 +224,12 @@ Membangun platform chatting modern yang:
   - **E2EE Continuity**: Riwayat chat tetap terbaca meskipun lawan bicara me-reset device dan mengunggah kunci kriptografi baru karena plaintext tersimpan persisten di IndexedDB masing-masing user.
   - **Security Key Change Notification**: Deteksi perubahan public key lawan bicara via `localStorage` + `lastKnownPeerKeyRef`, inject pesan sistem amber ke timeline chat (mirip WhatsApp *"Security code changed"*).
   - **Anti-Regression Status Guard**: Status tanda terima di cache tidak dapat didowngrade (bobot integer: pending=0, sent=1, delivered=2, read=3, deleted=99).
+- ✅ **Milestone 8.5: Interactive Profile Studio, Verified Badge & Unified Real-Time Avatar Engine (SELESAI)**:
+  - **Tabbed Modern Profile Modal**: 3 tab terorganisir (Profil, Media & Cache, Keamanan Akun & Kunci).
+  - **Avatar Studio (`AvatarStudio.tsx`)**: Pemilihan foto asli (kompresi WebP client-side otomatis), preset 3D emoji populer, dan generator avatar inisial warna gradien.
+  - **Verified Badge System (`VerifiedBadge.tsx`)**: Indikator centang biru akun terverifikasi di header profil, daftar obrolan sidebar, pencarian kontak, dan modal profil kontak.
+  - **Universal `UserAvatar.tsx`**: Komponen terpadu render avatar foto asli (`<img>`), emoji 3D, atau inisial deterministik dengan indikator dot online hijau.
+  - **Backend SQL & Real-Time Sync**: Pengambilan `peer.avatar_url` pada query `GetUserConversations` backend Go dan transmisi real-time ke header chat (`StatusBar.tsx`).
 - 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**:
   - Pembuatan grup obrolan multi-kontak, manajemen role Admin & Member, Group Info Drawer, multicast WebSocket broadcast, dan unread count per anggota.
 - ⏳ **Milestone 8.3: Message Management Suite**:

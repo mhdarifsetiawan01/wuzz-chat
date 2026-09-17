@@ -53,6 +53,8 @@ export interface RoomUser {
   username?: string
   display_name?: string
   nickname: string
+  avatar_url?: string
+  is_verified?: boolean
   isSelf?: boolean
 }
 
@@ -125,6 +127,7 @@ export interface User {
   avatar_url?: string
   public_key?: string
   created_at?: string
+  is_verified?: boolean
 }
 
 export interface ConversationItem {
@@ -134,6 +137,8 @@ export interface ConversationItem {
   peer_id?: string
   peer_nickname?: string
   peer_public_key?: string
+  peer_is_verified?: boolean
+  peer_avatar_url?: string
   last_message?: string
   last_sender?: string
   last_status?: MessageReceiptStatus

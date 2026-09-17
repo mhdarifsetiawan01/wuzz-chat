@@ -35,7 +35,7 @@ sequenceDiagram
 
     User->>App: Buka App & Input Kredensial
     App->>REST: POST /api/auth/login {username, password}
-    REST-->>App: 200 OK {token, user: {id, username, display_name, public_key}}
+    REST-->>App: 200 OK {token, user: {id, username, display_name, avatar_url, is_verified, public_key}}
     App->>App: Simpan JWT di Encrypted Secure Storage
     App->>App: Cek Keypair E2EE Lokal (Generate jika belum ada)
     App->>REST: PUT /api/users/public-key {public_key: "<JWK>", device_id: "<DEVICE_ID>"}

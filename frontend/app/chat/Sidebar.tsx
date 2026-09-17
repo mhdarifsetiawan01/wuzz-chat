@@ -18,6 +18,8 @@ import {
 import { clearRoomCache } from '@/lib/messageCache'
 import { getAvatarStyle } from '@/lib/avatarColor'
 import { ReceiptIcon } from './ReceiptIcon'
+import { UserAvatar } from './UserAvatar'
+import { VerifiedBadge } from './VerifiedBadge'
 
 interface SidebarProps {
   activeRoomId: string
@@ -606,13 +608,14 @@ export function Sidebar({
               onClick={() => setIsProfileModalOpen(true)}
               title={`Profil & Pengaturan: ${user?.display_name || user?.username || 'Saya'}`}
             >
-              <div
-                className="sidebar-profile-avatar"
-                style={getAvatarStyle(user?.display_name || user?.username || 'me')}
-              >
-                {user?.avatar_url || (user?.display_name || user?.username || 'A')[0].toUpperCase()}
-                <span className="sidebar-profile-status-dot" title="Online"></span>
-              </div>
+              <UserAvatar
+                avatarUrl={user?.avatar_url}
+                name={user?.display_name || user?.username || 'Saya'}
+                id={user?.id}
+                size={34}
+                fontSize="0.95rem"
+                isOnline={true}
+              />
             </button>
           </div>
         </div>
@@ -727,18 +730,20 @@ export function Sidebar({
                     className="conversation-item"
                     onClick={() => handleStartDirectChat(u)}
                   >
-                    <div
+                    <UserAvatar
+                      avatarUrl={u.avatar_url}
+                      name={u.display_name || u.username}
+                      id={u.id}
+                      size={42}
+                      fontSize="1.1rem"
                       className="sidebar-avatar"
-                      style={{
-                        ...getAvatarStyle(u.display_name || u.username || u.id),
-                        fontSize: u.avatar_url ? '1.25rem' : '0.9rem',
-                      }}
-                    >
-                      {u.avatar_url || (u.display_name || u.username)[0].toUpperCase()}
-                    </div>
+                    />
                     <div className="conv-details">
                       <div className="conv-top">
-                        <span className="conv-name">{u.display_name || u.username}</span>
+                        <span className="conv-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          {u.display_name || u.username}
+                          {u.is_verified && <VerifiedBadge size={14} />}
+                        </span>
                         <span className="conv-time" style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>@{u.username}</span>
                       </div>
                       <div className="conv-bottom">
@@ -800,12 +805,14 @@ export function Sidebar({
                         if (onCloseMobile) onCloseMobile()
                       }}
                     >
-                      <div
+                      <UserAvatar
+                        avatarUrl={c.peer_avatar_url}
+                        name={c.title || c.id}
+                        id={c.peer_id}
+                        size={44}
+                        fontSize="1rem"
                         className="sidebar-avatar"
-                        style={getAvatarStyle(c.title || c.id)}
-                      >
-                        {initial}
-                      </div>
+                      />
                       <div className="conv-details">
                         <div className="conv-top">
                           <span className="conv-name">{c.title || c.id}</span>

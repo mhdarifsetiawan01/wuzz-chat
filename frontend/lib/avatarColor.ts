@@ -10,7 +10,7 @@ export interface AvatarColorStyle {
   boxShadow: string
 }
 
-const AVATAR_PALETTES: AvatarColorStyle[] = [
+export const AVATAR_PALETTES: AvatarColorStyle[] = [
   // 1. Soft Azure / Sky
   {
     background: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)',
@@ -87,3 +87,17 @@ export function getAvatarStyle(nameOrId: string = ''): AvatarColorStyle {
   const index = Math.abs(hash) % AVATAR_PALETTES.length
   return AVATAR_PALETTES[index]
 }
+
+/**
+ * Menghasilkan gaya avatar dengan memeriksa apakah user secara eksplisit memilih tema gradien tertentu
+ */
+export function getAvatarStyleWithOverride(nameOrId: string = '', avatarUrl?: string): AvatarColorStyle {
+  if (avatarUrl && avatarUrl.startsWith('gradient:')) {
+    const idx = parseInt(avatarUrl.replace('gradient:', ''), 10)
+    if (!isNaN(idx) && idx >= 0 && idx < AVATAR_PALETTES.length) {
+      return AVATAR_PALETTES[idx]
+    }
+  }
+  return getAvatarStyle(nameOrId)
+}
+

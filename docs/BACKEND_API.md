@@ -283,34 +283,24 @@ Melihat detail profil publik user lain.
 ---
 
 #### 10. `GET /api/conversations`
-Mengambil daftar obrolan aktif (Home screen chat list) milik user saat ini, lengkap dengan pesan terakhir, unread count, dan data lawan bicara.
+Mengambil daftar obrolan aktif (Home screen chat list) milik user saat ini, lengkap dengan pesan terakhir, status tanda terima, unread count, dan data lawan bicara (`peer_id`, `peer_nickname`, `peer_public_key`, `peer_avatar_url`).
 - **Autentikasi**: `Bearer <token>`
 - **Success Response (200 OK)**:
   ```json
   [
     {
-      "id": "direct_11111111_22222222",
+      "id": "dm_11111111_22222222",
       "type": "direct",
-      "name": "Siti Aminah",
-      "avatar_url": "",
+      "title": "Siti Aminah",
+      "peer_id": "22222222-...",
+      "peer_nickname": "Siti Aminah",
+      "peer_public_key": "{\"crv\":\"P-256\",\"kty\":\"EC\",...}",
+      "peer_avatar_url": "data:image/webp;base64,...",
+      "last_message": "e2ee:v1:7s8df...:92348df...",
+      "last_sender": "siti_aminah",
+      "last_status": "delivered",
       "unread_count": 2,
-      "other_user": {
-        "id": "22222222-...",
-        "username": "siti_aminah",
-        "display_name": "Siti Aminah",
-        "avatar_url": "",
-        "public_key": "...",
-        "last_seen": "2026-09-16T12:10:00Z"
-      },
-      "last_message": {
-        "id": "msg_987",
-        "content": "e2ee:v1:7s8df...:92348df...",
-        "from": "siti_aminah",
-        "timestamp": "2026-09-16T12:15:30Z",
-        "status": "delivered",
-        "media_type": ""
-      },
-      "updated_at": "2026-09-16T12:15:30Z"
+      "updated_at": "2026-09-17T12:15:30Z"
     }
   ]
   ```
