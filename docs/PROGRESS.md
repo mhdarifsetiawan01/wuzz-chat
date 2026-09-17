@@ -494,15 +494,23 @@ Bagian ini mencatat temuan arsitektur dan pekerjaan yang BELUM dikerjakan namun 
 
 ### 📌 [BACKLOG-1] User Verified Account — Milestone 9.1
 
-**Tanggal Analisa**: 17 September 2026
+**Tanggal Analisa & Implementasi**: 17 September 2026
 
-**Temuan**:
-- ✅ Backend `is_verified BOOLEAN` **sudah diimplementasi** di struct `User` Go (`user_store.go`) dan semua query SELECT
-- ✅ Auto-migration `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified` sudah ditambahkan di `sql.go`
-- ✅ Frontend `is_verified?: boolean` sudah ada di `frontend/lib/types.ts` (baris 57, 131, 141) sebagai optional type
-- ✅ Komponen `VerifiedBadge.tsx` sudah terimplementasi di frontend — tinggal data dari admin untuk men-set nilainya
+**Status Engine**: ✅ **SELESAI DIIMPLEMENTASI SECARA END-TO-END (Core Engine Live)**
 
-**Pekerjaan Tersisa**:
+**Temuan & Detail Implementasi**:
+- ✅ Backend `is_verified BOOLEAN` **sudah diimplementasi** di struct `User` Go (`user_store.go`) dan semua query SELECT (`GetUserByID`, `GetUserByUsername`, `GetUserByUsernameOrDisplayName`, `SearchUsers`)
+- ✅ Backend `PeerIsVerified bool` (`peer_is_verified`) **sudah diimplementasi** di struct `ConversationItem` Go (`user_store.go`) dan query `GetUserConversations` (PostgreSQL & SQLite)
+- ✅ Auto-migration `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT false` sudah aktif di `sql.go`
+- ✅ Frontend `is_verified?: boolean` dan `peer_is_verified?: boolean` terhubung di `frontend/lib/types.ts`
+- ✅ Komponen `VerifiedBadge.tsx` terpasang dan live di seluruh touchpoint UI:
+  - Sidebar daftar obrolan (`Sidebar.tsx`) membaca `peer_is_verified`
+  - Header chat status bar (`StatusBar.tsx`) membaca `peerIsVerified`
+  - Modal profil kontak lawan bicara (`ContactProfileModal.tsx`) membaca `is_verified`
+  - Modal profil pengguna sendiri (`ProfileModal.tsx`) membaca `is_verified`
+  - Chat state reducer (`page.tsx`) memelihara dan mendistribusikan `peerIsVerified`
+
+**Pekerjaan Tersisa (Admin Tooling)**:
 1. Buat endpoint admin: `PATCH /api/admin/users/:id/verify` → toggle `is_verified`
 2. Buat tabel `admin_actions` untuk audit log setiap perubahan
 3. Tentukan business logic kriteria verifikasi (pilihan: manual admin review / konfirmasi email domain / tier subscription)

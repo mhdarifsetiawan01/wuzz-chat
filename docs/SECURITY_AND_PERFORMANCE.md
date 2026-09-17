@@ -164,6 +164,13 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Anti-Downgrade Receipt Guard**: Status tanda terima dilindungi dengan bobot integer (`pending: 0, sent: 1, delivered: 2, read: 3, deleted: 99`) sehingga status centang biru (`read`) tidak dapat ter-downgrade menjadi `delivered` atau `sent` oleh riwayat lama server.
   - **Security Key Change Alert**: Perubahan public key lawan bicara dideteksi saat proses dekripsi dan disisipkan sebagai notifikasi sistem visual amber (`security-notice`), menjamin transparansi kriptografi bagi pengguna.
 
+### 2.12 Proteksi Privilese Akun Terverifikasi (Tamper-Proof `is_verified` & Anti-Self-Elevation)
+* **Lokasi Kode**: [`backend/internal/store/user_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/user_store.go)
+* **Prinsip Keamanan & Otorisasi**:
+  - Kolom `is_verified BOOLEAN DEFAULT false` di tabel `users` tidak dapat dimodifikasi oleh pengguna reguler.
+  - Query SQL pada method `UpdateProfile` secara ketat hanya mengizinkan pembaruan field `display_name`, `status_message`, dan `avatar_url`. Parameter `is_verified` diabaikan sepenuhnya dari endpoint publik `PUT /api/auth/profile`.
+  - Hal ini mencegah manipulasi HTTP request body (*mass assignment / parameter tampering*) dan memastikan status centang biru terverifikasi hanya dapat diberikan melalui database migration langsung atau endpoint admin terotorisasi di masa depan.
+
 ---
 
 
