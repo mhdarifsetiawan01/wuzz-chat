@@ -422,6 +422,10 @@
        - Ambient Aurora Mesh Lighting (`globals.css`): Pendaran radial halus Soft Azure (`rgba(59, 130, 246, 0.3)`) dan Soft Lavender (`rgba(168, 85, 247, 0.22)`) di belakang header dengan frosted glass `backdrop-filter: blur(20px) saturate(180%)`.
        - Integrated Profile Avatar Button (`Sidebar.tsx` & `globals.css`): Mengintegrasikan avatar profil pengguna langsung ke pojok kanan atas berdampingan dengan tombol lonceng notifikasi (dengan online dot dan specular ring), mengeliminasi kotak profil besar di tengah dan menghemat ~80px ruang vertikal di layar smartphone.
        - Futuristic Emblem Branding (`Sidebar.tsx` & `globals.css`): Emblem logo kilat berpendar dengan gradien modern di samping teks `WuzzChat` yang bersih dan minimalis.
+   16. [x] **Modular Emoji Picker & Flagship Precision Chat Input Bar**:
+       - Modular Emoji Catalog (`emojis.ts`): Modul katalog terisolasi dengan 5 kategori (Wajah, Gestur, Hati, Populer, Hewan & Alam) yang mudah diperluas tanpa menyentuh komponen UI.
+       - Frosted Glass Emoji Picker Tray (`MessageInput.tsx` & `globals.css`): Panel popover pemilih emoticon dengan navigasi tab kategori, dismiss klik luar / Escape, dan penyisipan instan di kursor textarea.
+       - Precision Flagship Input Layout: Placeholder `"Message"`, kapsul pil organik (`border-radius: 24px`), perataan optik seimbang (`😊` kiri, `📎` kanan teks), dan tombol aksi rekam suara / kirim melayang (*floating circular button 48x48px*) mandiri gaya WhatsApp & Telegram.
 
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** / Bad Words Sensor Filter.
