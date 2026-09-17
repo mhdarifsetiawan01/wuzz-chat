@@ -407,5 +407,8 @@ Wuzz Chat mengadopsi prinsip desain modular berlapis yang memisahkan logika styl
    - Permukaan *frosted glass* (`backdrop-filter: blur()`), kartu profil pengguna, dan *specular highlights* diatur secara terpusat untuk memudahkan pembaruan tema tanpa *breaking changes*.
 3. **High-Contrast Readability Guard**:
    - Memenuhi standar WCAG untuk kenyamanan membaca di perangkat seluler dengan rasio kontras tinggi pada bubble pesan masuk (`Slate Frosted Glass`), timestamp putih terang (`rgba(255, 255, 255, 0.88)`), read receipts (`Electric Cyan #67e8f9`), dan kotak balasan pesan berbayang gelap.
+4. **Ultra-Modern Aurora Glassmorphism Header**:
+   - Header aplikasi mengadopsi pencahayaan ambient radial mesh (`Soft Azure` dan `Soft Lavender`) di balik frosted glass transparan (`backdrop-filter: blur(20px) saturate(180%)`).
+   - Mengintegrasikan avatar profil pengguna langsung ke baris brand header atas untuk efisiensi ruang vertikal maksimal di layar seluler tanpa redundansi komponen.
 
 

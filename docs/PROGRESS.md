@@ -418,6 +418,10 @@
        - Peer Bubble Mini Avatar (`MessageBubble.tsx` & `globals.css`): Mini avatar deterministik (28px Desktop, 26px Mobile) di samping bubble pesan masuk (peer), terintegrasi dengan layout `.message-row-inner` dan `.message-content-wrapper` untuk pesan aktif maupun pesan ditarik/dihapus (`is_deleted`).
        - Sidebar User Profile Card Polish (`Sidebar.tsx` & `globals.css`): Specular top-border highlight, inset glass shadow, dan indikator panah chevron mini untuk interaksi modal profil.
        - Active Filter Pills Polish (`globals.css`): Soft Azure-Lavender specular gradient dengan glowing border pada pill kategori chat aktif.
+   15. [x] **Ultra-Modern Aurora Glassmorphism Header Redesign**:
+       - Ambient Aurora Mesh Lighting (`globals.css`): Pendaran radial halus Soft Azure (`rgba(59, 130, 246, 0.3)`) dan Soft Lavender (`rgba(168, 85, 247, 0.22)`) di belakang header dengan frosted glass `backdrop-filter: blur(20px) saturate(180%)`.
+       - Integrated Profile Avatar Button (`Sidebar.tsx` & `globals.css`): Mengintegrasikan avatar profil pengguna langsung ke pojok kanan atas berdampingan dengan tombol lonceng notifikasi (dengan online dot dan specular ring), mengeliminasi kotak profil besar di tengah dan menghemat ~80px ruang vertikal di layar smartphone.
+       - Futuristic Emblem Branding (`Sidebar.tsx` & `globals.css`): Emblem logo kilat berpendar dengan gradien modern di samping teks `WuzzChat` yang bersih dan minimalis.
 
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** / Bad Words Sensor Filter.
