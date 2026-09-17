@@ -369,7 +369,7 @@ Menghapus pesan spesifik.
   - `id` atau `message_id` (string): ID pesan.
   - `delete_for_everyone` (boolean, opsional): Jika `true`, pesan ditarik untuk semua orang.
 - **Aturan Delete for Everyone**:
-  1. Hanya pengirim asli pesan yang boleh melakukan *Delete for Everyone*.
+  1. Hanya pengirim asli pesan yang boleh melakukan *Delete for Everyone* (divalidasi secara ketat di backend berdasarkan `users.id` / UUID pengirim `from_id`, bukan `nickname` atau `display_name`).
   2. Hanya dapat dilakukan dalam jangka waktu **maksimal 1 menit (60 detik)** sejak pesan dikirim. Melebihi 1 menit akan ditolak backend dengan status `400 Bad Request`.
   3. Menghasilkan broadcast real-time event `message_deleted` ke seluruh anggota room.
 - **Success Response (200 OK)**:

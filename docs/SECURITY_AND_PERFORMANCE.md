@@ -104,14 +104,14 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 
   **UUID-First Architecture (Full-Stack)**:
   Implementasi keamanan identitas diperluas ke seluruh stack (backend + frontend) dengan prinsip **UUID-first**:
-  - **Backend** (`ws/client.go`): Read receipt tracking (`MarkRoomMessagesAsRead`) menggunakan `c.ID` (UUID) bukan `c.Nickname` untuk memastikan akurasi identifikasi meskipun user mengganti `display_name`.
-  - **Backend** (`store/sql.go`): Query status pesan menggunakan `from_id` UUID sebagai filter primer, bukan `from_nickname`.
-  - **Frontend** (`MessageBubble.tsx`): Penentuan `isSelf` (apakah bubble kanan/kiri) menggunakan `msg.from === currentUser.id` (UUID), bukan perbandingan string nickname.
-  - **Frontend** (`Sidebar.tsx`): Tampilan tanda centang (`✓`/`✓✓`) di preview chat ditentukan menggunakan `conv.last_sender_id === currentUser.id` (UUID), bukan `last_sender` username.
-  - **Frontend** (`MessageBubble.tsx`): Pengecekan `hasReacted` menggunakan `users.includes(currentUser.id)` (UUID), bukan username.
-  - **Frontend** (`page.tsx`, `StatusBar.tsx`): Resolusi peer, call signaling, dan presence tracking semuanya menggunakan UUID.
+  - **Backend Ownership Verification (`store/store.go`, `store/sql.go`)**: Kontrak `MessageStore.DeleteMessage(msgID, userID string, deleteForEveryone bool)` memverifikasi kepemilikan pesan untuk penarikan (*Delete for Everyone*) murni menggunakan `msg.FromID == userID` (UUID). Parameter display name/nickname telah dihapus sepenuhnya dari interface, SQL query, in-memory store, dan REST handler untuk menutup celah spoofing berbasis nama.
+  - **Backend Reaction Persistence (`store/sql.go`, `store/memory.go`)**: Reaksi emoji (`ToggleReaction`) menyimpan array `userID` (UUID) pada kolom `messages.reactions`, kebal terhadap pergantian `display_name` atau `username` pengguna.
+  - **Backend Receipts Tracking & Broadcast Guard (`ws/client.go`)**: Read receipt tracking (`MarkRoomMessagesAsRead`) dan delivered receipts (`MarkUserMessagesAsDelivered`) menggunakan `c.ID` (UUID) tanpa fallback nickname. Siaran event `delivered` saat user terhubung diproteksi guard `c.isAuthorizedForRoom(rID)` agar status tidak bocor ke room yang tidak sah.
+  - **Frontend Message Bubbles (`MessageBubble.tsx`)**: Penentuan `isSelf` (apakah bubble kanan/kiri) memprioritaskan `msgSenderId === currentUser.id` (UUID), bukan perbandingan string nickname. Pengecekan `hasReacted` memprioritaskan kecocokan UUID `u === currentUser.id`.
+  - **Frontend Timeline Peer Discovery (`page.tsx`)**: Resolusi lawan bicara pada riwayat pesan room murni mengevaluasi `senderId !== myUserId` (UUID), mengeliminasi seluruh fallback nama mutable (`nickname`, `display_name`, `username`).
+  - **Frontend Sidebar & Header (`Sidebar.tsx`, `StatusBar.tsx`)**: Tampilan tanda centang (`✓`/`✓✓`) di preview chat ditentukan menggunakan `conv.last_sender_id === currentUser.id` (UUID). Resolusi status online dan kontak menggunakan `peerUserId` (UUID).
 
-  **Efek Arsitektur**: Sistem kini sepenuhnya tahan terhadap skenario di mana pengguna mengubah `display_name` — tidak ada data yang rusak, tidak ada logika yang salah identifikasi, dan riwayat chat tetap bisa dibuka dengan benar.
+  **Efek Arsitektur**: Sistem kini sepenuhnya tahan terhadap skenario di mana pengguna mengubah `display_name` atau `username` — tidak ada data yang rusak, tidak ada logika yang salah identifikasi, dan hak akses penarikan pesan/tanda terima tetap 100% konsisten.
 
 
 ### 2.5 Pencegahan Tabrakan Deterministik Room ID (Zero Collision)
