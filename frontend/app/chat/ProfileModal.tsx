@@ -133,7 +133,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       <div
         className="modal-card"
         style={{
-          background: '#161b22',
+          background: 'var(--bg-overlay)',
+          backdropFilter: 'var(--glass-blur)',
+          WebkitBackdropFilter: 'var(--glass-blur)',
           border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-lg)',
           width: '100%',
@@ -141,7 +143,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.7)',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.7), 0 0 30px rgba(59, 130, 246, 0.1)',
           overflow: 'hidden',
         }}
       >
@@ -153,7 +155,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             alignItems: 'center',
             padding: 'var(--space-4) var(--space-5)',
             borderBottom: '1px solid var(--border-subtle)',
-            background: '#21262d',
+            background: 'var(--bg-elevated)',
+            backdropFilter: 'var(--glass-blur)',
+            WebkitBackdropFilter: 'var(--glass-blur)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>

@@ -16,6 +16,7 @@ import {
   unsubscribeFromPushNotifications,
 } from '@/lib/pushNotification'
 import { clearRoomCache } from '@/lib/messageCache'
+import { getAvatarStyle } from '@/lib/avatarColor'
 
 interface SidebarProps {
   activeRoomId: string
@@ -616,7 +617,10 @@ export function Sidebar({
           title="Klik untuk ubah profil"
           style={{ cursor: 'pointer' }}
         >
-          <div className="sidebar-avatar user-avatar-pulse">
+          <div
+            className="sidebar-avatar user-avatar-pulse"
+            style={getAvatarStyle(user?.display_name || user?.username || 'me')}
+          >
             {user?.avatar_url || (user?.display_name || user?.username || 'A')[0].toUpperCase()}
           </div>
           <div className="sidebar-user-details" style={{ overflow: 'hidden' }}>
@@ -741,7 +745,13 @@ export function Sidebar({
                     className="conversation-item"
                     onClick={() => handleStartDirectChat(u)}
                   >
-                    <div className="sidebar-avatar" style={{ fontSize: u.avatar_url ? '1.25rem' : '0.9rem' }}>
+                    <div
+                      className="sidebar-avatar"
+                      style={{
+                        ...getAvatarStyle(u.display_name || u.username || u.id),
+                        fontSize: u.avatar_url ? '1.25rem' : '0.9rem',
+                      }}
+                    >
                       {u.avatar_url || (u.display_name || u.username)[0].toUpperCase()}
                     </div>
                     <div className="conv-details">
@@ -808,7 +818,10 @@ export function Sidebar({
                         if (onCloseMobile) onCloseMobile()
                       }}
                     >
-                      <div className="sidebar-avatar">
+                      <div
+                        className="sidebar-avatar"
+                        style={getAvatarStyle(c.title || c.id)}
+                      >
                         {initial}
                       </div>
                       <div className="conv-details">
@@ -954,12 +967,14 @@ export function Sidebar({
             className="modal-card"
             onClick={e => e.stopPropagation()}
             style={{
-              background: '#161b22',
+              background: 'var(--bg-overlay)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
               border: '1px solid var(--border-default)',
               borderRadius: 'var(--radius-lg)',
               width: '100%',
               maxWidth: '420px',
-              boxShadow: '0 25px 50px rgba(0,0,0,0.7)',
+              boxShadow: '0 25px 50px rgba(0,0,0,0.7), 0 0 30px rgba(59, 130, 246, 0.1)',
               overflow: 'hidden',
               animation: 'fadeIn 0.2s ease',
             }}
@@ -972,7 +987,9 @@ export function Sidebar({
                 alignItems: 'center',
                 padding: 'var(--space-4) var(--space-5)',
                 borderBottom: '1px solid var(--border-subtle)',
-                background: '#21262d',
+                background: 'var(--bg-elevated)',
+                backdropFilter: 'var(--glass-blur)',
+                WebkitBackdropFilter: 'var(--glass-blur)',
               }}
             >
               <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>

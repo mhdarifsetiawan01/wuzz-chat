@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { apiRequest } from '@/lib/api'
 import type { User } from '@/lib/types'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
+import { getAvatarStyle } from '@/lib/avatarColor'
 
 interface ContactProfileModalProps {
   isOpen: boolean
@@ -88,12 +89,14 @@ export function ContactProfileModal({
       <div
         className="modal-card"
         style={{
-          background: '#161b22',
+          background: 'var(--bg-overlay)',
+          backdropFilter: 'var(--glass-blur)',
+          WebkitBackdropFilter: 'var(--glass-blur)',
           border: '1px solid var(--border-default)',
           borderRadius: 'var(--radius-lg)',
           width: '100%',
           maxWidth: '400px',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.7)',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.7), 0 0 30px rgba(59, 130, 246, 0.1)',
           overflow: 'hidden',
           animation: 'fadeIn 0.2s ease',
         }}
@@ -106,7 +109,9 @@ export function ContactProfileModal({
             alignItems: 'center',
             padding: 'var(--space-4) var(--space-5)',
             borderBottom: '1px solid var(--border-subtle)',
-            background: '#21262d',
+            background: 'var(--bg-elevated)',
+            backdropFilter: 'var(--glass-blur)',
+            WebkitBackdropFilter: 'var(--glass-blur)',
           }}
         >
           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>Info Kontak</h3>
@@ -143,19 +148,16 @@ export function ContactProfileModal({
               {/* Big Avatar */}
               <div
                 style={{
+                  ...getAvatarStyle(profile.display_name || profile.username || profile.id),
                   width: '80px',
                   height: '80px',
                   borderRadius: '50%',
-                  background: 'var(--accent-glow)',
-                  border: '3px solid var(--accent-500)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: profile.avatar_url ? '2.5rem' : '2rem',
                   fontWeight: 700,
-                  color: 'var(--accent-300)',
                   margin: '0 auto var(--space-4)',
-                  boxShadow: '0 8px 24px rgba(16, 185, 129, 0.25)',
                 }}
               >
                 {avatarDisplay}
@@ -172,7 +174,7 @@ export function ContactProfileModal({
               {/* Status Bio Box */}
               <div
                 style={{
-                  background: '#21262d',
+                  background: 'var(--bg-elevated)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-md)',
                   padding: 'var(--space-4)',

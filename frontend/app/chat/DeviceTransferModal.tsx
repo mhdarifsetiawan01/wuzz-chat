@@ -542,13 +542,15 @@ export function DeviceTransferModal({
       <div
         className="modal-card"
         style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
+          background: 'var(--bg-overlay)',
+          backdropFilter: 'var(--glass-blur)',
+          WebkitBackdropFilter: 'var(--glass-blur)',
+          border: '1px solid var(--border-default)',
           borderRadius: '16px',
           width: '100%',
           maxWidth: '480px',
           padding: 'var(--space-6)',
-          boxShadow: 'var(--shadow-xl)',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.7), 0 0 30px rgba(59, 130, 246, 0.1)',
           color: 'var(--text-primary)',
           textAlign: 'center',
           maxHeight: '90vh',
@@ -849,9 +851,9 @@ export function DeviceTransferModal({
                               fontWeight: 700,
                               width: '100%',
                               justifyContent: 'center',
-                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              background: 'var(--accent-gradient)',
                               border: 'none',
-                              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                              boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)',
                             }}
                           >
                             📸 Buka Kamera HP (Foto QR)
@@ -920,11 +922,11 @@ export function DeviceTransferModal({
                           padding: '12px 14px',
                           width: '100%',
                           justifyContent: 'center',
-                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          background: 'var(--accent-gradient)',
                           color: '#ffffff',
                           border: 'none',
                           fontWeight: 700,
-                          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
+                          boxShadow: '0 4px 12px rgba(59, 130, 246, 0.35)',
                         }}
                       >
                         📸 Buka Kamera HP (Foto QR Sekarang)

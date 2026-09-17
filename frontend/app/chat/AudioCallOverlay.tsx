@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { ActiveCallInfo } from '@/lib/types'
+import { getAvatarStyle } from '@/lib/avatarColor'
 
 interface AudioCallOverlayProps {
   callInfo: ActiveCallInfo | null
@@ -74,7 +75,7 @@ export function AudioCallOverlay({
           <div className={`audio-call-avatar-wrapper ${callInfo.status === 'connected' ? 'in-call-wave' : 'ringing-wave'}`}>
             <div className="audio-call-pulse-ring"></div>
             <div className="audio-call-pulse-ring delay-1"></div>
-            <div className="audio-call-avatar">
+            <div className="audio-call-avatar" style={getAvatarStyle(callInfo.peerNickname || '?')}>
               {initial}
             </div>
           </div>
