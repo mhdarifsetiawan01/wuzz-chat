@@ -174,11 +174,14 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 * **Prinsip Keamanan & Validasi**:
   - **Payload Body Capping (Anti-DoS)**: `r.Body = http.MaxBytesReader(w, r.Body, 64*1024)` membatasi ukuran request body maksimal 64 KB untuk mencegah memory exhaustion.
   - **Karakter Terkontrol**: Regex `^[a-zA-Z0-9_.-]+$` memastikan username hanya terdiri dari karakter aman tanpa spasi, karakter kontrol, atau path traversal (`../`).
-  - **Batas Panjang Karakter**: Username (3–30 karakter), Password (6–128 karakter untuk mencegah bcrypt hashing DoS), Display Name (maks 50 karakter) terhindar dari database truncate error.
+  - **Batas Panjang Karakter**: Username (3-30 karakter), Password (6-128 karakter untuk mencegah bcrypt hashing DoS), Display Name (maks 50 karakter) terhindar dari database truncate error.
   - **Aturan Kata Terlarang Hybrid**:
     1. *Substring Block*: Kata kotor/eksplisit (`jancok`, `puki`, `pepek`) dan entitas tertutup (`semantic`) diblokir di posisi manapun.
-    2. *Sensitive / Brand Filter*: Kata sistem/brand (`admin`, `official`, `support`, `wuzz`, `verified`) diblokir jika persis sama atau berawalan/berakhiran pemisah (`arif_official`, `admin_budi`).
-    3. *Technical Exact Match*: Kata rute/protokol (`api`, `bot`, `dev`, `chat`) hanya diblokir jika persis sama, mengizinkan nama wajar seperti `robot` atau `modern`.
+    2. *Sensitive / Brand Filter*: Kata sistem/brand (`admin`, `official`, `support`, `wuzz`, `verified`, `moderator`, `staff`, `helpdesk`, `security`, `team`, `service`, `contact`, `info`) diblokir jika persis sama atau berawalan/berakhiran pemisah (`arif_official`, `admin_budi`).
+    3. *Technical Exact Match*: Kata rute/protokol (`api`, `bot`, `dev`, `chat`, `null`, `undefined`, `root`, `system`, `anonymous`) hanya diblokir jika persis sama, mengizinkan nama wajar seperti `robot` atau `modern`.
+  - **Fail-Closed BOLA Guard** (`backend/internal/ws/client.go`): Method `isAuthorizedForRoom` dirancang *fail-closed* - jika terjadi error database saat lookup keanggotaan room, akses **selalu ditolak** (bukan allowed by default). Mencegah privilege escalation saat DB lambat/gagal.
+  - **JWT Runtime Warning** (`backend/internal/auth/jwt.go`): Guard `sync.Once` mencatat warning kritis ke log jika environment variable `JWT_SECRET` tidak di-set, mencegah produksi berjalan dengan secret kosong.
+  - **Test Coverage**: `validator_test.go` (33 unit test cases) & `auth_register_test.go` (11 integration test cases) - 100% pass.
 
 ---
 

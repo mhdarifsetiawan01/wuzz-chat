@@ -230,6 +230,15 @@ Membangun platform chatting modern yang:
   - **Verified Badge System (`VerifiedBadge.tsx`)**: Indikator centang biru akun terverifikasi di header profil, daftar obrolan sidebar, pencarian kontak, dan modal profil kontak.
   - **Universal `UserAvatar.tsx`**: Komponen terpadu render avatar foto asli (`<img>`), emoji 3D, atau inisial deterministik dengan indikator dot online hijau.
   - **Backend SQL & Real-Time Sync**: Pengambilan `peer.avatar_url` pada query `GetUserConversations` backend Go dan transmisi real-time ke header chat (`StatusBar.tsx`).
+- ✅ **Milestone 8.6: Security Hardening Registration & Anti-Impersonation Filter (SELESAI)**:
+  - Modul validator terpusat (`backend/internal/auth/validator.go`) — ekstraksi logika validasi dari handler.
+  - Filter kata terlarang **hybrid 3 lapis**: substring check (kata kotor/eksplisit), brand/sensitive prefix-suffix check, technical exact match.
+  - Batasan karakter regex `^[a-zA-Z0-9_.-]+$`, `username` 3-30 karakter, `password` 6-128 karakter, `display_name` maks 50 karakter.
+  - **Anti-DoS Body Cap**: `http.MaxBytesReader` 64 KB pada endpoint `/api/auth/register`.
+  - **Fail-Closed BOLA Guard**: `isAuthorizedForRoom` menolak akses saat error DB (fail-closed, bukan fail-open).
+  - **JWT Runtime Warning**: `sync.Once` guard jika `JWT_SECRET` tidak di-set di environment.
+  - Unit tests (`validator_test.go` 33 cases) & integration tests (`auth_register_test.go` 11 cases) — 100% pass.
+  - Frontend client-side validation real-time di `register/page.tsx`.
 - 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**:
   - Pembuatan grup obrolan multi-kontak, manajemen role Admin & Member, Group Info Drawer, multicast WebSocket broadcast, dan unread count per anggota.
 - ⏳ **Milestone 8.3: Message Management Suite**:

@@ -183,7 +183,7 @@ func (s *MemoryMessageStore) MarkRoomMessagesAsRead(roomID, excludeNickname stri
 		return nil
 	}
 	for i, m := range msgs {
-		if !strings.EqualFold(m.Nickname, excludeNickname) && m.Status != "read" {
+		if (m.FromID == "" || m.FromID != excludeNickname) && !strings.EqualFold(m.Nickname, excludeNickname) && m.Status != "read" {
 			s.messages[roomID][i].Status = "read"
 		}
 	}
@@ -197,7 +197,7 @@ func (s *MemoryMessageStore) MarkUserMessagesAsDelivered(userNickname string) ([
 	roomSet := make(map[string]bool)
 	for roomID, msgs := range s.messages {
 		for i, m := range msgs {
-			if !strings.EqualFold(m.Nickname, userNickname) && m.Status == "sent" {
+			if (m.FromID == "" || m.FromID != userNickname) && !strings.EqualFold(m.Nickname, userNickname) && m.Status == "sent" {
 				s.messages[roomID][i].Status = "delivered"
 				roomSet[roomID] = true
 			}

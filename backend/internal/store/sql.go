@@ -354,33 +354,44 @@ func (s *SQLMessageStore) ToggleReaction(msgID, emoji, userNickname string) (str
 	return jsonStr, err
 }
 
-// MarkRoomMessagesAsRead menandai seluruh pesan di room tertentu yang bukan dikirim oleh excludeNickname sebagai 'read'.
-func (s *SQLMessageStore) MarkRoomMessagesAsRead(roomID, excludeNickname string) error {
+// MarkRoomMessagesAsRead menandai seluruh pesan di room tertentu yang bukan dikirim oleh excludeIdentifier sebagai 'read'.
+func (s *SQLMessageStore) MarkRoomMessagesAsRead(roomID, excludeIdentifier string) error {
 	var query string
 	if s.driverName == "postgres" {
-		query = `UPDATE messages SET status = 'read' WHERE room_id = $1 AND LOWER(from_nickname) != LOWER($2) AND status != 'read'`
+		query = `UPDATE messages SET status = 'read' WHERE room_id = $1 AND (from_id != $2 AND LOWER(from_nickname) != LOWER($2)) AND status != 'read'`
 	} else {
-		query = `UPDATE messages SET status = 'read' WHERE room_id = ? AND LOWER(from_nickname) != LOWER(?) AND status != 'read'`
+		query = `UPDATE messages SET status = 'read' WHERE room_id = ? AND (from_id != ? AND LOWER(from_nickname) != LOWER(?)) AND status != 'read'`
 	}
-	_, err := s.db.Exec(query, roomID, excludeNickname)
+	var err error
+	if s.driverName == "postgres" {
+		_, err = s.db.Exec(query, roomID, excludeIdentifier)
+	} else {
+		_, err = s.db.Exec(query, roomID, excludeIdentifier, excludeIdentifier)
+	}
 	return err
 }
 
 // MarkUserMessagesAsDelivered menandai seluruh pesan berstatus 'sent' dari pengirim lain menjadi 'delivered'.
 // Mengembalikan daftar room_id yang terpengaruh.
-func (s *SQLMessageStore) MarkUserMessagesAsDelivered(userNickname string) ([]string, error) {
-	if userNickname == "" {
+func (s *SQLMessageStore) MarkUserMessagesAsDelivered(userIdentifier string) ([]string, error) {
+	if userIdentifier == "" {
 		return nil, nil
 	}
 
 	var querySelect string
 	if s.driverName == "postgres" {
-		querySelect = `SELECT DISTINCT room_id FROM messages WHERE LOWER(from_nickname) != LOWER($1) AND status = 'sent'`
+		querySelect = `SELECT DISTINCT room_id FROM messages WHERE (from_id != $1 AND LOWER(from_nickname) != LOWER($1)) AND status = 'sent'`
 	} else {
-		querySelect = `SELECT DISTINCT room_id FROM messages WHERE LOWER(from_nickname) != LOWER(?) AND status = 'sent'`
+		querySelect = `SELECT DISTINCT room_id FROM messages WHERE (from_id != ? AND LOWER(from_nickname) != LOWER(?)) AND status = 'sent'`
 	}
 
-	rows, err := s.db.Query(querySelect, userNickname)
+	var rows *sql.Rows
+	var err error
+	if s.driverName == "postgres" {
+		rows, err = s.db.Query(querySelect, userIdentifier)
+	} else {
+		rows, err = s.db.Query(querySelect, userIdentifier, userIdentifier)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -400,11 +411,15 @@ func (s *SQLMessageStore) MarkUserMessagesAsDelivered(userNickname string) ([]st
 
 	var queryUpdate string
 	if s.driverName == "postgres" {
-		queryUpdate = `UPDATE messages SET status = 'delivered' WHERE LOWER(from_nickname) != LOWER($1) AND status = 'sent'`
+		queryUpdate = `UPDATE messages SET status = 'delivered' WHERE (from_id != $1 AND LOWER(from_nickname) != LOWER($1)) AND status = 'sent'`
 	} else {
-		queryUpdate = `UPDATE messages SET status = 'delivered' WHERE LOWER(from_nickname) != LOWER(?) AND status = 'sent'`
+		queryUpdate = `UPDATE messages SET status = 'delivered' WHERE (from_id != ? AND LOWER(from_nickname) != LOWER(?)) AND status = 'sent'`
 	}
-	_, err = s.db.Exec(queryUpdate, userNickname)
+	if s.driverName == "postgres" {
+		_, err = s.db.Exec(queryUpdate, userIdentifier)
+	} else {
+		_, err = s.db.Exec(queryUpdate, userIdentifier, userIdentifier)
+	}
 	return roomIDs, err
 }
 
