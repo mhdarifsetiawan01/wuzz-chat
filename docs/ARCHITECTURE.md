@@ -182,12 +182,12 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 |---|---|---|---|
 | `POST` | `/api/auth/register` | Pendaftaran akun user baru | Public |
 | `POST` | `/api/auth/login` | Login dan generate JWT token | Public |
-| `GET` | `/api/auth/me` | Mengambil profil user yang sedang login | Bearer Token |
+| `GET` | `/api/auth/me` | Mengambil profil user yang sedang login (termasuk `is_verified`) | Bearer Token |
 | `PUT` | `/api/auth/profile` | Memperbarui display name, status bio, dan avatar | Bearer Token |
 | `PUT` | `/api/users/public-key` | Mendaftarkan / memperbarui Public Key kriptografi E2EE | Bearer Token |
-| `GET` | `/api/users/profile?id=&username=` | Mengambil profil publik pengguna lain via UUID atau @username (termasuk `public_key`) | Bearer Token |
-| `GET` | `/api/users/search?q=` | Mencari user berdasarkan username/nama (termasuk `public_key`) | Bearer Token |
-| `GET` | `/api/conversations` | Daftar obrolan aktif beserta pesan terakhir dan `peer_public_key` | Bearer Token |
+| `GET` | `/api/users/profile?id=&username=` | Mengambil profil publik pengguna lain via UUID atau @username (termasuk `public_key` & `is_verified`) | Bearer Token |
+| `GET` | `/api/users/search?q=` | Mencari user berdasarkan username/nama (termasuk `public_key` & `is_verified`) | Bearer Token |
+| `GET` | `/api/conversations` | Daftar obrolan aktif beserta pesan terakhir, `peer_public_key`, `peer_avatar_url`, dan `peer_is_verified` | Bearer Token |
 | `POST` | `/api/conversations` | Membuat obrolan baru (Direct atau Group) | Bearer Token |
 | `DELETE` / `POST` | `/api/conversations?id=` / `/api/conversations/clear` | Menghapus riwayat percakapan untuk user pemanggil (*Delete for Me*) | Bearer Token |
 | `DELETE` / `POST` | `/api/messages?id=&type=` / `/api/messages/delete` | Menghapus pesan (*for_me* kapanpun, atau *for_everyone* ≤ 60s) | Bearer Token |

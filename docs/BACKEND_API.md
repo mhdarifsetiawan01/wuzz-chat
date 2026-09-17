@@ -121,6 +121,7 @@ Mendaftarkan akun baru.
       "display_name": "Budi Santoso",
       "avatar_url": "",
       "status_message": "Hey there! I am using Wuzz Chat",
+      "is_verified": false,
       "public_key": "",
       "key_version": 1,
       "created_at": "2026-09-16T10:00:00Z"
@@ -159,6 +160,7 @@ Mengambil profil akun user yang sedang aktif.
     "display_name": "Budi Santoso",
     "avatar_url": "https://...",
     "status_message": "Online dan siap chatting",
+    "is_verified": false,
     "public_key": "{\"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\"...\",\"y\":\"...\"}",
     "key_version": 1,
     "active_device_id": "dev_web_abc123",
@@ -268,6 +270,7 @@ Mencari user lain berdasarkan awalan username atau display name untuk memulai ch
       "display_name": "Siti Aminah",
       "avatar_url": "",
       "status_message": "Available",
+      "is_verified": false,
       "public_key": "..."
     }
   ]
@@ -278,12 +281,26 @@ Mencari user lain berdasarkan awalan username atau display name untuk memulai ch
 #### 9. `GET /api/users/profile?id=<uuid>` atau `?username=<name>`
 Melihat detail profil publik user lain.
 - **Autentikasi**: `Bearer <token>`
-- **Success Response (200 OK)**: Objek data user publik.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "id": "e1f2a3b4-...",
+    "username": "siti_aminah",
+    "display_name": "Siti Aminah",
+    "avatar_url": "",
+    "status_message": "Available",
+    "is_verified": false,
+    "public_key": "{\"crv\":\"P-256\",\"kty\":\"EC\",...}",
+    "key_version": 1,
+    "created_at": "2026-09-16T10:00:00Z",
+    "last_seen": "2026-09-17T15:30:00Z"
+  }
+  ```
 
 ---
 
 #### 10. `GET /api/conversations`
-Mengambil daftar obrolan aktif (Home screen chat list) milik user saat ini, lengkap dengan pesan terakhir, status tanda terima, unread count, dan data lawan bicara (`peer_id`, `peer_nickname`, `peer_public_key`, `peer_avatar_url`).
+Mengambil daftar obrolan aktif (Home screen chat list) milik user saat ini, lengkap dengan pesan terakhir, status tanda terima, unread count, dan data lawan bicara (`peer_id`, `peer_nickname`, `peer_public_key`, `peer_avatar_url`, `peer_is_verified`).
 - **Autentikasi**: `Bearer <token>`
 - **Success Response (200 OK)**:
   ```json
@@ -296,6 +313,7 @@ Mengambil daftar obrolan aktif (Home screen chat list) milik user saat ini, leng
       "peer_nickname": "Siti Aminah",
       "peer_public_key": "{\"crv\":\"P-256\",\"kty\":\"EC\",...}",
       "peer_avatar_url": "data:image/webp;base64,...",
+      "peer_is_verified": false,
       "last_message": "e2ee:v1:7s8df...:92348df...",
       "last_sender": "siti_aminah",
       "last_status": "delivered",

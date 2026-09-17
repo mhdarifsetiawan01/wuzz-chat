@@ -240,18 +240,23 @@ Membangun platform chatting modern yang:
 ### Fase 9: Monetisasi & Trust — Avatar Premium & Verified Account System (Status: 🔮 PLANNED)
 *Tujuan: Membangun sistem monetisasi digital berbasis avatar premium dan membangun kepercayaan pengguna melalui sistem verifikasi akun terpercaya.*
 
-- 🔮 **Milestone 9.1: User Verified Account System**:
-  - **Backend (Belum Ada ❌ — Perlu Dibuat)**:
-    - Field `is_verified BOOLEAN` belum ada di tabel `users` dan belum ada di struct `User` Go (`user_store.go`).
-    - Perlu migration: `ALTER TABLE users ADD COLUMN is_verified BOOLEAN NOT NULL DEFAULT false;`
-    - Perlu update struct `User` di Go dan semua query SELECT yang membaca data user.
+- ⚡ **Milestone 9.1: User Verified Account System (Core Engine: ✅ Selesai, Admin Tools: 🔮 Planned)**:
+  - **Backend (Core Engine Selesai ✅)**:
+    - Kolom `is_verified BOOLEAN DEFAULT false` sudah aktif di tabel `users` dengan auto-migration di PostgreSQL (Supabase) dan SQLite (`sql.go`).
+    - Struct `User` di Go (`user_store.go`) sudah memiliki field `IsVerified bool` (`json:"is_verified"`).
+    - Struct `ConversationItem` di Go (`user_store.go`) sudah memiliki field `PeerIsVerified bool` (`json:"peer_is_verified"`).
+    - Seluruh query SELECT user (`GetUserByID`, `GetUserByUsername`, `GetUserByUsernameOrDisplayName`, `SearchUsers`) dan query percakapan (`GetUserConversations`) sudah membaca `COALESCE(..., false)` secara aman.
+  - **Frontend (Terkoneksi Penuh ✅)**:
+    - Type `is_verified?: boolean` dan `peer_is_verified?: boolean` aktif di `frontend/lib/types.ts`.
+    - Komponen `VerifiedBadge.tsx` terintegrasi dan live di seluruh touchpoint:
+      - Daftar obrolan aktif di Sidebar (`Sidebar.tsx`) membaca `peer_is_verified`.
+      - Header chat (`StatusBar.tsx`) membaca `peerIsVerified`.
+      - Kartu profil lawan bicara (`ContactProfileModal.tsx`) membaca `is_verified`.
+      - Modal profil akun pribadi (`ProfileModal.tsx`) membaca status verified akun user sendiri.
+  - **Admin Tooling & Workflow (🔮 Planned)**:
     - Endpoint admin untuk men-set/mencabut status verified: `PATCH /api/admin/users/:id/verify`.
     - Business logic & kriteria verifikasi (opsi: manual approval, email konfirmasi domain, atau subscription tier).
     - Audit log perubahan `is_verified` di tabel `admin_actions`.
-  - **Frontend (Sudah Ada ✅ — Tinggal Hubungkan)**:
-    - Type `is_verified?: boolean` sudah ada di `frontend/lib/types.ts`.
-    - Komponen `VerifiedBadge.tsx` sudah terimplementasi dan siap membaca `is_verified` dari API.
-    - Siap tampil di semua touchpoint (Sidebar, StatusBar, ContactProfileModal, Search) — tinggal data backendnya yang belum ada.
 
 - 🔮 **Milestone 9.2: Avatar Premium Asset System**:
   - **Backend (Belum Ada ❌ — Perlu Dibuat)**:
