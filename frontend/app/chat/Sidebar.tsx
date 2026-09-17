@@ -17,6 +17,7 @@ import {
 } from '@/lib/pushNotification'
 import { clearRoomCache } from '@/lib/messageCache'
 import { getAvatarStyle } from '@/lib/avatarColor'
+import { ReceiptIcon } from './ReceiptIcon'
 
 interface SidebarProps {
   activeRoomId: string
@@ -27,17 +28,7 @@ interface SidebarProps {
 }
 
 function renderReceipt(status?: Message['status']) {
-  switch (status) {
-    case 'pending':
-      return <span className="receipt-icon receipt-pending" title="Sedang dikirim..." style={{ marginRight: 4 }}>🕒</span>
-    case 'delivered':
-      return <span className="receipt-icon receipt-delivered" title="Tersampaikan" style={{ marginRight: 4 }}>✓✓</span>
-    case 'read':
-      return <span className="receipt-icon receipt-read" title="Dibaca" style={{ marginRight: 4 }}>✓✓</span>
-    case 'sent':
-    default:
-      return <span className="receipt-icon receipt-sent" title="Terkirim ke server" style={{ marginRight: 4 }}>✓</span>
-  }
+  return <ReceiptIcon status={status} style={{ marginRight: 4 }} />
 }
 
 function formatConvTime(dateStr?: string): string {

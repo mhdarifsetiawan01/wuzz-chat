@@ -413,5 +413,9 @@ Wuzz Chat mengadopsi prinsip desain modular berlapis yang memisahkan logika styl
 5. **Modular Emoticon Catalog & Precision Flagship Input Bar**:
    - Komponen input mengadopsi arsitektur kapsul pil WhatsApp/Telegram (`border-radius: 24px`, tinggi 48px) dengan tombol aksi rekam suara/kirim melayang independen (*floating circular action button 48x48px*).
    - Katalog emoji diisolasi secara modular di `frontend/lib/emojis.ts` dengan 5 kategori Unicode native, memungkinkan penambahan atau modifikasi emoji secara dinamis tanpa menyentuh komponen UI.
+6. **High-Contrast SVG Read Receipt Indicator (`ReceiptIcon.tsx`)**:
+   - Menggantikan karakter teks tipis dengan komponen vektor SVG standar WhatsApp/Telegram yang tebal dan tajam (`stroke-width: 2`, sudut 45 derajat paralel).
+   - Memecahkan isu kontras rendah *blue-on-blue* pada bubble pesan keluar (Soft Blue-Indigo) menggunakan Electric Neon Cyan (`#00f2fe`) yang dipadukan dengan dark drop shadow (`rgba(0, 0, 0, 0.95)`) dan ambient cyan glow, menjamin tanda centang terbaca seketika di semua jenis layar seluler dan desktop.
+
 
 
