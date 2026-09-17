@@ -1196,72 +1196,156 @@ h4 { font-size: 1rem;   font-weight: 600; }
   flex-shrink: 0;
 }
 
-.chat-input-wrapper {
+/* WhatsApp & Telegram Flagship Chat Input Bar */
+.chat-input-row {
   display: flex;
   align-items: flex-end;
-  gap: var(--space-3);
-  background: var(--bg-elevated);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-xl);
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  gap: 8px;
+  width: 100%;
 }
 
+.chat-input-pill,
+.chat-input-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  background: rgba(30, 41, 59, 0.72);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  padding: 4px 6px 4px 10px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.chat-input-pill:focus-within,
 .chat-input-wrapper:focus-within {
-  border-color: var(--accent-400);
-  box-shadow: 0 0 0 3px var(--accent-glow);
+  border-color: rgba(96, 165, 250, 0.55);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  background: rgba(30, 41, 59, 0.9);
 }
 
+/* Icon Buttons inside Pill (Emoji & Attach) */
+.chat-pill-icon-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast) ease;
+  flex-shrink: 0;
+  user-select: none;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+}
+
+.chat-pill-icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.chat-pill-icon-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.chat-pill-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.chat-emoji-btn {
+  font-size: 1.35rem;
+}
+
+.chat-attach-btn {
+  font-size: 1.25rem;
+}
+
+/* Textarea inside Pill */
 .chat-textarea {
   flex: 1;
   background: transparent;
   border: none;
   outline: none;
-  color: var(--text-primary);
+  color: #ffffff;
   font-family: var(--font-sans);
   font-size: 0.9375rem;
-  line-height: 1.5;
+  line-height: 1.45;
   resize: none;
   min-height: 24px;
   max-height: 120px;
-  padding: var(--space-2) 0;
+  padding: 8px 6px;
+  display: flex;
+  align-items: center;
 }
 
-.chat-textarea::placeholder { color: var(--text-muted); }
+.chat-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.9375rem;
+}
 
-.chat-send-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-full);
-  background: var(--accent-gradient);
-  border: none;
-  cursor: pointer;
+/* Floating Circular Action Button (Mic / Send) */
+.chat-floating-action-btn {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
   flex-shrink: 0;
-  transition: all var(--transition-fast);
-  color: white;
-  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.35);
+  transition: all var(--transition-fast) cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  padding: 0;
+  margin: 0;
+}
+
+.chat-mic-btn {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.22) 0%, rgba(129, 140, 248, 0.18) 100%);
+  border: 1px solid rgba(147, 197, 253, 0.35);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-size: 1.3rem;
+}
+
+.chat-mic-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.35) 0%, rgba(129, 140, 248, 0.28) 100%);
+  border-color: rgba(147, 197, 253, 0.6);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: scale(1.06);
+}
+
+.chat-send-btn {
+  background: var(--accent-gradient);
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.45);
 }
 
 .chat-send-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #60a5fa 0%, #818cf8 100%);
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.5);
-  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+  transform: scale(1.06);
 }
 
-.chat-send-btn:disabled {
-  background: var(--bg-overlay);
-  color: var(--text-muted);
+.chat-floating-action-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.chat-floating-action-btn:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
   box-shadow: none;
-}
-
-.chat-send-btn:active:not(:disabled) {
-  transform: scale(0.92);
 }
 
 /* Session info bar (dibawah status bar) */
@@ -2601,6 +2685,17 @@ h4 { font-size: 1rem;   font-weight: 600; }
     padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
   }
 
+  .emoji-picker-popover {
+    left: 8px;
+    right: 8px;
+    max-width: calc(100vw - 16px);
+    bottom: calc(100% + 6px);
+  }
+
+  .emoji-grid-container {
+    grid-template-columns: repeat(7, 1fr);
+  }
+
   .chat-input-hints {
     display: none !important;
   }
@@ -2627,13 +2722,46 @@ h4 { font-size: 1rem;   font-weight: 600; }
    MEDIA SHARING, ATTACHMENT & LIGHTBOX STYLES (FASE 5)
    ================================================================ */
 
+/* Tombol Emoji & Attach di sebelah textarea */
+.chat-emoji-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.35rem;
+  padding: 0 4px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: transform var(--transition-fast) ease, opacity var(--transition-fast) ease;
+  user-select: none;
+  line-height: 1;
+}
+
+.chat-emoji-btn:hover:not(:disabled) {
+  transform: scale(1.15);
+}
+
+.chat-emoji-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.chat-emoji-btn.active {
+  filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.6));
+}
+
+.chat-emoji-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* Attachment button di sebelah textarea */
 .chat-attach-btn {
   background: transparent;
   border: none;
   color: var(--text-secondary);
   font-size: 1.25rem;
-  padding: 0 0.5rem;
+  padding: 0 0.4rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2651,6 +2779,124 @@ h4 { font-size: 1rem;   font-weight: 600; }
 .chat-attach-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Frosted Glass Emoji Picker Popover (WhatsApp / Telegram style) */
+.emoji-picker-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 16px;
+  right: 16px;
+  max-width: 380px;
+  max-height: 290px;
+  background: rgba(15, 23, 42, 0.95);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  animation: fadeSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.emoji-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.emoji-category-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.emoji-category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.emoji-category-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast) ease;
+}
+
+.emoji-category-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.emoji-category-tab.active {
+  color: #ffffff;
+  background: rgba(59, 130, 246, 0.28);
+  border-color: rgba(147, 197, 253, 0.4);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.emoji-picker-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+.emoji-picker-close-btn:hover {
+  color: #ffffff;
+}
+
+.emoji-grid-container {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+  padding: 10px;
+  overflow-y: auto;
+  max-height: 230px;
+  scrollbar-width: thin;
+}
+
+.emoji-grid-item {
+  background: transparent;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 6px 2px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-fast), background var(--transition-fast);
+  user-select: none;
+  line-height: 1;
+}
+
+.emoji-grid-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: scale(1.22);
+}
+
+.emoji-grid-item:active {
+  transform: scale(0.92);
 }
 
 /* Staging Media Preview Bar di atas input textarea */

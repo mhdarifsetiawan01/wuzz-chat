@@ -410,5 +410,8 @@ Wuzz Chat mengadopsi prinsip desain modular berlapis yang memisahkan logika styl
 4. **Ultra-Modern Aurora Glassmorphism Header**:
    - Header aplikasi mengadopsi pencahayaan ambient radial mesh (`Soft Azure` dan `Soft Lavender`) di balik frosted glass transparan (`backdrop-filter: blur(20px) saturate(180%)`).
    - Mengintegrasikan avatar profil pengguna langsung ke baris brand header atas untuk efisiensi ruang vertikal maksimal di layar seluler tanpa redundansi komponen.
+5. **Modular Emoticon Catalog & Precision Flagship Input Bar**:
+   - Komponen input mengadopsi arsitektur kapsul pil WhatsApp/Telegram (`border-radius: 24px`, tinggi 48px) dengan tombol aksi rekam suara/kirim melayang independen (*floating circular action button 48x48px*).
+   - Katalog emoji diisolasi secara modular di `frontend/lib/emojis.ts` dengan 5 kategori Unicode native, memungkinkan penambahan atau modifikasi emoji secara dinamis tanpa menyentuh komponen UI.
 
 
