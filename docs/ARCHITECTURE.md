@@ -93,7 +93,37 @@ erDiagram
         text thumbnail_url
         timestamp created_at
     }
+
+    AVATAR_ASSETS {
+        uuid id PK
+        varchar name "Nama avatar (misal: Astronot, Kucing Ninja)"
+        varchar category "emoji / illustration / animated"
+        text preview_url "URL gambar preview katalog"
+        text asset_url "URL asset resolusi penuh"
+        integer price "Harga dalam in-app currency (0 = gratis)"
+        boolean is_free
+        timestamp created_at
+    }
+
+    USER_AVATAR_INVENTORY {
+        uuid id PK
+        uuid user_id FK
+        uuid asset_id FK
+        varchar source "purchased / gifted / promo"
+        timestamp acquired_at
+    }
+
+    ADMIN_ACTIONS {
+        uuid id PK
+        uuid admin_id FK
+        uuid target_user_id FK
+        varchar action "verify / unverify / ban / unban"
+        text notes
+        timestamp created_at
+    }
 ```
+
+> **📌 Catatan Fase 9 (PLANNED)**: Tabel `AVATAR_ASSETS`, `USER_AVATAR_INVENTORY`, dan `ADMIN_ACTIONS` belum dibuat di database production. Skema di atas adalah desain target untuk Milestone 9.1 (Verified System) dan Milestone 9.2 (Avatar Premium). Lihat `docs/ROADMAP.md#fase-9` untuk detail spesifikasi.
 
 ---
 
@@ -423,4 +453,68 @@ Wuzz Chat mengadopsi prinsip desain modular berlapis yang memisahkan logika styl
    - Menggunakan `router.replace('/chat')` saat kembali ke daftar obrolan (`activeRoomId = ''`) agar tidak menambah entry history baru yang memicu siklus loop saat pengguna menekan tombol Back fisik/browser.
 
 
+---
+
+## 💎 10. Arsitektur Monetisasi & Trust (Fase 9 — PLANNED)
+
+Seksi ini mendokumentasikan desain arsitektur untuk fitur monetisasi (Avatar Premium) dan kepercayaan pengguna (Verified Account) yang direncanakan untuk dikerjakan di masa mendatang.
+
+### A. User Verified Account
+
+**Status Backend**: ❌ Field `is_verified` **belum ada** di backend Go. Struct `User` di `user_store.go` dan semua query SQL belum menyertakan field ini.
+**Status Frontend**: ✅ Type `is_verified?: boolean` sudah ada di `frontend/lib/types.ts`. Komponen `VerifiedBadge.tsx` sudah terimplementasi, tinggal menunggu data dari backend.
+
+**Yang Masih Perlu Dibangun**:
+
+| Komponen | Detail |
+|---|---|
+| `PATCH /api/admin/users/:id/verify` | Endpoint admin toggle status verified |
+| Tabel `admin_actions` | Audit log setiap perubahan `is_verified` |
+| Business logic kriteria | Manual approval / email domain / subscription tier |
+| Admin Dashboard UI | Panel untuk manajemen akun verified |
+
+### B. Avatar Premium Asset System
+
+**Status Backend**: ❌ Belum ada. Perlu membuat tabel dan endpoint baru.
+**Status Frontend**: ❌ Belum ada. Perlu Avatar Marketplace & Inventory Drawer.
+
+**Desain Alur Sistem**:
+```
+[Admin Upload Avatar Asset]
+        │
+        ▼
+  [avatar_assets table]
+        │
+        │ GET /api/avatar/catalog (+ status owned)
+        ▼
+  [Avatar Marketplace UI]
+        │ User beli via saldo wallet
+        │ POST /api/wallet/purchase/avatar
+        ▼
+  [user_avatar_inventory table]
+        │
+        │ POST /api/avatar/equip
+        ▼
+  [UPDATE users.avatar_url = asset_url]
+        │
+        │ Trigger real-time push ke kontak via WebSocket
+        ▼
+  [Semua UI render UserAvatar.tsx ← avatar_url terbaru]
+```
+
+**Endpoint yang Perlu Dibuat**:
+
+| Method | Path | Deskripsi |
+|---|---|---|
+| `GET` | `/api/avatar/catalog` | Daftar semua avatar + status `owned` per user |
+| `POST` | `/api/avatar/equip` | Set avatar aktif dari inventory user |
+| `POST` | `/api/wallet/purchase/avatar` | Beli avatar dengan in-app currency |
+| `GET` | `/api/avatar/inventory` | Daftar avatar yang dimiliki user |
+| `POST` | `/api/admin/avatar` | Upload avatar asset baru (admin only) |
+| `DELETE` | `/api/admin/avatar/:id` | Hapus avatar dari katalog (admin only) |
+
+**Prinsip Kompatibilitas Mundur**:
+> `users.avatar_url` tetap menjadi **satu-satunya slot aktif** yang dibaca seluruh UI. Avatar Premium hanyalah sistem pengisian slot tersebut dari sumber yang lebih kaya (katalog terkurasi), bukan perubahan arsitektur render.
+
+---
 

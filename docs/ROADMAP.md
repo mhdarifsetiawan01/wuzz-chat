@@ -237,6 +237,41 @@ Membangun platform chatting modern yang:
 
 ---
 
+### Fase 9: Monetisasi & Trust — Avatar Premium & Verified Account System (Status: 🔮 PLANNED)
+*Tujuan: Membangun sistem monetisasi digital berbasis avatar premium dan membangun kepercayaan pengguna melalui sistem verifikasi akun terpercaya.*
+
+- 🔮 **Milestone 9.1: User Verified Account System**:
+  - **Backend (Belum Ada ❌ — Perlu Dibuat)**:
+    - Field `is_verified BOOLEAN` belum ada di tabel `users` dan belum ada di struct `User` Go (`user_store.go`).
+    - Perlu migration: `ALTER TABLE users ADD COLUMN is_verified BOOLEAN NOT NULL DEFAULT false;`
+    - Perlu update struct `User` di Go dan semua query SELECT yang membaca data user.
+    - Endpoint admin untuk men-set/mencabut status verified: `PATCH /api/admin/users/:id/verify`.
+    - Business logic & kriteria verifikasi (opsi: manual approval, email konfirmasi domain, atau subscription tier).
+    - Audit log perubahan `is_verified` di tabel `admin_actions`.
+  - **Frontend (Sudah Ada ✅ — Tinggal Hubungkan)**:
+    - Type `is_verified?: boolean` sudah ada di `frontend/lib/types.ts`.
+    - Komponen `VerifiedBadge.tsx` sudah terimplementasi dan siap membaca `is_verified` dari API.
+    - Siap tampil di semua touchpoint (Sidebar, StatusBar, ContactProfileModal, Search) — tinggal data backendnya yang belum ada.
+
+- 🔮 **Milestone 9.2: Avatar Premium Asset System**:
+  - **Backend (Belum Ada ❌ — Perlu Dibuat)**:
+    - Tabel `avatar_assets`: Katalog avatar premium (ID, nama, kategori, url preview, harga, is_free).
+    - Tabel `user_avatar_inventory`: Relasi user ↔ avatar yang sudah dimiliki/dibeli (user_id FK, asset_id FK, acquired_at, source: `purchased` / `gifted` / `promo`).
+    - Endpoint GET `/api/avatar/catalog` → daftar semua avatar (free & premium) beserta status kepemilikan user.
+    - Endpoint POST `/api/avatar/equip` → ganti avatar aktif (`users.avatar_url`) ke avatar dari inventory.
+    - Endpoint POST `/api/wallet/purchase/avatar` → transaksi pembelian avatar menggunakan saldo wallet internal.
+  - **Backend (Sudah Ada, Perlu Diperluas ✅)**:
+    - Field `avatar_url TEXT` di tabel `users` → sudah ada, dipakai sebagai "slot avatar aktif".
+    - Infrastruktur wallet/saldo belum ada, perlu dirancang tersendiri (integrasi payment gateway atau in-app currency).
+  - **Frontend (Belum Ada ❌ — Perlu Dibuat)**:
+    - Halaman/Modal **Avatar Marketplace**: Grid avatar premium bergambar, badge harga, tombol beli/pasang.
+    - **Inventory Drawer**: Daftar avatar yang sudah dimiliki, tombol "Pasang sebagai Avatar Aktif".
+    - Integrasi ke `AvatarStudio.tsx` sebagai opsi ke-4: *"Pilih dari Koleksi Premium-ku"*.
+
+  > **Catatan Arsitektur**: `users.avatar_url` tetap berfungsi sebagai "slot aktif" yang di-render di seluruh UI. Avatar premium hanyalah mekanisme untuk mengisi slot ini dari katalog terkurasi, bukan mengganti struktur render yang sudah ada.
+
+---
+
 
 ## 🏛️ Arsitektur Target Platform
 
