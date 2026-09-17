@@ -27,6 +27,7 @@ erDiagram
         varchar password_hash
         text avatar_url
         varchar status_message
+        boolean is_verified "Akun centang biru terverifikasi"
         text public_key "ECDH P-256 Public Key JWK"
         integer key_version "Key generation/rotation counter (default 1)"
         text active_device_id "Current device holding active E2EE session"

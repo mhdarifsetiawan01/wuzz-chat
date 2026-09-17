@@ -5,12 +5,14 @@ import type { ConnectionStatus, SessionInfo, RoomUser } from '@/lib/types'
 import { soundManager } from '@/lib/sound'
 import { ContactProfileModal } from './ContactProfileModal'
 import { SafetyNumberModal } from './SafetyNumberModal'
-import { getAvatarStyle } from '@/lib/avatarColor'
+import { UserAvatar } from './UserAvatar'
 
 interface StatusBarProps {
   status: ConnectionStatus
   session: SessionInfo | null
   peerNickname: string | null
+  peerAvatarUrl?: string
+  peerUserId?: string
   roomId: string
   roomUsers?: RoomUser[]
   isPeerTyping?: boolean
@@ -33,6 +35,8 @@ export function StatusBar({
   status,
   session,
   peerNickname,
+  peerAvatarUrl = '',
+  peerUserId = '',
   roomId,
   roomUsers = [],
   isPeerTyping = false,
@@ -106,31 +110,14 @@ export function StatusBar({
             }}
             title={isDirectChat && peerNickname ? 'Klik untuk melihat profil lengkap kontak ini' : undefined}
           >
-            <div
-              className="status-avatar"
-              aria-hidden="true"
-              style={{
-                ...getAvatarStyle(peerName),
-                position: 'relative',
-              }}
-            >
-              {initial}
-              {isPeerOnline && isDirectChat && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    right: 0,
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    background: '#22c55e',
-                    border: '2px solid var(--bg-surface)',
-                  }}
-                  title="Online"
-                />
-              )}
-            </div>
+            <UserAvatar
+              avatarUrl={peerAvatarUrl}
+              name={peerName}
+              id={peerUserId}
+              size={36}
+              fontSize="1rem"
+              isOnline={isDirectChat ? isPeerOnline : undefined}
+            />
 
             <div className="status-info">
               <span className="status-name" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

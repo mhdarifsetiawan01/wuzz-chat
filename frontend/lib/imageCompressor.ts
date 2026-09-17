@@ -106,3 +106,53 @@ export async function compressImage(
     return file
   }
 }
+
+/**
+ * Mengompresi dan memotong gambar avatar menjadi persegi simetris (1:1)
+ * Menghasilkan Data URL WebP sangat ringan (< 15KB) untuk profil pengguna.
+ */
+export async function compressAvatarToDataUrl(
+  file: File,
+  size = 160,
+  quality = 0.85
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = size
+          canvas.height = size
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            resolve(e.target?.result as string)
+            return
+          }
+
+          // Center-crop ke square
+          const minDim = Math.min(img.width, img.height)
+          const sx = (img.width - minDim) / 2
+          const sy = (img.height - minDim) / 2
+
+          ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size)
+
+          // Coba toDataURL WebP
+          let dataUrl = canvas.toDataURL('image/webp', quality)
+          if (!dataUrl.startsWith('data:image/webp')) {
+            dataUrl = canvas.toDataURL('image/jpeg', quality)
+          }
+          resolve(dataUrl)
+        } catch (err) {
+          reject(err)
+        }
+      }
+      img.onerror = reject
+      img.src = e.target?.result as string
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+

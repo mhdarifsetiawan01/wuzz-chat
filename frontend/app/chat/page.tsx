@@ -48,6 +48,8 @@ interface ChatState {
   session: SessionInfo | null
   status: ConnectionStatus
   peerNickname: string | null
+  peerAvatarUrl?: string | null
+  peerUserId?: string | null
   isPeerTyping: boolean
   typingNickname: string | null
   roomUsers: RoomUser[]
@@ -62,6 +64,7 @@ type ChatAction =
   | { type: 'DELETE_MESSAGE_LOCAL'; payload: { id: string } }
   | { type: 'UPDATE_MESSAGE_DELETED'; payload: { id: string; content?: string } }
   | { type: 'SET_MESSAGES'; payload: Message[] }
+  | { type: 'SET_PEER_INFO'; payload: { nickname?: string; avatarUrl?: string; userId?: string } }
   | { type: 'SET_PEER_NICKNAME'; payload: string }
   | { type: 'SET_PEER_TYPING'; payload: { typing: boolean; nickname?: string | null } }
   | { type: 'SET_ROOM_USERS'; payload: RoomUser[] }
@@ -71,6 +74,8 @@ const initialState: ChatState = {
   session: null,
   status: 'connecting',
   peerNickname: null,
+  peerAvatarUrl: null,
+  peerUserId: null,
   isPeerTyping: false,
   typingNickname: null,
   roomUsers: [],
@@ -165,6 +170,13 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SET_MESSAGES': {
       return { ...state, messages: action.payload }
     }
+    case 'SET_PEER_INFO':
+      return {
+        ...state,
+        ...(action.payload.nickname !== undefined ? { peerNickname: action.payload.nickname } : {}),
+        ...(action.payload.avatarUrl !== undefined ? { peerAvatarUrl: action.payload.avatarUrl } : {}),
+        ...(action.payload.userId !== undefined ? { peerUserId: action.payload.userId } : {}),
+      }
     case 'SET_PEER_NICKNAME':
       return { ...state, peerNickname: action.payload }
     case 'SET_PEER_TYPING':
@@ -357,8 +369,18 @@ function ChatPageContent() {
       } else {
         try {
           const { data: profile } = await apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(peerId)}`)
-          if (profile && profile.public_key) {
-            pubKey = profile.public_key
+          if (profile) {
+            if (profile.public_key) {
+              pubKey = profile.public_key
+            }
+            dispatch({
+              type: 'SET_PEER_INFO',
+              payload: {
+                nickname: profile.display_name || profile.username,
+                avatarUrl: profile.avatar_url || '',
+                userId: profile.id,
+              },
+            })
           }
         } catch (err) {
           console.warn('[E2EE] Gagal fetch profil peer:', err)
@@ -449,7 +471,7 @@ function ChatPageContent() {
     if (!roomId) {
       dispatch({ type: 'SET_MESSAGES', payload: [] })
       dispatch({ type: 'SET_ROOM_USERS', payload: [] })
-      dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
+      dispatch({ type: 'SET_PEER_INFO', payload: { nickname: '', avatarUrl: '', userId: '' } })
       setReplyingTo(null)
       setLightboxData(null)
       setIsMemberListOpen(false)
@@ -463,7 +485,7 @@ function ChatPageContent() {
     // Reset pesan & UI state saat berpindah room
     dispatch({ type: 'SET_MESSAGES', payload: [] })
     dispatch({ type: 'SET_ROOM_USERS', payload: [] })
-    dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
+    dispatch({ type: 'SET_PEER_INFO', payload: { nickname: '', avatarUrl: '', userId: '' } })
     setReplyingTo(null)
     setLightboxData(null)
     setIsMemberListOpen(false)
@@ -631,7 +653,14 @@ function ChatPageContent() {
             dispatch({ type: 'SET_ROOM_USERS', payload: msg.users })
             const otherUsers = msg.users.filter(u => u.nickname !== nickname)
             if (otherUsers.length === 1) {
-              dispatch({ type: 'SET_PEER_NICKNAME', payload: otherUsers[0].nickname })
+              dispatch({
+                type: 'SET_PEER_INFO',
+                payload: {
+                  nickname: otherUsers[0].nickname,
+                  avatarUrl: otherUsers[0].avatar_url || '',
+                  userId: otherUsers[0].id || '',
+                },
+              })
               if (otherUsers[0].id) {
                 resolvePeerKeyAndDecrypt(otherUsers[0].id)
               }
@@ -1024,9 +1053,14 @@ function ChatPageContent() {
       if (data && Array.isArray(data)) {
         const found = data.find(c => c.id === roomId)
         if (found) {
-          if (found.title) {
-            dispatch({ type: 'SET_PEER_NICKNAME', payload: found.title })
-          }
+          dispatch({
+            type: 'SET_PEER_INFO',
+            payload: {
+              nickname: found.title || found.peer_nickname || '',
+              avatarUrl: found.peer_avatar_url || '',
+              userId: found.peer_id || '',
+            },
+          })
 
           if (found.peer_id) {
             resolvePeerKeyAndDecrypt(found.peer_id, found.peer_public_key)
@@ -1385,7 +1419,7 @@ function ChatPageContent() {
     setSelectedRoomId(newRoomId)
     if (!newRoomId) {
       dispatch({ type: 'SET_MESSAGES', payload: [] })
-      dispatch({ type: 'SET_PEER_NICKNAME', payload: '' })
+      dispatch({ type: 'SET_PEER_INFO', payload: { nickname: '', avatarUrl: '', userId: '' } })
       dispatch({ type: 'SET_ROOM_USERS', payload: [] })
       roomAESKeyRef.current = null
       activePeerRef.current = null
@@ -1517,6 +1551,8 @@ function ChatPageContent() {
               status={state.status}
               session={state.session}
               peerNickname={state.peerNickname}
+              peerAvatarUrl={state.peerAvatarUrl || ''}
+              peerUserId={state.peerUserId || ''}
               roomId={roomId}
               roomUsers={state.roomUsers}
               isPeerTyping={state.isPeerTyping}

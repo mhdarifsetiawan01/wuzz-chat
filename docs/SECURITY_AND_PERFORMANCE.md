@@ -232,6 +232,14 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   4. **Explicit REST Abort Timeout**: Seluruh request REST diatur dengan batas waktu terkelola menggunakan `AbortController` (15 detik query, 60 detik upload file) agar aplikasi tidak pernah mengalami *infinite hang* di memori browser.
   5. **Terminal WebSocket Close Code & Backoff**: Penerimaan Close Code `4001` langsung mematikan loop auto-reconnect (`this.destroyed = true`). Reconnect koneksi biasa diatur dengan exponential backoff bertingkat (1s s/d 30s) dengan batas maksimal 5 kali percobaan.
 
+### 3.7 Proteksi Profil Pengguna & Sanitasi Media Avatar
+* **Lokasi Kode**: [`frontend/lib/imageCompressor.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/imageCompressor.ts), [`frontend/app/chat/AvatarStudio.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/app/chat/AvatarStudio.tsx), [`backend/internal/api/auth_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/auth_handler.go)
+* **Vektor Serangan & Beban Jaringan**: Unggahan foto profil mentah berukuran besar (>10MB) dapat menghabiskan kuota transfer database, membebani bandwidth klien seluler saat merender daftar obrolan, atau menjadi vektor serangan injeksi SVG/XSS jika file gambar tidak disanitasi.
+* **Solusi Implementasi Arsitektur**:
+  1. **Client-Side Canvas Downscaling & Re-Encoding (Zero-XSS)**: Setiap foto yang diunggah pengguna diproses melalui elemen `<canvas>` HTML5 offscreen (`imageCompressor.ts`), diperkecil hingga batas resolusi ideal avatar (maksimal 512x512px), dan di-encode ulang menjadi format **WebP** dengan kualitas kompresi optimal. Skrip jahat atau payload SVG yang disisipkan dalam berkas otomatis ternetralisir karena hanya data piksel murni yang digambar ke kanvas.
+  2. **Strict Payload Size Bounding**: Format output berupa data URL WebP ringkas (~20–60 KB) sehingga tidak memberatkan query SQL `GetUserConversations` saat memuat banyak percakapan secara batch.
+  3. **Fallback Error Isolation**: Komponen `UserAvatar.tsx` mengisolasi kegagalan pemuatan gambar (`onError`) dan seketika beralih ke inisial deterministik dengan palet warna lembut tanpa merusak tata letak antarmuka pengguna (*graceful degradation*).
+
 ---
 
 ## 🧪 4. Matriks Pengujian Otomatis & Verifikasi E2E
