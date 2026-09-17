@@ -655,3 +655,23 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 - [x] Deployed ke Fly.io (backend live)
 - [x] Merged `dev` → `main` → pushed ke GitHub
 - [x] Dokumentasi diperbarui (ARCHITECTURE.md, BACKEND_API.md, SECURITY_AND_PERFORMANCE.md, PROGRESS.md, MOBILE_INTEGRATION_GUIDE.md)
+
+---
+
+### 🐛 Bugfix: Normalisasi Kontrak Payload Delete for Everyone (Frontend & Backend Sync)
+**Tanggal**: 17 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI**
+
+**Deskripsi Masalah**:
+- Pengguna melaporkan bahwa saat menghapus pesan dengan opsi "Hapus untuk Semua Orang" (*Delete for Everyone*), teks pesan terhapus di layar pengirim (berubah jadi placeholder dihapus), namun lawan bicara masih dapat melihat teks pesan aslinya secara utuh.
+- **Akar Masalah**:
+  1. Frontend (`frontend/lib/api.ts`) mengirim body JSON `{ message_id, type: "for_everyone" }`.
+  2. Backend Go (`backend/internal/api/chat_handler.go`) mencari struct field `DeleteForEveryone bool` (`json:"delete_for_everyone"`).
+  3. Karena field `type` diabaikan oleh Go `json.Decoder`, nilai `DeleteForEveryone` selalu default `false`.
+  4. Backend menganggap seluruh penghapusan sebagai *Delete for Me* (hanya menambahkan UUID pengirim ke `deleted_for_users` tanpa mengupdate kolom pesan atau memancarkan event WebSocket `message_deleted`).
+
+**Solusi & Perbaikan**:
+- **Backend (`backend/internal/api/chat_handler.go`)**: Memperluas parser request agar secara fleksibel membaca `type`, `delete_type`, `delete_for_everyone`, dan URL query parameters (`?for_everyone=true`).
+- **Frontend (`frontend/lib/api.ts`)**: Memperbarui payload `deleteMessageApi` agar mengirimkan `delete_for_everyone: isForEveryone` sekaligus `type: deleteType` demi redundansi ganda.
+- **Automated Tests (`backend/internal/api/chat_handler_delete_test.go`)**: Menambahkan pengujian menyeluruh (4 skenario) untuk memverifikasi payload variasi format frontend, boolean, Delete for Me, dan proteksi otorisasi non-pengirim.
+

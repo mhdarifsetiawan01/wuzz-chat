@@ -367,7 +367,7 @@ Menghapus pesan spesifik.
 - **Autentikasi**: `Bearer <token>`
 - **Payload / Query Parameters**:
   - `id` atau `message_id` (string): ID pesan.
-  - `delete_for_everyone` (boolean, opsional): Jika `true`, pesan ditarik untuk semua orang.
+  - `delete_for_everyone` (boolean, opsional) atau `type` (`"for_everyone"` | `"for_me"`): Menentukan cakupan penghapusan pesan. Jika `true` atau `"for_everyone"`, pesan ditarik untuk semua orang.
 - **Aturan Delete for Everyone**:
   1. Hanya pengirim asli pesan yang boleh melakukan *Delete for Everyone* (divalidasi secara ketat di backend berdasarkan `users.id` / UUID pengirim `from_id`, bukan `nickname` atau `display_name`).
   2. Hanya dapat dilakukan dalam jangka waktu **maksimal 1 menit (60 detik)** sejak pesan dikirim. Melebihi 1 menit akan ditolak backend dengan status `400 Bad Request`.

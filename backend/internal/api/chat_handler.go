@@ -233,6 +233,8 @@ func (h *ChatHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		MessageID         string `json:"message_id"`
 		ID                string `json:"id"`
+		Type              string `json:"type"`
+		DeleteType        string `json:"delete_type"`
 		DeleteForEveryone bool   `json:"delete_for_everyone"`
 	}
 
@@ -249,8 +251,18 @@ func (h *ChatHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	if msgID == "" {
 		msgID = strings.TrimSpace(r.URL.Query().Get("message_id"))
 	}
-	if !req.DeleteForEveryone && (r.URL.Query().Get("for_everyone") == "true" || r.URL.Query().Get("delete_for_everyone") == "true") {
-		req.DeleteForEveryone = true
+	if !req.DeleteForEveryone {
+		delType := strings.ToLower(strings.TrimSpace(req.Type))
+		if delType == "" {
+			delType = strings.ToLower(strings.TrimSpace(req.DeleteType))
+		}
+		if delType == "" {
+			delType = strings.ToLower(strings.TrimSpace(r.URL.Query().Get("type")))
+		}
+		if delType == "for_everyone" || delType == "delete_for_everyone" ||
+			r.URL.Query().Get("for_everyone") == "true" || r.URL.Query().Get("delete_for_everyone") == "true" {
+			req.DeleteForEveryone = true
+		}
 	}
 
 	if msgID == "" {
