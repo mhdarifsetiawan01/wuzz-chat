@@ -2,7 +2,9 @@ package auth
 
 import (
 	"errors"
+	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -10,6 +12,7 @@ import (
 
 var (
 	ErrInvalidToken = errors.New("token tidak valid atau kadaluarsa")
+	jwtWarnOnce     sync.Once
 )
 
 // UserClaims adalah struktur data yang disimpan di dalam token JWT.
@@ -24,6 +27,9 @@ type UserClaims struct {
 func getJWTSecret() []byte {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
+		jwtWarnOnce.Do(func() {
+			log.Println("⚠️ [Security Warning] Environment variable JWT_SECRET tidak disetel! Menggunakan secret fallback dev. Harap setel JWT_SECRET untuk lingkungan produksi!")
+		})
 		secret = "wuzz-chat-super-secret-key-2026"
 	}
 	return []byte(secret)

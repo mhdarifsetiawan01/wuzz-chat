@@ -429,7 +429,11 @@ func (c *Client) isAuthorizedForRoom(roomID string) bool {
 		return true
 	}
 	allowed, err := c.hub.userStore.IsUserInConversation(roomID, c.ID)
-	if err == nil && !allowed {
+	if err != nil {
+		log.Printf("[Security] Gagal validasi keanggotaan room %s untuk user %s: %v (Fail-Closed: ditolak)", roomID, c.ID, err)
+		return false
+	}
+	if !allowed {
 		log.Printf("[Security] Akses ditolak: User %s (%s) bukan anggota room %s", c.ID, c.Nickname, roomID)
 		return false
 	}
