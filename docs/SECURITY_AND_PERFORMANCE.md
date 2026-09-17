@@ -24,6 +24,7 @@ Dokumen ini menyajikan panduan arsitektur komprehensif mengenai seluruh lapisan 
    - 3.3 [Keandalan Concurrency SQLite (WAL Mode & Busy Timeout)](#33-keandalan-concurrency-sqlite-wal-mode--busy-timeout)
    - 3.4 [Goroutine Concurrency & Buffered WebSocket Channels](#34-goroutine-concurrency--buffered-websocket-channels)
    - 3.5 [Skalabilitas Horizontal Multi-Node (Redis Cluster Pub/Sub)](#35-skalabilitas-horizontal-multi-node-redis-cluster-pubsub)
+   - 3.6 [Arsitektur Ketahanan Jaringan Latensi Tinggi & Server Lambat / Flaky](#36-arsitektur-ketahanan-jaringan-latensi-tinggi--server-lambat--flaky)
 4. [Matriks Pengujian Otomatis & Verifikasi E2E](#-4-matriks-pengujian-otomatis--verifikasi-e2e)
 
 ---
@@ -220,6 +221,16 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 * **Solusi Implementasi**:
   - Backend mendukung deployment multi-instance (*horizontal scaling* di Fly.io / Kubernetes).
   - Sinkronisasi event real-time antar instance backend menggunakan channel Pub/Sub Redis `wuzz:cluster:events` dan caching MD5 metadata link preview.
+
+### 3.6 Arsitektur Ketahanan Jaringan Latensi Tinggi & Server Lambat / Flaky
+* **Lokasi Kode**: [`backend/internal/ws/handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/handler.go), [`backend/internal/ws/hub.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go), [`frontend/lib/api.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/api.ts), [`frontend/lib/ws-client.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/ws-client.ts)
+* **Vektor Kegagalan**: Jaringan seluler pengguna (3G/4G/WiFi lemah) dan server berlatensi sedang-tinggi (200–800ms+) sering mengalami *bufferbloat*, paket hilang, atau soket putus tanpa sinyal penutupan tertib. Kondisi ini dapat memicu *race condition* (klien lama reconnect dan menendang klien baru) atau UI menggantung (*hanging requests*).
+* **Solusi Implementasi Arsitektur**:
+  1. **Handshake Level Single Device Gatekeeper**: Validasi otoritas `device_id` terhadap database `active_device_id` langsung saat HTTP upgrade handshake. Klien dengan `device_id` usang atau kosong ditolak seketika dengan status `HTTP 403 Forbidden` (`DEVICE_MISMATCH` / `SESSION_REPLACED`), mencegah klien usang masuk kembali ke Hub.
+  2. **Grace Period Flush 500ms & Long Write Deadlines**: Event pemutusan sesi (`SESSION_REPLACED`) diberi jeda flush minimal 500ms dan batas waktu penulisan WebSocket control frame 1000ms, menjamin frame notifikasi dan Close Code `4001` berhasil dikirim tuntas ke jaringan sebelum soket ditutup (`conn.Close()`).
+  3. **Optimistic Local UI & Write-Through Offline Cache**: Pengiriman pesan di frontend dirender seketika secara optimis dan ditulis langsung ke IndexedDB (`wuzzchat_msg_db`). UI tidak pernah memblokir interaksi pengguna saat menunggu konfirmasi jaringan dari server.
+  4. **Explicit REST Abort Timeout**: Seluruh request REST diatur dengan batas waktu terkelola menggunakan `AbortController` (15 detik query, 60 detik upload file) agar aplikasi tidak pernah mengalami *infinite hang* di memori browser.
+  5. **Terminal WebSocket Close Code & Backoff**: Penerimaan Close Code `4001` langsung mematikan loop auto-reconnect (`this.destroyed = true`). Reconnect koneksi biasa diatur dengan exponential backoff bertingkat (1s s/d 30s) dengan batas maksimal 5 kali percobaan.
 
 ---
 

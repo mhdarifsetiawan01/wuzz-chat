@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { RoomUser } from '@/lib/types'
 import { ContactProfileModal } from './ContactProfileModal'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
+import { getAvatarStyle } from '@/lib/avatarColor'
 
 interface MemberListModalProps {
   isOpen: boolean
@@ -75,7 +76,7 @@ export function MemberListModal({
                       style={{ cursor: 'pointer' }}
                       title="Klik untuk melihat profil"
                     >
-                      <div className="member-avatar">
+                      <div className="member-avatar" style={getAvatarStyle(u.nickname || u.id)}>
                         {initial}
                         <span className="member-online-dot" />
                       </div>

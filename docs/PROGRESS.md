@@ -410,9 +410,13 @@
       - Frontend (`DeviceConflictModal.tsx`): Menambahkan tombol *"📲 Ambil Alih Sesi Kembali ke Perangkat Ini via QR"* saat `isRotated: true`, mengeliminasi dead-end UX yang memaksa user logout dan mengetik password ulang.
       - Frontend (`keyStore.ts`): Memperbaiki `importAndSaveTransferredKeyPair` agar menggunakan `PUT /api/users/public-key` (zero-rotation) dan menambahkan safeguard pemulihan `userId` dari storage, menjaga versi kunci tetap konsisten tanpa rotasi semu.
       - Test (`test-qr-device-transfer-simulation.mjs`): Script simulasi transfer 2-arah lengkap (HP -> Laptop via Kamera, Laptop -> HP via Foto QR) dengan pesan Bob tetap terbaca 100% di semua siklus dan Key Version tetap konstan.
+   13. [x] **Soft Tri-Color Glassmorphism Redesign & Modular Avatar Architecture**:
+       - Frontend Tokens (`globals.css`): Implementasi palet 3 warna harmonis (Soft Azure `#3b82f6` utama, Soft Lavender `#818cf8` sekunder, Soft Coral `#f472b6` tersier) dengan specular border dan ambient background radial lighting.
+       - Modular Avatar Generator (`avatarColor.ts`): Utilitas murni deterministik berbasis hash dengan 8 variasi warna pastel dan border glow, terintegrasi ke seluruh komponen (Sidebar, StatusBar, MemberListModal, ContactProfileModal, Call Modals).
+       - Mobile & High-Contrast Polish: Slate Frosted Glass pada bubble pesan masuk (`rgba(30, 41, 59, 0.88)`), penajaman timestamp sendiri (`rgba(255, 255, 255, 0.88)`), read receipts Electric Cyan (`#67e8f9`), dan dark glass quote reply box (`rgba(0, 0, 0, 0.38)`).
 
 - **🎯 Next Milestone:**
-  1. [ ] **Milestone 8.2: Group Chat Engine & Member Management**.
+  1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** / Bad Words Sensor Filter.
   2. [ ] *(Opsional Future)* Android Native App untuk akses kamera native penuh (Live QR Scanner tanpa batasan WebAPK permissions).
 
 
@@ -444,6 +448,7 @@ wuzz-chat/
 │   ├── lib/
 │   │   ├── api.ts          -> REST API client helper
 │   │   ├── auth-context.tsx-> Global Auth Provider
+│   │   ├── avatarColor.ts  -> Modular Deterministic Soft Avatar Color Generator
 │   │   ├── sound.ts        -> Web Audio API procedural sound synthesizer
 │   │   ├── types.ts        -> TypeScript definitions
 │   │   └── ws-client.ts    -> WebSocket abstraction

@@ -5,6 +5,7 @@ import type { ConnectionStatus, SessionInfo, RoomUser } from '@/lib/types'
 import { soundManager } from '@/lib/sound'
 import { ContactProfileModal } from './ContactProfileModal'
 import { SafetyNumberModal } from './SafetyNumberModal'
+import { getAvatarStyle } from '@/lib/avatarColor'
 
 interface StatusBarProps {
   status: ConnectionStatus
@@ -105,7 +106,14 @@ export function StatusBar({
             }}
             title={isDirectChat && peerNickname ? 'Klik untuk melihat profil lengkap kontak ini' : undefined}
           >
-            <div className="status-avatar" aria-hidden="true" style={{ position: 'relative' }}>
+            <div
+              className="status-avatar"
+              aria-hidden="true"
+              style={{
+                ...getAvatarStyle(peerName),
+                position: 'relative',
+              }}
+            >
               {initial}
               {isPeerOnline && isDirectChat && (
                 <span

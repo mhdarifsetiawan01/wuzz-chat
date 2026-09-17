@@ -1,6 +1,7 @@
 'use client'
 
 import type { ActiveCallInfo } from '@/lib/types'
+import { getAvatarStyle } from '@/lib/avatarColor'
 
 interface IncomingCallModalProps {
   callInfo: ActiveCallInfo | null
@@ -21,7 +22,7 @@ export function IncomingCallModal({ callInfo, onAccept, onReject }: IncomingCall
         <div className="call-avatar-container">
           <div className="call-avatar-pulse"></div>
           <div className="call-avatar-pulse delay-1"></div>
-          <div className="call-avatar-circle">
+          <div className="call-avatar-circle" style={getAvatarStyle(callInfo.peerNickname || '?')}>
             {initial}
           </div>
         </div>
