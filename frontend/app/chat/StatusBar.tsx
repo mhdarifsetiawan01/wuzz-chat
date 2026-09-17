@@ -219,13 +219,13 @@ export function StatusBar({
 
       {/* Modal Detail Kontak Lawan Bicara */}
       {(() => {
-        const peerUser = roomUsers.find(u => (session && u.id !== session.clientId) || u.nickname === peerNickname)
+        const peerUser = roomUsers.find(u => (session && u.id !== session.clientId) || (u.id === peerUserId) || (peerNickname && u.nickname === peerNickname))
         return (
           <ContactProfileModal
             isOpen={isContactModalOpen}
             onClose={() => setIsContactModalOpen(false)}
-            userId={peerUser?.id}
-            username={peerNickname}
+            userId={peerUserId || peerUser?.id}
+            username={peerUser?.username}
           />
         )
       })()}

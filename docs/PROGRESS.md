@@ -440,6 +440,10 @@
        - **Komponen Universal `UserAvatar.tsx`**: Komponen avatar terpusat yang menggantikan render inisial teks polos lama di seluruh aplikasi, mendukung tag `<img>` untuk foto asli/base64 dengan error fallback inisial cerdas, serta status dot online hijau terintegrasi.
        - **Sinkronisasi Backend SQL `peer_avatar_url`**: Memperbarui struct `ConversationItem` dan query SQL `GetUserConversations` di `backend/internal/store/user_store.go` (PostgreSQL & SQLite) agar menyertakan `peer.avatar_url`, mengatasi kendala foto kontak yang sebelumnya tidak tampil di daftar percakapan.
        - **End-to-End Chat Header Data Flow**: Menghubungkan `peerAvatarUrl` dan `peerUserId` ke `ChatState` di `frontend/app/chat/page.tsx`, mengalirkannya langsung ke `StatusBar.tsx` untuk menampilkan foto profil kontak secara real-time saat ruang chat dibuka.
+   20. [x] **Anti-Stale History Overwrite & Offline Contact Profile Resolution (17 September 2026)**:
+       - **Anti-Stale History Overwrite Guard**: Mengeliminasi bug penimpaan nama kontak di header chat dari event WebSocket `history` (`page.tsx`), mempertahankan nama resmi terbaru dari database/profil (`found.title`) agar tidak tertimpa snapshot nama lampau dari tabel `messages`.
+       - **Offline Contact Profile Resolution (`StatusBar.tsx`)**: Memperbaiki modal Info Kontak (`ContactProfileModal`) agar mengutamakan `peerUserId` (UUID unik) alih-alih `peerNickname`, memastikan profil kontak selalu 100% ditemukan via `/api/users/profile?id=<UUID>` meskipun lawan bicara sedang offline.
+       - **1-on-1 Direct Chat Sender Label Cleanup**: Menghilangkan label nama pengirim yang berlebihan di atas balon pesan pada percakapan 1-on-1 (`MessageBubble.tsx`) sesuai standar industri WhatsApp & Telegram, serta menghubungkan `UserAvatar` pada mini avatar pesan lawan bicara.
 
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** / Bad Words Sensor Filter.

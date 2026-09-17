@@ -10,11 +10,15 @@ import { acknowledgeMediaDownload } from '@/lib/api'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { getAvatarStyle } from '@/lib/avatarColor'
 import { ReceiptIcon } from './ReceiptIcon'
+import { UserAvatar } from './UserAvatar'
 
 interface MessageBubbleProps {
   message: Message
   selfId: string
   selfNickname: string
+  isDirectChat?: boolean
+  peerAvatarUrl?: string
+  peerNickname?: string
   onReply?: (message: Message) => void
   onReact?: (messageId: string, emoji: string) => void
   onImageClick?: (imageUrl: string, fileName?: string) => void
@@ -84,6 +88,9 @@ export function MessageBubble({
   message,
   selfId,
   selfNickname,
+  isDirectChat = false,
+  peerAvatarUrl = '',
+  peerNickname = '',
   onReply,
   onReact,
   onImageClick,
@@ -266,17 +273,17 @@ export function MessageBubble({
       >
         <div className="message-row-inner">
           {!isSystem && !isSelf && (
-            <div
+            <UserAvatar
+              avatarUrl={isDirectChat ? peerAvatarUrl : message.avatar_url}
+              name={isDirectChat ? (peerNickname || message.nickname || '?') : (message.nickname || message.from || '?')}
+              id={message.from}
+              size={28}
+              fontSize="0.75rem"
               className="message-peer-avatar"
-              style={getAvatarStyle(message.nickname || message.from || '?')}
-              title={message.nickname || message.from || 'Pengguna'}
-              aria-hidden="true"
-            >
-              {((message.nickname || message.from || '?').trim()[0] || '?').toUpperCase()}
-            </div>
+            />
           )}
           <div className="message-content-wrapper">
-            {!isSystem && !isSelf && message.nickname && (
+            {!isSystem && !isSelf && !isDirectChat && message.nickname && (
               <span className="message-sender">{message.nickname}</span>
             )}
             <div className="message-bubble-wrapper">
@@ -339,18 +346,18 @@ export function MessageBubble({
     >
       <div className="message-row-inner">
         {!isSystem && !isSelf && (
-          <div
+          <UserAvatar
+            avatarUrl={isDirectChat ? peerAvatarUrl : message.avatar_url}
+            name={isDirectChat ? (peerNickname || message.nickname || '?') : (message.nickname || message.from || '?')}
+            id={message.from}
+            size={28}
+            fontSize="0.75rem"
             className="message-peer-avatar"
-            style={getAvatarStyle(message.nickname || message.from || '?')}
-            title={message.nickname || message.from || 'Pengguna'}
-            aria-hidden="true"
-          >
-            {((message.nickname || message.from || '?').trim()[0] || '?').toUpperCase()}
-          </div>
+          />
         )}
 
         <div className="message-content-wrapper">
-          {!isSystem && !isSelf && message.nickname && (
+          {!isSystem && !isSelf && !isDirectChat && message.nickname && (
             <span className="message-sender">{message.nickname}</span>
           )}
           

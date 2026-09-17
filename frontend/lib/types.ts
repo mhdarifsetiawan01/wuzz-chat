@@ -65,6 +65,7 @@ export interface Message {
   to?: string
   room?: string
   nickname?: string
+  avatar_url?: string
   content?: string
   raw_content?: string
   timestamp?: string
