@@ -37,18 +37,19 @@ type User struct {
 
 // ConversationItem merepresentasikan entitas percakapan di daftar obrolan (Sidebar).
 type ConversationItem struct {
-	ID             string    `json:"id"`
-	Type           string    `json:"type"` // "direct" atau "group"
-	Title          string    `json:"title"`
-	PeerID         string    `json:"peer_id,omitempty"`
-	PeerNickname   string    `json:"peer_nickname,omitempty"`
-	PeerPublicKey  string    `json:"peer_public_key,omitempty"`
-	PeerAvatarURL  string    `json:"peer_avatar_url,omitempty"`
-	LastMessage    string    `json:"last_message"`
-	LastSender     string    `json:"last_sender"`
-	LastStatus     string    `json:"last_status,omitempty"`
-	UnreadCount    int       `json:"unread_count"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID               string    `json:"id"`
+	Type             string    `json:"type"` // "direct" atau "group"
+	Title            string    `json:"title"`
+	PeerID           string    `json:"peer_id,omitempty"`
+	PeerNickname     string    `json:"peer_nickname,omitempty"`
+	PeerPublicKey    string    `json:"peer_public_key,omitempty"`
+	PeerAvatarURL    string    `json:"peer_avatar_url,omitempty"`
+	PeerIsVerified   bool      `json:"peer_is_verified,omitempty"`
+	LastMessage      string    `json:"last_message"`
+	LastSender       string    `json:"last_sender"`
+	LastStatus       string    `json:"last_status,omitempty"`
+	UnreadCount      int       `json:"unread_count"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // PushSubscription merepresentasikan entitas token/kunci push notification per perangkat.
@@ -488,7 +489,8 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 				COALESCE(peer.id, '') AS peer_id,
 				COALESCE(peer.display_name, '') AS peer_nickname,
 				COALESCE(peer.public_key, '') AS peer_public_key,
-				COALESCE(peer.avatar_url, '') AS peer_avatar_url
+				COALESCE(peer.avatar_url, '') AS peer_avatar_url,
+				COALESCE(peer.is_verified, false) AS peer_is_verified
 			FROM conversations c
 			JOIN conversation_members cm ON c.id = cm.conversation_id AND cm.user_id = $1
 			LEFT JOIN conversation_members peer_cm ON c.id = peer_cm.conversation_id AND peer_cm.user_id != $1 AND c.type = 'direct'
@@ -506,7 +508,8 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 				COALESCE(peer.id, '') AS peer_id,
 				COALESCE(peer.display_name, '') AS peer_nickname,
 				COALESCE(peer.public_key, '') AS peer_public_key,
-				COALESCE(peer.avatar_url, '') AS peer_avatar_url
+				COALESCE(peer.avatar_url, '') AS peer_avatar_url,
+				COALESCE(peer.is_verified, false) AS peer_is_verified
 			FROM conversations c
 			JOIN conversation_members cm ON c.id = cm.conversation_id AND cm.user_id = ?
 			LEFT JOIN conversation_members peer_cm ON c.id = peer_cm.conversation_id AND peer_cm.user_id != ? AND c.type = 'direct'
@@ -545,6 +548,7 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 			&rc.item.PeerNickname,
 			&rc.item.PeerPublicKey,
 			&rc.item.PeerAvatarURL,
+			&rc.item.PeerIsVerified,
 		); err != nil {
 			continue
 		}
