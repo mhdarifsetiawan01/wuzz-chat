@@ -138,6 +138,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 	if s.driverName == "postgres" {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT false;`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS public_key TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS key_version INTEGER DEFAULT 1;`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS active_device_id TEXT DEFAULT '';`)
@@ -160,6 +161,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT false;`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN public_key TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN key_version INTEGER DEFAULT 1;`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN active_device_id TEXT DEFAULT '';`)
@@ -180,7 +182,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_to_status ON messages(to_id, status);`)
 	}
 
-	log.Printf("🛠️ [Auto-Migration] Tabel 'users', 'conversations', 'conversation_members' (dengan cleared_at), dan 'messages' (dengan status receipts, reply, reactions, media lifecycle, is_deleted, dan user bio) berhasil dipastikan ada!")
+	log.Printf("🛠️ [Auto-Migration] Tabel 'users' (dengan is_verified), 'conversations', 'conversation_members', dan 'messages' berhasil dipastikan ada!")
 	return nil
 }
 

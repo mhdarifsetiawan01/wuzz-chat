@@ -497,9 +497,10 @@ Bagian ini mencatat temuan arsitektur dan pekerjaan yang BELUM dikerjakan namun 
 **Tanggal Analisa**: 17 September 2026
 
 **Temuan**:
-- ❌ Backend `is_verified` **BELUM ada** di struct `User` Go (`user_store.go`) dan belum ada di query SQL manapun
+- ✅ Backend `is_verified BOOLEAN` **sudah diimplementasi** di struct `User` Go (`user_store.go`) dan semua query SELECT
+- ✅ Auto-migration `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified` sudah ditambahkan di `sql.go`
 - ✅ Frontend `is_verified?: boolean` sudah ada di `frontend/lib/types.ts` (baris 57, 131, 141) sebagai optional type
-- ✅ Komponen `VerifiedBadge.tsx` sudah terimplementasi di frontend — tinggal menunggu data dari backend
+- ✅ Komponen `VerifiedBadge.tsx` sudah terimplementasi di frontend — tinggal data dari admin untuk men-set nilainya
 
 **Pekerjaan Tersisa**:
 1. Buat endpoint admin: `PATCH /api/admin/users/:id/verify` → toggle `is_verified`
