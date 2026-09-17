@@ -11,6 +11,7 @@ interface MemberListModalProps {
   onClose: () => void
   users: RoomUser[]
   currentNickname?: string
+  currentUserId?: string
   roomId: string
 }
 
@@ -19,6 +20,7 @@ export function MemberListModal({
   onClose,
   users,
   currentNickname,
+  currentUserId,
   roomId,
 }: MemberListModalProps) {
   const [selectedUser, setSelectedUser] = useState<RoomUser | null>(null)
@@ -64,7 +66,7 @@ export function MemberListModal({
             ) : (
               <ul className="member-list">
                 {users.map(u => {
-                  const isMe = u.nickname === currentNickname
+                  const isMe = currentUserId ? u.id === currentUserId : u.nickname === currentNickname
                   const initial = (u.nickname || '?')[0].toUpperCase()
                   return (
                     <li

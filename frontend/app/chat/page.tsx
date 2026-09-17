@@ -518,6 +518,7 @@ function ChatPageContent() {
           conversation_id: c.room_id,
           content: c.content,
           sender_id: c.sender_id,
+          from: c.sender_id,
           nickname: c.sender_display_name || c.sender_username || '',
           display_name: c.sender_display_name,
           username: c.sender_username,
@@ -668,7 +669,8 @@ function ChatPageContent() {
         case 'room_users': {
           if (msg.users && currentRoom && (msg.room === currentRoom || !msg.room)) {
             dispatch({ type: 'SET_ROOM_USERS', payload: msg.users })
-            const otherUsers = msg.users.filter(u => u.nickname !== nickname)
+            const myUserId = state.session?.clientId || user?.id
+            const otherUsers = msg.users.filter(u => myUserId ? u.id !== myUserId : u.nickname !== nickname)
             if (otherUsers.length === 1) {
               dispatch({
                 type: 'SET_PEER_INFO',
@@ -765,12 +767,19 @@ function ChatPageContent() {
             processHistory()
 
             if (msg.messages && msg.messages.length > 0) {
-              const otherMsg = msg.messages.slice().reverse().find((m: Message) => 
-                m.nickname && 
-                m.nickname !== nickname && 
-                m.nickname !== user?.display_name && 
-                m.nickname !== user?.username
-              )
+              const myUserId = state.session?.clientId || user?.id
+              const otherMsg = msg.messages.slice().reverse().find((m: Message) => {
+                const senderId = m.from || m.sender_id
+                if (senderId && myUserId) {
+                  return senderId !== myUserId
+                }
+                return Boolean(
+                  m.nickname && 
+                  m.nickname !== nickname && 
+                  m.nickname !== user?.display_name && 
+                  m.nickname !== user?.username
+                )
+              })
               // JANGAN menimpa peerNickname jika sudah diketahui dari percakapan / profil database
               if (otherMsg && otherMsg.nickname && !peerInfoRef.current.nickname) {
                 dispatch({ type: 'SET_PEER_NICKNAME', payload: otherMsg.nickname })
@@ -810,7 +819,11 @@ function ChatPageContent() {
               type: 'UPDATE_MESSAGE_REACTIONS',
               payload: { id: msg.id, reactions: msg.reactions },
             })
-            if (msg.nickname && msg.nickname !== nickname) {
+            const myUserId = state.session?.clientId || user?.id
+            const isFromOther = (msg.from && myUserId)
+              ? msg.from !== myUserId
+              : Boolean(msg.nickname && msg.nickname !== nickname)
+            if (isFromOther) {
               soundManager.playReceive()
             }
           }
@@ -866,14 +879,26 @@ function ChatPageContent() {
 
             processIncomingMsg()
 
-            if (msg.nickname && msg.nickname !== nickname) {
+            const myUserId = state.session?.clientId || user?.id
+            const incomingSenderId = msg.from || msg.sender_id
+            const isFromPeer = (incomingSenderId && myUserId)
+              ? incomingSenderId !== myUserId
+              : Boolean(msg.nickname && msg.nickname !== nickname)
+
+            if (isFromPeer && msg.nickname) {
               dispatch({ type: 'SET_PEER_NICKNAME', payload: msg.nickname })
             }
           } else {
             setLastIncomingMessage(msg)
           }
 
-          if (msg.nickname && msg.nickname !== nickname && msg.id) {
+          const myUserId = state.session?.clientId || user?.id
+          const incomingSenderId = msg.from || msg.sender_id
+          const isFromPeer = (incomingSenderId && myUserId)
+            ? incomingSenderId !== myUserId
+            : Boolean(msg.nickname && msg.nickname !== nickname)
+
+          if (isFromPeer && msg.id) {
             soundManager.playReceive()
 
             client.send({
@@ -939,7 +964,7 @@ function ChatPageContent() {
           pendingOfferSdpRef.current = msg.sdp || null
           setActiveCall({
             room: msg.room || currentRoom,
-            peerId: msg.nickname || '',
+            peerId: msg.from || state.peerUserId || msg.nickname || '',
             peerNickname: msg.nickname || 'Pengguna',
             mediaType: 'audio',
             isCaller: false,
@@ -1318,9 +1343,10 @@ function ChatPageContent() {
     if (activeCallRef.current && activeCallRef.current.status !== 'idle' && activeCallRef.current.status !== 'ended') return
 
     const peerName = state.peerNickname || 'Teman Obrolan'
+    const targetPeerId = state.peerUserId || activePeerRef.current?.id || peerName
     setActiveCall({
       room: roomId,
-      peerId: peerName,
+      peerId: targetPeerId,
       peerNickname: peerName,
       mediaType: 'audio',
       isCaller: true,
@@ -1614,7 +1640,7 @@ function ChatPageContent() {
 
             <ChatWindow
               messages={state.messages}
-              selfId={state.session?.clientId ?? ''}
+              selfId={state.session?.clientId || user.id || ''}
               selfNickname={state.session?.nickname ?? user.display_name ?? user.username ?? ''}
               isPeerTyping={state.isPeerTyping}
               typingNickname={state.typingNickname}
@@ -1646,6 +1672,7 @@ function ChatPageContent() {
               onClose={() => setIsMemberListOpen(false)}
               users={state.roomUsers}
               currentNickname={state.session?.nickname}
+              currentUserId={state.session?.clientId || user?.id}
               roomId={roomId}
             />
 

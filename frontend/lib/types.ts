@@ -62,6 +62,7 @@ export interface Message {
   id?: string
   type: MessageType
   from?: string
+  sender_id?: string
   to?: string
   room?: string
   nickname?: string
@@ -142,6 +143,7 @@ export interface ConversationItem {
   peer_avatar_url?: string
   last_message?: string
   last_sender?: string
+  last_sender_id?: string
   last_status?: MessageReceiptStatus
   unread_count?: number
   updated_at: string

@@ -389,7 +389,10 @@ export function Sidebar({
       }
       lastHandledMsgIdRef.current = msgKey
 
-      const isFromOther = lastIncomingMessage.nickname !== user?.username && lastIncomingMessage.nickname !== user?.display_name
+      const incomingSenderId = lastIncomingMessage.from || (lastIncomingMessage as any).sender_id
+      const isFromOther = (incomingSenderId && user?.id)
+        ? incomingSenderId !== user.id
+        : lastIncomingMessage.nickname !== user?.username && lastIncomingMessage.nickname !== user?.display_name
       const isInactiveRoom = room !== activeRoomId
 
       // Jika pesan masuk ke room yang sedang tidak aktif dibuka, naikkan badge unread
@@ -454,6 +457,7 @@ export function Sidebar({
                 unread_count: isInactiveRoom ? ((prev[index].unread_count || 0) + 1) : 0,
                 last_message: snippet,
                 last_sender: lastIncomingMessage.nickname || 'Pengguna',
+                last_sender_id: incomingSenderId || '',
                 last_status: lastIncomingMessage.status || 'sent',
                 updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
               }
@@ -466,6 +470,7 @@ export function Sidebar({
                 unread_count: isInactiveRoom ? 1 : 0,
                 last_message: snippet,
                 last_sender: lastIncomingMessage.nickname || 'Pengguna',
+                last_sender_id: incomingSenderId || '',
                 last_status: lastIncomingMessage.status || 'sent',
                 updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
               }
@@ -841,7 +846,9 @@ export function Sidebar({
                             {c.last_message ? (
                               <>
                                 {(() => {
-                                  const isSelf = c.last_sender === user?.display_name || c.last_sender === user?.username || c.last_sender === 'Kamu'
+                                  const isSelf = (c.last_sender_id && user?.id)
+                                    ? c.last_sender_id === user.id
+                                    : c.last_sender === user?.display_name || c.last_sender === user?.username || c.last_sender === 'Kamu'
                                   if (isSelf) {
                                     return renderReceipt(c.last_status)
                                   }

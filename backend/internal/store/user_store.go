@@ -47,6 +47,7 @@ type ConversationItem struct {
 	PeerIsVerified   bool      `json:"peer_is_verified,omitempty"`
 	LastMessage      string    `json:"last_message"`
 	LastSender       string    `json:"last_sender"`
+	LastSenderID     string    `json:"last_sender_id,omitempty"`
 	LastStatus       string    `json:"last_status,omitempty"`
 	UnreadCount      int       `json:"unread_count"`
 	UpdatedAt        time.Time `json:"updated_at"`
@@ -563,17 +564,10 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 		return []ConversationItem{}, nil
 	}
 
-	currentUser, _ := s.GetUserByID(userID)
-	currentName := ""
-	currentUsername := ""
-	if currentUser != nil {
-		currentName = currentUser.DisplayName
-		currentUsername = currentUser.Username
-	}
-
 	// 2. Ambil pesan terakhir untuk semua percakapan dalam 1 query menggunakan CTE & ROW_NUMBER()
 	type lastMsg struct {
 		snippet   string
+		senderID  string
 		sender    string
 		status    string
 		createdAt time.Time
@@ -594,6 +588,7 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 						WHEN m.media_url IS NOT NULL AND m.media_url != '' THEN '📎 ' || COALESCE(NULLIF(m.file_name, ''), 'Berkas')
 						ELSE ''
 					END AS snippet,
+					m.from_id,
 					m.from_nickname,
 					COALESCE(m.status, 'sent') AS status,
 					m.created_at,
@@ -602,7 +597,7 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 				JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = $1
 				WHERE (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)
 			)
-			SELECT room_id, snippet, from_nickname, status, created_at
+			SELECT room_id, snippet, from_id, from_nickname, status, created_at
 			FROM RankedMessages
 			WHERE rn = 1
 		`
@@ -619,6 +614,7 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 						WHEN m.media_url IS NOT NULL AND m.media_url != '' THEN '📎 ' || COALESCE(NULLIF(m.file_name, ''), 'Berkas')
 						ELSE ''
 					END AS snippet,
+					m.from_id,
 					m.from_nickname,
 					COALESCE(m.status, 'sent') AS status,
 					m.created_at,
@@ -627,7 +623,7 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 				JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = ?
 				WHERE (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)
 			)
-			SELECT room_id, snippet, from_nickname, status, created_at
+			SELECT room_id, snippet, from_id, from_nickname, status, created_at
 			FROM RankedMessages
 			WHERE rn = 1
 		`
@@ -639,14 +635,14 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 		for msgRows.Next() {
 			var roomID string
 			var lm lastMsg
-			if err := msgRows.Scan(&roomID, &lm.snippet, &lm.sender, &lm.status, &lm.createdAt); err == nil {
+			if err := msgRows.Scan(&roomID, &lm.snippet, &lm.senderID, &lm.sender, &lm.status, &lm.createdAt); err == nil {
 				lastMessages[roomID] = lm
 			}
 		}
 		msgRows.Close()
 	}
 
-	// 3. Ambil unread count untuk semua percakapan dalam 1 query
+	// 3. Ambil unread count untuk semua percakapan dalam 1 query (UUID-based filter)
 	unreadCounts := make(map[string]int)
 	var unreadQuery string
 	if s.driverName == "postgres" {
@@ -657,8 +653,7 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 			FROM messages m
 			JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = $1
 			WHERE (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)
-			  AND LOWER(m.from_nickname) != LOWER($2)
-			  AND LOWER(m.from_nickname) != LOWER($3)
+			  AND m.from_id != $1
 			  AND m.status != 'read'
 			GROUP BY m.room_id
 		`
@@ -670,14 +665,18 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 			FROM messages m
 			JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = ?
 			WHERE (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)
-			  AND LOWER(m.from_nickname) != LOWER(?)
-			  AND LOWER(m.from_nickname) != LOWER(?)
+			  AND m.from_id != ?
 			  AND m.status != 'read'
 			GROUP BY m.room_id
 		`
 	}
 
-	unreadRows, err := s.db.Query(unreadQuery, userID, currentName, currentUsername)
+	var unreadRows *sql.Rows
+	if s.driverName == "postgres" {
+		unreadRows, err = s.db.Query(unreadQuery, userID)
+	} else {
+		unreadRows, err = s.db.Query(unreadQuery, userID, userID)
+	}
 	if err == nil {
 		defer unreadRows.Close()
 		for unreadRows.Next() {
@@ -702,6 +701,7 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 		if hasMsg {
 			rc.item.LastMessage = lm.snippet
 			rc.item.LastSender = lm.sender
+			rc.item.LastSenderID = lm.senderID
 			rc.item.LastStatus = lm.status
 			rc.item.UpdatedAt = lm.createdAt
 		}

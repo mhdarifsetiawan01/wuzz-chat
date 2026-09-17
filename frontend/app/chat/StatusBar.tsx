@@ -72,7 +72,11 @@ export function StatusBar({
   }
 
   const isDirectChat = roomId.startsWith('dm_') || !roomId.startsWith('room-')
-  const isPeerOnline = roomUsers.some(u => (session && u.id !== session.clientId) || (peerNickname && u.nickname === peerNickname))
+  const isPeerOnline = roomUsers.some(u => 
+    (peerUserId && u.id === peerUserId) || 
+    (session && u.id !== session.clientId) || 
+    Boolean(peerNickname && u.nickname === peerNickname)
+  )
   const peerName = (peerNickname && peerNickname.trim())
     ? peerNickname
     : (isDirectChat ? 'Memuat kontak...' : (roomId.startsWith('room-') ? `Grup ${roomId.replace('room-', '')}` : roomId))
@@ -223,7 +227,7 @@ export function StatusBar({
 
       {/* Modal Detail Kontak Lawan Bicara */}
       {(() => {
-        const peerUser = roomUsers.find(u => (session && u.id !== session.clientId) || (u.id === peerUserId) || (peerNickname && u.nickname === peerNickname))
+        const peerUser = roomUsers.find(u => (peerUserId && u.id === peerUserId) || (session && u.id !== session.clientId) || (peerNickname && u.nickname === peerNickname))
         return (
           <ContactProfileModal
             isOpen={isContactModalOpen}

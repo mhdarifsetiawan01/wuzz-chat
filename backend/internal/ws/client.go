@@ -169,7 +169,11 @@ func (c *Client) onJoin(msg Message) {
 	c.hub.JoinRoom(c, targetRoom)
 
 	// 1. Tandai seluruh pesan tertunda untuk user ini sebagai 'delivered' (centang 2 abu-abu)
-	deliveredRooms, _ := c.hub.messageStore.MarkUserMessagesAsDelivered(c.Nickname)
+	userIdent := c.ID
+	if userIdent == "" {
+		userIdent = c.Nickname
+	}
+	deliveredRooms, _ := c.hub.messageStore.MarkUserMessagesAsDelivered(userIdent)
 	for _, rID := range deliveredRooms {
 		if rID != targetRoom {
 			c.hub.BroadcastRoom(rID, Message{
@@ -183,7 +187,7 @@ func (c *Client) onJoin(msg Message) {
 
 	// 2. Jika user membuka room percakapan tertentu, tandai pesan di room tersebut sebagai 'read' (centang 2 biru)
 	if targetRoom != "" {
-		_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, c.Nickname)
+		_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, userIdent)
 
 		c.hub.BroadcastRoom(targetRoom, Message{
 			Type:      TypeReceipt,
@@ -322,7 +326,11 @@ func (c *Client) onReceipt(msg Message) {
 		}
 	} else if msg.Status == StatusRead {
 		// Bulk update status read untuk seluruh pesan di room ini
-		_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, c.Nickname)
+		userIdent := c.ID
+		if userIdent == "" {
+			userIdent = c.Nickname
+		}
+		_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, userIdent)
 	}
 
 	msg.Room = targetRoom

@@ -121,12 +121,13 @@ export function MessageBubble({
   const [isMediaExpired, setIsMediaExpired] = useState(false)
   const [isMediaLoading, setIsMediaLoading] = useState(false)
 
-  // Penentuan self yang andal: utamakan kecocokan nickname, fallback ke client ID
+  // Penentuan self yang andal: utamakan UUID pengirim (immutable), fallback ke kecocokan nickname
+  const msgSenderId = message.from || message.sender_id
   const isSelf = isSystem
     ? false
-    : message.nickname && selfNickname
-      ? message.nickname === selfNickname
-      : message.from === selfId
+    : (msgSenderId && selfId && msgSenderId === selfId)
+      ? true
+      : Boolean(message.nickname && selfNickname && message.nickname === selfNickname)
 
   // Timer countdown untuk 'Hapus untuk Semua Orang' (1 menit / 60 detik batas waktu)
   useEffect(() => {
@@ -553,7 +554,10 @@ export function MessageBubble({
       {!isSystem && message.reactions && message.reactions.length > 0 && (
         <div className="reaction-pills-container">
           {message.reactions.map(r => {
-            const hasReacted = selfNickname ? r.users.some(u => u.toLowerCase() === selfNickname.toLowerCase()) : false
+            const hasReacted = r.users.some(u => 
+              (selfId && u === selfId) || 
+              Boolean(selfNickname && u.toLowerCase() === selfNickname.toLowerCase())
+            )
             return (
               <button
                 key={r.emoji}
