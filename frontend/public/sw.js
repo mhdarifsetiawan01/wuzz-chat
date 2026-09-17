@@ -1,8 +1,8 @@
 // Service Worker untuk Wuzz Chat Push Notification
 // Standard W3C Web Push & Service Worker API dengan Zero-Knowledge Client-Side E2EE Background Decryption
-// Version: 1.0.5
+// Version: 1.0.6
 
-const SW_VERSION = '1.0.5';
+const SW_VERSION = '1.0.6';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
