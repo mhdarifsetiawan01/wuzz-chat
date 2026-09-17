@@ -77,6 +77,8 @@ sequenceDiagram
 
 Setiap frame pesan WebSocket menggunakan format JSON:
 
+> **🔑 UUID-First Identity Principle**: Field `from` selalu berisi **UUID immutable** pengirim yang di-*enforce* dari JWT server (bukan dari payload klien). Field `nickname` hanya sebagai display label. Semua logika identifikasi pengirim di klien mobile **wajib membandingkan `from` (UUID)** dengan UUID user yang sedang login — **jangan** gunakan `nickname`.
+
 ```json
 {
   "id": "msg-uuid-v4",
@@ -91,6 +93,9 @@ Setiap frame pesan WebSocket menggunakan format JSON:
     "nickname": "Bob",
     "content": "Pesan yang dikutip"
   },
+  "reactions": [
+    { "emoji": "❤️", "users": ["uuid-user-1"], "count": 1 }
+  ],
   "media_url": "https://...",
   "media_type": "image",
   "file_name": "foto.jpg",
@@ -99,9 +104,11 @@ Setiap frame pesan WebSocket menggunakan format JSON:
 }
 ```
 
+> **📌 `reactions.users`**: Array berisi **UUID pengguna** (bukan username). Klien mobile menentukan apakah user sudah bereaksi dengan cara: `reaction.users.contains(currentUser.id)`.
+
 | Tipe Event (`type`) | Arah | Tindakan Klien Mobile |
 |---|---|---|
-| `join` | Klien ➔ Server | Masuk ke ruang chat: `{"type":"join", "nickname":"...", "room":"..."}` |
+| `join` | Klien ➔ Server | Masuk ke ruang chat: `{"type":"join", "room":"..."}` — identitas diambil dari JWT (UUID), tidak perlu kirim `nickname` |
 | `message` | Bidirectional | Dekripsi konten teks (`e2ee:v1:...`) ➔ Tambahkan ke list UI chat ➔ Balas `receipt: "delivered"` |
 | `receipt` | Bidirectional | Update status tanda centang pesan (`pending` ➔ `sent` ➔ `delivered` ➔ `read`) |
 | `typing` | Bidirectional | Tampilkan animasi indikator lawan bicara sedang mengetik |

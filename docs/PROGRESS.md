@@ -1,8 +1,8 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
-**Tanggal:** 13 September 2026  
-**Status Proyek:** Fase 1 s/d 6 Selesai + Optimasi Dual-Platform Mobile/Desktop (100% Berfungsi & Terverifikasi)  
-**Branch Aktif:** `dev`
+**Tanggal:** 17 September 2026  
+**Status Proyek:** Fase 1 s/d 7 Selesai + UUID-First Identity Architecture (Full-Stack, Merged ke `main`)  
+**Branch Aktif:** `main`
 
 ---
 
@@ -600,3 +600,49 @@ CREATE TABLE admin_actions (
 
 **Referensi Arsitektur**: Lihat [`docs/ARCHITECTURE.md#10-arsitektur-monetisasi--trust`](./ARCHITECTURE.md) untuk desain lengkap alur sistem.
 
+---
+
+### 📌 [MILESTONE] UUID-First Identity Architecture Migration (Full-Stack)
+
+**Tanggal Implementasi**: 17 September 2026
+
+**Status**: ✅ **SELESAI & DEPLOYED** (Live di Fly.io, Merged ke `main`)
+
+**Latar Belakang & Motivasi**:
+Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (string mutable) sebagai identifier untuk logika otorisasi, receipt tracking, dan ownership check. Ini menimbulkan risiko:
+- User yang mengubah `display_name` akan menyebabkan riwayat chat dan receipt tracking salah identifikasi.
+- Logika perbandingan berbasis string rentan terhadap edge case (case sensitivity, whitespace, dll.).
+- Tidak ada jaminan immutability — dua user bisa berkolisi jika ada perubahan nama.
+
+**Perubahan yang Diimplementasikan**:
+
+**Backend**:
+- `backend/internal/store/sql.go`: Query `MarkRoomMessagesAsRead` diperbarui menggunakan `from_id` (UUID) sebagai filter primer, menghilangkan ketergantungan pada `from_nickname`.
+- `backend/internal/ws/client.go`: Read receipt update menggunakan `c.ID` (UUID) bukan `c.Nickname`.
+- `backend/internal/store/user_store.go`: Struct `ConversationItem` diperkaya dengan field `LastSenderID` (UUID). Field `LastSender` (username) menjadi display-only.
+
+**Frontend**:
+- `frontend/app/chat/page.tsx`: Peer resolution, incoming message event handling, dan call signaling diperbarui ke UUID-first. Cache mapping menggunakan `sender_id` (UUID).
+- `frontend/app/chat/MessageBubble.tsx`: `isSelf` logic menggunakan `msg.from === currentUser.id` (UUID). `hasReacted` menggunakan `users.includes(currentUser.id)` (UUID).
+- `frontend/app/chat/Sidebar.tsx`: Tanda centang (`✓`/`✓✓`) di preview menggunakan `conv.last_sender_id === currentUser.id` (UUID).
+- `frontend/app/chat/StatusBar.tsx`: `isPeerOnline` dan lookup peer menggunakan UUID.
+- `frontend/app/chat/MemberListModal.tsx`: `isMe` check menggunakan `member.id === currentUser.id` (UUID).
+- `frontend/lib/types.ts`: Interface `ConversationItem` diperkaya dengan field `last_sender_id?: string`.
+
+**Efek Arsitektur**:
+- Sistem kini **sepenuhnya tahan terhadap perubahan `display_name`** — riwayat chat, receipt tracking, dan ownership check tetap akurat.
+- Tidak ada breaking change pada pesan-pesan lama — field `nickname`/`from_nickname` tetap ada sebagai display label, bukan identifier.
+- **Anti-pattern** yang dibuang: `if (msg.from === user.nickname)` → **Pattern baru**: `if (msg.from === user.id)`
+
+**Definition of Done (DoD) Checklist**:
+- [x] Backend: `from_id` UUID sebagai primary identifier di semua query database
+- [x] Backend: `c.ID` (UUID) di semua WebSocket event handling
+- [x] Backend: `LastSenderID` di `ConversationItem`
+- [x] Frontend: `isSelf` menggunakan UUID di `MessageBubble.tsx`
+- [x] Frontend: `hasReacted` menggunakan UUID di `MessageBubble.tsx`
+- [x] Frontend: `last_sender_id` di `Sidebar.tsx`
+- [x] Frontend: UUID-based peer lookup di `StatusBar.tsx` & `page.tsx`
+- [x] Frontend: UUID-based `isMe` di `MemberListModal.tsx`
+- [x] Deployed ke Fly.io (backend live)
+- [x] Merged `dev` → `main` → pushed ke GitHub
+- [x] Dokumentasi diperbarui (ARCHITECTURE.md, BACKEND_API.md, SECURITY_AND_PERFORMANCE.md, PROGRESS.md, MOBILE_INTEGRATION_GUIDE.md)
