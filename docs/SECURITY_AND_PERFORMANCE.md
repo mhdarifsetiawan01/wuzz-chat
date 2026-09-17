@@ -169,7 +169,16 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 * **Prinsip Keamanan & Otorisasi**:
   - Kolom `is_verified BOOLEAN DEFAULT false` di tabel `users` tidak dapat dimodifikasi oleh pengguna reguler.
   - Query SQL pada method `UpdateProfile` secara ketat hanya mengizinkan pembaruan field `display_name`, `status_message`, dan `avatar_url`. Parameter `is_verified` diabaikan sepenuhnya dari endpoint publik `PUT /api/auth/profile`.
-  - Hal ini mencegah manipulasi HTTP request body (*mass assignment / parameter tampering*) dan memastikan status centang biru terverifikasi hanya dapat diberikan melalui database migration langsung atau endpoint admin terotorisasi di masa depan.
+### 2.13 Pengamanan Pendaftaran Pengguna Baru (Registration Hardening & Anti-Impersonation)
+* **Lokasi Kode**: [`backend/internal/auth/validator.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/validator.go) & [`backend/internal/api/auth_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/auth_handler.go)
+* **Prinsip Keamanan & Validasi**:
+  - **Payload Body Capping (Anti-DoS)**: `r.Body = http.MaxBytesReader(w, r.Body, 64*1024)` membatasi ukuran request body maksimal 64 KB untuk mencegah memory exhaustion.
+  - **Karakter Terkontrol**: Regex `^[a-zA-Z0-9_.-]+$` memastikan username hanya terdiri dari karakter aman tanpa spasi, karakter kontrol, atau path traversal (`../`).
+  - **Batas Panjang Karakter**: Username (3–30 karakter), Password (6–128 karakter untuk mencegah bcrypt hashing DoS), Display Name (maks 50 karakter) terhindar dari database truncate error.
+  - **Aturan Kata Terlarang Hybrid**:
+    1. *Substring Block*: Kata kotor/eksplisit (`jancok`, `puki`, `pepek`) dan entitas tertutup (`semantic`) diblokir di posisi manapun.
+    2. *Sensitive / Brand Filter*: Kata sistem/brand (`admin`, `official`, `support`, `wuzz`, `verified`) diblokir jika persis sama atau berawalan/berakhiran pemisah (`arif_official`, `admin_budi`).
+    3. *Technical Exact Match*: Kata rute/protokol (`api`, `bot`, `dev`, `chat`) hanya diblokir jika persis sama, mengizinkan nama wajar seperti `robot` atau `modern`.
 
 ---
 

@@ -110,7 +110,7 @@ Mendaftarkan akun baru.
     "password": "passwordAman123"
   }
   ```
-  *Validasi: `username` minimal 3 karakter, `password` minimal 6 karakter.*
+  *Validasi: `username` 3–30 karakter (hanya huruf, angka, titik, strip, underscore tanpa spasi; bebas dari kata terlarang/reserved), `password` 6–128 karakter, `display_name` maksimal 50 karakter.*
 - **Success Response (201 Created)**:
   ```json
   {
