@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   // Server-side rewrites untuk proxy REST API ke backend Go di Fly.io / GCP / lokal
   async rewrites() {
     const backendUrl = process.env.BACKEND_API_URL || 'http://localhost:8080';
