@@ -429,6 +429,10 @@
    17. [x] **High-Contrast SVG Read Receipt & Electric Neon Cyan Glow Engine**:
        - Reusable Vector Receipt Component (`ReceiptIcon.tsx`): Menggantikan karakter teks tipis `✓✓` dengan komponen vektor SVG standar WhatsApp/Telegram (`stroke-width: 2`, 45-degree parallel geometry) yang tajam di semua resolusi layar (baik di bubble chat maupun riwayat percakapan sidebar).
        - Electric Neon Cyan Contrast Guard (`globals.css`): Memperbaiki isu kontras rendah *blue-on-blue* pada bubble pesan keluar (Soft Blue-Indigo) menggunakan warna Electric Neon Cyan (`#00f2fe`) yang didukung filter ganda: dark drop shadow (`rgba(0, 0, 0, 0.95)`) sebagai garis tepi kontras dan neon glow aura (`rgba(0, 242, 254, 0.9)`) sehingga status terbaca menyala tajam dan terbaca seketika.
+   18. [x] **Browser History Stack & Mobile Back Navigation Hardening (v0.1.1 / SW v1.0.6)**:
+       - **Root Cause Resolution**: Mengeliminasi duplikasi entry browser history pada navigasi room di `frontend/app/chat/page.tsx` di mana sebelumnya `window.history.pushState` dieksekusi bersamaan dengan `router.push`, melipatgandakan entry history untuk setiap obrolan.
+       - **Clean SPA History Flow**: Menggunakan `router.push` tunggal saat memasuki room dan `router.replace('/chat')` saat kembali ke home/sidebar. Tombol Back browser/HP kini keluar dari linimasa dengan bersih tanpa berputar-putar di history stack room sebelumnya.
+       - **Cache Busting & Release**: Bump versi Frontend ke `0.1.1` (`package.json`) dan Service Worker cache ke `wuzzchat-sw-v1.0.6` (`sw.js`) dengan mekanisme auto-purge cache lama untuk memastikan pembaruan langsung aktif di browser seluler klien.
 
 - **🎯 Next Milestone:**
   1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** / Bad Words Sensor Filter.

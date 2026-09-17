@@ -74,8 +74,9 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   4. ✅ **Ultra-Modern Aurora Glassmorphism Header (SELESAI)**: Ambient radial mesh lighting Soft Azure & Soft Lavender di balik frosted glass transparan, avatar profil pengguna terintegrasi langsung di baris brand header atas untuk efisiensi vertikal seluler.
   5. ✅ **Modular Emoji Picker & Flagship Precision Chat Input Bar (SELESAI)**: Katalog emoji modular di `frontend/lib/emojis.ts` (5 kategori Unicode native), Frosted Glass Emoji Picker Tray popover, kapsul pil input presisi (`border-radius: 24px`, tinggi 48px), dan tombol aksi floating circular terpisah standar WhatsApp & Telegram.
   6. ✅ **High-Contrast SVG Read Receipt & Electric Neon Cyan Glow Engine (SELESAI)**: Komponen vektor SVG (`ReceiptIcon.tsx`) standar WhatsApp/Telegram (`stroke-width: 2`, sudut paralel 45°), warna Electric Neon Cyan (`#00f2fe`) dengan dual-filter dark drop shadow (`rgba(0, 0, 0, 0.95)`) + pendaran neon untuk kontras tajam di atas bubble pesan biru.
-  7. 🎯 **Milestone 8.2: Group Chat Engine & Member Management / Bad Words Sensor Filter (NEXT)**: Percakapan multi-user, multicast WebSocket broadcast, role Admin/Member, modal buat grup, Group Info Drawer, dan sistem sensor kata-kata.
-  8. ⏳ **Milestone 8.3: Message Management Suite**: Edit pesan (15 menit), forward pesan, pin chat & pin message, starred message, dan in-chat search.
+  7. ✅ **Browser History Stack & Mobile Back Navigation Hardening (v0.1.1 / SW v1.0.6) (SELESAI)**: Eliminasi duplikasi entry history (`window.history.pushState` + `router.push`), transisi bersih ke home via `router.replace('/chat')`, mencegah loop siklikal pada tombol Back browser & HP, serta rilis Frontend v0.1.1 & Service Worker v1.0.6.
+  8. 🎯 **Milestone 8.2: Group Chat Engine & Member Management / Bad Words Sensor Filter (NEXT)**: Percakapan multi-user, multicast WebSocket broadcast, role Admin/Member, modal buat grup, Group Info Drawer, dan sistem sensor kata-kata.
+  9. ⏳ **Milestone 8.3: Message Management Suite**: Edit pesan (15 menit), forward pesan, pin chat & pin message, starred message, dan in-chat search.
 
 ---
 

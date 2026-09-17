@@ -416,6 +416,10 @@ Wuzz Chat mengadopsi prinsip desain modular berlapis yang memisahkan logika styl
 6. **High-Contrast SVG Read Receipt Indicator (`ReceiptIcon.tsx`)**:
    - Menggantikan karakter teks tipis dengan komponen vektor SVG standar WhatsApp/Telegram yang tebal dan tajam (`stroke-width: 2`, sudut 45 derajat paralel).
    - Memecahkan isu kontras rendah *blue-on-blue* pada bubble pesan keluar (Soft Blue-Indigo) menggunakan Electric Neon Cyan (`#00f2fe`) yang dipadukan dengan dark drop shadow (`rgba(0, 0, 0, 0.95)`) dan ambient cyan glow, menjamin tanda centang terbaca seketika di semua jenis layar seluler dan desktop.
+7. **Dual-Platform Single-Screen SPA Navigation Lifecycle (`frontend/app/chat/page.tsx`)**:
+   - Menjamin integritas browser history stack saat navigasi bolak-balik antara Layar Home/Sidebar dan Ruang Obrolan pada perangkat seluler dan desktop.
+   - Menggunakan `router.push('/chat?room=...')` tunggal tanpa pemanggilan manual ganda `window.history.pushState` yang dapat melipatgandakan entry history.
+   - Menggunakan `router.replace('/chat')` saat kembali ke daftar obrolan (`activeRoomId = ''`) agar tidak menambah entry history baru yang memicu siklus loop saat pengguna menekan tombol Back fisik/browser.
 
 
 
