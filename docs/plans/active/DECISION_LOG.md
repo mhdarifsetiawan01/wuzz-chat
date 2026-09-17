@@ -53,3 +53,10 @@
 - **Consequences**:
   - Konsisten dengan UUID-First Architecture di tabel `users`.
   - Prefix `grp_` mempermudah pembedaan dengan `dm_` di sisi frontend dan backend router.
+
+## DEC-007: Penundaan Sinkronisasi SESSION_REPLACED Multi-Node Cluster Redis
+- **Status**: Accepted (Deferred to Post-Milestone 8)
+- **Context**: Pada pengujian transfer multi-device dengan arsitektur Fly.io multi-machine, sesi WebSocket lama pada mesin berbeda tidak tertendang seketika karena registry `Hub.clients` saat ini masih lokal per-node.
+- **Decision**: Menunda implementasi event `kick_session` di Redis Pub/Sub hingga seluruh milestone grup selesai agar fokus tetap pada penyelesaian fitur inti grup chat.
+- **Consequences**: Keamanan E2EE tetap terjaga 100% via database gatekeeper `active_device_id` dan anti-replay HTTP 410. Sinkronisasi instan Close Code 4001 antar-node akan diimplementasikan pada fase optimasi pasca-grup.
+

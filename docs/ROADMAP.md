@@ -264,6 +264,9 @@ Membangun platform chatting modern yang:
   - Background purge worker untuk membersihkan sub-grup yang telah kedaluwarsa.
 - ⏳ **Milestone 8.3: Message Management Suite**:
   - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, dan in-chat text search.
+- 🔮 **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` via Redis Pub/Sub)**:
+  - *Tujuan*: Sinkronisasi pergantian sesi perangkat aktif lintas-mesin container Fly.io (multi-node cluster).
+  - *Mekanisme*: Saat pengguna login di Instance A dengan `device_id` baru, broadcast event `session_replaced` ke channel Redis `wuzz:cluster:events` agar Instance B yang menampung koneksi soket lama langsung menendang soket tersebut dengan Close Code 4001 (`SESSION_REPLACED`).
 
 ---
 

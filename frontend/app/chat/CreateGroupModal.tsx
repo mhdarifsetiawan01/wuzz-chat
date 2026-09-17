@@ -177,28 +177,29 @@ export default function CreateGroupModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="group-modal-backdrop" onClick={onClose}>
       <div 
-        className="modal-card create-group-card" 
+        className="group-modal-card" 
         onClick={e => e.stopPropagation()}
-        style={{ maxWidth: 520, width: '92%' }}
       >
-        <div className="modal-header">
+        <div className="group-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               borderRadius: 12,
-              background: 'linear-gradient(135deg, rgba(59,130,246,0.3), rgba(129,140,248,0.3))',
+              background: 'linear-gradient(135deg, rgba(59,130,246,0.25), rgba(129,140,248,0.25))',
+              border: '1px solid rgba(59,130,246,0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1.2rem'
+              fontSize: '1.25rem',
+              boxShadow: '0 2px 10px rgba(59,130,246,0.2)'
             }}>
               👥
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600 }}>
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                 {step === 1 ? 'Buat Grup Baru' : 'Pilih Anggota Grup'}
               </h2>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -206,33 +207,34 @@ export default function CreateGroupModal({
               </span>
             </div>
           </div>
-          <button className="btn-close" onClick={onClose} aria-label="Tutup">✕</button>
+          <button className="group-modal-close-btn" onClick={onClose} aria-label="Tutup">✕</button>
         </div>
 
         {errorMessage && (
-          <div className="alert-box error" style={{ margin: '12px 16px 0', padding: '8px 12px', fontSize: '0.85rem' }}>
+          <div className="alert-box error" style={{ margin: '12px 20px 0', padding: '8px 12px', fontSize: '0.85rem' }}>
             ⚠️ {errorMessage}
           </div>
         )}
 
         {step === 1 ? (
-          <form onSubmit={handleNextStep} style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px 20px' }}>
+          <form onSubmit={handleNextStep} style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '18px 20px' }}>
             {/* Ikon Grup Picker */}
             <div>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 8, fontWeight: 500 }}>
                 Ikon Grup
               </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                 <div style={{
-                  width: 52,
-                  height: 52,
+                  width: 54,
+                  height: 54,
                   borderRadius: '50%',
                   background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: '1.7rem',
-                  boxShadow: '0 4px 12px rgba(59,130,246,0.3)',
+                  fontSize: '1.8rem',
+                  boxShadow: '0 4px 14px rgba(59,130,246,0.35)',
+                  border: '2px solid rgba(255,255,255,0.15)',
                   flexShrink: 0
                 }}>
                   {avatarEmoji}
@@ -244,12 +246,12 @@ export default function CreateGroupModal({
                       type="button"
                       onClick={() => setAvatarEmoji(emoji)}
                       style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: 8,
-                        border: avatarEmoji === emoji ? '2px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
-                        background: avatarEmoji === emoji ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)',
-                        fontSize: '1.1rem',
+                        width: 36,
+                        height: 36,
+                        borderRadius: 10,
+                        border: avatarEmoji === emoji ? '2px solid var(--accent-400)' : '1px solid rgba(255,255,255,0.08)',
+                        background: avatarEmoji === emoji ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.04)',
+                        fontSize: '1.15rem',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -266,41 +268,39 @@ export default function CreateGroupModal({
 
             {/* Nama Grup */}
             <div>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6, fontWeight: 500 }}>
                 Nama Grup <span style={{ color: '#ef4444' }}>*</span>
               </label>
               <input
                 type="text"
-                className="input-field"
+                className="group-form-input"
                 placeholder="Contoh: Tim Bisnis & Marketing"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
                 maxLength={128}
                 autoFocus
                 required
-                style={{ width: '100%', padding: '10px 14px' }}
               />
             </div>
 
             {/* Deskripsi Grup */}
             <div>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6, fontWeight: 500 }}>
                 Deskripsi Grup (Opsional)
               </label>
               <textarea
-                className="input-field"
+                className="group-form-textarea"
                 placeholder="Tuliskan tujuan atau aturan obrolan grup ini..."
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 maxLength={500}
                 rows={2}
-                style={{ width: '100%', padding: '10px 14px', resize: 'vertical' }}
               />
             </div>
 
             {/* Visibilitas: Privat vs Publik */}
             <div>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 8 }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 8, fontWeight: 500 }}>
                 Tipe Visibilitas Grup
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -310,7 +310,7 @@ export default function CreateGroupModal({
                   style={{
                     padding: '12px 14px',
                     borderRadius: 12,
-                    border: !isPublic ? '2px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
+                    border: !isPublic ? '2px solid #3b82f6' : '1px solid rgba(255,255,255,0.08)',
                     background: !isPublic ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.03)',
                     color: !isPublic ? '#fff' : 'var(--text-muted)',
                     cursor: 'pointer',
@@ -332,7 +332,7 @@ export default function CreateGroupModal({
                   style={{
                     padding: '12px 14px',
                     borderRadius: 12,
-                    border: isPublic ? '2px solid #818cf8' : '1px solid rgba(255,255,255,0.1)',
+                    border: isPublic ? '2px solid #818cf8' : '1px solid rgba(255,255,255,0.08)',
                     background: isPublic ? 'rgba(129,140,248,0.15)' : 'rgba(255,255,255,0.03)',
                     color: isPublic ? '#fff' : 'var(--text-muted)',
                     cursor: 'pointer',
@@ -353,18 +353,18 @@ export default function CreateGroupModal({
             {/* Username Grup (jika Publik) */}
             {isPublic && (
               <div style={{ animation: 'fadeIn 0.2s ease' }}>
-                <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6, fontWeight: 500 }}>
                   Username Publik Grup (Opsional)
                 </label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 14, top: 11, color: 'var(--text-muted)' }}>@</span>
                   <input
                     type="text"
-                    className="input-field"
+                    className="group-form-input"
                     placeholder="nama_grup_unik"
                     value={groupUsername}
                     onChange={e => setGroupUsername(e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px 10px 32px' }}
+                    style={{ paddingLeft: 32 }}
                   />
                 </div>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
@@ -373,11 +373,11 @@ export default function CreateGroupModal({
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
-              <button type="button" className="btn-secondary" onClick={onClose}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
+              <button type="button" className="btn btn-secondary" onClick={onClose}>
                 Batal
               </button>
-              <button type="submit" className="btn-primary" style={{ padding: '10px 20px' }}>
+              <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '10px 20px' }}>
                 Lanjut: Pilih Anggota →
               </button>
             </div>
@@ -420,11 +420,11 @@ export default function CreateGroupModal({
               <span style={{ position: 'absolute', left: 12, top: 10, color: 'var(--text-muted)' }}>🔍</span>
               <input
                 type="text"
-                className="input-field"
+                className="group-form-input"
                 placeholder="Cari username atau nama pengguna..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '9px 12px 9px 36px', fontSize: '0.9rem' }}
+                style={{ paddingLeft: 36, fontSize: '0.9rem' }}
               />
               {isSearching && (
                 <div className="spinner" style={{ width: 16, height: 16, position: 'absolute', right: 12, top: 12 }} />
@@ -536,10 +536,10 @@ export default function CreateGroupModal({
             </div>
 
             {/* Action Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 14, borderTop: '1px solid var(--border-subtle)' }}>
               <button
                 type="button"
-                className="btn-secondary"
+                className="btn btn-secondary"
                 onClick={() => setStep(1)}
                 disabled={isLoading}
               >
@@ -548,10 +548,10 @@ export default function CreateGroupModal({
 
               <button
                 type="button"
-                className="btn-primary"
+                className="btn btn-primary"
                 onClick={handleCreateGroup}
                 disabled={isLoading}
-                style={{ minWidth: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                style={{ width: 'auto', minWidth: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 20px' }}
               >
                 {isLoading ? (
                   <>

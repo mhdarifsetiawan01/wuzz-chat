@@ -719,5 +719,6 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 - [x] Frontend build: `npm run build` 0 error (TypeScript & Turbopack)
 - [x] Kompatibilitas Dual-Platform: Desktop split mode & Mobile single-screen mode
 - [x] Proteksi slow/flaky server: `AbortController` 15 detik, disabled state tombol aksi, write-through offline cache
+- [x] UI/UX Audit & Polish: Tampilan modal "+ Grup" (`CreateGroupModal.tsx`) dan "Info Grup" (`GroupInfoDrawer.tsx`) distandarisasi ke sistem desain Aurora Glassmorphic (fixed backdrop overlay `z-index: 1050`, modalScaleIn animation, dark form inputs, `.btn-secondary`, dan mobile bottom-sheet adaptation)
 
 

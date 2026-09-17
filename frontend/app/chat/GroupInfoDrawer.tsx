@@ -148,31 +148,20 @@ export function GroupInfoDrawer({
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 110 }}>
+    <div className="group-modal-backdrop" onClick={onClose} style={{ zIndex: 1100 }}>
       <div 
-        className="modal-card group-info-drawer" 
+        className="group-modal-card" 
         onClick={e => e.stopPropagation()}
         style={{
           maxWidth: 480,
-          width: '95%',
           maxHeight: '90vh',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
           padding: 0
         }}
       >
         {/* Header Drawer */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '16px 20px',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          background: 'rgba(255,255,255,0.02)'
-        }}>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Info Grup</h3>
-          <button className="btn-close" onClick={onClose} aria-label="Tutup">✕</button>
+        <div className="group-modal-header">
+          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Info Grup</h3>
+          <button className="group-modal-close-btn" onClick={onClose} aria-label="Tutup">✕</button>
         </div>
 
         {/* Content Body */}
@@ -219,14 +208,14 @@ export function GroupInfoDrawer({
                   <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <input
                       type="text"
-                      className="input-field"
+                      className="group-form-input"
                       value={editTitle}
                       onChange={e => setEditTitle(e.target.value)}
                       placeholder="Nama grup"
                       style={{ textAlign: 'center', fontWeight: 600 }}
                     />
                     <textarea
-                      className="input-field"
+                      className="group-form-textarea"
                       value={editDesc}
                       onChange={e => setEditDesc(e.target.value)}
                       placeholder="Deskripsi grup"
@@ -234,10 +223,10 @@ export function GroupInfoDrawer({
                       style={{ fontSize: '0.85rem' }}
                     />
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 4 }}>
-                      <button type="button" className="btn-secondary" onClick={() => setIsEditing(false)} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
+                      <button type="button" className="btn btn-secondary" onClick={() => setIsEditing(false)} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
                         Batal
                       </button>
-                      <button type="button" className="btn-primary" onClick={handleSaveInfo} disabled={isSaving} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
+                      <button type="button" className="btn btn-primary" onClick={handleSaveInfo} disabled={isSaving} style={{ width: 'auto', padding: '6px 14px', fontSize: '0.85rem' }}>
                         {isSaving ? 'Menyimpan...' : 'Simpan'}
                       </button>
                     </div>
@@ -300,7 +289,7 @@ export function GroupInfoDrawer({
               {isCreatorOrAdmin && onOpenAddMember && (
                 <button
                   type="button"
-                  className="btn-primary"
+                  className="btn btn-primary"
                   onClick={onOpenAddMember}
                   style={{
                     display: 'flex',
@@ -490,7 +479,7 @@ export function GroupInfoDrawer({
               <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="btn btn-secondary"
                   onClick={() => setConfirmAction(null)}
                   disabled={actionLoading}
                 >
