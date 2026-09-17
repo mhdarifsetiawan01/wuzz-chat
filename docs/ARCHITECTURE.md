@@ -199,6 +199,9 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `POST` | `/api/conversations` | Membuat obrolan baru (Direct atau Group) | Bearer Token |
 | `DELETE` / `POST` | `/api/conversations?id=` / `/api/conversations/clear` | Menghapus riwayat percakapan untuk user pemanggil (*Delete for Me*) | Bearer Token |
 | `DELETE` / `POST` | `/api/messages?id=&type=` / `/api/messages/delete` | Menghapus pesan (*for_me* kapanpun, atau *for_everyone* ≤ 60s) | Bearer Token |
+
+> **🛡️ Message Deletion Ownership & Interface**: Pengecekan kepemilikan pesan pada *Delete for Everyone* divalidasi secara ketat di backend menggunakan `msg.FromID == claims.UserID` (UUID). Parameter display name dihilangkan sepenuhnya dari kontrak `MessageStore.DeleteMessage(msgID, userID string, deleteForEveryone bool)`.
+
 | `POST` | `/api/media/upload` | Upload file gambar/dokumen/audio ke storage | Bearer Token |
 | `POST` | `/api/media/ack` | Konfirmasi download file oleh client (memicu auto-delete file fisik) | Bearer Token |
 | `GET` | `/api/notifications/vapid-public-key` | Mengambil VAPID Public Key untuk PushManager browser | Public |
@@ -469,10 +472,10 @@ Seksi ini mendokumentasikan desain arsitektur untuk fitur monetisasi (Avatar Pre
 
 ### A. User Verified Account
 
-**Status Backend**: ❌ Field `is_verified` **belum ada** di backend Go. Struct `User` di `user_store.go` dan semua query SQL belum menyertakan field ini.
-**Status Frontend**: ✅ Type `is_verified?: boolean` sudah ada di `frontend/lib/types.ts`. Komponen `VerifiedBadge.tsx` sudah terimplementasi, tinggal menunggu data dari backend.
+**Status Backend**: ✅ **SELESAI DIIMPLEMENTASI** — Field `is_verified BOOLEAN DEFAULT false` sudah aktif di tabel `users` dengan auto-migration di PostgreSQL (Supabase) dan SQLite (`sql.go`). Struct `User` Go (`user_store.go`) memiliki field `IsVerified bool` (`json:"is_verified"`). Seluruh query SELECT user dan percakapan sudah membaca `COALESCE(is_verified, false)` secara aman.
+**Status Frontend**: ✅ **SELESAI TERKONEKSI** — Type `is_verified?: boolean` dan `peer_is_verified?: boolean` aktif di `frontend/lib/types.ts`. Komponen `VerifiedBadge.tsx` live di Sidebar, StatusBar, ContactProfileModal, dan ProfileModal.
 
-**Yang Masih Perlu Dibangun**:
+**Yang Masih Perlu Dibangun (Admin Tooling)**:
 
 | Komponen | Detail |
 |---|---|

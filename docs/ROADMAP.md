@@ -239,6 +239,13 @@ Membangun platform chatting modern yang:
   - **JWT Runtime Warning**: `sync.Once` guard jika `JWT_SECRET` tidak di-set di environment.
   - Unit tests (`validator_test.go` 33 cases) & integration tests (`auth_register_test.go` 11 cases) — 100% pass.
   - Frontend client-side validation real-time di `register/page.tsx`.
+- ✅ **Milestone 8.7: UUID-First Identity Architecture & Ownership Refactoring (SELESAI)**:
+  - Standardisasi mutlak kolom `users.id` (UUID) sebagai pembanding/patokan utama tunggal di seluruh alur sistem karena `display_name` dan `username` dapat berubah.
+  - **MessageStore Refactor**: `DeleteMessage` memverifikasi kepemilikan pesan murni dengan `msg.FromID == userID` (UUID), menghapus parameter `userNickname` / `DisplayName`.
+  - **Emoji Reactions Persistence**: Reaksi pesan disimpan menggunakan array `userID` (UUID), menjaga riwayat reaksi tetap valid saat pengguna mengedit profil.
+  - **Receipts Filter Standardization**: `MarkRoomMessagesAsRead` dan `MarkUserMessagesAsDelivered` menggunakan filter UUID (`from_id != ?`), menghapus fallback string nickname.
+  - **WebSocket Security Guard**: Siaran tanda terima `delivered` diproteksi guard `c.isAuthorizedForRoom(rID)` untuk mencegah kebocoran status ke room yang tidak sah.
+  - **Frontend Timeline Peer Discovery**: Penentuan pesan lawan bicara di `page.tsx` murni membandingkan `senderId !== myUserId` (UUID).
 - 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**:
   - Pembuatan grup obrolan multi-kontak, manajemen role Admin & Member, Group Info Drawer, multicast WebSocket broadcast, dan unread count per anggota.
 - ⏳ **Milestone 8.3: Message Management Suite**:

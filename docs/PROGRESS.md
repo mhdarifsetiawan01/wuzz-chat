@@ -1,7 +1,7 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
 **Tanggal:** 17 September 2026  
-**Status Proyek:** Fase 1 s/d 7 Selesai + UUID-First Identity Architecture (Full-Stack, Merged ke `main`)  
+**Status Proyek:** Fase 1 s/d 8 (Partial) — Milestone 8.1, 8.4, 8.5, 8.6, 8.7 Selesai — UUID-First Identity Architecture (Full-Stack, Merged ke `main` & Deployed ke Fly.io)  
 **Branch Aktif:** `main`
 
 ---
@@ -462,8 +462,9 @@
         - **Deployment**: Live di Fly.io production — health check `{"status":"ok"}` selesai.
 
 - **🎯 Next Milestone:**
-  1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** / Bad Words Sensor Filter.
-  2. [ ] *(Opsional Future)* Android Native App untuk akses kamera native penuh (Live QR Scanner tanpa batasan WebAPK permissions).
+  1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** — Percakapan multi-user, role Admin/Member, multicast WebSocket broadcast, unread count per-anggota, dan Bad Words Sensor Filter.
+  2. [ ] **Milestone 8.3: Message Management Suite** — Edit pesan (15 menit), forward pesan, pin chat & pin message, starred message, dan in-chat search.
+  3. [ ] *(Opsional Future)* Android Native App untuk akses kamera native penuh (Live QR Scanner tanpa batasan WebAPK permissions).
 
 
 ---
@@ -617,15 +618,23 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 **Perubahan yang Diimplementasikan**:
 
 **Backend**:
-- `backend/internal/store/sql.go`: Query `MarkRoomMessagesAsRead` diperbarui menggunakan `from_id` (UUID) sebagai filter primer, menghilangkan ketergantungan pada `from_nickname`.
-- `backend/internal/ws/client.go`: Read receipt update menggunakan `c.ID` (UUID) bukan `c.Nickname`.
-- `backend/internal/store/user_store.go`: Struct `ConversationItem` diperkaya dengan field `LastSenderID` (UUID). Field `LastSender` (username) menjadi display-only.
+- `backend/internal/store/store.go`: Interface `MessageStore` diselaraskan:
+  - `DeleteMessage(msgID, userID string, deleteForEveryone bool)`: Menghapus parameter `userNickname`. Validasi kepemilikan pesan untuk *Delete for Everyone* murni memverifikasi `msg.FromID == userID` (UUID).
+  - `ToggleReaction(msgID, emoji, userID string)`: Parameter diganti menjadi `userID` (UUID). Reaksi emoji tersimpan dengan array UUID sehingga tidak pernah rusak jika user mengganti display name.
+  - `MarkRoomMessagesAsRead(roomID, excludeUserID string)` & `MarkUserMessagesAsDelivered(userID string)`: Parameter murni UUID, query SQL memfilter menggunakan `from_id != ?`.
+- `backend/internal/store/sql.go` & `memory.go`: Implementasi store mengadopsi interface UUID-first, menghilangkan klausa `LOWER(from_nickname)` dari SQL query, dan menambahkan guard `excludeUserID != ""` pada `MarkRoomMessagesAsRead`.
+- `backend/internal/ws/client.go`:
+  - `onReaction` meneruskan `c.ID` (UUID) ke `ToggleReaction`.
+  - `onJoin` & `onReceipt` memanggil `MarkUserMessagesAsDelivered` dan `MarkRoomMessagesAsRead` menggunakan `c.ID` (UUID).
+  - Siaran broadcast `delivered` receipt ke room lain saat user terhubung diproteksi guard `c.isAuthorizedForRoom(rID)` untuk mencegah kebocoran status ke room yang tidak sah.
+- `backend/internal/api/chat_handler.go`: Endpoint `DeleteMessage` hanya meneruskan `claims.UserID` (UUID dari token JWT) tanpa passing `DisplayName`.
+- `backend/internal/store/sql_test.go`: 4 skenario test `DeleteMessage` disesuaikan dengan signature baru (hanya UUID, tanpa DisplayName) — lulus 100%.
 
 **Frontend**:
-- `frontend/app/chat/page.tsx`: Peer resolution, incoming message event handling, dan call signaling diperbarui ke UUID-first. Cache mapping menggunakan `sender_id` (UUID).
-- `frontend/app/chat/MessageBubble.tsx`: `isSelf` logic menggunakan `msg.from === currentUser.id` (UUID). `hasReacted` menggunakan `users.includes(currentUser.id)` (UUID).
+- `frontend/app/chat/page.tsx`: Peer discovery pada riwayat pesan room (`otherMsg`) diperbarui murni membandingkan `senderId !== myUserId` (UUID), menghapus seluruh fallback perbandingan teks `nickname`, `display_name`, dan `username`.
+- `frontend/app/chat/MessageBubble.tsx`: `isSelf` logic memprioritaskan `msgSenderId === selfId` (UUID). `hasReacted` memprioritaskan kecocokan UUID `u === selfId`.
 - `frontend/app/chat/Sidebar.tsx`: Tanda centang (`✓`/`✓✓`) di preview menggunakan `conv.last_sender_id === currentUser.id` (UUID).
-- `frontend/app/chat/StatusBar.tsx`: `isPeerOnline` dan lookup peer menggunakan UUID.
+- `frontend/app/chat/StatusBar.tsx`: `isPeerOnline` dan lookup peer menggunakan `peerUserId` (UUID).
 - `frontend/app/chat/MemberListModal.tsx`: `isMe` check menggunakan `member.id === currentUser.id` (UUID).
 - `frontend/lib/types.ts`: Interface `ConversationItem` diperkaya dengan field `last_sender_id?: string`.
 
