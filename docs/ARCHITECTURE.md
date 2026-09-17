@@ -46,20 +46,26 @@ erDiagram
     }
 
     CONVERSATIONS {
-        uuid id PK
+        varchar id PK "uuid format for DM, grp_<UUIDv4> for groups"
         varchar type "direct / group"
-        varchar title "null if direct"
-        text icon_url
-        uuid created_by FK
+        varchar title "null if direct, group name if group"
+        text description "Group bio / description"
+        text avatar_url "Emoji / image url"
+        boolean is_public "true if searchable public group"
+        varchar group_username "unique handle e.g. @wuzz_tech"
+        varchar parent_id FK "nullable parent group ID for sub-groups"
+        timestamp expires_at "nullable TTL expiration for ephemeral sub-groups"
+        varchar created_by FK "creator user UUID"
+        boolean is_e2ee "false for v1 group, true for DM"
         timestamp created_at
         timestamp updated_at
     }
 
     CONVERSATION_MEMBERS {
         uuid id PK
-        uuid conversation_id FK
+        varchar conversation_id FK
         uuid user_id FK
-        varchar role "admin / member"
+        varchar role "creator / admin / member"
         timestamp cleared_at "nullable timestamp for user clear chat"
         timestamp joined_at
     }

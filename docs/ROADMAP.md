@@ -62,7 +62,8 @@ Membangun platform chatting modern yang:
 │  FASE 8: Core Parity (Push, Group Chat & Message Mgmt) (SEDANG JALAN⏳) │
 │  - Milestone 8.1: Universal Push Notification Engine (SELESAI ✅)       │
 │  - Milestone 8.4: IndexedDB Message Cache & E2EE Continuity (SELESAI ✅)│
-│  - Milestone 8.2: Group Chat Engine & Member Management (NEXT 🎯)       │
+│  - Milestone 8.2A: Core Group Chat Engine & Member Mgmt (SELESAI ✅)     │
+│  - Milestone 8.2B: Ephemeral Sub-Groups & TTL Auto-Purge (NEXT 🎯)      │
 │  - Milestone 8.3: Message Management Suite (Edit, Forward, Pin, Star)  │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
@@ -246,10 +247,26 @@ Membangun platform chatting modern yang:
   - **Receipts Filter Standardization**: `MarkRoomMessagesAsRead` dan `MarkUserMessagesAsDelivered` menggunakan filter UUID (`from_id != ?`), menghapus fallback string nickname.
   - **WebSocket Security Guard**: Siaran tanda terima `delivered` diproteksi guard `c.isAuthorizedForRoom(rID)` untuk mencegah kebocoran status ke room yang tidak sah.
   - **Frontend Timeline Peer Discovery**: Penentuan pesan lawan bicara di `page.tsx` murni membandingkan `senderId !== myUserId` (UUID).
-- 🎯 **Milestone 8.2: Group Chat Engine & Member Management (NEXT)**:
-  - Pembuatan grup obrolan multi-kontak, manajemen role Admin & Member, Group Info Drawer, multicast WebSocket broadcast, dan unread count per anggota.
+- ✅ **Bugfix — Normalisasi Kontrak Payload Delete for Everyone (SELESAI)**:
+  - **Root Cause**: Frontend mengirim `{ type: "for_everyone" }` sementara backend Go struct mengharapkan field `delete_for_everyone: bool`. Mismatch JSON key menyebabkan `DeleteForEveryone` selalu `false`, sehingga backend tidak pernah broadcast event `message_deleted` ke lawan bicara.
+  - **Solusi Dual-Format**: Backend kini menerima payload secara fleksibel (`delete_for_everyone`, `type`, `delete_type`, URL query `?for_everyone=true`). Frontend kini mengirim dua field sekaligus (`delete_for_everyone: true` + `type: "for_everyone"`) untuk maksimal kompatibilitas.
+  - **Test Coverage**: 4 skenario automated test (`chat_handler_delete_test.go`) — 100% lulus.
+- ✅ **Milestone 8.2A: Core Group Chat Engine & Member Management (SELESAI)**:
+  - **Identitas & Skema Grup**: Identitas unik format `grp_<UUIDv4>` pada tabel `conversations` dengan dukungan visibilitas **🔒 Privat (Wuzz Cloud)** vs **🌐 Publik** (dengan handle unik `@group_username` dan pencarian global).
+  - **Fondasi Sub-Grup & TTL**: Penambahan kolom `parent_id VARCHAR(128)` dan `expires_at TIMESTAMP` pada `conversations` (NULL untuk grup utama permanen, fondasi siap pakai untuk Milestone 8.2B).
+  - **Wizard Pembuatan Grup (`CreateGroupModal.tsx`)**: Modal 2 langkah (Info Grup & Toggle Publik/Privat + Pemilih Anggota cerdas dengan tab Kontak DM Terakhir dan Live Search via `/api/users/search`).
+  - **Manajemen & Drawer Info Grup (`GroupInfoDrawer.tsx`)**: Drawer profil grup, daftar anggota dengan role/verified badge, RBAC hierarkis (`creator`, `admin`, `member`), promosi/demosi admin, kick anggota, edit profil grup, dan leave group dengan konfirmasi aman.
+  - **Header & Linimasa Dinamis**: `StatusBar.tsx` terintegrasi info grup, lencana publik/privat, hitungan anggota, tombol info grup; `MessageBubble.tsx` menampilkan nama pengirim dengan aksen warna unik deterministik per user.
+  - **Bypass E2EE Fail-Closed**: Pesan grup beroperasi via secure server-relayed TLS transit dengan skema database siap-upgrade ke Signal Sender Keys di masa mendatang tanpa breaking changes.
+  - **REST API Suite Lengkap (9 Endpoint)**: `POST /api/groups`, `GET /api/groups/search`, `GET /api/groups/{id}`, `POST /api/groups/{id}/join`, `GET /api/groups/{id}/members`, `POST /api/groups/{id}/members`, `DELETE /api/groups/{id}/members/{userId}`, `PATCH /api/groups/{id}/members/{userId}/role`, `PATCH /api/groups/{id}`.
+- 🎯 **Milestone 8.2B: Ephemeral Sub-Groups & TTL Auto-Purge Worker (NEXT)**:
+  - Mini grup diskusi bertopik di dalam grup induk (`parent_id`) dengan masa kedaluwarsa otomatis (`expires_at` default 1 minggu/1 bulan).
+  - Background purge worker untuk membersihkan sub-grup yang telah kedaluwarsa.
 - ⏳ **Milestone 8.3: Message Management Suite**:
   - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, dan in-chat text search.
+- 🔮 **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` via Redis Pub/Sub)**:
+  - *Tujuan*: Sinkronisasi pergantian sesi perangkat aktif lintas-mesin container Fly.io (multi-node cluster).
+  - *Mekanisme*: Saat pengguna login di Instance A dengan `device_id` baru, broadcast event `session_replaced` ke channel Redis `wuzz:cluster:events` agar Instance B yang menampung koneksi soket lama langsung menendang soket tersebut dengan Close Code 4001 (`SESSION_REPLACED`).
 
 ---
 

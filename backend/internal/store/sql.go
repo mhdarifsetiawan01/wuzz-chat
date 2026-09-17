@@ -79,6 +79,14 @@ func (s *SQLMessageStore) autoMigrate() error {
 			id VARCHAR(128) PRIMARY KEY,
 			type VARCHAR(32) NOT NULL,
 			title VARCHAR(128) DEFAULT '',
+			is_public BOOLEAN NOT NULL DEFAULT false,
+			group_username VARCHAR(64) DEFAULT '',
+			parent_id VARCHAR(128) DEFAULT NULL,
+			expires_at TIMESTAMP DEFAULT NULL,
+			created_by VARCHAR(64) DEFAULT '',
+			avatar_url TEXT DEFAULT '',
+			description TEXT DEFAULT '',
+			is_e2ee BOOLEAN DEFAULT false,
 			created_at TIMESTAMP NOT NULL,
 			updated_at TIMESTAMP NOT NULL
 		);`,
@@ -86,6 +94,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		`CREATE TABLE IF NOT EXISTS conversation_members (
 			conversation_id VARCHAR(128) NOT NULL,
 			user_id VARCHAR(64) NOT NULL,
+			role VARCHAR(32) NOT NULL DEFAULT 'member',
 			joined_at TIMESTAMP NOT NULL,
 			PRIMARY KEY (conversation_id, user_id)
 		);`,
@@ -156,6 +165,20 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_for_users TEXT DEFAULT '[]';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(room_id, status);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_to_status ON messages(to_id, status);`)
+
+		// Auto-migration Milestone 8.2A: Group Chat Engine, Visibility & Subgroups (PostgreSQL)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT false;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS group_username VARCHAR(64) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS parent_id VARCHAR(128) DEFAULT NULL;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT NULL;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS created_by VARCHAR(64) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_e2ee BOOLEAN DEFAULT false;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN IF NOT EXISTS role VARCHAR(32) NOT NULL DEFAULT 'member';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_parent ON conversations(parent_id);`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_members_role ON conversation_members(conversation_id, role);`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_public ON conversations(is_public, group_username);`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -179,6 +202,20 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN deleted_for_users TEXT DEFAULT '[]';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(room_id, status);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_to_status ON messages(to_id, status);`)
+
+		// Auto-migration Milestone 8.2A: Group Chat Engine, Visibility & Subgroups (SQLite)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN is_public BOOLEAN NOT NULL DEFAULT false;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN group_username VARCHAR(64) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN parent_id VARCHAR(128) DEFAULT NULL;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN expires_at TIMESTAMP DEFAULT NULL;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN created_by VARCHAR(64) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN avatar_url TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN description TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN is_e2ee BOOLEAN DEFAULT false;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'member';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_parent ON conversations(parent_id);`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_members_role ON conversation_members(conversation_id, role);`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_public ON conversations(is_public, group_username);`)
 	}
 
 	log.Printf("🛠️ [Auto-Migration] Tabel 'users' (dengan is_verified), 'conversations', 'conversation_members', dan 'messages' berhasil dipastikan ada!")
