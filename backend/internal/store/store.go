@@ -61,19 +61,23 @@ type MessageStore interface {
 	GetMessageByID(msgID string) (*StoredMessage, error)
 
 	// DeleteMessage menghapus pesan (untuk saya saja atau untuk semua orang).
-	DeleteMessage(msgID, userID, userNickname string, deleteForEveryone bool) (*StoredMessage, error)
+	// Ownership check HANYA menggunakan userID (users.id UUID) — bukan display_name/nickname.
+	DeleteMessage(msgID, userID string, deleteForEveryone bool) (*StoredMessage, error)
 
 	// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
 	UpdateMessageStatus(msgID string, status string) error
 
 	// ToggleReaction menambah atau menghapus reaksi emoji user terhadap pesan tertentu.
-	ToggleReaction(msgID, emoji, userNickname string) (string, error)
+	// Reaksi disimpan menggunakan userID (users.id UUID) agar tetap valid jika user mengganti display_name.
+	ToggleReaction(msgID, emoji, userID string) (string, error)
 
 	// MarkRoomMessagesAsRead menandai semua pesan yang belum dibaca dari lawan bicara menjadi 'read'.
-	MarkRoomMessagesAsRead(roomID, excludeNickname string) error
+	// excludeUserID adalah users.id (UUID) pengirim yang tidak ikut ditandai 'read'.
+	MarkRoomMessagesAsRead(roomID, excludeUserID string) error
 
 	// MarkUserMessagesAsDelivered menandai semua pesan berstatus 'sent' yang ditujukan ke user menjadi 'delivered'.
-	MarkUserMessagesAsDelivered(userNickname string) ([]string, error)
+	// userID adalah users.id (UUID) penerima.
+	MarkUserMessagesAsDelivered(userID string) ([]string, error)
 
 	// GetRoomHistory mengambil riwayat pesan dalam suatu room/percakapan.
 	// Mengembalikan pesan terurut secara kronologis (tertua ke terbaru).

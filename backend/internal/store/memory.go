@@ -3,7 +3,6 @@ package store
 import (
 	"encoding/json"
 	"errors"
-	"strings"
 	"sync"
 	"time"
 )
@@ -98,7 +97,7 @@ func (s *MemoryMessageStore) UpdateMessageStatus(msgID string, status string) er
 	return nil
 }
 
-func (s *MemoryMessageStore) ToggleReaction(msgID, emoji, userNickname string) (string, error) {
+func (s *MemoryMessageStore) ToggleReaction(msgID, emoji, userID string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -127,14 +126,14 @@ func (s *MemoryMessageStore) ToggleReaction(msgID, emoji, userNickname string) (
 						userExists := false
 						var newUsers []string
 						for _, u := range item.Users {
-							if strings.EqualFold(u, userNickname) {
+							if u == userID {
 								userExists = true
 							} else {
 								newUsers = append(newUsers, u)
 							}
 						}
 						if !userExists {
-							newUsers = append(newUsers, userNickname)
+							newUsers = append(newUsers, userID)
 						}
 						if len(newUsers) > 0 {
 							updatedItems = append(updatedItems, struct {
@@ -159,7 +158,7 @@ func (s *MemoryMessageStore) ToggleReaction(msgID, emoji, userNickname string) (
 						Count int      `json:"count"`
 					}{
 						Emoji: emoji,
-						Users: []string{userNickname},
+						Users: []string{userID},
 						Count: 1,
 					})
 				}
@@ -175,7 +174,7 @@ func (s *MemoryMessageStore) ToggleReaction(msgID, emoji, userNickname string) (
 	return "[]", nil
 }
 
-func (s *MemoryMessageStore) MarkRoomMessagesAsRead(roomID, excludeNickname string) error {
+func (s *MemoryMessageStore) MarkRoomMessagesAsRead(roomID, excludeUserID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	msgs, ok := s.messages[roomID]
@@ -183,21 +182,23 @@ func (s *MemoryMessageStore) MarkRoomMessagesAsRead(roomID, excludeNickname stri
 		return nil
 	}
 	for i, m := range msgs {
-		if (m.FromID == "" || m.FromID != excludeNickname) && !strings.EqualFold(m.Nickname, excludeNickname) && m.Status != "read" {
+		// Gunakan from_id (UUID) saja sebagai filter primer
+		if (excludeUserID == "" || m.FromID != excludeUserID) && m.Status != "read" {
 			s.messages[roomID][i].Status = "read"
 		}
 	}
 	return nil
 }
 
-func (s *MemoryMessageStore) MarkUserMessagesAsDelivered(userNickname string) ([]string, error) {
+func (s *MemoryMessageStore) MarkUserMessagesAsDelivered(userID string) ([]string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	roomSet := make(map[string]bool)
 	for roomID, msgs := range s.messages {
 		for i, m := range msgs {
-			if (m.FromID == "" || m.FromID != userNickname) && !strings.EqualFold(m.Nickname, userNickname) && m.Status == "sent" {
+			// Gunakan from_id (UUID) saja sebagai filter primer
+			if m.FromID != userID && m.Status == "sent" {
 				s.messages[roomID][i].Status = "delivered"
 				roomSet[roomID] = true
 			}
@@ -254,7 +255,7 @@ func (s *MemoryMessageStore) GetMessageByID(msgID string) (*StoredMessage, error
 	return nil, errors.New("pesan tidak ditemukan")
 }
 
-func (s *MemoryMessageStore) DeleteMessage(msgID, userID, userNickname string, deleteForEveryone bool) (*StoredMessage, error) {
+func (s *MemoryMessageStore) DeleteMessage(msgID, userID string, deleteForEveryone bool) (*StoredMessage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -262,10 +263,8 @@ func (s *MemoryMessageStore) DeleteMessage(msgID, userID, userNickname string, d
 		for i, m := range msgs {
 			if m.ID == msgID {
 				if deleteForEveryone {
-					// Validasi kepemilikan pesan
-					isAuthor := (m.FromID != "" && m.FromID == userID) ||
-						(m.Nickname != "" && (strings.EqualFold(m.Nickname, userNickname) || strings.EqualFold(m.Nickname, userID)))
-					if !isAuthor {
+					// Validasi kepemilikan pesan: HANYA berdasarkan from_id (UUID)
+					if m.FromID == "" || m.FromID != userID {
 						return nil, errors.New("hanya pengirim yang dapat menghapus pesan untuk semua orang")
 					}
 					// Validasi batas waktu 1 menit (60 detik)
