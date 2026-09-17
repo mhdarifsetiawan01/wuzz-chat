@@ -315,13 +315,15 @@ Mengambil daftar obrolan aktif (Home screen chat list) milik user saat ini, leng
       "peer_avatar_url": "data:image/webp;base64,...",
       "peer_is_verified": false,
       "last_message": "e2ee:v1:7s8df...:92348df...",
-      "last_sender": "siti_aminah",
+      "last_sender_id": "22222222-7890-4abc-def1-234567890abc",
       "last_status": "delivered",
       "unread_count": 2,
       "updated_at": "2026-09-17T12:15:30Z"
     }
   ]
   ```
+
+> **🔑 UUID-First**: Field `last_sender_id` berisi **UUID immutable** pengirim pesan terakhir (sebelumnya `last_sender` berisi username yang dapat berubah). Frontend wajib membandingkan `last_sender_id` dengan `currentUser.id` (UUID) untuk menentukan tampilan tanda centang (`✓`/`✓✓`) di sidebar.
 
 ---
 
@@ -601,18 +603,20 @@ wss://<backend-host>/ws?token=<JWT_TOKEN>&device_id=<DEVICE_ID>
 ### 4.2 Skema Message JSON Standar
 Setiap frame WebSocket dipertukarkan dalam format JSON tunggal (`Message` struct):
 
+> **🔑 UUID-First Identity Principle**: Field `from` selalu berisi **UUID immutable** (`sender_id`) yang di-*enforce* dari JWT token server. Field `nickname` hanya bersifat **display label** yang dapat berubah sewaktu-waktu. Seluruh logika otorisasi, receipt tracking, ownership check, dan perbandingan identitas di frontend **wajib menggunakan `from` (UUID)**, bukan `nickname`.
+
 | Field | Tipe Data | Keterangan |
 | :--- | :--- | :--- |
 | `id` | `string` | UUID unik pesan (wajib untuk chat baru) |
 | `type` | `string` | Tipe event (lihat daftar di bawah) |
-| `from` | `string` | Client/User ID pengirim (diisi server) |
+| `from` | `string` | **UUID immutable** pengirim (di-*enforce* dari JWT, bukan dari payload klien) |
 | `room` | `string` | ID percakapan target (misal: `direct_uuid_uuid`) |
-| `nickname` | `string` | Username/display name pengirim |
+| `nickname` | `string` | Display name / username pengirim (**hanya untuk tampilan**, bukan identifier) |
 | `content` | `string` | Teks pesan (berisi ciphertext E2EE jika terenkripsi) |
 | `timestamp` | `string` | Waktu RFC3339 UTC dari server |
 | `status` | `string` | `"pending"`, `"sent"`, `"delivered"`, `"read"` |
 | `reply_to` | `object` | Objek pesan yang dikutip: `{ id, nickname, content }` |
-| `reactions` | `array` | Daftar reaksi aktif pada pesan: `[{ emoji, users, count }]` |
+| `reactions` | `array` | Daftar reaksi aktif pada pesan: `[{ emoji, users:[uuid,...], count }]` — `users` berisi **UUID** |
 | `reaction` | `object` | Payload event toggle reaksi: `{ message_id, emoji }` |
 | `media_url` | `string` | URL berkas terlampir |
 | `media_type` | `string` | `"image"`, `"document"`, `"audio"`, `"video"` |
@@ -671,12 +675,13 @@ Daftar user yang saat ini sedang membuka room tersebut secara online (indikator 
     {
       "id": "11111111-...",
       "username": "budi123",
-      "display_name": "Budi Santoso",
-      "nickname": "budi123"
+      "display_name": "Budi Santoso"
     }
   ]
 }
 ```
+
+> **🔑 Catatan**: Identifikasi anggota di event `room_users` menggunakan field `id` (UUID), bukan `username` atau `display_name`.
 
 ---
 
@@ -754,10 +759,11 @@ Menambahkan atau menarik reaksi emoji pada pesan.
   "reactions": [
     {
       "emoji": "❤️",
-      "users": ["budi123"],
+      "users": ["11111111-uuid-budi"],
       "count": 1
     }
   ]
+}
 }
 ```
 

@@ -67,18 +67,18 @@ erDiagram
     MESSAGES {
         uuid id PK
         uuid conversation_id FK
-        uuid sender_id FK
-        varchar from_nickname
+        uuid sender_id FK "Primary identifier — UUID immutable"
+        varchar from_nickname "Display-only label (mutable, BUKAN identifier)"
         uuid reply_to_id FK "nullable for quoted message"
-        varchar reply_to_nickname "nullable"
+        varchar reply_to_nickname "Display-only label quoted msg (nullable)"
         text reply_to_content "nullable"
-        text reactions "JSON string array of emoji reactions"
+        text reactions "JSON: [{emoji, users:[uuid,...], count}] — users berisi UUID"
         varchar status "pending / sent / delivered / read"
         varchar type "text / image / video / audio / document"
         text content
         boolean is_edited
         boolean is_deleted "true if message was recalled for everyone"
-        text deleted_for_users "JSON array of user IDs who deleted message for themselves"
+        text deleted_for_users "JSON array of user UUIDs who deleted for themselves"
         timestamp created_at
         timestamp updated_at
     }
@@ -132,9 +132,15 @@ erDiagram
 ### A. Handshake Autentikasi (`/ws`)
 Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection dilakukan. Token dapat dikirimkan melalui parameter query `?token=<jwt>` atau header `Authorization: Bearer <jwt>`.
 - Jika token tidak valid atau tidak disertakan ➔ Server merespons `401 Unauthorized`.
-- Jika token valid ➔ Server melakukan upgrade ke WebSocket dan secara otomatis mengikat identitas koneksi (`ClientID` = `claims.UserID`, `Nickname` = `claims.DisplayName` / `claims.Username`) tanpa celah pemalsuan nickname.
+- Jika token valid ➔ Server melakukan upgrade ke WebSocket dan secara otomatis mengikat identitas koneksi:
+  - `ClientID` = `claims.UserID` (**UUID immutable** — digunakan sebagai primary identifier di semua logika otorisasi, receipt tracking, dan ownership check).
+  - `Nickname` = `claims.DisplayName` / `claims.Username` (hanya untuk tampilan label, **BUKAN** identifier).
+- Server **tidak pernah mempercayai** `from` atau `nickname` dari payload klien; identitas selalu di-*enforce* dari JWT claims.
 
 ### B. Format Amplop Pesan (Payload Envelope)
+
+> **🔑 UUID-First Identity Principle**: Field `from` selalu berisi **UUID immutable** (`sender_id`) pengirim yang di-*enforce* dari JWT. Field `nickname` hanya berperan sebagai display label yang dapat berubah. Semua logika otorisasi, read-receipt tracking, dan ownership check wajib menggunakan `from` (UUID), bukan `nickname`.
+
 ```json
 {
   "id": "uuid-v4-event",
@@ -150,11 +156,13 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
     "content": "Pesan yang dibalas"
   },
   "reactions": [
-    { "emoji": "❤️", "users": ["Alice"], "count": 1 }
+    { "emoji": "❤️", "users": ["uuid-user-1"], "count": 1 }
   ],
   "timestamp": "2026-09-12T03:00:00Z"
 }
 ```
+
+> **📌 Catatan `reactions.users`**: Array `users` di dalam setiap item `reactions` berisi **UUID pengguna** (bukan username/nickname). Frontend wajib membandingkan item di array ini dengan `currentUser.id` (UUID) untuk menentukan apakah user saat ini sudah memberikan reaksi tersebut.
 
 ### B. Daftar Tipe Event:
 | Event Type | Arah | Penjelasan |
@@ -166,7 +174,7 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `reaction`| Bidirectional | Toggle penambahan/penghapusan reaksi emoji pada pesan |
 | `room_users`| Server ➔ Client | Daftar anggota aktif dalam satu obrolan (presence realtime) |
 | `history` | Server ➔ Client | Pengiriman riwayat pesan persisten saat user join ke obrolan |
-| `join` | Client ➔ Server | Permintaan bergabung ke room tertentu dengan nickname/identitas |
+| `join` | Client ➔ Server | Permintaan bergabung ke room tertentu; identitas diambil dari JWT (UUID), bukan dari payload |
 | `call_offer` | Bidirectional | Sinyal WebRTC SDP Offer saat pemanggil memulai panggilan suara/video |
 | `call_answer`| Bidirectional | Sinyal WebRTC SDP Answer saat penerima menerima panggilan suara/video |
 | `ice_candidate` | Bidirectional | Pertukaran ICE candidate WebRTC untuk traversal NAT/STUN |

@@ -97,10 +97,22 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
      - Localhost hostnames (`localhost`, `*.local`)
   3. **Transport Redirect Guard**: Membatasi redirect maksimal 3 hops dan memvalidasi skema (hanya `http` & `https`).
 
-### 2.4 Anti-Spoofing Identitas Pengguna (JWT Enforcement)
+### 2.4 Anti-Spoofing Identitas Pengguna (JWT Enforcement) & UUID-First Identity
 * **Lokasi Kode**: [`backend/internal/ws/handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/handler.go) & [`backend/internal/auth/middleware.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/middleware.go)
 * **Solusi Implementasi**:
   Server tidak pernah mempercayai field `from_id` atau `nickname` yang dikirimkan oleh klien di payload JSON. Identitas pengirim selalu dipaksakan (*enforced*) dari claims token JWT yang telah diverifikasi secara kriptografis menggunakan secret key backend.
+
+  **UUID-First Architecture (Full-Stack)**:
+  Implementasi keamanan identitas diperluas ke seluruh stack (backend + frontend) dengan prinsip **UUID-first**:
+  - **Backend** (`ws/client.go`): Read receipt tracking (`MarkRoomMessagesAsRead`) menggunakan `c.ID` (UUID) bukan `c.Nickname` untuk memastikan akurasi identifikasi meskipun user mengganti `display_name`.
+  - **Backend** (`store/sql.go`): Query status pesan menggunakan `from_id` UUID sebagai filter primer, bukan `from_nickname`.
+  - **Frontend** (`MessageBubble.tsx`): Penentuan `isSelf` (apakah bubble kanan/kiri) menggunakan `msg.from === currentUser.id` (UUID), bukan perbandingan string nickname.
+  - **Frontend** (`Sidebar.tsx`): Tampilan tanda centang (`✓`/`✓✓`) di preview chat ditentukan menggunakan `conv.last_sender_id === currentUser.id` (UUID), bukan `last_sender` username.
+  - **Frontend** (`MessageBubble.tsx`): Pengecekan `hasReacted` menggunakan `users.includes(currentUser.id)` (UUID), bukan username.
+  - **Frontend** (`page.tsx`, `StatusBar.tsx`): Resolusi peer, call signaling, dan presence tracking semuanya menggunakan UUID.
+
+  **Efek Arsitektur**: Sistem kini sepenuhnya tahan terhadap skenario di mana pengguna mengubah `display_name` — tidak ada data yang rusak, tidak ada logika yang salah identifikasi, dan riwayat chat tetap bisa dibuka dengan benar.
+
 
 ### 2.5 Pencegahan Tabrakan Deterministik Room ID (Zero Collision)
 * **Lokasi Kode**: [`backend/internal/store/user_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/user_store.go)
