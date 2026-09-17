@@ -283,6 +283,22 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   2. **Strict Payload Size Bounding**: Format output berupa data URL WebP ringkas (~20–60 KB) sehingga tidak memberatkan query SQL `GetUserConversations` saat memuat banyak percakapan secara batch.
   3. **Fallback Error Isolation**: Komponen `UserAvatar.tsx` mengisolasi kegagalan pemuatan gambar (`onError`) dan seketika beralih ke inisial deterministik dengan palet warna lembut tanpa merusak tata letak antarmuka pengguna (*graceful degradation*).
 
+### 3.8 Storage Retention & Anti-Resource Exhaustion: Direct Message vs Shared Group Media
+* **Lokasi Kode**: [`backend/internal/storage/purge_worker.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/purge_worker.go) & [`backend/internal/api/media_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/media_handler.go)
+* **Tantangan Arsitektur**: Berkas media (gambar, audio, dokumen) dapat menghabiskan kuota disk server dengan cepat jika tidak dikelola dengan siklus hidup (*lifecycle*) yang tegas. Di sisi lain, pada obrolan grup dengan banyak anggota, file tidak boleh langsung dihapus saat satu orang pertama mengunduhnya.
+* **Solusi Implementasi Dual-Retention**:
+  1. **Direct Message (Immediate Store-and-Forward)**: Menggunakan pola ACK download tunggal (`POST /api/media/ack`). Begitu penerima selesai mendownload berkas ke IndexedDB lokalnya, server langsung menghapus berkas fisik dari storage ($0 server storage maintenance cost).
+  2. **Group Chat (Shared Media Hub dengan TTL 7 Hari)**: Pada obrolan grup, berkas dipertahankan di storage selama batas retensi TTL penuh (`MEDIA_RETENTION_DAYS`, default 7 hari) agar anggota lain yang online belakangan tetap dapat mengunduh. Goroutine `PurgeWorker` otomatis berjalan setiap 1 jam untuk menghapus berkas yang telah kedaluwarsa.
+  3. **Client-Side Deduplicated IndexedDB (`wuzzchat_media_db`)**: Pengguna yang sudah pernah membuka gambar otomatis menyimpan salinan blob secara lokal, membebaskan server dari pengunduhan ulang.
+
+### 3.9 Query Pagination & Memory Bounding: Limitasi 50 Pesan Awal & Cache-First IndexedDB
+* **Lokasi Kode**: [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go#L490) & [`frontend/lib/messageCache.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/messageCache.ts)
+* **Tantangan Skalabilitas**: Ketika ruang obrolan grup terakumulasi hingga ratusan ribu pesan, pengambilan riwayat tanpa batas (*unbounded query*) akan memicu lonjakan memori database, latensi jaringan berlebih, dan *DOM freeze* di browser ponsel pengguna.
+* **Solusi Implementasi**:
+  1. **Batas Riwayat Awal Server (`LIMIT 50`)**: Backend Go membatasi query riwayat saat event `join` ke 50 pesan terbaru (`ORDER BY created_at DESC LIMIT 50`), dipadukan dengan indeks komposit `idx_messages_room_created (room_id, created_at DESC)` sehingga kecepatan respons tetap konstan pada tingkat **$O(\log N)$**.
+  2. **Cache-First 0ms Load**: Klien merender pesan lokal dari IndexedDB (`wuzzchat_msg_db`) terlebih dahulu (0 milidetik), lalu menggabungkan (*upsert*) riwayat 50 pesan server di latar belakang tanpa mengunci UI pengguna.
+  3. **Cursor Pagination (Milestone 8.3 Ready)**: Akses pesan-pesan yang lebih lama pada perangkat baru dirancang melalui pagination kursor (`before_id`), memuat data secara bertahap saat pengguna men-scroll ke atas (*infinite scroll*).
+
 ---
 
 ## 🧪 4. Matriks Pengujian Otomatis & Verifikasi E2E

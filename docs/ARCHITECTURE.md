@@ -188,7 +188,9 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `call_end` | Bidirectional | Notifikasi pengakhiran panggilan oleh salah satu pihak |
 | `call_busy` | Bidirectional | Notifikasi bahwa penerima sedang sibuk dalam panggilan lain |
 
----
+> **📊 Semantik Tanda Terima (Receipts): DM vs Grup**:
+> - **Direct Message (1-on-1)**: Mengikuti alur penuh bilateral: `pending` (jam) ➔ `sent` (✓) ➔ `delivered` (✓✓ abu-abu) ➔ `read` (✓✓ Electric Neon Cyan). Laporan `read` dipancarkan seketika saat penerima membuka chat.
+> - **Obrolan Grup**: Tanda terima difokuskan pada pengiriman ke room (`sent` ✓ / `delivered` ✓✓). Untuk mencegah ledakan komputasi dan badai event (*event storm* bernilai $O(N \times M)$ pada grup beranggotakan puluhan/ratusan user), backend tidak memancarkan centang biru per-anggota pada bubble linimasa. Pelacakan detail pembacaan per-anggota dialokasikan sebagai fitur lanjutan *Message Info Drawer* di masa depan.
 
 ## 🔐 3. Standar API & Autentikasi (REST Endpoints)
 
@@ -237,6 +239,24 @@ type MediaStorage interface {
 3. **Immediate Server Purge (ACK)**: Klien mengirim `POST /api/media/ack`. Server langsung memanggil `storage.Delete()` untuk menghapus berkas fisik dari server disk/bucket ($0 Server Storage Cost).
 4. **TTL Background Auto-Purge (`PurgeWorker`)**: Berkas yang belum pernah diunduh melebihi `MEDIA_RETENTION_DAYS` (default 7 hari) otomatis dibersihkan oleh goroutine worker berkala.
 5. **Client Pre-Upload Compression**: Klien mengompresi gambar otomatis (`imageCompressor.ts`, max 1600px, WebP quality 0.82) dengan opsi toggle yang dapat dimatikan kapan saja.
+
+### 👥 Perbedaan Retensi Media: Direct Message (DM) vs Obrolan Grup
+| Parameter | Direct Message (1-on-1) | Obrolan Grup (1-to-Many) |
+| :--- | :--- | :--- |
+| **Model Distribusi** | *Store-and-Forward Transit Buffer* | *Shared Media Hub (TTL-Based)* |
+| **Trigger Hapus Fisik** | Langsung dihapus seketika saat penerima mengirimkan ACK (`POST /api/media/ack`). | **TIDAK dihapus oleh ACK orang pertama**. Berkas bertahan di server selama masa retensi TTL penuh (default 7 hari) agar anggota lain yang online belakangan tetap dapat mengunduhnya. |
+| **Penyimpanan Lokal Klien** | Tersimpan di IndexedDB browser penerima (`wuzzchat_media_db`). | Anggota yang sudah membuka media langsung meng-cache blob ke **IndexedDB lokal masing-masing**, mencegah pengunduhan ulang. |
+| **Pembersihan Server** | Segera setelah diunduh, atau maksimal 7 hari jika penerima offline lama. | Dihapus otomatis oleh `PurgeWorker` setiap 1 jam untuk berkas yang telah melampaui `MEDIA_RETENTION_DAYS` (7 hari). |
+
+### ⚡ Strategi Riwayat Pesan: Limitasi 50 Pesan Awal & Cache-First IndexedDB
+1. **Mengapa Query Membatasi 50 Pesan Terbaru (`LIMIT 50`)?**
+   - Query backend (`sql.go:490`) menggunakan klausa `ORDER BY created_at DESC LIMIT 50` yang memanfaatkan indeks komposit `idx_messages_room_created (room_id, created_at DESC)`.
+   - Hal ini menjamin performa query selalu berada pada kompleksitas **$O(\log N)$** terlepas dari apakah room memiliki 1.000 atau 1.000.000 baris pesan.
+   - Menghemat kuota transfer data pengguna dan mencegah konsumsi memori browser (*DOM node bloat*) yang dapat menyebabkan browser ponsel lag/freeze jika merender puluhan ribu pesan sekaligus.
+2. **Kontinuitas Pembacaan Offline & Riwayat Lengkap**:
+   - **IndexedDB Decrypted Store (`wuzzchat_msg_db`)**: Pesan yang pernah diterima perangkat disimpan secara persisten di database browser lokal. Saat room dibuka, linimasa langsung tampil instan (0ms) dari IndexedDB lokal sebelum respons server tiba (*Cache-First*).
+   - **Sinkronisasi Upsert**: Riwayat 50 pesan terkini dari server digabungkan (*upsert*) dengan cache lokal untuk mengisi kekosongan pesan baru yang masuk saat user offline.
+   - **Rencana Pagination / Infinite Scroll (Milestone 8.3)**: Untuk mengambil pesan yang lebih lama dari 50 pesan terkini pada perangkat baru, klien akan memanggil pagination berbasis kursor (`before_id`), memuat pesan lama secara bertahap saat pengguna men-scroll linimasa ke atas.
 
 ### 🚀 Cara Menambah Provider Storage Baru (Misal: AWS S3 / Cloudflare R2 / GCS):
 
