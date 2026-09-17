@@ -258,12 +258,13 @@ Membangun platform chatting modern yang:
   - **Manajemen & Drawer Info Grup (`GroupInfoDrawer.tsx`)**: Drawer profil grup, daftar anggota dengan role/verified badge, RBAC hierarkis (`creator`, `admin`, `member`), promosi/demosi admin, kick anggota, edit profil grup, dan leave group dengan konfirmasi aman.
   - **Header & Linimasa Dinamis**: `StatusBar.tsx` terintegrasi info grup, lencana publik/privat, hitungan anggota, tombol info grup; `MessageBubble.tsx` menampilkan nama pengirim dengan aksen warna unik deterministik per user.
   - **Bypass E2EE Fail-Closed**: Pesan grup beroperasi via secure server-relayed TLS transit dengan skema database siap-upgrade ke Signal Sender Keys di masa mendatang tanpa breaking changes.
+  - **Arsitektur Media & Tanda Terima Grup**: Retensi media grup berbasis TTL 7 hari di server (tanpa penghapusan pada ACK pertama agar seluruh anggota dapat mengunduh), client deduplication di `wuzzchat_media_db`, dan status tanda terima pengiriman room (`sent`/`delivered`).
   - **REST API Suite Lengkap (9 Endpoint)**: `POST /api/groups`, `GET /api/groups/search`, `GET /api/groups/{id}`, `POST /api/groups/{id}/join`, `GET /api/groups/{id}/members`, `POST /api/groups/{id}/members`, `DELETE /api/groups/{id}/members/{userId}`, `PATCH /api/groups/{id}/members/{userId}/role`, `PATCH /api/groups/{id}`.
 - 🎯 **Milestone 8.2B: Ephemeral Sub-Groups & TTL Auto-Purge Worker (NEXT)**:
   - Mini grup diskusi bertopik di dalam grup induk (`parent_id`) dengan masa kedaluwarsa otomatis (`expires_at` default 1 minggu/1 bulan).
   - Background purge worker untuk membersihkan sub-grup yang telah kedaluwarsa.
 - ⏳ **Milestone 8.3: Message Management Suite**:
-  - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, dan in-chat text search.
+  - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, in-chat text search, dan **Infinite Scroll Cursor Pagination** (`before_id`) melengkapi batas 50 pesan awal server.
 - 🔮 **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` via Redis Pub/Sub)**:
   - *Tujuan*: Sinkronisasi pergantian sesi perangkat aktif lintas-mesin container Fly.io (multi-node cluster).
   - *Mekanisme*: Saat pengguna login di Instance A dengan `device_id` baru, broadcast event `session_replaced` ke channel Redis `wuzz:cluster:events` agar Instance B yang menampung koneksi soket lama langsung menendang soket tersebut dengan Close Code 4001 (`SESSION_REPLACED`).

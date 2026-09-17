@@ -851,7 +851,7 @@ Mengabarkan server bahwa user membuka ruang percakapan tertentu. Server otomatis
 ---
 
 #### 2. `history` (Server ➔ Client)
-Dikirim otomatis oleh server setelah event `join` berhasil. Berisi daftar 50 pesan terakhir dari database.
+Dikirim otomatis oleh server setelah event `join` berhasil. Berisi daftar 50 pesan terakhir dari database (`ORDER BY created_at DESC LIMIT 50`) yang berjalan dengan performa tinggi $O(\log N)$ berkat indeks komposit. Klien modern (Next.js) memadukan 50 pesan server ini dengan IndexedDB lokal (`wuzzchat_msg_db`) yang sudah tampil seketika (0ms *Cache-First*).
 ```json
 {
   "type": "history",
@@ -939,6 +939,10 @@ Memperbarui tanda terima centang pesan.
 }
 ```
 *(Nilai status: `"sent"`, `"delivered"`, `"read"`)*.
+
+> **💡 Semantik Tanda Terima: DM vs Grup**:
+> - **Pada Direct Message**: Mendukung status penuh: `sent` (✓), `delivered` (✓✓ abu-abu), dan `read` (✓✓ biru neon saat lawan bicara membuka room).
+> - **Pada Obrolan Grup**: Status tanda terima difokuskan pada pengiriman ke room (`sent` / `delivered`). Backend saat ini tidak menyiarkan centang biru per-anggota individu ke linimasa guna mencegah kelebihan beban event broadcast $O(N \times M)$ pada grup beranggotakan puluhan orang.
 
 ---
 
@@ -1074,10 +1078,11 @@ e2ee:v1:<base64_iv>:<base64_ciphertext>
 
 ---
 
-## 6. Siklus Hidup Media (Store-and-Forward)
+## 6. Siklus Hidup Media (Store-and-Forward & Shared Group Media)
 
-Untuk menghemat kuota server dan menjamin privasi, file media mengikuti pola **WhatsApp Store-and-Forward**:
+Untuk menghemat kuota server dan menjamin privasi, file media mengikuti dua model distribusi tergantung tipe percakapan:
 
+### 6.1 Direct Message (1-on-1): WhatsApp Store-and-Forward
 ```
 [ Pengirim ] ➔ (1. POST /api/media/upload) ➔ [ Backend Storage ]
      |                                               |
@@ -1090,11 +1095,21 @@ Untuk menghemat kuota server dan menjamin privasi, file media mengikuti pola **W
                                             Status: 'downloaded'
 ```
 
-1. **Upload**: Pengirim mengunggah file ke `POST /api/media/upload` dan memperoleh `url`.
+1. **Upload**: Pengirim mengunggah file ke `POST /api/media/upload` dan memperoleh URL transit.
 2. **Dispatch**: Pengirim mengirim pesan chat WebSocket dengan mengisi field `media_url`, `media_type`, `file_name`, dan `file_size`.
-3. **Receive & ACK**: Begitu aplikasi penerima selesai mengunduh atau menampilkan gambar, klien penerima wajib memanggil `POST /api/media/ack` membawa `message_id`.
-4. **Auto-Purge**: Backend langsung menghapus berkas dari disk/bucket dan menandai `media_status = 'downloaded'`.
-5. **TTL Cleanup**: Jika penerima offline selama > 7 hari (nilai default `MEDIA_RETENTION_DAYS`), background worker backend akan secara otomatis membersihkan file tersebut dan mengubah statusnya menjadi `'expired'`.
+3. **Receive & ACK**: Begitu aplikasi penerima selesai mengunduh atau menampilkan gambar, klien penerima memanggil `POST /api/media/ack` membawa `message_id`.
+4. **Immediate Auto-Purge**: Backend langsung menghapus berkas fisik dari storage dan menandai `media_status = 'downloaded'`. Berkas tetap dapat dilihat oleh kedua pihak karena sudah tersimpan di browser IndexedDB masing-masing (`wuzzchat_media_db`).
+5. **TTL Fallback Cleanup**: Jika penerima tidak online selama > 7 hari (nilai default `MEDIA_RETENTION_DAYS`), background worker backend (`PurgeWorker`) yang berjalan setiap 1 jam akan secara otomatis membersihkan file tersebut dan mengubah statusnya menjadi `'expired'`.
+
+### 6.2 Obrolan Grup (1-to-Many): Shared Media Hub
+Pada obrolan grup dengan banyak anggota, berkas media **TIDAK BOLEH dihapus seketika saat orang pertama mengunduh**. Jika dihapus pada ACK pertama, anggota lain yang baru membuka obrolan belakangan akan mengalami kegagalan unduh (*Error 404/410 Expired*).
+
+| Parameter | Direct Message (1-on-1) | Obrolan Grup (1-to-Many) |
+| :--- | :--- | :--- |
+| **Model Distribusi** | *Store-and-Forward Transit Buffer* | *Shared Media Hub (TTL-Based)* |
+| **Trigger Hapus Fisik** | Langsung dihapus saat penerima memanggil `POST /api/media/ack`. | **Bertahan di server selama masa retensi TTL penuh** (default 7 hari). |
+| **Penyimpanan Lokal Klien**| Disimpan di IndexedDB penerima (`wuzzchat_media_db`). | Anggota yang sudah membuka media langsung meng-cache blob ke **IndexedDB lokal masing-masing**, mencegah download ulang. |
+| **Pembersihan Server** | Segera setelah diunduh, atau maksimal 7 hari jika penerima offline lama. | Dihapus otomatis oleh `PurgeWorker` setiap 1 jam setelah file melampaui `MEDIA_RETENTION_DAYS` (7 hari). |
 
 ---
 

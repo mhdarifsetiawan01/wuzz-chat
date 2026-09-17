@@ -720,5 +720,8 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 - [x] Kompatibilitas Dual-Platform: Desktop split mode & Mobile single-screen mode
 - [x] Proteksi slow/flaky server: `AbortController` 15 detik, disabled state tombol aksi, write-through offline cache
 - [x] UI/UX Audit & Polish: Tampilan modal "+ Grup" (`CreateGroupModal.tsx`) dan "Info Grup" (`GroupInfoDrawer.tsx`) distandarisasi ke sistem desain Aurora Glassmorphic (fixed backdrop overlay `z-index: 1050`, modalScaleIn animation, dark form inputs, `.btn-secondary`, dan mobile bottom-sheet adaptation)
+- [x] Dokumentasi Arsitektur Retensi Media Grup: Model Shared Media Hub berbasis TTL 7 hari di server (tanpa auto-delete saat first download ACK) dipadukan dengan auto-caching IndexedDB `wuzzchat_media_db` lokal
+- [x] Dokumentasi Arsitektur Riwayat Pesan $O(\log N)$: Limitasi 50 pesan awal server via indeks komposit dipadukan dengan Cache-First load IndexedDB `wuzzchat_msg_db` dan rencana cursor pagination (Milestone 8.3)
+- [x] Dokumentasi Semantik Tanda Terima Grup: Status `sent` / `delivered` ke room (pencegahan event storm tanpa tracking read per-anggota individu pada linimasa)
 
 

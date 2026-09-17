@@ -303,6 +303,17 @@ Aplikasi mobile Wuzz Chat menghemat kuota server dan penyimpanan cloud dengan ar
      Server memverifikasi keanggotaan room pemanggil (Anti-IDOR) sebelum menghapus file fisik di storage.
    - UI obrolan selanjutnya membaca berkas langsung dari media lokal perangkat (dapat dibuka selamanya bahkan saat offline).
 
+### 👥 Aturan Khusus Media pada Obrolan Grup (Group Rooms):
+- Pada room bertipe grup (`grp_*`), klien mobile **TIDAK MENGIRIM ACK penghapusan seketika**, karena berkas dibutuhkan oleh anggota grup lainnya.
+- Berkas grup dipertahankan di server selama **TTL 7 hari** (`MEDIA_RETENTION_DAYS`), lalu dibersihkan otomatis oleh worker backend.
+- Klien mobile wajib segera menyimpan berkas grup ke internal storage perangkat (Room / Scoped Storage) saat pertama kali dibuka, sehingga berkas tetap dapat diakses selamanya di HP pengguna meskipun sudah kedaluwarsa di server.
+
+### ⚡ Strategi Riwayat Pesan Mobile: 50 Pesan Awal & Local SQLite (Cache-First):
+1. **Initial History Limit (50 Pesan)**: Saat mengirim event `join`, backend membalas dengan 50 pesan terkini (`LIMIT 50`) berkat indeks $O(\log N)$.
+2. **Local Storage First**: Sebelum respons server tiba, aplikasi mobile wajib memuat pesan lokal terlebih dahulu dari SQLite lokal (Room di Android / CoreData atau SwiftData di iOS) agar obrolan terbuka dalam 0 milidetik.
+3. **Upsert Sinkronisasi**: 50 pesan server digabungkan ke database lokal HP untuk pesan yang masuk saat offline.
+4. **Infinite Scroll**: Implementasikan scrolling ke atas dengan kursor pagination pesan lama untuk mengunduh pesan historis secara bertahap.
+
 ---
 
 ## 📹 5. Kesiapan Panggilan Suara & Video (WebRTC Calling)
