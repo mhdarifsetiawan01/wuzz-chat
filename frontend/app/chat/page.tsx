@@ -1389,14 +1389,13 @@ function ChatPageContent() {
       dispatch({ type: 'SET_ROOM_USERS', payload: [] })
       roomAESKeyRef.current = null
       activePeerRef.current = null
-      if (typeof window !== 'undefined') {
-        window.history.pushState(null, '', '/chat')
-      }
-      router.push('/chat')
+      // Gunakan router.replace saat kembali ke home agar tidak menambah entry history.
+      // Ini memastikan tombol Back langsung keluar dari halaman /chat, bukan looping balik ke home.
+      router.replace('/chat')
     } else {
-      if (typeof window !== 'undefined') {
-        window.history.pushState(null, '', `/chat?room=${encodeURIComponent(newRoomId)}`)
-      }
+      // Gunakan router.push saat masuk ke room agar satu entry history = satu room.
+      // JANGAN gunakan window.history.pushState bersamaan dengan router.push —
+      // itu menyebabkan double-entry di history stack sehingga Back harus ditekan 2x.
       router.push(`/chat?room=${encodeURIComponent(newRoomId)}`)
     }
   }
