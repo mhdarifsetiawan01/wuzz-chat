@@ -195,6 +195,15 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **JWT Runtime Warning** (`backend/internal/auth/jwt.go`): Guard `sync.Once` mencatat warning kritis ke log jika environment variable `JWT_SECRET` tidak di-set, mencegah produksi berjalan dengan secret kosong.
   - **Test Coverage**: `validator_test.go` (33 unit test cases) & `auth_register_test.go` (11 integration test cases) - 100% pass.
 
+### 2.14 Group RBAC & Boundary Access Control Enforcement (Milestone 8.2A)
+* **Lokasi Kode**: [`backend/internal/store/group_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/group_store.go) & [`backend/internal/api/group_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/group_handler.go)
+* **Prinsip Keamanan & Otorisasi RBAC**:
+  - **Hierarki Peran Ketat**: `creator` (pembuat grup mutlak), `admin` (pengelola grup), `member` (anggota biasa).
+  - **Creator Protection**: Creator tidak dapat di-kick atau diubah perannya oleh siapapun (termasuk sesama admin). Creator tidak dapat keluar dari grup sembarangan tanpa membubarkan atau mentransfer grup.
+  - **Admin Boundary**: Admin hanya dapat meng-kick anggota dengan peran `member`, dilarang meng-kick sesama admin atau creator.
+  - **Public vs Private Guard**: Endpoint `/api/groups/{id}/join` memvalidasi status `is_public` di database secara langsung. Upaya `POST /join` ke grup privat ditolak keras dengan status HTTP 403 Forbidden.
+  - **Atomic Transaction Isolation**: Seluruh operasi grup (`CreateGroup`, `AddGroupMembers`, `RemoveGroupMember`) dibungkus dalam `*sql.Tx` atomik guna mencegah *dangling members* atau korupsi hitungan anggota jika terjadi kegagalan jaringan di tengah jalan.
+
 ---
 
 
@@ -219,7 +228,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 * **Masalah Sebelumnya**: Pada user yang memiliki 50 obrolan aktif, endpoint memicu $1 + 3(50) = 151$ kueri SQL individual ke database secara berulang.
 * **Solusi $O(1)$ Batched CTE**:
   Direfaktor menjadi **tepat 3 kueri database independen** menggunakan fitur canggih SQL standar (didukung penuh di PostgreSQL & SQLite 3.25+):
-  1. **Query 1 (Percakapan & Data Lawan Bicara)**: Menggabungkan data room dan peer user dalam 1 kueri dengan `LEFT JOIN`.
+  1. **Query 1 (Percakapan & Data Lawan Bicara)**: Menggabungkan data room dan peer user dalam 1 kueri dengan `LEFT JOIN`, dan memfilter `WHERE (c.parent_id IS NULL OR c.parent_id = '')` agar sub-grup tidak membebani linimasa utama.
   2. **Query 2 (Pesan Terakhir & Snippet Media)**: Menggunakan Common Table Expressions (CTE) dan *Window Function* `ROW_NUMBER() OVER (PARTITION BY m.room_id ORDER BY m.created_at DESC)` untuk mengambil pesan terakhir seluruh room sekaligus dalam 1 trip.
   3. **Query 3 (Unread Badge Counter)**: Menggunakan agregasi `GROUP BY m.room_id` untuk menghitung pesan belum dibaca secara massal.
 * **Dampak**: Menghemat **98% konsumsi koneksi database** dan memangkas waktu respon API hingga **< 15ms**.
@@ -229,6 +238,9 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 * **Indeks yang Diterapkan**:
   - `idx_conv_members_user ON conversation_members(user_id)`: Mempercepat lookup daftar room milik user.
   - `idx_conv_members_conv ON conversation_members(conversation_id)`: Mempercepat lookup anggota dalam room.
+  - `idx_conv_members_role ON conversation_members(conversation_id, role)`: Mempercepat lookup role admin/creator di dalam grup.
+  - `idx_conv_parent ON conversations(parent_id)`: Mengoptimalkan pemisahan sub-grup dari daftar obrolan utama.
+  - `idx_conv_public ON conversations(is_public)`: Mempercepat pencarian publik grup pada endpoint `/api/groups/search`.
   - `idx_messages_room_time ON messages(room_id, created_at)`: Mempercepat pagination riwayat obrolan linimasa.
   - `idx_messages_unread ON messages(room_id, status)`: Mengoptimalkan filter badge unread tanpa full-table scan.
   - `idx_messages_to_status ON messages(to_id, status)`: Mempercepat sinkronisasi delivery receipts global saat user online.

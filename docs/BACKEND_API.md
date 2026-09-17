@@ -19,6 +19,7 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
    - [Push Notifications (Web Push VAPID)](#37-push-notifications-web-push-vapid)
    - [E2EE Device Key Transfer (QR Code)](#38-e2ee-device-key-transfer-qr-code)
    - [Health Check](#39-health-check)
+   - [Manajemen Grup & Discovery](#310-manajemen-grup--discovery)
 4. [Protokol WebSocket & Event Catalog](#4-protokol-websocket--event-catalog)
 5. [Spesifikasi Standar E2EE (End-to-End Encryption)](#5-spesifikasi-standar-e2ee-end-to-end-encryption)
 6. [Siklus Hidup Media (Store-and-Forward)](#6-siklus-hidup-media-store-and-forward)
@@ -568,6 +569,212 @@ Liveness dan readiness probe untuk load balancer / orchestrator (Fly.io).
   {
     "status": "ok",
     "time": "2026-09-16T12:00:00Z"
+  }
+  ```
+
+---
+
+### 3.10 Manajemen Grup & Discovery
+
+Layanan REST API lengkap untuk mengelola percakapan grup multi-anggota (Milestone 8.2A). Identitas grup menggunakan format `grp_<UUIDv4>` pada kolom `conversations.id`.
+
+#### 24. `POST /api/groups`
+Membuat grup percakapan baru. Pembuat grup otomatis menjadi anggota dengan role `creator`.
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "title": "Tim Engineering Wuzz",
+    "description": "Grup diskusi teknis & backend engineering",
+    "avatar_url": "👥",
+    "is_public": false,
+    "group_username": "wuzz_engineering",
+    "member_ids": ["uuid-user-bob", "uuid-user-charlie"]
+  }
+  ```
+  *(Catatan: `group_username` hanya opsional jika grup privat, namun disarankan jika grup publik. Wajib diawali huruf/angka, 3-30 karakter).*
+- **Success Response (201 Created)**:
+  ```json
+  {
+    "group": {
+      "id": "grp_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "title": "Tim Engineering Wuzz",
+      "description": "Grup diskusi teknis & backend engineering",
+      "avatar_url": "👥",
+      "is_public": false,
+      "group_username": "wuzz_engineering",
+      "parent_id": null,
+      "created_by": "uuid-user-alice",
+      "created_at": "2026-09-17T12:00:00Z",
+      "updated_at": "2026-09-17T12:00:00Z",
+      "member_count": 3,
+      "my_role": "creator"
+    }
+  }
+  ```
+
+---
+
+#### 25. `GET /api/groups/search?q={query}&limit=20`
+Mencari grup dengan status publik (`is_public = true`) berdasarkan nama atau `@group_username`.
+- **Autentikasi**: `Bearer <token>`
+- **Query Params**:
+  - `q` (*wajib*): Kata kunci pencarian nama atau username grup.
+  - `limit` (*opsional*): Jumlah hasil (default 20, max 50).
+- **Success Response (200 OK)**:
+  ```json
+  [
+    {
+      "id": "grp_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "title": "Komunitas Pengembang Wuzz",
+      "description": "Tempat sharing open source Wuzz Chat",
+      "avatar_url": "🌐",
+      "is_public": true,
+      "group_username": "wuzz_community",
+      "member_count": 42
+    }
+  ]
+  ```
+
+---
+
+#### 26. `GET /api/groups/{id}`
+Mengambil informasi detail grup. Dapat diakses oleh anggota grup, atau siapapun jika grup bertipe publik.
+- **Autentikasi**: `Bearer <token>`
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "id": "grp_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "title": "Tim Engineering Wuzz",
+    "description": "Grup diskusi teknis & backend engineering",
+    "avatar_url": "👥",
+    "is_public": false,
+    "group_username": "wuzz_engineering",
+    "parent_id": null,
+    "created_by": "uuid-user-alice",
+    "created_at": "2026-09-17T12:00:00Z",
+    "updated_at": "2026-09-17T12:00:00Z",
+    "member_count": 3,
+    "my_role": "creator"
+  }
+  ```
+
+---
+
+#### 27. `POST /api/groups/{id}/join`
+Bergabung ke grup publik secara mandiri (*self-join*). Ditolak (403 Forbidden) jika grup privat.
+- **Autentikasi**: `Bearer <token>`
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "success",
+    "message": "Berhasil bergabung ke grup"
+  }
+  ```
+
+---
+
+#### 28. `GET /api/groups/{id}/members`
+Mengambil daftar anggota grup beserta peran (`creator`, `admin`, `member`) dan status verified badge.
+- **Autentikasi**: `Bearer <token>` (wajib anggota grup)
+- **Success Response (200 OK)**:
+  ```json
+  [
+    {
+      "user_id": "uuid-alice",
+      "username": "alice",
+      "display_name": "Alice Developer",
+      "avatar_url": "https://...",
+      "role": "creator",
+      "is_verified": true,
+      "joined_at": "2026-09-17T12:00:00Z"
+    },
+    {
+      "user_id": "uuid-bob",
+      "username": "bob",
+      "display_name": "Bob Admin",
+      "avatar_url": "",
+      "role": "admin",
+      "is_verified": false,
+      "joined_at": "2026-09-17T12:05:00Z"
+    }
+  ]
+  ```
+
+---
+
+#### 29. `POST /api/groups/{id}/members`
+Menambahkan anggota baru ke grup. Hanya dapat dijalankan oleh `creator` atau `admin`.
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "member_ids": ["uuid-user-david", "uuid-user-eva"]
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "success",
+    "added_count": 2
+  }
+  ```
+
+---
+
+#### 30. `DELETE /api/groups/{id}/members/{userId}`
+Mengeluarkan anggota dari grup (*kick*), atau keluar dari grup (*leave group* jika `userId == currentUserID`).
+- **Autentikasi**: `Bearer <token>`
+- **Hak Akses**:
+  - Anggota biasa dapat mengeluarkan dirinya sendiri (*leave*).
+  - Admin/Creator dapat mengeluarkan anggota biasa.
+  - Creator tidak dapat di-kick oleh siapapun.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "success",
+    "message": "Anggota berhasil dikeluarkan dari grup"
+  }
+  ```
+
+---
+
+#### 31. `PATCH /api/groups/{id}/members/{userId}/role`
+Mengubah peran anggota (promosi ke `admin` atau demosi ke `member`).
+- **Autentikasi**: `Bearer <token>` (hanya `creator` grup)
+- **Request Body**:
+  ```json
+  {
+    "role": "admin"
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "success",
+    "message": "Peran anggota berhasil diperbarui"
+  }
+  ```
+
+---
+
+#### 32. `PATCH /api/groups/{id}`
+Memperbarui metadata grup (judul, deskripsi, avatar, atau visibilitas publik/privat).
+- **Autentikasi**: `Bearer <token>` (hanya `creator` atau `admin`)
+- **Request Body**:
+  ```json
+  {
+    "title": "Tim Engineering Wuzz (Official)",
+    "description": "Deskripsi grup yang diperbarui",
+    "avatar_url": "🚀",
+    "is_public": true
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "success",
+    "message": "Informasi grup berhasil diperbarui"
   }
   ```
 

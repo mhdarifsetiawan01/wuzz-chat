@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { ConnectionStatus, SessionInfo, RoomUser } from '@/lib/types'
+import type { ConnectionStatus, SessionInfo, RoomUser, GroupDetails } from '@/lib/types'
 import { soundManager } from '@/lib/sound'
 import { ContactProfileModal } from './ContactProfileModal'
 import { SafetyNumberModal } from './SafetyNumberModal'
@@ -21,6 +21,9 @@ interface StatusBarProps {
   typingNickname?: string | null
   currentUserId?: string
   peerPublicKeyJWK?: string
+  isGroup?: boolean
+  groupDetails?: GroupDetails | null
+  onOpenGroupInfo?: () => void
   onOpenMemberList: () => void
   onBack?: () => void
   onStartAudioCall?: () => void
@@ -46,6 +49,9 @@ export function StatusBar({
   typingNickname = null,
   currentUserId = '',
   peerPublicKeyJWK = '',
+  isGroup = false,
+  groupDetails = null,
+  onOpenGroupInfo,
   onOpenMemberList,
   onBack,
   onStartAudioCall,
@@ -71,16 +77,18 @@ export function StatusBar({
     }
   }
 
-  const isDirectChat = roomId.startsWith('dm_') || !roomId.startsWith('room-')
+  const isGroupChat = Boolean(isGroup || roomId.startsWith('grp_') || roomId.startsWith('room-'))
+  const isDirectChat = !isGroupChat && (roomId.startsWith('dm_') || !roomId.startsWith('room-'))
   const isPeerOnline = roomUsers.some(u => 
     (peerUserId && u.id === peerUserId) || 
     (session && u.id !== session.clientId) || 
     Boolean(peerNickname && u.nickname === peerNickname)
   )
-  const peerName = (peerNickname && peerNickname.trim())
-    ? peerNickname
-    : (isDirectChat ? 'Memuat kontak...' : (roomId.startsWith('room-') ? `Grup ${roomId.replace('room-', '')}` : roomId))
-  const initial = (peerName && peerName.trim() ? peerName.trim()[0] : '#').toUpperCase()
+  const peerName = (groupDetails?.title || groupDetails?.name)
+    ? (groupDetails.title || groupDetails.name)!
+    : (peerNickname && peerNickname.trim())
+      ? peerNickname
+      : (isDirectChat ? 'Memuat kontak...' : (roomId.startsWith('room-') ? `Grup ${roomId.replace('room-', '')}` : 'Grup'))
 
   return (
     <>
@@ -101,10 +109,12 @@ export function StatusBar({
             </button>
           )}
 
-          {/* Avatar & Name — Klik untuk melihat profil jika direct chat */}
+          {/* Avatar & Name — Klik untuk melihat profil jika DM, atau info grup jika grup */}
           <div
             onClick={() => {
-              if (isDirectChat && peerNickname) {
+              if (isGroupChat && onOpenGroupInfo) {
+                onOpenGroupInfo()
+              } else if (isDirectChat && peerNickname) {
                 setIsContactModalOpen(true)
               }
             }}
@@ -112,15 +122,21 @@ export function StatusBar({
               display: 'flex',
               alignItems: 'center',
               gap: 'var(--space-3)',
-              cursor: (isDirectChat && peerNickname) ? 'pointer' : 'default',
+              cursor: (isGroupChat && onOpenGroupInfo) || (isDirectChat && peerNickname) ? 'pointer' : 'default',
               minWidth: 0,
             }}
-            title={isDirectChat && peerNickname ? 'Klik untuk melihat profil lengkap kontak ini' : undefined}
+            title={
+              isGroupChat
+                ? 'Klik untuk melihat info & anggota grup'
+                : isDirectChat && peerNickname
+                  ? 'Klik untuk melihat profil lengkap kontak ini'
+                  : undefined
+            }
           >
             <UserAvatar
-              avatarUrl={peerAvatarUrl}
+              avatarUrl={isGroupChat ? (groupDetails?.avatar_url || '') : peerAvatarUrl}
               name={peerName}
-              id={peerUserId}
+              id={isGroupChat ? roomId : peerUserId}
               size={36}
               fontSize="1rem"
               isOnline={isDirectChat ? isPeerOnline : undefined}
@@ -129,7 +145,15 @@ export function StatusBar({
             <div className="status-info">
               <span className="status-name" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 {peerName}
-                {peerIsVerified && <VerifiedBadge size={14} />}
+                {isGroupChat ? (
+                  groupDetails?.is_public ? (
+                    <span title="Grup Publik" style={{ fontSize: '0.8rem' }}>🌐</span>
+                  ) : (
+                    <span title="Grup Privat (Wuzz Cloud)" style={{ fontSize: '0.8rem' }}>🔒</span>
+                  )
+                ) : (
+                  peerIsVerified && <VerifiedBadge size={14} />
+                )}
               </span>
               <div className="status-sub">
                 {isPeerTyping ? (
@@ -140,6 +164,10 @@ export function StatusBar({
                   <span style={{ color: isPeerOnline ? 'var(--accent-400)' : 'var(--text-muted)' }}>
                     {isPeerOnline ? 'online' : 'offline'}
                   </span>
+                ) : isGroupChat ? (
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {groupDetails?.is_public ? '🌐 Grup Publik' : '🔒 Wuzz Cloud'} • {groupDetails?.member_count ?? roomUsers.length} anggota
+                  </span>
                 ) : (
                   <span>{roomUsers.length} anggota</span>
                 )}
@@ -149,8 +177,37 @@ export function StatusBar({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Untuk Grup: Tombol Salin Link & Anggota */}
-          {!isDirectChat && roomId && (
+          {/* Untuk Grup: Tombol Info Grup & Salin Link */}
+          {isGroupChat && (
+            <>
+              {onOpenGroupInfo && (
+                <button
+                  type="button"
+                  onClick={onOpenGroupInfo}
+                  className="status-btn"
+                  title="Lihat info & anggota grup"
+                  aria-label="Info Grup"
+                  style={{ fontSize: '0.75rem', padding: '5px 9px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <span>ℹ️</span> <span>Info</span>
+                </button>
+              )}
+              {roomId && (
+                <button
+                  type="button"
+                  onClick={copyRoomLink}
+                  className="status-btn"
+                  title="Salin link room ini"
+                  style={{ fontSize: '0.75rem', padding: '5px 9px' }}
+                >
+                  {copied ? '✓ Tersalin' : '📋 Link'}
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Untuk legacy room */}
+          {!isDirectChat && !isGroupChat && roomId && (
             <>
               <button
                 type="button"

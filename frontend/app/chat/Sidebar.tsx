@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
-import type { Message, User, ConversationItem } from '@/lib/types'
+import type { Message, User, ConversationItem, GroupDetails } from '@/lib/types'
 import { ProfileModal } from './ProfileModal'
+import CreateGroupModal from './CreateGroupModal'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { isEncryptedMessage, decryptText } from '@/lib/crypto/e2ee'
 import { getSharedRoomAESKey, cachePeerPublicKey, getCachedPeerPublicKey } from '@/lib/crypto/keyStore'
@@ -67,9 +68,11 @@ export function Sidebar({
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'groups' | 'direct'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<User[]>([])
+  const [publicGroupResults, setPublicGroupResults] = useState<GroupDetails[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false)
   const [confirmDeleteConv, setConfirmDeleteConv] = useState<ConversationItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<any>(null)
@@ -506,12 +509,20 @@ export function Sidebar({
 
     setIsSearching(true)
     searchDebounceRef.current = setTimeout(async () => {
-      const { data, error } = await apiRequest<User[]>(`/api/users/search?q=${encodeURIComponent(trimmed)}`)
+      const [userRes, groupRes] = await Promise.all([
+        apiRequest<User[]>(`/api/users/search?q=${encodeURIComponent(trimmed)}`),
+        apiRequest<GroupDetails[]>(`/api/groups/search?q=${encodeURIComponent(trimmed)}`),
+      ])
       setIsSearching(false)
-      if (data) {
-        setSearchResults(Array.isArray(data) ? data : [])
-      } else if (error) {
-        setSearchError(error)
+      if (userRes.data) {
+        setSearchResults(Array.isArray(userRes.data) ? userRes.data : [])
+      } else if (userRes.error) {
+        setSearchError(userRes.error)
+      }
+      if (groupRes.data && Array.isArray(groupRes.data)) {
+        setPublicGroupResults(groupRes.data)
+      } else {
+        setPublicGroupResults([])
       }
     }, 300)
   }
@@ -527,12 +538,48 @@ export function Sidebar({
       setSearchQuery('')
       setIsSearching(false)
       setSearchResults([])
+      setPublicGroupResults([])
       await loadConversations()
       onSelectRoom(data.room_id)
       if (onCloseMobile) onCloseMobile()
     } else if (error) {
       alert(error)
     }
+  }
+
+  // Self-join ke grup publik hasil pencarian
+  const handleJoinPublicGroup = async (group: GroupDetails) => {
+    const { error } = await apiRequest<{ success: boolean }>(`/api/groups/${group.id}/join`, {
+      method: 'POST',
+    })
+    if (!error) {
+      setSearchQuery('')
+      setIsSearching(false)
+      setSearchResults([])
+      setPublicGroupResults([])
+      await loadConversations()
+      onSelectRoom(group.id)
+      if (onCloseMobile) onCloseMobile()
+    } else {
+      alert(error)
+    }
+  }
+
+  // Daftar kontak percakapan langsung terkini
+  const recentContacts: User[] = conversations
+    .filter(c => c.type === 'direct' && c.peer_id)
+    .map(c => ({
+      id: c.peer_id!,
+      username: c.peer_nickname || c.title,
+      display_name: c.peer_nickname || c.title,
+      avatar_url: c.peer_avatar_url,
+      is_verified: c.peer_is_verified,
+    }))
+
+  const handleGroupCreated = async (newGroup: GroupDetails) => {
+    await loadConversations()
+    onSelectRoom(newGroup.id)
+    if (onCloseMobile) onCloseMobile()
   }
 
   // Filter percakapan berdasarkan tab aktif (Semua, Belum Dibaca, Langsung, Grup)
@@ -658,39 +705,63 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Filter Pills WhatsApp Style */}
+      {/* Filter Pills WhatsApp Style & Tombol Buat Grup */}
       {!isSearchActive && (
-        <div className="sidebar-filter-pills">
+        <div className="sidebar-filter-pills" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', flex: 1, paddingBottom: 2 }}>
+            <button
+              type="button"
+              className={`filter-pill ${activeFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('all')}
+            >
+              Semua
+            </button>
+            <button
+              type="button"
+              className={`filter-pill ${activeFilter === 'unread' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('unread')}
+            >
+              Belum Dibaca
+              {totalUnread > 0 && (
+                <span className="filter-pill-badge">{totalUnread}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              className={`filter-pill ${activeFilter === 'direct' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('direct')}
+            >
+              Langsung
+            </button>
+            <button
+              type="button"
+              className={`filter-pill ${activeFilter === 'groups' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('groups')}
+            >
+              Grup
+            </button>
+          </div>
           <button
             type="button"
-            className={`filter-pill ${activeFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('all')}
+            className="filter-pill"
+            onClick={() => setIsCreateGroupOpen(true)}
+            title="Buat Grup Obrolan Baru"
+            style={{
+              background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: '0.8rem',
+              padding: '6px 12px',
+              borderRadius: 20,
+              border: 'none',
+              cursor: 'pointer',
+              flexShrink: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4
+            }}
           >
-            Semua
-          </button>
-          <button
-            type="button"
-            className={`filter-pill ${activeFilter === 'unread' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('unread')}
-          >
-            Belum Dibaca
-            {totalUnread > 0 && (
-              <span className="filter-pill-badge">{totalUnread}</span>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`filter-pill ${activeFilter === 'direct' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('direct')}
-          >
-            Langsung
-          </button>
-          <button
-            type="button"
-            className={`filter-pill ${activeFilter === 'groups' ? 'active' : ''}`}
-            onClick={() => setActiveFilter('groups')}
-          >
-            Grup
+            <span>+ Grup</span>
           </button>
         </div>
       )}
@@ -720,46 +791,122 @@ export function Sidebar({
               </div>
             ) : searchError ? (
               <p className="sidebar-empty" style={{ color: 'var(--color-error)' }}>{searchError}</p>
-            ) : searchResults.length === 0 ? (
+            ) : (searchResults.length === 0 && publicGroupResults.length === 0) ? (
               <div className="sidebar-empty">
-                <p>Tidak ada pengguna ditemukan untuk &quot;{searchQuery}&quot;</p>
+                <p>Tidak ada pengguna atau grup publik ditemukan untuk &quot;{searchQuery}&quot;</p>
                 <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>
-                  Coba cari dengan username atau nama tampilan lain.
+                  Coba cari dengan username atau nama lain.
                 </p>
               </div>
             ) : (
-              <ul className="conversations-list">
-                {searchResults.map(u => (
-                  <li
-                    key={u.id}
-                    className="conversation-item"
-                    onClick={() => handleStartDirectChat(u)}
-                  >
-                    <UserAvatar
-                      avatarUrl={u.avatar_url}
-                      name={u.display_name || u.username}
-                      id={u.id}
-                      size={42}
-                      fontSize="1.1rem"
-                      className="sidebar-avatar"
-                    />
-                    <div className="conv-details">
-                      <div className="conv-top">
-                        <span className="conv-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          {u.display_name || u.username}
-                          {u.is_verified && <VerifiedBadge size={14} />}
-                        </span>
-                        <span className="conv-time" style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>@{u.username}</span>
-                      </div>
-                      <div className="conv-bottom">
-                        <span className="conv-last-msg" title={u.status_message || 'Tersedia untuk mengobrol'}>
-                          {u.status_message || 'Tersedia untuk mengobrol'}
-                        </span>
-                      </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* Kontak Pengguna */}
+                {searchResults.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', padding: '4px 12px', letterSpacing: '0.5px' }}>
+                      Kontak Pengguna ({searchResults.length})
                     </div>
-                  </li>
-                ))}
-              </ul>
+                    <ul className="conversations-list">
+                      {searchResults.map(u => (
+                        <li
+                          key={u.id}
+                          className="conversation-item"
+                          onClick={() => handleStartDirectChat(u)}
+                        >
+                          <UserAvatar
+                            avatarUrl={u.avatar_url}
+                            name={u.display_name || u.username}
+                            id={u.id}
+                            size={42}
+                            fontSize="1.1rem"
+                            className="sidebar-avatar"
+                          />
+                          <div className="conv-details">
+                            <div className="conv-top">
+                              <span className="conv-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                {u.display_name || u.username}
+                                {u.is_verified && <VerifiedBadge size={14} />}
+                              </span>
+                              <span className="conv-time" style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>@{u.username}</span>
+                            </div>
+                            <div className="conv-bottom">
+                              <span className="conv-last-msg" title={u.status_message || 'Tersedia untuk mengobrol'}>
+                                {u.status_message || 'Tersedia untuk mengobrol'}
+                              </span>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Grup Publik */}
+                {publicGroupResults.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#818cf8', textTransform: 'uppercase', padding: '4px 12px', letterSpacing: '0.5px' }}>
+                      Grup Publik ({publicGroupResults.length})
+                    </div>
+                    <ul className="conversations-list">
+                      {publicGroupResults.map(g => {
+                        const isAlreadyMember = conversations.some(c => c.id === g.id)
+                        return (
+                          <li
+                            key={g.id}
+                            className="conversation-item"
+                            onClick={() => {
+                              if (isAlreadyMember) {
+                                setSearchQuery('')
+                                onSelectRoom(g.id)
+                                if (onCloseMobile) onCloseMobile()
+                              } else {
+                                handleJoinPublicGroup(g)
+                              }
+                            }}
+                          >
+                            <div style={{
+                              width: 42,
+                              height: 42,
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '1.4rem',
+                              flexShrink: 0
+                            }}>
+                              {g.avatar_url?.startsWith('emoji:') ? g.avatar_url.replace('emoji:', '') : '👥'}
+                            </div>
+                            <div className="conv-details">
+                              <div className="conv-top">
+                                <span className="conv-name">🌐 {g.title}</span>
+                                {g.group_username && (
+                                  <span className="conv-time" style={{ color: '#818cf8', fontSize: '0.75rem' }}>@{g.group_username}</span>
+                                )}
+                              </div>
+                              <div className="conv-bottom" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span className="conv-last-msg">
+                                  {g.description || `${g.member_count} Anggota`}
+                                </span>
+                                <span style={{
+                                  fontSize: '0.7rem',
+                                  padding: '2px 8px',
+                                  borderRadius: 10,
+                                  background: isAlreadyMember ? 'rgba(255,255,255,0.1)' : 'rgba(59,130,246,0.3)',
+                                  color: isAlreadyMember ? 'var(--text-muted)' : '#60a5fa',
+                                  fontWeight: 600
+                                }}>
+                                  {isAlreadyMember ? 'Terdaftar' : '+ Gabung'}
+                                </span>
+                              </div>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         ) : (
@@ -810,17 +957,34 @@ export function Sidebar({
                         if (onCloseMobile) onCloseMobile()
                       }}
                     >
-                      <UserAvatar
-                        avatarUrl={c.peer_avatar_url}
-                        name={c.title || c.id}
-                        id={c.peer_id}
-                        size={44}
-                        fontSize="1rem"
-                        className="sidebar-avatar"
-                      />
+                      {c.type === 'group' ? (
+                        <div style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.4rem',
+                          flexShrink: 0
+                        }}>
+                          {c.avatar_url?.startsWith('emoji:') ? c.avatar_url.replace('emoji:', '') : '👥'}
+                        </div>
+                      ) : (
+                        <UserAvatar
+                          avatarUrl={c.peer_avatar_url}
+                          name={c.title || c.id}
+                          id={c.peer_id}
+                          size={44}
+                          fontSize="1rem"
+                          className="sidebar-avatar"
+                        />
+                      )}
                       <div className="conv-details">
                         <div className="conv-top">
                           <span className="conv-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            {c.type === 'group' ? (c.is_public ? '🌐 ' : '👥 ') : null}
                             {c.title || c.id}
                             {c.peer_is_verified && <VerifiedBadge size={14} />}
                           </span>
@@ -1066,6 +1230,14 @@ export function Sidebar({
           </div>
         </div>
       )}
+
+      {/* Modal Buat Grup Baru */}
+      <CreateGroupModal
+        isOpen={isCreateGroupOpen}
+        onClose={() => setIsCreateGroupOpen(false)}
+        onGroupCreated={handleGroupCreated}
+        recentContacts={recentContacts}
+      />
     </aside>
   )
 }

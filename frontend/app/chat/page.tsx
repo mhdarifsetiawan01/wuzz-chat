@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useState, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WsClient } from '@/lib/ws-client'
-import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User, ActiveCallInfo } from '@/lib/types'
+import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User, ActiveCallInfo, GroupDetails } from '@/lib/types'
 import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
@@ -12,6 +12,7 @@ import { ImageLightboxModal } from './ImageLightboxModal'
 import { IncomingCallModal } from './IncomingCallModal'
 import { AudioCallOverlay } from './AudioCallOverlay'
 import { Sidebar } from './Sidebar'
+import { GroupInfoDrawer } from './GroupInfoDrawer'
 import { soundManager, playOutgoingRing, playIncomingRing, stopCallSounds } from '@/lib/sound'
 import { WebRTCAudioSession } from '@/lib/webrtc/webrtcAudio'
 import { useAuth } from '@/lib/auth-context'
@@ -268,6 +269,8 @@ function ChatPageContent() {
   const [e2eeVerified, setE2eeVerified] = useState(false)
   const [activeCall, setActiveCall] = useState<ActiveCallInfo | null>(null)
   const [isCallMuted, setIsCallMuted] = useState(false)
+  const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null)
+  const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false)
   const activeCallRef = useRef<ActiveCallInfo | null>(null)
   const webrtcAudioRef = useRef<WebRTCAudioSession | null>(null)
   const pendingOfferSdpRef = useRef<string | null>(null)
@@ -295,6 +298,49 @@ function ChatPageContent() {
   useEffect(() => {
     roomIdRef.current = roomId
   }, [roomId])
+
+  // Muat detail grup saat berpindah ke room grup atau saat menerima notifikasi aktivitas grup
+  const fetchGroupDetails = useCallback(async (targetRoomId: string, signal?: AbortSignal) => {
+    if (!targetRoomId || !targetRoomId.startsWith('grp_')) return
+    try {
+      const { data, error } = await apiRequest<GroupDetails>(`/api/groups/${targetRoomId}`, { signal })
+      if (data && !error) {
+        setGroupDetails(data)
+        dispatch({
+          type: 'SET_PEER_INFO',
+          payload: {
+            nickname: data.title || data.name || '',
+            avatarUrl: data.avatar_url || '',
+            userId: '',
+          },
+        })
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('[Group] Gagal memuat/refresh detail grup:', err)
+      }
+    }
+  }, [dispatch])
+
+  const fetchGroupDetailsRef = useRef(fetchGroupDetails)
+  useEffect(() => {
+    fetchGroupDetailsRef.current = fetchGroupDetails
+  }, [fetchGroupDetails])
+
+  useEffect(() => {
+    if (!roomId || !roomId.startsWith('grp_')) {
+      setGroupDetails(null)
+      setIsGroupInfoOpen(false)
+      return
+    }
+
+    const controller = new AbortController()
+    fetchGroupDetails(roomId, controller.signal)
+
+    return () => {
+      controller.abort()
+    }
+  }, [roomId, fetchGroupDetails])
 
   // Lacak peer info terbaru (nickname, avatar, id) agar terhindar dari stale overwrite
   const peerInfoRef = useRef<{ nickname: string | null; avatarUrl: string | null; userId: string | null }>({
@@ -652,8 +698,9 @@ function ChatPageContent() {
           }
 
           const idMatch = msg.content?.match(/ID kamu: ([a-f0-9-]{36})/i)
-          const clientId = idMatch ? idMatch[1] : (msg.to && msg.to !== 'server' && /^[a-f0-9-]{36}$/i.test(msg.to) ? msg.to : 'user')
-          if (clientId) {
+          const isInitialWelcome = Boolean(idMatch || (msg.content && msg.content.includes('ID kamu:')))
+          const clientId = idMatch ? idMatch[1] : (msg.to && msg.to !== 'server' && /^[a-f0-9-]{36}$/i.test(msg.to) ? msg.to : '')
+          if (clientId && isInitialWelcome) {
             dispatch({
               type: 'SET_SESSION',
               payload: {
@@ -662,6 +709,46 @@ function ChatPageContent() {
                 peerId: currentRoom,
               },
             })
+            break
+          }
+
+          // Notifikasi aktivitas sistem grup (member joined, member removed, role updated, info updated)
+          if (msg.room && msg.content && !isInitialWelcome) {
+            const systemMsg: Message = {
+              id: msg.id || `sys-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              room: msg.room,
+              from: 'server',
+              nickname: 'Sistem',
+              content: msg.content,
+              timestamp: msg.timestamp || new Date().toISOString(),
+              type: 'system',
+              status: 'delivered',
+            }
+
+            if (currentRoom && msg.room === currentRoom) {
+              dispatch({ type: 'ADD_MESSAGE', payload: systemMsg })
+              setLastIncomingMessage(systemMsg)
+
+              // Jika berada di dalam room grup, refresh detail grup & anggota
+              if (msg.room.startsWith('grp_')) {
+                fetchGroupDetailsRef.current?.(msg.room)
+              }
+
+              // Simpan ke IndexedDB lokal
+              cacheMessage(toCachedRecord({
+                id: systemMsg.id!,
+                room_id: msg.room,
+                content: systemMsg.content || '',
+                sender_id: 'server',
+                sender_display_name: 'Sistem',
+                sender_username: 'system',
+                created_at: systemMsg.timestamp || new Date().toISOString(),
+                status: 'delivered',
+                type: 'system',
+              })).catch(() => {})
+            } else {
+              setLastIncomingMessage(systemMsg)
+            }
           }
           break
         }
@@ -1188,22 +1275,23 @@ function ChatPageContent() {
     const msgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'msg-' + Date.now()
 
     let outgoingContent = content
+    const isGroupChat = roomId.startsWith('grp_') || roomId.startsWith('room-')
 
-    // Enkripsi pesan teks via AES-256-GCM jika percakapan E2EE direct aktif
+    // Enkripsi pesan teks via AES-256-GCM jika percakapan E2EE direct aktif (bukan grup)
     let key = roomAESKeyRef.current
-    if (!key && user?.id && activePeerRef.current?.id && activePeerRef.current?.publicKey) {
+    if (!isGroupChat && !key && user?.id && activePeerRef.current?.id && activePeerRef.current?.publicKey) {
       key = await getSharedRoomAESKey(user.id, activePeerRef.current.id, activePeerRef.current.publicKey, roomId)
       roomAESKeyRef.current = key
     }
 
     // Fail-Closed Guard: Jika percakapan direct dan key tidak dapat dibuat, jangan kirim pesan!
-    if (activePeerRef.current?.id && !key) {
+    if (!isGroupChat && activePeerRef.current?.id && !key) {
       alert('Sesi enkripsi pada perangkat ini belum valid. Pesan tidak dikirim demi melindungi keamanan E2EE Anda.')
       setDeviceConflict({ isOpen: true, isRotated: false })
       return
     }
 
-    if (key && content && content.trim() !== '') {
+    if (!isGroupChat && key && content && content.trim() !== '') {
       try {
         outgoingContent = await encryptText(key, content)
       } catch (err) {
@@ -1628,6 +1716,9 @@ function ChatPageContent() {
               typingNickname={state.typingNickname}
               currentUserId={user?.id}
               peerPublicKeyJWK={peerPublicKeyJWK}
+              isGroup={Boolean(roomId && (roomId.startsWith('grp_') || roomId.startsWith('room-')))}
+              groupDetails={groupDetails}
+              onOpenGroupInfo={() => setIsGroupInfoOpen(true)}
               onOpenMemberList={() => setIsMemberListOpen(true)}
               onBack={() => handleSelectRoom('')}
               onStartAudioCall={handleStartAudioCall}
@@ -1641,8 +1732,8 @@ function ChatPageContent() {
               typingNickname={state.typingNickname}
               isLoadingHistory={isLoadingHistory}
               isHistoryError={isHistoryError}
-              isE2EE={Boolean(roomId && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
-              isDirectChat={Boolean(roomId && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
+              isE2EE={Boolean(roomId && !roomId.startsWith('grp_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
+              isDirectChat={Boolean(roomId && !roomId.startsWith('grp_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
               peerAvatarUrl={state.peerAvatarUrl || ''}
               peerNickname={state.peerNickname || ''}
               onRetryHistory={handleRetryHistory}
@@ -1676,6 +1767,27 @@ function ChatPageContent() {
               imageUrl={lightboxData?.url || ''}
               fileName={lightboxData?.fileName}
               onClose={() => setLightboxData(null)}
+            />
+
+            <GroupInfoDrawer
+              isOpen={isGroupInfoOpen}
+              onClose={() => setIsGroupInfoOpen(false)}
+              groupId={roomId}
+              currentUserId={user?.id || ''}
+              onGroupUpdated={(updated) => {
+                setGroupDetails(updated)
+                dispatch({
+                  type: 'SET_PEER_INFO',
+                  payload: {
+                    nickname: updated.title || updated.name || '',
+                    avatarUrl: updated.avatar_url || '',
+                    userId: '',
+                  },
+                })
+              }}
+              onLeaveSuccess={() => {
+                handleSelectRoom('')
+              }}
             />
           </>
         ) : (

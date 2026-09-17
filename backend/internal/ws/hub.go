@@ -274,6 +274,56 @@ func (h *Hub) BroadcastRoomUsers(roomID string) {
 	}
 }
 
+// BroadcastGroupSystemEvent mengirimkan pesan notifikasi sistem (TypeSystem) ke seluruh anggota room grup.
+// Digunakan untuk event seperti "member bergabung", "member dikeluarkan", "role diubah", "info grup diperbarui".
+// Content berisi teks notifikasi yang akan ditampilkan di timeline chat sebagai system bubble.
+func (h *Hub) BroadcastGroupSystemEvent(roomID, eventType, content string) {
+	if roomID == "" || content == "" {
+		return
+	}
+	msg := Message{
+		ID:        uuid.New().String(),
+		Type:      TypeSystem,
+		From:      "server",
+		Room:      roomID,
+		Content:   content,
+		Timestamp: time.Now().UTC(),
+	}
+	if h.messageStore != nil {
+		_ = h.messageStore.Save(store.StoredMessage{
+			ID:        msg.ID,
+			RoomID:    roomID,
+			FromID:    "server",
+			Nickname:  "Sistem",
+			Content:   content,
+			Status:    string(StatusDelivered),
+			Reactions: "[]",
+			Timestamp: msg.Timestamp,
+		})
+	}
+	// Gunakan broadcastLocal; juga publish ke cluster agar semua node meneruskan ke anggota offline
+	h.broadcastLocal(roomID, msg, "server")
+	h.mu.RLock()
+	b := h.broker
+	h.mu.RUnlock()
+	if b != nil {
+		event := ClusterEvent{
+			NodeID:   h.nodeID,
+			RoomID:   roomID,
+			SenderID: "server",
+			Message:  msg,
+		}
+		if payload, err := json.Marshal(event); err == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			if pubErr := b.Publish(ctx, ClusterEventsChannel, payload); pubErr != nil {
+				log.Printf("[Hub %s] gagal publish group_system_event ke broker: %v", h.nodeID[:8], pubErr)
+			}
+		}
+	}
+	log.Printf("[Hub %s] group_system_event room=%s type=%s", h.nodeID[:8], roomID, eventType)
+}
+
 // broadcastLocal mengirimkan pesan hanya ke klien yang terhubung secara fisik di instance Hub ini.
 func (h *Hub) broadcastLocal(roomID string, msg Message, senderID string) {
 	h.mu.RLock()
@@ -435,9 +485,14 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 			_ = json.Unmarshal([]byte(m.Reactions), &reactions)
 		}
 
+		msgType := TypeMessage
+		if m.FromID == "server" {
+			msgType = TypeSystem
+		}
+
 		msgs = append(msgs, Message{
 			ID:          m.ID,
-			Type:        TypeMessage,
+			Type:        msgType,
 			From:        m.FromID,
 			To:          m.ToID,
 			Room:        m.RoomID,

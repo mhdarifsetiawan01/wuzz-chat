@@ -47,9 +47,12 @@ func main() {
 	}
 	// Inisialisasi User Store & Transfer Store dari SQL DB
 	var userStore store.UserStore
+	var groupStore store.GroupStore
 	var transferStore store.TransferStore
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
-		userStore = store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+		userStore = sqlUserStore
+		groupStore = sqlUserStore
 		transferStore = store.NewSQLTransferStore(sqlStore.DB(), sqlStore.DriverName())
 	}
 
@@ -59,11 +62,13 @@ func main() {
 	// Inisialisasi REST Handlers
 	var authHandler *api.AuthHandler
 	var chatHandler *api.ChatHandler
+	var groupHandler *api.GroupHandler
 	var notificationHandler *api.NotificationHandler
 	var transferHandler *api.TransferHandler
 	if userStore != nil {
 		authHandler = api.NewAuthHandler(userStore)
 		chatHandler = api.NewChatHandler(userStore, messageStore)
+		groupHandler = api.NewGroupHandler(groupStore, userStore)
 		notificationHandler = api.NewNotificationHandler(pushService, userStore)
 	}
 	if transferStore != nil {
@@ -241,6 +246,25 @@ func main() {
 		}))
 		mux.HandleFunc("/api/messages/delete", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(chatHandler.DeleteMessage)).ServeHTTP(w, r)
+		}))
+	}
+
+	// REST API Routes (Group Chat Engine & Member Management)
+	if groupHandler != nil {
+		groupHandler.SetHub(hub)
+
+		mux.HandleFunc("/api/groups", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				auth.RequireJWT()(http.HandlerFunc(groupHandler.CreateGroup)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+		}))
+		mux.HandleFunc("/api/groups/search", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(groupHandler.SearchPublicGroups)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/groups/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(groupHandler.RouteGroupRequest)).ServeHTTP(w, r)
 		}))
 	}
 

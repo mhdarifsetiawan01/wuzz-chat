@@ -84,6 +84,19 @@ function renderReceipt(status?: Message['status']) {
   return <ReceiptIcon status={status} />
 }
 
+const SENDER_COLORS = ['#60a5fa', '#a78bfa', '#fb7185', '#34d399', '#fbbf24', '#38bdf8', '#e879f9', '#818cf8']
+
+function getSenderColor(nameOrId: string = '') {
+  if (!nameOrId || !nameOrId.trim()) return '#60a5fa'
+  let hash = 0
+  const clean = nameOrId.trim().toLowerCase()
+  for (let i = 0; i < clean.length; i++) {
+    hash = (hash << 5) - hash + clean.charCodeAt(i)
+    hash |= 0
+  }
+  return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length]
+}
+
 export function MessageBubble({
   message,
   selfId,
@@ -96,7 +109,7 @@ export function MessageBubble({
   onImageClick,
   onDeleteMessage,
 }: MessageBubbleProps) {
-  const isSystem = message.type === 'system'
+  const isSystem = message.type === 'system' || message.from === 'server'
   // Deteksi khusus: pesan notifikasi perubahan kode keamanan E2EE
   const isSecurityNotice = isSystem && Boolean(message.id?.startsWith('security-notice-'))
   const [isExpanded, setIsExpanded] = useState(false)
@@ -285,7 +298,9 @@ export function MessageBubble({
           )}
           <div className="message-content-wrapper">
             {!isSystem && !isSelf && !isDirectChat && message.nickname && (
-              <span className="message-sender">{message.nickname}</span>
+              <span className="message-sender" style={{ color: getSenderColor(message.from || message.nickname) }}>
+                {message.nickname}
+              </span>
             )}
             <div className="message-bubble-wrapper">
               <div className="message-bubble deleted-bubble">
@@ -359,7 +374,9 @@ export function MessageBubble({
 
         <div className="message-content-wrapper">
           {!isSystem && !isSelf && !isDirectChat && message.nickname && (
-            <span className="message-sender">{message.nickname}</span>
+            <span className="message-sender" style={{ color: getSenderColor(message.from || message.nickname) }}>
+              {message.nickname}
+            </span>
           )}
           
           <div className="message-bubble-wrapper">

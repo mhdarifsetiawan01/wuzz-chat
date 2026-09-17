@@ -132,10 +132,45 @@ export interface User {
   is_verified?: boolean
 }
 
+export type GroupRole = 'creator' | 'admin' | 'member'
+
+export interface GroupMember {
+  user_id: string
+  username: string
+  display_name: string
+  avatar_url?: string
+  role: GroupRole
+  is_verified?: boolean
+  joined_at: string
+}
+
+export interface GroupDetails {
+  id: string
+  title: string
+  name?: string
+  description?: string
+  avatar_url?: string
+  is_public: boolean
+  group_username?: string
+  parent_id?: string
+  created_by: string
+  created_at: string
+  updated_at: string
+  member_count: number
+  my_role?: GroupRole
+  members?: GroupMember[]
+}
+
 export interface ConversationItem {
   id: string
   type: string
   title: string
+  avatar_url?: string
+  description?: string
+  is_public?: boolean
+  group_username?: string
+  parent_id?: string
+  role?: string
   peer_id?: string
   peer_nickname?: string
   peer_public_key?: string
@@ -148,5 +183,6 @@ export interface ConversationItem {
   unread_count?: number
   updated_at: string
 }
+
 
 

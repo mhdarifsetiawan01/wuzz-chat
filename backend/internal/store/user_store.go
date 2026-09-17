@@ -37,20 +37,26 @@ type User struct {
 
 // ConversationItem merepresentasikan entitas percakapan di daftar obrolan (Sidebar).
 type ConversationItem struct {
-	ID               string    `json:"id"`
-	Type             string    `json:"type"` // "direct" atau "group"
-	Title            string    `json:"title"`
-	PeerID           string    `json:"peer_id,omitempty"`
-	PeerNickname     string    `json:"peer_nickname,omitempty"`
-	PeerPublicKey    string    `json:"peer_public_key,omitempty"`
-	PeerAvatarURL    string    `json:"peer_avatar_url,omitempty"`
-	PeerIsVerified   bool      `json:"peer_is_verified,omitempty"`
-	LastMessage      string    `json:"last_message"`
-	LastSender       string    `json:"last_sender"`
-	LastSenderID     string    `json:"last_sender_id,omitempty"`
-	LastStatus       string    `json:"last_status,omitempty"`
-	UnreadCount      int       `json:"unread_count"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID             string    `json:"id"`
+	Type           string    `json:"type"` // "direct" atau "group"
+	Title          string    `json:"title"`
+	AvatarURL      string    `json:"avatar_url,omitempty"`
+	Description    string    `json:"description,omitempty"`
+	IsPublic       bool      `json:"is_public,omitempty"`
+	GroupUsername  string    `json:"group_username,omitempty"`
+	ParentID       string    `json:"parent_id,omitempty"`
+	Role           string    `json:"role,omitempty"`
+	PeerID         string    `json:"peer_id,omitempty"`
+	PeerNickname   string    `json:"peer_nickname,omitempty"`
+	PeerPublicKey  string    `json:"peer_public_key,omitempty"`
+	PeerAvatarURL  string    `json:"peer_avatar_url,omitempty"`
+	PeerIsVerified bool      `json:"peer_is_verified,omitempty"`
+	LastMessage    string    `json:"last_message"`
+	LastSender     string    `json:"last_sender"`
+	LastSenderID   string    `json:"last_sender_id,omitempty"`
+	LastStatus     string    `json:"last_status,omitempty"`
+	UnreadCount    int       `json:"unread_count"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // PushSubscription merepresentasikan entitas token/kunci push notification per perangkat.
@@ -491,11 +497,18 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 				COALESCE(peer.display_name, '') AS peer_nickname,
 				COALESCE(peer.public_key, '') AS peer_public_key,
 				COALESCE(peer.avatar_url, '') AS peer_avatar_url,
-				COALESCE(peer.is_verified, false) AS peer_is_verified
+				COALESCE(peer.is_verified, false) AS peer_is_verified,
+				COALESCE(c.avatar_url, '') AS conv_avatar_url,
+				COALESCE(c.description, '') AS conv_description,
+				COALESCE(c.is_public, false) AS conv_is_public,
+				COALESCE(c.group_username, '') AS conv_group_username,
+				COALESCE(c.parent_id, '') AS conv_parent_id,
+				COALESCE(cm.role, 'member') AS my_role
 			FROM conversations c
 			JOIN conversation_members cm ON c.id = cm.conversation_id AND cm.user_id = $1
 			LEFT JOIN conversation_members peer_cm ON c.id = peer_cm.conversation_id AND peer_cm.user_id != $1 AND c.type = 'direct'
 			LEFT JOIN users peer ON peer_cm.user_id = peer.id
+			WHERE (c.parent_id IS NULL OR c.parent_id = '')
 			ORDER BY c.updated_at DESC
 		`
 	} else {
@@ -510,11 +523,18 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 				COALESCE(peer.display_name, '') AS peer_nickname,
 				COALESCE(peer.public_key, '') AS peer_public_key,
 				COALESCE(peer.avatar_url, '') AS peer_avatar_url,
-				COALESCE(peer.is_verified, false) AS peer_is_verified
+				COALESCE(peer.is_verified, false) AS peer_is_verified,
+				COALESCE(c.avatar_url, '') AS conv_avatar_url,
+				COALESCE(c.description, '') AS conv_description,
+				COALESCE(c.is_public, false) AS conv_is_public,
+				COALESCE(c.group_username, '') AS conv_group_username,
+				COALESCE(c.parent_id, '') AS conv_parent_id,
+				COALESCE(cm.role, 'member') AS my_role
 			FROM conversations c
 			JOIN conversation_members cm ON c.id = cm.conversation_id AND cm.user_id = ?
 			LEFT JOIN conversation_members peer_cm ON c.id = peer_cm.conversation_id AND peer_cm.user_id != ? AND c.type = 'direct'
 			LEFT JOIN users peer ON peer_cm.user_id = peer.id
+			WHERE (c.parent_id IS NULL OR c.parent_id = '')
 			ORDER BY c.updated_at DESC
 		`
 	}
@@ -539,6 +559,8 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 
 	for rows.Next() {
 		var rc rawConv
+		var convAvatarURL, convDesc, convGroupUsername, convParentID, myRole string
+		var convIsPublic bool
 		if err := rows.Scan(
 			&rc.item.ID,
 			&rc.item.Type,
@@ -550,9 +572,22 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 			&rc.item.PeerPublicKey,
 			&rc.item.PeerAvatarURL,
 			&rc.item.PeerIsVerified,
+			&convAvatarURL,
+			&convDesc,
+			&convIsPublic,
+			&convGroupUsername,
+			&convParentID,
+			&myRole,
 		); err != nil {
 			continue
 		}
+		rc.item.AvatarURL = convAvatarURL
+		rc.item.Description = convDesc
+		rc.item.IsPublic = convIsPublic
+		rc.item.GroupUsername = convGroupUsername
+		rc.item.ParentID = convParentID
+		rc.item.Role = myRole
+
 		if rc.item.Type == "direct" && rc.item.Title == "" {
 			rc.item.Title = rc.item.PeerNickname
 		}

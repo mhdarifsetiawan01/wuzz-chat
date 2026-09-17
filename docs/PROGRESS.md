@@ -684,3 +684,40 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 - [x] Deployed ke Fly.io production (`wuzz-chat-backend.fly.dev`) — Health check HTTP 200 OK
 - [x] Merged `dev` → `main` → pushed ke GitHub remote
 
+---
+
+### 🚀 Milestone 8.2A: Core Group Chat Engine & Member Management (Subgroup-Ready, Public/Private, & E2EE-Ready)
+**Tanggal**: 17 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI (Dev Branch)**  
+**Branch Aktif**: `dev`
+
+**Ringkasan Fitur & Perubahan Arsitektur**:
+1. **Identitas & Skema Auto-Migration Database**:
+   - Kolom baru pada tabel `conversations`: `title VARCHAR(255)`, `description TEXT`, `avatar_url TEXT`, `is_public BOOLEAN DEFAULT FALSE`, `group_username VARCHAR(64) DEFAULT NULL`, `parent_id VARCHAR(128) DEFAULT NULL`, `expires_at TIMESTAMP DEFAULT NULL`, `created_by VARCHAR(64) DEFAULT NULL`, `is_e2ee BOOLEAN DEFAULT FALSE`.
+   - Kolom baru pada tabel `conversation_members`: `role VARCHAR(32) DEFAULT 'member'`.
+   - Indeks performa baru: `idx_conv_parent`, `idx_conv_public`, `idx_conv_members_role`.
+   - SQLite & PostgreSQL compatibility query: filter `WHERE (c.parent_id IS NULL OR c.parent_id = '')` pada `GetUserConversations` menjamin sub-grup masa depan tidak mengotori linimasa utama sidebar.
+2. **Backend Group Store (`backend/internal/store/group_store.go`)**:
+   - Transaksi database atomik (`*sql.Tx`): `CreateGroup`, `GetGroupDetails`, `GetGroupMembers`, `JoinPublicGroup`, `AddGroupMembers`, `RemoveGroupMember`, `UpdateMemberRole`, `UpdateGroupInfo`, `SearchPublicGroups`, `GetUserRoleInGroup`.
+   - Unit test suite komprehensif (`group_store_test.go`) dengan SQLite in-memory: 100% lulus.
+3. **Backend REST API (`backend/internal/api/group_handler.go`)**:
+   - Endpoint terdaftar: `POST /api/groups`, `GET /api/groups/search`, `GET /api/groups/{id}`, `POST /api/groups/{id}/join`, `GET /api/groups/{id}/members`, `POST /api/groups/{id}/members`, `DELETE /api/groups/{id}/members/{userId}`, `PATCH /api/groups/{id}/members/{userId}/role`, `PATCH /api/groups/{id}`.
+   - Unit test suite handler (`group_handler_test.go`): 100% lulus.
+4. **Frontend Components**:
+   - `CreateGroupModal.tsx`: Wizard 2 langkah pembuatan grup (Nama & toggle 🔒 Privat / 🌐 Publik + Pemilih anggota cerdas dengan tab Recent DM Contacts dan live user search via `/api/users/search`).
+   - `GroupInfoDrawer.tsx`: Drawer profil grup, daftar anggota lengkap dengan badge role (`creator`, `admin`, `member`) dan centang biru verified, fitur promosi/demosi admin (hanya untuk creator), kick anggota, edit profil grup (creator/admin), dan leave group dengan konfirmasi aman.
+   - `Sidebar.tsx`: Tombol "+ Grup" di header bar, integrasi pencarian grup publik pada filter global, render avatar grup (emoji / inisial).
+   - `StatusBar.tsx`: Header chat dinamis mendukung grup (`groupDetails.title`), indikator `🔒 Wuzz Cloud` / `🌐 Grup Publik`, hitungan anggota, dan tombol aksi "Info Grup".
+   - `MessageBubble.tsx`: Linimasa pesan grup dengan warna nickname deterministik unik per pengirim (`SENDER_COLORS`) ala WhatsApp / Telegram.
+   - `page.tsx`: Pengambilan detail grup dinamis via `/api/groups/{id}`, bypass fail-closed pairwise ECDH crypto check untuk room grup, dan integrasi modal `GroupInfoDrawer`.
+
+**Definition of Done (DoD) Checklist**:
+- [x] Auto-migration database backend untuk kolom grup & peran anggota (`conversations` & `conversation_members`)
+- [x] Indeks database `idx_conv_parent`, `idx_conv_public`, `idx_conv_members_role`
+- [x] 9 REST Endpoints backend untuk grup diproteksi JWT & CORS
+- [x] Automated tests backend: `go test -v ./...` 100% pass
+- [x] Frontend build: `npm run build` 0 error (TypeScript & Turbopack)
+- [x] Kompatibilitas Dual-Platform: Desktop split mode & Mobile single-screen mode
+- [x] Proteksi slow/flaky server: `AbortController` 15 detik, disabled state tombol aksi, write-through offline cache
+
+
