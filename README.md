@@ -21,13 +21,13 @@ wuzz-chat/
 │
 ├── frontend/                 # Web Interface (Next.js 16 + React 19 + TypeScript)
 │   ├── app/
-│   │   ├── chat/             # Chat UI container, Message bubbles, AudioPlayer, VoiceRecorder, Lightbox
+│   │   ├── chat/             # Chat UI container, Message bubbles, ReceiptIcon, AudioPlayer, VoiceRecorder, Lightbox
 │   │   ├── login/            # Halaman Login
 │   │   ├── register/         # Halaman Registrasi
 │   │   ├── globals.css       # Dark-mode design system, dynamic waveforms & responsive CSS
 │   │   ├── layout.tsx
 │   │   └── page.tsx          # Landing page & anonymous nickname entry
-│   ├── lib/                  # WebSocket client, API helper, MediaCache (IndexedDB), avatarColor (Modular), ImageCompressor
+│   ├── lib/                  # WebSocket client, API helper, MediaCache (IndexedDB), emojis (Modular), avatarColor, ImageCompressor
 │   ├── server.js             # Custom server dengan WebSocket proxy & /uploads/ stream proxy
 │   └── package.json
 │
@@ -91,6 +91,10 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 - [x] **Mobile Viewport Stability Fix (Post-Device Transfer)**: Mengunci `.chat-app-container` pada mobile dengan `position: fixed` dan `overscroll-behavior: none`, mengganti `scrollIntoView` dengan `containerRef.scrollTo` di ChatWindow, serta reset `window.scrollTo(0,0)` saat transisi room agar tampilan chat tidak naik ke atas setelah penutupan modal transfer.
 - [x] **Android Virtual Keyboard Header Fix**: Viewport metadata `interactiveWidget: 'resizes-content'` memastikan layout di-resize (bukan di-pan) saat keyboard virtual muncul. Listener `visualViewport` di `page.tsx` mengunci `window.scrollY` ke 0 agar header chat tidak pernah tergeser keluar viewport.
 - [x] **Soft Tri-Color Glassmorphism Redesign & Modular Avatar Architecture**: Redesain visual berkelas dengan kombinasi 3 warna harmonis (Soft Azure `#3b82f6` utama, Soft Lavender `#818cf8` sekunder, Soft Coral `#f472b6` tersier), utilitas avatar modular deterministik (`avatarColor.ts`) dengan 8 variasi warna pastel bergradien, Slate Frosted Glass pada bubble pesan masuk, penajaman kontras timestamp putih terang & read receipts Electric Cyan, dan ambient depth pada linimasa chat.
+- [x] **Ultra-Modern Aurora Glassmorphism Header**: Ambient radial mesh lighting Soft Azure & Soft Lavender di balik frosted glass transparan, avatar profil pengguna terintegrasi langsung di baris brand header atas untuk efisiensi ruang vertikal seluler, dan emblem logo kilat futuristik.
+- [x] **Modular Emoji Picker & Flagship Precision Chat Input Bar**: Katalog emoji modular di `frontend/lib/emojis.ts` dengan 5 kategori Unicode native, Frosted Glass Emoji Picker Tray popover, kapsul pil input presisi (`border-radius: 24px`, tinggi 48px) dengan tombol aksi rekam suara / kirim melayang independen (*floating circular button 48x48px*) mandiri standar WhatsApp & Telegram.
+- [x] **High-Contrast SVG Read Receipt & Electric Neon Cyan Glow Engine (`ReceiptIcon.tsx`)**: Komponen vektor SVG standar WhatsApp/Telegram (`stroke-width: 2`, sudut paralel 45°) menggantikan karakter teks unicode tipis, dipadukan dengan warna Electric Neon Cyan (`#00f2fe`) dan dual-filter dark drop shadow (`rgba(0, 0, 0, 0.95)`) + pendaran neon untuk kontras tajam di atas bubble pesan keluar biru.
+
 
 ---
 
