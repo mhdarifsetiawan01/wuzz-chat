@@ -159,6 +159,12 @@ func TestE2E_FullChatAndSecurityLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Alice failed to receive read receipt: %v", err)
 	}
+	if aliceReceipt.Status == ws.StatusDelivered {
+		aliceReceipt, err = readUntilType(aliceConn, ws.TypeReceipt, 3*time.Second)
+		if err != nil {
+			t.Fatalf("Alice failed to receive read receipt: %v", err)
+		}
+	}
 	if aliceReceipt.Status != ws.StatusRead {
 		t.Fatalf("expected read receipt status 'read', got: %s", aliceReceipt.Status)
 	}

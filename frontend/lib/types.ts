@@ -158,7 +158,38 @@ export interface GroupDetails {
   updated_at: string
   member_count: number
   my_role?: GroupRole
+  status?: 'active' | 'expired' | 'archived' | string
+  expires_at?: string
+  ai_summary?: string
   members?: GroupMember[]
+}
+
+export interface SubGroupItem {
+  id: string
+  parent_id: string
+  title: string
+  description: string
+  member_count: number
+  expires_at: string | null
+  remaining_seconds: number
+  created_by: string
+  created_at: string
+  status: 'active' | 'expired' | 'archived' | string
+  is_member?: boolean
+  is_public?: boolean
+  has_pending_request?: boolean
+}
+
+export interface JoinRequestItem {
+  id: string
+  conversation_id: string
+  user_id: string
+  username: string
+  display_name: string
+  avatar_url?: string
+  is_verified?: boolean
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
 }
 
 export interface ConversationItem {
@@ -170,6 +201,8 @@ export interface ConversationItem {
   is_public?: boolean
   group_username?: string
   parent_id?: string
+  status?: 'active' | 'expired' | 'archived' | string
+  expires_at?: string
   role?: string
   peer_id?: string
   peer_nickname?: string
@@ -183,6 +216,7 @@ export interface ConversationItem {
   unread_count?: number
   updated_at: string
 }
+
 
 
 

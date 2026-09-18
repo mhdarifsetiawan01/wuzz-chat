@@ -15,6 +15,7 @@ interface GroupInfoDrawerProps {
   onLeaveGroup?: () => void
   onLeaveSuccess?: () => void
   onOpenAddMember?: () => void
+  onOpenSubgroups?: () => void
 }
 
 export function GroupInfoDrawer({
@@ -26,6 +27,7 @@ export function GroupInfoDrawer({
   onLeaveGroup,
   onLeaveSuccess,
   onOpenAddMember,
+  onOpenSubgroups,
 }: GroupInfoDrawerProps) {
   const [group, setGroup] = useState<GroupDetails | null>(null)
   const [members, setMembers] = useState<GroupMember[]>([])
@@ -302,6 +304,34 @@ export function GroupInfoDrawer({
                   }}
                 >
                   <span>➕ Tambah Anggota Baru</span>
+                </button>
+              )}
+
+              {/* Tombol Akses Topik Subgrup jika grup utama */}
+              {!group.parent_id && onOpenSubgroups && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    onClose()
+                    onOpenSubgroups()
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '10px 16px',
+                    borderRadius: 12,
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    background: 'rgba(59, 130, 246, 0.1)',
+                    color: '#60a5fa',
+                    border: '1px solid rgba(59, 130, 246, 0.25)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span>💬</span> Lihat Topik & Subgrup Aktif
                 </button>
               )}
 

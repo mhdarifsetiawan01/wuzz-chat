@@ -60,6 +60,9 @@ func (m *mockUserStoreForPush) GetConversationMemberUsernames(conversationID str
 func (m *mockUserStoreForPush) IsUserInConversation(conversationID, userID string) (bool, error) {
 	return true, nil
 }
+func (m *mockUserStoreForPush) IsConversationExpired(conversationID string) bool {
+	return false
+}
 func (m *mockUserStoreForPush) SavePushSubscription(sub *store.PushSubscription) error {
 	m.subs = append(m.subs, *sub)
 	return nil

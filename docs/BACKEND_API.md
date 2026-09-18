@@ -780,6 +780,152 @@ Memperbarui metadata grup (judul, deskripsi, avatar, atau visibilitas publik/pri
 
 ---
 
+#### 33. `GET /api/groups/{id}/subgroups`
+Mengambil daftar subgrup / ruang topik aktif di bawah grup induk (`parent_id = id`). Memeriksa keanggotaan grup induk secara ketat (*Parent-Membership Gate*); bukan anggota grup utama akan ditolak (`HTTP 403 Forbidden`).
+- **Autentikasi**: `Bearer <token>` (wajib anggota aktif grup utama)
+- **Path Parameter**: `id` — ID grup utama (`grp_<UUID>`)
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "subgroups": [
+      {
+        "id": "sub_9e67b2d5-4567-4890-bcde-fabc12345678",
+        "parent_id": "grp_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "title": "Diskusi Sprint Go Backend",
+        "description": "Topik diskusi arsitektur real-time",
+        "status": "active",
+        "is_public": false,
+        "has_pending_request": false,
+        "expires_at": "2026-09-25T12:00:00Z",
+        "created_by": "uuid-user-alice",
+        "created_at": "2026-09-18T12:00:00Z",
+        "member_count": 4,
+        "is_member": true,
+        "remaining_seconds": 604790
+      }
+    ]
+  }
+  ```
+- **Error Responses**:
+  - `403 Forbidden`: `{"error":"Akses ditolak: Anda harus menjadi anggota grup utama terlebih dahulu"}`
+
+---
+
+#### 34. `POST /api/groups/{id}/subgroups`
+Membuat ruang diskusi subgrup baru bertopik ephemeral dengan masa aktif TTL otomatis (`expires_at`) dan kontrol visibilitas/hak akses (`is_public`). Pembuat otomatis menjadi anggota pertama subgrup. Broadcast notifikasi event `subgroup_created` dikirim ke grup utama.
+- **Autentikasi**: `Bearer <token>` (wajib anggota aktif grup utama)
+- **Path Parameter**: `id` — ID grup utama (`grp_<UUID>`)
+- **Request Body**:
+  ```json
+  {
+    "title": "Diskusi Sprint Go Backend",
+    "description": "Topik diskusi arsitektur real-time",
+    "duration": "7_days",
+    "is_public": false
+  }
+  ```
+  *Keterangan parameter*:
+  - `duration`: `"7_days"` (default, 1 minggu) atau `"30_days"` (1 bulan).
+  - `is_public`: `true` (Terbuka/Public — semua anggota parent bebas join) atau `false` (Privat — memerlukan izin admin).
+- **Success Response (201 Created)**:
+  ```json
+  {
+    "success": true,
+    "subgroup": {
+      "id": "sub_9e67b2d5-4567-4890-bcde-fabc12345678",
+      "title": "Diskusi Sprint Go Backend",
+      "description": "Topik diskusi arsitektur real-time",
+      "avatar_url": "💬",
+      "is_public": false,
+      "parent_id": "grp_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "created_by": "uuid-user-alice",
+      "created_at": "2026-09-18T12:00:00Z",
+      "updated_at": "2026-09-18T12:00:00Z",
+      "status": "active",
+      "expires_at": "2026-09-25T12:00:00Z",
+      "member_count": 1,
+      "my_role": "creator"
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Validasi judul gagal atau durasi tidak valid
+  - `403 Forbidden`: Pembuat bukan anggota sah grup induk
+
+---
+
+#### 35. `POST /api/groups/{id}/join-request`
+Mengajukan permohonan izin bergabung ke subgrup privat. Pemohon wajib anggota aktif di grup induk. Permohonan berstatus `pending` dan dapat ditinjau oleh admin/creator.
+- **Autentikasi**: `Bearer <token>` (wajib anggota grup induk)
+- **Path Parameter**: `id` — ID subgrup (`sub_<UUID>`)
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Permohonan bergabung berhasil diajukan, menunggu persetujuan admin"
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Subgrup bertipe publik (dapat langsung join) atau permohonan sedang pending
+  - `403 Forbidden`: Pemohon bukan anggota grup utama
+  - `409 Conflict`: Pengguna sudah menjadi anggota subgrup
+
+---
+
+#### 36. `GET /api/groups/{id}/join-requests`
+Mengambil seluruh daftar permohonan bergabung berstatus `pending` untuk subgrup privat tertentu. Hanya dapat diakses oleh admin/creator subgrup atau admin/creator grup induk.
+- **Autentikasi**: `Bearer <token>` (wajib admin/creator)
+- **Path Parameter**: `id` — ID subgrup (`sub_<UUID>`)
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "requests": [
+      {
+        "id": "req_11223344-5566-7788-99aa-bbccddeeff00",
+        "conversation_id": "sub_9e67b2d5-4567-4890-bcde-fabc12345678",
+        "user_id": "uuid-user-bob",
+        "username": "bob_marley",
+        "display_name": "Bob Marley",
+        "avatar_url": "",
+        "is_verified": false,
+        "status": "pending",
+        "created_at": "2026-09-18T12:05:00Z"
+      }
+    ]
+  }
+  ```
+- **Error Responses**:
+  - `403 Forbidden`: Pengguna bukan admin/creator yang berwenang
+
+---
+
+#### 37. `POST /api/groups/{id}/join-requests/{requestId}/action`
+Menyetujui (`approve: true`) atau menolak (`approve: false`) permohonan bergabung ke subgrup privat. Jika disetujui, pemohon otomatis ditambahkan sebagai `member` di `conversation_members` dan status request menjadi `approved`.
+- **Autentikasi**: `Bearer <token>` (wajib admin/creator)
+- **Path Parameter**:
+  - `id` — ID subgrup (`sub_<UUID>`)
+  - `requestId` — ID permohonan (`req_<UUID>`)
+- **Request Body**:
+  ```json
+  {
+    "approve": true
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Permohonan berhasil disetujui"
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Permohonan sudah diproses sebelumnya
+  - `403 Forbidden`: Pengguna bukan admin/creator yang berwenang
+
+---
+
 ## 4. Protokol WebSocket & Event Catalog
 
 ### 4.1 Koneksi & Parameter URL

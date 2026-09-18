@@ -260,10 +260,28 @@ Membangun platform chatting modern yang:
   - **Bypass E2EE Fail-Closed**: Pesan grup beroperasi via secure server-relayed TLS transit dengan skema database siap-upgrade ke Signal Sender Keys di masa mendatang tanpa breaking changes.
   - **Arsitektur Media & Tanda Terima Grup**: Retensi media grup berbasis TTL 7 hari di server (tanpa penghapusan pada ACK pertama agar seluruh anggota dapat mengunduh), client deduplication di `wuzzchat_media_db`, dan status tanda terima pengiriman room (`sent`/`delivered`).
   - **REST API Suite Lengkap (9 Endpoint)**: `POST /api/groups`, `GET /api/groups/search`, `GET /api/groups/{id}`, `POST /api/groups/{id}/join`, `GET /api/groups/{id}/members`, `POST /api/groups/{id}/members`, `DELETE /api/groups/{id}/members/{userId}`, `PATCH /api/groups/{id}/members/{userId}/role`, `PATCH /api/groups/{id}`.
-- 🎯 **Milestone 8.2B: Ephemeral Sub-Groups & TTL Auto-Purge Worker (NEXT)**:
-  - Mini grup diskusi bertopik di dalam grup induk (`parent_id`) dengan masa kedaluwarsa otomatis (`expires_at` default 1 minggu/1 bulan).
-  - Background purge worker untuk membersihkan sub-grup yang telah kedaluwarsa.
-- ⏳ **Milestone 8.3: Message Management Suite**:
+- ✅ **Milestone 8.2B: Ephemeral Sub-Groups, TTL Lifecycle & Access Control (SELESAI)**:
+  - **Arsitektur Sub-Grup Bertopik**: Mini grup diskusi topik di dalam grup induk (`parent_id`) dengan identitas unik `sub_<UUIDv4>` dan skema auto-migration (`status VARCHAR(32) DEFAULT 'active'`, `ai_summary TEXT`, composite index `idx_subgroups_active(parent_id, expires_at)`).
+  - **Parent-Membership Gate (Strict Fail-Closed)**: Non-anggota grup utama secara mutlak dilarang mengakses, melihat list, bergabung, maupun menerima invite ke subgrup (HTTP 403 / WS error).
+  - **Pilihan Masa Aktif (TTL)**: Default 1 minggu (`"7_days"`), dengan opsi terbatas 1 minggu dan 1 bulan (`"30_days"`).
+  - **SubGroupTTLWorker (Background Go Daemon)**: Ticker 15 menit berkala non-blocking mengeksekusi `ExpireSubGroupsBatch` untuk mentransisikan subgrup kedaluwarsa ke status `'expired'` secara atomik.
+  - **Sub-Group Access Control (Public vs Private)**:
+    - 🌐 **Terbuka (Publik)**: Anggota grup induk dapat langsung bergabung sendiri (`Gabung & Buka`).
+    - 🔒 **Privat**: Anggota grup induk harus mengajukan permohonan bergabung (`Minta Izin Gabung`) atau diundang oleh admin.
+    - **Discovery Transparan**: Semua subgrup aktif tetap terlihat oleh seluruh anggota grup induk terlepas dari tipe akses.
+    - **Tabel & Antrean Izin (`conversation_join_requests`)**: Menyimpan riwayat dan antrean permohonan bergabung (`id`, `conversation_id`, `user_id`, `status: pending/approved/rejected`, `reviewed_by`).
+    - **Auto-Purge Kedaluwarsa**: Ketika subgrup mencapai masa expired, data di `conversation_join_requests` otomatis dihapus tuntas oleh `ExpireSubGroupsBatch`.
+  - **Fail-Closed Write Gate**: Subgrup kedaluwarsa otomatis terkunci *read-only* (WebSocket menolak kirim pesan dengan `sendError` dan tombol input textarea di-disable).
+  - **Kesiapan AI Summary Masa Depan**: Riwayat percakapan tidak di-hard delete saat kedaluwarsa melainkan disimpan untuk diringkas oleh AI summary worker di fase mendatang.
+  - **Enforcement Identitas Immutable (DEC-008)**: Seluruh perbandingan, otorisasi, dan filter relasi hanya menggunakan variabel immutable (`user.id` / UUID, `conversation.id`, `parent_id`), tanpa variabel mutable.
+  - **Komponen Frontend**: `SubGroupListDrawer.tsx` (daftar topik aktif dengan badge sisa waktu real-time, lencana 🌐 Terbuka vs 🔒 Privat, tombol Minta Izin, dan Panel Review Izin bagi Admin), `CreateSubGroupModal.tsx` (modal pembuatan subgrup bertema Aurora Glassmorphic dengan toggle hak akses), tombol `💬 Subgrup` di `StatusBar.tsx` dan `GroupInfoDrawer.tsx`, serta navigasi balik `← [Nama Grup Induk]`.
+  - **REST API Suite Subgrup (5 Endpoint)**:
+    - `GET /api/groups/{id}/subgroups`
+    - `POST /api/groups/{id}/subgroups` (dengan opsi `is_public`)
+    - `POST /api/groups/{id}/join-request` (mengajukan izin bergabung)
+    - `GET /api/groups/{id}/join-requests` (daftar permohonan pending)
+    - `POST /api/groups/{id}/join-requests/{requestId}/action` (approve/reject izin)
+- ⏳ **Milestone 8.3: Message Management Suite (NEXT)**:
   - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, in-chat text search, dan **Infinite Scroll Cursor Pagination** (`before_id`) melengkapi batas 50 pesan awal server.
 - 🔮 **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` via Redis Pub/Sub)**:
   - *Tujuan*: Sinkronisasi pergantian sesi perangkat aktif lintas-mesin container Fly.io (multi-node cluster).

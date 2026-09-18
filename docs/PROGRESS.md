@@ -724,4 +724,65 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 - [x] Dokumentasi Arsitektur Riwayat Pesan $O(\log N)$: Limitasi 50 pesan awal server via indeks komposit dipadukan dengan Cache-First load IndexedDB `wuzzchat_msg_db` dan rencana cursor pagination (Milestone 8.3)
 - [x] Dokumentasi Semantik Tanda Terima Grup: Status `sent` / `delivered` ke room (pencegahan event storm tanpa tracking read per-anggota individu pada linimasa)
 
+---
+
+### 🚀 Milestone 8.2B: Ephemeral Sub-Groups & TTL Lifecycle Engine (Parent Gate, TTL Presets, AI Summary-Ready)
+**Tanggal**: 18 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI (Dev Branch)**  
+**Branch Aktif**: `dev`
+
+**Ringkasan Fitur & Perubahan Arsitektur**:
+1. **Identitas & Skema Auto-Migration Database**:
+   - Kolom baru pada tabel `conversations`: `status VARCHAR(32) NOT NULL DEFAULT 'active'`, `ai_summary TEXT DEFAULT ''`.
+   - Indeks komposit performa baru: `idx_subgroups_active ON conversations(parent_id, expires_at)`.
+   - Identitas subgrup unik: Format `sub_<UUIDv4>` menjamin isolasi mutlak dari grup utama (`grp_<UUIDv4>`).
+2. **Enforcement Identitas Immutable (DEC-008)**:
+   - Seluruh logika otorisasi, relasi, perbandingan, dan filter di backend & frontend murni menggunakan variabel immutable (`user.id` / UUID, `conversation.id`, `parent_id`).
+   - Tidak ada ketergantungan pada variabel mutable seperti `username`, `display_name`, atau nama grup.
+3. **Parent-Membership Gate (Strict Fail-Closed)**:
+   - Bukan anggota grup induk tidak dapat membuat subgrup (`handleCreateSubGroup` -> HTTP 403 Forbidden).
+   - Bukan anggota grup induk tidak dapat melihat daftar subgrup (`handleGetSubGroups` -> HTTP 403 Forbidden).
+   - Bukan anggota grup induk tidak dapat bergabung ke subgrup (`JoinSubGroup` -> HTTP 403 Forbidden).
+   - Bukan anggota grup induk tidak dapat melihat detail subgrup (`GetGroupDetails` -> HTTP 403 Forbidden).
+   - Bukan anggota grup induk tidak dapat mendengarkan WebSocket subgrup (`IsUserInConversation` -> fail-closed false).
+4. **Preset Masa Aktif (TTL Presets)**:
+   - Pilihan durasi terbatas hanya pada 1 minggu (`"7_days"`, default) dan 1 bulan (`"30_days"`).
+5. **SubGroupTTLWorker (Background Go Daemon)**:
+   - Worker Go non-blocking berkala dengan ticker 15 menit menjalankan `ExpireSubGroupsBatch` untuk mentransisikan subgrup kedaluwarsa ke status `'expired'`.
+6. **Fail-Closed Write Gate & AI Summary Readiness**:
+   - Subgrup yang kedaluwarsa dikunci menjadi *read-only*: WebSocket menolak pengiriman pesan baru (`sendError`) dan input textarea frontend di-disable.
+   - Pesan dan riwayat subgrup tidak di-hard delete agar siap digunakan oleh worker AI Summarization di masa depan (`ai_summary`).
+7. **Frontend Components & Dual-Platform Compatibility**:
+   - `SubGroupListDrawer.tsx`: Drawer daftar topik aktif dengan hitungan mundur sisa waktu dinamis (`⏳ X hari lagi`), tombol gabung/buka, dan tombol buat subgrup.
+   - `CreateSubGroupModal.tsx`: Modal pembuatan subgrup bertema Aurora Glassmorphic dengan radio card preset durasi (1 minggu vs 1 bulan), validasi form, dan proteksi anti double-click.
+   - `StatusBar.tsx`: Integrasi tombol `💬 Subgrup` pada grup utama, badge status subgrup, badge `Kedaluwarsa (Terkunci)`, dan tombol navigasi kembali `← [Nama Grup Utama]`.
+   - `GroupInfoDrawer.tsx`: Tombol aksi `Lihat Topik & Subgrup Aktif`.
+
+7. **Sub-Group Access Control Engine (Terbuka vs Privat)**:
+   - Dukungan `is_public` boolean pada subgrup:
+     - 🌐 **Terbuka**: Anggota grup induk dapat langsung bergabung secara mandiri (`Gabung & Buka`).
+     - 🔒 **Privat**: Anggota grup induk harus mengajukan permohonan izin (`Minta Izin Gabung`) atau diundang oleh admin/creator.
+   - **Tabel `conversation_join_requests`**: Skema relasional persisten mencatat antrean permohonan (`id`, `conversation_id`, `user_id`, `status`, `reviewed_by`, `created_at`, `updated_at`) dengan indeks komposit unik `(conversation_id, user_id)` untuk mencegah *duplicate requests*.
+   - **Auto-Purge Kedaluwarsa**: Saat subgrup kedaluwarsa via `SubGroupTTLWorker` (`ExpireSubGroupsBatch`), seluruh data permohonan di `conversation_join_requests` langsung dihapus tuntas untuk menjaga kebersihan database.
+   - **Panel Review Admin**: Admin/creator dapat melihat daftar permohonan pending via endpoint `GET /api/groups/{id}/join-requests` dan menyetujui/menolak via `POST /api/groups/{id}/join-requests/{requestId}/action`.
+   - **Frontend Dynamic Action Buttons**: Kartu subgrup menampilkan badge 🌐 Terbuka vs 🔒 Privat, tombol `Gabung & Buka`, `🔒 Minta Izin Gabung`, `⏳ Menunggu Izin`, serta tombol `📋 Kelola Izin` bagi admin/creator.
+
+**Definition of Done (DoD) Checklist**:
+- [x] Auto-migration database: kolom `status`, `ai_summary`, composite index `idx_subgroups_active`, tabel `conversation_join_requests`, dan unique index `idx_join_requests_conv_user`
+- [x] Parent-Membership Gate fail-closed di seluruh level (Store, REST API, WebSocket)
+- [x] Endpoint REST baru:
+  - `GET /api/groups/{id}/subgroups` (dengan `is_public` & `has_pending_request`)
+  - `POST /api/groups/{id}/subgroups` (menerima `is_public`)
+  - `POST /api/groups/{id}/join-request` (mengajukan izin bergabung)
+  - `GET /api/groups/{id}/join-requests` (daftar permohonan pending)
+  - `POST /api/groups/{id}/join-requests/{requestId}/action` (approve/reject izin)
+- [x] Handler `POST /api/groups/{id}/join` memvalidasi `is_public` (subgrup privat tolak direct join)
+- [x] Background Daemon `SubGroupTTLWorker` mengeksekusi `ExpireSubGroupsBatch` + auto-purge `conversation_join_requests`
+- [x] Read-only lock saat subgrup kedaluwarsa di backend (WS gate) dan frontend (UI input disable)
+- [x] Dual-platform compatibility: Desktop 2-column & Mobile single-screen flow
+- [x] Proteksi Slow/Flaky Server: AbortController 15s, disabled state on submit
+- [x] Automated tests: `go test ./...` 100% lulus (termasuk `TestSubGroup_AccessControlAndJoinRequests` dan auto-purge)
+- [x] Frontend build: `npm run build` lulus 0 error
+
+
 

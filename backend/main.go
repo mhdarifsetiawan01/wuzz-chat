@@ -14,6 +14,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/storage"
 	"github.com/bms-del112/wuzz-chat/internal/store"
+	"github.com/bms-del112/wuzz-chat/internal/worker"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
 	"github.com/joho/godotenv"
 )
@@ -106,6 +107,13 @@ func main() {
 	purgeWorker := storage.NewPurgeWorker(mediaStorage, messageStore, retentionDays, 1*time.Hour)
 	purgeWorker.Start()
 	defer purgeWorker.Stop()
+
+	// Inisialisasi SubGroup TTL Worker untuk auto-expire topik subgrup (15 menit interval)
+	if groupStore != nil {
+		subGroupWorker := worker.NewSubGroupTTLWorker(groupStore, 15*time.Minute)
+		subGroupWorker.Start()
+		defer subGroupWorker.Stop()
+	}
 
 	// Inisialisasi Hub dengan dependency injection
 	hub := ws.NewHub(clientStore, messageStore)
