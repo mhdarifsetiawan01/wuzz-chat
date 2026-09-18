@@ -30,7 +30,7 @@ func TestSubGroupTTLWorker_ExpireOnce(t *testing.T) {
 	}
 
 	// Create subgrup
-	sub, err := userStore.CreateSubGroup(parentGroup.ID, "Topik Kadaluwarsa", "Desc", creator.ID, "7_days")
+	sub, err := userStore.CreateSubGroup(parentGroup.ID, "Topik Kadaluwarsa", "Desc", creator.ID, "7_days", true)
 	if err != nil {
 		t.Fatalf("Gagal membuat subgrup: %v", err)
 	}

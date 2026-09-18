@@ -1832,6 +1832,8 @@ function ChatPageContent() {
               onClose={() => setIsSubGroupListOpen(false)}
               parentGroupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
               parentGroupName={parentGroupName || groupDetails?.title || 'Grup Utama'}
+              currentUserId={user?.id || ''}
+              currentUserRole={groupDetails?.my_role}
               onSelectSubGroup={(subId) => {
                 handleSelectRoom(subId)
               }}

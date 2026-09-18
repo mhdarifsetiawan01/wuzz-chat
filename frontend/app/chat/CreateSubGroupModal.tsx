@@ -22,6 +22,7 @@ export default function CreateSubGroupModal({
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [duration, setDuration] = useState<'7_days' | '30_days'>('7_days')
+  const [isPublic, setIsPublic] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -30,6 +31,7 @@ export default function CreateSubGroupModal({
       setTitle('')
       setDescription('')
       setDuration('7_days')
+      setIsPublic(true)
       setIsLoading(false)
       setErrorMessage('')
     }
@@ -79,6 +81,7 @@ export default function CreateSubGroupModal({
             title: trimmedTitle,
             description: description.trim(),
             duration: duration,
+            is_public: isPublic,
           }),
           signal: controller.signal,
         }
@@ -109,24 +112,40 @@ export default function CreateSubGroupModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={() => !isLoading && onClose()}>
+    <div className="group-modal-backdrop" onClick={() => !isLoading && onClose()} style={{ zIndex: 1150 }}>
       <div 
-        className="modal-content create-group-modal" 
+        className="group-modal-card" 
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '480px' }}
+        style={{ maxWidth: 480, maxHeight: '90vh', padding: 0 }}
       >
         {/* Header Modal */}
-        <div className="modal-header">
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>💬</span> Buat Subgrup Baru
-            </h3>
-            <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Topik diskusi bertopik di dalam <strong style={{ color: 'var(--text-primary)' }}>{parentGroupName}</strong>
-            </p>
+        <div className="group-modal-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              background: 'linear-gradient(135deg, rgba(59,130,246,0.25), rgba(129,140,248,0.25))',
+              border: '1px solid rgba(59,130,246,0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.25rem',
+              boxShadow: '0 2px 10px rgba(59,130,246,0.2)'
+            }}>
+              💬
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                Buat Subgrup Baru
+              </h2>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Topik di dalam <strong style={{ color: 'var(--text-primary)' }}>{parentGroupName}</strong>
+              </span>
+            </div>
           </div>
           <button 
-            className="modal-close-btn" 
+            className="group-modal-close-btn" 
             onClick={onClose} 
             disabled={isLoading}
             aria-label="Tutup modal"
@@ -136,8 +155,8 @@ export default function CreateSubGroupModal({
         </div>
 
         {/* Body Modal */}
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <div className="group-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {errorMessage && (
               <div 
                 style={{ 
@@ -155,20 +174,19 @@ export default function CreateSubGroupModal({
 
             {/* Input Nama Topik */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary)' }}>
                 Nama Subgrup / Topik <span style={{ color: 'var(--danger-color, #ef4444)' }}>*</span>
               </label>
               <input
                 type="text"
-                className="input-field"
-                placeholder="Contoh: Diskusi Desain UI, Sprint Review Minggu 3"
+                className="group-form-input"
+                placeholder="Contoh: Diskusi Desain UI, Sprint Review"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 maxLength={128}
                 disabled={isLoading}
                 autoFocus
                 required
-                style={{ width: '100%' }}
               />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
                 Maksimal 128 karakter
@@ -177,24 +195,24 @@ export default function CreateSubGroupModal({
 
             {/* Input Deskripsi */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary)' }}>
                 Deskripsi Singkat (Opsional)
               </label>
               <textarea
-                className="input-field"
+                className="group-form-textarea"
                 placeholder="Jelaskan tujuan atau fokus pembicaraan topik ini..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 maxLength={500}
                 disabled={isLoading}
                 rows={2}
-                style={{ width: '100%', resize: 'none' }}
+                style={{ resize: 'none' }}
               />
             </div>
 
             {/* Pilihan Masa Aktif (TTL) */}
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--text-secondary)' }}>
                 ⏳ Masa Aktif Subgrup (Masa Kedaluwarsa)
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -264,6 +282,78 @@ export default function CreateSubGroupModal({
               </div>
             </div>
 
+            {/* Pilihan Hak Akses Subgrup */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                🛡️ Hak Akses Bergabung
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                {/* Opsi Terbuka (Public) */}
+                <div
+                  onClick={() => !isLoading && setIsPublic(true)}
+                  style={{
+                    border: isPublic ? '2px solid #10b981' : '1px solid rgba(255, 255, 255, 0.1)',
+                    background: isPublic ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: isPublic ? '#34d399' : 'inherit' }}>
+                      🌐 Terbuka
+                    </span>
+                    <input 
+                      type="radio" 
+                      name="isPublic" 
+                      checked={isPublic} 
+                      onChange={() => setIsPublic(true)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
+                    Semua anggota grup utama dapat langsung bergabung & membuka topik.
+                  </span>
+                </div>
+
+                {/* Opsi Privat (Private) */}
+                <div
+                  onClick={() => !isLoading && setIsPublic(false)}
+                  style={{
+                    border: !isPublic ? '2px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.1)',
+                    background: !isPublic ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                    borderRadius: '12px',
+                    padding: '12px',
+                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: !isPublic ? '#fbbf24' : 'inherit' }}>
+                      🔒 Privat
+                    </span>
+                    <input 
+                      type="radio" 
+                      name="isPublic" 
+                      checked={!isPublic} 
+                      onChange={() => setIsPublic(false)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
+                    Hanya yang diundang atau yang permohonan izinnya disetujui admin/creator.
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Catatan Masa Depan / AI Summary Notice */}
             <div 
               style={{
@@ -286,7 +376,7 @@ export default function CreateSubGroupModal({
           </div>
 
           {/* Footer Modal */}
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', padding: '16px 24px' }}>
+          <div className="group-modal-footer">
             <button
               type="button"
               className="btn btn-secondary"

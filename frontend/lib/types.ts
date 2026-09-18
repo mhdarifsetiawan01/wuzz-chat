@@ -176,6 +176,20 @@ export interface SubGroupItem {
   created_at: string
   status: 'active' | 'expired' | 'archived' | string
   is_member?: boolean
+  is_public?: boolean
+  has_pending_request?: boolean
+}
+
+export interface JoinRequestItem {
+  id: string
+  conversation_id: string
+  user_id: string
+  username: string
+  display_name: string
+  avatar_url?: string
+  is_verified?: boolean
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
 }
 
 export interface ConversationItem {

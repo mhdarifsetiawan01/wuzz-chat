@@ -11,10 +11,12 @@ Untuk mendukung percakapan berkelanjutan (*Direct Message & Group*), daftar kont
 ```mermaid
 erDiagram
     USERS ||--o{ CONVERSATION_MEMBERS : joins
+    USERS ||--o{ CONVERSATION_JOIN_REQUESTS : requests
     USERS ||--o{ MESSAGES : sends
     USERS ||--o{ MESSAGE_RECEIPTS : reads
     USERS ||--o{ PUSH_SUBSCRIPTIONS : registers
     CONVERSATIONS ||--o{ CONVERSATION_MEMBERS : contains
+    CONVERSATIONS ||--o{ CONVERSATION_JOIN_REQUESTS : receives
     CONVERSATIONS ||--o{ MESSAGES : has
     MESSAGES ||--o{ MESSAGE_RECEIPTS : tracked_by
     MESSAGES ||--o{ ATTACHMENTS : includes
@@ -70,6 +72,16 @@ erDiagram
         varchar role "creator / admin / member"
         timestamp cleared_at "nullable timestamp for user clear chat"
         timestamp joined_at
+    }
+
+    CONVERSATION_JOIN_REQUESTS {
+        varchar id PK "req_<UUIDv4>"
+        varchar conversation_id FK "subgroup ID"
+        uuid user_id FK "applicant user UUID"
+        varchar status "pending / approved / rejected"
+        varchar reviewed_by FK "admin user UUID who reviewed"
+        timestamp created_at
+        timestamp updated_at
     }
 
     MESSAGES {

@@ -758,16 +758,30 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
    - `StatusBar.tsx`: Integrasi tombol `💬 Subgrup` pada grup utama, badge status subgrup, badge `Kedaluwarsa (Terkunci)`, dan tombol navigasi kembali `← [Nama Grup Utama]`.
    - `GroupInfoDrawer.tsx`: Tombol aksi `Lihat Topik & Subgrup Aktif`.
 
+7. **Sub-Group Access Control Engine (Terbuka vs Privat)**:
+   - Dukungan `is_public` boolean pada subgrup:
+     - 🌐 **Terbuka**: Anggota grup induk dapat langsung bergabung secara mandiri (`Gabung & Buka`).
+     - 🔒 **Privat**: Anggota grup induk harus mengajukan permohonan izin (`Minta Izin Gabung`) atau diundang oleh admin/creator.
+   - **Tabel `conversation_join_requests`**: Skema relasional persisten mencatat antrean permohonan (`id`, `conversation_id`, `user_id`, `status`, `reviewed_by`, `created_at`, `updated_at`) dengan indeks komposit unik `(conversation_id, user_id)` untuk mencegah *duplicate requests*.
+   - **Auto-Purge Kedaluwarsa**: Saat subgrup kedaluwarsa via `SubGroupTTLWorker` (`ExpireSubGroupsBatch`), seluruh data permohonan di `conversation_join_requests` langsung dihapus tuntas untuk menjaga kebersihan database.
+   - **Panel Review Admin**: Admin/creator dapat melihat daftar permohonan pending via endpoint `GET /api/groups/{id}/join-requests` dan menyetujui/menolak via `POST /api/groups/{id}/join-requests/{requestId}/action`.
+   - **Frontend Dynamic Action Buttons**: Kartu subgrup menampilkan badge 🌐 Terbuka vs 🔒 Privat, tombol `Gabung & Buka`, `🔒 Minta Izin Gabung`, `⏳ Menunggu Izin`, serta tombol `📋 Kelola Izin` bagi admin/creator.
+
 **Definition of Done (DoD) Checklist**:
-- [x] Auto-migration database: kolom `status`, `ai_summary`, dan composite index `idx_subgroups_active`
+- [x] Auto-migration database: kolom `status`, `ai_summary`, composite index `idx_subgroups_active`, tabel `conversation_join_requests`, dan unique index `idx_join_requests_conv_user`
 - [x] Parent-Membership Gate fail-closed di seluruh level (Store, REST API, WebSocket)
-- [x] Endpoint REST baru: `GET /api/groups/{id}/subgroups` dan `POST /api/groups/{id}/subgroups`
-- [x] Handler `POST /api/groups/{id}/join` mendukung `sub_` dengan validasi keanggotaan induk
-- [x] Background Daemon: `SubGroupTTLWorker` diinisialisasi di `main.go`
+- [x] Endpoint REST baru:
+  - `GET /api/groups/{id}/subgroups` (dengan `is_public` & `has_pending_request`)
+  - `POST /api/groups/{id}/subgroups` (menerima `is_public`)
+  - `POST /api/groups/{id}/join-request` (mengajukan izin bergabung)
+  - `GET /api/groups/{id}/join-requests` (daftar permohonan pending)
+  - `POST /api/groups/{id}/join-requests/{requestId}/action` (approve/reject izin)
+- [x] Handler `POST /api/groups/{id}/join` memvalidasi `is_public` (subgrup privat tolak direct join)
+- [x] Background Daemon `SubGroupTTLWorker` mengeksekusi `ExpireSubGroupsBatch` + auto-purge `conversation_join_requests`
 - [x] Read-only lock saat subgrup kedaluwarsa di backend (WS gate) dan frontend (UI input disable)
 - [x] Dual-platform compatibility: Desktop 2-column & Mobile single-screen flow
 - [x] Proteksi Slow/Flaky Server: AbortController 15s, disabled state on submit
-- [x] Automated tests: `go test ./...` 100% lulus (termasuk unit test store, worker, dan API endpoint)
+- [x] Automated tests: `go test ./...` 100% lulus (termasuk `TestSubGroup_AccessControlAndJoinRequests` dan auto-purge)
 - [x] Frontend build: `npm run build` lulus 0 error
 
 

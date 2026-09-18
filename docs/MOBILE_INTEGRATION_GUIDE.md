@@ -433,11 +433,17 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - **Bypass E2EE Fail-Closed**: Pada room grup, pesan dikirim dan diterima dalam format teks langsung (*server-relayed TLS in-transit*). Klien mobile DILARANG melempar error enkripsi/fail-closed jika tidak ada pairwise ECDH AES key untuk room grup.
   - Tampilkan warna nama pengirim (*sender nickname color*) yang unik dan deterministik per user di linimasa pesan grup.
   - Integrasi endpoint REST `/api/groups` (buat grup), `/api/groups/search` (cari grup publik), `/api/groups/{id}` (detail grup), `/api/groups/{id}/members` (daftar anggota, tambah, kick, dan ubah role admin/member).
-- [ ] **Ephemeral Sub-Groups & TTL Lifecycle (Milestone 8.2B)**:
+- [ ] **Ephemeral Sub-Groups, TTL Lifecycle & Access Control (Milestone 8.2B)**:
   - Mendukung penanganan room topik subgrup berawalan `sub_` (`sub_<UUIDv4>`).
   - **Strict Parent-Membership Gate**: Pastikan klien mobile memvalidasi bahwa pengguna terdaftar di grup utama (`parent_id`) sebelum membuka ruang subgrup. Jika API mengembalikan `HTTP 403 Forbidden`, arahkan pengguna kembali ke grup utama.
+  - **Sub-Group Access Control (Terbuka vs Privat)**:
+    - Jika `sub.is_public !== false`: Tampilkan tombol "Gabung & Buka" (`POST /api/groups/{sub_id}/join`).
+    - Jika `sub.is_public === false`:
+      - Jika belum menjadi member dan belum ada request: Tampilkan tombol "🔒 Minta Izin Gabung" (`POST /api/groups/{sub_id}/join-request`).
+      - Jika `sub.has_pending_request === true`: Tampilkan state disabled "⏳ Menunggu Izin".
+      - Jika pengguna adalah admin/creator: Tampilkan menu peninjauan izin masuk (`GET /api/groups/{sub_id}/join-requests` dan `POST /api/groups/{sub_id}/join-requests/{requestId}/action` dengan payload `{"approve": true/false}`).
   - **Fail-Closed Read-Only Lock**: Jika `status === "expired"` atau `expires_at <= NOW()`, nonaktifkan input bar pesan dan tampilkan banner *"Subgrup ini telah kedaluwarsa dan terkunci"*. Jangan hapus riwayat chat dari lokal (Cache-First persisten).
-  - **Integrasi Endpoint**: `GET /api/groups/{id}/subgroups` (daftar subgrup aktif beserta sisa waktu `remaining_seconds`), `POST /api/groups/{id}/subgroups` (buat subgrup dengan preset `"7_days"` atau `"30_days"`), dan `POST /api/groups/{sub_id}/join`.
+  - **Integrasi Endpoint**: `GET /api/groups/{id}/subgroups`, `POST /api/groups/{id}/subgroups` (dengan boolean `is_public`), `POST /api/groups/{sub_id}/join`, `POST /api/groups/{sub_id}/join-request`, `GET /api/groups/{sub_id}/join-requests`, dan `POST /api/groups/{sub_id}/join-requests/{requestId}/action`.
   - **Immutable-Only Checking**: Semua perbandingan dan relasi wajib mengacu pada UUID/ID immutable (`user.id`, `sub.id`, `sub.parent_id`).
 - [ ] **Push Notification**: FCM/APNs token terdaftar ke `POST /api/notifications/subscribe`, Zero-Knowledge Background Decryption di service layer, dan pencabutan token saat logout.
 

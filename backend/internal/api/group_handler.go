@@ -210,6 +210,37 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// 7. /api/groups/{id}/join-request
+	if len(parts) == 2 && parts[1] == "join-request" {
+		if r.Method == http.MethodPost {
+			h.handleRequestToJoinSubGroup(w, claims.UserID, groupID)
+		} else {
+			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// 8. /api/groups/{id}/join-requests
+	if len(parts) == 2 && parts[1] == "join-requests" {
+		if r.Method == http.MethodGet {
+			h.handleGetJoinRequests(w, claims.UserID, groupID)
+		} else {
+			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// 9. /api/groups/{id}/join-requests/{requestId}/action
+	if len(parts) == 4 && parts[1] == "join-requests" && parts[3] == "action" {
+		targetRequestID := parts[2]
+		if r.Method == http.MethodPost {
+			h.handleRespondJoinRequest(w, r, claims.UserID, groupID, targetRequestID)
+		} else {
+			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
 	http.NotFound(w, r)
 }
 
@@ -534,6 +565,7 @@ func (h *GroupHandler) handleCreateSubGroup(w http.ResponseWriter, r *http.Reque
 		Title       string `json:"title"`
 		Description string `json:"description"`
 		Duration    string `json:"duration"` // "7_days" atau "30_days"
+		IsPublic    *bool  `json:"is_public"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -555,6 +587,12 @@ func (h *GroupHandler) handleCreateSubGroup(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// Default is_public ke true jika tidak disertakan
+	isPublic := true
+	if req.IsPublic != nil {
+		isPublic = *req.IsPublic
+	}
+
 	// Validasi bahwa pembuat adalah minimal anggota grup induk (atau admin/creator)
 	role, err := h.groupStore.GetUserRoleInGroup(parentID, currentUserID)
 	if err != nil || role == "" {
@@ -562,7 +600,7 @@ func (h *GroupHandler) handleCreateSubGroup(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	subgroup, err := h.groupStore.CreateSubGroup(parentID, req.Title, req.Description, currentUserID, req.Duration)
+	subgroup, err := h.groupStore.CreateSubGroup(parentID, req.Title, req.Description, currentUserID, req.Duration, isPublic)
 	if err != nil {
 		if errors.Is(err, store.ErrUnauthorizedGroup) {
 			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda bukan anggota grup utama")
@@ -586,4 +624,110 @@ func (h *GroupHandler) handleCreateSubGroup(w http.ResponseWriter, r *http.Reque
 		"subgroup": subgroup,
 	})
 }
+
+// handleRequestToJoinSubGroup memproses permohonan anggota untuk bergabung ke subgrup privat.
+func (h *GroupHandler) handleRequestToJoinSubGroup(w http.ResponseWriter, currentUserID, groupID string) {
+	if !strings.HasPrefix(groupID, "sub_") {
+		writeGroupJSONError(w, http.StatusBadRequest, "Permohonan bergabung hanya berlaku untuk subgrup")
+		return
+	}
+
+	err := h.groupStore.RequestToJoinSubGroup(groupID, currentUserID)
+	if err != nil {
+		if errors.Is(err, store.ErrGroupNotFound) {
+			http.Error(w, `{"error":"Subgrup tidak ditemukan"}`, http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, store.ErrUnauthorizedGroup) {
+			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda harus menjadi anggota grup utama terlebih dahulu")
+			return
+		}
+		if errors.Is(err, store.ErrAlreadyGroupMember) {
+			writeGroupJSONError(w, http.StatusConflict, "Anda sudah menjadi anggota subgrup ini")
+			return
+		}
+		writeGroupJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Permohonan bergabung berhasil diajukan, menunggu persetujuan admin",
+	})
+}
+
+// handleGetJoinRequests mengambil daftar seluruh permohonan bergabung subgrup yang masih pending.
+func (h *GroupHandler) handleGetJoinRequests(w http.ResponseWriter, currentUserID, groupID string) {
+	if !strings.HasPrefix(groupID, "sub_") {
+		writeGroupJSONError(w, http.StatusBadRequest, "Permohonan bergabung hanya berlaku untuk subgrup")
+		return
+	}
+
+	requests, err := h.groupStore.GetPendingJoinRequests(groupID, currentUserID)
+	if err != nil {
+		if errors.Is(err, store.ErrGroupNotFound) {
+			http.Error(w, `{"error":"Subgrup tidak ditemukan"}`, http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, store.ErrUnauthorizedGroup) {
+			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin/creator yang dapat melihat permohonan")
+			return
+		}
+		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal memuat permohonan: "+err.Error())
+		return
+	}
+
+	if requests == nil {
+		requests = []store.JoinRequestItem{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"requests": requests,
+	})
+}
+
+// handleRespondJoinRequest memproses persetujuan (approve) atau penolakan (reject) permohonan bergabung subgrup.
+func (h *GroupHandler) handleRespondJoinRequest(w http.ResponseWriter, r *http.Request, currentUserID, groupID, requestID string) {
+	if !strings.HasPrefix(groupID, "sub_") {
+		writeGroupJSONError(w, http.StatusBadRequest, "Permohonan bergabung hanya berlaku untuk subgrup")
+		return
+	}
+
+	var req struct {
+		Approve bool `json:"approve"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
+		return
+	}
+
+	err := h.groupStore.RespondJoinRequest(groupID, requestID, currentUserID, req.Approve)
+	if err != nil {
+		if errors.Is(err, store.ErrGroupNotFound) {
+			http.Error(w, `{"error":"Subgrup tidak ditemukan"}`, http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, store.ErrUnauthorizedGroup) {
+			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda tidak memiliki wewenang untuk meninjau permohonan ini")
+			return
+		}
+		writeGroupJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Jika disetujui, update kehadiran room users
+	if req.Approve && h.hub != nil {
+		h.hub.BroadcastRoomUsers(groupID)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Permohonan berhasil %s", map[bool]string{true: "disetujui", false: "ditolak"}[req.Approve]),
+	})
+}
+
 

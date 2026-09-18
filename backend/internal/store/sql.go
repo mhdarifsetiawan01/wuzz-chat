@@ -136,6 +136,18 @@ func (s *SQLMessageStore) autoMigrate() error {
 			expires_at TIMESTAMP NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_transfer_user_exp ON device_transfer_sessions(user_id, expires_at);`,
+		`CREATE TABLE IF NOT EXISTS conversation_join_requests (
+			id VARCHAR(64) PRIMARY KEY,
+			conversation_id VARCHAR(128) NOT NULL,
+			user_id VARCHAR(64) NOT NULL,
+			status VARCHAR(32) NOT NULL DEFAULT 'pending',
+			reviewed_by VARCHAR(64) DEFAULT '',
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_join_requests_conv_status ON conversation_join_requests(conversation_id, status);`,
+		`CREATE INDEX IF NOT EXISTS idx_join_requests_user ON conversation_join_requests(user_id);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_join_requests_conv_user ON conversation_join_requests(conversation_id, user_id);`,
 	}
 
 	for _, query := range migrations {
