@@ -286,6 +286,11 @@ Membangun platform chatting modern yang:
   - **Rebranding Resmi Menjadi "Forum"**: Meningkatkan istilah subgrup menjadi *Forum & Topik Diskusi* mengadopsi standar industri Telegram Forums & Topics.
   - **Redesain Total Header Obrolan**: Integrasi breadcrumb interaktif di baris subtitle obrolan (`↖ [Grup Induk] • Forum • X anggota`), menghilangkan tombol melayang canggung di atas judul, dan memperlebar ruang horizontal judul obrolan 3x lipat.
   - **Collapsible Action Menu (Tombol Titik Tiga `⋮`)**: Icon-icon sekunder (`Info`, `Link`, `Sound`) terlipat rapi di mobile dengan animasi halus dan auto-close, sementara tombol akses cepat `🏛️ Forum` tetap berada di luar untuk akses 1-tap instan.
+- ✅ **Milestone 8.2D: Shared Media Hub for Group Chats & Forum Topics (SELESAI)**:
+  - **Pencegahan Media Kedaluwarsa Dini**: Mengatasi masalah berkas gambar di obrolan grup (`grp_...`) dan forum topics (`sub_...`) yang langsung kedaluwarsa (*"Media telah kedaluwarsa"*) ketika salah satu anggota pertama selesai mengunduh.
+  - **Inspeksi Percakapan di MessageStore (`sql.go` & `memory.go`)**: Fungsi `AcknowledgeMediaDownload` mendeteksi tipe obrolan grup dan forum topic. Untuk grup/forum, konfirmasi unduhan tidak menghapus berkas fisik di Supabase Storage dan tidak mengubah status pesan menjadi `'expired'`.
+  - **Dual-Retention Semantics**: Direct message (1-on-1) tetap menggunakan Store-and-Forward instan ($0 server storage cost), sedangkan grup & forum topic menggunakan model Shared Media Hub dengan retensi penuh hingga batas TTL (7 hari) yang dibersihkan oleh `PurgeWorker`.
+  - **Automated Test Suite**: Dilindungi unit test skenario komprehensif `TestMediaHandler_AcknowledgeDownload_SharedMediaHub_GroupAndSubGroup` (100% PASS). Deployed ke Fly.io & merged ke `main`.
 - ⏳ **Milestone 8.3: Message Management Suite (NEXT)**:
   - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, in-chat text search, dan **Infinite Scroll Cursor Pagination** (`before_id`) melengkapi batas 50 pesan awal server.
 - 🔮 **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` via Redis Pub/Sub)**:
