@@ -593,17 +593,17 @@ func (h *GroupHandler) handleCreateSubGroup(w http.ResponseWriter, r *http.Reque
 		isPublic = *req.IsPublic
 	}
 
-	// Validasi bahwa pembuat adalah minimal anggota grup induk (atau admin/creator)
+	// Validasi bahwa pembuat adalah admin atau pembuat grup induk
 	role, err := h.groupStore.GetUserRoleInGroup(parentID, currentUserID)
-	if err != nil || role == "" {
-		writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda harus menjadi anggota grup utama terlebih dahulu")
+	if err != nil || (role != "creator" && role != "admin") {
+		writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin atau pembuat grup yang dapat membuat topik forum")
 		return
 	}
 
 	subgroup, err := h.groupStore.CreateSubGroup(parentID, req.Title, req.Description, currentUserID, req.Duration, isPublic)
 	if err != nil {
 		if errors.Is(err, store.ErrUnauthorizedGroup) {
-			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda bukan anggota grup utama")
+			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin atau pembuat grup yang dapat membuat topik forum")
 			return
 		}
 		writeGroupJSONError(w, http.StatusBadRequest, "Gagal membuat subgrup: "+err.Error())

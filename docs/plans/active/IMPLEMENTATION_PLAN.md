@@ -1,7 +1,3 @@
-# Implementation Plan — Standby
+# Active Implementation Plan
 
-## 📌 Status
-Standby untuk task/milestone berikutnya.
-
-## 🎯 Next Roadmap Item
-Milestone 8.3: Message Management Suite (Edit pesan 15 menit, forward multi-kontak, pin chat & pin message, starred message, in-chat search).
+> Status: STANDBY — Menunggu tugas berikutnya.

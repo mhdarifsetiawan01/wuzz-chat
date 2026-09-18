@@ -255,7 +255,7 @@ Membangun platform chatting modern yang:
 - ✅ **Milestone 8.2A: Core Group Chat Engine & Member Management (SELESAI)**:
   - **Identitas & Skema Grup**: Identitas unik format `grp_<UUIDv4>` pada tabel `conversations` dengan dukungan visibilitas **🔒 Privat (Wuzz Cloud)** vs **🌐 Publik** (dengan handle unik `@group_username` dan pencarian global).
   - **Fondasi Sub-Grup & TTL**: Penambahan kolom `parent_id VARCHAR(128)` dan `expires_at TIMESTAMP` pada `conversations` (NULL untuk grup utama permanen, fondasi siap pakai untuk Milestone 8.2B).
-  - **Wizard Pembuatan Grup (`CreateGroupModal.tsx`)**: Modal 2 langkah (Info Grup & Toggle Publik/Privat + Pemilih Anggota cerdas dengan tab Kontak DM Terakhir dan Live Search via `/api/users/search`).
+  - **Wizard Pembuatan Grup (`CreateGroupModal.tsx`) & Modal Pratinjau Publik (`GroupPreviewModal.tsx`)**: Modal 2 langkah pembuatan grup dan modal pratinjau konfirmasi gabung grup publik bertema Aurora Glassmorphic (DEC-012) untuk mengeliminasi *accidental auto-join*.
   - **Manajemen & Drawer Info Grup (`GroupInfoDrawer.tsx`)**: Drawer profil grup, daftar anggota dengan role/verified badge, RBAC hierarkis (`creator`, `admin`, `member`), promosi/demosi admin, kick anggota, edit profil grup, dan leave group dengan konfirmasi aman.
   - **Header & Linimasa Dinamis**: `StatusBar.tsx` terintegrasi info grup, lencana publik/privat, hitungan anggota, tombol info grup; `MessageBubble.tsx` menampilkan nama pengirim dengan aksen warna unik deterministik per user.
   - **Bypass E2EE Fail-Closed**: Pesan grup beroperasi via secure server-relayed TLS transit dengan skema database siap-upgrade ke Signal Sender Keys di masa mendatang tanpa breaking changes.
@@ -263,7 +263,7 @@ Membangun platform chatting modern yang:
   - **REST API Suite Lengkap (9 Endpoint)**: `POST /api/groups`, `GET /api/groups/search`, `GET /api/groups/{id}`, `POST /api/groups/{id}/join`, `GET /api/groups/{id}/members`, `POST /api/groups/{id}/members`, `DELETE /api/groups/{id}/members/{userId}`, `PATCH /api/groups/{id}/members/{userId}/role`, `PATCH /api/groups/{id}`.
 - ✅ **Milestone 8.2B: Ephemeral Sub-Groups, TTL Lifecycle & Access Control (SELESAI)**:
   - **Arsitektur Sub-Grup Bertopik**: Mini grup diskusi topik di dalam grup induk (`parent_id`) dengan identitas unik `sub_<UUIDv4>` dan skema auto-migration (`status VARCHAR(32) DEFAULT 'active'`, `ai_summary TEXT`, composite index `idx_subgroups_active(parent_id, expires_at)`).
-  - **Parent-Membership Gate (Strict Fail-Closed)**: Non-anggota grup utama secara mutlak dilarang mengakses, melihat list, bergabung, maupun menerima invite ke subgrup (HTTP 403 / WS error).
+  - **Parent-Membership Gate & RBAC Enforcement (Strict Fail-Closed)**: Non-anggota grup utama secara mutlak dilarang mengakses, melihat list, bergabung, maupun menerima invite ke subgrup (HTTP 403 / WS error). Pembuatan topik forum dibatasi ketat hanya untuk Admin dan Pembuat grup induk (`creator`/`admin`), dengan tombol pembuatan di-hidden otomatis bagi anggota biasa.
   - **Pilihan Masa Aktif (TTL)**: Default 1 minggu (`"7_days"`), dengan opsi terbatas 1 minggu dan 1 bulan (`"30_days"`).
   - **SubGroupTTLWorker (Background Go Daemon)**: Ticker 15 menit berkala non-blocking mengeksekusi `ExpireSubGroupsBatch` untuk mentransisikan subgrup kedaluwarsa ke status `'expired'` secara atomik.
   - **Sub-Group Access Control (Public vs Private)**:
@@ -275,7 +275,7 @@ Membangun platform chatting modern yang:
   - **Fail-Closed Write Gate**: Subgrup kedaluwarsa otomatis terkunci *read-only* (WebSocket menolak kirim pesan dengan `sendError` dan tombol input textarea di-disable).
   - **Kesiapan AI Summary Masa Depan**: Riwayat percakapan tidak di-hard delete saat kedaluwarsa melainkan disimpan untuk diringkas oleh AI summary worker di fase mendatang.
   - **Enforcement Identitas Immutable (DEC-008)**: Seluruh perbandingan, otorisasi, dan filter relasi hanya menggunakan variabel immutable (`user.id` / UUID, `conversation.id`, `parent_id`), tanpa variabel mutable.
-  - **Komponen Frontend**: `SubGroupListDrawer.tsx` (daftar topik aktif dengan badge sisa waktu real-time, lencana 🌐 Terbuka vs 🔒 Privat, tombol Minta Izin, dan Panel Review Izin bagi Admin), `CreateSubGroupModal.tsx` (modal pembuatan subgrup bertema Aurora Glassmorphic dengan toggle hak akses), tombol `💬 Subgrup` di `StatusBar.tsx` dan `GroupInfoDrawer.tsx`, serta navigasi balik `← [Nama Grup Induk]`.
+  - **Komponen Frontend**: `SubGroupListDrawer.tsx` (daftar topik aktif dengan badge sisa waktu real-time, lencana 🌐 Terbuka vs 🔒 Privat, tombol Minta Izin, tombol Buat Topik yang di-hidden bagi anggota biasa, dan Panel Review Izin bagi Admin), `CreateSubGroupModal.tsx` (modal pembuatan subgrup bertema Aurora Glassmorphic dengan toggle hak akses), tombol `💬 Subgrup` di `StatusBar.tsx` dan `GroupInfoDrawer.tsx`, serta navigasi balik `← [Nama Grup Induk]`.
   - **REST API Suite Subgrup (5 Endpoint)**:
     - `GET /api/groups/{id}/subgroups`
     - `POST /api/groups/{id}/subgroups` (dengan opsi `is_public`)

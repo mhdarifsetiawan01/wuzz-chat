@@ -754,12 +754,12 @@ func (s *SQLUserStore) CreateSubGroup(parentID, title, description, creatorID, d
 		return nil, err
 	}
 
-	// 2. Strict Parent-Membership Gate: Pastikan creator adalah member aktif di parent group (UUID check)
-	isParentMember, err := s.IsParentMember(parentID, creatorID)
+	// 2. Strict Parent-Membership Gate & RBAC: Pastikan creator adalah admin atau pembuat di parent group (UUID check)
+	role, err := s.GetUserRoleInGroup(parentID, creatorID)
 	if err != nil {
 		return nil, err
 	}
-	if !isParentMember {
+	if role != "creator" && role != "admin" {
 		return nil, ErrUnauthorizedGroup
 	}
 

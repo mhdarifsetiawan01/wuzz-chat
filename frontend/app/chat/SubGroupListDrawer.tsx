@@ -50,6 +50,7 @@ export default function SubGroupListDrawer({
   currentUserId,
   currentUserRole,
 }: SubGroupListDrawerProps) {
+  const canCreateTopic = currentUserRole === 'creator' || currentUserRole === 'admin'
   const [subgroups, setSubgroups] = useState<SubGroupItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -470,31 +471,33 @@ export default function SubGroupListDrawer({
               </button>
             </div>
 
-            {/* Action Button: + Buat Forum */}
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => {
-                  onClose()
-                  onOpenCreateModal()
-                }}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  padding: '11px',
-                  borderRadius: '12px',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)',
-                }}
-              >
-                <span>➕</span> Buat Topik Forum Baru
-              </button>
-            </div>
+            {/* Action Button: + Buat Forum (Khusus Admin & Pembuat Grup) */}
+            {canCreateTopic && (
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    onClose()
+                    onOpenCreateModal()
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '11px',
+                    borderRadius: '12px',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)',
+                  }}
+                >
+                  <span>➕</span> Buat Topik Forum Baru
+                </button>
+              </div>
+            )}
 
             {/* List Forum */}
             <div className="group-modal-body" style={{ padding: '16px 20px' }}>
@@ -519,25 +522,27 @@ export default function SubGroupListDrawer({
               ) : subgroups.length === 0 ? (
                 <div 
                   style={{ 
-                    padding: '48px 20px', 
-                    textAlign: 'center', 
-                    color: 'var(--text-muted)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '12px'
-                  }}
-                >
-                  <span style={{ fontSize: '2.5rem' }}>🏛️</span>
-                  <div>
-                    <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)', fontWeight: 600 }}>
-                      Belum Ada Topik Forum Aktif
-                    </h4>
-                    <p style={{ margin: '6px 0 0', fontSize: '0.8rem', lineHeight: '1.4' }}>
-                      Buat topik forum dengan masa aktif 1 minggu atau 1 bulan untuk diskusi yang lebih terfokus.
-                    </p>
-                  </div>
+                  padding: '48px 20px', 
+                  textAlign: 'center', 
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}
+              >
+                <span style={{ fontSize: '2.5rem' }}>🏛️</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                    Belum Ada Topik Forum Aktif
+                  </h4>
+                  <p style={{ margin: '6px 0 0', fontSize: '0.8rem', lineHeight: '1.4' }}>
+                    {canCreateTopic
+                      ? 'Buat topik forum dengan masa aktif 1 minggu atau 1 bulan untuk diskusi yang lebih terfokus.'
+                      : 'Belum ada ruang diskusi aktif. Hanya admin atau pembuat grup yang dapat membuat topik forum baru.'}
+                  </p>
                 </div>
+              </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {subgroups.map((sub) => {

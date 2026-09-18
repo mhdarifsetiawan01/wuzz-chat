@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context'
 import type { Message, User, ConversationItem, GroupDetails } from '@/lib/types'
 import { ProfileModal } from './ProfileModal'
 import CreateGroupModal from './CreateGroupModal'
+import GroupPreviewModal from './GroupPreviewModal'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { isEncryptedMessage, decryptText } from '@/lib/crypto/e2ee'
 import { getSharedRoomAESKey, cachePeerPublicKey, getCachedPeerPublicKey } from '@/lib/crypto/keyStore'
@@ -73,6 +74,7 @@ export function Sidebar({
   const [isLoading, setIsLoading] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false)
+  const [previewGroup, setPreviewGroup] = useState<GroupDetails | null>(null)
   const [confirmDeleteConv, setConfirmDeleteConv] = useState<ConversationItem | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<any>(null)
@@ -547,22 +549,16 @@ export function Sidebar({
     }
   }
 
-  // Self-join ke grup publik hasil pencarian
-  const handleJoinPublicGroup = async (group: GroupDetails) => {
-    const { error } = await apiRequest<{ success: boolean }>(`/api/groups/${group.id}/join`, {
-      method: 'POST',
-    })
-    if (!error) {
-      setSearchQuery('')
-      setIsSearching(false)
-      setSearchResults([])
-      setPublicGroupResults([])
-      await loadConversations()
-      onSelectRoom(group.id)
-      if (onCloseMobile) onCloseMobile()
-    } else {
-      alert(error)
-    }
+  // Konfirmasi berhasil bergabung ke grup publik dari preview modal
+  const handleGroupJoinedFromPreview = async (group: GroupDetails) => {
+    setPreviewGroup(null)
+    setSearchQuery('')
+    setIsSearching(false)
+    setSearchResults([])
+    setPublicGroupResults([])
+    await loadConversations()
+    onSelectRoom(group.id)
+    if (onCloseMobile) onCloseMobile()
   }
 
   // Daftar kontak percakapan langsung terkini
@@ -860,7 +856,7 @@ export function Sidebar({
                                 onSelectRoom(g.id)
                                 if (onCloseMobile) onCloseMobile()
                               } else {
-                                handleJoinPublicGroup(g)
+                                setPreviewGroup(g)
                               }
                             }}
                           >
@@ -1237,6 +1233,14 @@ export function Sidebar({
         onClose={() => setIsCreateGroupOpen(false)}
         onGroupCreated={handleGroupCreated}
         recentContacts={recentContacts}
+      />
+
+      {/* Modal Pratinjau & Konfirmasi Gabung Grup Publik */}
+      <GroupPreviewModal
+        isOpen={Boolean(previewGroup)}
+        group={previewGroup}
+        onClose={() => setPreviewGroup(null)}
+        onJoined={handleGroupJoinedFromPreview}
       />
     </aside>
   )

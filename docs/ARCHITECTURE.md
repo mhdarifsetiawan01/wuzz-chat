@@ -225,14 +225,14 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `POST` | `/api/groups` | Membuat grup baru (publik / privat) | Bearer Token |
 | `GET` | `/api/groups/search?q=` | Mencari grup publik berdasarkan username/nama | Bearer Token |
 | `GET` | `/api/groups/{id}` | Mengambil detail grup atau subgrup (Parent Gate protected) | Bearer Token |
-| `POST` | `/api/groups/{id}/join` | Bergabung ke grup publik atau subgrup (Parent-Membership Gate) | Bearer Token |
+| `POST` | `/api/groups/{id}/join` | Bergabung ke grup publik atau subgrup (didahului konfirmasi preview modal di client) | Bearer Token |
 | `GET` | `/api/groups/{id}/members` | Daftar anggota grup dan role | Bearer Token |
 | `POST` | `/api/groups/{id}/members` | Menambahkan anggota ke grup (Admin/Creator) | Bearer Token |
 | `DELETE` | `/api/groups/{id}/members/{userId}` | Kick / mengeluarkan anggota dari grup | Bearer Token |
 | `PATCH` | `/api/groups/{id}/members/{userId}/role` | Promosi / demosi role anggota (`admin`/`member`) | Bearer Token |
 | `PATCH` | `/api/groups/{id}` | Mengubah informasi profil grup | Bearer Token |
 | `GET` | `/api/groups/{id}/subgroups` | Daftar topik & forum aktif (Parent-Membership Gate) | Bearer Token |
-| `POST` | `/api/groups/{id}/subgroups` | Membuat topik forum baru dengan durasi TTL (7d/30d) dan visibilitas (terbuka/privat) | Bearer Token |
+| `POST` | `/api/groups/{id}/subgroups` | Membuat topik forum baru dengan durasi TTL (7d/30d) dan visibilitas (khusus Admin/Creator) | Bearer Token |
 | `POST` | `/api/groups/{id}/join-request` | Mengajukan izin bergabung ke topik forum privat | Bearer Token |
 | `GET` | `/api/groups/{id}/join-requests` | Daftar permohonan izin pending (khusus Admin/Creator) | Bearer Token |
 | `POST` | `/api/groups/{id}/join-requests/{requestId}/action` | Menyetujui atau menolak izin bergabung (`approve`/`reject`) | Bearer Token |

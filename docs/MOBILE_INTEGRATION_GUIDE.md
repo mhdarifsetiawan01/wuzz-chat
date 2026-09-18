@@ -441,7 +441,7 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
     - Di layar mobile, implementasikan header yang lapang: Nama topik di baris utama, dan baris subtitle berupa breadcrumb interaktif `↖ [Nama Grup Induk] • Forum • X anggota` (tap untuk kembali ke grup utama).
     - Terapkan **Collapsible Action Menu (`⋮`)** di mobile: sembunyikan icon-icon sekunder (Info, Link, Mute) di balik tombol titik tiga agar judul topik tidak terpotong. Tombol akses `🏛️ Forum` pada grup induk tetap berada di luar untuk akses 1-tap instan.
     - **Smart Back Navigation**: Tombol kembali `←` di mobile saat berada di topik forum otomatis menavigasikan kembali ke grup induk (*parent-first hierarchy*).
-  - **Strict Parent-Membership Gate**: Pastikan klien mobile memvalidasi bahwa pengguna terdaftar di grup utama (`parent_id`) sebelum membuka ruang topik forum. Jika API mengembalikan `HTTP 403 Forbidden`, arahkan pengguna kembali ke grup utama.
+  - **Strict Parent-Membership Gate & RBAC Creation Guard**: Pastikan klien mobile memvalidasi bahwa pengguna terdaftar di grup utama (`parent_id`) sebelum membuka ruang topik forum. Tombol "Buat Topik Baru" WAJIB disembunyikan jika pengguna bukan admin/creator (`role !== 'admin' && role !== 'creator'`). Jika API mengembalikan `HTTP 403 Forbidden`, arahkan pengguna kembali atau tampilkan notifikasi izin admin.
   - **Forum Access Control (Terbuka vs Privat)**:
     - Jika `sub.is_public !== false`: Tampilkan tombol "Gabung & Buka" (`POST /api/groups/{sub_id}/join`).
     - Jika `sub.is_public === false`:
@@ -451,6 +451,11 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - **Fail-Closed Read-Only Lock**: Jika `status === "expired"` atau `expires_at <= NOW()`, nonaktifkan input bar pesan dan tampilkan banner *"Topik forum ini telah kedaluwarsa dan terkunci"*. Jangan hapus riwayat chat dari lokal (Cache-First persisten).
   - **Integrasi Endpoint**: `GET /api/groups/{id}/subgroups`, `POST /api/groups/{id}/subgroups` (dengan boolean `is_public`), `POST /api/groups/{sub_id}/join`, `POST /api/groups/{sub_id}/join-request`, `GET /api/groups/{sub_id}/join-requests`, dan `POST /api/groups/{sub_id}/join-requests/{requestId}/action`.
   - **Immutable-Only Checking**: Semua perbandingan dan relasi wajib mengacu pada UUID/ID immutable (`user.id`, `sub.id`, `sub.parent_id`).
+- [ ] **Public Group Discovery & Preview Confirmation (Milestone 8.2A / DEC-012)**:
+  - Saat pengguna mencari atau mengetuk grup publik di hasil pencarian kontak/grup (`GET /api/groups/search?q=...` atau membuka tautan langsung `/chat?room=grp_...`), klien mobile DILARANG langsung memanggil `POST /api/groups/{id}/join` secara otomatis (*anti-accidental auto-join*).
+  - Tampilkan modal/bottom sheet pratinjau konfirmasi terlebih dahulu yang memuat: avatar, nama grup, badge publik, handle `@group_username`, jumlah anggota, dan deskripsi grup.
+  - Sediakan tombol eksplisit "Batal" dan "Gabung ke Grup" (dengan loading spinner + proteksi anti double-click + timeout 15 detik).
+  - Panggilan `POST /api/groups/{id}/join` hanya dieksekusi saat pengguna secara sadar menekan tombol konfirmasi "Gabung ke Grup".
 - [ ] **Push Notification**: FCM/APNs token terdaftar ke `POST /api/notifications/subscribe`, Zero-Knowledge Background Decryption di service layer, dan pencabutan token saat logout.
 
 ---

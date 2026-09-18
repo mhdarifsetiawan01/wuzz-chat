@@ -61,21 +61,60 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
 
 ---
 
-## 🔒 Mandatory Git Commit Approval & Session Confirmation Rule (MANDATORY)
+## 🧪 Mandatory Post-Task Automated Testing & Reporting Rule (No Live Browser Required) (MANDATORY)
 
-**AI DILARANG KERAS melakukan `git commit` tanpa persetujuan / konfirmasi eksplisit dari pengguna.**
+**Setiap kali AI menyelesaikan pengerjaan suatu tugas/fitur/perbaikan kode, AI WAJIB SELALU melakukan testing otomatis terlebih dahulu, melaporkan hasil tugas beserta bukti hasil testingnya kepada pengguna, dan DILARANG melakukan commit sebelum pengguna menyatakan "selesai". Pastikan seluruh pekerjaan dilakukan di branch yang tepat dan TIDAK BOLEH bekerja di branch `main`.**
+
+### Aturan konkret:
+
+1. **Wajib Automated Testing Setiap Selesai Tugas**:
+   - Setiap kali pengerjaan kode selesai, AI **WAJIB** mengeksekusi automated testing sebelum membuat laporan akhir ke pengguna:
+     - **Frontend**: Jalankan `npm run build` di direktori `frontend/` (memastikan lolos kompilasi Next.js/Turbopack dan 0 error TypeScript/lint).
+     - **Backend**: Jalankan `go test -v ./...` di direktori `backend/` (memastikan seluruh unit & integration test lolos 100%).
+   - Jika terdapat error kompilasi, tipe data, atau test gagal, AI wajib mendiagnosis dan memperbaikinya terlebih dahulu sebelum melaporkan ke pengguna.
+
+2. **Tidak Perlu Live Browser Testing**:
+   - AI **TIDAK PERLU** menjalankan browser interaktif (browser subagent / headless Chromium / browser session) untuk pengujian UI, kecuali jika pengguna secara eksplisit meminta live test.
+   - Cukup buktikan kebenaran implementasi melalui automated build, typecheck gate, serta automated test suite.
+
+3. **Wajib Laporkan Hasil Tugas Beserta Hasil Testing**:
+   - AI wajib menyajikan laporan ringkas dan terstruktur kepada pengguna yang memuat:
+     - **Rincian Perubahan**: Apa saja yang telah diubah/ditambahkan pada kode.
+     - **Bukti Hasil Testing**: Status dan bukti kelulusan `npm run build` dan `go test -v ./...`.
+     - **Pertanyaan Konfirmasi**: Menanyakan apakah tugas sudah sesuai dan dianggap selesai oleh pengguna.
+
+4. **Gerbang Audit Dokumentasi Sebelum Commit**:
+   - Setelah pengguna menyatakan **"selesai"**, AI **WAJIB terlebih dahulu melakukan audit dan memperbarui dokumentasi proyek jika diperlukan** (README, API spec, architecture, roadmap, progress, security, mobile guide, prompt) agar selalu sinkron dengan kondisi kode terkini.
+   - **DILARANG commit sebelum dokumentasi dipastikan mutakhir**.
+
+5. **Proteksi Branch `main` (Strict Dev-Only Work)**:
+   - AI **DILARANG KERAS** bekerja, mengedit file, menjalankan tugas, atau melakukan commit di branch `main`.
+   - Seluruh pekerjaan wajib dilakukan di branch `dev` atau feature branch. Jika branch aktif terdeteksi `main`, AI wajib segera beralih ke `dev` sebelum menyentuh kode apapun.
+
+---
+
+## 🔒 Mandatory Git Commit Approval & Post-Commit Promotion Confirmation Rule (MANDATORY)
+
+**AI DILARANG KERAS melakukan `git commit` tanpa persetujuan eksplisit ("selesai"), dan WAJIB mengonfirmasi pilihan promosi merge/push segera setelah commit selesai.**
 
 ### Aturan konkret:
 
 1. **Konfirmasi Sebelum Commit**: Setiap kali sebuah task/tugas dalam 1 sesi selesai dikerjakan dan diverifikasi, AI **TIDAK BOLEH** langsung melakukan `git commit`. AI wajib mengonfirmasi ke user terlebih dahulu:
    - Menjelaskan apa yang telah diubah/diperbaiki.
+   - Menunjukkan bukti hasil testing otomatis.
    - Menanyakan apakah hasilnya sudah sesuai dengan harapan user.
 
-2. **Kondisi Persetujuan ("Selesai")**:
-   - AI **HANYA BOLEH** mengeksekusi `git commit` jika user telah secara eksplisit menyatakan selesai (misal: *"selesai"*, *"ya commit"*, *"oke commit"*).
+2. **Urutan Eksekusi Setelah User Menyatakan "Selesai"**:
+   - **Langkah 1 (Audit & Update Dokumentasi)**: Cek seluruh dokumentasi terkait dan lakukan pembaruan agar 100% mutakhir dengan perubahan kode terbaru.
+   - **Langkah 2 (Pengarsipan Rencana)**: Arsipkan file `docs/plans/active/` ke `docs/plans/archived/` dan reset active plan ke standby.
+   - **Langkah 3 (Eksekusi Commit)**: Lakukan `git add -A && git commit -m "..."` di branch `dev`.
 
-3. **Kondisi Belum Selesai / Iterasi Lanjutan**:
-   - Jika hasil belum sesuai atau user meminta revisi, lanjutkan perbaikan di branch `dev` tanpa melakukan commit sampai tugas diverifikasi tuntas.
+3. **Wajib Konfirmasi Promosi Pasca-Commit (Merge / Push Gate)**:
+   - Tepat setelah commit di branch `dev` berhasil dilakukan, AI **WAJIB menawarkan dan meminta konfirmasi tindakan lanjutan kepada pengguna**:
+     - **Opsi A**: Merge ke branch `main` dan langsung push ke GitHub (`git push origin main`).
+     - **Opsi B**: Hanya merge ke branch `main` saja secara lokal (tanpa push ke remote).
+     - **Opsi C**: Tetap di branch `dev` saja (tidak melakukan merge atau push saat ini).
+   - AI **DILARANG** melakukan merge ke `main` atau menjalankan `git push` tanpa instruksi/pilihan eksplisit yang dipilih pengguna.
 
 ---
 

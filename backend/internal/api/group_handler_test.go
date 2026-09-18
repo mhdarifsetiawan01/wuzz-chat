@@ -318,6 +318,25 @@ func TestGroupHandler_SubGroups(t *testing.T) {
 		}
 	})
 
+	// 3b. Bob (anggota biasa, bukan admin/creator) mencoba membuat subgrup -> HARUS DITOLAK 403
+	t.Run("Create Subgroup by Regular Member Forbidden", func(t *testing.T) {
+		subBody := map[string]interface{}{
+			"title":    "Subgrup Member Biasa",
+			"duration": "7_days",
+		}
+		rawSub, _ := json.Marshal(subBody)
+		subReq := httptest.NewRequest(http.MethodPost, "/api/groups/"+parentID+"/subgroups", bytes.NewReader(rawSub))
+		subCtx := auth.SetUserContext(subReq.Context(), &auth.UserClaims{UserID: userBob.ID, Username: userBob.Username})
+		subReq = subReq.WithContext(subCtx)
+
+		subRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(subRR, subReq)
+
+		if subRR.Code != http.StatusForbidden {
+			t.Fatalf("Expected 403 Forbidden for regular member, got %d: %s", subRR.Code, subRR.Body.String())
+		}
+	})
+
 	// 4. Bob (anggota induk) melihat daftar subgrup -> HARUS SUKSES
 	t.Run("Get Active Subgroups by Parent Member", func(t *testing.T) {
 		getReq := httptest.NewRequest(http.MethodGet, "/api/groups/"+parentID+"/subgroups", nil)
