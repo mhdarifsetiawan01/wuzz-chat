@@ -211,21 +211,21 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Validasi Multi-Lapisan**: Setiap pemanggilan untuk melihat subgrup (`GET /api/groups/{id}/subgroups`), membuat subgrup (`POST /api/groups/{id}/subgroups`), bergabung (`POST /api/groups/{sub_id}/join`), melihat detail (`GET /api/groups/{sub_id}`), maupun koneksi WebSocket (`IsUserInConversation`) memverifikasi keanggotaan aktif pengguna di grup induk `conversations.parent_id` via `IsParentMember(parentID, userID)`.
   - **Enforcement Identitas Immutable (DEC-008)**: Seluruh pembanding, query filter, dan otorisasi strictly menggunakan UUID / ID immutable (`users.id`, `conversations.id`, `conversations.parent_id`). Dilarang keras membandingkan variabel yang dapat berubah (*mutable*) seperti `username`, `display_name`, atau nama grup.
 
-### 2.13 Fail-Closed Write Gate & Ephemeral Sub-Group Lifecycle
+### 2.13 Fail-Closed Write Gate & Ephemeral Forum Topics Lifecycle
 * **Lokasi Kode**: [`backend/internal/ws/client.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/client.go), [`backend/internal/worker/subgroup_ttl_worker.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/worker/subgroup_ttl_worker.go)
 * **Solusi Implementasi**:
-  - **WebSocket Drop & Error**: Saat subgrup kedaluwarsa (`status = 'expired'` atau `expires_at <= NOW()`), server langsung menolak pesan masuk dengan `sendError("Subgrup ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.")`.
+  - **WebSocket Drop & Error**: Saat topik forum kedaluwarsa (`status = 'expired'` atau `expires_at <= NOW()`), server langsung menolak pesan masuk dengan `sendError("Topik forum ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.")`.
   - **Non-Destructive AI Summary Readiness**: Riwayat pesan tidak di-hard delete saat kedaluwarsa agar dapat diakses untuk AI Summary di masa mendatang.
   - **Automated Batch Transition**: Daemon background `SubGroupTTLWorker` berjalan setiap 15 menit menjalankan kueri batch `ExpireSubGroupsBatch` tanpa membebani thread WebSocket utama.
 
-### 2.14 Sub-Group Access Control & Join Request Purge Lifecycle
+### 2.14 Forum Topics Access Control & Join Request Purge Lifecycle
 * **Lokasi Kode**: [`backend/internal/store/group_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/group_store.go), [`backend/internal/api/group_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/group_handler.go)
-* **Vektor Serangan**: Anggota grup induk mencoba membobol subgrup privat tanpa izin melalui manipulasi request `POST /api/groups/{sub_id}/join`.
+* **Vektor Serangan**: Anggota grup induk mencoba membobol topik forum privat tanpa izin melalui manipulasi request `POST /api/groups/{sub_id}/join`.
 * **Solusi Implementasi**:
   - **Fail-Closed Direct Join Check**: Saat `is_public = false`, pemanggilan `/join` langsung ditolak dengan pesan instruksi mengajukan izin (`HTTP 400 Bad Request`).
   - **Unique Request Constraint**: Indeks komposit unik `idx_join_requests_conv_user ON conversation_join_requests(conversation_id, user_id)` mencegah eksploitasi *spam/duplicate request attack*.
-  - **RBAC Approval Gate**: Hanya admin/creator subgrup atau grup induk yang berhak memanggil `/join-requests` dan `/join-requests/{requestId}/action`.
-  - **Automated Expired Data Purge**: Saat subgrup kedaluwarsa, seluruh baris izin di `conversation_join_requests` langsung dihapus secara atomik oleh `ExpireSubGroupsBatch` untuk mencegah kebocoran antrean dan menghemat ruang database.
+  - **RBAC Approval Gate**: Hanya admin/creator topik forum atau grup induk yang berhak memanggil `/join-requests` dan `/join-requests/{requestId}/action`.
+  - **Automated Expired Data Purge**: Saat topik forum kedaluwarsa, seluruh baris izin di `conversation_join_requests` langsung dihapus secara atomik oleh `ExpireSubGroupsBatch` untuk mencegah kebocoran antrean dan menghemat ruang database.
 
 ---
 

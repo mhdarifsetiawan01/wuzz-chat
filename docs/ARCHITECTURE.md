@@ -230,8 +230,11 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `DELETE` | `/api/groups/{id}/members/{userId}` | Kick / mengeluarkan anggota dari grup | Bearer Token |
 | `PATCH` | `/api/groups/{id}/members/{userId}/role` | Promosi / demosi role anggota (`admin`/`member`) | Bearer Token |
 | `PATCH` | `/api/groups/{id}` | Mengubah informasi profil grup | Bearer Token |
-| `GET` | `/api/groups/{id}/subgroups` | Daftar topik & subgrup aktif (Parent-Membership Gate) | Bearer Token |
-| `POST` | `/api/groups/{id}/subgroups` | Membuat subgrup bertopik baru dengan durasi TTL (7d/30d) | Bearer Token |
+| `GET` | `/api/groups/{id}/subgroups` | Daftar topik & forum aktif (Parent-Membership Gate) | Bearer Token |
+| `POST` | `/api/groups/{id}/subgroups` | Membuat topik forum baru dengan durasi TTL (7d/30d) dan visibilitas (terbuka/privat) | Bearer Token |
+| `POST` | `/api/groups/{id}/join-request` | Mengajukan izin bergabung ke topik forum privat | Bearer Token |
+| `GET` | `/api/groups/{id}/join-requests` | Daftar permohonan izin pending (khusus Admin/Creator) | Bearer Token |
+| `POST` | `/api/groups/{id}/join-requests/{requestId}/action` | Menyetujui atau menolak izin bergabung (`approve`/`reject`) | Bearer Token |
 
 > **🛡️ Message Deletion Ownership & Interface**: Pengecekan kepemilikan pesan pada *Delete for Everyone* divalidasi secara ketat di backend menggunakan `msg.FromID == claims.UserID` (UUID). Parameter display name dihilangkan sepenuhnya dari kontrak `MessageStore.DeleteMessage(msgID, userID string, deleteForEveryone bool)`.
 
@@ -331,6 +334,21 @@ Aplikasi frontend WuzzChat dirancang untuk memberikan pengalaman optimal di dua 
 2. **Pola Cache-First**: Saat pengguna membuka percakapan, snapshot lokal segera dimuat ke UI untuk menghilangkan efek blank/loading, kemudian riwayat dari server digabungkan secara aman di latar belakang.
 3. **Kontinuitas E2EE**: Plaintext pesan lama tetap dapat diakses oleh penerima meskipun pengirim melakukan reset perangkat dan mengunggah kunci publik baru.
 4. **Anti-Downgrade Status Guard**: Bobot status numerik (`pending: 0, sent: 1, delivered: 2, read: 3, deleted: 99`) mencegah kemunduran status tanda terima saat server mengirimkan status lama.
+
+### D. Arsitektur Header Obrolan & Forum Topics (Collapsible Action Menu)
+1. **Pemisahan Breadcrumb Interaktif di Subtitle**:
+   - Menghindari penumpukan elemen vertikal (*vertical collision*) dengan meniadakan tombol kembali mengambang di atas judul.
+   - Induk grup ditampilkan anggun di baris subtitle obrolan: `[↖ Nama Grup Induk] • Forum • X anggota`.
+   - Mengklik link breadcrumb langsung membawa pengguna melompat kembali ke ruang obrolan grup utama secara instan.
+2. **Collapsible Action Menu (Tombol Titik Tiga `⋮`) di Mobile**:
+   - Di layar sempit (HP ≤ 768px), tombol-tombol aksi sekunder (`Info`, `Link`, `Sound`, `Call`, `E2EE`) dilipat secara default di dalam menu lipat (*collapsed*).
+   - Menjaga ruang horizontal nama obrolan **3x lebih lapang (> 80% lebar layar)** tanpa terpotong (*no awkward text truncation*).
+   - Menekan tombol `⋮` memicu animasi transisi meluncur halus (*smooth slide-in*) dari kanan dengan tombol toggle bertransisi menjadi `✕` (Tutup).
+   - Dilengkapi *outside-click auto dismissal* dan penutupan otomatis saat salah satu aksi dipilih.
+3. **Dedicated Quick-Action Button (`🏛️ Forum`)**:
+   - Pada grup utama yang memiliki topik/forum, tombol akses cepat `🏛️ Forum` dibiarkan **tetap berada di luar** menu lipat untuk memastikan anggota grup dapat mengakses daftar topik obrolan secara instan hanya dengan 1 kali tap.
+4. **Smart Back Navigation Hierarchy**:
+   - Tombol kembali `←` di mobile memiliki kecerdasan kontekstual: saat berada di dalam ruang topik forum, tombol `←` otomatis membawa kembali ke grup induk (parent group), menciptakan pengalaman navigasi hirarkis yang alami seperti Telegram Forums & Discord Threads.
 
 ---
 
