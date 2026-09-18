@@ -79,8 +79,10 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
 | **Migrasi Kunci E2EE via QR Code** | ✅ Siap | Transfer sesi terenkripsi one-time token (TTL 5 menit) |
 | **Panggilan Suara & Video WebRTC** | ✅ Siap | Signaling server (`call_offer`, `call_answer`, `ice_candidate`, `reject`, `end`, `busy`) |
 | **Unggah Media (Gambar/Dokumen)** | ✅ Siap | Multi-storage (Local Disk & Cloudflare R2 / S3), ukuran configurable |
-| **Media Store-and-Forward** | ✅ Siap | Auto-delete file dari server setelah penerima mengirimkan konfirmasi download (`ACK`) |
+| **Media Store-and-Forward** | ✅ Siap | Auto-delete file dari server setelah penerima mengirimkan konfirmasi download (`ACK`) pada Direct 1-on-1 |
+| **Shared Media Hub (Grup & Forum)** | ✅ Siap | Retensi penuh berkas media selama 7 hari tanpa penghapusan dini saat diunduh anggota pertama |
 | **Pembersih Media Kedaluwarsa (TTL)**| ✅ Siap | Background worker membersihkan file yang tidak diunduh > 7 hari |
+| **Multi-User Mentions (@username)** | ✅ Siap | Validasi fail-closed keanggotaan room, format data kekal UUID (`mentions: ["uuid", ...]`), Web Push prioritas |
 | **OpenGraph Link Preview** | ✅ Siap | Aman dari SSRF (Private IP Pinning & DNS Rebinding Guard) + Cache |
 | **Web Push Notification** | ✅ Siap | VAPID Web Push standard (Chrome, Firefox, Safari iOS/macOS, PWA) |
 
