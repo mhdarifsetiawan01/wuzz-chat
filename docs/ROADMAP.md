@@ -291,6 +291,14 @@ Membangun platform chatting modern yang:
   - **Inspeksi Percakapan di MessageStore (`sql.go` & `memory.go`)**: Fungsi `AcknowledgeMediaDownload` mendeteksi tipe obrolan grup dan forum topic. Untuk grup/forum, konfirmasi unduhan tidak menghapus berkas fisik di Supabase Storage dan tidak mengubah status pesan menjadi `'expired'`.
   - **Dual-Retention Semantics**: Direct message (1-on-1) tetap menggunakan Store-and-Forward instan ($0 server storage cost), sedangkan grup & forum topic menggunakan model Shared Media Hub dengan retensi penuh hingga batas TTL (7 hari) yang dibersihkan oleh `PurgeWorker`.
   - **Automated Test Suite**: Dilindungi unit test skenario komprehensif `TestMediaHandler_AcknowledgeDownload_SharedMediaHub_GroupAndSubGroup` (100% PASS). Deployed ke Fly.io & merged ke `main`.
+- ✅ **Milestone 8.5: Group & Subgroup Multi-User Mention Engine (@username) (SELESAI)**:
+  - **Isolasi Keanggotaan Ketat**: Autocomplete dan mention di grup utama (`grp_<UUID>`) hanya mengizinkan anggota grup tersebut. Di subgrup/forum (`sub_<UUID>`), hanya anggota yang telah bergabung ke subgrup tersebut yang dapat di-mention.
+  - **Multi-Mention & Format Immutable (DEC-013)**: Mendukung multi-mention dalam 1 pesan. Seluruh validasi, routing, dan persistensi menggunakan array UUID murni (`mentions: ["user-uuid-1", "user-uuid-2"]`) tanpa mengandalkan username/display_name atau nama grup.
+  - **Komponen Autocomplete Aurora Glassmorphism (`MessageInput.tsx`)**: Popover mengambang dengan deteksi `@` realtime, filter dinamis, preview avatar, role/verified badge, navigasi keyboard lengkap (ArrowUp/Down/Enter/Tab/Esc) dan tap-friendly mobile (min 44px).
+  - **Highlight Interaktif Linimasa (`MessageBubble.tsx`)**: Tag `@username` ter-render dengan styling `.mention-tag`, dilengkapi highlight aksen khusus self-mention (`.mention-tag-self` dan border cyan `message-bubble-mentioned`).
+  - **Validasi Fail-Closed WebSocket Hub (`hub.go`)**: Server Go WebSocket memverifikasi keanggotaan setiap ID mention via `IsUserInConversation(roomID, mUID)` sebelum broadcast lokal, broker Redis, dan persistensi ke database.
+  - **Prioritized Web Push Notifications (`push.go`)**: Pengguna yang di-mention menerima push notification khusus saat offline dengan tag `chat-mention-[roomID]` dan judul `🔔 [Pengirim] menyebut Anda`.
+  - **Test Suite**: Dilindungi unit test backend `TestNotifyOfflineRecipients_WithMentions` dan verifikasi frontend type-check (100% PASS).
 - ⏳ **Milestone 8.3: Message Management Suite (NEXT)**:
   - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, in-chat text search, dan **Infinite Scroll Cursor Pagination** (`before_id`) melengkapi batas 50 pesan awal server.
 - 🔮 **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` via Redis Pub/Sub)**:

@@ -99,6 +99,7 @@ erDiagram
         boolean is_edited
         boolean is_deleted "true if message was recalled for everyone"
         text deleted_for_users "JSON array of user UUIDs who deleted for themselves"
+        text mentions "JSON array of mentioned user UUIDs ['uuid', ...] (DEC-013)"
         timestamp created_at
         timestamp updated_at
     }

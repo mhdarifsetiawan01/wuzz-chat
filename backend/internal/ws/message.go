@@ -84,6 +84,7 @@ type Message struct {
 	FileSize    int64            `json:"file_size,omitempty"`    // Ukuran berkas dalam bytes
 	MediaStatus string           `json:"media_status,omitempty"` // 'active', 'downloaded', 'expired'
 	IsDeleted   bool             `json:"is_deleted,omitempty"`   // Tanda apakah pesan telah dihapus untuk semua orang
+	Mentions    []string         `json:"mentions,omitempty"`     // Daftar User UUID yang di-mention
 	SDP         string           `json:"sdp,omitempty"`          // WebRTC Session Description Protocol (SDP) offer/answer
 	Candidate   string           `json:"candidate,omitempty"`    // WebRTC ICE Candidate string
 	Messages    []Message        `json:"messages,omitempty"`     // Kumpulan pesan untuk TypeHistory

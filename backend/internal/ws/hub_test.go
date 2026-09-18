@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -513,5 +514,99 @@ func TestHubWebRTCCallingSignaling(t *testing.T) {
 	}
 }
 
+func TestHub_BroadcastRoom_MentionsValidation(t *testing.T) {
+	tempDB := filepath.Join(t.TempDir(), "hub_mentions_test.db")
+	msgStore, err := store.NewSQLMessageStore("sqlite", tempDB)
+	if err != nil {
+		t.Fatalf("failed to create SQL store: %v", err)
+	}
+	defer msgStore.Close()
 
+	userStore := store.NewSQLUserStore(msgStore.DB(), msgStore.DriverName())
+	clientStore := store.NewMemoryClientStore()
+	hub := NewHub(clientStore, msgStore)
+	hub.SetUserStore(userStore)
 
+	// 1. Buat 3 users: Alice, Bob, dan Charlie (outsider)
+	userAlice, err := userStore.Register("alice_m", "Alice M", "pass123")
+	if err != nil {
+		t.Fatalf("failed to create userAlice: %v", err)
+	}
+	userBob, err := userStore.Register("bob_m", "Bob M", "pass123")
+	if err != nil {
+		t.Fatalf("failed to create userBob: %v", err)
+	}
+	userCharlie, err := userStore.Register("charlie_m", "Charlie Outsider", "pass123")
+	if err != nil {
+		t.Fatalf("failed to create userCharlie: %v", err)
+	}
+
+	// 2. Buat grup dan tambahkan Alice dan Bob saja (Charlie bukan anggota)
+	grp, err := userStore.CreateGroup("Mention Group", "Test Description", "", userAlice.ID, "", false, []string{userBob.ID})
+	if err != nil {
+		t.Fatalf("failed to create group: %v", err)
+	}
+	roomID := grp.ID
+
+	isBobIn, err := userStore.IsUserInConversation(roomID, userBob.ID)
+	t.Logf("isBobIn: %v, err: %v, roomID: %s, bobID: %s", isBobIn, err, roomID, userBob.ID)
+
+	// 3. Register client Bob ke hub dan join ke room
+	bobChan := make(chan Message, 10)
+	cBob := &Client{
+		ID:       userBob.ID,
+		Nickname: userBob.DisplayName,
+		JoinedAt: time.Now().UTC(),
+		send:     bobChan,
+		hub:      hub,
+	}
+	hub.Register(cBob)
+	hub.JoinRoom(cBob, roomID)
+
+	// 4. Alice mengirim pesan dengan mentions: Bob (sah) dan Charlie (outsider/tidak sah)
+	outgoingMsg := Message{
+		ID:        "msg-mention-verify",
+		Type:      TypeMessage,
+		Room:      roomID,
+		From:      userAlice.ID,
+		Nickname:  userAlice.DisplayName,
+		Content:   "Halo @bob_m dan @charlie_m",
+		Mentions:  []string{userBob.ID, userCharlie.ID},
+		Timestamp: time.Now().UTC(),
+	}
+
+	hub.BroadcastRoom(roomID, outgoingMsg, userAlice.ID)
+
+	// 5. Verifikasi Bob menerima pesan dengan mentions yang telah difilter (hanya Bob)
+	var chatMsg Message
+	for i := 0; i < 5; i++ {
+		select {
+		case m := <-bobChan:
+			if m.Type == TypeMessage {
+				chatMsg = m
+				break
+			}
+		case <-time.After(500 * time.Millisecond):
+			t.Fatalf("timed out waiting for message broadcast to Bob")
+		}
+		if chatMsg.Type == TypeMessage {
+			break
+		}
+	}
+
+	if len(chatMsg.Mentions) != 1 {
+		t.Fatalf("expected exactly 1 mention, got %d (%v)", len(chatMsg.Mentions), chatMsg.Mentions)
+	}
+	if chatMsg.Mentions[0] != userBob.ID {
+		t.Errorf("expected mention to be Bob (%s), got %s", userBob.ID, chatMsg.Mentions[0])
+	}
+
+	// 6. Verifikasi pesan di database hanya menyimpan mention Bob
+	stored, err := msgStore.GetMessageByID("msg-mention-verify")
+	if err != nil {
+		t.Fatalf("failed to fetch stored message: %v", err)
+	}
+	if stored.Mentions != `["`+userBob.ID+`"]` {
+		t.Errorf("stored mentions mismatch: got %s, want [\"%s\"]", stored.Mentions, userBob.ID)
+	}
+}

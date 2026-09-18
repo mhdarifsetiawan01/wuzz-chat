@@ -368,6 +368,21 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderID string) {
 // BroadcastRoom mengirimkan pesan ke seluruh anggota room lokal dan mem-publish ke Redis cluster broker.
 // Jika tipe pesan adalah TypeMessage, pesan akan disimpan secara persisten ke Database oleh node pengirim asal.
 func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
+	// Validasi mention fail-closed: verifikasi user ID yang di-mention adalah anggota room yang sah (DEC-013)
+	if len(msg.Mentions) > 0 && h.userStore != nil {
+		var validMentions []string
+		for _, mUID := range msg.Mentions {
+			mUID = strings.TrimSpace(mUID)
+			if mUID == "" {
+				continue
+			}
+			if isAuth, err := h.userStore.IsUserInConversation(roomID, mUID); err == nil && isAuth {
+				validMentions = append(validMentions, mUID)
+			}
+		}
+		msg.Mentions = validMentions
+	}
+
 	// 1. Broadcast ke client lokal yang terhubung di instance server ini
 	h.broadcastLocal(roomID, msg, senderID)
 
@@ -387,6 +402,13 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 			replyToContent = msg.ReplyTo.Content
 		}
 
+		mentionsJSON := "[]"
+		if len(msg.Mentions) > 0 {
+			if data, err := json.Marshal(msg.Mentions); err == nil {
+				mentionsJSON = string(data)
+			}
+		}
+
 		err := h.messageStore.Save(store.StoredMessage{
 			ID:              msg.ID,
 			RoomID:          roomID,
@@ -403,6 +425,7 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 			MediaType:       msg.MediaType,
 			FileName:        msg.FileName,
 			FileSize:        msg.FileSize,
+			Mentions:        mentionsJSON,
 			Timestamp:       msg.Timestamp,
 		})
 		if err != nil {
@@ -421,7 +444,7 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 		h.mu.RUnlock()
 
 		if ps != nil {
-			ps.NotifyOfflineRecipients(roomID, msg.From, msg.Nickname, msg.Content, msg.MediaType, onlineIDs)
+			ps.NotifyOfflineRecipients(roomID, msg.From, msg.Nickname, msg.Content, msg.MediaType, onlineIDs, msg.Mentions)
 		}
 	}
 
@@ -485,6 +508,11 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 			_ = json.Unmarshal([]byte(m.Reactions), &reactions)
 		}
 
+		var mentions []string
+		if m.Mentions != "" && m.Mentions != "[]" {
+			_ = json.Unmarshal([]byte(m.Mentions), &mentions)
+		}
+
 		msgType := TypeMessage
 		if m.FromID == "server" {
 			msgType = TypeSystem
@@ -507,6 +535,7 @@ func (h *Hub) sendRoomHistory(clientID, roomID string) {
 			FileSize:    m.FileSize,
 			MediaStatus: m.MediaStatus,
 			IsDeleted:   m.IsDeleted,
+			Mentions:    mentions,
 			Timestamp:   m.Timestamp,
 		})
 	}

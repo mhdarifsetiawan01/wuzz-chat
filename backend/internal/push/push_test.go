@@ -139,3 +139,33 @@ func TestPushService_InitializationAndVAPID(t *testing.T) {
 	ctx := context.Background()
 	_ = svc.SendWebPush(ctx, store.PushSubscription{Endpoint: ""}, []byte(`{}`))
 }
+
+func TestNotifyOfflineRecipients_WithMentions(t *testing.T) {
+	mockStore := &mockUserStoreForPush{}
+	svc := NewService(mockStore)
+
+	mockStore.SavePushSubscription(&store.PushSubscription{
+		ID:        "sub-mention-1",
+		UserID:    "uid_bob",
+		Platform:  "web",
+		Endpoint:  "https://example.com/push/mention_bob",
+		P256dhKey: "fake_p256dh",
+		AuthKey:   "fake_auth",
+		CreatedAt: time.Now(),
+	})
+
+	// Test NotifyOfflineRecipients with mentions array containing Bob's UUID
+	svc.NotifyOfflineRecipients(
+		"grp_tech",
+		"uid_alice",
+		"Alice",
+		"Halo @bob tolong review kode ini",
+		"text",
+		[]string{"uid_alice"},
+		[]string{"uid_bob"},
+	)
+
+	// Beri jeda sejenak untuk goroutine
+	time.Sleep(100 * time.Millisecond)
+}
+

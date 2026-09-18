@@ -60,6 +60,57 @@ func TestSQLMessageStore_SQLite(t *testing.T) {
 	}
 }
 
+func TestSQLMessageStore_Mentions(t *testing.T) {
+	tmpDB := filepath.Join(t.TempDir(), "test_mentions.db")
+	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
+	if err != nil {
+		t.Fatalf("failed to init SQLite store: %v", err)
+	}
+	defer sqlStore.Close()
+
+	now := time.Now().UTC()
+	userUUID1 := "00000000-0000-0000-0000-000000000001"
+	userUUID2 := "00000000-0000-0000-0000-000000000002"
+	mentionsJSON := `["` + userUUID1 + `","` + userUUID2 + `"]`
+
+	msg := StoredMessage{
+		ID:        "msg-mention-1",
+		RoomID:    "grp_test_mentions",
+		FromID:    "sender-uuid",
+		Nickname:  "Alice",
+		ToID:      "",
+		Content:   "Halo @bob dan @charlie tolong cek",
+		Status:    "sent",
+		Mentions:  mentionsJSON,
+		Timestamp: now,
+	}
+
+	if err := sqlStore.Save(msg); err != nil {
+		t.Fatalf("Save message with mentions failed: %v", err)
+	}
+
+	// 1. Check GetMessageByID
+	retrieved, err := sqlStore.GetMessageByID(msg.ID)
+	if err != nil {
+		t.Fatalf("GetMessageByID failed: %v", err)
+	}
+	if retrieved.Mentions != mentionsJSON {
+		t.Errorf("expected mentions %s, got %s", mentionsJSON, retrieved.Mentions)
+	}
+
+	// 2. Check GetRoomHistoryForUser
+	history, err := sqlStore.GetRoomHistoryForUser(msg.RoomID, userUUID1, 10)
+	if err != nil {
+		t.Fatalf("GetRoomHistoryForUser failed: %v", err)
+	}
+	if len(history) != 1 {
+		t.Fatalf("expected 1 message in history, got %d", len(history))
+	}
+	if history[0].Mentions != mentionsJSON {
+		t.Errorf("expected history mentions %s, got %s", mentionsJSON, history[0].Mentions)
+	}
+}
+
 func TestSQLUserStore_Profile(t *testing.T) {
 	tmpDB := filepath.Join(t.TempDir(), "test_user_profile.db")
 
@@ -607,6 +658,48 @@ func TestSQLUserStore_PushSubscriptions(t *testing.T) {
 	}
 }
 
+func TestSQLMessageStore_MentionsPersistence(t *testing.T) {
+	tmpDB := filepath.Join(t.TempDir(), "test_mentions.db")
 
+	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
+	if err != nil {
+		t.Fatalf("failed to init SQLite store: %v", err)
+	}
+	defer sqlStore.Close()
 
+	// Simpan pesan dengan field Mentions JSON array of UUIDs (DEC-013)
+	msgWithMentions := StoredMessage{
+		ID:        "msg-mention-1",
+		RoomID:    "grp_12345",
+		FromID:    "user-sender",
+		Nickname:  "Sender",
+		Content:   "Halo @alice dan @bob tolong dicek",
+		Mentions:  `["user-uuid-alice","user-uuid-bob"]`,
+		Timestamp: time.Now().UTC(),
+	}
 
+	if err := sqlStore.Save(msgWithMentions); err != nil {
+		t.Fatalf("failed to save msgWithMentions: %v", err)
+	}
+
+	// 1. Verifikasi GetMessageByID
+	fetched, err := sqlStore.GetMessageByID("msg-mention-1")
+	if err != nil {
+		t.Fatalf("GetMessageByID failed: %v", err)
+	}
+	if fetched.Mentions != `["user-uuid-alice","user-uuid-bob"]` {
+		t.Errorf("Mentions mismatch: got %s, want %s", fetched.Mentions, `["user-uuid-alice","user-uuid-bob"]`)
+	}
+
+	// 2. Verifikasi GetRoomHistoryForUser
+	history, err := sqlStore.GetRoomHistoryForUser("grp_12345", "user-uuid-alice", 10)
+	if err != nil {
+		t.Fatalf("GetRoomHistoryForUser failed: %v", err)
+	}
+	if len(history) != 1 {
+		t.Fatalf("expected 1 message in history, got %d", len(history))
+	}
+	if history[0].Mentions != `["user-uuid-alice","user-uuid-bob"]` {
+		t.Errorf("History Mentions mismatch: got %s, want %s", history[0].Mentions, `["user-uuid-alice","user-uuid-bob"]`)
+	}
+}

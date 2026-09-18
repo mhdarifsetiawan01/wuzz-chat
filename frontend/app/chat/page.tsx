@@ -1291,7 +1291,7 @@ function ChatPageContent() {
     }
   }, [])
 
-  const handleSend = useCallback(async (content: string, media?: { url: string; media_type: string; file_name: string; file_size: number }) => {
+  const handleSend = useCallback(async (content: string, media?: { url: string; media_type: string; file_name: string; file_size: number }, mentions?: string[]) => {
     if (!roomId) return
     const session = state.session
     const msgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'msg-' + Date.now()
@@ -1348,6 +1348,7 @@ function ChatPageContent() {
       media_type: media?.media_type,
       file_name: media?.file_name,
       file_size: media?.file_size,
+      mentions: mentions,
     })
 
     // Mainkan suara pop pengiriman pesan
@@ -1368,6 +1369,7 @@ function ChatPageContent() {
         media_type: media?.media_type,
         file_name: media?.file_name,
         file_size: media?.file_size,
+        mentions: mentions,
         timestamp: new Date().toISOString(),
       }
       dispatch({
@@ -1776,6 +1778,7 @@ function ChatPageContent() {
               onReact={handleReact}
               onImageClick={(url, name) => setLightboxData({ url, fileName: name })}
               onDeleteMessage={handleDeleteMessage}
+              members={groupDetails?.members}
             />
 
             <MessageInput
@@ -1786,6 +1789,8 @@ function ChatPageContent() {
               onCancelReply={() => setReplyingTo(null)}
               stagedExternalFile={draggedFile}
               onClearStagedExternalFile={() => setDraggedFile(null)}
+              members={groupDetails?.members}
+              currentUserId={user?.id || state.session?.clientId || ''}
             />
 
             <MemberListModal

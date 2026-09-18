@@ -23,6 +23,7 @@ interface MessageBubbleProps {
   onReact?: (messageId: string, emoji: string) => void
   onImageClick?: (imageUrl: string, fileName?: string) => void
   onDeleteMessage?: (messageId: string, type: 'for_me' | 'for_everyone') => void
+  members?: import('@/lib/types').GroupMember[]
 }
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
@@ -97,6 +98,45 @@ function getSenderColor(nameOrId: string = '') {
   return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length]
 }
 
+// Render konten teks dengan highlight mention @username (DEC-013: Immutable UUID check)
+function renderContentWithMentions(
+  content?: string,
+  mentions?: string[],
+  selfId?: string,
+  members?: import('@/lib/types').GroupMember[],
+  selfNickname?: string
+) {
+  if (!content) return null
+  const parts = content.split(/(@[a-zA-Z0-9_.-]+)/g)
+  if (parts.length === 1) return content
+
+  return parts.map((part, i) => {
+    if (part.startsWith('@')) {
+      const tagUname = part.slice(1).toLowerCase()
+      // Cari member berdasarkan username untuk mengekstrak immutable user_id
+      const member = members?.find(m => m.username.toLowerCase() === tagUname)
+      
+      // Highlight self jika user_id cocok dengan selfId (immutable check DEC-013)
+      const isSelfTag = Boolean(
+        selfId && (
+          (member && member.user_id === selfId) ||
+          (!member && mentions && mentions.includes(selfId) && Boolean(selfNickname && tagUname === selfNickname.toLowerCase()))
+        )
+      )
+
+      return (
+        <span
+          key={i}
+          className={`mention-tag ${isSelfTag ? 'mention-tag-self' : ''}`}
+        >
+          {part}
+        </span>
+      )
+    }
+    return part
+  })
+}
+
 export function MessageBubble({
   message,
   selfId,
@@ -108,6 +148,7 @@ export function MessageBubble({
   onReact,
   onImageClick,
   onDeleteMessage,
+  members,
 }: MessageBubbleProps) {
   const isSystem = message.type === 'system' || message.from === 'server'
   // Deteksi khusus: pesan notifikasi perubahan kode keamanan E2EE
@@ -380,7 +421,7 @@ export function MessageBubble({
           )}
           
           <div className="message-bubble-wrapper">
-        <div className="message-bubble">
+        <div className={`message-bubble ${selfId && message.mentions?.includes(selfId) ? 'message-bubble-mentioned' : ''}`}>
           {/* Quoted / Reply Preview Block */}
           {message.reply_to && (
             <div
@@ -482,7 +523,7 @@ export function MessageBubble({
           {/* Isi Pesan dengan Read Mode */}
           {message.content && (
             <div className={`message-text-content ${isLongMessage && !isExpanded ? 'message-text-clamped' : ''}`}>
-              {message.content}
+              {renderContentWithMentions(message.content, message.mentions, selfId, members, selfNickname)}
             </div>
           )}
 
@@ -833,7 +874,7 @@ export function MessageBubble({
                 backgroundColor: '#111b21',
               }}
             >
-              {message.content}
+              {renderContentWithMentions(message.content, message.mentions, selfId, members, selfNickname)}
             </div>
 
             {/* Footer */}

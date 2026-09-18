@@ -80,6 +80,7 @@ export interface Message {
   file_size?: number
   media_status?: 'active' | 'downloaded' | 'expired' | string
   is_deleted?: boolean
+  mentions?: string[]    // User UUIDs yang di-mention
   sdp?: string
   candidate?: string
   messages?: Message[]   // Digunakan saat type = 'history'

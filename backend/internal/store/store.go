@@ -49,6 +49,7 @@ type StoredMessage struct {
 	MediaStatus     string    `json:"media_status,omitempty"` // "active", "downloaded", "expired"
 	IsDeleted       bool      `json:"is_deleted,omitempty"`
 	DeletedForUsers string    `json:"deleted_for_users,omitempty"` // JSON array string
+	Mentions        string    `json:"mentions,omitempty"`          // JSON array string of user UUIDs
 	Timestamp       time.Time `json:"timestamp"`
 }
 

@@ -1048,18 +1048,24 @@ Mengirim atau menerima pesan chat.
 {
   "id": "c7a8b9-generate-uuid-v4",
   "type": "message",
-  "room": "direct_11111111_22222222",
-  "content": "e2ee:v1:7sd...:92a...",
+  "room": "grp_f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "content": "@alice tolong review PR ini dan @bob deploy ke staging",
   "reply_to": {
     "id": "msg_sebelumnya",
     "nickname": "siti_aminah",
     "content": "Halo apa kabar?"
-  }
+  },
+  "mentions": [
+    "user-uuid-alice",
+    "user-uuid-bob"
+  ]
 }
 ```
 
+> 🛡️ **Aturan Validasi Mention Fail-Closed (DEC-013)**: Field `mentions` berupa array UUID pengguna (data immutable murni, bukan username/display_name). Backend Go WebSocket Hub memvalidasi setiap UUID via `IsUserInConversation(roomID, mUID)`. Jika user bukan anggota sah dari grup atau subgrup tujuan, mention tersebut di-drop sebelum persistensi dan broadcast.
+
 **Terima (Server ➔ Client)**:
-Server membalas pengirim dengan status `sent`, dan meneruskan pesan ke penerima dengan status `delivered` (jika penerima sedang online) beserta `timestamp` server.
+Server membalas pengirim dengan status `sent`, dan meneruskan pesan ke penerima dengan status `delivered` (jika penerima sedang online) beserta `timestamp` server dan field `mentions: ["user-uuid-1", ...]`. Pengguna offline yang tercantum pada `mentions` menerima Web Push prioritas bertag `chat-mention-[room]` dengan judul `🔔 [Pengirim] menyebut Anda`.
 
 ---
 

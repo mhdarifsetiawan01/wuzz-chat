@@ -100,11 +100,12 @@ Setiap frame pesan WebSocket menggunakan format JSON:
   "media_type": "image",
   "file_name": "foto.jpg",
   "file_size": 245000,
+  "mentions": ["user-uuid-1", "user-uuid-2"],
   "timestamp": "2026-09-14T01:00:00Z"
 }
 ```
 
-> **📌 `reactions.users`**: Array berisi **UUID pengguna** (bukan username). Klien mobile menentukan apakah user sudah bereaksi dengan cara: `reaction.users.contains(currentUser.id)`.
+> **📌 `reactions.users` & `mentions` (DEC-013)**: Array berisi **UUID pengguna immutable** (bukan username/display_name). Klien mobile menentukan apakah user sendiri di-mention dengan mengecek `mentions.contains(currentUser.id)`. Saat memunculkan autocomplete `@`, klien wajib memfilter dari daftar anggota aktif room tersebut (hanya member grup jika di grup, hanya member subgrup jika di topik forum). Push notification dengan `is_mention: true` dapat dibunyikan dengan nada notifikasi prioritas tinggi.
 
 | Tipe Event (`type`) | Arah | Tindakan Klien Mobile |
 |---|---|---|
