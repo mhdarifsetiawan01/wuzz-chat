@@ -95,20 +95,27 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 2. **Aturan Arsitektur Frontend Dual-Platform (Mobile & Desktop) (SOP)**:
    - Setiap modifikasi frontend (CSS, komponen React, state management, routing, event handling) **WAJIB** mempertimbangkan dan menguji kompatibilitas untuk KEDUA platform: Mobile (Handphone) dan Desktop (Laptop/PC).
    - Pastikan viewport dengan `interactiveWidget: 'resizes-content'` (bukan `pan`), sticky header, safe area padding `env(safe-area-inset-bottom)`, guard anti-stale lifecycle (`lastHandledMsgIdRef` & clean history reset), dan `window.scrollY` dikunci ke 0 via `visualViewport` listener terpenuhi.
-3. **Aturan Keamanan Git, Branching & Konfirmasi Commit (SOP)**:
+3. **Aturan Keamanan Git, Branching, Dokumentasi & Konfirmasi Commit (SOP)**:
    - **DILARANG KERAS melakukan perubahan, modifikasi kode, atau pengerjaan tugas langsung di branch `main`.**
    - Seluruh pekerjaan wajib dilakukan di branch `dev` atau feature branch baru (`feature/...`).
-   - Alur promosi bertingkat: **Feature Branch ➔ `dev` (Pengujian & Stabilitas) ➔ `main` (Persiapan Rilis) ➔ `git push origin main` (Setelah disetujui tertulis)**.
-   - **DILARANG KERAS melakukan `git commit` tanpa persetujuan / konfirmasi eksplisit dari pengguna.**
-   - Setiap kali suatu task/tugas selesai, AI wajib konfirmasi ke user. Jika user menyatakan **"selesai"** / menyetujui, barulah AI boleh melakukan `git commit`.
-   - Jika user menganggap belum selesai / ada perbaikan, percakapan selanjutnya di sesi tersebut **tetap melanjutkan percakapan sebelumnya** tanpa melakukan commit.
-   - **DILARANG KERAS melakukan `git push`** ke branch remote manapun tanpa instruksi tertulis terpisah dari user. Khususnya, **jangan pernah push `dev` ke remote** kecuali diminta secara eksplisit.
+   - **Langkah Verifikasi**: Setiap kali suatu task/tugas selesai, AI wajib melaporkan rincian hasil pengerjaan BESERTA hasil testing otomatis (`npm run build` & `go test -v ./...`), lalu meminta konfirmasi ke user.
+   - **Gerbang Audit Dokumentasi Sebelum Commit**: Setelah user menyatakan **"selesai"**, AI **WAJIB mengecek dan mengupdate seluruh dokumentasi proyek** agar 100% mutakhir dengan kondisi terkini. Dilarang commit sebelum dokumen dipastikan sinkron.
+   - **Eksekusi Commit**: Setelah dokumentasi selesai disinkronkan, barulah AI mengeksekusi `git commit` di branch `dev`.
+   - **Konfirmasi Pasca-Commit (Merge / Push Gate)**: Setelah commit berhasil dilakukan, AI **WAJIB mengonfirmasi pilihan promosi kepada user**:
+     - *Opsi A*: Merge ke branch `main` dan langsung push ke GitHub (`git push origin main`).
+     - *Opsi B*: Hanya merge ke branch `main` saja secara lokal (tanpa push ke remote).
+     - *Opsi C*: Tetap di branch `dev` saja (tidak perlu merge atau push saat ini).
+   - **DILARANG KERAS melakukan `git push`** atau merge ke `main` tanpa pilihan/instruksi tertulis terpisah dari user. Khususnya, **jangan pernah push `dev` ke remote** kecuali diminta secara eksplisit.
 4. **Aturan Keamanan Database**:
    - Dilarang menjalankan query destruktif (`DROP TABLE`, `DROP DATABASE`, `TRUNCATE`) tanpa konfirmasi tertulis eksplisit dari pengguna.
 5. **Aturan Peringatan & Konfirmasi Deployment Backend (SOP)**:
    - Setiap ada modifikasi kode pada direktori `backend/`, AI **WAJIB** memberikan peringatan dan konfirmasi eksplisit kepada user bahwa server live di Fly.io perlu dideploy ulang (`fly deploy --remote-only`) demi mencegah desinkronisasi protokol/query dengan frontend live.
-6. **Kualitas Kode**:
-   - Pastikan backend selalu lulus `go test -v ./...` dan frontend selalu lulus `npm run build` sebelum menyelesaikan tugas.
+6. **Kualitas Kode & Testing Otomatis Pasca-Tugas (No Live Browser Required)**:
+   - Setiap kali menyelesaikan tugas, AI **WAJIB SELALU melakukan testing otomatis** terlebih dahulu:
+     - Frontend: `npm run build` (lulus kompilasi Next.js/Turbopack dan 0 error TypeScript/lint).
+     - Backend: `go test -v ./...` (seluruh suite test backend 100% PASS).
+   - **TIDAK PERLU live browser testing** (cukup buktikan kebenaran implementasi via automated build & automated test suite).
+   - AI wajib menyertakan ringkasan hasil tugas beserta bukti hasil testing tersebut dalam laporannya sebelum meminta konfirmasi selesai.
 7. **Aturan Audit & Sinkronisasi Dokumentasi Holistik (SOP)**:
    - Jika user meminta "update dokumentasi" atau saat menyelesaikan fitur/perubahan skema, AI **WAJIB melakukan 360-degree audit ke SEMUA dokumen**: [`README.md`](README.md), [`docs/BACKEND_API.md`](docs/BACKEND_API.md), [`docs/ROADMAP.md`](docs/ROADMAP.md), [`docs/PROGRESS.md`](docs/PROGRESS.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md), [`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md), dan [`PROMPT.md`](PROMPT.md). Dilarang hanya mengaudit sebagian dokumen.
 8. **Aturan Ketahanan Server Lambat & Jaringan Flaky (SOP)**:
