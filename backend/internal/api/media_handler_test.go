@@ -229,3 +229,165 @@ func TestMediaHandler_AcknowledgeDownload_IDORProtection(t *testing.T) {
 	}
 }
 
+func TestMediaHandler_AcknowledgeDownload_SharedMediaHub_GroupAndSubGroup(t *testing.T) {
+	tempDB := filepath.Join(t.TempDir(), "test_shared_media.db")
+	msgStore, err := store.NewSQLMessageStore("sqlite", tempDB)
+	if err != nil {
+		t.Fatalf("failed to create sql message store: %v", err)
+	}
+	userStore := store.NewSQLUserStore(msgStore.DB(), msgStore.DriverName())
+
+	tempDir := t.TempDir()
+	ls, _ := storage.NewLocalStorage(tempDir, "/uploads")
+	handler := NewMediaHandler(ls, msgStore)
+	handler.SetUserStore(userStore)
+
+	userAlice, _ := userStore.Register("alice_hub", "Alice Hub", "pass123")
+	userBob, _ := userStore.Register("bob_hub", "Bob Hub", "pass123")
+	userCharlie, _ := userStore.Register("charlie_hub", "Charlie Hub", "pass123")
+
+	// 1. Buat Parent Group & Subgroup / Forum
+	group, err := userStore.CreateGroup("Komunitas Utama", "Deskripsi", "", userAlice.ID, "", false, []string{userBob.ID, userCharlie.ID})
+	if err != nil {
+		t.Fatalf("gagal membuat group: %v", err)
+	}
+
+	subGroup, err := userStore.CreateSubGroup(group.ID, "Forum Diskusi", "Topik", userAlice.ID, "7_days", true)
+	if err != nil {
+		t.Fatalf("gagal membuat subgrup: %v", err)
+	}
+	// Pastikan Bob bergabung ke subgrup
+	_ = userStore.JoinSubGroup(subGroup.ID, userBob.ID)
+
+	// Buat file fisik mock untuk Group dan SubGroup
+	groupFileName := "group_photo.jpg"
+	groupFilePath := filepath.Join(tempDir, groupFileName)
+	_ = os.WriteFile(groupFilePath, []byte("group-image-content"), 0644)
+	groupMediaURL := "/uploads/" + groupFileName
+
+	subgroupFileName := "subgroup_doc.pdf"
+	subgroupFilePath := filepath.Join(tempDir, subgroupFileName)
+	_ = os.WriteFile(subgroupFilePath, []byte("subgroup-doc-content"), 0644)
+	subgroupMediaURL := "/uploads/" + subgroupFileName
+
+	// Simpan pesan media di grup
+	_ = msgStore.Save(store.StoredMessage{
+		ID:          "msg-grp-media-1",
+		RoomID:      group.ID,
+		FromID:      userAlice.ID,
+		Nickname:    userAlice.DisplayName,
+		Content:     "Foto grup bersama",
+		MediaURL:    groupMediaURL,
+		MediaType:   "image",
+		FileName:    groupFileName,
+		FileSize:    int64(len("group-image-content")),
+		MediaStatus: "active",
+		Timestamp:   time.Now().UTC(),
+	})
+
+	// Simpan pesan media di subgrup/forum
+	_ = msgStore.Save(store.StoredMessage{
+		ID:          "msg-sub-media-1",
+		RoomID:      subGroup.ID,
+		FromID:      userAlice.ID,
+		Nickname:    userAlice.DisplayName,
+		Content:     "Dokumen topik forum",
+		MediaURL:    subgroupMediaURL,
+		MediaType:   "document",
+		FileName:    subgroupFileName,
+		FileSize:    int64(len("subgroup-doc-content")),
+		MediaStatus: "active",
+		Timestamp:   time.Now().UTC(),
+	})
+
+	// 2. Test ACK pada Grup oleh Bob: File TIDAK BOLEH terhapus, status tetap active
+	bobClaims := &auth.UserClaims{
+		UserID:      userBob.ID,
+		Username:    userBob.Username,
+		DisplayName: userBob.DisplayName,
+	}
+	ackGroupBody, _ := json.Marshal(MediaAckRequest{MessageID: "msg-grp-media-1"})
+	reqGroup := httptest.NewRequest(http.MethodPost, "/api/media/ack", bytes.NewReader(ackGroupBody))
+	reqGroup = reqGroup.WithContext(auth.SetUserContext(reqGroup.Context(), bobClaims))
+	rrGroup := httptest.NewRecorder()
+
+	handler.AcknowledgeDownload(rrGroup, reqGroup)
+	if rrGroup.Code != http.StatusOK {
+		t.Fatalf("Ekspektasi 200 OK untuk ACK grup, dapat: %d", rrGroup.Code)
+	}
+
+	// Verifikasi file fisik grup masih ada
+	if _, statErr := os.Stat(groupFilePath); os.IsNotExist(statErr) {
+		t.Fatalf("File fisik grup tidak boleh dihapus saat anggota pertama ACK!")
+	}
+	// Verifikasi status pesan di DB masih 'active'
+	msgGroupInDB, _ := msgStore.GetMessageByID("msg-grp-media-1")
+	if msgGroupInDB.MediaStatus != "active" {
+		t.Fatalf("Ekspektasi media_status pesan grup tetap 'active', dapat: %s", msgGroupInDB.MediaStatus)
+	}
+
+	// 3. Test ACK pada Subgrup/Forum oleh Bob: File TIDAK BOLEH terhapus, status tetap active
+	ackSubBody, _ := json.Marshal(MediaAckRequest{MessageID: "msg-sub-media-1"})
+	reqSub := httptest.NewRequest(http.MethodPost, "/api/media/ack", bytes.NewReader(ackSubBody))
+	reqSub = reqSub.WithContext(auth.SetUserContext(reqSub.Context(), bobClaims))
+	rrSub := httptest.NewRecorder()
+
+	handler.AcknowledgeDownload(rrSub, reqSub)
+	if rrSub.Code != http.StatusOK {
+		t.Fatalf("Ekspektasi 200 OK untuk ACK subgrup/forum, dapat: %d", rrSub.Code)
+	}
+
+	// Verifikasi file fisik subgrup masih ada
+	if _, statErr := os.Stat(subgroupFilePath); os.IsNotExist(statErr) {
+		t.Fatalf("File fisik subgrup/forum tidak boleh dihapus saat anggota ACK!")
+	}
+	// Verifikasi status pesan di DB masih 'active'
+	msgSubInDB, _ := msgStore.GetMessageByID("msg-sub-media-1")
+	if msgSubInDB.MediaStatus != "active" {
+		t.Fatalf("Ekspektasi media_status pesan subgrup tetap 'active', dapat: %s", msgSubInDB.MediaStatus)
+	}
+
+	// 4. Test ACK pada Direct Message (1-on-1): File HARUS terhapus dan status menjadi 'expired'
+	dmRoomID, _ := userStore.GetOrCreateDirectConversation(userAlice.ID, userBob.ID)
+	dmFileName := "dm_secret.jpg"
+	dmFilePath := filepath.Join(tempDir, dmFileName)
+	_ = os.WriteFile(dmFilePath, []byte("dm-secret-content"), 0644)
+	dmMediaURL := "/uploads/" + dmFileName
+
+	_ = msgStore.Save(store.StoredMessage{
+		ID:          "msg-dm-media-1",
+		RoomID:      dmRoomID,
+		FromID:      userAlice.ID,
+		Nickname:    userAlice.DisplayName,
+		ToID:        userBob.ID,
+		Content:     "Pesan DM rahasia",
+		MediaURL:    dmMediaURL,
+		MediaType:   "image",
+		FileName:    dmFileName,
+		FileSize:    int64(len("dm-secret-content")),
+		MediaStatus: "active",
+		Timestamp:   time.Now().UTC(),
+	})
+
+	ackDMBody, _ := json.Marshal(MediaAckRequest{MessageID: "msg-dm-media-1"})
+	reqDM := httptest.NewRequest(http.MethodPost, "/api/media/ack", bytes.NewReader(ackDMBody))
+	reqDM = reqDM.WithContext(auth.SetUserContext(reqDM.Context(), bobClaims))
+	rrDM := httptest.NewRecorder()
+
+	handler.AcknowledgeDownload(rrDM, reqDM)
+	if rrDM.Code != http.StatusOK {
+		t.Fatalf("Ekspektasi 200 OK untuk ACK DM, dapat: %d", rrDM.Code)
+	}
+
+	// Verifikasi file fisik DM HARUS TERHAPUS (Store-and-Forward)
+	if _, statErr := os.Stat(dmFilePath); !os.IsNotExist(statErr) {
+		t.Fatalf("File fisik DM harus dihapus setelah penerima ACK!")
+	}
+	// Verifikasi status pesan DM di DB menjadi 'expired'
+	msgDMInDB, _ := msgStore.GetMessageByID("msg-dm-media-1")
+	if msgDMInDB.MediaStatus != "expired" {
+		t.Fatalf("Ekspektasi media_status pesan DM berubah menjadi 'expired', dapat: %s", msgDMInDB.MediaStatus)
+	}
+}
+
+

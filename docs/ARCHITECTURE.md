@@ -268,11 +268,12 @@ type MediaStorage interface {
 4. **TTL Background Auto-Purge (`PurgeWorker`)**: Berkas yang belum pernah diunduh melebihi `MEDIA_RETENTION_DAYS` (default 7 hari) otomatis dibersihkan oleh goroutine worker berkala.
 5. **Client Pre-Upload Compression**: Klien mengompresi gambar otomatis (`imageCompressor.ts`, max 1600px, WebP quality 0.82) dengan opsi toggle yang dapat dimatikan kapan saja.
 
-### 👥 Perbedaan Retensi Media: Direct Message (DM) vs Obrolan Grup
-| Parameter | Direct Message (1-on-1) | Obrolan Grup (1-to-Many) |
+### 👥 Perbedaan Retensi Media: Direct Message (DM) vs Obrolan Grup & Forum Topics
+| Parameter | Direct Message (1-on-1) | Obrolan Grup & Forum Topics (1-to-Many) |
 | :--- | :--- | :--- |
 | **Model Distribusi** | *Store-and-Forward Transit Buffer* | *Shared Media Hub (TTL-Based)* |
-| **Trigger Hapus Fisik** | Langsung dihapus seketika saat penerima mengirimkan ACK (`POST /api/media/ack`). | **TIDAK dihapus oleh ACK orang pertama**. Berkas bertahan di server selama masa retensi TTL penuh (default 7 hari) agar anggota lain yang online belakangan tetap dapat mengunduhnya. |
+| **Trigger Hapus Fisik** | Langsung dihapus seketika saat penerima mengirimkan ACK (`POST /api/media/ack`). | **TIDAK dihapus oleh ACK orang pertama**. Berkas bertahan di Supabase Storage selama masa retensi TTL penuh (default 7 hari) agar anggota lain yang online belakangan tetap dapat mengunduhnya. |
+| **Status Media di Database** | Berubah menjadi `'expired'` seketika setelah di-ACK. | **Tetap `'active'`** agar seluruh anggota grup/forum dapat mengunduh gambar ke IndexedDB masing-masing tanpa terkena box *Media Kedaluwarsa*. |
 | **Penyimpanan Lokal Klien** | Tersimpan di IndexedDB browser penerima (`wuzzchat_media_db`). | Anggota yang sudah membuka media langsung meng-cache blob ke **IndexedDB lokal masing-masing**, mencegah pengunduhan ulang. |
 | **Pembersihan Server** | Segera setelah diunduh, atau maksimal 7 hari jika penerima offline lama. | Dihapus otomatis oleh `PurgeWorker` setiap 1 jam untuk berkas yang telah melampaui `MEDIA_RETENTION_DAYS` (7 hari). |
 

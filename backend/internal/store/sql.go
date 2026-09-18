@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -793,15 +794,23 @@ func (s *SQLMessageStore) AcknowledgeMediaDownload(msgID string) (string, string
 		return "", "", false, nil
 	}
 
-	var mediaURL, mediaStatus sql.NullString
+	var mediaURL, mediaStatus, roomID, convType sql.NullString
 	var queryGet string
 	if s.driverName == "postgres" {
-		queryGet = `SELECT media_url, COALESCE(media_status, 'active') FROM messages WHERE id = $1`
+		queryGet = `
+			SELECT m.media_url, COALESCE(m.media_status, 'active'), COALESCE(m.room_id, ''), COALESCE(c.type, '')
+			FROM messages m
+			LEFT JOIN conversations c ON m.room_id = c.id
+			WHERE m.id = $1`
 	} else {
-		queryGet = `SELECT media_url, COALESCE(media_status, 'active') FROM messages WHERE id = ?`
+		queryGet = `
+			SELECT m.media_url, COALESCE(m.media_status, 'active'), COALESCE(m.room_id, ''), COALESCE(c.type, '')
+			FROM messages m
+			LEFT JOIN conversations c ON m.room_id = c.id
+			WHERE m.id = ?`
 	}
 
-	if err := s.db.QueryRow(queryGet, msgID).Scan(&mediaURL, &mediaStatus); err != nil {
+	if err := s.db.QueryRow(queryGet, msgID).Scan(&mediaURL, &mediaStatus, &roomID, &convType); err != nil {
 		if err == sql.ErrNoRows {
 			return "", "", false, nil
 		}
@@ -821,7 +830,24 @@ func (s *SQLMessageStore) AcknowledgeMediaDownload(msgID string) (string, string
 		return "", statusStr, false, nil
 	}
 
-	// Ubah media_status menjadi 'expired' (atau 'downloaded')
+	roomIDStr := ""
+	if roomID.Valid {
+		roomIDStr = roomID.String
+	}
+	cTypeStr := ""
+	if convType.Valid {
+		cTypeStr = convType.String
+	}
+
+	// Cek apakah pesan berada di dalam grup atau subgrup/forum (Shared Media Hub)
+	isGroup := cTypeStr == "group" || strings.HasPrefix(roomIDStr, "grp_") || strings.HasPrefix(roomIDStr, "sub_")
+	if isGroup {
+		// Pada grup dan subgrup/forum, ACK dari salah satu anggota tidak menghapus berkas fisik
+		// dan tidak mengubah status pesan menjadi expired agar anggota lain tetap bisa mengunduh.
+		return urlStr, statusStr, false, nil
+	}
+
+	// Untuk Direct Message (1-on-1), terapkan Store-and-Forward instan
 	var queryUpdate string
 	if s.driverName == "postgres" {
 		queryUpdate = `UPDATE messages SET media_status = 'expired' WHERE id = $1`

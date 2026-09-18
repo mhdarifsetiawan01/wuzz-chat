@@ -3,6 +3,7 @@ package store
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 )
@@ -319,6 +320,16 @@ func (s *MemoryMessageStore) AcknowledgeMediaDownload(msgID string) (string, str
 				if m.MediaURL == "" {
 					return "", m.MediaStatus, false, nil
 				}
+				// Cek apakah pesan berada di dalam grup atau subgrup/forum (Shared Media Hub)
+				isGroup := strings.HasPrefix(roomID, "grp_") || strings.HasPrefix(roomID, "sub_")
+				if isGroup {
+					status := m.MediaStatus
+					if status == "" {
+						status = "active"
+					}
+					return m.MediaURL, status, false, nil
+				}
+
 				s.messages[roomID][i].MediaStatus = "expired"
 				return m.MediaURL, "expired", true, nil
 			}

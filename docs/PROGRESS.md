@@ -215,6 +215,13 @@
 
 ## ⏳ 3. Apa yang Sedang Dikerjakan & Peningkatan Terbaru (Current State)
 
+- **Shared Media Hub for Group & Forum Topics (Fix Premature Media Expiration)**:
+  - Mengatasi isu berkas gambar di obrolan grup (`grp_...`) dan forum topik (`sub_...`) yang langsung kedaluwarsa (*"Media telah kedaluwarsa"*) ketika salah satu anggota pertama selesai mengunduh.
+  - Memperbarui `SQLMessageStore.AcknowledgeMediaDownload` dan `MemoryMessageStore.AcknowledgeMediaDownload` agar mendeteksi tipe obrolan grup dan forum.
+  - Untuk percakapan grup dan forum, panggilan `POST /api/media/ack` dari anggota tidak lagi menghapus berkas fisik dari Supabase Storage dan tidak mengubah `media_status` menjadi `'expired'`, sehingga seluruh anggota grup memiliki kesempatan mengunduh gambar ke IndexedDB masing-masing kapan saja selama masa TTL aktif.
+  - Direct message (1-on-1) tetap mempertahankan pola *Store-and-Forward* instan ($0 storage cost).
+  - Teruji 100% pada suite pengujian `TestMediaHandler_AcknowledgeDownload_SharedMediaHub_GroupAndSubGroup`.
+
 - **UI/UX Enhancement (WhatsApp Mobile Single-Screen & Dual-Platform Architecture)**:
   - Transformasi tampilan mobile dari konsep *sidebar drawer* menjadi **WhatsApp Single-Screen Flow**:
     - **Layar 1 (Daftar Chat Fullscreen)**: Header WuzzChat, Search Bar terintegrasi, Filter Pills (`Semua`, `Belum Dibaca`, `Langsung`, `Grup`), Floating Action Button (FAB) hijau, dan Bottom Navigation Bar.
