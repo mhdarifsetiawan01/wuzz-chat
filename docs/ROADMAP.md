@@ -63,8 +63,9 @@ Membangun platform chatting modern yang:
 │  - Milestone 8.1: Universal Push Notification Engine (SELESAI ✅)       │
 │  - Milestone 8.4: IndexedDB Message Cache & E2EE Continuity (SELESAI ✅)│
 │  - Milestone 8.2A: Core Group Chat Engine & Member Mgmt (SELESAI ✅)     │
-│  - Milestone 8.2B: Ephemeral Sub-Groups & TTL Auto-Purge (NEXT 🎯)      │
-│  - Milestone 8.3: Message Management Suite (Edit, Forward, Pin, Star)  │
+│  - Milestone 8.2B: Ephemeral Sub-Groups & TTL Auto-Purge (SELESAI ✅)    │
+│  - Milestone 8.2C: Forum Rebranding & Mobile Header Redesign (SELESAI ✅)│
+│  - Milestone 8.3: Message Management Suite (NEXT 🎯)                    │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
@@ -281,6 +282,10 @@ Membangun platform chatting modern yang:
     - `POST /api/groups/{id}/join-request` (mengajukan izin bergabung)
     - `GET /api/groups/{id}/join-requests` (daftar permohonan pending)
     - `POST /api/groups/{id}/join-requests/{requestId}/action` (approve/reject izin)
+- ✅ **Milestone 8.2C: Forum Rebranding & Mobile Header Redesign (SELESAI)**:
+  - **Rebranding Resmi Menjadi "Forum"**: Meningkatkan istilah subgrup menjadi *Forum & Topik Diskusi* mengadopsi standar industri Telegram Forums & Topics.
+  - **Redesain Total Header Obrolan**: Integrasi breadcrumb interaktif di baris subtitle obrolan (`↖ [Grup Induk] • Forum • X anggota`), menghilangkan tombol melayang canggung di atas judul, dan memperlebar ruang horizontal judul obrolan 3x lipat.
+  - **Collapsible Action Menu (Tombol Titik Tiga `⋮`)**: Icon-icon sekunder (`Info`, `Link`, `Sound`) terlipat rapi di mobile dengan animasi halus dan auto-close, sementara tombol akses cepat `🏛️ Forum` tetap berada di luar untuk akses 1-tap instan.
 - ⏳ **Milestone 8.3: Message Management Suite (NEXT)**:
   - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, in-chat text search, dan **Infinite Scroll Cursor Pagination** (`before_id`) melengkapi batas 50 pesan awal server.
 - 🔮 **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` via Redis Pub/Sub)**:

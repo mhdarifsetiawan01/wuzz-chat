@@ -56,15 +56,15 @@ export default function CreateSubGroupModal({
 
     const trimmedTitle = title.trim()
     if (!trimmedTitle) {
-      setErrorMessage('Nama subgrup wajib diisi')
+      setErrorMessage('Nama topik forum wajib diisi')
       return
     }
     if (trimmedTitle.length < 2) {
-      setErrorMessage('Nama subgrup minimal 2 karakter')
+      setErrorMessage('Nama topik forum minimal 2 karakter')
       return
     }
     if (trimmedTitle.length > 128) {
-      setErrorMessage('Nama subgrup maksimal 128 karakter')
+      setErrorMessage('Nama topik forum maksimal 128 karakter')
       return
     }
 
@@ -96,7 +96,7 @@ export default function CreateSubGroupModal({
         onSubGroupCreated(data.subgroup)
         onClose()
       } else {
-        throw new Error('Gagal menerima data subgrup dari server')
+        throw new Error('Gagal menerima data topik forum dari server')
       }
     } catch (err: unknown) {
       clearTimeout(timeoutId)
@@ -104,7 +104,7 @@ export default function CreateSubGroupModal({
       if (errObj?.name === 'AbortError') {
         setErrorMessage('Koneksi timeout (15 detik). Server mungkin lambat merespons, silakan coba lagi.')
       } else {
-        setErrorMessage(errObj?.message || 'Gagal membuat subgrup. Pastikan Anda anggota grup utama.')
+        setErrorMessage(errObj?.message || 'Gagal membuat topik forum. Pastikan Anda anggota grup utama.')
       }
     } finally {
       setIsLoading(false)
@@ -133,14 +133,14 @@ export default function CreateSubGroupModal({
               fontSize: '1.25rem',
               boxShadow: '0 2px 10px rgba(59,130,246,0.2)'
             }}>
-              💬
+              🏛️
             </div>
             <div>
               <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Buat Subgrup Baru
+                Buat Topik Forum Baru
               </h2>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Topik di dalam <strong style={{ color: 'var(--text-primary)' }}>{parentGroupName}</strong>
+                Ruang diskusi di dalam <strong style={{ color: 'var(--text-primary)' }}>{parentGroupName}</strong>
               </span>
             </div>
           </div>
@@ -175,7 +175,7 @@ export default function CreateSubGroupModal({
             {/* Input Nama Topik */}
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary)' }}>
-                Nama Subgrup / Topik <span style={{ color: 'var(--danger-color, #ef4444)' }}>*</span>
+                Nama Topik Forum <span style={{ color: 'var(--danger-color, #ef4444)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -213,7 +213,7 @@ export default function CreateSubGroupModal({
             {/* Pilihan Masa Aktif (TTL) */}
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--text-secondary)' }}>
-                ⏳ Masa Aktif Subgrup (Masa Kedaluwarsa)
+                ⏳ Masa Aktif Forum (Masa Kedaluwarsa)
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 {/* Opsi 1: 1 Minggu (Default) */}
@@ -370,7 +370,7 @@ export default function CreateSubGroupModal({
             >
               <span>🤖</span>
               <span>
-                <strong>Info Otomatis:</strong> Setelah masa aktif habis, subgrup akan terkunci dan siap dirangkum oleh modul AI Summary di masa depan.
+                <strong>Info Otomatis:</strong> Setelah masa aktif habis, topik forum akan terkunci dan siap dirangkum oleh modul AI Summary di masa depan.
               </span>
             </div>
           </div>
@@ -404,7 +404,7 @@ export default function CreateSubGroupModal({
                   <span className="spinner-small" /> Memproses...
                 </>
               ) : (
-                'Buat Subgrup'
+                'Buat Topik Forum'
               )}
             </button>
           </div>

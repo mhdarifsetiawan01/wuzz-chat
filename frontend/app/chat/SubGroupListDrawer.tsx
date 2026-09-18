@@ -85,9 +85,9 @@ export default function SubGroupListDrawer({
       clearTimeout(timeoutId)
       const errObj = err as { name?: string; message?: string }
       if (errObj?.name === 'AbortError') {
-        setErrorMessage('Gagal memuat subgrup (timeout 15s). Silakan muat ulang.')
+        setErrorMessage('Gagal memuat topik forum (timeout 15s). Silakan muat ulang.')
       } else {
-        setErrorMessage(errObj?.message || 'Gagal memuat daftar subgrup')
+        setErrorMessage(errObj?.message || 'Gagal memuat daftar forum')
       }
     } finally {
       setIsLoading(false)
@@ -152,7 +152,7 @@ export default function SubGroupListDrawer({
     } catch (err: unknown) {
       clearTimeout(timeoutId)
       const errObj = err as { message?: string }
-      alert(errObj?.message || 'Gagal bergabung ke subgrup')
+      alert(errObj?.message || 'Gagal bergabung ke topik forum')
     } finally {
       setJoiningId(null)
     }
@@ -178,7 +178,7 @@ export default function SubGroupListDrawer({
       setSubgroups((prev) =>
         prev.map((s) => (s.id === sub.id ? { ...s, has_pending_request: true } : s))
       )
-      setSuccessToast('Permohonan izin bergabung terkirim ke admin subgrup.')
+      setSuccessToast('Permohonan izin bergabung terkirim ke admin forum.')
       setTimeout(() => setSuccessToast(''), 4000)
     } catch (err: unknown) {
       clearTimeout(timeoutId)
@@ -256,7 +256,7 @@ export default function SubGroupListDrawer({
         className="group-modal-card" 
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: 480, maxHeight: '88vh', padding: 0 }}
-        aria-label="Daftar Subgrup"
+        aria-label="Forum Grup"
       >
         {/* Toast Notifikasi */}
         {successToast && (
@@ -301,7 +301,7 @@ export default function SubGroupListDrawer({
                     display: 'flex',
                     alignItems: 'center',
                   }}
-                  title="Kembali ke daftar subgrup"
+                  title="Kembali ke forum"
                 >
                   ←
                 </button>
@@ -310,7 +310,7 @@ export default function SubGroupListDrawer({
                     Permohonan Izin Masuk
                   </h2>
                   <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Subgrup: <strong style={{ color: 'var(--text-primary)' }}>{reviewSubGroup.title}</strong>
+                    Topik Forum: <strong style={{ color: 'var(--text-primary)' }}>{reviewSubGroup.title}</strong>
                   </span>
                 </div>
               </div>
@@ -450,27 +450,27 @@ export default function SubGroupListDrawer({
                   fontSize: '1.25rem',
                   boxShadow: '0 2px 10px rgba(59,130,246,0.2)'
                 }}>
-                  💬
+                  🏛️
                 </div>
                 <div>
                   <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                    Topik & Subgrup Aktif
+                    Forum & Topik Diskusi
                   </h2>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {parentGroupName}
+                    Ruang diskusi di dalam <strong style={{ color: 'var(--text-primary)' }}>{parentGroupName}</strong>
                   </span>
                 </div>
               </div>
               <button 
                 className="group-modal-close-btn" 
-                onClick={onClose}
+                onClick={onClose} 
                 aria-label="Tutup panel"
               >
                 ✕
               </button>
             </div>
 
-            {/* Action Button: + Buat Subgrup */}
+            {/* Action Button: + Buat Forum */}
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-surface)' }}>
               <button
                 type="button"
@@ -492,16 +492,16 @@ export default function SubGroupListDrawer({
                   boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)',
                 }}
               >
-                <span>➕</span> Buat Topik Subgrup Baru
+                <span>➕</span> Buat Topik Forum Baru
               </button>
             </div>
 
-            {/* List Subgrup */}
+            {/* List Forum */}
             <div className="group-modal-body" style={{ padding: '16px 20px' }}>
               {isLoading ? (
                 <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
                   <div className="spinner" style={{ margin: '0 auto 12px' }} />
-                  <p style={{ fontSize: '0.85rem' }}>Memuat subgrup aktif...</p>
+                  <p style={{ fontSize: '0.85rem' }}>Memuat topik forum aktif...</p>
                 </div>
               ) : errorMessage ? (
                 <div style={{ padding: '30px 10px', textAlign: 'center' }}>
@@ -528,13 +528,13 @@ export default function SubGroupListDrawer({
                     gap: '12px'
                   }}
                 >
-                  <span style={{ fontSize: '2.5rem' }}>📭</span>
+                  <span style={{ fontSize: '2.5rem' }}>🏛️</span>
                   <div>
                     <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)', fontWeight: 600 }}>
-                      Belum Ada Subgrup Aktif
+                      Belum Ada Topik Forum Aktif
                     </h4>
                     <p style={{ margin: '6px 0 0', fontSize: '0.8rem', lineHeight: '1.4' }}>
-                      Buat subgrup bertopik dengan masa aktif 1 minggu atau 1 bulan untuk diskusi yang lebih terfokus.
+                      Buat topik forum dengan masa aktif 1 minggu atau 1 bulan untuk diskusi yang lebih terfokus.
                     </p>
                   </div>
                 </div>

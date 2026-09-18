@@ -1458,6 +1458,59 @@ h4 { font-size: 1rem;   font-weight: 600; }
   color: #ffffff;
 }
 
+.status-circle-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full) !important;
+  font-size: 0.85rem;
+}
+
+.subgroup-breadcrumb-link {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+  font-size: 0.72rem;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 1px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  transition: all var(--transition-fast) ease;
+  text-decoration: none;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subgroup-breadcrumb-link:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: #60a5fa;
+  color: #93c5fd;
+}
+
+.subgroup-breadcrumb-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-actions-toggle {
+  display: none !important;
+}
+
+.status-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ================================================================
    MEMBER LIST MODAL / DRAWER
    ================================================================ */
@@ -2688,6 +2741,62 @@ h4 { font-size: 1rem;   font-weight: 600; }
   .member-badge-btn {
     font-size: 0.6875rem;
     padding: 2px 6px;
+  }
+
+  .status-btn .status-btn-text {
+    display: none;
+  }
+
+  .status-btn.status-icon-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0 !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full) !important;
+    font-size: 0.85rem;
+  }
+
+  .subgroup-breadcrumb-link {
+    max-width: 110px;
+    font-size: 0.6875rem;
+    padding: 1px 5px;
+  }
+
+  .status-actions-toggle {
+    display: inline-flex !important;
+    font-weight: bold;
+    font-size: 1.05rem;
+    transition: transform var(--transition-fast) ease, background var(--transition-fast) ease;
+  }
+
+  .status-actions-toggle.active {
+    background: rgba(239, 68, 68, 0.15) !important;
+    color: #f87171 !important;
+    border-color: rgba(239, 68, 68, 0.3) !important;
+  }
+
+  .status-actions-group.collapsed {
+    display: none !important;
+  }
+
+  .status-actions-group.expanded {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    animation: slideInActions 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes slideInActions {
+    from {
+      opacity: 0;
+      transform: translateX(12px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
+    }
   }
 
   .chat-window {
