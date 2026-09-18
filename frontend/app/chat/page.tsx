@@ -1301,7 +1301,7 @@ function ChatPageContent() {
 
     // Fail-Closed Write Gate di Frontend jika subgrup kedaluwarsa
     if (groupDetails?.status === 'expired') {
-      alert('Subgrup ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.')
+      alert('Topik forum ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.')
       return
     }
 

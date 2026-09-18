@@ -331,7 +331,7 @@ export function GroupInfoDrawer({
                     cursor: 'pointer',
                   }}
                 >
-                  <span>💬</span> Lihat Topik & Subgrup Aktif
+                  <span>🏛️</span> Buka Forum & Topik Diskusi
                 </button>
               )}
 

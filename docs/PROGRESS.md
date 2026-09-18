@@ -784,5 +784,27 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 - [x] Automated tests: `go test ./...` 100% lulus (termasuk `TestSubGroup_AccessControlAndJoinRequests` dan auto-purge)
 - [x] Frontend build: `npm run build` lulus 0 error
 
+---
+
+### 🎨 Milestone 8.2C: Forum & Topik Diskusi Rebranding & Mobile Header Redesign
+**Tanggal**: 18 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI (Dev Branch)**  
+**Branch Aktif**: `dev`
+
+**Ringkasan Fitur & Perubahan UX**:
+1. **Rebranding Resmi Menjadi "Forum & Topik Diskusi"**:
+   - Istilah "Subgrup" resmi ditingkatkan menjadi **"Forum"** (mengikuti standar Telegram Forums & Topics) untuk memberikan kesan yang lebih terorganisir, profesional, dan berkelas.
+   - Tombol pada grup induk: `🏛️ Forum` (selalu tampak di luar untuk akses 1-tap instan).
+   - Panel Drawer: `🏛️ Forum & Topik Diskusi` dengan tombol `➕ Buat Topik Forum Baru`.
+   - Modal Pembuatan: `Buat Topik Forum Baru` dengan pilihan durasi aktif dan hak akses 🌐 Terbuka vs 🔒 Privat.
+2. **Redesain Total Header Obrolan (Spacious & Clean)**:
+   - **Breadcrumb Interaktif di Subtitle**: Menghilangkan tombol melayang `← [Nama Parent]` di atas judul. Parent group dipindahkan ke subtitle obrolan: `[↖ Bacot Rumpi] • Forum • 4 anggota` yang dapat diklik untuk melompat kembali ke grup utama.
+   - **Ruang Judul Lapang (3x Lebih Lebar)**: Nama topik obrolan kini memiliki ruang horizontal penuh tanpa terpotong konyol seperti `Khus...`.
+   - **Collapsible Action Menu (Tombol Titik Tiga `⋮`)**: Di layar mobile, icon-icon aksi sekunder (`Info`, `Link`, `Sound`, `Call`, `E2EE`) dilipat rapi di dalam tombol `⋮` dan meluncur keluar dengan animasi halus saat ditekan, dilengkapi auto-close pada pemilihan aksi atau klik di luar.
+3. **Navigasi Back Mobile yang Cerdas**:
+   - Di tampilan mobile saat berada di dalam topik forum, tombol `←` otomatis kembali ke grup induk (jika masuk dari grup utama).
+4. **Verifikasi Build**:
+   - `npm run build` sukses 100% tanpa error TypeScript maupun CSS.
+
 
 
