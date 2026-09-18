@@ -864,3 +864,25 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 5. **Verifikasi Test Suite**:
    - Backend: Unit test `subgroup_test.go` & `group_handler_test.go` menguji penolakan `403` bagi anggota biasa dan kelulusan bagi admin (100% PASS).
    - Frontend: `npm run build` lulus 0 error.
+
+---
+
+### 🌐 Public Group Preview & Explicit Confirmation Modal (DEC-012)
+
+**Tanggal**: 18 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI (Dev Branch)**  
+**Branch Aktif**: `dev`
+
+**Ringkasan Perbaikan & UX Hardening**:
+1. **Eliminasi Auto-Join Instan**:
+   - Menghilangkan perilaku *accidental auto-join* saat baris grup publik diklik pada hasil pencarian Sidebar. Pengguna kini disajikan pratinjau lengkap profil grup terlebih dahulu sebelum memutuskan bergabung.
+2. **Komponen Pratinjau Interaktif (`GroupPreviewModal.tsx`)**:
+   - Menampilkan Hero card bertema Aurora Glassmorphism: Avatar besar, judul grup, lencana 🌐 Grup Publik, handle `@group_username`, jumlah anggota, dan deskripsi grup lengkap.
+   - Dilengkapi dua aksi: Tombol "Batal" dan "Gabung ke Grup" dengan indikator loading spinner dan penonaktifan tombol (*disabled state*) untuk mencegah *double-click race condition*.
+3. **Ketahanan Jaringan (Slow/Flaky Network Resilience)**:
+   - Pemanggilan `POST /api/groups/${id}/join` dibungkus dengan `AbortController` (batas waktu 15 detik) dan penanganan pesan error yang ramah.
+4. **Dukungan Direct URL Navigation (`page.tsx`)**:
+   - Pengguna yang membuka tautan grup publik langsung via URL query param (`/chat?room=grp_...`) saat belum menjadi anggota akan otomatis disajikan modal pratinjau konfirmasi sebelum ruang percakapan WebSocket aktif.
+5. **Verifikasi Kualitas**:
+   - Frontend: `npm run build` lulus 0 error (Turbopack, TypeScript 100% type-safe).
+   - Backend: `go test -v ./...` lulus 100% di semua paket.

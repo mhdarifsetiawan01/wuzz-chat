@@ -202,7 +202,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Hierarki Peran Ketat**: `creator` (pembuat grup mutlak), `admin` (pengelola grup), `member` (anggota biasa).
   - **Creator Protection**: Creator tidak dapat di-kick atau diubah perannya oleh siapapun (termasuk sesama admin). Creator tidak dapat keluar dari grup sembarangan tanpa membubarkan atau mentransfer grup.
   - **Admin Boundary**: Admin hanya dapat meng-kick anggota dengan peran `member`, dilarang meng-kick sesama admin atau creator.
-  - **Public vs Private Guard**: Endpoint `/api/groups/{id}/join` memvalidasi status `is_public` di database secara langsung. Upaya `POST /join` ke grup privat ditolak keras dengan status HTTP 403 Forbidden.
+  - **Public vs Private Guard & Explicit Preview (DEC-012)**: Endpoint `/api/groups/{id}/join` memvalidasi status `is_public` di database secara langsung (menolak grup privat dengan 403 Forbidden). Di sisi antarmuka, klien menerapkan modal pratinjau konfirmasi (`GroupPreviewModal.tsx`) untuk mencegah *accidental auto-join* dan *spamming notifikasi kehadiran* saat pengguna mencari grup publik.
   - **Atomic Transaction Isolation**: Seluruh operasi grup (`CreateGroup`, `AddGroupMembers`, `RemoveGroupMember`) dibungkus dalam `*sql.Tx` atomik guna mencegah *dangling members* atau korupsi hitungan anggota jika terjadi kegagalan jaringan di tengah jalan.
 
 ### 2.12 Strict Parent-Membership Gate, RBAC Creation Guard & Immutable-Only Identity Enforcement (DEC-008 & DEC-011)

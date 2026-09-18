@@ -15,6 +15,7 @@ import { Sidebar } from './Sidebar'
 import { GroupInfoDrawer } from './GroupInfoDrawer'
 import CreateSubGroupModal from './CreateSubGroupModal'
 import SubGroupListDrawer from './SubGroupListDrawer'
+import GroupPreviewModal from './GroupPreviewModal'
 import { soundManager, playOutgoingRing, playIncomingRing, stopCallSounds } from '@/lib/sound'
 import { WebRTCAudioSession } from '@/lib/webrtc/webrtcAudio'
 import { useAuth } from '@/lib/auth-context'
@@ -275,6 +276,7 @@ function ChatPageContent() {
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false)
   const [isSubGroupListOpen, setIsSubGroupListOpen] = useState(false)
   const [isCreateSubGroupOpen, setIsCreateSubGroupOpen] = useState(false)
+  const [directPreviewGroup, setDirectPreviewGroup] = useState<GroupDetails | null>(null)
   const activeCallRef = useRef<ActiveCallInfo | null>(null)
   const webrtcAudioRef = useRef<WebRTCAudioSession | null>(null)
   const pendingOfferSdpRef = useRef<string | null>(null)
@@ -308,7 +310,15 @@ function ChatPageContent() {
     if (!targetRoomId || (!targetRoomId.startsWith('grp_') && !targetRoomId.startsWith('sub_'))) return
     try {
       const { data, error } = await apiRequest<GroupDetails>(`/api/groups/${targetRoomId}`, { signal })
-      if (data && !error) {
+      if (error) {
+        if (targetRoomId.startsWith('grp_')) {
+          alert(error)
+          setSelectedRoomId('')
+          router.replace('/chat')
+        }
+        return
+      }
+      if (data) {
         setGroupDetails(data)
         dispatch({
           type: 'SET_PEER_INFO',
@@ -318,13 +328,19 @@ function ChatPageContent() {
             userId: '',
           },
         })
+        // Jika grup publik dan pengguna belum bergabung (my_role kosong), tampilkan preview modal
+        if (targetRoomId.startsWith('grp_') && data.is_public && !data.my_role) {
+          setDirectPreviewGroup(data)
+        } else {
+          setDirectPreviewGroup(null)
+        }
       }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         console.error('[Group] Gagal memuat/refresh detail grup:', err)
       }
     }
-  }, [dispatch])
+  }, [dispatch, router])
 
   const fetchGroupDetailsRef = useRef(fetchGroupDetails)
   useEffect(() => {
@@ -626,6 +642,10 @@ function ChatPageContent() {
 
     // Bergabung ke room di WebSocket yang sedang aktif (0ms reconnect!)
     if (clientRef.current) {
+      if (roomId.startsWith('grp_') && groupDetails?.is_public && !groupDetails?.my_role) {
+        // Sedang menunggu konfirmasi pratinjau grup publik
+        return
+      }
       clientRef.current.send({
         type: 'join',
         nickname,
@@ -1915,6 +1935,29 @@ function ChatPageContent() {
         onTransferSuccess={() => {
           setDeviceConflict({ isOpen: false })
           window.location.reload()
+        }}
+      />
+
+      {/* Modal Pratinjau & Konfirmasi Gabung Grup Publik (Direct Link Navigation) */}
+      <GroupPreviewModal
+        isOpen={Boolean(directPreviewGroup)}
+        group={directPreviewGroup}
+        onClose={() => {
+          setDirectPreviewGroup(null)
+          setSelectedRoomId('')
+          router.replace('/chat')
+        }}
+        onJoined={async (joinedGroup) => {
+          setDirectPreviewGroup(null)
+          await fetchGroupDetails(joinedGroup.id)
+          if (clientRef.current && user) {
+            const nickname = user.display_name || user.username
+            clientRef.current.send({
+              type: 'join',
+              nickname,
+              room: joinedGroup.id,
+            })
+          }
         }}
       />
     </div>

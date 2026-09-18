@@ -255,7 +255,7 @@ Membangun platform chatting modern yang:
 - ✅ **Milestone 8.2A: Core Group Chat Engine & Member Management (SELESAI)**:
   - **Identitas & Skema Grup**: Identitas unik format `grp_<UUIDv4>` pada tabel `conversations` dengan dukungan visibilitas **🔒 Privat (Wuzz Cloud)** vs **🌐 Publik** (dengan handle unik `@group_username` dan pencarian global).
   - **Fondasi Sub-Grup & TTL**: Penambahan kolom `parent_id VARCHAR(128)` dan `expires_at TIMESTAMP` pada `conversations` (NULL untuk grup utama permanen, fondasi siap pakai untuk Milestone 8.2B).
-  - **Wizard Pembuatan Grup (`CreateGroupModal.tsx`)**: Modal 2 langkah (Info Grup & Toggle Publik/Privat + Pemilih Anggota cerdas dengan tab Kontak DM Terakhir dan Live Search via `/api/users/search`).
+  - **Wizard Pembuatan Grup (`CreateGroupModal.tsx`) & Modal Pratinjau Publik (`GroupPreviewModal.tsx`)**: Modal 2 langkah pembuatan grup dan modal pratinjau konfirmasi gabung grup publik bertema Aurora Glassmorphic (DEC-012) untuk mengeliminasi *accidental auto-join*.
   - **Manajemen & Drawer Info Grup (`GroupInfoDrawer.tsx`)**: Drawer profil grup, daftar anggota dengan role/verified badge, RBAC hierarkis (`creator`, `admin`, `member`), promosi/demosi admin, kick anggota, edit profil grup, dan leave group dengan konfirmasi aman.
   - **Header & Linimasa Dinamis**: `StatusBar.tsx` terintegrasi info grup, lencana publik/privat, hitungan anggota, tombol info grup; `MessageBubble.tsx` menampilkan nama pengirim dengan aksen warna unik deterministik per user.
   - **Bypass E2EE Fail-Closed**: Pesan grup beroperasi via secure server-relayed TLS transit dengan skema database siap-upgrade ke Signal Sender Keys di masa mendatang tanpa breaking changes.

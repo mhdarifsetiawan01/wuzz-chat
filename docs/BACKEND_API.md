@@ -667,6 +667,7 @@ Mengambil informasi detail grup. Dapat diakses oleh anggota grup, atau siapapun 
 
 #### 27. `POST /api/groups/{id}/join`
 Bergabung ke grup publik secara mandiri (*self-join*). Ditolak (403 Forbidden) jika grup privat.
+> 💡 **Alur Klien Frontend / Mobile**: Klien wajib menampilkan modal pratinjau konfirmasi (`GroupPreviewModal.tsx`) sebelum mengeksekusi endpoint ini guna mencegah *accidental auto-join* saat pengguna menjelajahi hasil pencarian (DEC-012).
 - **Autentikasi**: `Bearer <token>`
 - **Success Response (200 OK)**:
   ```json
