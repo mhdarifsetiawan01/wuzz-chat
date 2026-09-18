@@ -25,6 +25,9 @@ interface StatusBarProps {
   groupDetails?: GroupDetails | null
   onOpenGroupInfo?: () => void
   onOpenMemberList: () => void
+  onOpenSubgroups?: () => void
+  onBackToParent?: () => void
+  parentGroupName?: string
   onBack?: () => void
   onStartAudioCall?: () => void
 }
@@ -53,6 +56,9 @@ export function StatusBar({
   groupDetails = null,
   onOpenGroupInfo,
   onOpenMemberList,
+  onOpenSubgroups,
+  onBackToParent,
+  parentGroupName,
   onBack,
   onStartAudioCall,
 }: StatusBarProps) {
@@ -77,7 +83,8 @@ export function StatusBar({
     }
   }
 
-  const isGroupChat = Boolean(isGroup || roomId.startsWith('grp_') || roomId.startsWith('room-'))
+  const isSubGroup = Boolean(roomId.startsWith('sub_') || groupDetails?.parent_id)
+  const isGroupChat = Boolean(isGroup || roomId.startsWith('grp_') || isSubGroup || roomId.startsWith('room-'))
   const isDirectChat = !isGroupChat && (roomId.startsWith('dm_') || !roomId.startsWith('room-'))
   const isPeerOnline = roomUsers.some(u => 
     (peerUserId && u.id === peerUserId) || 
@@ -102,15 +109,13 @@ export function StatusBar({
               aria-label="Kembali ke daftar obrolan"
               title="Kembali ke daftar obrolan"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
+              ←
             </button>
           )}
 
           {/* Avatar & Name — Klik untuk melihat profil jika DM, atau info grup jika grup */}
           <div
+            className="status-user-clickable"
             onClick={() => {
               if (isGroupChat && onOpenGroupInfo) {
                 onOpenGroupInfo()
@@ -143,10 +148,38 @@ export function StatusBar({
             />
 
             <div className="status-info">
+              {isSubGroup && onBackToParent && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onBackToParent()
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    color: '#60a5fa',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    marginBottom: '1px',
+                    textAlign: 'left',
+                  }}
+                  title="Kembali ke grup induk"
+                >
+                  <span>←</span> <span>{parentGroupName || 'Grup Utama'}</span>
+                </button>
+              )}
               <span className="status-name" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 {peerName}
                 {isGroupChat ? (
-                  groupDetails?.is_public ? (
+                  isSubGroup ? (
+                    <span title="Topik Subgrup" style={{ fontSize: '0.8rem' }}>💬</span>
+                  ) : groupDetails?.is_public ? (
                     <span title="Grup Publik" style={{ fontSize: '0.8rem' }}>🌐</span>
                   ) : (
                     <span title="Grup Privat (Wuzz Cloud)" style={{ fontSize: '0.8rem' }}>🔒</span>
@@ -166,7 +199,9 @@ export function StatusBar({
                   </span>
                 ) : isGroupChat ? (
                   <span style={{ color: 'var(--text-muted)' }}>
-                    {groupDetails?.is_public ? '🌐 Grup Publik' : '🔒 Wuzz Cloud'} • {groupDetails?.member_count ?? roomUsers.length} anggota
+                    {isSubGroup 
+                      ? `Topik Subgrup • ${groupDetails?.member_count ?? roomUsers.length} anggota` 
+                      : `${groupDetails?.is_public ? '🌐 Grup Publik' : '🔒 Wuzz Cloud'} • ${groupDetails?.member_count ?? roomUsers.length} anggota`}
                   </span>
                 ) : (
                   <span>{roomUsers.length} anggota</span>
@@ -177,9 +212,51 @@ export function StatusBar({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Untuk Grup: Tombol Info Grup & Salin Link */}
+          {/* Untuk Grup: Tombol Subgrup, Info Grup & Salin Link */}
           {isGroupChat && (
             <>
+              {/* Tombol Buka Subgrup jika ini adalah Grup Induk (bukan subgrup) */}
+              {!isSubGroup && onOpenSubgroups && (
+                <button
+                  type="button"
+                  onClick={onOpenSubgroups}
+                  className="status-btn"
+                  title="Lihat topik & subgrup aktif"
+                  aria-label="Subgrup"
+                  style={{ 
+                    fontSize: '0.75rem', 
+                    padding: '5px 10px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '5px',
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    color: '#60a5fa',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    borderRadius: '16px',
+                    fontWeight: 600
+                  }}
+                >
+                  <span>💬</span> <span>Subgrup</span>
+                </button>
+              )}
+
+              {/* Badge indikator jika ini adalah Subgrup */}
+              {isSubGroup && (
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    padding: '3px 8px',
+                    borderRadius: '12px',
+                    background: groupDetails?.status === 'expired' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.12)',
+                    color: groupDetails?.status === 'expired' ? '#f87171' : '#93c5fd',
+                    border: groupDetails?.status === 'expired' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(59, 130, 246, 0.25)',
+                    fontWeight: 500,
+                  }}
+                >
+                  {groupDetails?.status === 'expired' ? '🔒 Kedaluwarsa' : '⏳ Subgrup'}
+                </span>
+              )}
+
               {onOpenGroupInfo && (
                 <button
                   type="button"

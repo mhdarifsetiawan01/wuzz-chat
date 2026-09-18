@@ -54,7 +54,9 @@ erDiagram
         boolean is_public "true if searchable public group"
         varchar group_username "unique handle e.g. @wuzz_tech"
         varchar parent_id FK "nullable parent group ID for sub-groups"
+        varchar status "active / expired — lifecycle state for sub-groups"
         timestamp expires_at "nullable TTL expiration for ephemeral sub-groups"
+        text ai_summary "Cached AI summary for expired/active sub-groups"
         varchar created_by FK "creator user UUID"
         boolean is_e2ee "false for v1 group, true for DM"
         timestamp created_at
@@ -207,6 +209,17 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `POST` | `/api/conversations` | Membuat obrolan baru (Direct atau Group) | Bearer Token |
 | `DELETE` / `POST` | `/api/conversations?id=` / `/api/conversations/clear` | Menghapus riwayat percakapan untuk user pemanggil (*Delete for Me*) | Bearer Token |
 | `DELETE` / `POST` | `/api/messages?id=&type=` / `/api/messages/delete` | Menghapus pesan (*for_me* kapanpun, atau *for_everyone* ≤ 60s) | Bearer Token |
+| `POST` | `/api/groups` | Membuat grup baru (publik / privat) | Bearer Token |
+| `GET` | `/api/groups/search?q=` | Mencari grup publik berdasarkan username/nama | Bearer Token |
+| `GET` | `/api/groups/{id}` | Mengambil detail grup atau subgrup (Parent Gate protected) | Bearer Token |
+| `POST` | `/api/groups/{id}/join` | Bergabung ke grup publik atau subgrup (Parent-Membership Gate) | Bearer Token |
+| `GET` | `/api/groups/{id}/members` | Daftar anggota grup dan role | Bearer Token |
+| `POST` | `/api/groups/{id}/members` | Menambahkan anggota ke grup (Admin/Creator) | Bearer Token |
+| `DELETE` | `/api/groups/{id}/members/{userId}` | Kick / mengeluarkan anggota dari grup | Bearer Token |
+| `PATCH` | `/api/groups/{id}/members/{userId}/role` | Promosi / demosi role anggota (`admin`/`member`) | Bearer Token |
+| `PATCH` | `/api/groups/{id}` | Mengubah informasi profil grup | Bearer Token |
+| `GET` | `/api/groups/{id}/subgroups` | Daftar topik & subgrup aktif (Parent-Membership Gate) | Bearer Token |
+| `POST` | `/api/groups/{id}/subgroups` | Membuat subgrup bertopik baru dengan durasi TTL (7d/30d) | Bearer Token |
 
 > **🛡️ Message Deletion Ownership & Interface**: Pengecekan kepemilikan pesan pada *Delete for Everyone* divalidasi secara ketat di backend menggunakan `msg.FromID == claims.UserID` (UUID). Parameter display name dihilangkan sepenuhnya dari kontrak `MessageStore.DeleteMessage(msgID, userID string, deleteForEveryone bool)`.
 

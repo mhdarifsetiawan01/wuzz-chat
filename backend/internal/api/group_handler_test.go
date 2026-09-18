@@ -228,3 +228,194 @@ func TestGroupHandler_PublicGroupAndJoin(t *testing.T) {
 		}
 	})
 }
+
+func TestGroupHandler_SubGroups(t *testing.T) {
+	handler, userStore, userAlice, userBob, userCharlie := setupTestGroupAPI(t)
+
+	// Buat user Dave yang bukan anggota grup utama
+	userDave, _ := userStore.Register("dave_api", "Dave API", "pass12345")
+
+	// 1. Alice membuat grup utama
+	body := map[string]interface{}{
+		"title":       "Grup Utama Induk",
+		"description": "Parent Group Test",
+		"is_public":   true,
+		"member_ids":  []string{userBob.ID, userCharlie.ID},
+	}
+	raw, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/api/groups", bytes.NewReader(raw))
+	ctx := auth.SetUserContext(req.Context(), &auth.UserClaims{UserID: userAlice.ID, Username: userAlice.Username})
+	req = req.WithContext(ctx)
+
+	rr := httptest.NewRecorder()
+	handler.CreateGroup(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("Failed to create parent group: %s", rr.Body.String())
+	}
+
+	var createResp struct {
+		Success bool               `json:"success"`
+		Group   store.GroupDetails `json:"group"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &createResp)
+	parentID := createResp.Group.ID
+
+	var subGroupID string
+
+	// 2. Alice (anggota grup induk) membuat subgrup -> HARUS SUKSES
+	t.Run("Create Subgroup by Parent Member", func(t *testing.T) {
+		subBody := map[string]interface{}{
+			"title":       "Topik Diskusi Backend",
+			"description": "Subgrup ephemeral Go",
+			"duration":    "7_days",
+		}
+		rawSub, _ := json.Marshal(subBody)
+		subReq := httptest.NewRequest(http.MethodPost, "/api/groups/"+parentID+"/subgroups", bytes.NewReader(rawSub))
+		subCtx := auth.SetUserContext(subReq.Context(), &auth.UserClaims{UserID: userAlice.ID, Username: userAlice.Username})
+		subReq = subReq.WithContext(subCtx)
+
+		subRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(subRR, subReq)
+
+		if subRR.Code != http.StatusCreated {
+			t.Fatalf("Expected 201 Created for subgroup, got %d: %s", subRR.Code, subRR.Body.String())
+		}
+
+		var subResp struct {
+			Success  bool               `json:"success"`
+			Subgroup store.GroupDetails `json:"subgroup"`
+		}
+		_ = json.Unmarshal(subRR.Body.Bytes(), &subResp)
+
+		if !subResp.Success || subResp.Subgroup.ID == "" {
+			t.Fatalf("Invalid subgroup response: %s", subRR.Body.String())
+		}
+		if subResp.Subgroup.ParentID != parentID {
+			t.Errorf("Expected parent_id %s, got %s", parentID, subResp.Subgroup.ParentID)
+		}
+		if subResp.Subgroup.Status != "active" {
+			t.Errorf("Expected status active, got %s", subResp.Subgroup.Status)
+		}
+		subGroupID = subResp.Subgroup.ID
+	})
+
+	// 3. Dave (bukan anggota induk) mencoba membuat subgrup -> HARUS DITOLAK 403
+	t.Run("Create Subgroup by Non-Parent Member Forbidden", func(t *testing.T) {
+		subBody := map[string]interface{}{
+			"title":    "Subgrup Ilegal",
+			"duration": "7_days",
+		}
+		rawSub, _ := json.Marshal(subBody)
+		subReq := httptest.NewRequest(http.MethodPost, "/api/groups/"+parentID+"/subgroups", bytes.NewReader(rawSub))
+		subCtx := auth.SetUserContext(subReq.Context(), &auth.UserClaims{UserID: userDave.ID, Username: userDave.Username})
+		subReq = subReq.WithContext(subCtx)
+
+		subRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(subRR, subReq)
+
+		if subRR.Code != http.StatusForbidden {
+			t.Fatalf("Expected 403 Forbidden, got %d: %s", subRR.Code, subRR.Body.String())
+		}
+	})
+
+	// 4. Bob (anggota induk) melihat daftar subgrup -> HARUS SUKSES
+	t.Run("Get Active Subgroups by Parent Member", func(t *testing.T) {
+		getReq := httptest.NewRequest(http.MethodGet, "/api/groups/"+parentID+"/subgroups", nil)
+		getCtx := auth.SetUserContext(getReq.Context(), &auth.UserClaims{UserID: userBob.ID, Username: userBob.Username})
+		getReq = getReq.WithContext(getCtx)
+
+		getRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(getRR, getReq)
+
+		if getRR.Code != http.StatusOK {
+			t.Fatalf("Expected 200 OK, got %d: %s", getRR.Code, getRR.Body.String())
+		}
+
+		var listResp struct {
+			Success   bool                 `json:"success"`
+			Subgroups []store.SubGroupItem `json:"subgroups"`
+		}
+		_ = json.Unmarshal(getRR.Body.Bytes(), &listResp)
+
+		if len(listResp.Subgroups) != 1 {
+			t.Fatalf("Expected 1 active subgroup, got %d", len(listResp.Subgroups))
+		}
+		if listResp.Subgroups[0].ID != subGroupID {
+			t.Errorf("Expected subgroup ID %s, got %s", subGroupID, listResp.Subgroups[0].ID)
+		}
+		if listResp.Subgroups[0].IsMember {
+			t.Errorf("Expected Bob is_member false before joining")
+		}
+	})
+
+	// 5. Dave (bukan anggota induk) mencoba melihat daftar subgrup -> HARUS DITOLAK 403
+	t.Run("Get Active Subgroups by Non-Parent Member Forbidden", func(t *testing.T) {
+		getReq := httptest.NewRequest(http.MethodGet, "/api/groups/"+parentID+"/subgroups", nil)
+		getCtx := auth.SetUserContext(getReq.Context(), &auth.UserClaims{UserID: userDave.ID, Username: userDave.Username})
+		getReq = getReq.WithContext(getCtx)
+
+		getRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(getRR, getReq)
+
+		if getRR.Code != http.StatusForbidden {
+			t.Fatalf("Expected 403 Forbidden, got %d: %s", getRR.Code, getRR.Body.String())
+		}
+	})
+
+	// 6. Dave (bukan anggota induk) mencoba bergabung ke subgrup -> HARUS DITOLAK 403
+	t.Run("Join Subgroup by Non-Parent Member Forbidden", func(t *testing.T) {
+		joinReq := httptest.NewRequest(http.MethodPost, "/api/groups/"+subGroupID+"/join", nil)
+		joinCtx := auth.SetUserContext(joinReq.Context(), &auth.UserClaims{UserID: userDave.ID, Username: userDave.Username})
+		joinReq = joinReq.WithContext(joinCtx)
+
+		joinRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(joinRR, joinReq)
+
+		if joinRR.Code != http.StatusForbidden {
+			t.Fatalf("Expected 403 Forbidden, got %d: %s", joinRR.Code, joinRR.Body.String())
+		}
+	})
+
+	// 7. Bob (anggota induk) bergabung ke subgrup -> HARUS SUKSES
+	t.Run("Join Subgroup by Parent Member Success", func(t *testing.T) {
+		joinReq := httptest.NewRequest(http.MethodPost, "/api/groups/"+subGroupID+"/join", nil)
+		joinCtx := auth.SetUserContext(joinReq.Context(), &auth.UserClaims{UserID: userBob.ID, Username: userBob.Username})
+		joinReq = joinReq.WithContext(joinCtx)
+
+		joinRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(joinRR, joinReq)
+
+		if joinRR.Code != http.StatusOK {
+			t.Fatalf("Expected 200 OK, got %d: %s", joinRR.Code, joinRR.Body.String())
+		}
+	})
+
+	// 8. Bob melihat detail subgrup -> HARUS SUKSES
+	t.Run("Get Subgroup Details by Member", func(t *testing.T) {
+		detReq := httptest.NewRequest(http.MethodGet, "/api/groups/"+subGroupID, nil)
+		detCtx := auth.SetUserContext(detReq.Context(), &auth.UserClaims{UserID: userBob.ID, Username: userBob.Username})
+		detReq = detReq.WithContext(detCtx)
+
+		detRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(detRR, detReq)
+
+		if detRR.Code != http.StatusOK {
+			t.Fatalf("Expected 200 OK, got %d: %s", detRR.Code, detRR.Body.String())
+		}
+	})
+
+	// 9. Dave melihat detail subgrup -> HARUS DITOLAK 403
+	t.Run("Get Subgroup Details by Non-Parent Member Forbidden", func(t *testing.T) {
+		detReq := httptest.NewRequest(http.MethodGet, "/api/groups/"+subGroupID, nil)
+		detCtx := auth.SetUserContext(detReq.Context(), &auth.UserClaims{UserID: userDave.ID, Username: userDave.Username})
+		detReq = detReq.WithContext(detCtx)
+
+		detRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(detRR, detReq)
+
+		if detRR.Code != http.StatusForbidden {
+			t.Fatalf("Expected 403 Forbidden, got %d: %s", detRR.Code, detRR.Body.String())
+		}
+	})
+}
+

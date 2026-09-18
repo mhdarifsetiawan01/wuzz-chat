@@ -780,6 +780,76 @@ Memperbarui metadata grup (judul, deskripsi, avatar, atau visibilitas publik/pri
 
 ---
 
+#### 33. `GET /api/groups/{id}/subgroups`
+Mengambil daftar subgrup / ruang topik aktif di bawah grup induk (`parent_id = id`). Memeriksa keanggotaan grup induk secara ketat (*Parent-Membership Gate*); bukan anggota grup utama akan ditolak (`HTTP 403 Forbidden`).
+- **Autentikasi**: `Bearer <token>` (wajib anggota aktif grup utama)
+- **Path Parameter**: `id` — ID grup utama (`grp_<UUID>`)
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "subgroups": [
+      {
+        "id": "sub_9e67b2d5-4567-4890-bcde-fabc12345678",
+        "parent_id": "grp_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "title": "Diskusi Sprint Go Backend",
+        "description": "Topik diskusi arsitektur real-time",
+        "status": "active",
+        "expires_at": "2026-09-25T12:00:00Z",
+        "created_by": "uuid-user-alice",
+        "created_at": "2026-09-18T12:00:00Z",
+        "member_count": 4,
+        "is_member": true,
+        "remaining_seconds": 604790
+      }
+    ]
+  }
+  ```
+- **Error Responses**:
+  - `403 Forbidden`: `{"error":"Akses ditolak: Anda harus menjadi anggota grup utama terlebih dahulu"}`
+
+---
+
+#### 34. `POST /api/groups/{id}/subgroups`
+Membuat ruang diskusi subgrup baru bertopik ephemeral dengan masa aktif TTL otomatis (`expires_at`). Pembuat otomatis menjadi anggota pertama subgrup. Broadcast notifikasi event `subgroup_created` dikirim ke grup utama.
+- **Autentikasi**: `Bearer <token>` (wajib anggota aktif grup utama)
+- **Path Parameter**: `id` — ID grup utama (`grp_<UUID>`)
+- **Request Body**:
+  ```json
+  {
+    "title": "Diskusi Sprint Go Backend",
+    "description": "Topik diskusi arsitektur real-time",
+    "duration": "7_days"
+  }
+  ```
+  *Keterangan durasi valid*: `"7_days"` (default, 1 minggu) atau `"30_days"` (1 bulan).
+- **Success Response (201 Created)**:
+  ```json
+  {
+    "success": true,
+    "subgroup": {
+      "id": "sub_9e67b2d5-4567-4890-bcde-fabc12345678",
+      "title": "Diskusi Sprint Go Backend",
+      "description": "Topik diskusi arsitektur real-time",
+      "avatar_url": "💬",
+      "is_public": false,
+      "parent_id": "grp_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "created_by": "uuid-user-alice",
+      "created_at": "2026-09-18T12:00:00Z",
+      "updated_at": "2026-09-18T12:00:00Z",
+      "status": "active",
+      "expires_at": "2026-09-25T12:00:00Z",
+      "member_count": 1,
+      "my_role": "creator"
+    }
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Validasi judul gagal atau durasi tidak valid
+  - `403 Forbidden`: Pembuat bukan anggota sah grup induk
+
+---
+
 ## 4. Protokol WebSocket & Event Catalog
 
 ### 4.1 Koneksi & Parameter URL

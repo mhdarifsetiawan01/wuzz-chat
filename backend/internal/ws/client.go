@@ -219,6 +219,12 @@ func (c *Client) onMessage(msg Message) {
 		return
 	}
 
+	// Fail-Closed Write Gate: Cegah pengiriman pesan ke subgrup yang telah kedaluwarsa
+	if c.hub.userStore != nil && c.hub.userStore.IsConversationExpired(targetRoom) {
+		c.sendError("Subgrup ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.")
+		return
+	}
+
 	// Rate Limiting Pengiriman Pesan: Maksimal 10 pesan per 2 detik per koneksi (Anti-Flood)
 	if !c.allowRateLimit(10, 2*time.Second) {
 		c.sendError("Anda mengirim pesan terlalu cepat. Harap tunggu sebentar.")

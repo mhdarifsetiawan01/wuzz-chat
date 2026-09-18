@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"errors"
@@ -88,6 +89,7 @@ type UserStore interface {
 	ClearConversation(conversationID, userID string) error
 	GetConversationMemberUsernames(conversationID string) ([]string, error)
 	IsUserInConversation(conversationID, userID string) (bool, error)
+	IsConversationExpired(conversationID string) bool
 	SavePushSubscription(sub *PushSubscription) error
 	DeletePushSubscription(endpoint string) error
 	DeletePushSubscriptionByUser(userID, endpoint string) error
@@ -797,7 +799,34 @@ func (s *SQLUserStore) IsUserInConversation(conversationID, userID string) (bool
 		return false, nil
 	}
 
-	// 1. Cek apakah user terdaftar sebagai member resmi di tabel conversation_members
+	// 1. Cek apakah ini subgrup (punya parent_id)
+	var parentID sql.NullString
+	var convExists bool
+	var parentCheckQuery string
+	if s.driverName == "postgres" {
+		parentCheckQuery = `SELECT parent_id FROM conversations WHERE id = $1`
+	} else {
+		parentCheckQuery = `SELECT parent_id FROM conversations WHERE id = ?`
+	}
+	err := s.db.QueryRow(parentCheckQuery, conversationID).Scan(&parentID)
+	if err == nil {
+		convExists = true
+		// Strict Parent-Membership Gate: Jika ini subgrup, user WAJIB terdaftar di grup induk!
+		if parentID.Valid && strings.TrimSpace(parentID.String) != "" {
+			var pCount int
+			var pQuery string
+			if s.driverName == "postgres" {
+				pQuery = `SELECT COUNT(*) FROM conversation_members WHERE conversation_id = $1 AND user_id = $2`
+			} else {
+				pQuery = `SELECT COUNT(*) FROM conversation_members WHERE conversation_id = ? AND user_id = ?`
+			}
+			if pErr := s.db.QueryRow(pQuery, parentID.String, userID).Scan(&pCount); pErr != nil || pCount == 0 {
+				return false, nil
+			}
+		}
+	}
+
+	// 2. Cek apakah user terdaftar sebagai member di tabel conversation_members
 	var query string
 	if s.driverName == "postgres" {
 		query = `SELECT COUNT(*) FROM conversation_members WHERE conversation_id = $1 AND user_id = $2`
@@ -806,7 +835,7 @@ func (s *SQLUserStore) IsUserInConversation(conversationID, userID string) (bool
 	}
 
 	var count int
-	err := s.db.QueryRow(query, conversationID, userID).Scan(&count)
+	err = s.db.QueryRow(query, conversationID, userID).Scan(&count)
 	if err != nil {
 		return false, err
 	}
@@ -814,8 +843,11 @@ func (s *SQLUserStore) IsUserInConversation(conversationID, userID string) (bool
 		return true, nil
 	}
 
-	// 2. Cek apakah room ini terdaftar di tabel conversations
+	// 3. Cek apakah room ini terdaftar di tabel conversations
 	// Jika room adalah percakapan terdaftar dan user BUKAN anggota -> tolak (false)
+	if convExists {
+		return false, nil
+	}
 	var convQuery string
 	if s.driverName == "postgres" {
 		convQuery = `SELECT COUNT(*) FROM conversations WHERE id = $1`
@@ -829,14 +861,45 @@ func (s *SQLUserStore) IsUserInConversation(conversationID, userID string) (bool
 		return false, nil
 	}
 
-	// 3. Jika berupa direct message pattern 'dm_...' tapi belum tersimpan di DB
+	// 4. Jika berupa direct message pattern 'dm_...' tapi belum tersimpan di DB
 	// Tolak akses jika formatnya direct message untuk mencegah akses liar
 	if strings.HasPrefix(conversationID, "dm_") {
 		return false, nil
 	}
 
-	// 4. Untuk room publik / ad-hoc group biasa (misal 'room-123', 'room-kopi'), siapapun yang memegang link diizinkan
+	// 5. Untuk room publik / ad-hoc group biasa (misal 'room-123', 'room-kopi'), siapapun yang memegang link diizinkan
 	return true, nil
+}
+
+// IsConversationExpired memeriksa apakah suatu percakapan / subgrup telah mencapai batas masa aktif (expires_at) atau berstatus 'expired'.
+func (s *SQLUserStore) IsConversationExpired(conversationID string) bool {
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	var query string
+	if s.driverName == "postgres" {
+		query = `SELECT COALESCE(status, 'active'), expires_at FROM conversations WHERE id = $1`
+	} else {
+		query = `SELECT COALESCE(status, 'active'), expires_at FROM conversations WHERE id = ?`
+	}
+
+	var status string
+	var expiresAt *time.Time
+	err := s.db.QueryRowContext(ctx, query, conversationID).Scan(&status, &expiresAt)
+	if err != nil {
+		return false
+	}
+	if status == "expired" {
+		return true
+	}
+	if expiresAt != nil && expiresAt.Before(time.Now().UTC()) {
+		return true
+	}
+	return false
 }
 
 // safePrefix mengembalikan substring awal secara aman tanpa memicu panic jika panjang s < maxLen.

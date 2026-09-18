@@ -433,6 +433,12 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - **Bypass E2EE Fail-Closed**: Pada room grup, pesan dikirim dan diterima dalam format teks langsung (*server-relayed TLS in-transit*). Klien mobile DILARANG melempar error enkripsi/fail-closed jika tidak ada pairwise ECDH AES key untuk room grup.
   - Tampilkan warna nama pengirim (*sender nickname color*) yang unik dan deterministik per user di linimasa pesan grup.
   - Integrasi endpoint REST `/api/groups` (buat grup), `/api/groups/search` (cari grup publik), `/api/groups/{id}` (detail grup), `/api/groups/{id}/members` (daftar anggota, tambah, kick, dan ubah role admin/member).
+- [ ] **Ephemeral Sub-Groups & TTL Lifecycle (Milestone 8.2B)**:
+  - Mendukung penanganan room topik subgrup berawalan `sub_` (`sub_<UUIDv4>`).
+  - **Strict Parent-Membership Gate**: Pastikan klien mobile memvalidasi bahwa pengguna terdaftar di grup utama (`parent_id`) sebelum membuka ruang subgrup. Jika API mengembalikan `HTTP 403 Forbidden`, arahkan pengguna kembali ke grup utama.
+  - **Fail-Closed Read-Only Lock**: Jika `status === "expired"` atau `expires_at <= NOW()`, nonaktifkan input bar pesan dan tampilkan banner *"Subgrup ini telah kedaluwarsa dan terkunci"*. Jangan hapus riwayat chat dari lokal (Cache-First persisten).
+  - **Integrasi Endpoint**: `GET /api/groups/{id}/subgroups` (daftar subgrup aktif beserta sisa waktu `remaining_seconds`), `POST /api/groups/{id}/subgroups` (buat subgrup dengan preset `"7_days"` atau `"30_days"`), dan `POST /api/groups/{sub_id}/join`.
+  - **Immutable-Only Checking**: Semua perbandingan dan relasi wajib mengacu pada UUID/ID immutable (`user.id`, `sub.id`, `sub.parent_id`).
 - [ ] **Push Notification**: FCM/APNs token terdaftar ke `POST /api/notifications/subscribe`, Zero-Knowledge Background Decryption di service layer, dan pencabutan token saat logout.
 
 ---

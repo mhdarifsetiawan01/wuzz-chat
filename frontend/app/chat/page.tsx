@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useReducer, useState, useCallback, useRef, Suspense } from 'react'
+import { useEffect, useReducer, useState, useCallback, useRef, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WsClient } from '@/lib/ws-client'
 import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User, ActiveCallInfo, GroupDetails } from '@/lib/types'
@@ -13,6 +13,8 @@ import { IncomingCallModal } from './IncomingCallModal'
 import { AudioCallOverlay } from './AudioCallOverlay'
 import { Sidebar } from './Sidebar'
 import { GroupInfoDrawer } from './GroupInfoDrawer'
+import CreateSubGroupModal from './CreateSubGroupModal'
+import SubGroupListDrawer from './SubGroupListDrawer'
 import { soundManager, playOutgoingRing, playIncomingRing, stopCallSounds } from '@/lib/sound'
 import { WebRTCAudioSession } from '@/lib/webrtc/webrtcAudio'
 import { useAuth } from '@/lib/auth-context'
@@ -271,6 +273,8 @@ function ChatPageContent() {
   const [isCallMuted, setIsCallMuted] = useState(false)
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null)
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false)
+  const [isSubGroupListOpen, setIsSubGroupListOpen] = useState(false)
+  const [isCreateSubGroupOpen, setIsCreateSubGroupOpen] = useState(false)
   const activeCallRef = useRef<ActiveCallInfo | null>(null)
   const webrtcAudioRef = useRef<WebRTCAudioSession | null>(null)
   const pendingOfferSdpRef = useRef<string | null>(null)
@@ -301,7 +305,7 @@ function ChatPageContent() {
 
   // Muat detail grup saat berpindah ke room grup atau saat menerima notifikasi aktivitas grup
   const fetchGroupDetails = useCallback(async (targetRoomId: string, signal?: AbortSignal) => {
-    if (!targetRoomId || !targetRoomId.startsWith('grp_')) return
+    if (!targetRoomId || (!targetRoomId.startsWith('grp_') && !targetRoomId.startsWith('sub_'))) return
     try {
       const { data, error } = await apiRequest<GroupDetails>(`/api/groups/${targetRoomId}`, { signal })
       if (data && !error) {
@@ -327,10 +331,28 @@ function ChatPageContent() {
     fetchGroupDetailsRef.current = fetchGroupDetails
   }, [fetchGroupDetails])
 
+  const [parentGroupName, setParentGroupName] = useState('')
+
   useEffect(() => {
-    if (!roomId || !roomId.startsWith('grp_')) {
+    if (groupDetails?.parent_id) {
+      apiRequest<GroupDetails>(`/api/groups/${groupDetails.parent_id}`)
+        .then(({ data }) => {
+          if (data) {
+            setParentGroupName(data.title || data.name || 'Grup Utama')
+          }
+        })
+        .catch(() => setParentGroupName('Grup Utama'))
+    } else {
+      setParentGroupName('')
+    }
+  }, [groupDetails?.parent_id])
+
+  useEffect(() => {
+    if (!roomId || (!roomId.startsWith('grp_') && !roomId.startsWith('sub_'))) {
       setGroupDetails(null)
       setIsGroupInfoOpen(false)
+      setIsSubGroupListOpen(false)
+      setIsCreateSubGroupOpen(false)
       return
     }
 
@@ -730,7 +752,7 @@ function ChatPageContent() {
               setLastIncomingMessage(systemMsg)
 
               // Jika berada di dalam room grup, refresh detail grup & anggota
-              if (msg.room.startsWith('grp_')) {
+              if (msg.room.startsWith('grp_') || msg.room.startsWith('sub_')) {
                 fetchGroupDetailsRef.current?.(msg.room)
               }
 
@@ -1275,7 +1297,13 @@ function ChatPageContent() {
     const msgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'msg-' + Date.now()
 
     let outgoingContent = content
-    const isGroupChat = roomId.startsWith('grp_') || roomId.startsWith('room-')
+    const isGroupChat = roomId.startsWith('grp_') || roomId.startsWith('sub_') || roomId.startsWith('room-')
+
+    // Fail-Closed Write Gate di Frontend jika subgrup kedaluwarsa
+    if (groupDetails?.status === 'expired') {
+      alert('Subgrup ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.')
+      return
+    }
 
     // Enkripsi pesan teks via AES-256-GCM jika percakapan E2EE direct aktif (bukan grup)
     let key = roomAESKeyRef.current
@@ -1716,10 +1744,17 @@ function ChatPageContent() {
               typingNickname={state.typingNickname}
               currentUserId={user?.id}
               peerPublicKeyJWK={peerPublicKeyJWK}
-              isGroup={Boolean(roomId && (roomId.startsWith('grp_') || roomId.startsWith('room-')))}
+              isGroup={Boolean(roomId && (roomId.startsWith('grp_') || roomId.startsWith('sub_') || roomId.startsWith('room-')))}
               groupDetails={groupDetails}
               onOpenGroupInfo={() => setIsGroupInfoOpen(true)}
               onOpenMemberList={() => setIsMemberListOpen(true)}
+              onOpenSubgroups={() => setIsSubGroupListOpen(true)}
+              onBackToParent={() => {
+                if (groupDetails?.parent_id) {
+                  handleSelectRoom(groupDetails.parent_id)
+                }
+              }}
+              parentGroupName={parentGroupName}
               onBack={() => handleSelectRoom('')}
               onStartAudioCall={handleStartAudioCall}
             />
@@ -1732,8 +1767,8 @@ function ChatPageContent() {
               typingNickname={state.typingNickname}
               isLoadingHistory={isLoadingHistory}
               isHistoryError={isHistoryError}
-              isE2EE={Boolean(roomId && !roomId.startsWith('grp_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
-              isDirectChat={Boolean(roomId && !roomId.startsWith('grp_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
+              isE2EE={Boolean(roomId && !roomId.startsWith('grp_') && !roomId.startsWith('sub_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
+              isDirectChat={Boolean(roomId && !roomId.startsWith('grp_') && !roomId.startsWith('sub_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
               peerAvatarUrl={state.peerAvatarUrl || ''}
               peerNickname={state.peerNickname || ''}
               onRetryHistory={handleRetryHistory}
@@ -1746,7 +1781,7 @@ function ChatPageContent() {
             <MessageInput
               onSend={handleSend}
               onTyping={handleTyping}
-              disabled={!isConnected}
+              disabled={!isConnected || groupDetails?.status === 'expired'}
               replyTo={replyingTo}
               onCancelReply={() => setReplyingTo(null)}
               stagedExternalFile={draggedFile}
@@ -1774,6 +1809,7 @@ function ChatPageContent() {
               onClose={() => setIsGroupInfoOpen(false)}
               groupId={roomId}
               currentUserId={user?.id || ''}
+              onOpenSubgroups={() => setIsSubGroupListOpen(true)}
               onGroupUpdated={(updated) => {
                 setGroupDetails(updated)
                 dispatch({
@@ -1787,6 +1823,31 @@ function ChatPageContent() {
               }}
               onLeaveSuccess={() => {
                 handleSelectRoom('')
+              }}
+            />
+
+            {/* Drawer Daftar Subgrup Aktif */}
+            <SubGroupListDrawer
+              isOpen={isSubGroupListOpen}
+              onClose={() => setIsSubGroupListOpen(false)}
+              parentGroupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
+              parentGroupName={parentGroupName || groupDetails?.title || 'Grup Utama'}
+              onSelectSubGroup={(subId) => {
+                handleSelectRoom(subId)
+              }}
+              onOpenCreateModal={() => {
+                setIsCreateSubGroupOpen(true)
+              }}
+            />
+
+            {/* Modal Pembuatan Subgrup Baru */}
+            <CreateSubGroupModal
+              isOpen={isCreateSubGroupOpen}
+              onClose={() => setIsCreateSubGroupOpen(false)}
+              parentGroupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
+              parentGroupName={parentGroupName || groupDetails?.title || 'Grup Utama'}
+              onSubGroupCreated={(newSubGroup) => {
+                handleSelectRoom(newSubGroup.id)
               }}
             />
           </>

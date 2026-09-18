@@ -204,6 +204,20 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Public vs Private Guard**: Endpoint `/api/groups/{id}/join` memvalidasi status `is_public` di database secara langsung. Upaya `POST /join` ke grup privat ditolak keras dengan status HTTP 403 Forbidden.
   - **Atomic Transaction Isolation**: Seluruh operasi grup (`CreateGroup`, `AddGroupMembers`, `RemoveGroupMember`) dibungkus dalam `*sql.Tx` atomik guna mencegah *dangling members* atau korupsi hitungan anggota jika terjadi kegagalan jaringan di tengah jalan.
 
+### 2.12 Strict Parent-Membership Gate & Immutable-Only Identity Enforcement (DEC-008)
+* **Lokasi Kode**: [`backend/internal/store/group_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/group_store.go), [`backend/internal/store/user_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/user_store.go), [`backend/internal/api/group_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/group_handler.go)
+* **Vektor Serangan**: Pengguna luar (non-member grup utama) mencoba menginfiltrasi subgrup bertopik via direct link `sub_<UUID>`, brute-force ID, atau invite liar.
+* **Solusi Implementasi (Strict Fail-Closed)**:
+  - **Validasi Multi-Lapisan**: Setiap pemanggilan untuk melihat subgrup (`GET /api/groups/{id}/subgroups`), membuat subgrup (`POST /api/groups/{id}/subgroups`), bergabung (`POST /api/groups/{sub_id}/join`), melihat detail (`GET /api/groups/{sub_id}`), maupun koneksi WebSocket (`IsUserInConversation`) memverifikasi keanggotaan aktif pengguna di grup induk `conversations.parent_id` via `IsParentMember(parentID, userID)`.
+  - **Enforcement Identitas Immutable (DEC-008)**: Seluruh pembanding, query filter, dan otorisasi strictly menggunakan UUID / ID immutable (`users.id`, `conversations.id`, `conversations.parent_id`). Dilarang keras membandingkan variabel yang dapat berubah (*mutable*) seperti `username`, `display_name`, atau nama grup.
+
+### 2.13 Fail-Closed Write Gate & Ephemeral Sub-Group Lifecycle
+* **Lokasi Kode**: [`backend/internal/ws/client.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/client.go), [`backend/internal/worker/subgroup_ttl_worker.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/worker/subgroup_ttl_worker.go)
+* **Solusi Implementasi**:
+  - **WebSocket Drop & Error**: Saat subgrup kedaluwarsa (`status = 'expired'` atau `expires_at <= NOW()`), server langsung menolak pesan masuk dengan `sendError("Subgrup ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.")`.
+  - **Non-Destructive AI Summary Readiness**: Riwayat pesan tidak di-hard delete saat kedaluwarsa agar dapat diakses untuk AI Summary di masa mendatang.
+  - **Automated Batch Transition**: Daemon background `SubGroupTTLWorker` berjalan setiap 15 menit menjalankan kueri batch `ExpireSubGroupsBatch` tanpa membebani thread WebSocket utama.
+
 ---
 
 
@@ -240,6 +254,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - `idx_conv_members_conv ON conversation_members(conversation_id)`: Mempercepat lookup anggota dalam room.
   - `idx_conv_members_role ON conversation_members(conversation_id, role)`: Mempercepat lookup role admin/creator di dalam grup.
   - `idx_conv_parent ON conversations(parent_id)`: Mengoptimalkan pemisahan sub-grup dari daftar obrolan utama.
+  - `idx_subgroups_active ON conversations(parent_id, expires_at)`: Mempercepat filter daftar subgrup aktif dan eksekusi batch TTL worker.
   - `idx_conv_public ON conversations(is_public)`: Mempercepat pencarian publik grup pada endpoint `/api/groups/search`.
   - `idx_messages_room_time ON messages(room_id, created_at)`: Mempercepat pagination riwayat obrolan linimasa.
   - `idx_messages_unread ON messages(room_id, status)`: Mengoptimalkan filter badge unread tanpa full-table scan.

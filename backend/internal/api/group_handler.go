@@ -152,7 +152,20 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 2. /api/groups/{id}/join
+	// 2. /api/groups/{id}/subgroups
+	if len(parts) == 2 && parts[1] == "subgroups" {
+		switch r.Method {
+		case http.MethodGet:
+			h.handleGetSubGroups(w, claims.UserID, groupID)
+		case http.MethodPost:
+			h.handleCreateSubGroup(w, r, claims.UserID, groupID)
+		default:
+			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// 3. /api/groups/{id}/join
 	if len(parts) == 2 && parts[1] == "join" {
 		if r.Method == http.MethodPost {
 			h.handleJoinGroup(w, claims.UserID, groupID)
@@ -162,7 +175,7 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 3. /api/groups/{id}/members
+	// 4. /api/groups/{id}/members
 	if len(parts) == 2 && parts[1] == "members" {
 		switch r.Method {
 		case http.MethodGet:
@@ -175,7 +188,7 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 4. /api/groups/{id}/members/{userId}
+	// 5. /api/groups/{id}/members/{userId}
 	if len(parts) == 3 && parts[1] == "members" {
 		targetUserID := parts[2]
 		if r.Method == http.MethodDelete {
@@ -186,7 +199,7 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// 5. /api/groups/{id}/members/{userId}/role
+	// 6. /api/groups/{id}/members/{userId}/role
 	if len(parts) == 4 && parts[1] == "members" && parts[3] == "role" {
 		targetUserID := parts[2]
 		if r.Method == http.MethodPatch {
@@ -208,7 +221,7 @@ func (h *GroupHandler) handleGetGroup(w http.ResponseWriter, currentUserID, grou
 			return
 		}
 		if errors.Is(err, store.ErrUnauthorizedGroup) {
-			http.Error(w, `{"error":"Anda tidak memiliki akses ke grup privat ini"}`, http.StatusForbidden)
+			http.Error(w, `{"error":"Akses ditolak: Anda bukan anggota grup ini"}`, http.StatusForbidden)
 			return
 		}
 		http.Error(w, `{"error":"Gagal memuat grup"}`, http.StatusInternalServerError)
@@ -227,6 +240,41 @@ func (h *GroupHandler) handleGetGroup(w http.ResponseWriter, currentUserID, grou
 }
 
 func (h *GroupHandler) handleJoinGroup(w http.ResponseWriter, currentUserID, groupID string) {
+	// Jika grup ini adalah subgrup, gunakan JoinSubGroup dengan Parent-Membership Gate
+	if strings.HasPrefix(groupID, "sub_") {
+		err := h.groupStore.JoinSubGroup(groupID, currentUserID)
+		if err != nil {
+			if errors.Is(err, store.ErrGroupNotFound) {
+				http.Error(w, `{"error":"Subgrup tidak ditemukan"}`, http.StatusNotFound)
+				return
+			}
+			if errors.Is(err, store.ErrUnauthorizedGroup) {
+				writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda harus menjadi anggota grup utama terlebih dahulu")
+				return
+			}
+			if errors.Is(err, store.ErrAlreadyGroupMember) {
+				writeGroupJSONError(w, http.StatusConflict, "Anda sudah menjadi anggota subgrup ini")
+				return
+			}
+			writeGroupJSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		if h.hub != nil {
+			h.hub.BroadcastRoomUsers(groupID)
+			actorName := h.resolveDisplayName(currentUserID)
+			h.hub.BroadcastGroupSystemEvent(groupID, "group_member_joined",
+				fmt.Sprintf("%s telah bergabung ke subgrup", actorName))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"message": "Berhasil bergabung ke subgrup",
+		})
+		return
+	}
+
 	err := h.groupStore.JoinPublicGroup(groupID, currentUserID)
 	if err != nil {
 		if errors.Is(err, store.ErrGroupNotFound) {
@@ -456,3 +504,86 @@ func (h *GroupHandler) resolveDisplayName(userID string) string {
 	}
 	return userID
 }
+
+// handleGetSubGroups memuat daftar subgrup aktif di bawah grup induk.
+func (h *GroupHandler) handleGetSubGroups(w http.ResponseWriter, currentUserID, parentID string) {
+	subgroups, err := h.groupStore.GetActiveSubGroups(parentID, currentUserID)
+	if err != nil {
+		if errors.Is(err, store.ErrUnauthorizedGroup) {
+			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda harus menjadi anggota grup utama terlebih dahulu")
+			return
+		}
+		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal memuat subgrup: "+err.Error())
+		return
+	}
+
+	if subgroups == nil {
+		subgroups = []store.SubGroupItem{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":   true,
+		"subgroups": subgroups,
+	})
+}
+
+// handleCreateSubGroup membuat subgrup topik baru di bawah grup induk.
+func (h *GroupHandler) handleCreateSubGroup(w http.ResponseWriter, r *http.Request, currentUserID, parentID string) {
+	var req struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Duration    string `json:"duration"` // "7_days" atau "30_days"
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
+		return
+	}
+
+	req.Title = strings.TrimSpace(req.Title)
+	if req.Title == "" {
+		writeGroupJSONError(w, http.StatusBadRequest, "Nama subgrup wajib diisi")
+		return
+	}
+	if len([]rune(req.Title)) < 2 {
+		writeGroupJSONError(w, http.StatusBadRequest, "Nama subgrup minimal 2 karakter")
+		return
+	}
+	if len([]rune(req.Title)) > 128 {
+		writeGroupJSONError(w, http.StatusBadRequest, "Nama subgrup maksimal 128 karakter")
+		return
+	}
+
+	// Validasi bahwa pembuat adalah minimal anggota grup induk (atau admin/creator)
+	role, err := h.groupStore.GetUserRoleInGroup(parentID, currentUserID)
+	if err != nil || role == "" {
+		writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda harus menjadi anggota grup utama terlebih dahulu")
+		return
+	}
+
+	subgroup, err := h.groupStore.CreateSubGroup(parentID, req.Title, req.Description, currentUserID, req.Duration)
+	if err != nil {
+		if errors.Is(err, store.ErrUnauthorizedGroup) {
+			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda bukan anggota grup utama")
+			return
+		}
+		writeGroupJSONError(w, http.StatusBadRequest, "Gagal membuat subgrup: "+err.Error())
+		return
+	}
+
+	// Broadcast notifikasi pembuatan subgrup baru ke grup induk
+	if h.hub != nil {
+		actorName := h.resolveDisplayName(currentUserID)
+		h.hub.BroadcastGroupSystemEvent(parentID, "subgroup_created",
+			fmt.Sprintf("%s telah membuat topik subgrup baru: '%s'", actorName, subgroup.Title))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"subgroup": subgroup,
+	})
+}
+
