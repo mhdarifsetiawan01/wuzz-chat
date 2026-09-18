@@ -251,6 +251,7 @@ function ChatPageContent() {
   // Sinkronkan state saat URL query param berubah dari navigasi luar/browser back
   useEffect(() => {
     setSelectedRoomId(searchParamRoom)
+    setPrivateGroupDenied(null)
   }, [searchParamRoom])
 
   const roomId = selectedRoomId
@@ -277,6 +278,7 @@ function ChatPageContent() {
   const [isSubGroupListOpen, setIsSubGroupListOpen] = useState(false)
   const [isCreateSubGroupOpen, setIsCreateSubGroupOpen] = useState(false)
   const [directPreviewGroup, setDirectPreviewGroup] = useState<GroupDetails | null>(null)
+  const [privateGroupDenied, setPrivateGroupDenied] = useState<{ id: string; error?: string } | null>(null)
   const activeCallRef = useRef<ActiveCallInfo | null>(null)
   const webrtcAudioRef = useRef<WebRTCAudioSession | null>(null)
   const pendingOfferSdpRef = useRef<string | null>(null)
@@ -309,16 +311,31 @@ function ChatPageContent() {
   const fetchGroupDetails = useCallback(async (targetRoomId: string, signal?: AbortSignal) => {
     if (!targetRoomId || (!targetRoomId.startsWith('grp_') && !targetRoomId.startsWith('sub_'))) return
     try {
-      const { data, error } = await apiRequest<GroupDetails>(`/api/groups/${targetRoomId}`, { signal })
+      const { data, error, status } = await apiRequest<GroupDetails>(`/api/groups/${targetRoomId}`, { signal })
       if (error) {
-        if (targetRoomId.startsWith('grp_')) {
-          alert(error)
-          setSelectedRoomId('')
-          router.replace('/chat')
+        if (targetRoomId.startsWith('grp_') || targetRoomId.startsWith('sub_')) {
+          const isAccessDenied = status === 403 || 
+            error.toLowerCase().includes('akses ditolak') || 
+            error.toLowerCase().includes('bukan anggota')
+          if (isAccessDenied) {
+            setPrivateGroupDenied({ id: targetRoomId, error })
+            setGroupDetails(null)
+            setIsLoadingHistory(false)
+            setIsHistoryError(false)
+            if (historyTimeoutRef.current) {
+              clearTimeout(historyTimeoutRef.current)
+              historyTimeoutRef.current = null
+            }
+          } else {
+            alert(error)
+            setSelectedRoomId('')
+            router.replace('/chat')
+          }
         }
         return
       }
       if (data) {
+        setPrivateGroupDenied(null)
         setGroupDetails(data)
         dispatch({
           type: 'SET_PEER_INFO',
@@ -634,6 +651,12 @@ function ChatPageContent() {
       }
     }).catch(() => {})
 
+    if (privateGroupDenied?.id === roomId) {
+      setIsLoadingHistory(false)
+      setIsHistoryError(false)
+      return
+    }
+
     if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
     historyTimeoutRef.current = setTimeout(() => {
       setIsLoadingHistory(false)
@@ -644,6 +667,10 @@ function ChatPageContent() {
     if (clientRef.current) {
       if (roomId.startsWith('grp_') && groupDetails?.is_public && !groupDetails?.my_role) {
         // Sedang menunggu konfirmasi pratinjau grup publik
+        return
+      }
+      if (privateGroupDenied?.id === roomId) {
+        // Akses ditolak: grup privat dan bukan anggota
         return
       }
       clientRef.current.send({
@@ -660,7 +687,7 @@ function ChatPageContent() {
         })
       }
     }
-  }, [roomId, user?.display_name, user?.username])
+  }, [roomId, user?.display_name, user?.username, privateGroupDenied])
 
   // ----------------------------------------------------------------
   // 2. Efek Tunggal Inisialisasi WebSocket (Single Connection Lifecycle)
@@ -1279,6 +1306,7 @@ function ChatPageContent() {
   // Callback untuk mencoba ulang sinkronisasi riwayat pesan
   const handleRetryHistory = useCallback(() => {
     if (!roomId || !user) return
+    if (privateGroupDenied?.id === roomId) return
     setIsLoadingHistory(true)
     setIsHistoryError(false)
 
@@ -1294,7 +1322,7 @@ function ChatPageContent() {
       nickname,
       room: roomId,
     })
-  }, [roomId, user])
+  }, [roomId, user, privateGroupDenied])
 
   const handleDeleteMessage = useCallback(async (messageId: string, type: 'for_me' | 'for_everyone') => {
     try {
@@ -1628,6 +1656,7 @@ function ChatPageContent() {
     setLightboxData(null)
     setIsMemberListOpen(false)
     setReplyingTo(null)
+    setPrivateGroupDenied(null)
     setSelectedRoomId(newRoomId)
     if (!newRoomId) {
       dispatch({ type: 'SET_MESSAGES', payload: [] })
@@ -1758,132 +1787,214 @@ function ChatPageContent() {
         )}
 
         {roomId ? (
-          <>
-            <StatusBar
-              status={state.status}
-              session={state.session}
-              peerNickname={state.peerNickname}
-              peerAvatarUrl={state.peerAvatarUrl || ''}
-              peerUserId={state.peerUserId || ''}
-              peerIsVerified={state.peerIsVerified || false}
-              roomId={roomId}
-              roomUsers={state.roomUsers}
-              isPeerTyping={state.isPeerTyping}
-              typingNickname={state.typingNickname}
-              currentUserId={user?.id}
-              peerPublicKeyJWK={peerPublicKeyJWK}
-              isGroup={Boolean(roomId && (roomId.startsWith('grp_') || roomId.startsWith('sub_') || roomId.startsWith('room-')))}
-              groupDetails={groupDetails}
-              onOpenGroupInfo={() => setIsGroupInfoOpen(true)}
-              onOpenMemberList={() => setIsMemberListOpen(true)}
-              onOpenSubgroups={() => setIsSubGroupListOpen(true)}
-              onBackToParent={() => {
-                if (groupDetails?.parent_id) {
-                  handleSelectRoom(groupDetails.parent_id)
-                }
+          privateGroupDenied?.id === roomId ? (
+            <div 
+              className="chat-window chat-status-center" 
+              style={{ 
+                padding: 'var(--space-4)', 
+                flex: 1, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                background: 'var(--bg-primary, #0b141a)',
+                minHeight: '100%'
               }}
-              parentGroupName={parentGroupName}
-              onBack={() => handleSelectRoom('')}
-              onStartAudioCall={handleStartAudioCall}
-            />
+            >
+              <div
+                className="chat-sync-card error"
+                style={{
+                  maxWidth: '440px',
+                  width: '100%',
+                  padding: '36px 28px',
+                  background: 'rgba(15, 23, 42, 0.94)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '24px',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(239, 68, 68, 0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  gap: '18px',
+                  animation: 'fadeIn 0.25s ease'
+                }}
+              >
+                <div
+                  style={{
+                    width: '68px',
+                    height: '68px',
+                    borderRadius: '50%',
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '2rem',
+                    boxShadow: '0 0 24px rgba(239, 68, 68, 0.25)',
+                  }}
+                >
+                  🔒
+                </div>
+                <div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    Grup Ini Bersifat Privat
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+                    Anda tidak dapat mengakses atau melihat pesan di dalam grup ini karena Anda bukan anggota. Untuk bergabung, minta admin atau pembuat grup untuk mengundang atau menambahkan Anda.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => handleSelectRoom('')}
+                  style={{
+                    marginTop: '8px',
+                    padding: '12px 28px',
+                    borderRadius: '14px',
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                    background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+                    boxShadow: '0 4px 16px rgba(59, 130, 246, 0.35)',
+                    border: 'none',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    width: '100%',
+                    maxWidth: '280px',
+                  }}
+                >
+                  ← Kembali ke Beranda Obrolan
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <StatusBar
+                status={state.status}
+                session={state.session}
+                peerNickname={state.peerNickname}
+                peerAvatarUrl={state.peerAvatarUrl || ''}
+                peerUserId={state.peerUserId || ''}
+                peerIsVerified={state.peerIsVerified || false}
+                roomId={roomId}
+                roomUsers={state.roomUsers}
+                isPeerTyping={state.isPeerTyping}
+                typingNickname={state.typingNickname}
+                currentUserId={user?.id}
+                peerPublicKeyJWK={peerPublicKeyJWK}
+                isGroup={Boolean(roomId && (roomId.startsWith('grp_') || roomId.startsWith('sub_') || roomId.startsWith('room-')))}
+                groupDetails={groupDetails}
+                onOpenGroupInfo={() => setIsGroupInfoOpen(true)}
+                onOpenMemberList={() => setIsMemberListOpen(true)}
+                onOpenSubgroups={() => setIsSubGroupListOpen(true)}
+                onBackToParent={() => {
+                  if (groupDetails?.parent_id) {
+                    handleSelectRoom(groupDetails.parent_id)
+                  }
+                }}
+                parentGroupName={parentGroupName}
+                onBack={() => handleSelectRoom('')}
+                onStartAudioCall={handleStartAudioCall}
+              />
 
-            <ChatWindow
-              messages={state.messages}
-              selfId={state.session?.clientId || user.id || ''}
-              selfNickname={state.session?.nickname ?? user.display_name ?? user.username ?? ''}
-              isPeerTyping={state.isPeerTyping}
-              typingNickname={state.typingNickname}
-              isLoadingHistory={isLoadingHistory}
-              isHistoryError={isHistoryError}
-              isE2EE={Boolean(roomId && !roomId.startsWith('grp_') && !roomId.startsWith('sub_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
-              isDirectChat={Boolean(roomId && !roomId.startsWith('grp_') && !roomId.startsWith('sub_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
-              peerAvatarUrl={state.peerAvatarUrl || ''}
-              peerNickname={state.peerNickname || ''}
-              onRetryHistory={handleRetryHistory}
-              onReply={setReplyingTo}
-              onReact={handleReact}
-              onImageClick={(url, name) => setLightboxData({ url, fileName: name })}
-              onDeleteMessage={handleDeleteMessage}
-              members={groupDetails?.members}
-            />
+              <ChatWindow
+                messages={state.messages}
+                selfId={state.session?.clientId || user.id || ''}
+                selfNickname={state.session?.nickname ?? user.display_name ?? user.username ?? ''}
+                isPeerTyping={state.isPeerTyping}
+                typingNickname={state.typingNickname}
+                isLoadingHistory={isLoadingHistory}
+                isHistoryError={isHistoryError}
+                isE2EE={Boolean(roomId && !roomId.startsWith('grp_') && !roomId.startsWith('sub_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
+                isDirectChat={Boolean(roomId && !roomId.startsWith('grp_') && !roomId.startsWith('sub_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
+                peerAvatarUrl={state.peerAvatarUrl || ''}
+                peerNickname={state.peerNickname || ''}
+                onRetryHistory={handleRetryHistory}
+                onReply={setReplyingTo}
+                onReact={handleReact}
+                onImageClick={(url, name) => setLightboxData({ url, fileName: name })}
+                onDeleteMessage={handleDeleteMessage}
+                members={groupDetails?.members}
+              />
 
-            <MessageInput
-              onSend={handleSend}
-              onTyping={handleTyping}
-              disabled={!isConnected || groupDetails?.status === 'expired'}
-              replyTo={replyingTo}
-              onCancelReply={() => setReplyingTo(null)}
-              stagedExternalFile={draggedFile}
-              onClearStagedExternalFile={() => setDraggedFile(null)}
-              members={groupDetails?.members}
-              currentUserId={user?.id || state.session?.clientId || ''}
-            />
+              <MessageInput
+                onSend={handleSend}
+                onTyping={handleTyping}
+                disabled={!isConnected || groupDetails?.status === 'expired'}
+                replyTo={replyingTo}
+                onCancelReply={() => setReplyingTo(null)}
+                stagedExternalFile={draggedFile}
+                onClearStagedExternalFile={() => setDraggedFile(null)}
+                members={groupDetails?.members}
+                currentUserId={user?.id || state.session?.clientId || ''}
+              />
 
-            <MemberListModal
-              isOpen={isMemberListOpen}
-              onClose={() => setIsMemberListOpen(false)}
-              users={state.roomUsers}
-              currentNickname={state.session?.nickname}
-              currentUserId={state.session?.clientId || user?.id}
-              roomId={roomId}
-            />
+              <MemberListModal
+                isOpen={isMemberListOpen}
+                onClose={() => setIsMemberListOpen(false)}
+                users={state.roomUsers}
+                currentNickname={state.session?.nickname}
+                currentUserId={state.session?.clientId || user?.id}
+                roomId={roomId}
+              />
 
-            <ImageLightboxModal
-              isOpen={!!lightboxData}
-              imageUrl={lightboxData?.url || ''}
-              fileName={lightboxData?.fileName}
-              onClose={() => setLightboxData(null)}
-            />
+              <ImageLightboxModal
+                isOpen={!!lightboxData}
+                imageUrl={lightboxData?.url || ''}
+                fileName={lightboxData?.fileName}
+                onClose={() => setLightboxData(null)}
+              />
 
-            <GroupInfoDrawer
-              isOpen={isGroupInfoOpen}
-              onClose={() => setIsGroupInfoOpen(false)}
-              groupId={roomId}
-              currentUserId={user?.id || ''}
-              onOpenSubgroups={() => setIsSubGroupListOpen(true)}
-              onGroupUpdated={(updated) => {
-                setGroupDetails(updated)
-                dispatch({
-                  type: 'SET_PEER_INFO',
-                  payload: {
-                    nickname: updated.title || updated.name || '',
-                    avatarUrl: updated.avatar_url || '',
-                    userId: '',
-                  },
-                })
-              }}
-              onLeaveSuccess={() => {
-                handleSelectRoom('')
-              }}
-            />
+              <GroupInfoDrawer
+                isOpen={isGroupInfoOpen}
+                onClose={() => setIsGroupInfoOpen(false)}
+                groupId={roomId}
+                currentUserId={user?.id || ''}
+                onOpenSubgroups={() => setIsSubGroupListOpen(true)}
+                onGroupUpdated={(updated) => {
+                  setGroupDetails(updated)
+                  dispatch({
+                    type: 'SET_PEER_INFO',
+                    payload: {
+                      nickname: updated.title || updated.name || '',
+                      avatarUrl: updated.avatar_url || '',
+                      userId: '',
+                    },
+                  })
+                }}
+                onLeaveSuccess={() => {
+                  handleSelectRoom('')
+                }}
+              />
 
-            {/* Drawer Daftar Subgrup Aktif */}
-            <SubGroupListDrawer
-              isOpen={isSubGroupListOpen}
-              onClose={() => setIsSubGroupListOpen(false)}
-              parentGroupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
-              parentGroupName={parentGroupName || groupDetails?.title || 'Grup Utama'}
-              currentUserId={user?.id || ''}
-              currentUserRole={groupDetails?.parent_id ? parentGroupRole : groupDetails?.my_role}
-              onSelectSubGroup={(subId) => {
-                handleSelectRoom(subId)
-              }}
-              onOpenCreateModal={() => {
-                setIsCreateSubGroupOpen(true)
-              }}
-            />
+              {/* Drawer Daftar Subgrup Aktif */}
+              <SubGroupListDrawer
+                isOpen={isSubGroupListOpen}
+                onClose={() => setIsSubGroupListOpen(false)}
+                parentGroupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
+                parentGroupName={parentGroupName || groupDetails?.title || 'Grup Utama'}
+                currentUserId={user?.id || ''}
+                currentUserRole={groupDetails?.parent_id ? parentGroupRole : groupDetails?.my_role}
+                onSelectSubGroup={(subId) => {
+                  handleSelectRoom(subId)
+                }}
+                onOpenCreateModal={() => {
+                  setIsCreateSubGroupOpen(true)
+                }}
+              />
 
-            {/* Modal Pembuatan Subgrup Baru */}
-            <CreateSubGroupModal
-              isOpen={isCreateSubGroupOpen}
-              onClose={() => setIsCreateSubGroupOpen(false)}
-              parentGroupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
-              parentGroupName={parentGroupName || groupDetails?.title || 'Grup Utama'}
-              onSubGroupCreated={(newSubGroup) => {
-                handleSelectRoom(newSubGroup.id)
-              }}
-            />
-          </>
+              {/* Modal Pembuatan Subgrup Baru */}
+              <CreateSubGroupModal
+                isOpen={isCreateSubGroupOpen}
+                onClose={() => setIsCreateSubGroupOpen(false)}
+                parentGroupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
+                parentGroupName={parentGroupName || groupDetails?.title || 'Grup Utama'}
+                onSubGroupCreated={(newSubGroup) => {
+                  handleSelectRoom(newSubGroup.id)
+                }}
+              />
+            </>
+          )
         ) : (
           <div className="chat-welcome-placeholder">
             <button

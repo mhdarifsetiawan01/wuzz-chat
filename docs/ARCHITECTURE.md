@@ -224,7 +224,7 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `DELETE` / `POST` | `/api/messages?id=&type=` / `/api/messages/delete` | Menghapus pesan (*for_me* kapanpun, atau *for_everyone* ≤ 60s) | Bearer Token |
 | `POST` | `/api/groups` | Membuat grup baru (publik / privat) | Bearer Token |
 | `GET` | `/api/groups/search?q=` | Mencari grup publik berdasarkan username/nama | Bearer Token |
-| `GET` | `/api/groups/{id}` | Mengambil detail grup atau subgrup (Parent Gate protected) | Bearer Token |
+| `GET` | `/api/groups/{id}` | Mengambil detail grup atau subgrup (Parent Gate protected). Mengembalikan 403 Forbidden jika non-anggota mengakses grup privat (dilindungi gerbang otorisasi client-side DEC-013) | Bearer Token |
 | `POST` | `/api/groups/{id}/join` | Bergabung ke grup publik atau subgrup (didahului konfirmasi preview modal di client) | Bearer Token |
 | `GET` | `/api/groups/{id}/members` | Daftar anggota grup dan role | Bearer Token |
 | `POST` | `/api/groups/{id}/members` | Menambahkan anggota ke grup (Admin/Creator) | Bearer Token |
