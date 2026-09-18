@@ -81,10 +81,22 @@ func TestSubGroup_FullLifecycle(t *testing.T) {
 		t.Errorf("ExpiresAt tidak sesuai durasi 7 hari: %v", sub7.ExpiresAt)
 	}
 
-	// 6. Member grup utama membuat subgrup valid durasi 1 bulan (30_days)
+	// 6. Uji Security RBAC: Member biasa DILARANG membuat subgrup!
+	_, err = store.CreateSubGroup(parentGroup.ID, "Topik Ilegal Member", "Desc", member.ID, "30_days", true)
+	if err == nil {
+		t.Fatalf("Ekspektasi error saat member biasa membuat subgrup, tapi berhasil!")
+	}
+
+	// 6b. Creator mempromosikan member menjadi admin
+	err = store.UpdateMemberRole(parentGroup.ID, creator.ID, member.ID, "admin")
+	if err != nil {
+		t.Fatalf("Gagal mempromosikan member menjadi admin: %v", err)
+	}
+
+	// 6c. Admin grup utama berhasil membuat subgrup valid durasi 1 bulan (30_days)
 	sub30, err := store.CreateSubGroup(parentGroup.ID, "Diskusi Roadmap 1 Bulan", "Perencanaan", member.ID, "30_days", true)
 	if err != nil {
-		t.Fatalf("Gagal membuat subgrup 30 hari: %v", err)
+		t.Fatalf("Gagal membuat subgrup 30 hari oleh admin: %v", err)
 	}
 	if sub30.ExpiresAt == nil || sub30.ExpiresAt.Before(time.Now().UTC().Add(28*24*time.Hour)) {
 		t.Errorf("ExpiresAt tidak sesuai durasi 30 hari: %v", sub30.ExpiresAt)

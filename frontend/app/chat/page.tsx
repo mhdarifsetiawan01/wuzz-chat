@@ -332,6 +332,7 @@ function ChatPageContent() {
   }, [fetchGroupDetails])
 
   const [parentGroupName, setParentGroupName] = useState('')
+  const [parentGroupRole, setParentGroupRole] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     if (groupDetails?.parent_id) {
@@ -339,11 +340,16 @@ function ChatPageContent() {
         .then(({ data }) => {
           if (data) {
             setParentGroupName(data.title || data.name || 'Grup Utama')
+            setParentGroupRole(data.my_role)
           }
         })
-        .catch(() => setParentGroupName('Grup Utama'))
+        .catch(() => {
+          setParentGroupName('Grup Utama')
+          setParentGroupRole(undefined)
+        })
     } else {
       setParentGroupName('')
+      setParentGroupRole(undefined)
     }
   }, [groupDetails?.parent_id])
 
@@ -1838,7 +1844,7 @@ function ChatPageContent() {
               parentGroupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
               parentGroupName={parentGroupName || groupDetails?.title || 'Grup Utama'}
               currentUserId={user?.id || ''}
-              currentUserRole={groupDetails?.my_role}
+              currentUserRole={groupDetails?.parent_id ? parentGroupRole : groupDetails?.my_role}
               onSelectSubGroup={(subId) => {
                 handleSelectRoom(subId)
               }}

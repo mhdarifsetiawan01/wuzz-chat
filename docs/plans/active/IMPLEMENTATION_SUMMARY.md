@@ -7,4 +7,4 @@
 - **Branch Aktif:** `dev`
 
 ## 🎯 Catatan
-Milestone 8.5 (Group & Subgroup Multi-User Mention Engine) telah selesai, diverifikasi, dan diarsipkan ke `docs/plans/archived/18-09-2026/milestone-8.5-mentions/`.
+RBAC Hardening: Restriksi Pembuatan Forum/Subgrup Hanya untuk Admin & Pembuat (DEC-011) telah selesai, diverifikasi, dan diarsipkan ke `docs/plans/archived/18-09-2026/forum-rbac-hardening/`.

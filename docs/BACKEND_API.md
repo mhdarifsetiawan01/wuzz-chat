@@ -818,7 +818,7 @@ Mengambil daftar topik forum / subgrup aktif di bawah grup induk (`parent_id = i
 
 #### 34. `POST /api/groups/{id}/subgroups` (Create Forum Topic)
 Membuat ruang topik forum baru bertopik ephemeral dengan masa aktif TTL otomatis (`expires_at`) dan kontrol visibilitas/hak akses (`is_public`). Pembuat otomatis menjadi anggota pertama topik forum. Broadcast notifikasi event `subgroup_created` dikirim ke grup utama.
-- **Autentikasi**: `Bearer <token>` (wajib anggota aktif grup utama)
+- **Autentikasi**: `Bearer <token>` (wajib Pembuat / Admin grup induk — peran `creator` atau `admin`)
 - **Path Parameter**: `id` — ID grup utama (`grp_<UUID>`)
 - **Request Body**:
   ```json
@@ -855,7 +855,7 @@ Membuat ruang topik forum baru bertopik ephemeral dengan masa aktif TTL otomatis
   ```
 - **Error Responses**:
   - `400 Bad Request`: Validasi judul gagal atau durasi tidak valid
-  - `403 Forbidden`: Pembuat bukan anggota sah grup induk
+  - `403 Forbidden`: `{"error":"Akses ditolak: Hanya admin atau pembuat grup yang dapat membuat topik forum"}`
 
 ---
 

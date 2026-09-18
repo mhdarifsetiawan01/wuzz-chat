@@ -232,7 +232,7 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `PATCH` | `/api/groups/{id}/members/{userId}/role` | Promosi / demosi role anggota (`admin`/`member`) | Bearer Token |
 | `PATCH` | `/api/groups/{id}` | Mengubah informasi profil grup | Bearer Token |
 | `GET` | `/api/groups/{id}/subgroups` | Daftar topik & forum aktif (Parent-Membership Gate) | Bearer Token |
-| `POST` | `/api/groups/{id}/subgroups` | Membuat topik forum baru dengan durasi TTL (7d/30d) dan visibilitas (terbuka/privat) | Bearer Token |
+| `POST` | `/api/groups/{id}/subgroups` | Membuat topik forum baru dengan durasi TTL (7d/30d) dan visibilitas (khusus Admin/Creator) | Bearer Token |
 | `POST` | `/api/groups/{id}/join-request` | Mengajukan izin bergabung ke topik forum privat | Bearer Token |
 | `GET` | `/api/groups/{id}/join-requests` | Daftar permohonan izin pending (khusus Admin/Creator) | Bearer Token |
 | `POST` | `/api/groups/{id}/join-requests/{requestId}/action` | Menyetujui atau menolak izin bergabung (`approve`/`reject`) | Bearer Token |

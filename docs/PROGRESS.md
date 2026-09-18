@@ -746,8 +746,8 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 2. **Enforcement Identitas Immutable (DEC-008)**:
    - Seluruh logika otorisasi, relasi, perbandingan, dan filter di backend & frontend murni menggunakan variabel immutable (`user.id` / UUID, `conversation.id`, `parent_id`).
    - Tidak ada ketergantungan pada variabel mutable seperti `username`, `display_name`, atau nama grup.
-3. **Parent-Membership Gate (Strict Fail-Closed)**:
-   - Bukan anggota grup induk tidak dapat membuat subgrup (`handleCreateSubGroup` -> HTTP 403 Forbidden).
+3. **Parent-Membership Gate & RBAC Enforcement (Strict Fail-Closed)**:
+   - Hanya Pembuat (`creator`) atau Admin (`admin`) grup induk yang dapat membuat topik forum baru (`handleCreateSubGroup` & `CreateSubGroup` -> HTTP 403 Forbidden bagi anggota biasa).
    - Bukan anggota grup induk tidak dapat melihat daftar subgrup (`handleGetSubGroups` -> HTTP 403 Forbidden).
    - Bukan anggota grup induk tidak dapat bergabung ke subgrup (`JoinSubGroup` -> HTTP 403 Forbidden).
    - Bukan anggota grup induk tidak dapat melihat detail subgrup (`GetGroupDetails` -> HTTP 403 Forbidden).
@@ -760,7 +760,7 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
    - Subgrup yang kedaluwarsa dikunci menjadi *read-only*: WebSocket menolak pengiriman pesan baru (`sendError`) dan input textarea frontend di-disable.
    - Pesan dan riwayat subgrup tidak di-hard delete agar siap digunakan oleh worker AI Summarization di masa depan (`ai_summary`).
 7. **Frontend Components & Dual-Platform Compatibility**:
-   - `SubGroupListDrawer.tsx`: Drawer daftar topik aktif dengan hitungan mundur sisa waktu dinamis (`⏳ X hari lagi`), tombol gabung/buka, dan tombol buat subgrup.
+   - `SubGroupListDrawer.tsx`: Drawer daftar topik aktif dengan hitungan mundur sisa waktu dinamis (`⏳ X hari lagi`), tombol gabung/buka, tombol buat topik yang di-hidden otomatis bagi anggota biasa, dan panel review izin bagi admin.
    - `CreateSubGroupModal.tsx`: Modal pembuatan subgrup bertema Aurora Glassmorphic dengan radio card preset durasi (1 minggu vs 1 bulan), validasi form, dan proteksi anti double-click.
    - `StatusBar.tsx`: Integrasi tombol `💬 Subgrup` pada grup utama, badge status subgrup, badge `Kedaluwarsa (Terkunci)`, dan tombol navigasi kembali `← [Nama Grup Utama]`.
    - `GroupInfoDrawer.tsx`: Tombol aksi `Lihat Topik & Subgrup Aktif`.
@@ -842,6 +842,25 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
    - Backend: `go test -count=1 ./...` lulus 100% di semua paket.
    - Frontend: `npm run build` lulus 0 error.
 
+---
 
+### 🛡️ RBAC Hardening: Restriksi Pembuatan Forum/Subgrup Hanya untuk Admin & Pembuat (DEC-011)
 
+**Tanggal**: 18 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI (Dev Branch)**  
+**Branch Aktif**: `dev`
 
+**Ringkasan Perbaikan & Proteksi**:
+1. **Pencegahan Topic Flooding & Spamming**:
+   - Menutup celah otorisasi di mana anggota biasa (`member`) sebelumnya dapat membuat ruang topik forum baru.
+2. **Backend Enforcement (Fail-Closed)**:
+   - `backend/internal/store/group_store.go` (`CreateSubGroup`): Validasi role creator via `GetUserRoleInGroup`. Menolak peran selain `creator` dan `admin` dengan `ErrUnauthorizedGroup`.
+   - `backend/internal/api/group_handler.go` (`handleCreateSubGroup`): Menolak pemanggilan pembuatan subgrup oleh anggota biasa dengan status `HTTP 403 Forbidden` (`"Akses ditolak: Hanya admin atau pembuat grup yang dapat membuat topik forum"`).
+3. **Frontend UI Hidden & Anti-False Affordance**:
+   - `frontend/app/chat/SubGroupListDrawer.tsx`: Tombol `➕ Buat Topik Forum Baru` di-hidden secara otomatis untuk pengguna dengan peran selain `creator` atau `admin`.
+   - Pesan ramah ditampilkan jika daftar forum kosong (*"Belum ada ruang diskusi aktif. Hanya admin atau pembuat grup yang dapat membuat topik forum baru"*).
+4. **Propagasi Role Akurat (`page.tsx`)**:
+   - Menyimpan `parentGroupRole` saat membuka subgrup agar hak akses drawer forum tetap terkalibrasi akurat dari grup induk.
+5. **Verifikasi Test Suite**:
+   - Backend: Unit test `subgroup_test.go` & `group_handler_test.go` menguji penolakan `403` bagi anggota biasa dan kelulusan bagi admin (100% PASS).
+   - Frontend: `npm run build` lulus 0 error.

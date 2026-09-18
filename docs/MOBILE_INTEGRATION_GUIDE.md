@@ -441,7 +441,7 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
     - Di layar mobile, implementasikan header yang lapang: Nama topik di baris utama, dan baris subtitle berupa breadcrumb interaktif `↖ [Nama Grup Induk] • Forum • X anggota` (tap untuk kembali ke grup utama).
     - Terapkan **Collapsible Action Menu (`⋮`)** di mobile: sembunyikan icon-icon sekunder (Info, Link, Mute) di balik tombol titik tiga agar judul topik tidak terpotong. Tombol akses `🏛️ Forum` pada grup induk tetap berada di luar untuk akses 1-tap instan.
     - **Smart Back Navigation**: Tombol kembali `←` di mobile saat berada di topik forum otomatis menavigasikan kembali ke grup induk (*parent-first hierarchy*).
-  - **Strict Parent-Membership Gate**: Pastikan klien mobile memvalidasi bahwa pengguna terdaftar di grup utama (`parent_id`) sebelum membuka ruang topik forum. Jika API mengembalikan `HTTP 403 Forbidden`, arahkan pengguna kembali ke grup utama.
+  - **Strict Parent-Membership Gate & RBAC Creation Guard**: Pastikan klien mobile memvalidasi bahwa pengguna terdaftar di grup utama (`parent_id`) sebelum membuka ruang topik forum. Tombol "Buat Topik Baru" WAJIB disembunyikan jika pengguna bukan admin/creator (`role !== 'admin' && role !== 'creator'`). Jika API mengembalikan `HTTP 403 Forbidden`, arahkan pengguna kembali atau tampilkan notifikasi izin admin.
   - **Forum Access Control (Terbuka vs Privat)**:
     - Jika `sub.is_public !== false`: Tampilkan tombol "Gabung & Buka" (`POST /api/groups/{sub_id}/join`).
     - Jika `sub.is_public === false`:
