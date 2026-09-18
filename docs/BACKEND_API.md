@@ -993,6 +993,7 @@ Setiap frame WebSocket dipertukarkan dalam format JSON tunggal (`Message` struct
 | `messages` | `array` | Array pesan riwayat (khusus event `history`) |
 | `users` | `array` | Array anggota aktif di room (khusus event `room_users`) |
 | `since` | `string` | ISO 8601 timestamp checkpoint untuk delta offline sync pada event `join` |
+| `request_id` | `string` | ID korelasi transport request-response untuk ACK deterministik (Milestone 8.9) |
 
 ---
 
@@ -1116,7 +1117,25 @@ Memperbarui tanda terima centang pesan.
 
 ---
 
-#### 7. `reaction` (Bidirectional)
+#### 7. `ack` (Server ➔ Client)
+Konfirmasi transport-level deterministik (Milestone 8.9) yang dikirimkan oleh server kembali ke soket pengirim segera setelah paket diterima dan divalidasi.
+```json
+{
+  "type": "ack",
+  "request_id": "req-custom-uuid-123",
+  "room": "direct_11111111_22222222",
+  "status": "ok",
+  "timestamp": "2026-09-19T00:15:00Z"
+}
+```
+*Catatan Reliabilitas Transport*:
+- Klien (PWA, Android Native Kotlin, React Native) menggunakan paket ini untuk mem-pop pesan dari `outboundQueue` lokal dan menghentikan pengiriman ulang.
+- Jika validasi gagal (BOLA access denied, room expired, rate limit), `status` bernilai `"error"` disertai penjelasan pada field `content`.
+- Didukung oleh **Server-Side Idempotency Guard**: jika klien me-resend pesan duplikat saat reconnect, server membatalkan broadcast ganda namun tetap membalas paket `ack` ini agar klien mengetahui bahwa pesan telah tersimpan aman di server.
+
+---
+
+#### 8. `reaction` (Bidirectional)
 Menambahkan atau menarik reaksi emoji pada pesan.
 
 **Client ➔ Server**:

@@ -10,6 +10,7 @@ export type MessageType =
   | 'history'
   | 'room_users'
   | 'message_deleted'
+  | 'ack'
   | 'call_offer'
   | 'call_answer'
   | 'ice_candidate'
@@ -60,6 +61,7 @@ export interface RoomUser {
 
 export interface Message {
   id?: string
+  request_id?: string
   type: MessageType
   from?: string
   sender_id?: string

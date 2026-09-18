@@ -362,8 +362,14 @@ Aplikasi frontend WuzzChat dirancang untuk memberikan pengalaman optimal di dua 
 3. **Delta Offline History Sync with Checkpoint Timestamp (`GetRoomHistorySince`)**:
    - Menggunakan parameter `since` pada event `join` yang membaca timestamp pesan terakhir di IndexedDB klien.
    - Database mengeksekusi query delta `WHERE room_id = $1 AND timestamp > $2 ORDER BY timestamp ASC LIMIT $3`, menghemat pemakaian bandwidth dan memori hingga 90% saat user reconnect.
-4. **Client-Side Outbound Queue (`ws-client.ts`)**:
-   - Menggunakan FIFO queue (maksimal 100 pesan) yang menahan paket ketika koneksi terputus dan mem-flush otomatis saat event `onopen` terpicu, mencegah hilangnya pesan saat handover jaringan (WiFi ➔ 4G).
+4. **Client-Side Outbound Queue & Deterministic ACK Retransmit (`ws-client.ts`)**:
+   - Menggunakan FIFO queue (maksimal 100 pesan) yang menahan paket ketika koneksi terputus dan mem-flush otomatis saat event `onopen` terpicu.
+   - Pesan tidak lagi di-pop secara membabi buta (*anti-blind pop*), melainkan dipertahankan hingga paket `ack` atau `receipt` yang cocok diterima dari server, menjamin *at-least-once delivery* pada jaringan seluler tidak stabil.
+5. **Request ID + Deterministic Transport ACK Protocol (`message.go` & `client.go`)**:
+   - Menambahkan korelasi `request_id` dan paket respon balik `type: "ack"` untuk menjembatani kepastian pengiriman paket transport level secara instan.
+6. **Server-Side In-Memory Idempotency Guard (DEC-015)**:
+   - Hub Go mengimplementasikan deduplikasi pesan berbasis RWMutex (`dedupHistory map[string]int64`) dengan presisi tinggi `UnixNano()` dan TTL 2 menit.
+   - Jika pesan dengan ID yang sama terdeteksi ulang saat klien reconnect, server membatalkan broadcast ganda dan publish Redis, namun langsung mengembalikan ACK ke klien untuk memutus siklus retry.
 
 ---
 

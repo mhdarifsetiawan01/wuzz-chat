@@ -37,6 +37,8 @@ type Hub struct {
 	rooms            map[string]map[string]*Client // roomID -> (clientID -> *Client)
 	roomMembersCache map[string][]string           // roomID -> []memberIdentifiers (in-memory cache)
 	roomMembersMu    sync.RWMutex                  // Mutex terisolasi untuk membership cache
+	dedupHistory     map[string]int64              // msgID -> unixTimestamp (idempotency deduplication cache)
+	dedupMu          sync.RWMutex                  // Mutex terisolasi untuk deduplication cache
 	mu               sync.RWMutex
 	clientStore      store.ClientStore
 	messageStore     store.MessageStore
@@ -53,6 +55,7 @@ func NewHub(cs store.ClientStore, ms store.MessageStore) *Hub {
 		clientsByNick:    make(map[string]*Client),
 		rooms:            make(map[string]map[string]*Client),
 		roomMembersCache: make(map[string][]string),
+		dedupHistory:     make(map[string]int64),
 		clientStore:      cs,
 		messageStore:     ms,
 	}
@@ -661,5 +664,39 @@ func (h *Hub) count() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return len(h.clients)
+}
+
+// IsDuplicateAndRecord memeriksa apakah msgID sudah pernah diproses dalam rentang waktu ttl.
+// Jika pesan sudah pernah tercatat (duplikat), mengembalikan true.
+// Jika belum ada, mencatat msgID dengan timestamp sekarang dan mengembalikan false.
+func (h *Hub) IsDuplicateAndRecord(msgID string, ttl time.Duration) bool {
+	if msgID == "" {
+		return false
+	}
+	now := time.Now().UnixNano()
+	cutoff := now - ttl.Nanoseconds()
+
+	h.dedupMu.Lock()
+	defer h.dedupMu.Unlock()
+
+	if ts, exists := h.dedupHistory[msgID]; exists {
+		if ts >= cutoff {
+			return true // Duplikat dalam rentang TTL
+		}
+	}
+
+	// Simpan timestamp pemrosesan pesan (dalam nanodetik)
+	h.dedupHistory[msgID] = now
+
+	// Optimistic periodic cleanup: jika map melebihi 2000 entri, bersihkan entri yang sudah expired
+	if len(h.dedupHistory) > 2000 {
+		for id, ts := range h.dedupHistory {
+			if ts < cutoff {
+				delete(h.dedupHistory, id)
+			}
+		}
+	}
+
+	return false
 }
 
