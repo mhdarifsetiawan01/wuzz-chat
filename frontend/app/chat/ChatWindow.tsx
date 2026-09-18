@@ -21,6 +21,7 @@ interface ChatWindowProps {
   onReact?: (messageId: string, emoji: string) => void
   onImageClick?: (imageUrl: string, fileName?: string) => void
   onDeleteMessage?: (messageId: string, type: 'for_me' | 'for_everyone') => void
+  members?: import('@/lib/types').GroupMember[]
 }
 
 export function ChatWindow({
@@ -40,6 +41,7 @@ export function ChatWindow({
   onReact,
   onImageClick,
   onDeleteMessage,
+  members,
 }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -180,6 +182,7 @@ export function ChatWindow({
           onReact={onReact}
           onImageClick={onImageClick}
           onDeleteMessage={onDeleteMessage}
+          members={members}
         />
       ))}
 

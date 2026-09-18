@@ -4,9 +4,11 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { uploadMedia, getAppConfig } from '@/lib/api'
 import { compressImage } from '@/lib/imageCompressor'
 import { setCachedMediaBlob } from '@/lib/mediaCache'
-import type { Message, MediaUploadResponse } from '@/lib/types'
+import type { Message, MediaUploadResponse, GroupMember } from '@/lib/types'
 import { VoiceRecorder } from './VoiceRecorder'
 import { EMOJI_CATEGORIES, getEmojiCategories } from '@/lib/emojis'
+import { UserAvatar } from './UserAvatar'
+import { VerifiedBadge } from './VerifiedBadge'
 
 interface StagedMedia {
   file: File
@@ -17,13 +19,15 @@ interface StagedMedia {
 }
 
 interface MessageInputProps {
-  onSend: (content: string, media?: { url: string; media_type: string; file_name: string; file_size: number }) => void
+  onSend: (content: string, media?: { url: string; media_type: string; file_name: string; file_size: number }, mentions?: string[]) => void
   onTyping: () => void
   disabled: boolean
   replyTo?: Message | null
   onCancelReply?: () => void
   stagedExternalFile?: File | null
   onClearStagedExternalFile?: () => void
+  members?: GroupMember[]
+  currentUserId?: string
 }
 
 // Throttle typing event agar tidak spam ke server
@@ -37,6 +41,8 @@ export function MessageInput({
   onCancelReply,
   stagedExternalFile,
   onClearStagedExternalFile,
+  members = [],
+  currentUserId = '',
 }: MessageInputProps) {
   const [text, setText] = useState('')
   const [mediaEnabled, setMediaEnabled] = useState(true)
@@ -46,10 +52,41 @@ export function MessageInput({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [activeEmojiCategory, setActiveEmojiCategory] = useState<string>('faces')
 
+  // Mention state & tracked user UUIDs (DEC-013)
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const [mentionStartIdx, setMentionStartIdx] = useState<number>(-1)
+  const [selectedMentionIdx, setSelectedMentionIdx] = useState<number>(0)
+  const trackedMentions = useRef<Map<string, string>>(new Map())
+  const mentionPopoverRef = useRef<HTMLDivElement>(null)
+
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const lastTypingSentRef = useRef<number>(0)
+
+  // Filter anggota yang cocok untuk mention popover (exclude self ID)
+  const eligibleMembers = (members || []).filter(m => m.user_id !== currentUserId)
+  const matchingMembers = mentionQuery !== null
+    ? eligibleMembers.filter(m => {
+        const q = mentionQuery.toLowerCase()
+        return (
+          m.username.toLowerCase().includes(q) ||
+          m.display_name.toLowerCase().includes(q)
+        )
+      })
+    : []
+
+  // Tutup mention popover jika klik di luar
+  useEffect(() => {
+    if (mentionQuery === null) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (mentionPopoverRef.current && !mentionPopoverRef.current.contains(e.target as Node)) {
+        setMentionQuery(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [mentionQuery])
 
   // Tutup emoji picker jika user klik di luar popover atau menekan tombol Escape
   useEffect(() => {
@@ -170,9 +207,48 @@ export function MessageInput({
     }
   }
 
+  const handleSelectMention = (member: GroupMember) => {
+    if (mentionStartIdx < 0) return
+    const ta = textareaRef.current
+    const cursor = ta ? ta.selectionStart : text.length
+    const before = text.slice(0, mentionStartIdx)
+    const after = text.slice(cursor)
+    const mentionText = `@${member.username} `
+    const newText = before + mentionText + after
+
+    // Simpan relasi immutable username -> user_id (UUID)
+    trackedMentions.current.set(member.username.toLowerCase(), member.user_id)
+
+    setText(newText)
+    setMentionQuery(null)
+
+    requestAnimationFrame(() => {
+      if (ta) {
+        ta.focus()
+        const newCursor = before.length + mentionText.length
+        ta.setSelectionRange(newCursor, newCursor)
+      }
+    })
+  }
+
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setText(e.target.value)
+      const newText = e.target.value
+      setText(newText)
+
+      // Deteksi trigger mention (@)
+      const cursor = e.target.selectionStart || 0
+      const textBeforeCursor = newText.slice(0, cursor)
+      const match = textBeforeCursor.match(/(?:^|\s)@([a-zA-Z0-9_.-]*)$/)
+      if (match && members && members.length > 0) {
+        const query = match[1]
+        const atPos = textBeforeCursor.length - query.length - 1
+        setMentionQuery(query)
+        setMentionStartIdx(atPos)
+        setSelectedMentionIdx(0)
+      } else {
+        setMentionQuery(null)
+      }
 
       // Throttle typing indicator
       const now = Date.now()
@@ -181,7 +257,7 @@ export function MessageInput({
         onTyping()
       }
     },
-    [onTyping]
+    [members, onTyping]
   )
 
   const handleSend = async () => {
@@ -189,6 +265,7 @@ export function MessageInput({
     if ((!trimmed && !stagedMedia) || disabled || isSending) return
 
     setIsSending(true)
+    setMentionQuery(null)
 
     try {
       let mediaPayload: { url: string; media_type: string; file_name: string; file_size: number } | undefined
@@ -223,9 +300,30 @@ export function MessageInput({
         }
       }
 
-      onSend(trimmed, mediaPayload)
+      // Ekstraksi multi-mention UUIDs secara immutable (DEC-013)
+      const mentionMatches = trimmed.match(/@([a-zA-Z0-9_.-]+)/g) || []
+      const finalMentions: string[] = []
+      const seen = new Set<string>()
+
+      for (const match of mentionMatches) {
+        const uname = match.slice(1).toLowerCase()
+        let uid = trackedMentions.current.get(uname)
+        if (!uid && members) {
+          const found = members.find(m => m.username.toLowerCase() === uname)
+          if (found && found.user_id !== currentUserId) {
+            uid = found.user_id
+          }
+        }
+        if (uid && !seen.has(uid)) {
+          seen.add(uid)
+          finalMentions.push(uid)
+        }
+      }
+
+      onSend(trimmed, mediaPayload, finalMentions.length > 0 ? finalMentions : undefined)
       setText('')
       handleCancelStagedMedia()
+      trackedMentions.current.clear()
 
       if (textareaRef.current) textareaRef.current.style.height = 'auto'
     } finally {
@@ -263,6 +361,32 @@ export function MessageInput({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Navigasi keyboard mention popover
+    if (mentionQuery !== null && matchingMembers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedMentionIdx(prev => (prev + 1) % matchingMembers.length)
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedMentionIdx(prev => (prev - 1 + matchingMembers.length) % matchingMembers.length)
+        return
+      }
+      if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey) {
+        e.preventDefault()
+        if (matchingMembers[selectedMentionIdx]) {
+          handleSelectMention(matchingMembers[selectedMentionIdx])
+        }
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setMentionQuery(null)
+        return
+      }
+    }
+
     // Enter = kirim, Shift+Enter = baris baru
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -381,6 +505,53 @@ export function MessageInput({
                     title={emoji}
                   >
                     {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Autocomplete Mention Suggestion Popover */}
+          {mentionQuery !== null && matchingMembers.length > 0 && (
+            <div
+              ref={mentionPopoverRef}
+              className="mention-autocomplete-popover"
+              role="listbox"
+              aria-label="Saran Mention Anggota"
+            >
+              <div className="mention-popover-header">
+                <span className="mention-popover-title">Sebut Anggota (@)</span>
+                <span className="mention-popover-hint">Gunakan ↑↓ lalu Enter</span>
+              </div>
+              <div className="mention-popover-list">
+                {matchingMembers.slice(0, 6).map((member, idx) => (
+                  <button
+                    key={member.user_id}
+                    type="button"
+                    className={`mention-popover-item ${idx === selectedMentionIdx ? 'active' : ''}`}
+                    onClick={() => handleSelectMention(member)}
+                    onMouseEnter={() => setSelectedMentionIdx(idx)}
+                    role="option"
+                    aria-selected={idx === selectedMentionIdx}
+                  >
+                    <UserAvatar
+                      avatarUrl={member.avatar_url}
+                      name={member.display_name}
+                      id={member.user_id}
+                      size={30}
+                    />
+                    <div className="mention-item-info">
+                      <div className="mention-item-name-row">
+                        <span className="mention-item-name">{member.display_name}</span>
+                        {member.is_verified && <VerifiedBadge size={13} />}
+                      </div>
+                      <span className="mention-item-username">@{member.username}</span>
+                    </div>
+                    {member.role && member.role !== 'member' && (
+                      <span className={`mention-item-role role-${member.role}`}>
+                        {member.role === 'creator' ? '👑 Pembuat' : '🛡️ Admin'}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>

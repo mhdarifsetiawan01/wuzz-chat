@@ -178,6 +178,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMP DEFAULT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_for_users TEXT DEFAULT '[]';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS mentions TEXT DEFAULT '[]';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(room_id, status);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_to_status ON messages(to_id, status);`)
 
@@ -218,6 +219,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN cleared_at TIMESTAMP DEFAULT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN deleted_for_users TEXT DEFAULT '[]';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN mentions TEXT DEFAULT '[]';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(room_id, status);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_to_status ON messages(to_id, status);`)
 
@@ -271,14 +273,18 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 	if deletedForUsers == "" {
 		deletedForUsers = "[]"
 	}
+	mentions := msg.Mentions
+	if mentions == "" {
+		mentions = "[]"
+	}
 
 	var query string
 	if s.driverName == "postgres" {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, created_at)
-		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, created_at)
+		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`
 	} else {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, created_at)
-		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, created_at)
+		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
 	_, err := s.db.Exec(
@@ -301,6 +307,7 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 		mediaStatus,
 		msg.IsDeleted,
 		deletedForUsers,
+		mentions,
 		msg.Timestamp.UTC(),
 	)
 	return err
@@ -500,9 +507,9 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
 			FROM (
-				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.is_deleted, m.deleted_for_users, m.created_at
+				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.is_deleted, m.deleted_for_users, m.mentions, m.created_at
 				FROM messages m
 				LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = $1
 				WHERE m.room_id = $2
@@ -517,9 +524,9 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
 			FROM (
-				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.is_deleted, m.deleted_for_users, m.created_at
+				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.is_deleted, m.deleted_for_users, m.mentions, m.created_at
 				FROM messages m
 				LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = ?
 				WHERE m.room_id = ?
@@ -536,9 +543,9 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
 			FROM (
-				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, created_at
+				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, created_at
 				FROM messages
 				WHERE room_id = $1
 				ORDER BY created_at DESC
@@ -551,9 +558,9 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
 			FROM (
-				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, created_at
+				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, created_at
 				FROM messages
 				WHERE room_id = ?
 				ORDER BY created_at DESC
@@ -577,7 +584,7 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 		var mediaURL, mediaType, fileName, mediaStatus string
 		var fileSize int64
 		var isDeleted bool
-		var deletedForUsers string
+		var deletedForUsers, mentions string
 
 		if err := rows.Scan(
 			&m.ID,
@@ -598,6 +605,7 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			&mediaStatus,
 			&isDeleted,
 			&deletedForUsers,
+			&mentions,
 			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("gagal scan baris history: %w", err)
@@ -632,6 +640,7 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 		m.MediaStatus = mediaStatus
 		m.IsDeleted = isDeleted
 		m.DeletedForUsers = deletedForUsers
+		m.Mentions = mentions
 		m.Timestamp = createdAt.UTC()
 		history = append(history, m)
 	}
@@ -650,13 +659,13 @@ func (s *SQLMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
 		query = `SELECT id, room_id, from_id, from_nickname, to_id, content, 
 		                COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 		                COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-		                COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
+		                COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
 		         FROM messages WHERE id = $1`
 	} else {
 		query = `SELECT id, room_id, from_id, from_nickname, to_id, content, 
 		                COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 		                COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-		                COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), created_at
+		                COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
 		         FROM messages WHERE id = ?`
 	}
 
@@ -666,7 +675,7 @@ func (s *SQLMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
 	var mediaURL, mediaType, fileName, mediaStatus string
 	var fileSize int64
 	var isDeleted bool
-	var deletedForUsers string
+	var deletedForUsers, mentions string
 
 	err := s.db.QueryRow(query, msgID).Scan(
 		&m.ID,
@@ -687,6 +696,7 @@ func (s *SQLMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
 		&mediaStatus,
 		&isDeleted,
 		&deletedForUsers,
+		&mentions,
 		&createdAt,
 	)
 	if err != nil {
@@ -708,6 +718,7 @@ func (s *SQLMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
 	m.MediaStatus = mediaStatus
 	m.IsDeleted = isDeleted
 	m.DeletedForUsers = deletedForUsers
+	m.Mentions = mentions
 	m.Timestamp = createdAt.UTC()
 	return &m, nil
 }

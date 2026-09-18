@@ -424,20 +424,22 @@ Mengunggah berkas gambar, audio, dokumen, atau video.
 ---
 
 #### 16. `POST /api/media/ack`
-Mengirim konfirmasi unduhan berkas oleh penerima pesan. Memicu backend untuk menghapus file fisik secara instan dari server (*WhatsApp Store-and-Forward Lifecycle*).
-- **Autentikasi**: `Bearer <token>`
+Mengirim konfirmasi unduhan berkas oleh penerima pesan. 
+- **Direct Message (1-on-1)**: Memicu backend untuk menghapus berkas fisik secara instan dari Supabase Storage (*WhatsApp Store-and-Forward Lifecycle*, $0 storage cost).
+- **Obrolan Grup & Forum Topics (`grp_...`, `sub_...`)**: Konfirmasi unduhan dicatat tanpa menghapus berkas fisik (*Shared Media Hub*), menjamin berkas tetap tersedia bagi seluruh anggota grup hingga masa TTL (7 hari) berakhir.
+- **Autentikasi**: `Bearer <token>` (Dilengkapi proteksi validasi Anti-IDOR keanggotaan room)
 - **Request Body**:
   ```json
   {
     "message_id": "msg_uuid_123",
-    "room_id": "direct_11111111_22222222"
+    "room_id": "grp_11111111_22222222"
   }
   ```
 - **Success Response (200 OK)**:
   ```json
   {
-    "status": "ok",
-    "message": "Media download acknowledged and purged from server storage"
+    "status": "acknowledged",
+    "media_status": "active" // "expired" untuk DM setelah file dihapus, "active" untuk Grup/Forum
   }
   ```
 
@@ -1046,18 +1048,24 @@ Mengirim atau menerima pesan chat.
 {
   "id": "c7a8b9-generate-uuid-v4",
   "type": "message",
-  "room": "direct_11111111_22222222",
-  "content": "e2ee:v1:7sd...:92a...",
+  "room": "grp_f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "content": "@alice tolong review PR ini dan @bob deploy ke staging",
   "reply_to": {
     "id": "msg_sebelumnya",
     "nickname": "siti_aminah",
     "content": "Halo apa kabar?"
-  }
+  },
+  "mentions": [
+    "user-uuid-alice",
+    "user-uuid-bob"
+  ]
 }
 ```
 
+> 🛡️ **Aturan Validasi Mention Fail-Closed (DEC-013)**: Field `mentions` berupa array UUID pengguna (data immutable murni, bukan username/display_name). Backend Go WebSocket Hub memvalidasi setiap UUID via `IsUserInConversation(roomID, mUID)`. Jika user bukan anggota sah dari grup atau subgrup tujuan, mention tersebut di-drop sebelum persistensi dan broadcast.
+
 **Terima (Server ➔ Client)**:
-Server membalas pengirim dengan status `sent`, dan meneruskan pesan ke penerima dengan status `delivered` (jika penerima sedang online) beserta `timestamp` server.
+Server membalas pengirim dengan status `sent`, dan meneruskan pesan ke penerima dengan status `delivered` (jika penerima sedang online) beserta `timestamp` server dan field `mentions: ["user-uuid-1", ...]`. Pengguna offline yang tercantum pada `mentions` menerima Web Push prioritas bertag `chat-mention-[room]` dengan judul `🔔 [Pengirim] menyebut Anda`.
 
 ---
 

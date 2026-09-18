@@ -80,6 +80,9 @@ func (s *MemoryMessageStore) Save(msg StoredMessage) error {
 	if msg.Reactions == "" {
 		msg.Reactions = "[]"
 	}
+	if msg.Mentions == "" {
+		msg.Mentions = "[]"
+	}
 	s.messages[msg.RoomID] = append(s.messages[msg.RoomID], msg)
 	return nil
 }

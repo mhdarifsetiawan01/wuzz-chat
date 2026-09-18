@@ -3,6 +3,7 @@ package push
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -136,6 +137,7 @@ func (s *Service) NotifyOfflineRecipients(
 	content string,
 	mediaType string,
 	onlineUserIDs []string,
+	mentions ...[]string,
 ) {
 	s.mu.RLock()
 	us := s.userStore
@@ -241,6 +243,14 @@ func (s *Service) NotifyOfflineRecipients(
 			senderPubKey = senderUser.PublicKey
 		}
 
+		// Map mention user ID untuk pengecekan cepat (DEC-013: Immutable UUID check)
+		mentionMap := make(map[string]bool)
+		if len(mentions) > 0 && len(mentions[0]) > 0 {
+			for _, mID := range mentions[0] {
+				mentionMap[strings.ToLower(strings.TrimSpace(mID))] = true
+			}
+		}
+
 		payloadObj := NotificationPayload{
 			Title: title,
 			Body:  bodyText,
@@ -259,9 +269,24 @@ func (s *Service) NotifyOfflineRecipients(
 			Timestamp: time.Now().UnixMilli(),
 		}
 
-		payloadBytes, err := json.Marshal(payloadObj)
+		// Payload khusus untuk user yang di-mention
+		mentionPayloadObj := payloadObj
+		mentionPayloadObj.Title = fmt.Sprintf("🔔 %s menyebut Anda", senderNickname)
+		mentionPayloadObj.Tag = "chat-mention-" + roomID
+		mentionData := make(map[string]interface{})
+		for k, v := range payloadObj.Data {
+			mentionData[k] = v
+		}
+		mentionData["is_mention"] = true
+		mentionPayloadObj.Data = mentionData
+
+		regularBytes, err := json.Marshal(payloadObj)
 		if err != nil {
 			return
+		}
+		mentionBytes, err := json.Marshal(mentionPayloadObj)
+		if err != nil {
+			mentionBytes = regularBytes
 		}
 
 		// 5. Kirimkan push notification ke setiap subscription
@@ -273,7 +298,12 @@ func (s *Service) NotifyOfflineRecipients(
 			wg.Add(1)
 			go func(subscription store.PushSubscription) {
 				defer wg.Done()
-				if err := s.SendWebPush(ctx, subscription, payloadBytes); err != nil {
+				bytesToSend := regularBytes
+				// DEC-013: Cocokkan UUID subscription dengan UUID mention
+				if mentionMap[strings.ToLower(subscription.UserID)] {
+					bytesToSend = mentionBytes
+				}
+				if err := s.SendWebPush(ctx, subscription, bytesToSend); err != nil {
 					log.Printf("⚠️ [Push] Gagal mengirim push ke endpoint %s: %v", safePrefix(subscription.Endpoint, 24), err)
 				}
 			}(sub)

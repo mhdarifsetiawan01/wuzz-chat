@@ -100,11 +100,12 @@ Setiap frame pesan WebSocket menggunakan format JSON:
   "media_type": "image",
   "file_name": "foto.jpg",
   "file_size": 245000,
+  "mentions": ["user-uuid-1", "user-uuid-2"],
   "timestamp": "2026-09-14T01:00:00Z"
 }
 ```
 
-> **📌 `reactions.users`**: Array berisi **UUID pengguna** (bukan username). Klien mobile menentukan apakah user sudah bereaksi dengan cara: `reaction.users.contains(currentUser.id)`.
+> **📌 `reactions.users` & `mentions` (DEC-013)**: Array berisi **UUID pengguna immutable** (bukan username/display_name). Klien mobile menentukan apakah user sendiri di-mention dengan mengecek `mentions.contains(currentUser.id)`. Saat memunculkan autocomplete `@`, klien wajib memfilter dari daftar anggota aktif room tersebut (hanya member grup jika di grup, hanya member subgrup jika di topik forum). Push notification dengan `is_mention: true` dapat dibunyikan dengan nada notifikasi prioritas tinggi.
 
 | Tipe Event (`type`) | Arah | Tindakan Klien Mobile |
 |---|---|---|
@@ -303,10 +304,11 @@ Aplikasi mobile Wuzz Chat menghemat kuota server dan penyimpanan cloud dengan ar
      Server memverifikasi keanggotaan room pemanggil (Anti-IDOR) sebelum menghapus file fisik di storage.
    - UI obrolan selanjutnya membaca berkas langsung dari media lokal perangkat (dapat dibuka selamanya bahkan saat offline).
 
-### 👥 Aturan Khusus Media pada Obrolan Grup (Group Rooms):
-- Pada room bertipe grup (`grp_*`), klien mobile **TIDAK MENGIRIM ACK penghapusan seketika**, karena berkas dibutuhkan oleh anggota grup lainnya.
-- Berkas grup dipertahankan di server selama **TTL 7 hari** (`MEDIA_RETENTION_DAYS`), lalu dibersihkan otomatis oleh worker backend.
-- Klien mobile wajib segera menyimpan berkas grup ke internal storage perangkat (Room / Scoped Storage) saat pertama kali dibuka, sehingga berkas tetap dapat diakses selamanya di HP pengguna meskipun sudah kedaluwarsa di server.
+### 👥 Aturan Khusus Media pada Obrolan Grup & Topik Forum (`grp_*`, `sub_*`):
+- Pada room bertipe grup (`grp_*`) dan topik forum (`sub_*`), klien mobile tetap mengirim `POST /api/media/ack` setelah selesai mendownload berkas.
+- Backend Go secara otomatis mengenali identitas grup/forum dan **menjamin berkas fisik di Supabase Storage TIDAK DIHAPUS** serta `media_status` **tetap `'active'`**.
+- Berkas dipertahankan di server selama masa retensi **TTL 7 hari** (`MEDIA_RETENTION_DAYS`), lalu dibersihkan otomatis oleh `PurgeWorker` berkala.
+- Klien mobile wajib segera menyimpan berkas ke internal storage perangkat (Scoped Storage di Android / Documents di iOS) saat pertama kali dibuka, sehingga berkas tetap dapat diakses selamanya di HP pengguna bahkan setelah masa TTL server berakhir.
 
 ### ⚡ Strategi Riwayat Pesan Mobile: 50 Pesan Awal & Local SQLite (Cache-First):
 1. **Initial History Limit (50 Pesan)**: Saat mengirim event `join`, backend membalas dengan 50 pesan terkini (`LIMIT 50`) berkat indeks $O(\log N)$.

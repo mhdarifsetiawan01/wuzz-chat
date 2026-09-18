@@ -813,5 +813,35 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 4. **Verifikasi Build**:
    - `npm run build` sukses 100% tanpa error TypeScript maupun CSS.
 
+---
+
+### 🔔 Milestone 8.5: Group & Subgroup Multi-User Mention Engine (@username)
+**Tanggal**: 18 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI (Dev Branch)**  
+**Branch Aktif**: `dev`
+
+**Ringkasan Fitur & Keputusan Arsitektur**:
+1. **Isolasi Keanggotaan Ketat (Group vs Forum Subgroup Scope)**:
+   - Autocomplete dan mention di grup utama (`grp_<UUID>`) hanya mengizinkan anggota grup tersebut.
+   - Di subgrup/forum (`sub_<UUID>`), hanya anggota yang telah bergabung ke subgrup tersebut yang dapat di-mention.
+2. **Standardisasi Data Kekal Murni (DEC-013: 100% Immutable Identifiers)**:
+   - Seluruh logika bisnis, otorisasi, filtering, targeting Web Push, dan persistensi database mutlak menggunakan UUID (`user.id` dan `room_id`).
+   - Tidak ada logika yang menggunakan atribut yang dapat berubah seperti `username`, `display_name`, atau nama grup.
+   - Kolom database: `messages.mentions TEXT DEFAULT '[]'` menyimpan array JSON UUID pengguna ter-mention (`["<UUID1>", "<UUID2>"]`).
+3. **Komponen Autocomplete Aurora Glassmorphism (`MessageInput.tsx`)**:
+   - Deteksi `@` realtime dengan pelacakan kursor.
+   - Popover mengambang dengan filter nama/username, avatar, verified badge, role, dan navigasi keyboard lengkap (ArrowUp/Down/Enter/Tab/Esc) serta tap mobile (min 44px).
+4. **Highlight Interaktif Linimasa (`MessageBubble.tsx`)**:
+   - Token `@username` dirender sebagai `.mention-tag`.
+   - Token yang menunjuk pada user sendiri di-highlight khusus dengan aksen `.mention-tag-self` dan bubble pesan bergaris tepi cyan `message-bubble-mentioned` berdasarkan pencocokan immutable `user_id === selfId`.
+5. **Validasi Fail-Closed WebSocket Hub (`hub.go`)**:
+   - Server Go WebSocket memeriksa setiap UUID pada `msg.Mentions` menggunakan `IsUserInConversation(roomID, mUID)`. Jika user bukan anggota sah, ID di-drop sebelum persistensi dan broadcast.
+6. **Prioritized Web Push Notifications (`push.go`)**:
+   - Penerima offline yang tercantum pada `mentions` menerima push notification prioritas bertag `chat-mention-[roomID]` dengan judul `🔔 [Pengirim] menyebut Anda`.
+7. **Verifikasi Kualitas**:
+   - Backend: `go test -count=1 ./...` lulus 100% di semua paket.
+   - Frontend: `npm run build` lulus 0 error.
+
+
 
 
