@@ -210,24 +210,28 @@ func (c *Client) onMessage(msg Message) {
 
 	if targetRoom == "" {
 		c.sendError("Tidak ada tujuan percakapan. Lakukan join ke room dulu.")
+		c.sendAck(msg.RequestID, "error", "Tidak ada tujuan percakapan")
 		return
 	}
 
 	// Validasi Hak Akses Room Pengirim (BOLA Prevention)
 	if !c.isAuthorizedForRoom(targetRoom) {
 		c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
+		c.sendAck(msg.RequestID, "error", "Akses ditolak")
 		return
 	}
 
 	// Fail-Closed Write Gate: Cegah pengiriman pesan ke subgrup yang telah kedaluwarsa
 	if c.hub.userStore != nil && c.hub.userStore.IsConversationExpired(targetRoom) {
 		c.sendError("Subgrup ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.")
+		c.sendAck(msg.RequestID, "error", "Subgrup telah kedaluwarsa")
 		return
 	}
 
 	// Rate Limiting Pengiriman Pesan: Maksimal 10 pesan per 2 detik per koneksi (Anti-Flood)
 	if !c.allowRateLimit(10, 2*time.Second) {
 		c.sendError("Anda mengirim pesan terlalu cepat. Harap tunggu sebentar.")
+		c.sendAck(msg.RequestID, "error", "Rate limit exceeded")
 		return
 	}
 
@@ -235,10 +239,12 @@ func (c *Client) onMessage(msg Message) {
 	content := strings.TrimSpace(msg.Content)
 	if content == "" && msg.MediaURL == "" {
 		c.sendError("Isi pesan atau lampiran media tidak boleh kosong")
+		c.sendAck(msg.RequestID, "error", "Konten kosong")
 		return
 	}
 	if len([]rune(content)) > 5000 {
 		c.sendError("Pesan terlalu panjang (maksimal 5.000 karakter)")
+		c.sendAck(msg.RequestID, "error", "Pesan terlalu panjang")
 		return
 	}
 	msg.Content = content
@@ -250,6 +256,28 @@ func (c *Client) onMessage(msg Message) {
 
 	if msg.ID == "" {
 		msg.ID = uuid.New().String()
+	}
+
+	// Server-Side Idempotency Guard (DEC-015):
+	// Jika pesan dengan ID ini sudah pernah diproses dalam 2 menit terakhir (misal karena resend client reconnect),
+	// abaikan broadcast dan save DB, tetapi tetap kirim balik ACK / receipt agar client menghentikan pengiriman ulang.
+	if c.hub.IsDuplicateAndRecord(msg.ID, 2*time.Minute) {
+		log.Printf("[Client %s] Pesan duplikat terdeteksi (id: %s), melewati broadcast", c.ID, msg.ID)
+		if msg.RequestID != "" {
+			c.sendAck(msg.RequestID, "ok", "")
+		}
+		select {
+		case c.send <- Message{
+			ID:        msg.ID,
+			RequestID: msg.RequestID,
+			Type:      TypeReceipt,
+			Room:      targetRoom,
+			Status:    StatusSent,
+			Timestamp: time.Now().UTC(),
+		}:
+		default:
+		}
+		return
 	}
 
 	// Cek apakah lawan bicara sedang online di Hub
@@ -292,12 +320,18 @@ func (c *Client) onMessage(msg Message) {
 	select {
 	case c.send <- Message{
 		ID:        msg.ID,
+		RequestID: msg.RequestID,
 		Type:      TypeReceipt,
 		Room:      targetRoom,
 		Status:    initialStatus,
 		Timestamp: time.Now().UTC(),
 	}:
 	default:
+	}
+
+	// Kirim balik paket transport ACK jika request_id disertakan oleh klien
+	if msg.RequestID != "" {
+		c.sendAck(msg.RequestID, "ok", "")
 	}
 }
 
@@ -462,6 +496,27 @@ func (c *Client) sendError(errMsg string) {
 		Content:   "ERROR: " + errMsg,
 		Timestamp: time.Now().UTC(),
 	}:
+	default:
+	}
+}
+
+// sendAck mengirimkan konfirmasi transport level (TypeAck) kembali ke client ini.
+func (c *Client) sendAck(requestID string, status string, errMsg string) {
+	if requestID == "" {
+		return
+	}
+	ackMsg := Message{
+		RequestID: requestID,
+		Type:      TypeAck,
+		Room:      c.RoomID,
+		Status:    MessageStatus(status),
+		Timestamp: time.Now().UTC(),
+	}
+	if errMsg != "" {
+		ackMsg.Content = errMsg
+	}
+	select {
+	case c.send <- ackMsg:
 	default:
 	}
 }

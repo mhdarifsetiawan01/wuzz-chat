@@ -1,7 +1,7 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
 **Tanggal:** 19 September 2026  
-**Status Proyek:** Fase 1 s/d 8 (Partial) — Milestone 8.8 (Realtime Engine Scalability & High-ROI Opt) SELESAI ✅  
+**Status Proyek:** Fase 1 s/d 8 (Partial) — Milestone 8.8 & 8.9 (Scalability & Mobile-Ready Reliability) SELESAI ✅  
 **Branch Aktif:** `dev`
 
 ---
@@ -948,4 +948,28 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 - Backend: Unit test `scalability_optimizations_test.go` (`TestHub_DirectMemberLookupO_M`, `TestClient_TypingRateLimit`, `TestHub_DeltaHistorySince`) — **100% PASS**.
 - `go test -v ./...` di seluruh direktori `backend/` — **100% PASS**.
 - Frontend: `npm run build` di direktori `frontend/` — **100% PASS (0 error, 0 warning)**.
+
+---
+
+### 🛡️ Milestone 8.9: Mobile-Ready Reliability (Request ID + ACK Protocol & Server-Side In-Memory Idempotency)
+
+**Tanggal**: 19 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI (Dev Branch)**  
+**Branch Aktif**: `dev`
+
+**Ringkasan Masalah & Solusi Arsitektur**:
+1. **Transport Delivery Uncertainty**:
+   - Sebelumnya, pengiriman pesan hanya mengandalkan respon `TypeReceipt` (yang mencerminkan apakah peer sedang online), bukan transport acknowledgment bahwa payload telah divalidasi dan di-commit di database.
+   - Solusi: Menambahkan konstanta `TypeAck = "ack"` dan field `RequestID string` pada struct `ws.Message`. Setiap pesan masuk yang memiliki `request_id` langsung dibalas secara deterministik dengan paket transport `{ type: "ack", request_id: "...", status: "ok" }`.
+2. **Duplicate Broadcast saat Mobile Reconnect**:
+   - `outboundQueue` klien melakukan retransmission otomatis saat reconnect. Jika soket terputus setelah server memproses pesan namun sebelum klien menerima broadcast balik, pengiriman ulang memicu server membroadcast pesan yang sama dua kali ke anggota room.
+   - Solusi: Mengimplementasikan **Server-Side Idempotency Guard (DEC-015)** di `Hub` Go menggunakan in-memory cache `dedupHistory` dengan presisi `UnixNano()` dan TTL 2 menit. Jika `msg.ID` terdeteksi duplikat, server membatalkan broadcast ganda dan publish Redis, namun langsung mengirimkan ACK kembali ke pengirim.
+3. **Pemberhentian Blind Pop di Client Outbound Queue**:
+   - `WsClient.ts` sebelumnya melakukan `shift()` langsung saat flush `onopen`.
+   - Solusi: Pesan durable dipertahankan di antrean dan hanya di-pop jika event `ack` atau `receipt` yang cocok diterima dari server, menjamin *at-least-once delivery* pada jaringan seluler tidak stabil.
+
+**Verifikasi & Test Suite**:
+- Backend: Unit test `ack_idempotency_test.go` (`TestClient_MessageAckDispatch`, `TestHub_ServerSideIdempotency`, `TestHub_IdempotencyTTL`) — **100% PASS**.
+- `go test -v ./...` di seluruh modul backend — **100% PASS**.
+- Frontend: `npm run build` — **100% PASS (0 error, 0 warning)**.
 

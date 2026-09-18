@@ -358,7 +358,15 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 
 ### 3.13 Client-Side Outbound Queue & Auto-Retry Resiliency
 * **Lokasi Kode**: [`frontend/lib/ws-client.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/ws-client.ts)
-* **Ketahanan Jaringan Mobile**: Menampung pesan ke dalam FIFO `outboundQueue` (maksimal 100 pesan) saat WebSocket dalam status terputus (`reconnecting` / `connecting`), dan mem-flush antrean secara otomatis seketika saat event `onopen` terpicu. Mencegah hilangnya pesan akibat pergantian jaringan (WiFi ➔ 4G).
+* **Ketahanan Jaringan Mobile**: Menampung pesan ke dalam FIFO `outboundQueue` (maksimal 100 pesan) saat WebSocket dalam status terputus (`reconnecting` / `connecting`), dan mem-flush antrean secara otomatis seketika saat event `onopen` terpicu. Mengeliminasi *blind pop* dengan menahan pesan sampai paket `ack` atau `receipt` yang sesuai diterima dari server.
+
+### 3.14 Server-Side In-Memory Idempotency Guard & Transport ACK (DEC-015)
+* **Lokasi Kode**: [`backend/internal/ws/hub.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go) & [`backend/internal/ws/client.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/client.go)
+* **Vektor Resend Duplikat**: Klien mobile yang terputus di tengah jalan saat mengirim pesan akan mengirim ulang (*retransmit*) pesan yang sama dengan `ID` yang sama begitu soket pulih. Tanpa idempotensi, server akan membroadcast pesan yang sama dua kali ke anggota room sebelum gagal di SQL constraint.
+* **Solusi Implementasi**:
+  - `Hub` memelihara in-memory cache `dedupHistory map[string]int64` dengan proteksi mutex `dedupMu sync.RWMutex` dan pembersihan otomatis.
+  - Pengecekan `IsDuplicateAndRecord` berpresisi `UnixNano()` dengan TTL 2 menit: jika pesan terdeteksi duplikat, server membatalkan broadcast ke room dan broker Redis, namun langsung membalas ACK ke klien agar klien menghentikan pengiriman ulang.
+  - Setiap pengiriman pesan masuk yang menyertakan `request_id` otomatis dibalas dengan paket transport `{ type: "ack", request_id: "...", status: "ok" }`.
 
 ---
 
@@ -370,6 +378,7 @@ Seluruh lapisan keamanan dan optimasi performa di atas dilindungi oleh suite pen
 | :--- | :--- | :--- | :---: |
 | **WebSocket Security & Multi-User Lifecycle E2E** | [`backend/internal/ws/e2e_full_flow_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/e2e_full_flow_test.go) | • Multi-client WebSocket join<br>• WebRTC signaling & message broadcast<br>• Attacker intrusion rejection (BOLA isolation) | ✅ **100% PASS** |
 | **Realtime Scalability & Optimization Suite** | [`backend/internal/ws/scalability_optimizations_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/scalability_optimizations_test.go) | • Direct lookup $O(M)$ member routing<br>• Sliding-window typing rate limit<br>• Delta history since checkpoint | ✅ **100% PASS** |
+| **Transport ACK & Idempotency Suite** | [`backend/internal/ws/ack_idempotency_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/ack_idempotency_test.go) | • Request ID ACK correlation<br>• Server duplicate broadcast suppression<br>• UnixNano TTL expiration | ✅ **100% PASS** |
 | **REST API & Store Lifecycle E2E** | [`backend/internal/api/chat_and_media_e2e_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/chat_and_media_e2e_test.go) | • Media ACK IDOR protection & physical file delete<br>• Batched CTE conversation list<br>• Privacy filter (`cleared_at`) & reappearance | ✅ **100% PASS** |
 | **SSRF & DNS Rebinding E2E** | [`backend/internal/api/link_preview_e2e_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/link_preview_e2e_test.go) | • Block 14 vektor SSRF (Loopback, Cloud Metadata, CGNAT)<br>• Block Redirect SSRF & Loop<br>• Safe scraping & Redis caching | ✅ **100% PASS** |
 | **Collision & Deterministic Direct Room E2E** | [`backend/internal/store/sql_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql_test.go) | • Stress-test prefix collision (0 tabrakan)<br>• Order-invariance & idempotency<br>• Legacy direct room backward compatibility | ✅ **100% PASS** |

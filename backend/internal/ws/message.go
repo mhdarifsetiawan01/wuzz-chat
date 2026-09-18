@@ -16,6 +16,7 @@ const (
 	TypeHistory   MessageType = "history"    // riwayat pesan percakapan dari database
 	TypeRoomUsers MessageType = "room_users" // daftar user yang sedang aktif di room
 	TypeMessageDeleted MessageType = "message_deleted" // pesan dihapus / ditarik untuk semua orang
+	TypeAck       MessageType = "ack"        // konfirmasi penerimaan paket transport level (request_id acknowledgment)
 
 	// WebRTC Signaling Event Types (P2P Calling)
 	TypeCallOffer    MessageType = "call_offer"    // SDP offer dari pemanggil
@@ -67,6 +68,7 @@ type RoomUser struct {
 // Message adalah struktur JSON yang dipertukarkan antara client dan server.
 type Message struct {
 	ID        string           `json:"id,omitempty"`        // UUID unik pesan
+	RequestID string           `json:"request_id,omitempty"` // ID korelasi transport untuk ACK deterministik
 	Type      MessageType      `json:"type"`
 	From      string           `json:"from,omitempty"`      // ClientID pengirim
 	To        string           `json:"to,omitempty"`        // ClientID tujuan (opsional jika unicast)

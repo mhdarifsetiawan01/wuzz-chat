@@ -66,14 +66,28 @@ export class WsClient {
 
   /** Kirim pesan ke server (dengan jaminan antrean jika koneksi terputus/reconnecting) */
   send(msg: Message) {
+    // Pastikan pesan durable memiliki request_id untuk korelasi ACK
+    if (msg.type === 'message' && !msg.request_id) {
+      msg.request_id = msg.id || ('req_' + Math.random().toString(36).slice(2) + Date.now())
+    }
+
+    const isDurable = msg.type === 'message' || msg.type === 'reaction' || msg.type === 'receipt'
+
+    if (isDurable) {
+      // Masukkan ke outboundQueue jika belum ada (anti-duplicate di antrean lokal)
+      const identifier = msg.request_id || msg.id
+      const exists = identifier && this.outboundQueue.some(item => (item.request_id || item.id) === identifier)
+      if (!exists) {
+        if (this.outboundQueue.length >= this.MAX_QUEUE_SIZE) {
+          this.outboundQueue.shift() // Drop terlama jika antrean meluap
+        }
+        this.outboundQueue.push(msg)
+      }
+    }
+
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg))
     } else {
-      // Buffer pesan jika socket sedang reconnecting/connecting agar tidak hilang (WiFi ➔ 4G handover)
-      if (this.outboundQueue.length >= this.MAX_QUEUE_SIZE) {
-        this.outboundQueue.shift() // Drop terlama jika antrean meluap
-      }
-      this.outboundQueue.push(msg)
       console.log(`[WsClient] Socket belum siap, pesan disimpan di antrean keluar (total: ${this.outboundQueue.length})`)
     }
   }
@@ -129,12 +143,11 @@ export class WsClient {
       this.reconnectAttempts = 0
       this._emitStatus('connected')
 
-      // Flush seluruh pesan yang tertahan di antrean keluar
+      // Kirim ulang seluruh pesan yang tertahan di antrean keluar
       if (this.outboundQueue.length > 0) {
         console.log(`[WsClient] Mengirim ${this.outboundQueue.length} pesan tertunda dari antrean keluar...`)
-        while (this.outboundQueue.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
-          const pendingMsg = this.outboundQueue.shift()
-          if (pendingMsg) {
+        for (const pendingMsg of [...this.outboundQueue]) {
+          if (this.ws?.readyState === WebSocket.OPEN) {
             this.ws.send(JSON.stringify(pendingMsg))
           }
         }
@@ -144,6 +157,14 @@ export class WsClient {
     this.ws.onmessage = (event) => {
       try {
         const msg: Message = JSON.parse(event.data as string)
+
+        // Penanganan ACK transport: Hapus pesan dari antrean keluar secara deterministik
+        if (msg.type === 'ack' && msg.request_id) {
+          this.outboundQueue = this.outboundQueue.filter(item => (item.request_id || item.id) !== msg.request_id)
+        } else if (msg.type === 'receipt' && msg.id) {
+          this.outboundQueue = this.outboundQueue.filter(item => item.id !== msg.id && item.request_id !== msg.id)
+        }
+
         this.messageHandlers.forEach(h => h(msg))
       } catch {
         console.error('[WsClient] pesan tidak valid JSON:', event.data)

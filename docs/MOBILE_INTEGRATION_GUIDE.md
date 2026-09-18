@@ -120,16 +120,18 @@ Setiap frame pesan WebSocket menggunakan format JSON:
 | `ice_candidate` | Bidirectional | Pertukaran kandidat jaringan ICE antar peer |
 | `call_end` / `call_reject` | Bidirectional | Mengakhiri / menolak panggilan suara & video |
 | `room_users` | Server ➔ Klien | Update daftar anggota online di room (bersifat lokal per-room) |
+| `ack` | Server ➔ Klien | Konfirmasi transport-level paket diterima dan divalidasi server (`request_id` cocok). Klien menghapus pesan dari antrean lokal dan mengubah icon pesan menjadi terkirim (`✓`). |
 | `history` | Server ➔ Klien | Array riwayat pesan (`messages: [...]`), lakukan dekripsi batch dan simpan ke database lokal |
 | `system` | Server ➔ Klien | Pesan kontrol server. Jika `content` mengandung `SESSION_REPLACED`, putus koneksi socket dan arahkan pengguna ke layar login/re-auth (Single Active Device Kick). |
 
 > 🛡️ **Catatan Otorisasi Keamanan (BOLA/IDOR)**: Server backend secara ketat memvalidasi field `room` pada setiap event WebSocket. Klien mobile wajib memastikan bahwa user telah menjadi anggota sah dari room terkait sebelum memancarkan event, jika tidak server akan mengembalikan pesan `TypeSystem: Akses ditolak`.
 
 ### D. Rekomendasi Arsitektur Klien Mobile: Outbound Queue & Offline-First
-1. **FIFO Outbound Queue (Anti-Packet Loss)**:
-   - Ketika koneksi socket terputus (saat perangkat berpindah dari WiFi ke seluler), klien mobile dilarang membuang pesan yang ditekan tombol kirimnya oleh pengguna.
-   - Masukkan pesan ke dalam tabel antrean lokal (misal: Room SQLite / WatermelonDB) dengan status `pending` (🕒).
-   - Begitu listener koneksi mendeteksi status `OPEN`, flush antrean secara sekuensial.
+1. **FIFO Outbound Queue & Deterministic ACK Retransmission**:
+   - Sertakan `request_id: UUID` pada setiap pesan keluar.
+   - Ketika koneksi socket terputus, tahan pesan di antrean tabel lokal (Room SQLite / WatermelonDB) dengan status `pending` (🕒).
+   - Saat socket reconnect (`OPEN`), kirimkan ulang pesan yang belum menerima paket `ack`.
+   - **Anti-Blind Pop**: Hapus pesan dari antrean keluar *hanya jika* paket `ack` yang cocok diterima dari server. Backend menerapkan **Idempotency Guard 2 menit** sehingga resend saat koneksi labil dijamin tidak memicu broadcast ganda.
 2. **Delta Sync saat Reconnect**:
    - Jangan pernah melakukan *full wipe* linimasa saat reconnect.
    - Kirim `{"type":"join", "room":"...", "since":"<last_cached_created_at>"}` untuk mengambil delta pesan yang terlewat selama offline, lalu upsert ke database lokal.
