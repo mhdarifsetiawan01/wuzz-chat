@@ -18,6 +18,10 @@ Dokumen ini menyajikan panduan arsitektur komprehensif mengenai seluruh lapisan 
    - 2.9 [Pencegahan Key Overwrite & Single Active Device Guard (E2EE)](#29-pencegahan-key-overwrite--single-active-device-guard-e2ee)
    - 2.10 [Zero-Knowledge QR Code Key Migration & Atomic Transaction Guard](#210-zero-knowledge-qr-code-key-migration--atomic-transaction-guard)
    - 2.11 [Client-Side E2EE Decrypted Persistence & Anti-Downgrade Status Guard](#211-client-side-e2ee-decrypted-persistence--anti-downgrade-status-guard)
+   - 2.12 [Strict Parent-Membership Gate, RBAC Creation Guard & Immutable-Only Identity Enforcement](#212-strict-parent-membership-gate-rbac-creation-guard--immutable-only-identity-enforcement-dec-008--dec-011)
+   - 2.13 [Fail-Closed Write Gate & Ephemeral Forum Topics Lifecycle](#213-fail-closed-write-gate--ephemeral-forum-topics-lifecycle)
+   - 2.14 [Forum Topics Access Control & Join Request Purge Lifecycle](#214-forum-topics-access-control--join-request-purge-lifecycle)
+   - 2.15 [Mitigasi Akses Tautan Langsung Grup Privat & WebSocket Drop Guard (DEC-013)](#215-mitigasi-akses-tautan-langsung-grup-privat--websocket-drop-guard-dec-013)
 3. [Arsitektur Performa & Skalabilitas (Performance Optimization)](#-3-arsitektur-performa--skalabilitas-performance-optimization)
    - 3.1 [Penyelesaian Masalah $N+1$ Query pada `GetUserConversations`](#31-penyelesaian-masalah-n1-query-pada-getuserconversations)
    - 3.2 [Indeks Performa Database (PostgreSQL & SQLite)](#32-indeks-performa-database-postgresql--sqlite)
@@ -228,6 +232,14 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Unique Request Constraint**: Indeks komposit unik `idx_join_requests_conv_user ON conversation_join_requests(conversation_id, user_id)` mencegah eksploitasi *spam/duplicate request attack*.
   - **RBAC Approval Gate**: Hanya admin/creator topik forum atau grup induk yang berhak memanggil `/join-requests` dan `/join-requests/{requestId}/action`.
   - **Automated Expired Data Purge**: Saat topik forum kedaluwarsa, seluruh baris izin di `conversation_join_requests` langsung dihapus secara atomik oleh `ExpireSubGroupsBatch` untuk mencegah kebocoran antrean dan menghemat ruang database.
+
+### 2.15 Mitigasi Akses Tautan Langsung Grup Privat & WebSocket Drop Guard (DEC-013)
+* **Lokasi Kode**: [`frontend/app/chat/page.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/app/chat/page.tsx) & [`backend/internal/store/group_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/group_store.go)
+* **Vektor Serangan & Isu Kebocoran UX**: Pengguna membagikan tautan grup privat (`/chat?room=grp_<UUID>`) ke luar. Non-anggota yang membuka tautan sebelumnya langsung diarahkan ke layar ruang obrolan kosong yang menginisialisasi koneksi WebSocket join tanpa otorisasi. Penolakan backend (BOLA protection) menyebabkan timer timeout riwayat pesan 7.5 detik terpicu dan memunculkan notifikasi keliru seolah-olah server mengalami hambatan jaringan.
+* **Solusi Implementasi (Zero-Leakage & Fail-Closed Guard)**:
+  1. **Dual Gate Verification**: Endpoint `GET /api/groups/{id}` memverifikasi status `is_public` dan keanggotaan `myRole`. Jika `!is_public && myRole == ""`, backend mengembalikan `HTTP 403 Forbidden` (`ErrUnauthorizedGroup`).
+  2. **WebSocket Join Drop Guard**: State `privateGroupDenied` memblokir pengiriman frame WebSocket `{ type: "join", room: targetRoomId }` dan membatalkan inisialisasi timeout riwayat pesan seketika, mencegah koneksi liar ke server.
+  3. **Shielding UI Aurora Glassmorphism**: Seluruh komponen percakapan (`StatusBar`, `ChatWindow`, `MessageInput`) digantikan oleh kartu proteksi otorisasi bertema *Aurora Glassmorphism* yang menjelaskan status privat grup tanpa membocorkan isi obrolan, jumlah anggota, atau identitas admin. Tombol kembali mengeksekusi `router.replace('/chat')` untuk membersihkan URL history.
 
 ---
 

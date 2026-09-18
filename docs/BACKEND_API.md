@@ -662,6 +662,13 @@ Mengambil informasi detail grup. Dapat diakses oleh anggota grup, atau siapapun 
     "my_role": "creator"
   }
   ```
+- **Error Response (403 Forbidden - Grup Privat / Bukan Anggota)**:
+  ```json
+  {
+    "error": "Akses ditolak: Anda bukan anggota grup ini"
+  }
+  ```
+  > 🛡️ **Penanganan Klien (Web & Mobile - DEC-013)**: Jika pemanggil mengakses tautan langsung grup privat (`/chat?room=grp_...`) saat bukan anggota, API mengembalikan HTTP 403. Klien **DILARANG** merender linimasa ruang obrolan kosong, **DILARANG** mengirim event WebSocket `join`, dan **DILARANG** memicu false connection timeout. Klien wajib menampilkan antarmuka proteksi otorisasi bertema *Aurora Glassmorphism* ("🔒 Grup Ini Bersifat Privat") dengan tombol navigasi kembali ke beranda obrolan.
 
 ---
 

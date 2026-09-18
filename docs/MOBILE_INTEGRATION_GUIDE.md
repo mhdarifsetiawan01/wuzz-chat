@@ -456,6 +456,10 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - Tampilkan modal/bottom sheet pratinjau konfirmasi terlebih dahulu yang memuat: avatar, nama grup, badge publik, handle `@group_username`, jumlah anggota, dan deskripsi grup.
   - Sediakan tombol eksplisit "Batal" dan "Gabung ke Grup" (dengan loading spinner + proteksi anti double-click + timeout 15 detik).
   - Panggilan `POST /api/groups/{id}/join` hanya dieksekusi saat pengguna secara sadar menekan tombol konfirmasi "Gabung ke Grup".
+- [ ] **Private Group Direct Link Gate & Authorization Shield (Milestone 8.2A / DEC-013)**:
+  - Saat pengguna membuka tautan langsung grup privat (`/chat?room=grp_...` atau deep link mobile `wuzzchat://chat?room=grp_...`) di mana pengguna bukan anggota: API `GET /api/groups/{id}` mengembalikan `HTTP 403 Forbidden`.
+  - Klien mobile **DILARANG** memasukkan pengguna ke ruang obrolan kosong, **DILARANG** mengirim frame WebSocket `{ type: "join" }`, dan **DILARANG** memicu timer connection timeout palsu (*"Koneksi Sedang Terhambat"*).
+  - Klien mobile **WAJIB** merender layar/modal proteksi otorisasi bertema *Aurora Glassmorphism* ("🔒 Grup Ini Bersifat Privat") yang menginformasikan bahwa pengguna bukan anggota grup, serta menyediakan tombol aksi kembali ke beranda obrolan utama (`router.replace('/chat')`).
 - [ ] **Push Notification**: FCM/APNs token terdaftar ke `POST /api/notifications/subscribe`, Zero-Knowledge Background Decryption di service layer, dan pencabutan token saat logout.
 
 ---

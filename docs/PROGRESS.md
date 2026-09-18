@@ -886,3 +886,39 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 5. **Verifikasi Kualitas**:
    - Frontend: `npm run build` lulus 0 error (Turbopack, TypeScript 100% type-safe).
    - Backend: `go test -v ./...` lulus 100% di semua paket.
+
+---
+
+### 🔒 Private Group Direct Link Gate & Authorization Shield (DEC-013)
+
+**Tanggal**: 18 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI (Dev Branch)**  
+**Branch Aktif**: `dev`
+
+**Ringkasan Masalah & Root Cause**:
+1. **Masalah UX & Otorisasi**: Ketika tautan grup privat (`/chat?room=grp_xxx`) dibagikan dan dibuka oleh pengguna yang bukan anggota grup:
+   - Halaman `/chat` langsung merender layar ruang obrolan kosong secara optimistik.
+   - WebSocket client mengirim `{ type: "join", room: "grp_xxx" }` yang ditolak backend (BOLA protection).
+   - Timer 7.5 detik timeout riwayat pesan terpicu, memunculkan kartu *"📡 Koneksi Sedang Terhambat"* seolah-olah terjadi masalah koneksi internet server.
+   - Status bar menampilkan info palsu *"Grup 🔒 • 0 anggota"* dan input bar pesan tetap terbuka.
+2. **Root Cause**: Inisialisasi optimistik `selectedRoomId` dari parameter URL `searchParams.get('room')` terjadi sebelum verifikasi keanggotaan grup HTTP selesai. Ketika `GET /api/groups/{id}` mengembalikan `HTTP 403 Forbidden` (`"Akses ditolak: Anda bukan anggota grup ini"`), kode lama hanya menampilkan `alert()` browser yang rentan terblokir, sementara timer riwayat terus berjalan.
+
+**Solusi & Implementasi**:
+1. **State Otorisasi Eksplisit (`privateGroupDenied`)**:
+   - Menambahkan state `privateGroupDenied: { id: string; error?: string } | null` di `frontend/app/chat/page.tsx`.
+   - Di-reset secara bersih saat pengguna berpindah room atau memilih obrolan lain.
+2. **Penanganan HTTP 403 pada `fetchGroupDetails`**:
+   - Ketika `res.status === 403` atau body response memuat pesan akses ditolak untuk room grup (`grp_`) maupun subgrup (`sub_`), set state `privateGroupDenied({ id: targetRoomId, error })`.
+   - Batalkan timer timeout riwayat (`clearTimeout(historyTimeoutRef.current)`) dan set `isLoadingHistory(false)`, `setIsHistoryError(false)`.
+3. **WebSocket Join Guard**:
+   - Pada `useEffect` pergantian room: jika `privateGroupDenied?.id === roomId`, hentikan pengiriman `{ type: "join" }` ke server dan jangan jalankan timeout riwayat.
+4. **Aurora Glassmorphism Authorization Shield UI**:
+   - Jika `privateGroupDenied?.id === selectedRoomId`, gantikan seluruh tampilan linimasa obrolan (termasuk StatusBar, ChatWindow, dan MessageInput) dengan kartu proteksi otorisasi bertema Aurora Glassmorphic:
+     - Ikon gembok 🔒 besar beraksen pendaran merah/merah-muda.
+     - Judul: *"Grup Ini Bersifat Privat"*.
+     - Deskripsi: *"Anda tidak dapat mengakses atau melihat pesan di dalam grup ini karena Anda bukan anggota. Hubungi admin atau pembuat grup untuk menambahkan akun Anda."*.
+     - Tombol aksi utama: *"← Kembali ke Beranda Obrolan"* yang memanggil `handleSelectRoom('')` dan membersihkan query parameter URL via `router.replace('/chat')`.
+5. **Verifikasi Kualitas**:
+   - Frontend: `npm run build` lulus 0 error (Turbopack, TypeScript 100% type-safe).
+   - Backend: `go test -v ./...` lulus 100% di semua paket.
+
