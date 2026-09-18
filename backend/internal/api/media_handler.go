@@ -248,18 +248,22 @@ func (h *MediaHandler) AcknowledgeDownload(w http.ResponseWriter, r *http.Reques
 
 	// Validasi Otorisasi (IDOR Prevention): Pastikan user pengirim ACK adalah anggota sah dari percakapan pesan ini
 	claims, _ := auth.GetUserFromContext(r.Context())
+	var targetMsg *store.StoredMessage
+	if h.msgStore != nil {
+		targetMsg, _ = h.msgStore.GetMessageByID(req.MessageID)
+	}
+
 	if claims != nil && claims.UserID != "" && h.userStore != nil {
-		msg, err := h.msgStore.GetMessageByID(req.MessageID)
-		if err != nil || msg == nil {
+		if targetMsg == nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Pesan media tidak ditemukan"})
 			return
 		}
-		if msg.RoomID != "" {
-			allowed, err := h.userStore.IsUserInConversation(msg.RoomID, claims.UserID)
+		if targetMsg.RoomID != "" {
+			allowed, err := h.userStore.IsUserInConversation(targetMsg.RoomID, claims.UserID)
 			if err == nil && !allowed {
-				log.Printf("[Security] Akses ditolak: User %s (%s) bukan anggota room %s untuk ACK media %s", claims.UserID, claims.Username, msg.RoomID, req.MessageID)
+				log.Printf("[Security] Akses ditolak: User %s (%s) bukan anggota room %s untuk ACK media %s", claims.UserID, claims.Username, targetMsg.RoomID, req.MessageID)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
 				_ = json.NewEncoder(w).Encode(map[string]string{"error": "Akses ditolak: Anda bukan anggota percakapan media ini"})
@@ -271,6 +275,11 @@ func (h *MediaHandler) AcknowledgeDownload(w http.ResponseWriter, r *http.Reques
 	mediaURL, status, canDelete, err := h.msgStore.AcknowledgeMediaDownload(req.MessageID)
 	if err != nil {
 		log.Printf("[MediaHandler] Gagal memproses ACK download media (%s): %v", req.MessageID, err)
+	}
+
+	// Defense in Depth: Pastikan canDelete tidak pernah true jika room adalah grup atau subgrup/forum
+	if targetMsg != nil && (strings.HasPrefix(targetMsg.RoomID, "grp_") || strings.HasPrefix(targetMsg.RoomID, "sub_")) {
+		canDelete = false
 	}
 
 	// Jika file sudah siap dihapus dan auto-delete aktif, hapus dari storage fisik

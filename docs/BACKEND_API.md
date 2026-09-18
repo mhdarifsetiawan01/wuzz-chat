@@ -1247,13 +1247,14 @@ Untuk menghemat kuota server dan menjamin privasi, file media mengikuti dua mode
 4. **Immediate Auto-Purge**: Backend langsung menghapus berkas fisik dari storage dan menandai `media_status = 'downloaded'`. Berkas tetap dapat dilihat oleh kedua pihak karena sudah tersimpan di browser IndexedDB masing-masing (`wuzzchat_media_db`).
 5. **TTL Fallback Cleanup**: Jika penerima tidak online selama > 7 hari (nilai default `MEDIA_RETENTION_DAYS`), background worker backend (`PurgeWorker`) yang berjalan setiap 1 jam akan secara otomatis membersihkan file tersebut dan mengubah statusnya menjadi `'expired'`.
 
-### 6.2 Obrolan Grup (1-to-Many): Shared Media Hub
-Pada obrolan grup dengan banyak anggota, berkas media **TIDAK BOLEH dihapus seketika saat orang pertama mengunduh**. Jika dihapus pada ACK pertama, anggota lain yang baru membuka obrolan belakangan akan mengalami kegagalan unduh (*Error 404/410 Expired*).
+### 6.2 Obrolan Grup & Forum Topics (1-to-Many): Shared Media Hub
+Pada obrolan grup dan forum topik (`grp_...`, `sub_...`) dengan banyak anggota, berkas media **TIDAK DIHAPUS saat orang pertama mengunduh**. Jika dihapus pada ACK pertama, anggota lain yang baru membuka obrolan belakangan akan mengalami kegagalan unduh (*Error 404/410 Expired*).
 
-| Parameter | Direct Message (1-on-1) | Obrolan Grup (1-to-Many) |
+| Parameter | Direct Message (1-on-1) | Obrolan Grup & Forum Topics (1-to-Many) |
 | :--- | :--- | :--- |
 | **Model Distribusi** | *Store-and-Forward Transit Buffer* | *Shared Media Hub (TTL-Based)* |
-| **Trigger Hapus Fisik** | Langsung dihapus saat penerima memanggil `POST /api/media/ack`. | **Bertahan di server selama masa retensi TTL penuh** (default 7 hari). |
+| **Trigger Hapus Fisik** | Langsung dihapus saat penerima memanggil `POST /api/media/ack`. | **TIDAK dihapus oleh ACK anggota**. Berkas bertahan di Supabase Storage selama masa retensi TTL penuh (default 7 hari). |
+| **Status Media di Database** | Berubah menjadi `'expired'` seketika setelah di-ACK. | **Tetap `'active'`** agar anggota ke-2, ke-3, dst. tidak mendapati status media kedaluwarsa. |
 | **Penyimpanan Lokal Klien**| Disimpan di IndexedDB penerima (`wuzzchat_media_db`). | Anggota yang sudah membuka media langsung meng-cache blob ke **IndexedDB lokal masing-masing**, mencegah download ulang. |
 | **Pembersihan Server** | Segera setelah diunduh, atau maksimal 7 hari jika penerima offline lama. | Dihapus otomatis oleh `PurgeWorker` setiap 1 jam setelah file melampaui `MEDIA_RETENTION_DAYS` (7 hari). |
 
