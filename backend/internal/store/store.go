@@ -88,6 +88,9 @@ type MessageStore interface {
 	// GetRoomHistoryForUser mengambil riwayat pesan yang difilter berdasarkan cleared_at milik userID.
 	GetRoomHistoryForUser(roomID, userID string, limit int) ([]StoredMessage, error)
 
+	// GetRoomHistorySince mengambil riwayat pesan yang lebih baru dari timestamp `since` untuk roomID dan userID (delta offline sync).
+	GetRoomHistorySince(roomID, userID string, since time.Time, limit int) ([]StoredMessage, error)
+
 	// AcknowledgeMediaDownload mencatat bahwa client telah mengunduh media.
 	// Mengembalikan mediaURL, mediaStatus terkini, dan apakah file sudah dapat dihapus dari server.
 	AcknowledgeMediaDownload(msgID string) (mediaURL string, mediaStatus string, canDelete bool, err error)

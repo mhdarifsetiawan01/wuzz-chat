@@ -109,21 +109,30 @@ Setiap frame pesan WebSocket menggunakan format JSON:
 
 | Tipe Event (`type`) | Arah | Tindakan Klien Mobile |
 |---|---|---|
-| `join` | Klien ➔ Server | Masuk ke ruang chat: `{"type":"join", "room":"..."}` — identitas diambil dari JWT (UUID), tidak perlu kirim `nickname` |
+| `join` | Klien ➔ Server | Masuk ke ruang chat: `{"type":"join", "room":"...", "since":"<ISO_TIMESTAMP>"}` — Sertakan parameter `since` (diambil dari pesan lokal terbaru di SQLite Room/CoreData) untuk mengaktifkan **Delta Offline Sync** (server hanya mengirim pesan baru). |
 | `message` | Bidirectional | Dekripsi konten teks (`e2ee:v1:...`) ➔ Tambahkan ke list UI chat ➔ Balas `receipt: "delivered"` |
 | `receipt` | Bidirectional | Update status tanda centang pesan (`pending` ➔ `sent` ➔ `delivered` ➔ `read`) |
-| `typing` | Bidirectional | Tampilkan animasi indikator lawan bicara sedang mengetik |
+| `typing` | Bidirectional | Tampilkan animasi indikator lawan bicara sedang mengetik. *Catatan*: Batasi pengiriman maks 3 event per 2 detik (backend menerapkan sliding-window rate limit). |
 | `reaction` | Bidirectional | Update badge emoji reaction di balon chat terkait |
 | `message_deleted` | Server ➔ Klien | Tandai pesan sebagai ditarik (`🚫 Pesan ini telah dihapus`) |
 | `call_offer` | Bidirectional | Menerima sinyal panggilan masuk (SDP Offer) ➔ Tampilkan modal/layar panggilan berdering |
 | `call_answer` | Bidirectional | Menerima persetujuan panggilan (SDP Answer) ➔ Set remote description WebRTC |
 | `ice_candidate` | Bidirectional | Pertukaran kandidat jaringan ICE antar peer |
 | `call_end` / `call_reject` | Bidirectional | Mengakhiri / menolak panggilan suara & video |
-| `room_users` | Server ➔ Klien | Update daftar anggota online di room |
-| `history` | Server ➔ Klien | Array riwayat pesan (`messages: [...]`), lakukan dekripsi batch |
+| `room_users` | Server ➔ Klien | Update daftar anggota online di room (bersifat lokal per-room) |
+| `history` | Server ➔ Klien | Array riwayat pesan (`messages: [...]`), lakukan dekripsi batch dan simpan ke database lokal |
 | `system` | Server ➔ Klien | Pesan kontrol server. Jika `content` mengandung `SESSION_REPLACED`, putus koneksi socket dan arahkan pengguna ke layar login/re-auth (Single Active Device Kick). |
 
 > 🛡️ **Catatan Otorisasi Keamanan (BOLA/IDOR)**: Server backend secara ketat memvalidasi field `room` pada setiap event WebSocket. Klien mobile wajib memastikan bahwa user telah menjadi anggota sah dari room terkait sebelum memancarkan event, jika tidak server akan mengembalikan pesan `TypeSystem: Akses ditolak`.
+
+### D. Rekomendasi Arsitektur Klien Mobile: Outbound Queue & Offline-First
+1. **FIFO Outbound Queue (Anti-Packet Loss)**:
+   - Ketika koneksi socket terputus (saat perangkat berpindah dari WiFi ke seluler), klien mobile dilarang membuang pesan yang ditekan tombol kirimnya oleh pengguna.
+   - Masukkan pesan ke dalam tabel antrean lokal (misal: Room SQLite / WatermelonDB) dengan status `pending` (🕒).
+   - Begitu listener koneksi mendeteksi status `OPEN`, flush antrean secara sekuensial.
+2. **Delta Sync saat Reconnect**:
+   - Jangan pernah melakukan *full wipe* linimasa saat reconnect.
+   - Kirim `{"type":"join", "room":"...", "since":"<last_cached_created_at>"}` untuk mengambil delta pesan yang terlewat selama offline, lalu upsert ke database lokal.
 
 ---
 

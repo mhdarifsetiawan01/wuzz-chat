@@ -24,6 +24,8 @@ export class WsClient {
   private reconnectAttempts = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private destroyed = false
+  private outboundQueue: Message[] = []
+  private readonly MAX_QUEUE_SIZE = 100
 
   // Listener arrays — komponen bisa subscribe ke event ini
   private messageHandlers: MessageHandler[] = []
@@ -62,12 +64,17 @@ export class WsClient {
     this._connect()
   }
 
-  /** Kirim pesan ke server */
+  /** Kirim pesan ke server (dengan jaminan antrean jika koneksi terputus/reconnecting) */
   send(msg: Message) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg))
     } else {
-      console.warn('[WsClient] tidak bisa kirim pesan: koneksi belum open')
+      // Buffer pesan jika socket sedang reconnecting/connecting agar tidak hilang (WiFi ➔ 4G handover)
+      if (this.outboundQueue.length >= this.MAX_QUEUE_SIZE) {
+        this.outboundQueue.shift() // Drop terlama jika antrean meluap
+      }
+      this.outboundQueue.push(msg)
+      console.log(`[WsClient] Socket belum siap, pesan disimpan di antrean keluar (total: ${this.outboundQueue.length})`)
     }
   }
 
@@ -94,6 +101,7 @@ export class WsClient {
    */
   destroy() {
     this.destroyed = true
+    this.outboundQueue = []
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.ws?.close(1000, 'client destroyed')
     this.ws = null
@@ -120,6 +128,17 @@ export class WsClient {
     this.ws.onopen = () => {
       this.reconnectAttempts = 0
       this._emitStatus('connected')
+
+      // Flush seluruh pesan yang tertahan di antrean keluar
+      if (this.outboundQueue.length > 0) {
+        console.log(`[WsClient] Mengirim ${this.outboundQueue.length} pesan tertunda dari antrean keluar...`)
+        while (this.outboundQueue.length > 0 && this.ws?.readyState === WebSocket.OPEN) {
+          const pendingMsg = this.outboundQueue.shift()
+          if (pendingMsg) {
+            this.ws.send(JSON.stringify(pendingMsg))
+          }
+        }
+      }
     }
 
     this.ws.onmessage = (event) => {

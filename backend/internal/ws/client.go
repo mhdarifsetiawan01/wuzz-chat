@@ -194,8 +194,8 @@ func (c *Client) onJoin(msg Message) {
 			Timestamp: time.Now().UTC(),
 		}, c.ID)
 
-		// Muat dan kirim riwayat pesan percakapan dari database
-		c.hub.sendRoomHistory(c.ID, targetRoom)
+		// Muat dan kirim riwayat pesan percakapan dari database (mendukung delta sync jika msg.Since ada)
+		c.hub.sendRoomHistory(c.ID, targetRoom, msg.Since)
 	}
 
 	log.Printf("[Client %s] join: nickname=%s room=%s", c.ID, c.Nickname, targetRoom)
@@ -263,16 +263,13 @@ func (c *Client) onMessage(msg Message) {
 			}
 		}
 	}
-	if !isPeerOnline && c.hub.userStore != nil {
-		if memberNames, err := c.hub.userStore.GetConversationMemberUsernames(targetRoom); err == nil {
-			for _, name := range memberNames {
-				if name != "" && !strings.EqualFold(name, c.Nickname) {
-					for _, client := range c.hub.clients {
-						if strings.EqualFold(client.Nickname, name) || client.ID == name {
-							isPeerOnline = true
-							break
-						}
-					}
+	if !isPeerOnline {
+		members := c.hub.getRoomMembers(targetRoom)
+		for _, name := range members {
+			if name != "" && !strings.EqualFold(name, c.Nickname) && name != c.ID {
+				if peerClient, found := c.hub.findClientLocked(name); found && peerClient.ID != c.ID {
+					isPeerOnline = true
+					break
 				}
 			}
 		}
@@ -343,6 +340,11 @@ func (c *Client) onReceipt(msg Message) {
 
 // onTyping mem-forward indikator typing ke anggota room.
 func (c *Client) onTyping(msg Message) {
+	// Rate Limiting Typing: Maksimal 3 event typing per 2 detik per koneksi (Anti-Flood)
+	if !c.allowRateLimit(3, 2*time.Second) {
+		return
+	}
+
 	targetRoom := msg.Room
 	if targetRoom == "" {
 		targetRoom = c.RoomID

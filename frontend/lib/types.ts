@@ -83,6 +83,7 @@ export interface Message {
   mentions?: string[]    // User UUIDs yang di-mention
   sdp?: string
   candidate?: string
+  since?: string         // Timestamp ISO8601 checkpoint untuk delta offline sync
   messages?: Message[]   // Digunakan saat type = 'history'
   users?: RoomUser[]     // Digunakan saat type = 'room_users'
 }

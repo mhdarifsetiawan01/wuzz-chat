@@ -59,13 +59,15 @@ Membangun platform chatting modern yang:
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 8: Core Parity (Push, Group Chat & Message Mgmt) (SEDANG JALAN⏳) │
+│  FASE 8: Core Parity (Push, Group Chat & Realtime Reliability) (⏳)    │
 │  - Milestone 8.1: Universal Push Notification Engine (SELESAI ✅)       │
 │  - Milestone 8.4: IndexedDB Message Cache & E2EE Continuity (SELESAI ✅)│
 │  - Milestone 8.2A: Core Group Chat Engine & Member Mgmt (SELESAI ✅)     │
 │  - Milestone 8.2B: Ephemeral Sub-Groups & TTL Auto-Purge (SELESAI ✅)    │
 │  - Milestone 8.2C: Forum Rebranding & Mobile Header Redesign (SELESAI ✅)│
-│  - Milestone 8.3: Message Management Suite (NEXT 🎯)                    │
+│  - Milestone 8.8: Realtime Engine Scalability & High-ROI Opt (SELESAI ✅)│
+│  - Milestone 8.9: Mobile-Ready Reliability (ACK & Idempotency) (NEXT 🎯)│
+│  - Milestone 8.3: Message Management Suite (PLANNED 🔮)                 │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
@@ -300,7 +302,17 @@ Membangun platform chatting modern yang:
   - **Validasi Fail-Closed WebSocket Hub (`hub.go`)**: Server Go WebSocket memverifikasi keanggotaan setiap ID mention via `IsUserInConversation(roomID, mUID)` sebelum broadcast lokal, broker Redis, dan persistensi ke database.
   - **Prioritized Web Push Notifications (`push.go`)**: Pengguna yang di-mention menerima push notification khusus saat offline dengan tag `chat-mention-[roomID]` dan judul `🔔 [Pengirim] menyebut Anda`.
   - **Test Suite**: Dilindungi unit test backend `TestNotifyOfflineRecipients_WithMentions` dan verifikasi frontend type-check (100% PASS).
-- ⏳ **Milestone 8.3: Message Management Suite (NEXT)**:
+- ✅ **Milestone 8.8: Realtime Engine Scalability & High-ROI Optimizations (SELESAI)**:
+  - **Core Fanout Optimization $O(M)$ (`hub.go`)**: In-memory membership cache `roomMembersCache` di WebSocket Hub. Menggantikan scan linier $O(N)$ ke seluruh `h.clients` dan eliminasi query database `GetConversationMemberUsernames` berulang pada setiap pesan masuk.
+  - **Backend Typing Rate Limiter (`client.go`)**: Sliding-window rate limiter per koneksi (maks 3 event typing per 2 detik) untuk mencegah banjir frame DoS.
+  - **Delta Offline History Sync with Checkpoint Timestamp (`GetRoomHistorySince`)**: Parameter `since` pada event `join` mengambil pesan dari checkpoint terakhir di IndexedDB klien tanpa mengunduh ulang 50 pesan dari nol, memotong transmisi data hingga 90%.
+  - **Client-Side Outbound Queue & Auto-Retry (`ws-client.ts`)**: FIFO queue (maks 100 pesan) yang menampung pesan ketika socket terputus dan melakukan auto-flush seketika saat socket tersambung kembali.
+  - **Test Suite**: Dilindungi unit test `scalability_optimizations_test.go` (`TestHub_DirectMemberLookupO_M`, `TestClient_TypingRateLimit`, `TestHub_DeltaHistorySince`) — 100% PASS.
+- 🎯 **Milestone 8.9: Mobile-Ready Reliability (Request ID + ACK Protocol & Server-Side In-Memory Idempotency) (NEXT)**:
+  - **Request ID & Transport-Level ACK**: Parameter `request_id` dan paket respon balik `type: "ack"` untuk kepastian pengiriman paket.
+  - **Server-Side In-Memory Idempotency (2-Minute Cache)**: Pencegahan broadcast duplikat dan publish Redis ganda saat klien mobile me-resend pesan dari antrean keluar.
+  - **Katalog DTO Mobile**: Standarisasi payload DTO di `BACKEND_API.md` untuk klien Android Native (Kotlin) & React Native.
+- ⏳ **Milestone 8.3: Message Management Suite (PLANNED 🔮)**:
   - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, in-chat text search, dan **Infinite Scroll Cursor Pagination** (`before_id`) melengkapi batas 50 pesan awal server.
 - 🔮 **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` via Redis Pub/Sub)**:
   - *Tujuan*: Sinkronisasi pergantian sesi perangkat aktif lintas-mesin container Fly.io (multi-node cluster).

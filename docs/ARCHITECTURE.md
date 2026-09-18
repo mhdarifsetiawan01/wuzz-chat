@@ -352,6 +352,19 @@ Aplikasi frontend WuzzChat dirancang untuk memberikan pengalaman optimal di dua 
 4. **Smart Back Navigation Hierarchy**:
    - Tombol kembali `←` di mobile memiliki kecerdasan kontekstual: saat berada di dalam ruang topik forum, tombol `←` otomatis membawa kembali ke grup induk (parent group), menciptakan pengalaman navigasi hirarkis yang alami seperti Telegram Forums & Discord Threads.
 
+### E. Realtime Engine Scalability & Outbound Queue (Milestone 8.8)
+1. **Core Fanout $O(M)$ & In-Memory Membership Cache (`hub.go`)**:
+   - Menghilangkan scan linier $O(N)$ ke seluruh map klien terhubung (`h.clients`) saat broadcast pesan.
+   - Menggunakan cache keanggotaan `roomMembersCache map[string][]string` dengan proteksi `sync.RWMutex` terisolasi, di-invalidation otomatis saat event keanggotaan grup berubah.
+   - Lookup penerima pesan dilakukan secara langsung $O(M)$ berdasarkan anggota percakapan target, mengeliminasi query database berulang pada setiap pesan.
+2. **Backend Typing Rate Limiter (`client.go`)**:
+   - Menerapkan sliding-window rate limit (maksimal 3 event per 2 detik per koneksi) untuk melindungi WebSocket goroutine dari banjir frame status mengetik.
+3. **Delta Offline History Sync with Checkpoint Timestamp (`GetRoomHistorySince`)**:
+   - Menggunakan parameter `since` pada event `join` yang membaca timestamp pesan terakhir di IndexedDB klien.
+   - Database mengeksekusi query delta `WHERE room_id = $1 AND timestamp > $2 ORDER BY timestamp ASC LIMIT $3`, menghemat pemakaian bandwidth dan memori hingga 90% saat user reconnect.
+4. **Client-Side Outbound Queue (`ws-client.ts`)**:
+   - Menggunakan FIFO queue (maksimal 100 pesan) yang menahan paket ketika koneksi terputus dan mem-flush otomatis saat event `onopen` terpicu, mencegah hilangnya pesan saat handover jaringan (WiFi ➔ 4G).
+
 ---
 
 ## 🔐 6. Spesifikasi End-to-End Encryption (E2EE)

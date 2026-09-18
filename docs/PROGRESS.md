@@ -1,8 +1,8 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
-**Tanggal:** 17 September 2026  
-**Status Proyek:** Fase 1 s/d 8 (Partial) — Milestone 8.1, 8.4, 8.5, 8.6, 8.7 Selesai — UUID-First Identity Architecture (Full-Stack, Merged ke `main` & Deployed ke Fly.io)  
-**Branch Aktif:** `main`
+**Tanggal:** 19 September 2026  
+**Status Proyek:** Fase 1 s/d 8 (Partial) — Milestone 8.8 (Realtime Engine Scalability & High-ROI Opt) SELESAI ✅  
+**Branch Aktif:** `dev`
 
 ---
 
@@ -921,4 +921,31 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 5. **Verifikasi Kualitas**:
    - Frontend: `npm run build` lulus 0 error (Turbopack, TypeScript 100% type-safe).
    - Backend: `go test -v ./...` lulus 100% di semua paket.
+
+---
+
+### 🚀 Milestone 8.8: Realtime Engine Scalability & High-ROI Optimizations
+
+**Tanggal**: 19 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI (Dev Branch)**  
+**Branch Aktif**: `dev`
+
+**Ringkasan Masalah & Bottleneck yang Diselesaikan**:
+1. **$O(N)$ Fanout & Query SQL Berulang di Hub**:
+   - `broadcastLocal` di `Hub` Go sebelumnya mengeksekusi query database `GetConversationMemberUsernames` dan melakukan scan linier ke seluruh koneksi aktif (`h.clients`) untuk setiap pesan masuk.
+   - Solusi: Menerapkan `roomMembersCache map[string][]string` dengan lock RWMutex di `Hub`, dan mengubah algoritma broadcast menjadi direct lookup $O(M)$ berdasarkan daftar ID member. Cache di-invalidation otomatis saat event keanggotaan grup berubah.
+2. **Flood Typing DoS Vulnerability**:
+   - Handler `onTyping` tidak memiliki pembatasan laju, memungkinkan spam frame WebSocket yang membebani CPU server.
+   - Solusi: Menerapkan sliding-window rate limiter (maks 3 event per 2 detik per koneksi) di `onTyping()`.
+3. **Overhead Sinkronisasi Riwayat Pesan**:
+   - Saat pengguna reconnect, server selalu mengirim ulang 50 pesan penuh meskipun sebagian besar sudah ada di IndexedDB klien.
+   - Solusi: Menambahkan query checkpoint `GetRoomHistorySince(roomID, userID, since, limit)` di database layer (`store/sql.go` & `store/memory.go`), serta menyertakan `since` timestamp dari IndexedDB lokal saat klien mengirim event `join`.
+4. **Hilangnya Pesan Klien saat Jaringan Labil**:
+   - Klien web/PWA sebelumnya langsung membuang pesan jika socket belum dalam state `OPEN`.
+   - Solusi: Menambahkan FIFO `outboundQueue` (maks 100 pesan) di `frontend/lib/ws-client.ts` yang menahan pesan saat socket terputus dan mem-flush otomatis seketika saat `onopen` terpicu.
+
+**Verifikasi & Test Suite**:
+- Backend: Unit test `scalability_optimizations_test.go` (`TestHub_DirectMemberLookupO_M`, `TestClient_TypingRateLimit`, `TestHub_DeltaHistorySince`) — **100% PASS**.
+- `go test -v ./...` di seluruh direktori `backend/` — **100% PASS**.
+- Frontend: `npm run build` di direktori `frontend/` — **100% PASS (0 error, 0 warning)**.
 
