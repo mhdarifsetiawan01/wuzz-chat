@@ -131,11 +131,12 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 
 ---
 
-## 🌐 Production Endpoints (Fly.io)
+## 🌐 Production Endpoints (Fly.io & Vercel)
 
-- **REST API Base URL**: `https://<your-backend-app>.fly.dev`
-- **WebSocket Endpoint**: `wss://<your-backend-app>.fly.dev/ws`
-- **Health Check**: `https://<your-backend-app>.fly.dev/health`
+- **Live Web App**: `https://chat.wuzzhub.id` (Mirror: `https://wuzz-chat.vercel.app`)
+- **REST API Base URL**: `https://wuzz-chat-backend.fly.dev`
+- **WebSocket Endpoint**: `wss://wuzz-chat-backend.fly.dev/ws`
+- **Health Check**: `https://wuzz-chat-backend.fly.dev/health`
 
 ---
 
