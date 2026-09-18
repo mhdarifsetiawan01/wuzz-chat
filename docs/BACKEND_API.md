@@ -780,8 +780,8 @@ Memperbarui metadata grup (judul, deskripsi, avatar, atau visibilitas publik/pri
 
 ---
 
-#### 33. `GET /api/groups/{id}/subgroups`
-Mengambil daftar subgrup / ruang topik aktif di bawah grup induk (`parent_id = id`). Memeriksa keanggotaan grup induk secara ketat (*Parent-Membership Gate*); bukan anggota grup utama akan ditolak (`HTTP 403 Forbidden`).
+#### 33. `GET /api/groups/{id}/subgroups` (Forum Topics List)
+Mengambil daftar topik forum / subgrup aktif di bawah grup induk (`parent_id = id`). Memeriksa keanggotaan grup induk secara ketat (*Parent-Membership Gate*); bukan anggota grup utama akan ditolak (`HTTP 403 Forbidden`).
 - **Autentikasi**: `Bearer <token>` (wajib anggota aktif grup utama)
 - **Path Parameter**: `id` — ID grup utama (`grp_<UUID>`)
 - **Success Response (200 OK)**:
@@ -812,8 +812,8 @@ Mengambil daftar subgrup / ruang topik aktif di bawah grup induk (`parent_id = i
 
 ---
 
-#### 34. `POST /api/groups/{id}/subgroups`
-Membuat ruang diskusi subgrup baru bertopik ephemeral dengan masa aktif TTL otomatis (`expires_at`) dan kontrol visibilitas/hak akses (`is_public`). Pembuat otomatis menjadi anggota pertama subgrup. Broadcast notifikasi event `subgroup_created` dikirim ke grup utama.
+#### 34. `POST /api/groups/{id}/subgroups` (Create Forum Topic)
+Membuat ruang topik forum baru bertopik ephemeral dengan masa aktif TTL otomatis (`expires_at`) dan kontrol visibilitas/hak akses (`is_public`). Pembuat otomatis menjadi anggota pertama topik forum. Broadcast notifikasi event `subgroup_created` dikirim ke grup utama.
 - **Autentikasi**: `Bearer <token>` (wajib anggota aktif grup utama)
 - **Path Parameter**: `id` — ID grup utama (`grp_<UUID>`)
 - **Request Body**:
