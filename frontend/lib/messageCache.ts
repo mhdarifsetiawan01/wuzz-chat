@@ -121,6 +121,15 @@ export async function getCachedMessages(
   }
 }
 
+/**
+ * Mengambil timestamp (created_at ISO string) dari pesan terakhir yang tersimpan di cache.
+ * Digunakan sebagai checkpoint `since` untuk delta offline sync saat reconnect.
+ */
+export async function getLastCachedMessageTimestamp(roomId: string): Promise<string | undefined> {
+  const msgs = await getCachedMessages(roomId, 1)
+  return msgs.length > 0 ? msgs[msgs.length - 1].created_at : undefined
+}
+
 // ----------------------------------------------------------------
 // Write — Single Record
 // ----------------------------------------------------------------

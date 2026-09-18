@@ -244,6 +244,36 @@ func (s *MemoryMessageStore) GetRoomHistoryForUser(roomID, userID string, limit 
 	return s.GetRoomHistory(roomID, limit)
 }
 
+func (s *MemoryMessageStore) GetRoomHistorySince(roomID, userID string, since time.Time, limit int) ([]StoredMessage, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	msgs, ok := s.messages[roomID]
+	if !ok || len(msgs) == 0 {
+		return []StoredMessage{}, nil
+	}
+
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+
+	var result []StoredMessage
+	for _, m := range msgs {
+		if m.Timestamp.After(since) {
+			result = append(result, m)
+			if len(result) >= limit {
+				break
+			}
+		}
+	}
+
+	if result == nil {
+		result = []StoredMessage{}
+	}
+
+	return result, nil
+}
+
 func (s *MemoryMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

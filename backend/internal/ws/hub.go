@@ -31,25 +31,30 @@ type ClusterEvent struct {
 // Hub adalah pusat kendali: menyimpan semua client aktif dan room,
 // serta bertanggung jawab merutingkan pesan dan broadcast ke room.
 type Hub struct {
-	nodeID       string
-	clients      map[string]*Client            // clientID -> *Client
-	rooms        map[string]map[string]*Client // roomID -> (clientID -> *Client)
-	mu           sync.RWMutex
-	clientStore  store.ClientStore
-	messageStore store.MessageStore
-	userStore    store.UserStore
-	pushService  *push.Service
-	broker       broker.MessageBroker
+	nodeID           string
+	clients          map[string]*Client            // clientID (UUID) -> *Client
+	clientsByNick    map[string]*Client            // lowercase (username/nickname) -> *Client
+	rooms            map[string]map[string]*Client // roomID -> (clientID -> *Client)
+	roomMembersCache map[string][]string           // roomID -> []memberIdentifiers (in-memory cache)
+	roomMembersMu    sync.RWMutex                  // Mutex terisolasi untuk membership cache
+	mu               sync.RWMutex
+	clientStore      store.ClientStore
+	messageStore     store.MessageStore
+	userStore        store.UserStore
+	pushService      *push.Service
+	broker           broker.MessageBroker
 }
 
 // NewHub membuat Hub baru dengan dependency yang disuntikkan.
 func NewHub(cs store.ClientStore, ms store.MessageStore) *Hub {
 	return &Hub{
-		nodeID:       uuid.New().String(),
-		clients:      make(map[string]*Client),
-		rooms:        make(map[string]map[string]*Client),
-		clientStore:  cs,
-		messageStore: ms,
+		nodeID:           uuid.New().String(),
+		clients:          make(map[string]*Client),
+		clientsByNick:    make(map[string]*Client),
+		rooms:            make(map[string]map[string]*Client),
+		roomMembersCache: make(map[string][]string),
+		clientStore:      cs,
+		messageStore:     ms,
 	}
 }
 
@@ -112,6 +117,12 @@ func (h *Hub) Register(c *Client) {
 	h.mu.Lock()
 	oldClient, exists := h.clients[c.ID]
 	h.clients[c.ID] = c
+	if c.Username != "" {
+		h.clientsByNick[strings.ToLower(c.Username)] = c
+	}
+	if c.Nickname != "" {
+		h.clientsByNick[strings.ToLower(c.Nickname)] = c
+	}
 	h.mu.Unlock()
 
 	// Single Active Device Enforcement: Kick sesi WebSocket lama dari UserID yang sama
@@ -201,6 +212,12 @@ func (h *Hub) Unregister(c *Client) {
 	_, exists := h.clients[c.ID]
 	if exists {
 		delete(h.clients, c.ID)
+		if c.Username != "" {
+			delete(h.clientsByNick, strings.ToLower(c.Username))
+		}
+		if c.Nickname != "" {
+			delete(h.clientsByNick, strings.ToLower(c.Nickname))
+		}
 		close(c.send)
 	}
 
@@ -281,6 +298,9 @@ func (h *Hub) BroadcastGroupSystemEvent(roomID, eventType, content string) {
 	if roomID == "" || content == "" {
 		return
 	}
+	// Invalidasikan cache anggota room karena keanggotaan atau status grup berubah
+	h.InvalidateRoomMembersCache(roomID)
+
 	msg := Message{
 		ID:        uuid.New().String(),
 		Type:      TypeSystem,
@@ -324,12 +344,62 @@ func (h *Hub) BroadcastGroupSystemEvent(roomID, eventType, content string) {
 	log.Printf("[Hub %s] group_system_event room=%s type=%s", h.nodeID[:8], roomID, eventType)
 }
 
+// getRoomMembers mengambil daftar anggota room dari cache in-memory, atau memuat dari userStore jika cache miss.
+func (h *Hub) getRoomMembers(roomID string) []string {
+	if roomID == "" {
+		return nil
+	}
+	h.roomMembersMu.RLock()
+	cached, ok := h.roomMembersCache[roomID]
+	h.roomMembersMu.RUnlock()
+	if ok {
+		return cached
+	}
+
+	if h.userStore == nil {
+		return nil
+	}
+
+	members, err := h.userStore.GetConversationMemberUsernames(roomID)
+	if err != nil || len(members) == 0 {
+		return nil
+	}
+
+	h.roomMembersMu.Lock()
+	h.roomMembersCache[roomID] = members
+	h.roomMembersMu.Unlock()
+
+	return members
+}
+
+// InvalidateRoomMembersCache menghapus cache keanggotaan percakapan (dipanggil saat ada member join/leave).
+func (h *Hub) InvalidateRoomMembersCache(roomID string) {
+	if roomID == "" {
+		return
+	}
+	h.roomMembersMu.Lock()
+	delete(h.roomMembersCache, roomID)
+	h.roomMembersMu.Unlock()
+}
+
+// findClientLocked mencari client berdasarkan ID atau username/nickname (wajib dipanggil saat h.mu terkunci).
+func (h *Hub) findClientLocked(identifier string) (*Client, bool) {
+	if c, ok := h.clients[identifier]; ok {
+		return c, true
+	}
+	if c, ok := h.clientsByNick[strings.ToLower(identifier)]; ok {
+		return c, true
+	}
+	return nil, false
+}
+
 // broadcastLocal mengirimkan pesan hanya ke klien yang terhubung secara fisik di instance Hub ini.
 func (h *Hub) broadcastLocal(roomID string, msg Message, senderID string) {
 	h.mu.RLock()
-	room, roomExists := h.rooms[roomID]
 	targetMap := make(map[*Client]bool)
-	if roomExists {
+
+	// 1. Klien lokal yang sedang aktif membuka room ini
+	if room, roomExists := h.rooms[roomID]; roomExists {
 		for id, client := range room {
 			if id != senderID {
 				targetMap[client] = true
@@ -337,19 +407,16 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderID string) {
 		}
 	}
 
-	// Jika ada userStore, kirim juga ke seluruh klien lokal terhubung yang merupakan anggota percakapan ini
-	if h.userStore != nil && roomID != "" {
-		if memberNames, err := h.userStore.GetConversationMemberUsernames(roomID); err == nil && len(memberNames) > 0 {
-			memberSet := make(map[string]bool)
-			for _, name := range memberNames {
-				if name != "" {
-					memberSet[strings.ToLower(name)] = true
-				}
+	// 2. Klien lokal lain yang merupakan anggota percakapan ini (misal di halaman daftar chat / sidebar)
+	// Menggunakan in-memory cache dan direct lookup O(M) tanpa query SQL dan tanpa scan linier O(N) seluruh h.clients
+	if roomID != "" {
+		memberIDs := h.getRoomMembers(roomID)
+		for _, mID := range memberIDs {
+			if mID == senderID {
+				continue
 			}
-			for id, client := range h.clients {
-				if id != senderID && (memberSet[strings.ToLower(client.Nickname)] || memberSet[strings.ToLower(client.ID)]) {
-					targetMap[client] = true
-				}
+			if client, found := h.findClientLocked(mID); found && client.ID != senderID {
+				targetMap[client] = true
 			}
 		}
 	}
@@ -472,8 +539,26 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 }
 
 // sendRoomHistory mengambil riwayat pesan dari database dan mengirimkannya ke client spesifik.
-func (h *Hub) sendRoomHistory(clientID, roomID string) {
-	history, err := h.messageStore.GetRoomHistoryForUser(roomID, clientID, 50)
+// Jika sinceStr diberikan dan valid (RFC3339), hanya mengambil pesan delta yang lebih baru dari checkpoint.
+func (h *Hub) sendRoomHistory(clientID, roomID string, sinceStr ...string) {
+	var sinceTime time.Time
+	if len(sinceStr) > 0 && strings.TrimSpace(sinceStr[0]) != "" {
+		raw := strings.TrimSpace(sinceStr[0])
+		if t, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+			sinceTime = t
+		} else if t, err := time.Parse(time.RFC3339, raw); err == nil {
+			sinceTime = t
+		}
+	}
+
+	var history []store.StoredMessage
+	var err error
+
+	if !sinceTime.IsZero() {
+		history, err = h.messageStore.GetRoomHistorySince(roomID, clientID, sinceTime, 100)
+	} else {
+		history, err = h.messageStore.GetRoomHistoryForUser(roomID, clientID, 50)
+	}
 	if err != nil {
 		log.Printf("[Hub %s] gagal mengambil history untuk room %s: %v", h.nodeID[:8], roomID, err)
 		h.notifyClient(clientID, Message{

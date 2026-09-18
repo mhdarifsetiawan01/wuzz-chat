@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useState, useCallback, useRef, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WsClient } from '@/lib/ws-client'
-import type { Message, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User, ActiveCallInfo, GroupDetails } from '@/lib/types'
+import type { Message, MessageType, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User, ActiveCallInfo, GroupDetails } from '@/lib/types'
 import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
@@ -35,6 +35,7 @@ import { autoSyncPushSubscription } from '@/lib/pushNotification'
 import { DeviceConflictModal } from './DeviceConflictModal'
 import {
   getCachedMessages,
+  getLastCachedMessageTimestamp,
   cacheMessages,
   cacheMessage,
   updateCachedMessageStatus,
@@ -673,10 +674,19 @@ function ChatPageContent() {
         // Akses ditolak: grup privat dan bukan anggota
         return
       }
-      clientRef.current.send({
-        type: 'join',
-        nickname,
-        room: roomId,
+      getLastCachedMessageTimestamp(roomId).then(sinceTimestamp => {
+        clientRef.current?.send({
+          type: 'join',
+          nickname,
+          room: roomId,
+          since: sinceTimestamp,
+        })
+      }).catch(() => {
+        clientRef.current?.send({
+          type: 'join',
+          nickname,
+          room: roomId,
+        })
       })
 
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
@@ -742,11 +752,19 @@ function ChatPageContent() {
             peerId: currentRoom,
           },
         })
-        client.send({
-          type: 'join',
-          nickname,
-          room: currentRoom,
-        })
+        const sendJoin = (sinceTimestamp?: string) => {
+          client.send({
+            type: 'join',
+            nickname,
+            room: currentRoom,
+            since: sinceTimestamp,
+          })
+        }
+        if (currentRoom) {
+          getLastCachedMessageTimestamp(currentRoom).then(sendJoin).catch(() => sendJoin())
+        } else {
+          sendJoin()
+        }
 
         if (currentRoom && typeof document !== 'undefined' && document.visibilityState === 'visible') {
           client.send({
@@ -867,9 +885,16 @@ function ChatPageContent() {
                 roomAESKeyRef.current = key
               }
 
-              // SAFE-MERGE DENGAN INDEXEDDB CACHE (E2EE Continuity Protection):
+              // SAFE-MERGE DENGAN INDEXEDDB CACHE (E2EE Continuity Protection & Delta Sync):
               // Ambil cache pesan lokal yang tersimpan dalam status terdekripsi
               const localCachedList = await getCachedMessages(currentRoom).catch(() => [])
+
+              // Jika respons history kosong dan kita sudah punya pesan di cache lokal:
+              // Ini berarti tidak ada pesan baru sejak checkpoint `since` -> pertahankan riwayat yang ada
+              if (rawMessages.length === 0 && localCachedList.length > 0) {
+                return
+              }
+
               const localCacheMap = new Map<string, string>()
               localCachedList.forEach(c => {
                 if (c.content && c.content !== '🔒 [Pesan Terenkripsi]') {
@@ -890,7 +915,45 @@ function ChatPageContent() {
                 })
               )
 
-              dispatch({ type: 'SET_MESSAGES', payload: decryptedList })
+              // Gabungkan pesan lokal dengan pesan delta baru dari server (Anti-Overwriting Delta Sync)
+              const messageMap = new Map<string, Message>()
+              localCachedList.forEach(c => {
+                messageMap.set(c.id, {
+                  id: c.id,
+                  room: c.room_id,
+                  type: (c.type === 'text' ? 'message' : c.type) as MessageType,
+                  from: c.sender_id,
+                  nickname: c.sender_display_name || c.sender_username,
+                  content: c.content,
+                  timestamp: c.created_at,
+                  status: c.status as MessageReceiptStatus,
+                  media_url: c.media_url,
+                  media_type: c.media_mime_type,
+                  file_name: c.media_file_name,
+                  file_size: c.media_size,
+                  reply_to: c.reply_to ? {
+                    id: c.reply_to.id,
+                    nickname: c.reply_to.sender_display_name || '',
+                    content: c.reply_to.content,
+                  } : undefined,
+                  reactions: c.reactions ? Object.entries(c.reactions).map(([emoji, users]) => ({
+                    emoji,
+                    users,
+                    count: users.length,
+                  })) : undefined,
+                })
+              })
+
+              decryptedList.forEach(m => {
+                if (m.id) {
+                  messageMap.set(m.id, m)
+                }
+              })
+
+              const finalList = Array.from(messageMap.values())
+              finalList.sort((a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''))
+
+              dispatch({ type: 'SET_MESSAGES', payload: finalList })
 
               // Write-Through ke IndexedDB
               const toCache = decryptedList

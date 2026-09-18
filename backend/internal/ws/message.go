@@ -87,6 +87,7 @@ type Message struct {
 	Mentions    []string         `json:"mentions,omitempty"`     // Daftar User UUID yang di-mention
 	SDP         string           `json:"sdp,omitempty"`          // WebRTC Session Description Protocol (SDP) offer/answer
 	Candidate   string           `json:"candidate,omitempty"`    // WebRTC ICE Candidate string
+	Since       string           `json:"since,omitempty"`        // Timestamp ISO8601 checkpoint untuk delta offline sync
 	Messages    []Message        `json:"messages,omitempty"`     // Kumpulan pesan untuk TypeHistory
 	Users       []RoomUser       `json:"users,omitempty"`        // Daftar user aktif di room
 }

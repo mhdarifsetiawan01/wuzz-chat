@@ -992,19 +992,24 @@ Setiap frame WebSocket dipertukarkan dalam format JSON tunggal (`Message` struct
 | `candidate` | `string` | WebRTC ICE Candidate string |
 | `messages` | `array` | Array pesan riwayat (khusus event `history`) |
 | `users` | `array` | Array anggota aktif di room (khusus event `room_users`) |
+| `since` | `string` | ISO 8601 timestamp checkpoint untuk delta offline sync pada event `join` |
 
 ---
 
 ### 4.3 Katalog Event WebSocket
 
 #### 1. `join` (Client ➔ Server)
-Mengabarkan server bahwa user membuka ruang percakapan tertentu. Server otomatis membalas dengan event `history`, memperbarui tanda terima menjadi `read`, dan mem-broadcast `room_users`.
+Mengabarkan server bahwa user membuka ruang percakapan tertentu. Server otomatis membalas dengan event `history`, memperbarui tanda terima menjadi `read`, dan mem-broadcast `room_users` (hanya ke anggota room tersebut).
+
+Klien dapat menyertakan checkpoint `since` (diambil dari timestamp pesan terakhir di cache lokal) untuk mengaktifkan **Delta Offline Sync**:
 ```json
 {
   "type": "join",
-  "room": "direct_11111111_22222222"
+  "room": "direct_11111111_22222222",
+  "since": "2026-09-18T14:30:00.000Z"
 }
 ```
+*Catatan Delta Sync*: Jika `since` disertakan, server hanya mengirim pesan yang dibuat setelah waktu tersebut (`created_at > since`). Jika tidak ada pesan baru, event `history` mengembalikan array kosong `[]`, menghemat bandwidth hingga 90%. Jika `since` tidak dikirim, server fallback ke 50 pesan terakhir.
 
 ---
 
@@ -1087,6 +1092,7 @@ Menampilkan indikator "sedang mengetik..." kepada lawan bicara.
   "room": "direct_11111111_22222222"
 }
 ```
+> 🛡️ **Rate Limit Guard**: Backend menerapkan sliding-window rate limiter per koneksi (maksimal **3 event typing per 2 detik**). Event berlebih akan di-drop secara silent untuk mencegah kelebihan beban broadcast.
 
 ---
 
