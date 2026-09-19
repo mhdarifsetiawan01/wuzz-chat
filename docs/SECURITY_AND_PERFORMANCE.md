@@ -160,6 +160,8 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Penolakan Penimpaan Kunci (HTTP 409 Conflict)**: Endpoint `PUT /api/users/public-key` menolak pembaruan jika `device_id` berbeda dengan kode kesalahan `KEY_ALREADY_REGISTERED`.
   - **Pencegahan Diam-diam di Frontend**: `initUserE2EE()` tidak lagi mengunggah kunci jika status konflik terdeteksi, mencegah korupsi kunci di database server.
   - **Rotasi Kunci Eksplisit (`POST /api/users/public-key/reset`)**: Pengguna dapat mereset kunci ke perangkat baru secara sadar melalui modal UI konfirmasi (`DeviceConflictModal.tsx`). Versi kunci dinaikkan (`key_version + 1`) dan sesi perangkat lama dinonaktifkan secara aman.
+  - **Pelepasan Sesi Perangkat saat Logout Sukarela (`POST /api/auth/logout`)**: Ketika pengguna logout resmi, `users.active_device_id` di database dikosongkan (`''`), mencegah *false conflict* (409) saat akun dibuka di perangkat baru.
+  - **Single-Pass Memoized Encrypted Message Filter (`ChatWindow.tsx`)**: Mengganti iterasi double filter array pesan dengan algoritma $O(N)$ single-pass loop dan `useMemo`, mengeliminasi re-filtering overhead saat animasi typing indicator berjalan.
 
 ### 2.10 Zero-Knowledge QR Code Key Migration & Atomic Transaction Guard
 * **Lokasi Kode**: [`backend/internal/store/transfer_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/transfer_store.go), [`backend/internal/api/transfer_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/transfer_handler.go), & [`frontend/lib/crypto/keyTransfer.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/crypto/keyTransfer.ts)

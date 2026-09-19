@@ -62,7 +62,7 @@ sequenceDiagram
        "endpoint": "https://fcm.googleapis.com/fcm/send/<FCM_REGISTRATION_TOKEN>"
      }
      ```
-   - Saat logout, panggil `POST /api/notifications/unsubscribe` dengan body `{ "endpoint": "..." }`.
+   - Saat logout, panggil `POST /api/auth/logout` untuk melepaskan `active_device_id` di database server, serta panggil `POST /api/notifications/unsubscribe` dengan body `{ "endpoint": "..." }`.
 3. **Koneksi WebSocket**:
    - Selalu sertakan query `?token=<JWT>` saat inisialisasi socket.
    - Implementasikan **Exponential Backoff Auto-Reconnect** (1s, 2s, 4s, 8s, maks 30s) saat koneksi terputus (misal saat HP berganti jaringan dari WiFi ke 4G/5G).

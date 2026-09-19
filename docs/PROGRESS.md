@@ -1174,3 +1174,27 @@ Warna status drift untuk peran semantik yang sama: merah error 5 nilai (`--color
 - `npm run build` — **✓ PASS** 3× (gate #3, gate #4+#5, final). TypeScript clean, 6 routes.
 - `go test ./...` — **PASS** 8 paket OK.
 - `zIndex: 99999` → **0** ✅. Dangling `var()` → **0** ✅.
+
+---
+
+## Milestone 8.10 — Backend Logout Endpoint & Consolidated Encrypted Messages Banner
+**Tanggal**: 2026-09-19
+**Branch**: `dev`
+
+### Latar Belakang & Masalah
+1. **False Conflict pada Perangkat Baru Pasca-Logout**: Pengguna (Alice) logout dari Device 1, lalu mencoba login di Device 2. Device 2 terblokir pop-up *"Perangkat lain sedang aktif"* (409 Conflict) karena backend tidak memiliki endpoint logout dan `active_device_id` di database masih terkunci pada Device 1.
+2. **Visual Clutter Pesan Terenkripsi**: Ketika akun login di perangkat baru setelah reset kunci, puluhan pesan masa lalu yang gagal didekripsi tampil sebagai deretan bubble `🔒 [Pesan Terenkripsi]` yang mengotori linimasa chat.
+
+### Perubahan File
+1. **`backend/internal/store/user_store.go`**: Menambahkan metode `ClearActiveDevice(userID string) error` pada interface `UserStore` dan struct `SQLUserStore` (`UPDATE users SET active_device_id = '' WHERE id = ?`).
+2. **`backend/internal/api/auth_handler.go`**: Menambahkan handler `Logout(w, r)` yang mengekstrak identitas user dari JWT token dan mengosongkan `active_device_id`.
+3. **`backend/main.go`**: Mendaftarkan endpoint `POST /api/auth/logout` dibungkus middleware CORS & `auth.RequireJWT()`.
+4. **`backend/internal/api/auth_logout_test.go` [NEW]**: Test suite 5 skenario (unauthorized check, login Device 1, penolakan Device 2 sebelum logout, eksekusi logout, dan keberhasilan Device 2 registrasi setelah logout).
+5. **`frontend/lib/auth-context.tsx`**: Menghubungkan fungsi `logout()` ke endpoint `POST /api/auth/logout`.
+6. **`frontend/app/chat/ChatWindow.tsx`**: Mengganti deretan bubble pesan terenkripsi dengan **1 buah banner sistem terpadu** (`.encrypted-messages-banner`) di paling atas linimasa, serta optimasi $O(N)$ single-pass loop menggunakan `useMemo`.
+7. **`frontend/app/globals.css`**: Menambahkan styling token design system resmi untuk `.encrypted-messages-banner`.
+
+### Test Evidence
+- **Backend Tests (`go test -count=1 ./...`)**: **100% PASS** di seluruh package (`api`, `auth`, `broker`, `push`, `storage`, `store`, `worker`, `ws`).
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 TypeScript/ESLint error, 8 static pages).
+

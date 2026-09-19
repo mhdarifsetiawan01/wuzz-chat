@@ -277,3 +277,33 @@ func (h *AuthHandler) ResetPublicKey(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Logout menangani proses logout pengguna dan melepaskan sesi active_device_id di database.
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.userStore.ClearActiveDevice(claims.UserID); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Gagal melepaskan sesi perangkat aktif saat logout",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": "Berhasil logout dan melepaskan sesi perangkat aktif",
+	})
+}
+
+

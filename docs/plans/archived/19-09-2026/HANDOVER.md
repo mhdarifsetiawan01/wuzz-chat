@@ -1,35 +1,17 @@
-# Handover & Verification Report — Milestone 8.8: Realtime Engine Scalability & High-ROI Optimizations
+# Handover Notes
 
-## 📋 Ringkasan Implementasi
-Milestone 8.8 telah berhasil mengimplementasikan 5 perbaikan efisiensi dan skalabilitas arsitektur *real-time engine* dengan ROI engineering tertinggi:
-1. **Fanout O(M) & In-Memory Membership Cache**: Mengeliminasi query database SQL berulang dan loop linier $O(N)$ terhadap seluruh `h.clients` di `broadcastLocal` (`backend/internal/ws/hub.go`). Menggunakan direct lookup map $O(1)$ untuk setiap anggota room ($O(M)$).
-2. **Backend Typing Rate Limiter**: Membatasi flood event typing maksimal 3 event per 2 detik per koneksi di `backend/internal/ws/client.go`.
-3. **Checkpoint-based Delta Offline History Sync**: Menambahkan field `since` pada `ws.Message` dan method query `GetRoomHistorySince` di `backend/internal/store/sql.go` & `memory.go`. Di frontend (`page.tsx`), klien mengirimkan timestamp pesan lokal terakhir dari IndexedDB cache saat `join`, dan pesan delta baru di-merge secara sekuensial tanpa menghapus riwayat lokal yang sudah ada.
-4. **Client-Side Outbound Queue**: Menambahkan antrean buffer FIFO (maks 100 pesan) di `frontend/lib/ws-client.ts` yang menampung pesan keluar saat socket terputus/reconnecting dan mem-flush secara otomatis saat socket `connected` kembali (zero message drop).
+## 📦 Changes Summary
+1. **Backend Logout & Active Device Release**:
+   - `backend/internal/store/user_store.go`: Interface `UserStore` & `SQLUserStore.ClearActiveDevice(userID string) error`.
+   - `backend/internal/api/auth_handler.go`: Handler `Logout` yang memvalidasi JWT dan mengosongkan `active_device_id` di database.
+   - `backend/main.go`: Rute `POST /api/auth/logout` dibungkus middleware CORS & JWT.
+   - `backend/internal/api/auth_logout_test.go`: 5 skenario test verifikasi alur logout, pelepasan device, dan transisi ke device baru.
+2. **Frontend Logout API Integration**:
+   - `frontend/lib/auth-context.tsx`: `logout()` memanggil `POST /api/auth/logout` sebelum menghapus token lokal.
+3. **Encrypted Messages Single Banner UX**:
+   - `frontend/app/chat/ChatWindow.tsx`: Menyaring pesan gagal dekripsi dan merangkumnya ke dalam 1 buah banner `.encrypted-messages-banner` di linimasa chat.
+   - `frontend/app/globals.css`: Styling token design system untuk `.encrypted-messages-banner`.
 
----
-
-## 🧪 Bukti Pengujian Otomatis (Automated Test Evidence)
-
-### 1. Backend Go Test Suite
-```bash
-cd backend && go test -v ./...
-```
-- **Hasil**: **100% PASS** di seluruh package (`internal/api`, `internal/auth`, `internal/broker`, `internal/push`, `internal/storage`, `internal/store`, `internal/worker`, `internal/ws`).
-- **Test Suite Baru**: `scalability_optimizations_test.go`
-  - `=== RUN   TestHub_DirectMemberLookupO_M`: PASS (0.00s)
-  - `=== RUN   TestClient_TypingRateLimit`: PASS (0.20s - Rate limit sukses: dari 10 spam typing, hanya 3 event yang diteruskan)
-  - `=== RUN   TestHub_DeltaHistorySince`: PASS (0.00s - 1 delta message returned)
-  - `=== RUN   TestE2E_FullChatAndSecurityLifecycle`: PASS (0.28s)
-  - `=== RUN   TestE2E_PushNotificationLifecycle`: PASS (0.44s)
-
-### 2. Frontend Next.js Production Build
-```bash
-cd frontend && npm run build
-```
-- **Hasil**: **100% PASS** (Turbopack compile, TypeScript typecheck, dan static page generation lolos tanpa error/warning).
-
----
-
-## ⚠️ Pemberitahuan Deployment Backend
-Terdapat penambahan dan perbaikan pada kode backend (`backend/internal/store/`, `backend/internal/ws/`). Agar optimasi ini aktif pada server live production (`chat.wuzzhub.id`), backend di Fly.io perlu di-deploy ulang menggunakan perintah `fly deploy --remote-only`.
+## 🧪 Verification Evidence
+- `backend`: `go test -v ./...` -> 100% PASS across all packages.
+- `frontend`: `npm run build` -> Next.js 16.3.5 compiled successfully with 0 TypeScript/lint errors.
