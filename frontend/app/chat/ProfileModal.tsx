@@ -691,9 +691,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                       } catch {}
                       onClose()
                       if (typeof window !== 'undefined') {
-                        window.location.href = '/login?logout=1'
+                        window.location.replace('/login?logout=1')
                       } else {
-                        router.push('/login?logout=1')
+                        router.replace('/login?logout=1')
                       }
                     }
                   }}

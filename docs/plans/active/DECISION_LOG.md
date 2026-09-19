@@ -1,4 +1,4 @@
-# Decision Log
+# DECISION_LOG.md
 
-- Standby: Belum ada keputusan teknis aktif baru.
-
+## Status: Standby
+Tidak ada log keputusan aktif.

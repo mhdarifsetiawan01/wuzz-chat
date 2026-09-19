@@ -387,12 +387,13 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - Pinned Messages menggunakan composite index `idx_pinned_messages_conv(conversation_id, created_at DESC)` dengan batas maksimal 3 entri, memastikan performa baca $O(1)$ tanpa full-table scan.
   - In-Chat Search memanfaatkan parameter terikat SQL (`ILIKE $3` pada Postgres, `LIKE ?` pada SQLite) yang mengecualikan pesan terhapus dan pesan sebelum `cleared_at`, menghasilkan kueri yang aman dari SQL injection serta efisien pada dataset ratusan ribu pesan.
 
-### 3.16 Server Timeout Resilient Logout & 0ms Local-First Purge Lifecycle
+### 3.16 Server Timeout Resilient Logout, 0ms Local-First Purge & Anti-Stale History Sanitizer
 * **Lokasi Kode**: [`frontend/lib/auth-context.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/auth-context.tsx) & [`frontend/app/login/page.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/app/login/page.tsx)
-* **Ketahanan Flaky/Slow Server & Anti-Loop Reset**:
+* **Ketahanan Flaky/Slow Server, Anti-Loop Reset & Anti-Stale History Poisoning**:
   - **Synchronous 0ms Purge**: Pembersihan `localStorage` (`wuzz_auth_token`, profil) dan auth state React ditaruh di awal eksekusi `logout()` sebelum pemanggilan API jaringan. Hal ini menjamin bahwa kegagalan jaringan atau timeout server tidak akan meninggalkan residu kredensial yang dapat memicu auto-redirect looping.
   - **Managed 30s Abort Timeout**: Request `POST /api/auth/logout` dibatasi dengan `AbortController` berdurasi maksimal **30 detik**. Klien tetap membebaskan sumber daya secara graceful jika server lambat atau tidak terjangkau.
-  - **Login Route Guard (`?logout=1`)**: Halaman login memeriksa flag `logout=1` untuk memblokir auto-redirect ke linimasa pesan dan memaksa input username/password baru.
+  - **Login Route Guard (`?logout=1`)**: Halaman login memeriksa flag `logout=1` untuk memblokir auto-redirect ke linimasa pesan dan memaksa input username/password baru saat pengguna baru saja logout.
+  - **Anti-Stale History Poisoning (`history.replaceState` & Auth Priority)**: Jika pengguna telah login kembali dan menekan tombol *Back* hingga mencapai rute login, pengecekan `!isAuthLoading && user` diprioritaskan di baris pertama `useEffect` untuk langsung memantulkan pengguna ke `/chat` (`router.replace`) tanpa memanggil `localLogout()`. Selain itu, saat pertama kali mendarat di `/login?logout=1`, parameter kueri langsung dibersihkan seketika via `window.history.replaceState` agar tidak tertinggal di history stack peramban.
 
 ---
 

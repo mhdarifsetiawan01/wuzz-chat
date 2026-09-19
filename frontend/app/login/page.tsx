@@ -21,22 +21,28 @@ function LoginContent() {
   const [error, setError] = useState(isExpired ? '⚠️ Sesi Anda telah berakhir. Silakan masuk kembali.' : '')
   const [isLoading, setIsLoading] = useState(false)
 
-  // Redirect ke /chat (atau URL tujuan) jika sudah terautentikasi (kecuali sedang datang dari alur logout)
+  // Redirect ke /chat (atau URL tujuan) jika sudah terautentikasi
   useEffect(() => {
-    if (isLogout) {
-      localLogout()
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('wuzz_auth_token')
-        localStorage.removeItem('wuzz_user_profile')
-      }
-      return
-    }
-
+    // 1. PRIORITAS UTAMA: Jika pengguna sudah login (misal menekan tombol Back dari /chat),
+    // JANGAN PERNAH panggil logout! Langsung pantulkan kembali ke /chat.
     if (!isAuthLoading && user) {
       if (redirectUrl) {
         router.replace(redirectUrl)
       } else {
         router.replace(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
+      }
+      return
+    }
+
+    // 2. Jika baru saja tiba dari alur logout resmi (dan pengguna belum login)
+    if (isLogout) {
+      localLogout()
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('wuzz_auth_token')
+        localStorage.removeItem('wuzz_user_profile')
+        // Sanitasi URL seketika: hapus ?logout=1 dari history stack browser agar tombol back tidak membawa query logout
+        const cleanSearch = redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : redirectRoom ? `?room=${encodeURIComponent(redirectRoom)}` : ''
+        window.history.replaceState(null, '', window.location.pathname + cleanSearch)
       }
     }
   }, [user, isAuthLoading, router, redirectRoom, redirectUrl, isLogout, localLogout])
@@ -65,10 +71,11 @@ function LoginContent() {
 
     if (data?.token && data?.user) {
       login(data.token, data.user)
+      // Gunakan router.replace agar halaman login tidak tertinggal di history stack browser
       if (redirectUrl) {
-        router.push(redirectUrl)
+        router.replace(redirectUrl)
       } else {
-        router.push(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
+        router.replace(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
       }
     }
   }

@@ -1,3 +1,4 @@
-# Active Task Checklist
+# TASK_CHECKLIST.md
 
-> Standby — menunggu penugasan berikutnya.
+## Status: Standby
+Semua checklist tugas telah selesai.

@@ -1253,7 +1253,25 @@ Ketika akun login di Device 1 (aktif), lalu mencoba login di Device 2 dan muncul
    - Mengabaikan auto-redirect ke `/chat` saat parameter `logout=1` terdeteksi, membersihkan sisa kredensial di storage, dan menampilkan banner notifikasi: *"ℹ️ Anda telah berhasil keluar. Silakan masuk kembali."*.
    - Pengguna diwajibkan memasukkan username dan password baru untuk masuk.
 
+---
+
+## Milestone 8.12 — Anti-Stale History Poisoning & `replaceState` Logout URL Sanitizer
+**Tanggal**: 2026-09-19  
+**Branch**: `dev`
+
+### Latar Belakang & Masalah
+Ketika pengguna telah berhasil login kembali setelah logout, riwayat URL di peramban sebelumnya masih dapat menyimpan entri `/login?logout=1` jika navigasi menggunakan `window.location.href` atau `router.push`. Jika pengguna kemudian menekan tombol *Back* berkali-kali di peramban hingga mencapai entri URL tersebut, `useEffect` di `/login` sebelumnya mengeksekusi `localLogout()` karena query parameter `?logout=1` masih terbawa, sehingga pengguna yang sedang aktif ter-logout secara tidak sengaja (*stale history poisoning*).
+
+### Solusi & Perubahan Terverifikasi
+1. **`frontend/app/login/page.tsx`**:
+   - **Prioritas Autentikasi Utama**: Menempatkan pengecekan `!isAuthLoading && user` di baris pertama `useEffect`. Jika pengguna sudah dalam keadaan login sah dan menavigasi ke halaman login (misal via tombol Back peramban), sistem **tidak akan pernah memanggil `localLogout()`**, melainkan langsung memantulkan (*bounce back*) pengguna ke `/chat` via `router.replace('/chat')`.
+   - **Instan URL Sanitization (`history.replaceState`)**: Saat baru saja tiba dari proses logout resmi (`isLogout === true` dan belum login), parameter `?logout=1` seketika disanitasi dari bilah URL menggunakan `window.history.replaceState(null, '', window.location.pathname + cleanSearch)` tanpa me-reload halaman. Dengan demikian, tombol *Back/Forward* browser di masa mendatang tidak akan pernah membawa parameter `?logout=1`.
+   - **Navigasi Bersih Pasca-Login (`router.replace`)**: Saat submit form login berhasil, navigasi ke `/chat` dialihkan menggunakan `router.replace()` sehingga halaman login tidak meninggalkan jejak di history stack.
+2. **`frontend/app/chat/page.tsx` & `frontend/app/chat/ProfileModal.tsx`**:
+   - Seluruh pengalihan ke `/login?logout=1` diubah menggunakan `window.location.replace('/login?logout=1')` atau `router.replace('/login?logout=1')` untuk mencegah penumpukan riwayat halaman.
+
 ### Test Evidence
-- **Frontend Build (`npm run build`)**: **✓ Compiled successfully in 281ms** (0 TypeScript error, 0 lint error).
-- **Backend Tests (`go test -count=1 ./...`)**: **100% PASS** di seluruh 8 package internal.
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully in 265ms** (0 TypeScript error, 0 lint error).
+- **Backend Tests (`go test -v ./...`)**: **100% PASS** di seluruh package internal WebSocket & REST API.
+
 
