@@ -30,6 +30,15 @@ interface StatusBarProps {
   parentGroupName?: string
   onBack?: () => void
   onStartAudioCall?: () => void
+  isSearching?: boolean
+  searchQuery?: string
+  searchMatchCount?: number
+  currentSearchIndex?: number
+  onToggleSearch?: () => void
+  onSearchChange?: (query: string) => void
+  onNextSearchMatch?: () => void
+  onPrevSearchMatch?: () => void
+  onCloseSearch?: () => void
 }
 
 const statusLabel: Record<ConnectionStatus, string> = {
@@ -61,6 +70,15 @@ export function StatusBar({
   parentGroupName,
   onBack,
   onStartAudioCall,
+  isSearching = false,
+  searchQuery = '',
+  searchMatchCount = 0,
+  currentSearchIndex = 0,
+  onToggleSearch,
+  onSearchChange,
+  onNextSearchMatch,
+  onPrevSearchMatch,
+  onCloseSearch,
 }: StatusBarProps) {
   const [copied, setCopied] = useState(false)
   const [soundMuted, setSoundMuted] = useState(false)
@@ -244,11 +262,62 @@ export function StatusBar({
           </div>
         </div>
 
-        <div 
-          ref={actionsRef}
-          className="status-bar-actions-wrapper" 
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, position: 'relative' }}
-        >
+        {isSearching ? (
+          <div className="status-search-wrapper" role="search" aria-label="Cari di chat">
+            <span style={{ fontSize: '0.85rem' }}>🔍</span>
+            <input
+              type="text"
+              className="status-search-input"
+              value={searchQuery}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              placeholder="Cari pesan..."
+              autoFocus
+            />
+            <span className="status-search-counter">
+              {searchMatchCount > 0
+                ? `${currentSearchIndex + 1}/${searchMatchCount}`
+                : searchQuery
+                ? '0'
+                : ''}
+            </span>
+            {searchMatchCount > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="status-search-btn"
+                  onClick={onPrevSearchMatch}
+                  title="Pesan sebelumnya"
+                  aria-label="Sebelumnya"
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  className="status-search-btn"
+                  onClick={onNextSearchMatch}
+                  title="Pesan berikutnya"
+                  aria-label="Berikutnya"
+                >
+                  ▼
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className="status-search-btn status-search-close-btn"
+              onClick={onCloseSearch}
+              title="Tutup pencarian"
+              aria-label="Tutup pencarian"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <div 
+            ref={actionsRef}
+            className="status-bar-actions-wrapper" 
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, position: 'relative' }}
+          >
           {/* Tombol Buka Forum jika ini adalah Grup Induk (Tetap Selalu di Luar) */}
           {isGroupChat && !isSubGroup && onOpenSubgroups && (
             <button
@@ -378,6 +447,23 @@ export function StatusBar({
               </button>
             )}
 
+            {/* Tombol Cari Pesan (In-Chat Search) */}
+            {onToggleSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsActionsExpanded(false)
+                  onToggleSearch()
+                }}
+                className="status-btn status-circle-btn"
+                title="Cari pesan dalam percakapan ini"
+                aria-label="Cari pesan"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', fontSize: '0.85rem', width: '32px', height: '32px', borderRadius: 'var(--radius-full)' }}
+              >
+                <span>🔍</span>
+              </button>
+            )}
+
             {/* Tombol Toggle Sound FX Minimalis */}
             <button
               type="button"
@@ -412,6 +498,7 @@ export function StatusBar({
             <span className="status-dot" aria-hidden="true" />
           </div>
         </div>
+      )}
       </header>
 
       {/* Modal Detail Kontak Lawan Bicara */}

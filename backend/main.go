@@ -245,15 +245,73 @@ func main() {
 		mux.HandleFunc("/api/conversations/clear", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(chatHandler.ClearConversation)).ServeHTTP(w, r)
 		}))
+		mux.HandleFunc("/api/conversations/pin", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.PinConversation)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+		}))
+		mux.HandleFunc("/api/conversations/unpin", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.UnpinConversation)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+		}))
 		mux.HandleFunc("/api/messages", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodDelete || r.Method == http.MethodPost {
+			if r.Method == http.MethodPut {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.EditMessage)).ServeHTTP(w, r)
+			} else if r.Method == http.MethodDelete || r.Method == http.MethodPost {
 				auth.RequireJWT()(http.HandlerFunc(chatHandler.DeleteMessage)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+		}))
+		mux.HandleFunc("/api/messages/edit", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPut || r.Method == http.MethodPost {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.EditMessage)).ServeHTTP(w, r)
 			} else {
 				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 			}
 		}))
 		mux.HandleFunc("/api/messages/delete", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(chatHandler.DeleteMessage)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/messages/forward", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.ForwardMessage)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+		}))
+		mux.HandleFunc("/api/messages/pin", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.PinMessage)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+		}))
+		mux.HandleFunc("/api/messages/unpin", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.UnpinMessage)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+		}))
+		mux.HandleFunc("/api/messages/pinned", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.GetPinnedMessages)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+		}))
+		mux.HandleFunc("/api/messages/search", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.SearchMessages)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
 		}))
 	}
 

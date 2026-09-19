@@ -54,10 +54,12 @@ type ConversationItem struct {
 	PeerIsVerified bool      `json:"peer_is_verified,omitempty"`
 	LastMessage    string    `json:"last_message"`
 	LastSender     string    `json:"last_sender"`
-	LastSenderID   string    `json:"last_sender_id,omitempty"`
-	LastStatus     string    `json:"last_status,omitempty"`
-	UnreadCount    int       `json:"unread_count"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	LastSenderID   string     `json:"last_sender_id,omitempty"`
+	LastStatus     string     `json:"last_status,omitempty"`
+	IsPinned       bool       `json:"is_pinned"`
+	PinnedAt       *time.Time `json:"pinned_at,omitempty"`
+	UnreadCount    int        `json:"unread_count"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 // PushSubscription merepresentasikan entitas token/kunci push notification per perangkat.
@@ -86,6 +88,8 @@ type UserStore interface {
 	SearchUsers(query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
 	GetUserConversations(userID string) ([]ConversationItem, error)
+	PinConversation(conversationID, userID string) error
+	UnpinConversation(conversationID, userID string) error
 	ClearConversation(conversationID, userID string) error
 	GetConversationMemberUsernames(conversationID string) ([]string, error)
 	IsUserInConversation(conversationID, userID string) (bool, error)
@@ -483,6 +487,45 @@ func (s *SQLUserStore) ClearConversation(conversationID, userID string) error {
 	return nil
 }
 
+// PinConversation menandai percakapan sebagai pinned untuk user tertentu.
+func (s *SQLUserStore) PinConversation(conversationID, userID string) error {
+	now := time.Now().UTC()
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE conversation_members SET is_pinned = TRUE, pinned_at = $1 WHERE conversation_id = $2 AND user_id = $3`
+	} else {
+		query = `UPDATE conversation_members SET is_pinned = TRUE, pinned_at = ? WHERE conversation_id = ? AND user_id = ?`
+	}
+	res, err := s.db.Exec(query, now, conversationID, userID)
+	if err != nil {
+		return fmt.Errorf("gagal pin percakapan: %w", err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return errors.New("percakapan atau keanggotaan tidak ditemukan")
+	}
+	return nil
+}
+
+// UnpinConversation melepas tanda pinned percakapan untuk user tertentu.
+func (s *SQLUserStore) UnpinConversation(conversationID, userID string) error {
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE conversation_members SET is_pinned = FALSE, pinned_at = NULL WHERE conversation_id = $1 AND user_id = $2`
+	} else {
+		query = `UPDATE conversation_members SET is_pinned = FALSE, pinned_at = NULL WHERE conversation_id = ? AND user_id = ?`
+	}
+	res, err := s.db.Exec(query, conversationID, userID)
+	if err != nil {
+		return fmt.Errorf("gagal unpin percakapan: %w", err)
+	}
+	rowsAffected, _ := res.RowsAffected()
+	if rowsAffected == 0 {
+		return errors.New("percakapan atau keanggotaan tidak ditemukan")
+	}
+	return nil
+}
+
 // GetUserConversations mengambil daftar obrolan aktif milik seorang user.
 func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, error) {
 	// 1. Ambil seluruh percakapan beserta data lawan bicara (peer) jika direct chat dalam 1 query
@@ -495,6 +538,8 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 				c.title, 
 				c.updated_at, 
 				cm.cleared_at,
+				COALESCE(cm.is_pinned, false) AS is_pinned,
+				cm.pinned_at,
 				COALESCE(peer.id, '') AS peer_id,
 				COALESCE(peer.display_name, '') AS peer_nickname,
 				COALESCE(peer.public_key, '') AS peer_public_key,
@@ -521,6 +566,8 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 				c.title, 
 				c.updated_at, 
 				cm.cleared_at,
+				COALESCE(cm.is_pinned, false) AS is_pinned,
+				cm.pinned_at,
 				COALESCE(peer.id, '') AS peer_id,
 				COALESCE(peer.display_name, '') AS peer_nickname,
 				COALESCE(peer.public_key, '') AS peer_public_key,
@@ -569,6 +616,8 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 			&rc.item.Title,
 			&rc.item.UpdatedAt,
 			&rc.clearedAt,
+			&rc.item.IsPinned,
+			&rc.item.PinnedAt,
 			&rc.item.PeerID,
 			&rc.item.PeerNickname,
 			&rc.item.PeerPublicKey,
@@ -747,8 +796,19 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 		items = append(items, rc.item)
 	}
 
-	// Urutkan percakapan secara dinamis berdasarkan waktu pesan/update terbaru (descending)
+	// Urutkan percakapan secara dinamis:
+	// Prioritaskan percakapan yang di-pin (IsPinned = true),
+	// jika keduanya di-pin, urutkan berdasarkan PinnedAt terbaru (atau UpdatedAt),
+	// jika tidak di-pin, urutkan berdasarkan UpdatedAt terbaru.
 	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].IsPinned != items[j].IsPinned {
+			return items[i].IsPinned
+		}
+		if items[i].IsPinned && items[j].IsPinned {
+			if items[i].PinnedAt != nil && items[j].PinnedAt != nil {
+				return items[i].PinnedAt.After(*items[j].PinnedAt)
+			}
+		}
 		return items[i].UpdatedAt.After(items[j].UpdatedAt)
 	})
 

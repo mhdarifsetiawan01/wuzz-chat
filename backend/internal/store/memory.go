@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // ============================================================
@@ -63,11 +65,13 @@ var _ ClientStore = (*MemoryClientStore)(nil)
 type MemoryMessageStore struct {
 	mu       sync.RWMutex
 	messages map[string][]StoredMessage // roomID -> messages
+	pinned   map[string][]PinnedMessage // convID -> []PinnedMessage
 }
 
 func NewMemoryMessageStore() *MemoryMessageStore {
 	return &MemoryMessageStore{
 		messages: make(map[string][]StoredMessage),
+		pinned:   make(map[string][]PinnedMessage),
 	}
 }
 
@@ -343,6 +347,117 @@ func (s *MemoryMessageStore) DeleteMessage(msgID, userID string, deleteForEveryo
 	return nil, errors.New("pesan tidak ditemukan")
 }
 
+func (s *MemoryMessageStore) EditMessage(msgID, userID, newContent string) (*StoredMessage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for roomID, msgs := range s.messages {
+		for i, m := range msgs {
+			if m.ID == msgID {
+				if m.FromID == "" || m.FromID != userID {
+					return nil, errors.New("hanya pengirim yang dapat mengedit pesan ini")
+				}
+				if m.IsDeleted {
+					return nil, errors.New("pesan yang telah dihapus tidak dapat diedit")
+				}
+				if m.MediaURL != "" {
+					return nil, errors.New("pesan media tidak dapat diedit")
+				}
+				if time.Since(m.Timestamp) > 15*time.Minute {
+					return nil, errors.New("pesan sudah lebih dari 15 menit dan tidak dapat diedit")
+				}
+				newContent = strings.TrimSpace(newContent)
+				if newContent == "" {
+					return nil, errors.New("isi pesan baru tidak boleh kosong")
+				}
+
+				now := time.Now().UTC()
+				s.messages[roomID][i].Content = newContent
+				s.messages[roomID][i].IsEdited = true
+				s.messages[roomID][i].EditedAt = &now
+
+				res := s.messages[roomID][i]
+				return &res, nil
+			}
+		}
+	}
+	return nil, errors.New("pesan tidak ditemukan")
+}
+
+func (s *MemoryMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname string, targetRoomIDs []string) ([]StoredMessage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if len(targetRoomIDs) == 0 {
+		return nil, errors.New("target_room_ids tidak boleh kosong")
+	}
+	if len(targetRoomIDs) > 5 {
+		return nil, errors.New("maksimal meneruskan pesan ke 5 percakapan sekaligus")
+	}
+
+	var srcMsg *StoredMessage
+	for _, msgs := range s.messages {
+		for _, m := range msgs {
+			if m.ID == srcMsgID {
+				copied := m
+				srcMsg = &copied
+				break
+			}
+		}
+		if srcMsg != nil {
+			break
+		}
+	}
+
+	if srcMsg == nil {
+		return nil, errors.New("pesan sumber tidak ditemukan")
+	}
+	if srcMsg.IsDeleted {
+		return nil, errors.New("tidak dapat meneruskan pesan yang telah dihapus")
+	}
+
+	var forwardedMessages []StoredMessage
+	now := time.Now().UTC()
+
+	for _, targetRoomID := range targetRoomIDs {
+		targetRoomID = strings.TrimSpace(targetRoomID)
+		if targetRoomID == "" {
+			continue
+		}
+
+		newMsg := StoredMessage{
+			ID:              uuid.New().String(),
+			RoomID:          targetRoomID,
+			FromID:          senderID,
+			Nickname:        senderNickname,
+			ToID:            targetRoomID,
+			Content:         srcMsg.Content,
+			Status:          "sent",
+			ReplyToID:       "",
+			ReplyToNickname: "",
+			ReplyToContent:  "",
+			Reactions:       "[]",
+			MediaURL:        srcMsg.MediaURL,
+			MediaType:       srcMsg.MediaType,
+			FileName:        srcMsg.FileName,
+			FileSize:        srcMsg.FileSize,
+			MediaStatus:     srcMsg.MediaStatus,
+			IsDeleted:       false,
+			DeletedForUsers: "[]",
+			Mentions:        "[]",
+			IsEdited:        false,
+			EditedAt:        nil,
+			IsForwarded:     true,
+			Timestamp:       now,
+		}
+
+		s.messages[targetRoomID] = append(s.messages[targetRoomID], newMsg)
+		forwardedMessages = append(forwardedMessages, newMsg)
+	}
+
+	return forwardedMessages, nil
+}
+
 func (s *MemoryMessageStore) AcknowledgeMediaDownload(msgID string) (string, string, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -407,8 +522,150 @@ func (s *MemoryMessageStore) MarkMediaExpired(msgID string) error {
 	return nil
 }
 
+func (s *MemoryMessageStore) PinMessage(convID, msgID, userID string, durationHours int) (*PinnedMessage, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Cari pesan
+	var targetMsg *StoredMessage
+	for _, msgs := range s.messages {
+		for _, m := range msgs {
+			if m.ID == msgID {
+				msgCopy := m
+				targetMsg = &msgCopy
+				break
+			}
+		}
+		if targetMsg != nil {
+			break
+		}
+	}
+
+	if targetMsg == nil {
+		return nil, errors.New("pesan tidak ditemukan")
+	}
+	if targetMsg.RoomID != convID {
+		return nil, errors.New("pesan bukan milik percakapan ini")
+	}
+	if targetMsg.IsDeleted {
+		return nil, errors.New("pesan yang telah dihapus tidak dapat disematkan")
+	}
+
+	now := time.Now().UTC()
+	var expiresAt *time.Time
+	if durationHours > 0 {
+		exp := now.Add(time.Duration(durationHours) * time.Hour)
+		expiresAt = &exp
+	}
+
+	// Cek apakah sudah tersemat
+	convPins := s.pinned[convID]
+	for i, p := range convPins {
+		if p.MessageID == msgID {
+			convPins[i].PinnedBy = userID
+			convPins[i].PinnedAt = now
+			convPins[i].ExpiresAt = expiresAt
+			convPins[i].Message = targetMsg
+			return &convPins[i], nil
+		}
+	}
+
+	// Enforce max 3: jika sudah 3 atau lebih, unpin yang tertua (index 0)
+	if len(convPins) >= 3 {
+		convPins = convPins[1:]
+	}
+
+	newPin := PinnedMessage{
+		ID:             uuid.New().String(),
+		ConversationID: convID,
+		MessageID:      msgID,
+		PinnedBy:       userID,
+		PinnedAt:       now,
+		ExpiresAt:      expiresAt,
+		Message:        targetMsg,
+	}
+	convPins = append(convPins, newPin)
+	s.pinned[convID] = convPins
+
+	return &newPin, nil
+}
+
+func (s *MemoryMessageStore) UnpinMessage(convID, msgID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	pins := s.pinned[convID]
+	newPins := make([]PinnedMessage, 0, len(pins))
+	for _, p := range pins {
+		if p.MessageID != msgID && p.ID != msgID {
+			newPins = append(newPins, p)
+		}
+	}
+	s.pinned[convID] = newPins
+	return nil
+}
+
+func (s *MemoryMessageStore) GetPinnedMessages(convID string) ([]PinnedMessage, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	now := time.Now().UTC()
+	pins := s.pinned[convID]
+	var active []PinnedMessage
+	for i := len(pins) - 1; i >= 0; i-- { // PinnedAt DESC
+		p := pins[i]
+		if p.ExpiresAt != nil && p.ExpiresAt.Before(now) {
+			continue
+		}
+		if p.Message != nil && p.Message.IsDeleted {
+			continue
+		}
+		active = append(active, p)
+		if len(active) >= 3 {
+			break
+		}
+	}
+
+	if active == nil {
+		active = []PinnedMessage{}
+	}
+	return active, nil
+}
+
+func (s *MemoryMessageStore) SearchMessages(roomID, userID, query string, limit int) ([]StoredMessage, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	q := strings.ToLower(strings.TrimSpace(query))
+	msgs := s.messages[roomID]
+	var results []StoredMessage
+
+	for i := len(msgs) - 1; i >= 0; i-- {
+		m := msgs[i]
+		if m.IsDeleted {
+			continue
+		}
+		if strings.Contains(strings.ToLower(m.Content), q) {
+			results = append(results, m)
+			if len(results) >= limit {
+				break
+			}
+		}
+	}
+
+	if results == nil {
+		results = []StoredMessage{}
+	}
+	return results, nil
+}
+
 func (s *MemoryMessageStore) Close() error {
 	return nil
 }
 
 var _ MessageStore = (*MemoryMessageStore)(nil)
+

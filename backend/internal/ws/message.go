@@ -16,6 +16,9 @@ const (
 	TypeHistory   MessageType = "history"    // riwayat pesan percakapan dari database
 	TypeRoomUsers MessageType = "room_users" // daftar user yang sedang aktif di room
 	TypeMessageDeleted MessageType = "message_deleted" // pesan dihapus / ditarik untuk semua orang
+	TypeMessageEdited MessageType = "message_edited"  // pesan diedit oleh pengirim
+	TypeMessagePinned MessageType = "message_pinned"  // pesan disematkan dalam room
+	TypeMessageUnpinned MessageType = "message_unpinned" // sematan pesan dicabut dari room
 	TypeAck       MessageType = "ack"        // konfirmasi penerimaan paket transport level (request_id acknowledgment)
 
 	// WebRTC Signaling Event Types (P2P Calling)
@@ -86,6 +89,11 @@ type Message struct {
 	FileSize    int64            `json:"file_size,omitempty"`    // Ukuran berkas dalam bytes
 	MediaStatus string           `json:"media_status,omitempty"` // 'active', 'downloaded', 'expired'
 	IsDeleted   bool             `json:"is_deleted,omitempty"`   // Tanda apakah pesan telah dihapus untuk semua orang
+	IsEdited    bool             `json:"is_edited,omitempty"`    // Tanda apakah pesan telah diedit
+	EditedAt    *time.Time       `json:"edited_at,omitempty"`    // Timestamp saat diedit
+	IsForwarded bool             `json:"is_forwarded,omitempty"` // Tanda apakah pesan merupakan hasil terusan
+	NewContent  string           `json:"new_content,omitempty"`  // Isi konten baru pada event message_edited
+	Pinned      any              `json:"pinned,omitempty"`       // Data payload event message_pinned / message_unpinned
 	Mentions    []string         `json:"mentions,omitempty"`     // Daftar User UUID yang di-mention
 	SDP         string           `json:"sdp,omitempty"`          // WebRTC Session Description Protocol (SDP) offer/answer
 	Candidate   string           `json:"candidate,omitempty"`    // WebRTC ICE Candidate string

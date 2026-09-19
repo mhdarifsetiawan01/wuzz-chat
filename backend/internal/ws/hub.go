@@ -496,6 +496,7 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 			FileName:        msg.FileName,
 			FileSize:        msg.FileSize,
 			Mentions:        mentionsJSON,
+			IsForwarded:     msg.IsForwarded,
 			Timestamp:       msg.Timestamp,
 		})
 		if err != nil {
@@ -623,6 +624,9 @@ func (h *Hub) sendRoomHistory(clientID, roomID string, sinceStr ...string) {
 			FileSize:    m.FileSize,
 			MediaStatus: m.MediaStatus,
 			IsDeleted:   m.IsDeleted,
+			IsEdited:    m.IsEdited,
+			EditedAt:    m.EditedAt,
+			IsForwarded: m.IsForwarded,
 			Mentions:    mentions,
 			Timestamp:   m.Timestamp,
 		})

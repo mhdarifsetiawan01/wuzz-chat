@@ -56,6 +56,12 @@ func (m *mockUserStoreForNotificationAPI) GetOrCreateDirectConversation(userA, u
 func (m *mockUserStoreForNotificationAPI) GetUserConversations(userID string) ([]store.ConversationItem, error) {
 	return nil, nil
 }
+func (m *mockUserStoreForNotificationAPI) PinConversation(conversationID, userID string) error {
+	return nil
+}
+func (m *mockUserStoreForNotificationAPI) UnpinConversation(conversationID, userID string) error {
+	return nil
+}
 func (m *mockUserStoreForNotificationAPI) ClearConversation(conversationID, userID string) error {
 	return nil
 }

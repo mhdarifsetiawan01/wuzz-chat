@@ -59,7 +59,7 @@ Membangun platform chatting modern yang:
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 8: Core Parity (Push, Group Chat & Realtime Reliability) (⏳)    │
+│  FASE 8: Core Parity (Push, Group Chat & Message Suite) (SELESAI ✅)  │
 │  - Milestone 8.1: Universal Push Notification Engine (SELESAI ✅)       │
 │  - Milestone 8.4: IndexedDB Message Cache & E2EE Continuity (SELESAI ✅)│
 │  - Milestone 8.2A: Core Group Chat Engine & Member Mgmt (SELESAI ✅)     │
@@ -67,7 +67,7 @@ Membangun platform chatting modern yang:
 │  - Milestone 8.2C: Forum Rebranding & Mobile Header Redesign (SELESAI ✅)│
 │  - Milestone 8.8: Realtime Engine Scalability & High-ROI Opt (SELESAI ✅)│
 │  - Milestone 8.9: Mobile-Ready Reliability (ACK & Idempotency) (SELESAI ✅)│
-│  - Milestone 8.3: Message Management Suite (NEXT 🎯)                    │
+│  - Milestone 8.3: Message Management Suite (SELESAI ✅)                 │
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
@@ -211,7 +211,7 @@ Membangun platform chatting modern yang:
 
 ---
 
-### Fase 8: Core Parity — Push Notifications, Group Chat & Message Management (Status: SEDANG BERJALAN ⏳)
+### Fase 8: Core Parity — Push Notifications, Group Chat & Message Management (Status: SELESAI ✅)
 *Tujuan: Menghadirkan kesetaraan fitur komunikasi inti (*Core Parity*) dengan WhatsApp & Telegram.*
 - ✅ **Milestone 8.1: Universal Push Notification Engine (SELESAI)**:
   - Standard W3C Web Push (VAPID RFC 8292) dengan integrasi `SherClockHolmes/webpush-go`.
@@ -313,8 +313,13 @@ Membangun platform chatting modern yang:
   - **Server-Side In-Memory Idempotency (2-Minute Cache)**: Pencegahan broadcast duplikat dan publish Redis ganda saat klien mobile me-resend pesan dari antrean keluar (`IsDuplicateAndRecord` berpresisi `UnixNano()`).
   - **Deterministic Client Queue Retransmission**: `WsClient` mempertahankan pesan di `outboundQueue` hingga menerima balasan `ack` atau `receipt`, dan mem-flush secara otomatis saat koneksi pulih (`onopen`).
   - **Test Suite**: Dilindungi unit test komprehensif `ack_idempotency_test.go` (`TestClient_MessageAckDispatch`, `TestHub_ServerSideIdempotency`, `TestHub_IdempotencyTTL`) — 100% PASS.
-- ⏳ **Milestone 8.3: Message Management Suite (NEXT 🎯)**:
-  - Edit pesan (15 menit), forward pesan multi-kontak, pin chat (sidebar) & pin message (header), starred/bookmark message, in-chat text search, dan **Infinite Scroll Cursor Pagination** (`before_id`) melengkapi batas 50 pesan awal server.
+- ✅ **Milestone 8.3: Message Management Suite (SELESAI)**:
+  - **Sub-8.3.A: Edit Pesan (15 Menit)**: Dukungan edit pesan dalam window 15 menit khusus pengirim asli (`from_id`), penolakan pesan ditarik/kedaluwarsa, penanda `is_edited: true` dan timestamp `edited_at`, broadcast real-time event `message_edited`, serta inline editor di frontend (`MessageInput.tsx`) dan badge visual `(diedit)` di `MessageBubble.tsx`.
+  - **Sub-8.3.B: Forward Pesan (Multi-Kontak 1–5 Target)**: Penerusan pesan ke 1 s/d 5 percakapan tujuan sekaligus via `POST /api/messages/forward`, validasi Anti-BOLA per target room, penandaan kekal `is_forwarded: true`, broadcast real-time ke setiap room tujuan, modal seleksi interaktif `ForwardMessageModal.tsx`, dan lencana visual `↪ Diteruskan` di bubble pesan.
+  - **Sub-8.3.C: Pin Chat (Sidebar Per-User)**: Fitur semat obrolan teratas sidebar secara terisolasi per pengguna (`conversation_members.is_pinned` & `pinned_at`), REST API `POST /api/conversations/pin` dan `/unpin`, menu konteks desktop / swipe/action mobile, lencana pin di `Sidebar.tsx`, dan sorting prioritas (pinned chats selalu berada di posisi paling atas).
+  - **Sub-8.3.D: Pin Message (Dalam Chat / Room Pinned Messages)**: Semat hingga 3 pesan penting dalam obrolan (`pinned_messages` table), FIFO unpin otomatis saat pin ke-4 disematkan, penolakan pesan terhapus, otomatis unpin saat pesan ditarik for everyone, REST API `POST /api/messages/pin`, `POST /api/messages/unpin`, `GET /api/messages/pinned`, WebSocket event `message_pinned` & `message_unpinned`, banner interaktif multi-pin `PinnedMessageBanner.tsx`, dan aksi klik jump-to-message dengan animasi cahaya emas `.msg-highlight-glow`.
+  - **Sub-8.3.E: In-Chat Text Search**: Mesin pencarian pesan instan dalam percakapan aktif via `GET /api/messages/search?conversation_id=...&q=...`, case-insensitive substring match, privasi ketat menghormati `cleared_at` pengguna, eksklusi pesan ditarik (`is_deleted`), bar pencarian terintegrasi di `StatusBar.tsx` dengan penghitung hasil pencarian (X/Y), navigasi tombol Atas/Bawah, dan scroll-into-view otomatis dengan highlight biru `.msg-search-highlight`.
+  - **Test Suite**: Dilindungi unit test Go komprehensif (`chat_handler_edit_test.go`, `chat_handler_forward_test.go`, `chat_handler_pin_test.go`, `chat_handler_message_pin_search_test.go`) — 100% PASS.
 - 🔮 **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` via Redis Pub/Sub)**:
   - *Tujuan*: Sinkronisasi pergantian sesi perangkat aktif lintas-mesin container Fly.io (multi-node cluster).
   - *Mekanisme*: Saat pengguna login di Instance A dengan `device_id` baru, broadcast event `session_replaced` ke channel Redis `wuzz:cluster:events` agar Instance B yang menampung koneksi soket lama langsung menendang soket tersebut dengan Close Code 4001 (`SESSION_REPLACED`).

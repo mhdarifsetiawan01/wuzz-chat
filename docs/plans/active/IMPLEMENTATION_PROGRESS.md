@@ -1,4 +1,3 @@
 # Active Implementation Progress
 
-## Tasks Checklist
-- [ ] Standby untuk task berikutnya.
+*Standby — Belum ada progres implementasi aktif. Menunggu penugasan task berikutnya.*

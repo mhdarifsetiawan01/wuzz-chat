@@ -24,6 +24,9 @@ interface MessageInputProps {
   disabled: boolean
   replyTo?: Message | null
   onCancelReply?: () => void
+  editingMessage?: { id: string; content: string } | null
+  onCancelEdit?: () => void
+  onSaveEdit?: (messageId: string, newContent: string) => Promise<void>
   stagedExternalFile?: File | null
   onClearStagedExternalFile?: () => void
   members?: GroupMember[]
@@ -39,6 +42,9 @@ export function MessageInput({
   disabled,
   replyTo,
   onCancelReply,
+  editingMessage,
+  onCancelEdit,
+  onSaveEdit,
   stagedExternalFile,
   onClearStagedExternalFile,
   members = [],
@@ -154,6 +160,16 @@ export function MessageInput({
     }
   }, [replyTo])
 
+  // Focus dan pre-fill textarea saat user mengedit pesan
+  useEffect(() => {
+    if (editingMessage) {
+      setText(editingMessage.content)
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+      }
+    }
+  }, [editingMessage])
+
   // Auto-resize textarea sesuai konten
   useEffect(() => {
     const ta = textareaRef.current
@@ -263,6 +279,21 @@ export function MessageInput({
   const handleSend = async () => {
     const trimmed = text.trim()
     if ((!trimmed && !stagedMedia) || disabled || isSending) return
+
+    // Jika dalam mode edit pesan
+    if (editingMessage && onSaveEdit) {
+      if (!trimmed) return
+      setIsSending(true)
+      try {
+        await onSaveEdit(editingMessage.id, trimmed)
+        setText('')
+        onCancelEdit?.()
+        if (textareaRef.current) textareaRef.current.style.height = 'auto'
+      } finally {
+        setIsSending(false)
+      }
+      return
+    }
 
     setIsSending(true)
     setMentionQuery(null)
@@ -399,6 +430,27 @@ export function MessageInput({
 
   return (
     <div className="chat-input-area">
+      {/* Editing Message Preview Banner */}
+      {editingMessage && (
+        <div className="reply-preview-bar edit-preview-bar" aria-label="Mengedit pesan">
+          <div className="reply-preview-content">
+            <span className="reply-preview-label">
+              ✏️ <strong className="reply-preview-sender">Edit Pesan</strong>
+            </span>
+            <span className="reply-preview-snippet">{editingMessage.content}</span>
+          </div>
+          <button
+            type="button"
+            className="reply-preview-cancel"
+            onClick={onCancelEdit}
+            title="Batal edit"
+            aria-label="Batal edit"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Quoted Message Preview Banner */}
       {replyTo && (
         <div className="reply-preview-bar" aria-label="Membalas pesan">
@@ -634,11 +686,14 @@ export function MessageInput({
                 onClick={handleSend}
                 disabled={!canSend}
                 id="send-btn"
-                aria-label="Kirim pesan"
+                aria-label={editingMessage ? "Simpan perubahan pesan" : "Kirim pesan"}
+                title={editingMessage ? "Simpan perubahan pesan" : "Kirim pesan"}
                 type="button"
               >
                 {isSending ? (
                   <span className="sending-spinner">⏳</span>
+                ) : editingMessage ? (
+                  <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>✓</span>
                 ) : (
                   <svg
                     width="18"
