@@ -713,7 +713,7 @@ export function DeviceTransferModal({
                     justifyContent: 'center',
                     gap: '6px',
                     fontSize: '0.85rem',
-                    color: timeLeft < 60 ? '#ef4444' : 'var(--text-muted)',
+                    color: timeLeft < 60 ? 'var(--color-error)' : 'var(--text-muted)',
                     marginBottom: 'var(--space-4)',
                     fontWeight: 600,
                   }}
@@ -791,7 +791,7 @@ export function DeviceTransferModal({
                 style={{
                   background: 'rgba(34, 197, 94, 0.1)',
                   border: '1px solid rgba(34, 197, 94, 0.3)',
-                  color: '#22c55e',
+                  color: 'var(--color-success)',
                   padding: 'var(--space-4)',
                   borderRadius: '12px',
                   fontSize: '0.9rem',
@@ -908,7 +908,7 @@ export function DeviceTransferModal({
                       <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '6px' }}>
                         ⚠️ Kamera Live Browser Dibatasi
                       </div>
-                      <div style={{ fontSize: '0.8rem', color: '#fca5a5', lineHeight: 1.45 }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--color-error)', lineHeight: 1.45 }}>
                         Sistem Android WebAPK PWA membatasi izin live streaming kamera di browser. Gunakan tombol kamera native di bawah ini untuk mengambil foto QR langsung melalui kamera sistem HP Anda.
                       </div>
                     </div>
@@ -1044,7 +1044,7 @@ export function DeviceTransferModal({
                 style={{
                   background: 'rgba(34, 197, 94, 0.1)',
                   border: '1px solid rgba(34, 197, 94, 0.3)',
-                  color: '#22c55e',
+                  color: 'var(--color-success)',
                   padding: 'var(--space-4)',
                   borderRadius: '12px',
                   fontSize: '0.9rem',
