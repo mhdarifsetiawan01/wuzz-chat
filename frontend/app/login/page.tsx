@@ -89,7 +89,7 @@ function LoginContent() {
 
         {error && (
           <div style={{
-            background: 'rgba(239, 68, 68, 0.1)',
+            background: 'var(--tint-error-10)',
             border: '1px solid rgba(239, 68, 68, 0.3)',
             color: 'var(--color-error)',
             padding: 'var(--space-3)',

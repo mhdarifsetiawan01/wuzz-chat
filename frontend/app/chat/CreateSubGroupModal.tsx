@@ -112,7 +112,7 @@ export default function CreateSubGroupModal({
   }
 
   return (
-    <div className="group-modal-backdrop" onClick={() => !isLoading && onClose()} style={{ zIndex: 1150 }}>
+    <div className="group-modal-backdrop z-modal" onClick={() => !isLoading && onClose()}>
       <div 
         className="group-modal-card" 
         onClick={(e) => e.stopPropagation()}
@@ -160,7 +160,7 @@ export default function CreateSubGroupModal({
             {errorMessage && (
               <div 
                 style={{ 
-                  background: 'rgba(239, 68, 68, 0.15)', 
+                  background: 'var(--tint-error-15)', 
                   border: '1px solid rgba(239, 68, 68, 0.3)',
                   color: 'var(--color-error)',
                   padding: '10px 14px',
@@ -221,7 +221,7 @@ export default function CreateSubGroupModal({
                   onClick={() => !isLoading && setDuration('7_days')}
                   style={{
                     border: duration === '7_days' ? '2px solid var(--accent-500)' : '1px solid rgba(255, 255, 255, 0.1)',
-                    background: duration === '7_days' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                    background: duration === '7_days' ? 'var(--tint-accent-12)' : 'rgba(255, 255, 255, 0.03)',
                     borderRadius: '12px',
                     padding: '12px',
                     cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -253,7 +253,7 @@ export default function CreateSubGroupModal({
                   onClick={() => !isLoading && setDuration('30_days')}
                   style={{
                     border: duration === '30_days' ? '2px solid var(--accent-500)' : '1px solid rgba(255, 255, 255, 0.1)',
-                    background: duration === '30_days' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(255, 255, 255, 0.03)',
+                    background: duration === '30_days' ? 'var(--tint-accent-12)' : 'rgba(255, 255, 255, 0.03)',
                     borderRadius: '12px',
                     padding: '12px',
                     cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -324,7 +324,7 @@ export default function CreateSubGroupModal({
                 <div
                   onClick={() => !isLoading && setIsPublic(false)}
                   style={{
-                    border: !isPublic ? '2px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.1)',
+                    border: !isPublic ? '2px solid var(--color-warning)' : '1px solid rgba(255, 255, 255, 0.1)',
                     background: !isPublic ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255, 255, 255, 0.03)',
                     borderRadius: '12px',
                     padding: '12px',
@@ -357,7 +357,7 @@ export default function CreateSubGroupModal({
             {/* Catatan Masa Depan / AI Summary Notice */}
             <div 
               style={{
-                background: 'rgba(59, 130, 246, 0.08)',
+                background: 'var(--tint-accent-08)',
                 border: '1px solid rgba(59, 130, 246, 0.2)',
                 borderRadius: '10px',
                 padding: '10px 12px',

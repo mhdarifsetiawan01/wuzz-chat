@@ -143,7 +143,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#8696a0',
+              color: 'var(--wa-text-muted)',
               textAlign: 'center',
               padding: '2rem',
               maxWidth: '400px',
@@ -151,7 +151,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <span style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</span>
-            <h3 style={{ color: '#e9edef', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
+            <h3 style={{ color: 'var(--wa-text-primary)', marginBottom: '0.5rem', fontSize: '1.1rem' }}>
               Gagal Memuat Pratinjau Gambar
             </h3>
             <p style={{ fontSize: '0.875rem', lineHeight: '1.5', marginBottom: '1.5rem' }}>

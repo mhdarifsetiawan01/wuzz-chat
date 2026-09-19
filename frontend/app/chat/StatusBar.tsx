@@ -332,7 +332,7 @@ export function StatusBar({
                 display: 'inline-flex', 
                 alignItems: 'center', 
                 gap: '5px',
-                background: 'rgba(59, 130, 246, 0.15)',
+                background: 'var(--tint-accent-15)',
                 color: 'var(--accent-400)',
                 border: '1px solid rgba(59, 130, 246, 0.3)',
                 borderRadius: '16px',

@@ -252,7 +252,7 @@ export default function SubGroupListDrawer({
   }
 
   return (
-    <div className="group-modal-backdrop" onClick={onClose} style={{ zIndex: 1100 }}>
+    <div className="group-modal-backdrop z-modal" onClick={onClose}>
       <div 
         className="group-modal-card" 
         onClick={(e) => e.stopPropagation()}
@@ -267,9 +267,9 @@ export default function SubGroupListDrawer({
               top: 14,
               left: '50%',
               transform: 'translateX(-50%)',
-              zIndex: 1200,
+              zIndex: 'var(--z-modal-top)',
               background: 'rgba(16, 185, 129, 0.95)',
-              color: '#ffffff',
+              color: 'var(--text-on-accent)',
               padding: '8px 16px',
               borderRadius: '20px',
               fontSize: '0.8rem',
@@ -359,7 +359,7 @@ export default function SubGroupListDrawer({
                               width: 38,
                               height: 38,
                               borderRadius: '50%',
-                              background: 'var(--bg-surface-elevated, #2a2a38)',
+                              background: 'var(--bg-elevated)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -399,7 +399,7 @@ export default function SubGroupListDrawer({
                               padding: '6px 10px',
                               borderRadius: '8px',
                               border: '1px solid rgba(239, 68, 68, 0.3)',
-                              background: 'rgba(239, 68, 68, 0.1)',
+                              background: 'var(--tint-error-10)',
                               color: 'var(--color-error)',
                               fontSize: '0.78rem',
                               fontWeight: 600,
@@ -417,7 +417,7 @@ export default function SubGroupListDrawer({
                               borderRadius: '8px',
                               border: 'none',
                               background: 'var(--color-success)',
-                              color: '#ffffff',
+                              color: 'var(--text-on-accent)',
                               fontSize: '0.78rem',
                               fontWeight: 600,
                               cursor: isProcessing ? 'not-allowed' : 'pointer',
@@ -679,7 +679,7 @@ export default function SubGroupListDrawer({
                                 padding: '6px 14px',
                                 borderRadius: '8px',
                                 fontWeight: 600,
-                                background: 'rgba(59, 130, 246, 0.2)',
+                                background: 'var(--tint-accent-20)',
                                 color: 'var(--accent-400)',
                                 border: '1px solid rgba(59, 130, 246, 0.4)',
                               }}

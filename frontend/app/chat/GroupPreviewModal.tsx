@@ -81,9 +81,8 @@ export default function GroupPreviewModal({
 
   return (
     <div 
-      className="group-modal-backdrop" 
+      className="group-modal-backdrop z-modal" 
       onClick={() => !isLoading && onClose()} 
-      style={{ zIndex: 1160 }}
     >
       <div 
         className="group-modal-card" 
@@ -174,7 +173,7 @@ export default function GroupPreviewModal({
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '0.8rem',
-                border: '2px solid #0f172a',
+                border: '2px solid var(--bg-base)',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.4)'
               }}
               title="Grup Publik Terbuka"
@@ -229,7 +228,7 @@ export default function GroupPreviewModal({
               border: '1px solid rgba(255, 255, 255, 0.06)',
               fontSize: '0.85rem',
               lineHeight: '1.5',
-              color: group.description ? 'var(--text-secondary, #cbd5e1)' : 'var(--text-muted)',
+              color: group.description ? 'var(--text-secondary)' : 'var(--text-muted)',
               maxHeight: '120px',
               overflowY: 'auto',
               textAlign: group.description ? 'left' : 'center',
@@ -309,7 +308,7 @@ export default function GroupPreviewModal({
                     width: 16, 
                     height: 16, 
                     borderWidth: 2, 
-                    borderTopColor: '#ffffff' 
+                    borderTopColor: 'var(--text-on-accent)' 
                   }} 
                 />
                 <span>Bergabung...</span>
