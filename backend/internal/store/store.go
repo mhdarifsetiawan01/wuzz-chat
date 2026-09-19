@@ -84,7 +84,8 @@ type MessageStore interface {
 	EditMessage(msgID, userID, newContent string) (*StoredMessage, error)
 
 	// ForwardMessage meneruskan pesan ke 1 sampai 5 percakapan target.
-	ForwardMessage(srcMsgID, senderID, senderNickname string, targetRoomIDs []string) ([]StoredMessage, error)
+	// plaintextContent adalah teks plaintext dari frontend sebagai override agar tidak menyalin ciphertext E2EE antar room.
+	ForwardMessage(srcMsgID, senderID, senderNickname string, targetRoomIDs []string, plaintextContent string) ([]StoredMessage, error)
 
 	// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
 	UpdateMessageStatus(msgID string, status string) error

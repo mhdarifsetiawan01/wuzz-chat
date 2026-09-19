@@ -384,7 +384,7 @@ func (s *MemoryMessageStore) EditMessage(msgID, userID, newContent string) (*Sto
 	return nil, errors.New("pesan tidak ditemukan")
 }
 
-func (s *MemoryMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname string, targetRoomIDs []string) ([]StoredMessage, error) {
+func (s *MemoryMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname string, targetRoomIDs []string, plaintextContent string) ([]StoredMessage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -416,6 +416,13 @@ func (s *MemoryMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname s
 		return nil, errors.New("tidak dapat meneruskan pesan yang telah dihapus")
 	}
 
+	// Tentukan konten pesan terusan:
+	// Prioritaskan plaintext dari frontend agar tidak menyalin ciphertext E2EE antar room yang berbeda kunci AES-nya.
+	forwardContent := srcMsg.Content
+	if strings.TrimSpace(plaintextContent) != "" {
+		forwardContent = strings.TrimSpace(plaintextContent)
+	}
+
 	var forwardedMessages []StoredMessage
 	now := time.Now().UTC()
 
@@ -431,7 +438,7 @@ func (s *MemoryMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname s
 			FromID:          senderID,
 			Nickname:        senderNickname,
 			ToID:            "",
-			Content:         srcMsg.Content,
+			Content:         forwardContent,
 			Status:          "sent",
 			ReplyToID:       "",
 			ReplyToNickname: "",

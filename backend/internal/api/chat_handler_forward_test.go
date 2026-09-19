@@ -411,5 +411,67 @@ func TestChatHandler_ForwardMessage_Scenarios(t *testing.T) {
 			t.Errorf("Expected room %s, got %s", longDMRoom, resp.Messages[0].RoomID)
 		}
 	})
-}
 
+	// Regression test: Pastikan plaintext_content override digunakan saat forward pesan E2EE antar room berbeda.
+	// Bug sebelumnya: backend menyalin ciphertext "e2ee:v1:..." dari room asal ke room tujuan,
+	// sehingga penerima gagal mendekripsi (kunci AES berbeda per room) → tampil "🔒 [Pesan Terenkripsi]".
+	t.Run("Forward dengan plaintext_content override menggantikan ciphertext E2EE", func(t *testing.T) {
+		ciphertextContent := "e2ee:v1:AAAAAAAAAAAAAAAA:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=" // simulasi ciphertext
+		plaintextOverride := "Halo Alice, ini pesan asli yang sudah di-decrypt!"
+
+		origMsg := store.StoredMessage{
+			ID:        "e2ee-fwd-regression-" + userAlice.ID,
+			RoomID:    roomAliceBob,
+			FromID:    userAlice.ID,
+			Nickname:  userAlice.DisplayName,
+			ToID:      "",
+			Content:   ciphertextContent, // disimpan di DB sebagai ciphertext (room Alice↔Bob)
+			Status:    "sent",
+			Timestamp: time.Now().UTC(),
+		}
+		if err := sqlStore.Save(origMsg); err != nil {
+			t.Fatalf("Failed to save E2EE orig msg: %v", err)
+		}
+
+		payload := map[string]any{
+			"message_id":       origMsg.ID,
+			"target_room_ids":  []string{roomAliceCharlie},
+			"plaintext_content": plaintextOverride, // frontend mengirim plaintext hasil decrypt
+		}
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPost, "/api/messages/forward", bytes.NewReader(body))
+		ctx := auth.SetUserContext(req.Context(), &auth.UserClaims{
+			UserID:   userAlice.ID,
+			Username: userAlice.Username,
+		})
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+
+		chatHandler.ForwardMessage(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected status 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp struct {
+			Success  bool                  `json:"success"`
+			Messages []store.StoredMessage `json:"messages"`
+		}
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
+		if len(resp.Messages) != 1 {
+			t.Fatalf("Expected 1 forwarded message, got %d", len(resp.Messages))
+		}
+
+		fwd := resp.Messages[0]
+		// Kunci assertion: content di room tujuan HARUS berisi plaintext, BUKAN ciphertext room asal
+		if fwd.Content == ciphertextContent {
+			t.Errorf("BUG: forwarded message menyalin ciphertext E2EE room asal! Content = %q", fwd.Content)
+		}
+		if fwd.Content != plaintextOverride {
+			t.Errorf("Expected plaintext content %q, got %q", plaintextOverride, fwd.Content)
+		}
+		if fwd.RoomID != roomAliceCharlie {
+			t.Errorf("Expected room %s, got %s", roomAliceCharlie, fwd.RoomID)
+		}
+	})
+}
