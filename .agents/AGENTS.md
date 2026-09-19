@@ -33,31 +33,32 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
 
 ---
 
-## 📚 Continuous & Holistic Documentation Synchronization Rule (MANDATORY)
+## 📚 Tiered Documentation Synchronization Rule (MANDATORY)
 
-**Jika pengguna meminta "update dokumentasi" / "sinkronkan docs", atau setiap kali ada penambahan fitur/perubahan skema/refactoring sekecil apapun, AI WAJIB melakukan audit menyeluruh (360-Degree Check) dan memperbarui SELURUH dokumen proyek tanpa ada yang terlewat.**
+**Pembaruan dokumentasi diatur berdasarkan skala perubahan secara bertingkat (Tiered), untuk menjaga akurasi tanpa memboroskan token context.**
 
 ### Aturan konkret & SOP Audit Dokumentasi:
 
-1. **Prinsip Audit Menyeluruh (*All-Docs Checklist*)**:
-   Ketika instruksi pembaruan dokumentasi diterima, AI **DILARANG HANYA MENGUBAH 1 ATAU 2 FILE**. AI wajib memeriksa dan menyinkronkan seluruh daftar dokumen berikut:
-   - 📄 **[`README.md`](../README.md)**: Ringkasan proyek, daftar centang fitur selesai, struktur monorepo, tech stack, dan panduan menjalankan aplikasi.
-   - 🔌 **[`docs/BACKEND_API.md`](../docs/BACKEND_API.md)**: Panduan integrasi teknis REST API (23 endpoints), katalog event WebSocket, standar wire format E2EE, siklus hidup media Store-and-Forward, dan checklist implementasi klien baru.
-   - 🗺️ **[`docs/ROADMAP.md`](../docs/ROADMAP.md)**: Status milestone jangka panjang dari Fase 1 s/d Fase 7 (Tandai yang selesai vs pending).
-   - 📈 **[`docs/PROGRESS.md`](../docs/PROGRESS.md)**: Riwayat pengerjaan detail, catatan teknis implementasi, dan handover status per milestone.
-   - 🏛️ **[`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)**: Diagram ERD database, skema tabel relasional, kamus endpoint REST API, alur WebSocket, dan media lifecycle.
-   - 🛡️ **[`docs/SECURITY_AND_PERFORMANCE.md`](../docs/SECURITY_AND_PERFORMANCE.md)**: Proteksi BOLA/IDOR, Anti-SSRF Socket IP Pinning, $O(1)$ batch CTE query, indeks database, mitigasi concurrency SQLite, dan matriks E2E.
-   - 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](../docs/MOBILE_INTEGRATION_GUIDE.md)**: Kamus event WebSocket klien mobile, skema signaling WebRTC (`call_offer`, `call_answer`), STUN/TURN, standar E2EE, dan media Store-and-Forward ACK.
-   - 🤖 **[`PROMPT.md`](../PROMPT.md)**: Context primer sesi AI, single source of truth links, tech stack notes, live endpoints, dan status fase terkini.
+1. **Tier 1: Targeted Documentation Sync (Default untuk Bug Fix / Micro-Task / Single Feature)**:
+   - AI **HANYA** memeriksa dan memperbarui dokumen yang secara langsung berkaitan dengan kode yang diubah:
+     - 🔌 **Perubahan REST API / WebSocket / E2EE / Wire Format** ➔ Update [`docs/BACKEND_API.md`](../docs/BACKEND_API.md) & log ringkas di [`docs/PROGRESS.md`](../docs/PROGRESS.md).
+     - 🏛️ **Perubahan Schema Database / Entity / System Flow** ➔ Update [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md).
+     - 📱 **Perubahan WebRTC Signaling / Mobile Flow** ➔ Update [`docs/MOBILE_INTEGRATION_GUIDE.md`](../docs/MOBILE_INTEGRATION_GUIDE.md).
+     - 🛡️ **Perubahan Security / Rate Limiting / Query Performance** ➔ Update [`docs/SECURITY_AND_PERFORMANCE.md`](../docs/SECURITY_AND_PERFORMANCE.md).
+     - 📈 **Seluruh Task / Bug Fix / Refactor** ➔ Catat ringkasan pengerjaan di [`docs/PROGRESS.md`](../docs/PROGRESS.md).
+   - **DILARANG** membaca atau mengedit dokumen lain yang tidak terdampak untuk menghemat token dan context window.
 
-2. **Langkah Kerja Eksekusi SOP (*Step-by-Step Execution*)**:
-   - **Langkah 1 (Analisis Diff & Fitur Baru)**: Identifikasi seluruh perubahan kode, endpoint baru, event WebSocket baru, atau perbaikan performa/keamanan dari commit/perubahan terkini.
-   - **Langkah 2 (Multi-File Inspection)**: Buka setiap file dokumentasi di atas untuk memeriksa apakah ada deskripsi yang sudah usang (*outdated*) atau belum sinkron.
-   - **Langkah 3 (Sinkronisasi Konten)**: Perbarui informasi di setiap file secara presisi dan konsisten.
-   - **Langkah 4 (Laporan Matriks Sinkronisasi)**: Sajikan laporan ringkas berupa tabel status sinkronisasi seluruh dokumen kepada pengguna.
+2. **Tier 2: Comprehensive All-Docs Audit (Khusus Akhir Milestone / Perintah Eksplisit)**:
+   - Audit menyeluruh ke 8 dokumen (`README.md`, `BACKEND_API.md`, `ROADMAP.md`, `PROGRESS.md`, `ARCHITECTURE.md`, `SECURITY_AND_PERFORMANCE.md`, `MOBILE_INTEGRATION_GUIDE.md`, `PROMPT.md`) **HANYA** dijalankan jika:
+     - Pengguna secara eksplisit meminta: *"audit semua docs"*, *"sinkronkan seluruh dokumentasi"*, atau *"full docs sync"*.
+     - Penyelesaian sebuah Milestone / Fase besar (misal: penutupan Fase 4 atau Fase 5 di `ROADMAP.md`).
+     - Rilis versi baru (*Production Release Tag*).
 
-3. **Definition of Done (DoD) Gate**:
-   - Tugas pengerjaan fitur maupun permintaan dokumentasi **TIDAK DIANGGAP SELESAI** jika salah satu dokumen di atas tertinggal atau berstatus usang.
+3. **Langkah Kerja Eksekusi SOP (*Step-by-Step Execution*)**:
+   - **Langkah 1 (Klasifikasi Dampak)**: Identifikasi file mana saja dari kode yang berubah dan tentukan dokumen target (Tier 1).
+   - **Langkah 2 (Targeted Range Inspection)**: Buka hanya section dokumen yang relevan menggunakan range reading (`StartLine`/`EndLine`).
+   - **Langkah 3 (Sinkronisasi Konten)**: Perbarui informasi secara presisi dan konsisten.
+   - **Langkah 4 (Laporan Ringkas)**: Cantumkan dokumen apa saja yang diperbarui dalam laporan akhir ke pengguna.
 
 ---
 
@@ -264,6 +265,28 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
 5. **Kamus Single Source of Truth**:
    - Sebelum menambahkan styling atau token baru, AI **WAJIB membaca [`frontend/DESIGN.md`](../frontend/DESIGN.md)**.
    - Jika membutuhkan token baru, daftarkan token tersebut di `:root` `frontend/app/globals.css` dan perbarui dokumentasi `frontend/DESIGN.md`.
+
+---
+
+## ⚡ Token Efficiency & Context Window Optimization Rule (MANDATORY)
+
+**AI WAJIB menerapkan prinsip efisiensi token dan optimalisasi context window pada setiap operasi baca-tulis file dan perintah terminal.**
+
+### Aturan konkret:
+
+1. **Grep-First & Line-Range File Reading**:
+   - **DILARANG KERAS** membaca file besar (> 100 baris) secara utuh jika hanya mencari fungsi, variabel, atau section tertentu.
+   - AI **WAJIB** menggunakan `grep_search` terlebih dahulu untuk menemukan lokasi baris yang dicari.
+   - Gunakan `view_file` dengan parameter `StartLine` dan `EndLine` (target 50–150 baris di sekitar target kode).
+
+2. **Diff-Chunk File Editing**:
+   - Gunakan `replace_file_content` atau `multi_replace_file_content` dengan range baris yang presisi.
+   - **DILARANG** menulis ulang atau meng-overwrite seluruh isi file (`write_to_file`) jika hanya mengubah beberapa baris.
+
+3. **Terminal Output & Log Filtering**:
+   - Batasi output terminal yang panjang (gunakan `git log -n 5`, `head -n 20`, atau grep filter).
+   - Jangan melakukan dump log error yang masif ke context; ambil hanya stack trace yang relevan.
+
 
 
 
