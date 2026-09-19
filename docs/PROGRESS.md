@@ -1068,3 +1068,36 @@ Floating hover toolbar (`bubble-action-bar`) yang menampilkan semua ikon sekalig
 - Frontend: `npm run build` di `frontend/` — **✓ Compiled successfully** (0 TypeScript error, 0 ESLint error).
 - Backend: tidak ada perubahan kode backend pada milestone ini.
 
+---
+
+## Milestone 8.5 — Bugfix: Forward Message E2EE Cross-Room "Pesan Terenkripsi"
+**Tanggal**: 2026-09-19
+**Branch**: `dev` → `main`
+**Commit**: `24d2d90`
+**Deploy**: Fly.io `wuzz-chat-backend.fly.dev` ✅
+
+### Latar Belakang & Root Cause
+Pesan yang di-forward dari DM E2EE ke DM E2EE yang **berbeda** sering muncul sebagai "🔒 [Pesan Terenkripsi]" di kedua sisi (pengirim dan penerima).
+
+**Root cause**: `ForwardMessage` backend menyalin `srcMsg.Content` dari database ke room tujuan. Namun `srcMsg.Content` adalah ciphertext E2EE dengan format `e2ee:v1:<iv>:<ciphertext>` yang di-enkripsi menggunakan **kunci AES room asal** (ECDH+HKDF dengan `roomSalt = room_id`). Ketika penerima mencoba mendekripsi dengan kunci AES **room tujuan** (berbeda), GCM authentication tag mismatch → dekripsi gagal → tampil "🔒 [Pesan Terenkripsi]".
+
+**Intermittent** karena hanya terjadi pada skenario: forward teks dari DM E2EE → DM E2EE berbeda. Forward media, forward dari grup, atau forward ke room yang sama tetap berjalan normal.
+
+### Solusi: `plaintext_content` Override
+
+Frontend mengirim `plaintext_content` (teks yang sudah ter-decrypt di UI, diambil dari `forwardingMessage.content`) bersama request `POST /api/messages/forward`. Backend menggunakan plaintext ini sebagai konten pesan terusan, menggantikan `srcMsg.Content` dari DB.
+
+### Perubahan File
+
+1. **`backend/internal/store/store.go`**: Update interface `MessageStore.ForwardMessage` — tambah parameter `plaintextContent string`.
+2. **`backend/internal/store/sql.go`**: `ForwardMessage` — hitung `forwardContent = plaintextContent` jika non-empty, fallback ke `srcMsg.Content`.
+3. **`backend/internal/store/memory.go`**: Idem dengan sql.go.
+4. **`backend/internal/api/chat_handler.go`**: Tambah field `PlaintextContent string` di request struct, teruskan ke store layer.
+5. **`frontend/app/chat/page.tsx`**: `handleForwardMessage` — kirim `plaintext_content: forwardingMessage?.content` di POST body.
+6. **`backend/internal/api/chat_handler_forward_test.go`**: Regression test baru *"Forward dengan plaintext_content override menggantikan ciphertext E2EE"* — assertion bahwa content pesan terusan adalah plaintext, bukan ciphertext room asal.
+
+**Verifikasi & Test Evidence**:
+- Backend: `go test -count=1 ./...` — **9/9 PASS** (semua skenario forward termasuk regression test E2EE baru).
+- Frontend: `npm run build` — **✓ Compiled successfully** (0 TypeScript/ESLint error).
+- Fly.io Health Check: `GET /health` → **HTTP/2 200 OK**.
+
