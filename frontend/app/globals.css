@@ -937,81 +937,200 @@ h4 { font-size: 1rem;   font-weight: 600; }
   flex-direction: column;
 }
 
-.bubble-action-bar {
-  position: absolute;
-  top: -34px;
-  right: 0;
+/* ── Message Context Menu — Desktop Dropdown ────────────────────────── */
+.ctx-dropdown {
+  position: fixed;
+  z-index: 99990;
+  min-width: 210px;
+  background: #1e2730;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.72), 0 4px 12px rgba(0, 0, 0, 0.40);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: ctxFadeIn 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top left;
+  overflow: hidden;
+}
+
+@keyframes ctxFadeIn {
+  from { opacity: 0; transform: scale(0.92) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Shared: Emoji Row ────────────────────────────────────────── */
+.ctx-emoji-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: var(--bg-overlay);
-  border: 1px solid var(--border-default);
-  backdrop-filter: blur(12px);
-  padding: 3px 6px;
-  border-radius: var(--radius-full);
-  box-shadow: var(--shadow-md);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(4px);
-  transition: opacity 150ms ease, transform 150ms ease;
-  z-index: 10;
-}
-
-.message-row.self .bubble-action-bar {
-  right: 0;
-}
-
-.message-row.peer .bubble-action-bar {
-  left: 0;
-  right: auto;
-}
-
-.message-bubble-wrapper:hover .bubble-action-bar,
-.message-bubble-wrapper:focus-within .bubble-action-bar {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-}
-
-.quick-emoji-list {
-  display: flex;
-  align-items: center;
+  justify-content: space-around;
+  padding: 6px 4px 8px;
   gap: 2px;
 }
 
-.quick-emoji-btn {
+.ctx-emoji-btn {
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 1rem;
-  padding: 2px 4px;
-  border-radius: var(--radius-sm);
-  transition: transform 120ms ease, background 120ms ease;
-  line-height: 1;
-}
-
-.quick-emoji-btn:hover {
-  transform: scale(1.25);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.bubble-action-btn {
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-size: 0.875rem;
-  padding: 3px 6px;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  transition: background 120ms ease, color 120ms ease;
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), background 120ms ease;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
-.bubble-action-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: var(--text-primary);
+.ctx-emoji-btn:hover,
+.ctx-emoji-btn:active {
+  transform: scale(1.35);
+  background: rgba(255, 255, 255, 0.10);
+}
+
+.ctx-emoji-btn--active {
+  background: rgba(99, 179, 237, 0.18);
+  box-shadow: inset 0 0 0 1.5px rgba(99, 179, 237, 0.50);
+}
+
+.ctx-emoji-btn--active:hover {
+  background: rgba(99, 179, 237, 0.28);
+}
+
+/* ── Shared: Separator ────────────────────────────────────────── */
+.ctx-separator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 2px 0;
+  flex-shrink: 0;
+}
+
+/* ── Shared: Action Item ───────────────────────────────────────── */
+.ctx-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+  transition: background 100ms ease, color 100ms ease;
+  user-select: none;
+}
+
+.ctx-item:hover,
+.ctx-item:active {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.ctx-item-icon {
+  font-size: 1rem;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.ctx-item-label {
+  flex: 1;
+}
+
+.ctx-item-badge {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ctx-item--pinned .ctx-item-icon {
+  filter: drop-shadow(0 0 3px rgba(251, 191, 36, 0.8));
+}
+
+.ctx-item--danger {
+  color: #fc8181;
+}
+
+.ctx-item--danger:hover,
+.ctx-item--danger:active {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fc8181;
+}
+
+/* ── Mobile: Backdrop ─────────────────────────────────────────── */
+.ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99990;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  animation: ctxBackdropIn 200ms ease both;
+}
+
+@keyframes ctxBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Mobile: Bottom Sheet ─────────────────────────────────────── */
+.ctx-bottom-sheet {
+  width: 100%;
+  background: #1e2730;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px 8px max(16px, env(safe-area-inset-bottom, 16px));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: ctxSheetUp 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  max-height: 85dvh;
+  overflow-y: auto;
+}
+
+@keyframes ctxSheetUp {
+  from { transform: translateY(100%); opacity: 0.5; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.ctx-bottom-sheet-handle {
+  width: 36px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.20);
+  border-radius: 2px;
+  margin: 0 auto 8px;
+  flex-shrink: 0;
+}
+
+.ctx-bottom-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Bottom sheet items slightly larger for touch */
+.ctx-bottom-sheet .ctx-item {
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  border-radius: 10px;
+}
+
+.ctx-bottom-sheet .ctx-emoji-btn {
+  font-size: 1.7rem;
+  width: 44px;
+  height: 44px;
 }
 
 /* Quoted Reply Block in Message Bubble */
@@ -4250,11 +4369,7 @@ h4 { font-size: 1rem;   font-weight: 600; }
   font-size: 0.875rem;
 }
 
-/* Delete Message Action Toolbar Button */
-.bubble-action-btn.delete-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-}
+/* [Removed] Delete Message Action Toolbar Button — replaced by ctx-item--danger */
 
 /* Delete Message Modal */
 .delete-choice-card {

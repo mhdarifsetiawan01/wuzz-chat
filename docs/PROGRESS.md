@@ -1032,4 +1032,39 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 - Frontend: `npm run build` di `frontend/` — **100% PASS** (0 TypeScript/ESLint error).
 
 
+---
+
+## Milestone 8.4 — Message Context Menu UI/UX Redesign (Discord-Style)
+**Tanggal**: 2026-09-19
+**Branch**: `dev`
+
+### Latar Belakang
+Floating hover toolbar (`bubble-action-bar`) yang menampilkan semua ikon sekaligus (emoji + reply + forward + pin + delete) dinilai terlalu padat dan tidak premium. Dilakukan redesign lengkap mengikuti pola Discord (Opsi B).
+
+### Perubahan Implementasi
+
+1. **Komponen Baru: `MessageContextMenu.tsx`**:
+   - Di-render via `createPortal` langsung ke `document.body` agar tidak terpotong oleh `overflow: hidden` parent.
+   - **Desktop**: right-click pada bubble → dropdown context menu muncul tepat di posisi kursor dengan auto-clamp ke viewport edge.
+   - **Mobile**: long press 500ms → bottom sheet slide dari bawah dengan backdrop blur + safe-area-inset padding.
+   - Deteksi platform via `window.matchMedia('(pointer: coarse)')`.
+   - Proteksi scroll guard: `touchMovedRef` mencegah long press terpicu saat user scroll.
+
+2. **Modifikasi `MessageBubble.tsx`**:
+   - Dihapus: seluruh blok JSX `bubble-action-bar` (floating hover toolbar lama).
+   - Ditambah: `onContextMenu` handler (right-click desktop) dan `onTouchStart` / `onTouchEnd` / `onTouchMove` handlers (long press mobile).
+   - State baru: `contextMenu: { x, y } | null`, `longPressTimerRef`, `longPressFiredRef`, `touchMovedRef`.
+
+3. **Modifikasi `globals.css`**:
+   - Dihapus: `.bubble-action-bar`, `.quick-emoji-list`, `.quick-emoji-btn`, `.bubble-action-btn` (semua style toolbar lama).
+   - Ditambah: sistem CSS `.ctx-*` — desktop dropdown dengan animasi `ctxFadeIn` (scale + opacity), mobile bottom sheet dengan animasi `ctxSheetUp` (translateY spring), emoji row dengan spring scale animation, separator, action items dengan `ctx-item--danger` (merah) untuk Hapus.
+
+4. **Fitur Context Menu**:
+   - Emoji reaction row: 👍❤️😂😮😢🙏 — dengan highlight `ctx-emoji-btn--active` jika user sudah bereaksi.
+   - Aksi: Balas, Edit (jika dalam 15 menit), Teruskan, Sematkan/Lepas Sematan.
+   - Hapus (warna merah, terpisah oleh separator — destruktif visual cue).
+
+**Verifikasi & Test Evidence**:
+- Frontend: `npm run build` di `frontend/` — **✓ Compiled successfully** (0 TypeScript error, 0 ESLint error).
+- Backend: tidak ada perubahan kode backend pada milestone ini.
 
