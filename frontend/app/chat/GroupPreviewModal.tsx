@@ -149,7 +149,7 @@ export default function GroupPreviewModal({
                   width: 76,
                   height: 76,
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+                  background: 'linear-gradient(135deg, var(--accent-500), var(--accent-secondary))',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -166,7 +166,7 @@ export default function GroupPreviewModal({
                 position: 'absolute',
                 bottom: -2,
                 right: -2,
-                background: '#3b82f6',
+                background: 'var(--accent-500)',
                 borderRadius: '50%',
                 width: 24,
                 height: 24,
@@ -194,7 +194,7 @@ export default function GroupPreviewModal({
                 <span 
                   style={{ 
                     fontSize: '0.8rem', 
-                    color: '#818cf8', 
+                    color: 'var(--accent-secondary)', 
                     fontWeight: 600,
                     background: 'rgba(129, 140, 248, 0.1)',
                     padding: '3px 8px',

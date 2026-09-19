@@ -228,7 +228,7 @@ export default function CreateGroupModal({
                   width: 54,
                   height: 54,
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+                  background: 'linear-gradient(135deg, var(--accent-500), var(--accent-secondary))',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -310,7 +310,7 @@ export default function CreateGroupModal({
                   style={{
                     padding: '12px 14px',
                     borderRadius: 12,
-                    border: !isPublic ? '2px solid #3b82f6' : '1px solid rgba(255,255,255,0.08)',
+                    border: !isPublic ? '2px solid var(--accent-500)' : '1px solid rgba(255,255,255,0.08)',
                     background: !isPublic ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.03)',
                     color: !isPublic ? '#fff' : 'var(--text-muted)',
                     cursor: 'pointer',
@@ -332,7 +332,7 @@ export default function CreateGroupModal({
                   style={{
                     padding: '12px 14px',
                     borderRadius: 12,
-                    border: isPublic ? '2px solid #818cf8' : '1px solid rgba(255,255,255,0.08)',
+                    border: isPublic ? '2px solid var(--accent-secondary)' : '1px solid rgba(255,255,255,0.08)',
                     background: isPublic ? 'rgba(129,140,248,0.15)' : 'rgba(255,255,255,0.03)',
                     color: isPublic ? '#fff' : 'var(--text-muted)',
                     cursor: 'pointer',
@@ -470,7 +470,7 @@ export default function CreateGroupModal({
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => {}}
-                          style={{ width: 18, height: 18, accentColor: '#3b82f6', cursor: 'pointer' }}
+                          style={{ width: 18, height: 18, accentColor: 'var(--accent-500)', cursor: 'pointer' }}
                         />
                       </div>
                     )
@@ -521,7 +521,7 @@ export default function CreateGroupModal({
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => {}}
-                            style={{ width: 18, height: 18, accentColor: '#3b82f6', cursor: 'pointer' }}
+                            style={{ width: 18, height: 18, accentColor: 'var(--accent-500)', cursor: 'pointer' }}
                           />
                         </div>
                       )

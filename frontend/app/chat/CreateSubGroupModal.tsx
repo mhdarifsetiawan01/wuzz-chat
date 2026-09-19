@@ -162,7 +162,7 @@ export default function CreateSubGroupModal({
                 style={{ 
                   background: 'rgba(239, 68, 68, 0.15)', 
                   border: '1px solid rgba(239, 68, 68, 0.3)',
-                  color: '#f87171',
+                  color: 'var(--color-error)',
                   padding: '10px 14px',
                   borderRadius: '10px',
                   fontSize: '0.85rem'
@@ -220,7 +220,7 @@ export default function CreateSubGroupModal({
                 <div
                   onClick={() => !isLoading && setDuration('7_days')}
                   style={{
-                    border: duration === '7_days' ? '2px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.1)',
+                    border: duration === '7_days' ? '2px solid var(--accent-500)' : '1px solid rgba(255, 255, 255, 0.1)',
                     background: duration === '7_days' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(255, 255, 255, 0.03)',
                     borderRadius: '12px',
                     padding: '12px',
@@ -232,7 +232,7 @@ export default function CreateSubGroupModal({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: duration === '7_days' ? '#60a5fa' : 'inherit' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: duration === '7_days' ? 'var(--accent-400)' : 'inherit' }}>
                       🌟 1 Minggu
                     </span>
                     <input 
@@ -252,7 +252,7 @@ export default function CreateSubGroupModal({
                 <div
                   onClick={() => !isLoading && setDuration('30_days')}
                   style={{
-                    border: duration === '30_days' ? '2px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.1)',
+                    border: duration === '30_days' ? '2px solid var(--accent-500)' : '1px solid rgba(255, 255, 255, 0.1)',
                     background: duration === '30_days' ? 'rgba(59, 130, 246, 0.12)' : 'rgba(255, 255, 255, 0.03)',
                     borderRadius: '12px',
                     padding: '12px',
@@ -264,7 +264,7 @@ export default function CreateSubGroupModal({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: duration === '30_days' ? '#60a5fa' : 'inherit' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: duration === '30_days' ? 'var(--accent-400)' : 'inherit' }}>
                       🗓️ 1 Bulan
                     </span>
                     <input 
@@ -304,7 +304,7 @@ export default function CreateSubGroupModal({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: isPublic ? '#34d399' : 'inherit' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: isPublic ? 'var(--color-online)' : 'inherit' }}>
                       🌐 Terbuka
                     </span>
                     <input 
@@ -336,7 +336,7 @@ export default function CreateSubGroupModal({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: !isPublic ? '#fbbf24' : 'inherit' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: !isPublic ? 'var(--color-warning)' : 'inherit' }}>
                       🔒 Privat
                     </span>
                     <input 
@@ -362,7 +362,7 @@ export default function CreateSubGroupModal({
                 borderRadius: '10px',
                 padding: '10px 12px',
                 fontSize: '0.75rem',
-                color: '#93c5fd',
+                color: 'var(--accent-300)',
                 display: 'flex',
                 gap: '8px',
                 alignItems: 'flex-start',

@@ -123,7 +123,7 @@ export function DeviceConflictModal({
               padding: 'var(--space-3)',
               marginBottom: 'var(--space-5)',
               fontSize: '0.825rem',
-              color: '#f87171',
+              color: 'var(--color-error)',
               textAlign: 'left',
               lineHeight: 1.5,
             }}
@@ -133,7 +133,7 @@ export function DeviceConflictModal({
         )}
 
         {errorMsg && (
-          <div style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: 'var(--space-3)' }}>
+          <div style={{ color: 'var(--color-error)', fontSize: '0.85rem', marginBottom: 'var(--space-3)' }}>
             {errorMsg}
           </div>
         )}

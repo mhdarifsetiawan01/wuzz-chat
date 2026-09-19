@@ -1,0 +1,13 @@
+# Konfigurasi Design QA untuk frontend Wuzz Chat.
+# Dipakai oleh plugin Qoder "Design Review" (skill design-debt-review, design-qa, dsb.).
+# Jalankan dari direktori frontend/:
+#   node .design-qa/plugin/design-plugin/skills/design-debt-review/scripts/audit-design-debt.mjs --config design.qa.yaml
+project:
+  name: wuzz-chat-frontend
+  baseUrl: http://localhost:3000
+code:
+  include:
+    - "app/**/*.{ts,tsx,css}"
+    - "lib/**/*.{ts,tsx}"
+debt:
+  allowedColorValues: ["#000", "#fff", "transparent"]

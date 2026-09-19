@@ -216,7 +216,7 @@ export function AvatarStudio({
             <span>Pilih salah satu karakter gratis:</span>
             <span
               style={{
-                color: '#34d399',
+                color: 'var(--color-online)',
                 background: 'rgba(52, 211, 153, 0.12)',
                 padding: '2px 6px',
                 borderRadius: 'var(--radius-full)',
@@ -248,7 +248,7 @@ export function AvatarStudio({
                     borderRadius: '50%',
                     background: isSelected ? 'var(--accent-500)' : 'var(--bg-tertiary)',
                     border: isSelected
-                      ? '2.5px solid #93c5fd'
+                      ? '2.5px solid var(--accent-300)'
                       : '1px solid var(--border-default)',
                     fontSize: '1.35rem',
                     cursor: 'pointer',
