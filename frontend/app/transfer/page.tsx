@@ -111,7 +111,7 @@ function TransferContent() {
             style={{
               background: 'rgba(34, 197, 94, 0.1)',
               border: '1px solid rgba(34, 197, 94, 0.3)',
-              color: '#22c55e',
+              color: 'var(--color-success)',
               padding: 'var(--space-4)',
               borderRadius: '12px',
               fontSize: '0.9rem',

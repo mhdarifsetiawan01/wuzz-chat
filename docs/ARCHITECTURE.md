@@ -561,6 +561,8 @@ Wuzz Chat mengadopsi prinsip desain modular berlapis yang memisahkan logika styl
    - Bersifat *pure function* tanpa state, digunakan secara konsisten oleh seluruh komponen UI (Sidebar, StatusBar, ContactProfileModal, MemberListModal, Call Overlay).
 2. **Centralized CSS Design Tokens (`frontend/app/globals.css`)**:
    - Seluruh token warna primer (`Soft Azure`), sekunder (`Soft Lavender`), dan tersier (`Soft Coral Rose`) dikunci di `:root`.
+   - Keluarga token status semantik (design-debt batch fix, 2026-09-19): `--color-error` (teks/ikon error di latar gelap), `--color-danger` / `--color-danger-strong` (fill aksi destruktif + hover), `--color-success` (konfirmasi sukses), `--color-online` (indikator kehadiran), `--color-warning`.
+   - Kebijakan *token-first*: kode fitur (`app/**`, `lib/**`) wajib `var(--token)`; hex mentah hanya sah di `:root` dan `lib/avatarColor.ts` (palet avatar deterministik). Audit berulang via `frontend/.design-qa/reports/design-debt.md`.
    - Permukaan *frosted glass* (`backdrop-filter: blur()`), kartu profil pengguna, dan *specular highlights* diatur secara terpusat untuk memudahkan pembaruan tema tanpa *breaking changes*.
 3. **High-Contrast Readability Guard**:
    - Memenuhi standar WCAG untuk kenyamanan membaca di perangkat seluler dengan rasio kontras tinggi pada bubble pesan masuk (`Slate Frosted Glass`), timestamp putih terang (`rgba(255, 255, 255, 0.88)`), read receipts (`Electric Cyan #67e8f9`), dan kotak balasan pesan berbayang gelap.

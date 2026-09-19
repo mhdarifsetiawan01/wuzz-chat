@@ -269,7 +269,7 @@ export default function CreateGroupModal({
             {/* Nama Grup */}
             <div>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'block', marginBottom: 6, fontWeight: 500 }}>
-                Nama Grup <span style={{ color: '#ef4444' }}>*</span>
+                Nama Grup <span style={{ color: 'var(--color-error)' }}>*</span>
               </label>
               <input
                 type="text"

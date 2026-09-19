@@ -116,12 +116,12 @@
 
 ## Suggested Batch Fixes
 
-1. **Codemod hex → token (quick win, ±90 replacement):** `#3b82f6→var(--accent-500)`, `#60a5fa→var(--accent-400)`, `#93c5fd→var(--accent-300)`, `#818cf8→var(--accent-secondary)`, `#a5b4fc→var(--accent-secondary-soft)`, `#f472b6→var(--accent-tertiary)`, `#fb7185→var(--accent-tertiary-hover)`, `#f87171→var(--color-error)`, `#fbbf24→var(--color-warning)`, `#34d399→var(--color-online)`, `#f8fafc→var(--text-primary)`, `#94a3b8→var(--text-secondary)`, `#64748b→var(--text-muted)`, `#090d16→var(--bg-base)`.
-2. **Standarisasi warna status:** pilih satu merah (`--color-error`) dan satu hijau (tambah `--color-success`); hapus `#ef4444/#dc2626/#fc8181/#fca5a5` dan `#22c55e/#10b981`.
+1. **Codemod hex → token** — ✅ SELESAI 2026-09-19, 112 replacement (lihat "Batch Fix #1 — Hasil Eksekusi"): `#3b82f6→var(--accent-500)`, `#60a5fa→var(--accent-400)`, `#93c5fd→var(--accent-300)`, `#818cf8→var(--accent-secondary)`, `#a5b4fc→var(--accent-secondary-soft)`, `#f472b6→var(--accent-tertiary)`, `#fb7185→var(--accent-tertiary-hover)`, `#f87171→var(--color-error)`, `#fbbf24→var(--color-warning)`, `#34d399→var(--color-online)`, `#f8fafc→var(--text-primary)`, `#94a3b8→var(--text-secondary)`, `#64748b→var(--text-muted)`, `#090d16→var(--bg-base)`.
+2. **Standarisasi warna status** — ✅ SELESAI 2026-09-19 (lihat "Batch Fix #2 & #6 — Hasil Eksekusi"): merah dua-peran `--color-error` (teks) / `--color-danger`+`--color-danger-strong` (fill), hijau `--color-success`; hex drift status di kode fitur kini 0.
 3. **Tambah token yang hilang lalu batch-replace:** type scale `--text-xs…--text-3xl`, z-index scale `--z-*`, `--color-verified`, `--text-on-accent`, tint aksen/error.
 4. **Ekstraksi inline style 5 file top-offender** (`DeviceTransferModal`, `ProfileModal`, `SubGroupListDrawer`, `CreateGroupModal`, `GroupInfoDrawer`) ke kelas di `globals.css` yang merujuk token; sisakan hanya nilai dinamis.
 5. **Unifikasi modal:** satu primitive `<Modal backdrop zIndex>`; migrasikan `group-modal-backdrop`/`ctx-backdrop`/overlay inline ke satu implementasi; normalisasi z-index.
-6. **Hapus `app/page.module.css`.**
+6. **Hapus `app/page.module.css`** — ✅ SELESAI 2026-09-19 (dikerjakan bersama batch #2).
 7. **Buat `DESIGN.md`** (template tersedia di plugin; skill `design-system-capture` bisa menangkap dari `:root` + komponen) supaya audit sadar-token, Canvas viewer DESIGN.md aktif, dan pasangan kontras terdokumentasi.
 
 ## Acceptable Exceptions
@@ -188,3 +188,44 @@ Dua token dangling lain (`--color-soft-azure`, `--accent-color`) sudah hilang le
 - `frontend/.design-qa/codemod-hex-to-token.mjs` — codemod dengan validasi peta vs `:root` (aman dijalankan ulang).
 - `frontend/.design-qa/reports/codemod-batch1.json` — rinci per file/baris.
 - `frontend/.design-qa/before-login.png` / `after-login.png` — pasangan bukti visual valid (before-landing.png ter-race dengan navigasi dan berisi halaman login; halaman landing diverifikasi via fingerprint).
+
+---
+
+## Batch Fix #2 & #6 — Hasil Eksekusi (2026-09-19)
+
+**Status: SELESAI & TERVERIFIKASI.** Branch: `feature/design-debt-batch-6-2` (dipotong dari `dev`; commit menyusul).
+
+### Yang dilakukan
+1. **#6 — `app/page.module.css` dihapus** (150 baris starter Next.js yang mati — 0 import — dan mendefinisikan tema terang yang berlawanan dengan design system dark-first).
+2. **#2 — Standarisasi warna status** dengan keputusan semantik dua-peran:
+   - `--color-error: #f87171` — teks/ikon error di latar gelap.
+   - `--color-danger: #ef4444` + `--color-danger-strong: #dc2626` — fill tombol destruktif + varian hover/tekan (teks/ikon putih: kontras ±3.8:1 vs ±2.8:1 bila memakai error-red).
+   - `--color-success: #10b981` — konfirmasi sukses & fill afirmatif (tombol Setujui, pesan terkirim).
+   - `--color-online: #34d399` — tetap khusus indikator kehadiran.
+3. Codemod sadar-properti `.design-qa/codemod-status-colors.mjs` (peran `color:` vs `background/border:` dibedakan; peta divalidasi otomatis vs `:root`; dry-run → review → `--write`): **32 penggantian di 9 file** (18 di `globals.css` + 14 di 8 file TSX).
+4. Pre-fix 2 anomali: fallback salah `var(--accent-500, #22c55e)` → `var(--accent-500)`; token dangling `var(--danger-color, #ef4444)` di `CreateSubGroupModal.tsx` → `var(--color-error)`.
+
+### Perubahan visual yang disengaja (tujuan batch, bukan regresi)
+- `#22c55e` → `#10b981` (hijau sukses kini konsisten).
+- `#ef4444` pada konteks **teks** → `#f87171` (merah lebih terang untuk teks di latar gelap).
+- `#fc8181`/`#fca5a5` → `#f87171` (merah muda nyaris identik).
+- Fill destruktif `#ef4444`/`#dc2626` tidak berubah nilai — kini lewat token.
+
+### Konteks yang sengaja TIDAK diganti
+- Tint `rgba(239, 68, 68, …)` / `rgba(34, 197, 94, …)` — cakupan batch #3.
+- Gradient `#10b981/#34d399` di `lib/avatarColor.ts` — modul palet avatar (pengecualian terdokumentasi).
+- 3 hex definisi token baru di `:root` itu sendiri.
+
+### Verifikasi
+- Dry-run ditinjau sebelum `--write`; 32 replacement cocok persis dengan inventaris manual (18 CSS + 14 TSX).
+- Sisa hex drift status (`#ef4444|#dc2626|#fc8181|#fca5a5|#22c55e|#10b981`) di `app/**` + `lib/**`: **0** — hanya 3 definisi token di `:root` + 1 gradient avatarColor.
+- Referensi token dangling `--danger-color`: **0**.
+- Browser (localhost:3047): `--color-success` → `#10b981`, `--color-danger` → `#ef4444`, `--color-danger-strong` → `#dc2626` (computed); `varsMissing` **6 → 5** (`--color-success` kini terdefinisi; tersisa `--border-focus`, `--bg-input`, `--bg-surface-hover`, `--transition-normal`, `--shadow-lg` — pre-existing, kandidat perbaikan lanjutan); screenshot login normal.
+- `npm run build`: **PASS** (TypeScript bersih, 6 route static — `page.module.css` hilang tanpa efek).
+- `go test ./...`: **PASS** (8 paket ber-test ok, 1 tanpa test file).
+- Audit ulang: 52 file dipindai (−1 file mati); tampilan capped `hard-coded-color` **98 → 84**; inventaris hex riil di luar `:root`+`avatarColor` = **132** (`#ffffff` 45, `#38bdf8` 14, `#fff` 11, `#00f2fe` 5, `#f59e0b` 4, palet WhatsApp-web `#111b21/#1f2c34/#e9edef/#8696a0/#cbd5e1` … — menunggu token baru batch #3 atau pengecualian terdokumentasi).
+
+### Artefak
+- `frontend/.design-qa/codemod-status-colors.mjs` — codemod sadar-properti (aman dijalankan ulang; dry-run default).
+- `frontend/.design-qa/reports/codemod-batch2.json` — rinci per file/baris/peran.
+- `frontend/.design-qa/batch2-login.png` — bukti visual pasca perubahan.

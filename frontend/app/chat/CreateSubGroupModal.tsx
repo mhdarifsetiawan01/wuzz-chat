@@ -175,7 +175,7 @@ export default function CreateSubGroupModal({
             {/* Input Nama Topik */}
             <div>
               <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px', color: 'var(--text-secondary)' }}>
-                Nama Topik Forum <span style={{ color: 'var(--danger-color, #ef4444)' }}>*</span>
+                Nama Topik Forum <span style={{ color: 'var(--color-error)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -292,7 +292,7 @@ export default function CreateSubGroupModal({
                 <div
                   onClick={() => !isLoading && setIsPublic(true)}
                   style={{
-                    border: isPublic ? '2px solid #10b981' : '1px solid rgba(255, 255, 255, 0.1)',
+                    border: isPublic ? '2px solid var(--color-success)' : '1px solid rgba(255, 255, 255, 0.1)',
                     background: isPublic ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255, 255, 255, 0.03)',
                     borderRadius: '12px',
                     padding: '12px',
