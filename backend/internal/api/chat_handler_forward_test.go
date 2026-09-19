@@ -351,4 +351,65 @@ func TestChatHandler_ForwardMessage_Scenarios(t *testing.T) {
 			t.Errorf("Expected is_forwarded=true")
 		}
 	})
+
+	// Skenario 7: Forward ke direct room dengan ID panjang > 64 karakter (Anti Value Too Long Regression)
+	t.Run("Forward ke direct room dengan ID panjang > 64 karakter", func(t *testing.T) {
+		longDMRoom := "dm_192ed821-7843-43e9-ba7f-7e84d0b5471a_5819a9c9-a13d-47f1-9dd1-ae3cb927a41c"
+		// Daftarkan room panjang dan Alice sebagai member
+		_, err := sqlStore.DB().Exec("INSERT INTO conversations (id, type, title, created_at, updated_at) VALUES (?, 'direct', '', ?, ?)", longDMRoom, time.Now().UTC(), time.Now().UTC())
+		if err != nil {
+			t.Fatalf("Failed to create long DM room: %v", err)
+		}
+		_, err = sqlStore.DB().Exec("INSERT INTO conversation_members (conversation_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)", longDMRoom, userAlice.ID, time.Now().UTC())
+		if err != nil {
+			t.Fatalf("Failed to add Alice to long DM room: %v", err)
+		}
+
+		origMsgID := "msg-fwd-long-room"
+		err = sqlStore.Save(store.StoredMessage{
+			ID:        origMsgID,
+			RoomID:    roomAliceCharlie,
+			FromID:    userAlice.ID,
+			Nickname:  userAlice.DisplayName,
+			ToID:      "",
+			Content:   "Pesan untuk room panjang",
+			Status:    "sent",
+			Timestamp: time.Now().UTC(),
+		})
+		if err != nil {
+			t.Fatalf("Failed to save orig msg: %v", err)
+		}
+
+		payload := map[string]any{
+			"message_id":      origMsgID,
+			"target_room_ids": []string{longDMRoom},
+		}
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest(http.MethodPost, "/api/messages/forward", bytes.NewReader(body))
+		ctx := auth.SetUserContext(req.Context(), &auth.UserClaims{
+			UserID:   userAlice.ID,
+			Username: userAlice.Username,
+		})
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+
+		chatHandler.ForwardMessage(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected status 200, got %d: %s", w.Code, w.Body.String())
+		}
+
+		var resp struct {
+			Success  bool                  `json:"success"`
+			Messages []store.StoredMessage `json:"messages"`
+		}
+		_ = json.Unmarshal(w.Body.Bytes(), &resp)
+		if len(resp.Messages) != 1 {
+			t.Fatalf("Expected 1 forwarded message, got %d", len(resp.Messages))
+		}
+		if resp.Messages[0].RoomID != longDMRoom {
+			t.Errorf("Expected room %s, got %s", longDMRoom, resp.Messages[0].RoomID)
+		}
+	})
 }
+
