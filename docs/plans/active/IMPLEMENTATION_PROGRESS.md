@@ -1,1 +1,3 @@
-*Standby — Belum ada progres implementasi aktif. Menunggu penugasan task berikutnya.*
+# Active Implementation Progress
+
+> Standby — menunggu penugasan berikutnya.

@@ -570,7 +570,7 @@ export function DeviceTransferModal({
                 }}
                 style={{
                   background: mode === 'generate' ? 'var(--accent-500)' : 'var(--bg-tertiary)',
-                  color: mode === 'generate' ? '#ffffff' : 'var(--text-secondary)',
+                  color: mode === 'generate' ? 'var(--text-on-accent)' : 'var(--text-secondary)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '8px',
                   padding: '6px 12px',
@@ -594,7 +594,7 @@ export function DeviceTransferModal({
               }}
               style={{
                 background: mode === 'scan' ? 'var(--accent-500)' : 'var(--bg-tertiary)',
-                color: mode === 'scan' ? '#ffffff' : 'var(--text-secondary)',
+                color: mode === 'scan' ? 'var(--text-on-accent)' : 'var(--text-secondary)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 padding: '6px 12px',
@@ -616,7 +616,7 @@ export function DeviceTransferModal({
               }}
               style={{
                 background: mode === 'input' ? 'var(--accent-500)' : 'var(--bg-tertiary)',
-                color: mode === 'input' ? '#ffffff' : 'var(--text-secondary)',
+                color: mode === 'input' ? 'var(--text-on-accent)' : 'var(--text-secondary)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 padding: '6px 12px',
@@ -667,7 +667,7 @@ export function DeviceTransferModal({
               <div
                 style={{
                   padding: 'var(--space-6)',
-                  background: 'rgba(239, 68, 68, 0.08)',
+                  background: 'var(--tint-error-08)',
                   border: '1px solid rgba(239, 68, 68, 0.25)',
                   borderRadius: '12px',
                   marginBottom: 'var(--space-4)',
@@ -691,7 +691,7 @@ export function DeviceTransferModal({
               <div>
                 <div
                   style={{
-                    background: '#ffffff',
+                    background: 'var(--text-on-accent)',
                     padding: '12px',
                     borderRadius: '12px',
                     display: 'inline-block',
@@ -721,7 +721,7 @@ export function DeviceTransferModal({
                   <span>⏱️ Berlaku selama:</span>
                   <span
                     style={{
-                      background: timeLeft < 60 ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-tertiary)',
+                      background: timeLeft < 60 ? 'var(--tint-error-15)' : 'var(--bg-tertiary)',
                       padding: '2px 8px',
                       borderRadius: '6px',
                       fontFamily: 'monospace',
@@ -893,7 +893,7 @@ export function DeviceTransferModal({
                 {cameraError && (
                   <div
                     style={{
-                      background: 'rgba(239, 68, 68, 0.1)',
+                      background: 'var(--tint-error-10)',
                       border: '1px solid rgba(239, 68, 68, 0.3)',
                       color: 'var(--color-error)',
                       padding: '14px 16px',
@@ -923,7 +923,7 @@ export function DeviceTransferModal({
                           width: '100%',
                           justifyContent: 'center',
                           background: 'var(--accent-gradient)',
-                          color: '#ffffff',
+                          color: 'var(--text-on-accent)',
                           border: 'none',
                           fontWeight: 700,
                           boxShadow: '0 4px 12px rgba(59, 130, 246, 0.35)',
@@ -940,9 +940,9 @@ export function DeviceTransferModal({
                           padding: '9px 12px',
                           width: '100%',
                           justifyContent: 'center',
-                          background: 'rgba(59, 130, 246, 0.15)',
+                          background: 'var(--tint-accent-15)',
                           color: 'var(--accent-300)',
-                          borderColor: 'rgba(59, 130, 246, 0.35)',
+                          borderColor: 'var(--tint-accent-35)',
                           fontWeight: 600,
                         }}
                       >
@@ -1012,7 +1012,7 @@ export function DeviceTransferModal({
                 {errorMsg && (
                   <div
                     style={{
-                      background: 'rgba(239, 68, 68, 0.1)',
+                      background: 'var(--tint-error-10)',
                       border: '1px solid rgba(239, 68, 68, 0.3)',
                       color: 'var(--color-error)',
                       padding: '8px 12px',
@@ -1081,7 +1081,7 @@ export function DeviceTransferModal({
                 {errorMsg && (
                   <div
                     style={{
-                      background: 'rgba(239, 68, 68, 0.1)',
+                      background: 'var(--tint-error-10)',
                       border: '1px solid rgba(239, 68, 68, 0.3)',
                       color: 'var(--color-error)',
                       padding: '8px 12px',

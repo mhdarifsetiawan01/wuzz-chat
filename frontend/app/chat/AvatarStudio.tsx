@@ -133,7 +133,7 @@ export function AvatarStudio({
             borderRadius: 'var(--radius-sm)',
             border: 'none',
             background: studioTab === 'free' ? 'var(--accent-500)' : 'transparent',
-            color: studioTab === 'free' ? '#fff' : 'var(--text-secondary)',
+            color: studioTab === 'free' ? 'var(--text-on-accent)' : 'var(--text-secondary)',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
           }}
@@ -151,7 +151,7 @@ export function AvatarStudio({
             borderRadius: 'var(--radius-sm)',
             border: 'none',
             background: studioTab === 'initials' ? 'var(--accent-500)' : 'transparent',
-            color: studioTab === 'initials' ? '#fff' : 'var(--text-secondary)',
+            color: studioTab === 'initials' ? 'var(--text-on-accent)' : 'var(--text-secondary)',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
           }}
@@ -169,7 +169,7 @@ export function AvatarStudio({
             borderRadius: 'var(--radius-sm)',
             border: 'none',
             background: studioTab === 'upload' ? 'var(--accent-500)' : 'transparent',
-            color: studioTab === 'upload' ? '#fff' : 'var(--text-secondary)',
+            color: studioTab === 'upload' ? 'var(--text-on-accent)' : 'var(--text-secondary)',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
           }}
@@ -308,8 +308,8 @@ export function AvatarStudio({
                     height: '42px',
                     borderRadius: '50%',
                     background: palette.background,
-                    border: isSelected ? '2.5px solid #ffffff' : '1px solid var(--border-subtle)',
-                    color: '#ffffff',
+                    border: isSelected ? '2.5px solid var(--text-on-accent)' : '1px solid var(--border-subtle)',
+                    color: 'var(--text-on-accent)',
                     fontWeight: 700,
                     fontSize: '1.1rem',
                     cursor: 'pointer',
@@ -349,11 +349,11 @@ export function AvatarStudio({
               padding: 'var(--space-4)',
               textAlign: 'center',
               cursor: 'pointer',
-              background: 'rgba(59, 130, 246, 0.05)',
+              background: 'var(--tint-accent-05)',
               transition: 'all 0.2s ease',
             }}
-            onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.12)')}
-            onMouseOut={(e) => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.05)')}
+            onMouseOver={(e) => (e.currentTarget.style.background = 'var(--tint-accent-12)')}
+            onMouseOut={(e) => (e.currentTarget.style.background = 'var(--tint-accent-05)')}
           >
             {isProcessingImg ? (
               <div style={{ color: 'var(--accent-300)', fontSize: '0.85rem' }}>

@@ -59,7 +59,7 @@ export function VerifiedBadge({
         {/* Crisp Pure White Checkmark */}
         <path
           d="M7.8 12.2l2.9 3 6.1-6.4"
-          stroke="#ffffff"
+          stroke="var(--text-on-accent)"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -71,7 +71,7 @@ export function VerifiedBadge({
           style={{
             fontSize: '0.75rem',
             fontWeight: 600,
-            color: '#38bdf8',
+            color: 'var(--color-verified)',
             letterSpacing: '0.01em',
             marginLeft: '2px',
           }}

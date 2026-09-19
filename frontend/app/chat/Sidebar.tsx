@@ -801,7 +801,7 @@ export function Sidebar({
             title="Buat Grup Obrolan Baru"
             style={{
               background: 'linear-gradient(135deg, var(--accent-500), var(--accent-secondary))',
-              color: '#fff',
+              color: 'var(--text-on-accent)',
               fontWeight: 600,
               fontSize: '0.8rem',
               padding: '6px 12px',
@@ -945,7 +945,7 @@ export function Sidebar({
                                   fontSize: '0.7rem',
                                   padding: '2px 8px',
                                   borderRadius: 10,
-                                  background: isAlreadyMember ? 'rgba(255,255,255,0.1)' : 'rgba(59,130,246,0.3)',
+                                  background: isAlreadyMember ? 'rgba(255,255,255,0.1)' : 'var(--tint-accent-30)',
                                   color: isAlreadyMember ? 'var(--text-muted)' : 'var(--accent-400)',
                                   fontWeight: 600
                                 }}>
@@ -1275,7 +1275,7 @@ export function Sidebar({
                   type="button"
                   style={{
                     background: 'var(--color-error)',
-                    color: '#ffffff',
+                    color: 'var(--text-on-accent)',
                     border: 'none',
                     padding: '8px 16px',
                     borderRadius: 'var(--radius-md)',

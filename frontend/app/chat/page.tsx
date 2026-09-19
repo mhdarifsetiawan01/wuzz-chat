@@ -2167,7 +2167,7 @@ function ChatPageContent() {
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center',
-                background: 'var(--bg-primary, #0b141a)',
+                background: 'var(--bg-base)',
                 minHeight: '100%'
               }}
             >
@@ -2196,7 +2196,7 @@ function ChatPageContent() {
                     width: '68px',
                     height: '68px',
                     borderRadius: '50%',
-                    background: 'rgba(239, 68, 68, 0.15)',
+                    background: 'var(--tint-error-15)',
                     border: '1px solid rgba(239, 68, 68, 0.35)',
                     display: 'flex',
                     alignItems: 'center',
@@ -2228,7 +2228,7 @@ function ChatPageContent() {
                     background: 'linear-gradient(135deg, var(--accent-500), var(--accent-secondary))',
                     boxShadow: '0 4px 16px rgba(59, 130, 246, 0.35)',
                     border: 'none',
-                    color: '#fff',
+                    color: 'var(--text-on-accent)',
                     cursor: 'pointer',
                     width: '100%',
                     maxWidth: '280px',

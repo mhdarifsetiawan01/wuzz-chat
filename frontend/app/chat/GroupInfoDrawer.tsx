@@ -150,7 +150,7 @@ export function GroupInfoDrawer({
   }
 
   return (
-    <div className="group-modal-backdrop" onClick={onClose} style={{ zIndex: 1100 }}>
+    <div className="group-modal-backdrop z-modal" onClick={onClose}>
       <div 
         className="group-modal-card" 
         onClick={e => e.stopPropagation()}
@@ -249,7 +249,7 @@ export function GroupInfoDrawer({
                         fontSize: '0.75rem',
                         padding: '3px 10px',
                         borderRadius: 20,
-                        background: group.is_public ? 'rgba(129,140,248,0.2)' : 'rgba(59,130,246,0.2)',
+                        background: group.is_public ? 'rgba(129,140,248,0.2)' : 'var(--tint-accent-20)',
                         color: group.is_public ? 'var(--accent-secondary-soft)' : 'var(--accent-300)',
                         border: '1px solid rgba(255,255,255,0.1)'
                       }}>
@@ -325,7 +325,7 @@ export function GroupInfoDrawer({
                     borderRadius: 12,
                     fontSize: '0.9rem',
                     fontWeight: 600,
-                    background: 'rgba(59, 130, 246, 0.1)',
+                    background: 'var(--tint-accent-10)',
                     color: 'var(--accent-400)',
                     border: '1px solid rgba(59, 130, 246, 0.25)',
                     cursor: 'pointer',
@@ -395,7 +395,7 @@ export function GroupInfoDrawer({
                             background: member.role === 'creator' 
                               ? 'rgba(244,114,182,0.2)' 
                               : member.role === 'admin' 
-                              ? 'rgba(59,130,246,0.2)' 
+                              ? 'var(--tint-accent-20)' 
                               : 'rgba(255,255,255,0.08)',
                             color: member.role === 'creator' 
                               ? 'var(--accent-tertiary)' 
@@ -491,7 +491,7 @@ export function GroupInfoDrawer({
             borderRadius: 16
           }}>
             <div style={{
-              background: '#1e293b',
+              background: 'var(--bg-elevated)',
               border: '1px solid rgba(255,255,255,0.1)',
               borderRadius: 16,
               padding: 20,
@@ -523,7 +523,7 @@ export function GroupInfoDrawer({
                     padding: '8px 16px',
                     borderRadius: 8,
                     background: 'var(--color-danger)',
-                    color: '#fff',
+                    color: 'var(--text-on-accent)',
                     border: 'none',
                     fontWeight: 600,
                     cursor: 'pointer'

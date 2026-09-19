@@ -94,7 +94,7 @@ function renderReceipt(status?: Message['status']) {
 const SENDER_COLORS = ['#60a5fa', '#a78bfa', '#fb7185', '#34d399', '#fbbf24', '#38bdf8', '#e879f9', '#818cf8']
 
 function getSenderColor(nameOrId: string = '') {
-  if (!nameOrId || !nameOrId.trim()) return '#60a5fa'
+  if (!nameOrId || !nameOrId.trim()) return 'var(--accent-400)'
   let hash = 0
   const clean = nameOrId.trim().toLowerCase()
   for (let i = 0; i < clean.length; i++) {
@@ -739,7 +739,7 @@ export function MessageBubble({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 99999,
+            zIndex: 'var(--z-critical)',
             padding: 'var(--space-4)',
           }}
         >
@@ -747,7 +747,7 @@ export function MessageBubble({
             className="modal-card"
             onClick={e => e.stopPropagation()}
             style={{
-              backgroundColor: '#111b21',
+              backgroundColor: 'var(--wa-bg-dark)',
               border: '1px solid rgba(255, 255, 255, 0.12)',
               borderRadius: 'var(--radius-lg)',
               width: '100%',
@@ -767,12 +767,12 @@ export function MessageBubble({
                 alignItems: 'center',
                 padding: 'var(--space-4) var(--space-5)',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                backgroundColor: '#1f2c34',
+                backgroundColor: 'var(--wa-bg-elevated)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '1.25rem' }}>🗑️</span>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#e9edef' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--wa-text-primary)' }}>
                   Hapus Pesan?
                 </h3>
               </div>
@@ -783,7 +783,7 @@ export function MessageBubble({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#8696a0',
+                  color: 'var(--wa-text-muted)',
                   fontSize: '1.25rem',
                   cursor: 'pointer',
                   padding: '4px',
@@ -850,7 +850,7 @@ export function MessageBubble({
               style={{
                 padding: 'var(--space-3) var(--space-5)',
                 borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                backgroundColor: '#1f2c34',
+                backgroundColor: 'var(--wa-bg-elevated)',
                 display: 'flex',
                 justifyContent: 'flex-end',
                 gap: '8px',
@@ -889,7 +889,7 @@ export function MessageBubble({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 99999,
+            zIndex: 'var(--z-critical)',
             padding: 'var(--space-4)',
           }}
         >
@@ -897,7 +897,7 @@ export function MessageBubble({
             className="modal-card"
             onClick={e => e.stopPropagation()}
             style={{
-              backgroundColor: '#111b21',
+              backgroundColor: 'var(--wa-bg-dark)',
               border: '1px solid rgba(255, 255, 255, 0.12)',
               borderRadius: 'var(--radius-lg)',
               width: '100%',
@@ -918,14 +918,14 @@ export function MessageBubble({
                 alignItems: 'center',
                 padding: 'var(--space-4) var(--space-5)',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                backgroundColor: '#1f2c34',
+                backgroundColor: 'var(--wa-bg-elevated)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '1.25rem' }}>📖</span>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: '#e9edef' }}>Mode Baca</h3>
-                  <span style={{ fontSize: '0.75rem', color: '#8696a0' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--wa-text-primary)' }}>Mode Baca</h3>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--wa-text-muted)' }}>
                     Dari {message.nickname || (isSelf ? 'Kamu' : 'Pengguna')} • {time}
                   </span>
                 </div>
@@ -936,7 +936,7 @@ export function MessageBubble({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#8696a0',
+                  color: 'var(--wa-text-muted)',
                   fontSize: '1.25rem',
                   cursor: 'pointer',
                   padding: '4px',
@@ -954,11 +954,11 @@ export function MessageBubble({
                 overflowY: 'auto',
                 fontSize: '1.05rem',
                 lineHeight: 1.8,
-                color: '#d1d7db',
+                color: 'var(--wa-text-muted)',
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
                 userSelect: 'text',
-                backgroundColor: '#111b21',
+                backgroundColor: 'var(--wa-bg-dark)',
               }}
             >
               {renderContentWithMentions(message.content, message.mentions, selfId, members, selfNickname)}
@@ -969,7 +969,7 @@ export function MessageBubble({
               style={{
                 padding: 'var(--space-3) var(--space-5)',
                 borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                backgroundColor: '#1f2c34',
+                backgroundColor: 'var(--wa-bg-elevated)',
                 display: 'flex',
                 justifyContent: 'flex-end',
               }}

@@ -113,7 +113,7 @@ export function SafetyNumberModal({
             fontFamily: 'monospace',
             fontSize: '1.125rem',
             letterSpacing: '2px',
-            color: 'var(--color-primary-400, #38bdf8)',
+            color: 'var(--color-verified)',
             marginBottom: 'var(--space-5)',
             display: 'grid',
             gridTemplateColumns: 'repeat(2, 1fr)',

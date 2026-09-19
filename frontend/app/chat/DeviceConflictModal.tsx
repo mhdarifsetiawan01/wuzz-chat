@@ -117,7 +117,7 @@ export function DeviceConflictModal({
         {!isRotated && (
           <div
             style={{
-              background: 'rgba(239, 68, 68, 0.08)',
+              background: 'var(--tint-error-08)',
               border: '1px solid rgba(239, 68, 68, 0.25)',
               borderRadius: '10px',
               padding: 'var(--space-3)',
@@ -150,7 +150,7 @@ export function DeviceConflictModal({
                   padding: '12px',
                   fontSize: '0.95rem',
                   background: 'var(--accent-gradient)',
-                  color: '#ffffff',
+                  color: 'var(--text-on-accent)',
                   border: 'none',
                   fontWeight: 600,
                   boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)',
@@ -194,7 +194,7 @@ export function DeviceConflictModal({
                   width: '100%',
                   padding: '10px',
                   fontSize: '0.9rem',
-                  background: 'rgba(59, 130, 246, 0.1)',
+                  background: 'var(--tint-accent-10)',
                   color: 'var(--accent-300)',
                   border: '1px solid rgba(59, 130, 246, 0.3)',
                 }}

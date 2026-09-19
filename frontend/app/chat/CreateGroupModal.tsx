@@ -250,7 +250,7 @@ export default function CreateGroupModal({
                         height: 36,
                         borderRadius: 10,
                         border: avatarEmoji === emoji ? '2px solid var(--accent-400)' : '1px solid rgba(255,255,255,0.08)',
-                        background: avatarEmoji === emoji ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.04)',
+                        background: avatarEmoji === emoji ? 'var(--tint-accent-25)' : 'rgba(255,255,255,0.04)',
                         fontSize: '1.15rem',
                         cursor: 'pointer',
                         display: 'flex',
@@ -311,8 +311,8 @@ export default function CreateGroupModal({
                     padding: '12px 14px',
                     borderRadius: 12,
                     border: !isPublic ? '2px solid var(--accent-500)' : '1px solid rgba(255,255,255,0.08)',
-                    background: !isPublic ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.03)',
-                    color: !isPublic ? '#fff' : 'var(--text-muted)',
+                    background: !isPublic ? 'var(--tint-accent-15)' : 'rgba(255,255,255,0.03)',
+                    color: !isPublic ? 'var(--text-on-accent)' : 'var(--text-muted)',
                     cursor: 'pointer',
                     textAlign: 'left',
                     transition: 'all 0.15s ease'
@@ -334,7 +334,7 @@ export default function CreateGroupModal({
                     borderRadius: 12,
                     border: isPublic ? '2px solid var(--accent-secondary)' : '1px solid rgba(255,255,255,0.08)',
                     background: isPublic ? 'rgba(129,140,248,0.15)' : 'rgba(255,255,255,0.03)',
-                    color: isPublic ? '#fff' : 'var(--text-muted)',
+                    color: isPublic ? 'var(--text-on-accent)' : 'var(--text-muted)',
                     cursor: 'pointer',
                     textAlign: 'left',
                     transition: 'all 0.15s ease'
@@ -394,7 +394,7 @@ export default function CreateGroupModal({
                       display: 'flex',
                       alignItems: 'center',
                       gap: 6,
-                      background: 'rgba(59,130,246,0.2)',
+                      background: 'var(--tint-accent-20)',
                       border: '1px solid rgba(59,130,246,0.4)',
                       borderRadius: 20,
                       padding: '4px 10px 4px 6px',
@@ -406,7 +406,7 @@ export default function CreateGroupModal({
                     <button
                       type="button"
                       onClick={() => toggleSelectUser(u)}
-                      style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: 0, fontSize: '0.9rem', marginLeft: 2 }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-on-accent)', cursor: 'pointer', padding: 0, fontSize: '0.9rem', marginLeft: 2 }}
                     >
                       ✕
                     </button>
@@ -448,7 +448,7 @@ export default function CreateGroupModal({
                           justifyContent: 'space-between',
                           padding: '8px 12px',
                           borderRadius: 10,
-                          background: isSelected ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.03)',
+                          background: isSelected ? 'var(--tint-accent-15)' : 'rgba(255,255,255,0.03)',
                           border: isSelected ? '1px solid rgba(59,130,246,0.4)' : '1px solid transparent',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease'
@@ -499,7 +499,7 @@ export default function CreateGroupModal({
                             justifyContent: 'space-between',
                             padding: '8px 12px',
                             borderRadius: 10,
-                            background: isSelected ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.03)',
+                            background: isSelected ? 'var(--tint-accent-15)' : 'rgba(255,255,255,0.03)',
                             border: isSelected ? '1px solid rgba(59,130,246,0.4)' : '1px solid transparent',
                             cursor: 'pointer',
                             transition: 'all 0.15s ease'
