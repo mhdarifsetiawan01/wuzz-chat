@@ -2225,7 +2225,7 @@ function ChatPageContent() {
                     borderRadius: '14px',
                     fontWeight: 600,
                     fontSize: '0.95rem',
-                    background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+                    background: 'linear-gradient(135deg, var(--accent-500), var(--accent-secondary))',
                     boxShadow: '0 4px 16px rgba(59, 130, 246, 0.35)',
                     border: 'none',
                     color: '#fff',

@@ -195,7 +195,7 @@ export function GroupInfoDrawer({
                   width: 72,
                   height: 72,
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+                  background: 'linear-gradient(135deg, var(--accent-500), var(--accent-secondary))',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -239,7 +239,7 @@ export function GroupInfoDrawer({
                       {group.title}
                     </h2>
                     {group.group_username && (
-                      <div style={{ color: '#818cf8', fontSize: '0.85rem', fontWeight: 500, marginBottom: 8 }}>
+                      <div style={{ color: 'var(--accent-secondary)', fontSize: '0.85rem', fontWeight: 500, marginBottom: 8 }}>
                         @{group.group_username}
                       </div>
                     )}
@@ -250,7 +250,7 @@ export function GroupInfoDrawer({
                         padding: '3px 10px',
                         borderRadius: 20,
                         background: group.is_public ? 'rgba(129,140,248,0.2)' : 'rgba(59,130,246,0.2)',
-                        color: group.is_public ? '#a5b4fc' : '#93c5fd',
+                        color: group.is_public ? 'var(--accent-secondary-soft)' : 'var(--accent-300)',
                         border: '1px solid rgba(255,255,255,0.1)'
                       }}>
                         {group.is_public ? '🌐 Grup Publik' : '🔒 Grup Privat'}
@@ -273,7 +273,7 @@ export function GroupInfoDrawer({
                         style={{
                           background: 'none',
                           border: 'none',
-                          color: '#3b82f6',
+                          color: 'var(--accent-500)',
                           fontSize: '0.8rem',
                           cursor: 'pointer',
                           marginTop: 10,
@@ -326,7 +326,7 @@ export function GroupInfoDrawer({
                     fontSize: '0.9rem',
                     fontWeight: 600,
                     background: 'rgba(59, 130, 246, 0.1)',
-                    color: '#60a5fa',
+                    color: 'var(--accent-400)',
                     border: '1px solid rgba(59, 130, 246, 0.25)',
                     cursor: 'pointer',
                   }}
@@ -398,9 +398,9 @@ export function GroupInfoDrawer({
                               ? 'rgba(59,130,246,0.2)' 
                               : 'rgba(255,255,255,0.08)',
                             color: member.role === 'creator' 
-                              ? '#f472b6' 
+                              ? 'var(--accent-tertiary)' 
                               : member.role === 'admin' 
-                              ? '#60a5fa' 
+                              ? 'var(--accent-400)' 
                               : 'var(--text-muted)',
                             border: '1px solid rgba(255,255,255,0.08)'
                           }}>
@@ -425,7 +425,7 @@ export function GroupInfoDrawer({
                                     type="button"
                                     onClick={() => handleUpdateRole(member.user_id, 'admin')}
                                     title="Jadikan Admin"
-                                    style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', fontSize: '0.85rem', padding: '4px' }}
+                                    style={{ background: 'none', border: 'none', color: 'var(--accent-500)', cursor: 'pointer', fontSize: '0.85rem', padding: '4px' }}
                                   >
                                     ⬆️
                                   </button>
@@ -459,7 +459,7 @@ export function GroupInfoDrawer({
                     borderRadius: 12,
                     background: 'rgba(239, 68, 68, 0.12)',
                     border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#f87171',
+                    color: 'var(--color-error)',
                     fontWeight: 600,
                     fontSize: '0.9rem',
                     cursor: 'pointer',
