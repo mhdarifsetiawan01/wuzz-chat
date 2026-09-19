@@ -226,6 +226,46 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
 6. **Proteksi Double-Action & Loading State Guard**:
    - Setiap tombol aksi kritis (Login, Register, Reset Kunci, Transfer Perangkat QR, Kirim Berkas) wajib langsung masuk ke state `disabled` / menampilkan spinner loading seketika saat diklik untuk mencegah duplikasi request (*double-click race condition*) ketika server lambat merespons.
 
+---
+
+## 🎨 Mandatory Frontend Design System & Token Compliance Rule (MANDATORY)
+
+**Setiap perubahan atau pembuatan UI/UX di frontend (komponen React, styling CSS, modal, drawer, typography, warna, dan layout) WAJIB mengikuti Design System yang telah distandarisasi di [`frontend/DESIGN.md`](../frontend/DESIGN.md) dan token CSS di [`frontend/app/globals.css`](../frontend/app/globals.css). DILARANG KERAS menggunakan nilai sembarangan (magic numbers) atau raw values.**
+
+### Aturan konkret & SOP Design System:
+
+1. **Token-First Principle (Warna, Spacing, Radius, Shadow, Transition)**:
+   - Seluruh warna, background, border, dan teks **WAJIB** menggunakan CSS variables (`var(--token)`) dari blok `:root` di `frontend/app/globals.css`.
+   - **DILARANG raw hex code** di dalam file CSS maupun inline style (kecuali daftar pengecualian sah: `avatarColor.ts`, `MessageBubble.tsx:SENDER_COLORS`, SVG `stopColor`, QR code options, dan `app/layout.tsx:themeColor`).
+   - Gunakan token tint resmi (misal: `var(--tint-accent-10)`, `var(--tint-error-10)`) dan **DILARANG** menuliskan literal `rgba(59,130,246,...)` atau `rgba(239,68,68,...)` di kode fitur.
+
+2. **Skala Z-Index Terpadu (Anti Magic Number `99999`)**:
+   - **DILARANG KERAS** menggunakan angka z-index sembarangan atau ekstrim seperti `99999`, `1100`, `1200`.
+   - Wajib gunakan token z-index resmi atau utility class:
+     - `var(--z-base)` (0), `var(--z-elevated)` (10), `var(--z-dropdown)` (100)
+     - `var(--z-sticky)` (200), `var(--z-banner)` (300)
+     - `var(--z-modal)` (1000) / `.z-modal`
+     - `var(--z-modal-top)` (1100) / `.z-modal-top`
+     - `var(--z-toast)` (2000) / `.z-toast`
+
+3. **Unified Modal & Dialog Primitives**:
+   - Setiap kali membuat modal, dialog, atau drawer baru, **WAJIB** menggunakan utility primitives terpadu:
+     - Backdrop / Overlay: `.modal-overlay`
+     - Container Card: `.modal-card-unified`
+     - Header / Title: `.modal-header-unified` / `.modal-title-unified`
+     - Body / Content: `.modal-body-unified`
+     - Footer / Actions: `.modal-footer-unified`
+   - **DILARANG** mendefinisikan class overlay/backdrop kustom baru atau menduplikasi styling modal.
+
+4. **Utility CSS First & Dynamic-Only Inline Styles**:
+   - Manfaatkan utility class yang sudah tersedia di `globals.css` (misal: `.u-flex`, `.u-flex-col`, `.u-gap-*`, `.u-text-*`, `.u-fw-*`, `.btn-ghost`).
+   - `style={{ ... }}` pada JSX hanya diizinkan untuk nilai yang benar-benar **dihitung secara dinamis saat runtime** (misal: lebar persentase progress bar, koordinat drag/touch, warna avatar dinamis). Nilai statis wajib masuk ke class CSS.
+
+5. **Kamus Single Source of Truth**:
+   - Sebelum menambahkan styling atau token baru, AI **WAJIB membaca [`frontend/DESIGN.md`](../frontend/DESIGN.md)**.
+   - Jika membutuhkan token baru, daftarkan token tersebut di `:root` `frontend/app/globals.css` dan perbarui dokumentasi `frontend/DESIGN.md`.
+
+
 
 
 
