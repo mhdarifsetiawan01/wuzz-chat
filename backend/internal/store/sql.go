@@ -108,7 +108,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 			room_id VARCHAR(128) NOT NULL,
 			from_id VARCHAR(64) NOT NULL,
 			from_nickname VARCHAR(64) NOT NULL,
-			to_id VARCHAR(64) NOT NULL,
+			to_id VARCHAR(128) NOT NULL,
 			content TEXT NOT NULL,
 			created_at TIMESTAMP NOT NULL
 		);`,
@@ -196,6 +196,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_forwarded BOOLEAN DEFAULT FALSE;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ALTER COLUMN to_id TYPE VARCHAR(128);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(room_id, status);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_to_status ON messages(to_id, status);`)
 
@@ -1076,7 +1077,7 @@ func (s *SQLMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname stri
 			RoomID:          targetRoomID,
 			FromID:          senderID,
 			Nickname:        senderNickname,
-			ToID:            targetRoomID,
+			ToID:            "",
 			Content:         srcMsg.Content,
 			Status:          "sent",
 			ReplyToID:       "",

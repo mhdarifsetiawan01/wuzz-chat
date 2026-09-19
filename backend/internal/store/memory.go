@@ -430,7 +430,7 @@ func (s *MemoryMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname s
 			RoomID:          targetRoomID,
 			FromID:          senderID,
 			Nickname:        senderNickname,
-			ToID:            targetRoomID,
+			ToID:            "",
 			Content:         srcMsg.Content,
 			Status:          "sent",
 			ReplyToID:       "",

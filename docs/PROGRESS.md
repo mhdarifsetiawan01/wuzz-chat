@@ -1023,8 +1023,13 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
    - Proteksi BOLA/IDOR pada seluruh endpoint pin, unpin, forward, edit, search.
    - Indeks database komposit mencegah full table scan saat query pinned messages dan search.
 
+7. **Post-Release Hotfix — Forward Message Long Room ID (Postgres VARCHAR(64) Value Too Long)**:
+   - Root cause: ID room Direct Message (`dm_<uuid1>_<uuid2>`) memiliki panjang 76 karakter. Pada fungsi `ForwardMessage`, field `ToID` secara keliru diisi dengan `targetRoomID` (76 karakter) sehingga ditolak oleh Postgres Supabase dengan error `pq: value too long for type character varying(64) (22001)`.
+   - Solusi: Koreksi `ToID: ""` pada `ForwardMessage` (`sql.go` & `memory.go`) serta pelebaran kolom `to_id VARCHAR(128)` via auto-migration PostgreSQL. Skenario uji coba `Forward ke direct room dengan ID panjang > 64 karakter` ditambahkan ke `chat_handler_forward_test.go` (100% PASS).
+
 **Verifikasi & Test Evidence**:
-- Backend: `go test -count=1 ./...` — **100% PASS** (termasuk 7 skenario integrasi di `chat_handler_message_pin_search_test.go`, `chat_handler_edit_test.go`, `chat_handler_forward_test.go`, `chat_handler_pin_test.go`).
-- Frontend: `npm run build` di `frontend/` — **100% PASS** (265ms compile, 0 TypeScript/ESLint error).
+- Backend: `go test -count=1 ./...` — **100% PASS** (termasuk 8 skenario forward di `chat_handler_forward_test.go`).
+- Frontend: `npm run build` di `frontend/` — **100% PASS** (0 TypeScript/ESLint error).
+
 
 
