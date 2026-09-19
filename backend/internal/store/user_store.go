@@ -84,7 +84,7 @@ type UserStore interface {
 	UpdatePublicKey(userID, publicKey string) error
 	UpdatePublicKeyWithDevice(userID, publicKey, deviceID string) (int, error)
 	ForceResetPublicKey(userID, publicKey, deviceID string) (int, error)
-	ClearActiveDevice(userID string) error
+	ClearActiveDevice(userID string, deviceID ...string) error
 	GetE2EEInfo(userID string) (publicKey string, keyVersion int, activeDeviceID string, err error)
 	SearchUsers(query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
@@ -368,14 +368,32 @@ func (s *SQLUserStore) ForceResetPublicKey(userID, publicKey, deviceID string) (
 }
 
 // ClearActiveDevice mengosongkan active_device_id user saat logout sehingga perangkat baru dapat login tanpa konflik.
-func (s *SQLUserStore) ClearActiveDevice(userID string) error {
-	var query string
-	if s.driverName == "postgres" {
-		query = `UPDATE users SET active_device_id = '' WHERE id = $1`
-	} else {
-		query = `UPDATE users SET active_device_id = '' WHERE id = ?`
+// Jika deviceID diberikan (tidak kosong), hanya kosongkan jika active_device_id saat ini cocok atau sudah kosong.
+// Hal ini mencegah perangkat non-aktif/penantang menghapus sesi milik perangkat aktif sah.
+func (s *SQLUserStore) ClearActiveDevice(userID string, deviceID ...string) error {
+	var targetDev string
+	if len(deviceID) > 0 {
+		targetDev = strings.TrimSpace(deviceID[0])
 	}
-	_, err := s.db.Exec(query, userID)
+
+	var query string
+	var err error
+	if targetDev != "" {
+		if s.driverName == "postgres" {
+			query = `UPDATE users SET active_device_id = '' WHERE id = $1 AND (active_device_id = $2 OR active_device_id = '')`
+		} else {
+			query = `UPDATE users SET active_device_id = '' WHERE id = ? AND (active_device_id = ? OR active_device_id = '')`
+		}
+		_, err = s.db.Exec(query, userID, targetDev)
+	} else {
+		if s.driverName == "postgres" {
+			query = `UPDATE users SET active_device_id = '' WHERE id = $1`
+		} else {
+			query = `UPDATE users SET active_device_id = '' WHERE id = ?`
+		}
+		_, err = s.db.Exec(query, userID)
+	}
+
 	if err != nil {
 		return fmt.Errorf("gagal mengosongkan active_device_id: %w", err)
 	}

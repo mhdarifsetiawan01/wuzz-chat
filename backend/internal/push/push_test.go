@@ -39,7 +39,7 @@ func (m *mockUserStoreForPush) UpdatePublicKeyWithDevice(userID, publicKey, devi
 func (m *mockUserStoreForPush) ForceResetPublicKey(userID, publicKey, deviceID string) (int, error) {
 	return 2, nil
 }
-func (m *mockUserStoreForPush) ClearActiveDevice(userID string) error {
+func (m *mockUserStoreForPush) ClearActiveDevice(userID string, deviceID ...string) error {
 	return nil
 }
 func (m *mockUserStoreForPush) GetE2EEInfo(userID string) (string, int, string, error) {

@@ -1,3 +1,3 @@
 # Active Implementation Progress
 
-> Standby — menunggu penugasan berikutnya.
+*Status: Standby — Tidak ada tugas aktif saat ini.*

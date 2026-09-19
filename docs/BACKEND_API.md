@@ -196,9 +196,16 @@ Memperbarui nama tampilan, status pesan, atau foto avatar profil.
 ---
 
 #### 5. `POST /api/auth/logout`
-Melakukan logout akun pengguna dan melepaskan sesi perangkat aktif (`active_device_id`) di database, sehingga perangkat berikutnya yang login tidak terblokir oleh status 409 Conflict.
+Melakukan logout akun pengguna dan melepaskan sesi perangkat aktif (`active_device_id`) di database secara aman (*device-aware*), sehingga perangkat berikutnya yang login tidak terblokir oleh status 409 Conflict.
 - **Autentikasi**: `Bearer <token>`
-- **Request Body**: Tidak ada (kosong).
+- **Headers**: `X-Device-ID: <device_id>` *(opsional, dianjurkan)*
+- **Request Body** *(opsional)*:
+  ```json
+  {
+    "device_id": "dev_laptop_123"
+  }
+  ```
+  *Catatan Proteksi Device-Aware*: Jika `device_id` disertakan (via body, header `X-Device-ID`, atau query param), server hanya akan mengosongkan `active_device_id` jika cocok dengan ID perangkat aktif saat ini. Jika perangkat lain/penantang yang membatalkan login memanggil logout, sesi perangkat aktif utama tetap aman terlindungi.
 - **Success Response (200 OK)**:
   ```json
   {

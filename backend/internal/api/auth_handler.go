@@ -277,7 +277,11 @@ func (h *AuthHandler) ResetPublicKey(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Logout menangani proses logout pengguna dan melepaskan sesi active_device_id di database.
+type LogoutRequest struct {
+	DeviceID string `json:"device_id"`
+}
+
+// Logout menangani proses logout pengguna dan melepaskan sesi active_device_id di database jika device_id cocok.
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
@@ -290,7 +294,17 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.userStore.ClearActiveDevice(claims.UserID); err != nil {
+	deviceID := strings.TrimSpace(r.Header.Get("X-Device-ID"))
+	if deviceID == "" {
+		deviceID = strings.TrimSpace(r.URL.Query().Get("device_id"))
+	}
+	if deviceID == "" && r.Body != nil {
+		var req LogoutRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		deviceID = strings.TrimSpace(req.DeviceID)
+	}
+
+	if err := h.userStore.ClearActiveDevice(claims.UserID, deviceID); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{

@@ -1,4 +1,3 @@
-# Implementation Summary
+# Active Implementation Summary
 
-- **Status**: Standby
-- **Active Milestones**: None
+*Status: Standby — Tidak ada rencana aktif saat ini.*
