@@ -1,0 +1,276 @@
+{
+  "mode": "write",
+  "total": 32,
+  "files": [
+    {
+      "file": "app/globals.css",
+      "replacements": 18,
+      "hits": [
+        {
+          "line": 469,
+          "role": "text",
+          "values": [
+            "#22c55e"
+          ]
+        },
+        {
+          "line": 1063,
+          "role": "text",
+          "values": [
+            "#fc8181"
+          ]
+        },
+        {
+          "line": 1069,
+          "role": "text",
+          "values": [
+            "#fc8181"
+          ]
+        },
+        {
+          "line": 2375,
+          "role": "fill",
+          "values": [
+            "#22c55e"
+          ]
+        },
+        {
+          "line": 3590,
+          "role": "text",
+          "values": [
+            "#ef4444"
+          ]
+        },
+        {
+          "line": 3606,
+          "role": "text",
+          "values": [
+            "#ef4444"
+          ]
+        },
+        {
+          "line": 3755,
+          "role": "text",
+          "values": [
+            "#fca5a5"
+          ]
+        },
+        {
+          "line": 3838,
+          "role": "text",
+          "values": [
+            "#fca5a5"
+          ]
+        },
+        {
+          "line": 3991,
+          "role": "text",
+          "values": [
+            "#ef4444"
+          ]
+        },
+        {
+          "line": 4019,
+          "role": "fill",
+          "values": [
+            "#ef4444"
+          ]
+        },
+        {
+          "line": 4039,
+          "role": "fill",
+          "values": [
+            "#ef4444"
+          ]
+        },
+        {
+          "line": 4569,
+          "role": "fill",
+          "values": [
+            "#ef4444"
+          ]
+        },
+        {
+          "line": 4579,
+          "role": "fill",
+          "values": [
+            "#10b981"
+          ]
+        },
+        {
+          "line": 4741,
+          "role": "text",
+          "values": [
+            "#ef4444"
+          ]
+        },
+        {
+          "line": 4745,
+          "role": "fill",
+          "values": [
+            "#ef4444"
+          ]
+        },
+        {
+          "line": 4746,
+          "role": "fill",
+          "values": [
+            "#dc2626"
+          ]
+        },
+        {
+          "line": 4753,
+          "role": "fill",
+          "values": [
+            "#dc2626"
+          ]
+        },
+        {
+          "line": 5051,
+          "role": "text",
+          "values": [
+            "#ef4444"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "app/chat/DeviceTransferModal.tsx",
+      "replacements": 4,
+      "hits": [
+        {
+          "line": 716,
+          "role": "text",
+          "count": 1
+        },
+        {
+          "line": 794,
+          "role": "text",
+          "count": 1
+        },
+        {
+          "line": 911,
+          "role": "text",
+          "count": 1
+        },
+        {
+          "line": 1047,
+          "role": "text",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/ProfileModal.tsx",
+      "replacements": 3,
+      "hits": [
+        {
+          "line": 322,
+          "role": "text",
+          "count": 1
+        },
+        {
+          "line": 600,
+          "role": "text",
+          "count": 1
+        },
+        {
+          "line": 697,
+          "role": "text",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/GroupInfoDrawer.tsx",
+      "replacements": 2,
+      "hits": [
+        {
+          "line": 438,
+          "role": "fill",
+          "count": 1
+        },
+        {
+          "line": 525,
+          "role": "fill",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/CreateGroupModal.tsx",
+      "replacements": 1,
+      "hits": [
+        {
+          "line": 272,
+          "role": "text",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/CreateSubGroupModal.tsx",
+      "replacements": 1,
+      "hits": [
+        {
+          "line": 295,
+          "role": "fill",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/GroupPreviewModal.tsx",
+      "replacements": 1,
+      "hits": [
+        {
+          "line": 251,
+          "role": "text",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/SubGroupListDrawer.tsx",
+      "replacements": 1,
+      "hits": [
+        {
+          "line": 419,
+          "role": "fill",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/transfer/page.tsx",
+      "replacements": 1,
+      "hits": [
+        {
+          "line": 114,
+          "role": "text",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "leftovers": [
+    {
+      "file": "app/globals.css",
+      "line": 59,
+      "hex": "#10b981",
+      "snippet": "--color-success:       #10b981;  /* teks & fill konfirmasi sukses (Setujui, terkirim) */"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 60,
+      "hex": "#ef4444",
+      "snippet": "--color-danger:        #ef4444;  /* fill aksi destruktif — pasangan ikon/teks putih */"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 61,
+      "hex": "#dc2626",
+      "snippet": "--color-danger-strong: #dc2626;  /* varian hover/tekan dari --color-danger */"
+    }
+  ]
+}

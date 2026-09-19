@@ -435,7 +435,7 @@ export function GroupInfoDrawer({
                                 type="button"
                                 onClick={() => setConfirmAction({ type: 'kick', targetUser: member })}
                                 title="Keluarkan dari Grup"
-                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', padding: '4px' }}
+                                style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: '0.9rem', padding: '4px' }}
                               >
                                 ✕
                               </button>
@@ -522,7 +522,7 @@ export function GroupInfoDrawer({
                   style={{
                     padding: '8px 16px',
                     borderRadius: 8,
-                    background: '#ef4444',
+                    background: 'var(--color-danger)',
                     color: '#fff',
                     border: 'none',
                     fontWeight: 600,

@@ -319,7 +319,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               style={{
                 background: 'rgba(34, 197, 94, 0.12)',
                 border: '1px solid rgba(34, 197, 94, 0.35)',
-                color: '#22c55e',
+                color: 'var(--color-success)',
                 padding: '10px 14px',
                 borderRadius: 'var(--radius-md)',
                 fontSize: '0.84rem',
@@ -597,7 +597,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 </div>
 
                 {cacheClearMsg && (
-                  <div style={{ fontSize: '0.75rem', color: '#22c55e', marginTop: '8px', textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-success)', marginTop: '8px', textAlign: 'right' }}>
                     {cacheClearMsg}
                   </div>
                 )}
@@ -694,7 +694,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     background: 'rgba(239, 68, 68, 0.15)',
                     border: '1px solid rgba(239, 68, 68, 0.4)',
                     borderRadius: 'var(--radius-md)',
-                    color: '#ef4444',
+                    color: 'var(--color-error)',
                     fontWeight: 600,
                     fontSize: '0.85rem',
                     cursor: 'pointer',

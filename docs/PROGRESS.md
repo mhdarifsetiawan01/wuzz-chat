@@ -1101,3 +1101,46 @@ Frontend mengirim `plaintext_content` (teks yang sudah ter-decrypt di UI, diambi
 - Frontend: `npm run build` — **✓ Compiled successfully** (0 TypeScript/ESLint error).
 - Fly.io Health Check: `GET /health` → **HTTP/2 200 OK**.
 
+---
+
+## Milestone 8.6 — Design Debt Batch Fix #1: 112 Hex → Design Token
+**Tanggal**: 2026-09-19
+**Branch**: `feature/design-token-codemod` → `dev` → `main` → `origin/main`
+**Commit**: `8693581` (merge `57ed585` ke dev, `1414a99` ke main)
+
+### Latar Belakang
+Audit design-debt via plugin Qoder **Design Review** (skill `design-debt-review`; artefak di `frontend/.design-qa/reports/design-debt.md`) menemukan 1000+ temuan; prioritas teratas: hex literal yang menduplikasi nilai token `:root` di 15 file.
+
+### Perubahan Implementasi
+- Codemod `hex → var(--token)` — hanya nilai yang PERSIS sama dengan token `:root` (peta divalidasi otomatis): **112 penggantian** (107 otomatis + 5 ternary multi-baris manual + 10 cleanup fallback `var()` redundan).
+- Pengecualian konteks non-CSS: `themeColor` meta viewport, atribut SVG `stopColor`/`stroke`, opsi QR library, array `SENDER_COLORS`, `lib/avatarColor.ts`.
+
+**Verifikasi & Test Evidence**:
+- Frontend: `npm run build` — **✓ Compiled successfully** (0 TypeScript error).
+- Backend: tidak ada perubahan kode backend.
+- Render ekuivalen: fingerprint computed-styles **identik** sebelum/sesudah di `/` dan `/login`; screenshot login identik.
+- Temuan sampingan: 6 token `var()` dangling pre-existing (`--border-focus`, `--bg-input`, `--bg-surface-hover`, `--transition-normal`, `--shadow-lg`, `--color-success`).
+
+---
+
+## Milestone 8.7 — Design Debt Batch Fix #2+#6: Standarisasi Warna Status + Hapus CSS Mati
+**Tanggal**: 2026-09-19
+**Branch**: `feature/design-debt-batch-6-2` (dipotong dari `dev`)
+**Commit**: — *(menyusul pasca-merge; entri ditulis sebelum commit)*
+
+### Latar Belakang
+Warna status drift untuk peran semantik yang sama: merah error 5 nilai (`--color-error #f87171` vs `#ef4444/#dc2626/#fc8181/#fca5a5`), hijau sukses/online 3 nilai (`#34d399/#22c55e/#10b981`). Ditambah `app/page.module.css` (starter Next.js) yang mati (0 import) dan mendefinisikan tema terang yang berlawanan dengan design system dark-first. Keputusan semantik warna: lihat `docs/plans/active/DECISION_LOG.md` D-002.
+
+### Perubahan File
+1. **`frontend/app/globals.css`** — +3 token status di `:root` (`--color-success`, `--color-danger`, `--color-danger-strong`); 18 replacement sadar-properti (peran teks vs fill dibedakan); perbaikan fallback salah `var(--accent-500, #22c55e)`.
+2. **`frontend/app/page.module.css`** — **dihapus** (150 baris dead code; batch #6).
+3. **8 file TSX** (`DeviceTransferModal`, `ProfileModal`, `GroupInfoDrawer`, `CreateGroupModal`, `CreateSubGroupModal`, `GroupPreviewModal`, `SubGroupListDrawer`, `app/transfer/page.tsx`) — 14 replacement; perbaikan token dangling `var(--danger-color, #ef4444)` → `var(--color-error)`.
+4. **`frontend/.design-qa/`** — codemod `codemod-status-colors.mjs` + laporan `codemod-batch2.json` + pembaruan laporan `design-debt.md` (total **32 replacement**).
+
+**Verifikasi & Test Evidence**:
+- Frontend: `npm run build` — **✓ Compiled successfully** (0 TypeScript error, 6 route static).
+- Backend: `go test ./...` — **PASS** (8 paket ber-test ok; tidak ada perubahan kode backend).
+- Browser (localhost:3047): 3 token baru resolve benar di computed styles; `varsMissing` 6 → 5; screenshot login normal.
+- Sisa hex drift warna status di kode fitur: **0** (hanya definisi `:root` + 1 gradient palet avatar).
+- Audit ulang: 52 file dipindai (−1 file mati); capped `hard-coded-color` 98 → 84.
+

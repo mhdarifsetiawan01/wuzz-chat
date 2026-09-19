@@ -416,7 +416,7 @@ export default function SubGroupListDrawer({
                               padding: '6px 12px',
                               borderRadius: '8px',
                               border: 'none',
-                              background: '#10b981',
+                              background: 'var(--color-success)',
                               color: '#ffffff',
                               fontSize: '0.78rem',
                               fontWeight: 600,
