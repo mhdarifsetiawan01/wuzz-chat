@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { MessageContextMenu } from './MessageContextMenu'
 import type { Message } from '@/lib/types'
 import { AudioPlayerBubble } from './AudioPlayerBubble'
 import { LinkPreviewCard } from './LinkPreviewCard'
@@ -168,6 +169,15 @@ export function MessageBubble({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [remainingSeconds, setRemainingSeconds] = useState(0)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const longPressFiredRef = useRef(false)
+  const touchMovedRef = useRef(false)
+
+  // Deteksi mobile (touch-primary device)
+  const isMobile = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
 
   const handleCloseDelete = useModalBackHandler(
     isDeleteModalOpen,
@@ -392,6 +402,47 @@ export function MessageBubble({
     }
   }
 
+  // ── Context Menu Handlers ────────────────────────────────────────
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    if (isSystem || !message.id) return
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY })
+  }, [isSystem, message.id])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (isSystem || !message.id) return
+    longPressFiredRef.current = false
+    touchMovedRef.current = false
+    const touch = e.touches[0]
+    longPressTimerRef.current = setTimeout(() => {
+      if (!touchMovedRef.current) {
+        longPressFiredRef.current = true
+        // Posisi tengah layar untuk bottom sheet (tidak perlu koordinat tepat)
+        setContextMenu({ x: touch.clientX, y: touch.clientY })
+      }
+    }, 500)
+  }, [isSystem, message.id])
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    // Cegah tap biasa memicu link/action jika long press baru saja fired
+    if (longPressFiredRef.current) {
+      e.preventDefault()
+    }
+  }, [])
+
+  const handleTouchMove = useCallback(() => {
+    touchMovedRef.current = true
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }, [])
+
   const handleQuoteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     const targetId = message.reply_to?.id
@@ -436,7 +487,13 @@ export function MessageBubble({
             </span>
           )}
           
-          <div className="message-bubble-wrapper">
+          <div
+            className="message-bubble-wrapper"
+            onContextMenu={handleContextMenu}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onTouchMove={handleTouchMove}
+          >
         <div className={`message-bubble ${selfId && message.mentions?.includes(selfId) ? 'message-bubble-mentioned' : ''}`}>
           {/* Label Disematkan / Pinned Indicator */}
           {isPinned && (
@@ -612,70 +669,7 @@ export function MessageBubble({
           )}
         </div>
 
-        {/* Floating Action Bar on Hover (Reply, Delete & Quick Reactions) */}
-        {!isSystem && message.id && (
-          <div className="bubble-action-bar" aria-label="Aksi pesan">
-            <div className="quick-emoji-list">
-              {QUICK_EMOJIS.map(emoji => (
-                <button
-                  key={emoji}
-                  type="button"
-                  className="quick-emoji-btn"
-                  onClick={() => handleQuickReact(emoji)}
-                  title={`Reaksi ${emoji}`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="bubble-action-btn reply-btn"
-              onClick={handleReplyClick}
-              title="Balas pesan ini"
-            >
-              ↩️
-            </button>
-            {canEdit && (
-              <button
-                type="button"
-                className="bubble-action-btn edit-btn"
-                onClick={() => onEditMessage?.(message)}
-                title="Edit pesan (15 menit)"
-              >
-                ✏️
-              </button>
-            )}
-            {!message.is_deleted && (
-              <button
-                type="button"
-                className="bubble-action-btn forward-btn"
-                onClick={() => onForwardMessage?.(message)}
-                title="Teruskan pesan"
-              >
-                ↪️
-              </button>
-            )}
-            {!message.is_deleted && (
-              <button
-                type="button"
-                className={`bubble-action-btn pin-msg-btn ${isPinned ? 'pinned' : ''}`}
-                onClick={() => (isPinned ? onUnpinMessage?.(message.id!) : onPinMessage?.(message))}
-                title={isPinned ? 'Lepas sematan pesan' : 'Sematkan pesan ini'}
-              >
-                📌
-              </button>
-            )}
-            <button
-              type="button"
-              className="bubble-action-btn delete-btn"
-              onClick={() => setIsDeleteModalOpen(true)}
-              title="Hapus pesan"
-            >
-              🗑️
-            </button>
-          </div>
-        )}
+        {/* Context Menu — rendered via portal (see MessageContextMenu.tsx) */}
       </div>
 
       {/* Reaction Pills Badges */}
@@ -703,6 +697,29 @@ export function MessageBubble({
       )}
         </div>
       </div>
+
+      {/* Context Menu / Bottom Sheet */}
+      {!isSystem && message.id && contextMenu && typeof document !== 'undefined' && (
+        <MessageContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          isMobile={isMobile}
+          message={message}
+          isSelf={isSelf}
+          canEdit={canEdit}
+          isPinned={isPinned}
+          selfId={selfId}
+          selfNickname={selfNickname}
+          onClose={() => setContextMenu(null)}
+          onReact={handleQuickReact}
+          onReply={handleReplyClick}
+          onEdit={() => onEditMessage?.(message)}
+          onForward={() => onForwardMessage?.(message)}
+          onPin={() => onPinMessage?.(message)}
+          onUnpin={() => onUnpinMessage?.(message.id!)}
+          onDelete={() => setIsDeleteModalOpen(true)}
+        />
+      )}
 
       {/* Modal Pilihan Hapus Pesan */}
       {isDeleteModalOpen && typeof document !== 'undefined' && createPortal(
