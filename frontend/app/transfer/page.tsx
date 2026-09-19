@@ -126,7 +126,7 @@ function TransferContent() {
           <div style={{ marginBottom: 'var(--space-4)' }}>
             <div
               style={{
-                background: 'rgba(239, 68, 68, 0.1)',
+                background: 'var(--tint-error-10)',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
                 color: 'var(--color-error)',
                 padding: 'var(--space-4)',

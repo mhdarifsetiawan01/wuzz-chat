@@ -248,7 +248,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   fontSize: '0.8rem',
                   color: 'var(--accent-300)',
                   fontWeight: 500,
-                  background: 'rgba(59, 130, 246, 0.12)',
+                  background: 'var(--tint-accent-12)',
                   padding: '1px 8px',
                   borderRadius: 'var(--radius-full)',
                   border: '1px solid rgba(59, 130, 246, 0.25)',
@@ -436,7 +436,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   <div style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>Status Akun:</span>
                     {isVerified ? (
-                      <span style={{ color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ color: 'var(--color-verified)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <VerifiedBadge size={15} /> Terverifikasi
                       </span>
                     ) : (
@@ -455,7 +455,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     style={{
                       fontSize: '0.675rem',
                       color: 'var(--accent-300)',
-                      background: 'rgba(59, 130, 246, 0.1)',
+                      background: 'var(--tint-accent-10)',
                       border: '1px solid rgba(59, 130, 246, 0.25)',
                       padding: '3px 8px',
                       borderRadius: 'var(--radius-full)',
@@ -621,7 +621,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                   <span style={{ fontSize: '1.2rem' }}>🛡️</span>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#38bdf8' }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-verified)' }}>
                     Enkripsi End-to-End (E2EE) Aktif
                   </div>
                 </div>
@@ -655,7 +655,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     fontSize: '0.825rem',
                     padding: '9px 14px',
                     justifyContent: 'center',
-                    background: 'rgba(59, 130, 246, 0.12)',
+                    background: 'var(--tint-accent-12)',
                     color: 'var(--accent-300)',
                     border: '1px solid rgba(59, 130, 246, 0.35)',
                     borderRadius: 'var(--radius-md)',
@@ -691,7 +691,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   style={{
                     width: '100%',
                     padding: '10px 16px',
-                    background: 'rgba(239, 68, 68, 0.15)',
+                    background: 'var(--tint-error-15)',
                     border: '1px solid rgba(239, 68, 68, 0.4)',
                     borderRadius: 'var(--radius-md)',
                     color: 'var(--color-error)',
@@ -704,8 +704,8 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     gap: '8px',
                     transition: 'all 0.15s ease',
                   }}
-                  onMouseOver={e => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)')}
-                  onMouseOut={e => (e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)')}
+                  onMouseOver={e => (e.currentTarget.style.background = 'var(--tint-error-25)')}
+                  onMouseOut={e => (e.currentTarget.style.background = 'var(--tint-error-15)')}
                 >
                   <span>⏻</span> Keluar dari Akun (Logout)
                 </button>

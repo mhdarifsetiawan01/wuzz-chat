@@ -1144,3 +1144,33 @@ Warna status drift untuk peran semantik yang sama: merah error 5 nilai (`--color
 - Sisa hex drift warna status di kode fitur: **0** (hanya definisi `:root` + 1 gradient palet avatar).
 - Audit ulang: 52 file dipindai (−1 file mati); capped `hard-coded-color` 98 → 84.
 
+
+---
+
+## Milestone 8.8 (Design Debt) — Batch Fix #3–#7: Token Lengkap, Utility CSS, Unified Modal, DESIGN.md
+**Tanggal**: 2026-09-19
+**Branch**: `feature/design-debt-batch-3-to-7` (dipotong dari `dev`)
+
+### Perubahan Implementasi
+
+**Batch #3 — Token Baru + Codemod Sisa Hex (20 file):**
+- `:root` globals.css +53 token baru: `--color-verified`, `--text-on-accent`, `--color-cyan-neon`, 10× tint aksen, 5× tint error, palet `--wa-*`, fix 5 dangling var, `--shadow-lg`, `--transition-normal`, z-index scale `--z-*`.
+- Codemod `#ffffff/#fff` → `var(--text-on-accent)`, `#38bdf8` → `var(--color-verified)`, WA hex → `var(--wa-*)`, rgba() → `var(--tint-*)`.
+- `zIndex: 99999` → **0** di seluruh codebase.
+
+**Batch #4 — Utility CSS Classes (globals.css):**
+- 120+ kelas: `u-flex`, `u-gap-*`, `u-text-*`, `u-fw-*`, spacing, scroll, `btn-ghost`, `u-bg-accent-tint`, `u-bg-error-tint`, z-class helpers `.z-modal/modal-top/dropdown`.
+
+**Batch #5 — Unified Modal Primitive (globals.css + 4 TSX):**
+- `.modal-overlay`, `.modal-card-unified`, `.modal-header/body/footer-unified`, `.modal-danger-zone`, `.modal-confirm-overlay`, animasi `slideUp` + `slideInRight`.
+- `group-modal-backdrop` + class `z-modal` di 4 file TSX; hardcoded zIndex → `var(--z-modal/modal-top)`.
+
+**Batch #7 — `frontend/DESIGN.md` [NEW] (173 baris):**
+- Single source of truth design system: token palette, z-index scale, typography, unified modal API, utility catalog, exceptions, prevention checklist.
+
+**Total**: 21 file (20 modified + 1 new), +497 insertions / −151 deletions.
+
+### Test Evidence
+- `npm run build` — **✓ PASS** 3× (gate #3, gate #4+#5, final). TypeScript clean, 6 routes.
+- `go test ./...` — **PASS** 8 paket OK.
+- `zIndex: 99999` → **0** ✅. Dangling `var()` → **0** ✅.
