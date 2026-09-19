@@ -1,3 +1,6 @@
 # Active Implementation Summary
 
-*Status: Standby — Tidak ada rencana aktif saat ini.*
+- **Fitur / Task**: Standby
+- **Status**: Standby
+- **Branch**: `dev`
+- **Target Files**: -

@@ -607,16 +607,18 @@ function ChatPageContent() {
       if (user?.id) {
         await clearLocalKeyPair(user.id)
       }
-      // Jika konflik ini adalah penolakan perangkat baru (!isRotated), JANGAN panggil logout server
-      // karena perangkat ini tidak memiliki hak atas sesi aktif dan tidak boleh mengosongkan active_device_id milik Device 1!
-      if (!deviceConflict.isRotated) {
-        localLogout()
-      } else {
+      // Bersihkan sesi lokal seketika (0ms guarantee)
+      localLogout()
+
+      // Jika rotasi (perangkat lama ditendang), jalankan logout server berbatas waktu 30 detik
+      if (deviceConflict.isRotated) {
         await logout()
       }
-    } catch {}
+    } catch (err) {
+      console.warn('[ConflictLogout] Error saat proses logout konflik:', err)
+    }
     if (typeof window !== 'undefined') {
-      window.location.href = '/login'
+      window.location.href = '/login?logout=1'
     }
   }, [logout, localLogout, user?.id, deviceConflict.isRotated])
 

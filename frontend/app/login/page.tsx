@@ -10,17 +10,28 @@ function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isExpired = searchParams.get('expired') === '1'
+  const isLogout = searchParams.get('logout') === '1'
   const redirectRoom = searchParams.get('room') || ''
   const redirectUrl = searchParams.get('redirect') || ''
 
-  const { user, isLoading: isAuthLoading, login } = useAuth()
+  const { user, isLoading: isAuthLoading, login, localLogout } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [infoMsg, setInfoMsg] = useState(isLogout ? 'ℹ️ Anda telah berhasil keluar. Silakan masuk kembali.' : '')
   const [error, setError] = useState(isExpired ? '⚠️ Sesi Anda telah berakhir. Silakan masuk kembali.' : '')
   const [isLoading, setIsLoading] = useState(false)
 
-  // Redirect ke /chat (atau URL tujuan) jika sudah terautentikasi
+  // Redirect ke /chat (atau URL tujuan) jika sudah terautentikasi (kecuali sedang datang dari alur logout)
   useEffect(() => {
+    if (isLogout) {
+      localLogout()
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('wuzz_auth_token')
+        localStorage.removeItem('wuzz_user_profile')
+      }
+      return
+    }
+
     if (!isAuthLoading && user) {
       if (redirectUrl) {
         router.replace(redirectUrl)
@@ -28,7 +39,7 @@ function LoginContent() {
         router.replace(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
       }
     }
-  }, [user, isAuthLoading, router, redirectRoom, redirectUrl])
+  }, [user, isAuthLoading, router, redirectRoom, redirectUrl, isLogout, localLogout])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,6 +97,20 @@ function LoginContent() {
         <p className="landing-subtitle" style={{ marginBottom: 'var(--space-6)' }}>
           Lanjutkan obrolan kamu dengan kontak & grup di Wuzz Chat.
         </p>
+
+        {infoMsg && (
+          <div style={{
+            background: 'var(--tint-accent-10)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            color: 'var(--accent-300)',
+            padding: 'var(--space-3)',
+            borderRadius: 'var(--radius-md)',
+            fontSize: '0.875rem',
+            marginBottom: 'var(--space-4)',
+          }}>
+            {infoMsg}
+          </div>
+        )}
 
         {error && (
           <div style={{

@@ -36,6 +36,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   // Tab State
   const [activeTab, setActiveTab] = useState<'profile' | 'media' | 'security'>('profile')
   const [isAvatarStudioOpen, setIsAvatarStudioOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Profile Form State
   const [displayName, setDisplayName] = useState('')
@@ -681,11 +682,19 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
+                  disabled={isLoggingOut}
+                  onClick={async () => {
                     if (window.confirm('Apakah Anda yakin ingin keluar dari akun ini?')) {
-                      logout()
+                      setIsLoggingOut(true)
+                      try {
+                        await logout()
+                      } catch {}
                       onClose()
-                      router.push('/login')
+                      if (typeof window !== 'undefined') {
+                        window.location.href = '/login?logout=1'
+                      } else {
+                        router.push('/login?logout=1')
+                      }
                     }
                   }}
                   style={{
@@ -697,17 +706,18 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     color: 'var(--color-error)',
                     fontWeight: 600,
                     fontSize: '0.85rem',
-                    cursor: 'pointer',
+                    cursor: isLoggingOut ? 'not-allowed' : 'pointer',
+                    opacity: isLoggingOut ? 0.7 : 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '8px',
                     transition: 'all 0.15s ease',
                   }}
-                  onMouseOver={e => (e.currentTarget.style.background = 'var(--tint-error-25)')}
-                  onMouseOut={e => (e.currentTarget.style.background = 'var(--tint-error-15)')}
+                  onMouseOver={e => !isLoggingOut && (e.currentTarget.style.background = 'var(--tint-error-25)')}
+                  onMouseOut={e => !isLoggingOut && (e.currentTarget.style.background = 'var(--tint-error-15)')}
                 >
-                  <span>⏻</span> Keluar dari Akun (Logout)
+                  <span>{isLoggingOut ? '⏳' : '⏻'}</span> {isLoggingOut ? 'Memproses Keluar...' : 'Keluar dari Akun (Logout)'}
                 </button>
               </div>
 
