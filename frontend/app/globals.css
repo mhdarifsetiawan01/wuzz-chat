@@ -5903,6 +5903,50 @@ h4 { font-size: 1rem;   font-weight: 600; }
   to   { opacity: 1; transform: translateX(0); }
 }
 
+/* ─── Encrypted Messages Single Banner (E2EE Key Rotation UX) ─── */
+.encrypted-messages-banner {
+  margin: var(--space-2) auto var(--space-4) auto;
+  max-width: 480px;
+  width: calc(100% - var(--space-4));
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-glass-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  text-align: left;
+  line-height: 1.4;
+  animation: fadeIn var(--transition-fast) ease-in-out;
+}
+
+.encrypted-banner-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.encrypted-banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.encrypted-banner-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.encrypted-banner-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+
 
 
 

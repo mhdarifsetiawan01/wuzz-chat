@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import type { Message, PinnedMessage } from '@/lib/types'
 import { MessageBubble } from './MessageBubble'
 import { PinnedMessageBanner } from './PinnedMessageBanner'
@@ -70,6 +70,24 @@ export function ChatWindow({
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, isPeerTyping])
+
+  // Optimasi Performa O(N) Single-Pass: Memoize pemisahan pesan terenkripsi hanya saat array messages berubah
+  const { encryptedCount, displayMessages } = useMemo(() => {
+    let count = 0
+    const filtered: Message[] = []
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i]
+      const isEncrypted =
+        m.content === '🔒 [Pesan Terenkripsi]' ||
+        (typeof m.content === 'string' && m.content.startsWith('e2ee:v1:'))
+      if (isEncrypted) {
+        count++
+      } else {
+        filtered.push(m)
+      }
+    }
+    return { encryptedCount: count, displayMessages: filtered }
+  }, [messages])
 
   // 1. Tampilan saat sedang menyinkronkan riwayat pesan dari server
   if (isLoadingHistory) {
@@ -191,7 +209,24 @@ export function ChatWindow({
         </div>
       )}
 
-      {messages.map((msg, idx) => {
+      {/* Banner konsolidasi jika terdapat pesan masa lalu yang tidak dapat didekripsi */}
+      {encryptedCount > 0 && (
+        <div className="encrypted-messages-banner" role="status">
+          <div className="encrypted-banner-icon" aria-hidden="true">
+            🔒
+          </div>
+          <div className="encrypted-banner-content">
+            <span className="encrypted-banner-title">
+              {encryptedCount} pesan sebelumnya tidak dapat didekripsi
+            </span>
+            <span className="encrypted-banner-desc">
+              Pesan terenkripsi dengan kunci sesi lama karena kunci keamanan akun telah dirotasi di perangkat ini.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {displayMessages.map((msg, idx) => {
         const isMsgPinned = Boolean(msg.id && pinnedMessages.some((p) => p.message_id === msg.id))
         return (
           <MessageBubble
@@ -215,6 +250,14 @@ export function ChatWindow({
           />
         )
       })}
+
+      {displayMessages.length === 0 && encryptedCount > 0 && (
+        <div className="chat-empty" role="status" style={{ padding: 'var(--space-6) 0' }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            Mulai kirim pesan baru untuk memulai kembali percakapan terenkripsi.
+          </p>
+        </div>
+      )}
 
       {/* Typing indicator — muncul saat anggota lain sedang mengetik */}
       {isPeerTyping && (

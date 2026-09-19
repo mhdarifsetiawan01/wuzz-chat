@@ -433,6 +433,8 @@ Karena seluruh algoritma menggunakan standar resmi NIST & RFC:
 - **Fail-Closed E2EE Guard**: Pengiriman pesan langsung (direct chat) diwajibkan melewati enkripsi AES-256-GCM. Jika kunci sesi lokal `null`, pengiriman langsung dibatalkan (0% kebocoran plaintext).
 - **Single-Session WebSocket Kick**: Backend Go `Hub.Register` mendeteksi jika client baru terhubung dengan UserID yang sama dengan client aktif, mengirimkan event notifikasi penutupan `SESSION_REPLACED`, dan memutus koneksi WebSocket client lama seketika (`conn.Close()`).
 - **Explicit Key Rotation**: Kunci hanya dapat dirotasi secara sadar melalui `POST /api/users/public-key/reset` yang menaikkan `key_version`. Sesi device lama otomatis kedaluwarsa.
+- **Active Device Release on Logout**: Pengguna yang logout secara sukarela memanggil `POST /api/auth/logout`, mengosongkan `active_device_id = ''` di database sehingga perangkat baru tidak mengalami false conflict saat login berikutnya.
+- **Single Consolidated Encrypted Banner UX**: Pesan historis yang gagal didekripsi akibat rotasi kunci disaring dari bubble linimasa obrolan dan dikonsolidasikan menjadi 1 banner ringkas sistem di atas linimasa chat.
 
 ### F. Zero-Knowledge QR Code Key Migration Protocol (Opsi 2)
 ```mermaid

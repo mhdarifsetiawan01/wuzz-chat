@@ -1,6 +1,3 @@
-# Active Handover
+# Handover Notes
 
-## Status
-- **Status Milestone**: Standby ⏸️
-- **Branch**: `dev`
-- **Quality Gate**: Ready
+> Standby — menunggu penugasan berikutnya.

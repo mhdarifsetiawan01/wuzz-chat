@@ -84,6 +84,7 @@ type UserStore interface {
 	UpdatePublicKey(userID, publicKey string) error
 	UpdatePublicKeyWithDevice(userID, publicKey, deviceID string) (int, error)
 	ForceResetPublicKey(userID, publicKey, deviceID string) (int, error)
+	ClearActiveDevice(userID string) error
 	GetE2EEInfo(userID string) (publicKey string, keyVersion int, activeDeviceID string, err error)
 	SearchUsers(query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
@@ -364,6 +365,21 @@ func (s *SQLUserStore) ForceResetPublicKey(userID, publicKey, deviceID string) (
 		return 0, fmt.Errorf("gagal force reset public key: %w", err)
 	}
 	return newKeyVer, nil
+}
+
+// ClearActiveDevice mengosongkan active_device_id user saat logout sehingga perangkat baru dapat login tanpa konflik.
+func (s *SQLUserStore) ClearActiveDevice(userID string) error {
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE users SET active_device_id = '' WHERE id = $1`
+	} else {
+		query = `UPDATE users SET active_device_id = '' WHERE id = ?`
+	}
+	_, err := s.db.Exec(query, userID)
+	if err != nil {
+		return fmt.Errorf("gagal mengosongkan active_device_id: %w", err)
+	}
+	return nil
 }
 
 // UpdatePublicKey memperbarui public_key (E2EE) milik user (backward-compatible).

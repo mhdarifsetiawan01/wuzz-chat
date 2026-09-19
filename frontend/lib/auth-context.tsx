@@ -69,6 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      await apiRequest('/api/auth/logout', { method: 'POST' })
+    } catch (err) {
+      console.warn('[Auth] Gagal memberitahu server saat logout:', err)
+    }
+    try {
       await unsubscribeFromPushNotifications()
     } catch (err) {
       console.warn('[Auth] Gagal unsubscribe push saat logout:', err)

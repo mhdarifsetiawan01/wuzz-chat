@@ -122,6 +122,9 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
   - 📌 **Pin Chat (Sidebar)**: Penyematan percakapan per-user di tabel `conversation_members` (`is_pinned`), indikator pin 📌, dan prioritas sorting percakapan tersemat di sidebar.
   - 📌 **Pin Message (Dalam Chat)**: Penyematan hingga maksimal 3 pesan penting per ruang obrolan (tabel `pinned_messages`, sistem rotasi FIFO otomatis, proteksi anti-pinning pesan terhapus, dan auto-unpin saat pesan ditarik), banner glassmorphic `PinnedMessageBanner.tsx`, serta navigasi melompat ke pesan dengan efek animasi glow emas.
   - 🔍 **In-Chat Search**: Pencarian teks pesan interaktif di header `StatusBar.tsx`, penghitung kecocokan real-time, navigasi tombol `▲`/`▼`, scroll-to-message dengan highlight pendaran biru, dan proteksi batasan waktu privasi `cleared_at`.
+- [x] **Backend Logout Endpoint & Consolidated Encrypted Messages Banner (Fase 8 Milestone 8.10)**:
+  - 🚪 **Pelepasan Sesi Perangkat Aktif (`POST /api/auth/logout`)**: Penambahan endpoint logout resmi di backend Go yang mengosongkan kolom `users.active_device_id = ''` di database, mengeliminasi false conflict (HTTP 409) ketika pengguna berpindah ke perangkat baru setelah logout secara sukarela.
+  - 🔒 **Single Consolidated Banner for Encrypted Messages UX**: Menggantikan tumpukan puluhan bubble `🔒 [Pesan Terenkripsi]` yang mengotori layar dengan **1 buah banner sistem ringkas** di linimasa chat (`ChatWindow.tsx`), dipadukan dengan optimasi performa $O(N)$ single-pass loop menggunakan `useMemo` untuk mencegah re-filtering overhead saat rendering.
 
 ---
 

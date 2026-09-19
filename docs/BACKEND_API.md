@@ -195,6 +195,21 @@ Memperbarui nama tampilan, status pesan, atau foto avatar profil.
 
 ---
 
+#### 5. `POST /api/auth/logout`
+Melakukan logout akun pengguna dan melepaskan sesi perangkat aktif (`active_device_id`) di database, sehingga perangkat berikutnya yang login tidak terblokir oleh status 409 Conflict.
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**: Tidak ada (kosong).
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "ok",
+    "message": "Berhasil logout dan melepaskan sesi perangkat aktif"
+  }
+  ```
+- **Error Codes**: `401 Unauthorized`, `405 Method Not Allowed`, `500 Internal Server Error`.
+
+---
+
 ### 3.2 Manajemen Kunci E2EE
 
 #### 5. `PUT /api/users/public-key` *(atau `PUT /api/auth/public-key`)*
