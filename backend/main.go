@@ -122,6 +122,9 @@ func main() {
 	}
 	hub.SetPushService(pushService)
 	hub.SetBroker(messageBroker)
+	if transferHandler != nil {
+		transferHandler.SetHub(hub)
+	}
 
 	// Inisialisasi CORS Validator dinamis (mendukung multi-domain, Vercel preview, dan localhost)
 	corsValidator := auth.NewCORSValidatorFromEnv()

@@ -173,3 +173,55 @@ func TestTransferHandler_ExpiredSession(t *testing.T) {
 		t.Fatalf("Cleanup gagal: deleted=%d, err=%v", deleted, err)
 	}
 }
+
+type mockWebSocketHub struct {
+	kickedUserID string
+	kickedExcept string
+	kickedReason string
+	kickCalled   bool
+}
+
+func (m *mockWebSocketHub) KickClientByUserID(userID, exceptDeviceID, reason string) {
+	m.kickedUserID = userID
+	m.kickedExcept = exceptDeviceID
+	m.kickedReason = reason
+	m.kickCalled = true
+}
+
+func TestTransferHandler_DirectWebSocketKick(t *testing.T) {
+	_, userStore, transferStore := setupTransferTestDB(t)
+	mockHub := &mockWebSocketHub{}
+	handler := api.NewTransferHandler(transferStore, mockHub)
+
+	user, _ := userStore.Register("user_kick_test", "User Kick", "Password123!")
+	token, _ := auth.GenerateToken(user.ID, user.Username, user.DisplayName)
+
+	sessionToken := "sessiontokensupersafe1234567890abcdef"
+	_ = transferStore.CreateTransferSession(user.ID, sessionToken, "bundle_encrypted_data", 5*time.Minute)
+
+	consumeBody, _ := json.Marshal(map[string]string{
+		"session_token": sessionToken,
+		"device_id":     "dev_target_new",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/users/transfer/consume", bytes.NewReader(consumeBody))
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+
+	auth.RequireJWT()(http.HandlerFunc(handler.ConsumeSession)).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Ekspektasi 200 OK saat consume, dapat: %d, body: %s", w.Code, w.Body.String())
+	}
+
+	if !mockHub.kickCalled {
+		t.Fatalf("Ekspektasi KickClientByUserID dipanggil saat transfer selesai")
+	}
+
+	if mockHub.kickedUserID != user.ID {
+		t.Errorf("Ekspektasi kickedUserID = %s, dapat: %s", user.ID, mockHub.kickedUserID)
+	}
+
+	if mockHub.kickedExcept != "dev_target_new" {
+		t.Errorf("Ekspektasi kickedExcept = dev_target_new, dapat: %s", mockHub.kickedExcept)
+	}
+}

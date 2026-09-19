@@ -48,6 +48,7 @@ export function DeviceTransferModal({
   const [isExpired, setIsExpired] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [copied, setCopied] = useState(false)
+  const [isTransferredOut, setIsTransferredOut] = useState(false)
 
   // Input Mode state
   const [inputToken, setInputToken] = useState('')
@@ -386,6 +387,7 @@ export function DeviceTransferModal({
   // Reset state when opening modal
   useEffect(() => {
     if (isOpen) {
+      setIsTransferredOut(false)
       const resolvedMode = hideGenerate ? (initialMode === 'generate' ? 'scan' : initialMode) : initialMode
       setMode(resolvedMode)
       setErrorMsg('')
@@ -414,6 +416,29 @@ export function DeviceTransferModal({
       }
     }
   }, [isOpen, initialMode, hideGenerate])
+
+  // Listener event pergantian sesi saat QR berhasil dikonsumsi di perangkat baru
+  useEffect(() => {
+    const handleSessionReplaced = () => {
+      if (mode === 'generate' && isOpen) {
+        setIsTransferredOut(true)
+        clearTimer()
+        setTimeout(() => {
+          onClose()
+        }, 1200)
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wuzz:session_replaced', handleSessionReplaced)
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('wuzz:session_replaced', handleSessionReplaced)
+      }
+    }
+  }, [mode, isOpen, onClose])
 
   // Flow membuat QR code di device lama
   const startGenerateFlow = async () => {
@@ -501,9 +526,9 @@ export function DeviceTransferModal({
     const cleanToken = inputToken.trim()
     if (!cleanToken) {
       setErrorMsg('Silakan masukkan kode token sesi transfer.')
-      return
+    } else {
+      await handleProcessToken(cleanToken)
     }
-    await handleProcessToken(cleanToken)
   }
 
   const handleCopyToken = () => {
@@ -535,7 +560,7 @@ export function DeviceTransferModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 160,
+        zIndex: 1000,
         padding: 'var(--space-4)',
       }}
     >
@@ -651,127 +676,149 @@ export function DeviceTransferModal({
         {/* MODE 1: GENERATE QR */}
         {mode === 'generate' && !hideGenerate && (
           <div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '6px' }}>
-              Pindahkan Sesi ke Perangkat Baru
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
-              Pindai kode QR ini menggunakan kamera di HP atau perangkat baru Anda untuk memindahkan kunci enkripsi tanpa merusak riwayat pesan.
-            </p>
-
-            {isLoading ? (
-              <div style={{ padding: 'var(--space-8) 0', color: 'var(--text-muted)' }}>
-                <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⏳</div>
-                <p style={{ fontSize: '0.9rem' }}>Menyiapkan enkripsi kunci keamanan...</p>
-              </div>
-            ) : isExpired ? (
+            {isTransferredOut ? (
               <div
                 style={{
                   padding: 'var(--space-6)',
-                  background: 'var(--tint-error-08)',
-                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  background: 'var(--tint-accent-10)',
+                  border: '1px solid var(--accent-500)',
                   borderRadius: '12px',
                   marginBottom: 'var(--space-4)',
                 }}
               >
-                <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⏱️</div>
-                <div style={{ fontWeight: 600, color: 'var(--color-error)', marginBottom: '6px' }}>Sesi QR Telah Kedaluwarsa</div>
-                <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)' }}>
-                  Demi keamanan Zero-Knowledge, sesi transfer hanya aktif selama 5 menit.
+                <div style={{ fontSize: '3rem', marginBottom: '8px' }}>✅</div>
+                <div style={{ fontWeight: 600, color: 'var(--color-verified)', fontSize: '1.1rem', marginBottom: '6px' }}>
+                  Kunci Keamanan Berhasil Dipindahkan!
+                </div>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  Sesi enkripsi akun Anda telah aktif di perangkat baru. Sesi di peramban ini dinonaktifkan demi melindungi pesan Anda.
                 </p>
-                <button
-                  type="button"
-                  onClick={startGenerateFlow}
-                  className="btn btn-primary"
-                  style={{ width: '100%', padding: '10px' }}
-                >
-                  🔄 Buat QR Code Baru
-                </button>
               </div>
-            ) : qrDataUrl ? (
-              <div>
-                <div
-                  style={{
-                    background: 'var(--text-on-accent)',
-                    padding: '12px',
-                    borderRadius: '12px',
-                    display: 'inline-block',
-                    boxShadow: 'var(--shadow-md)',
-                    marginBottom: 'var(--space-3)',
-                  }}
-                >
-                  <img
-                    src={qrDataUrl}
-                    alt="QR Code Transfer Kunci"
-                    style={{ width: '220px', height: '220px', display: 'block' }}
-                  />
-                </div>
+            ) : (
+              <>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '6px' }}>
+                  Pindahkan Sesi ke Perangkat Baru
+                </h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
+                  Pindai kode QR ini menggunakan kamera di HP atau perangkat baru Anda untuk memindahkan kunci enkripsi tanpa merusak riwayat pesan.
+                </p>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    fontSize: '0.85rem',
-                    color: timeLeft < 60 ? 'var(--color-error)' : 'var(--text-muted)',
-                    marginBottom: 'var(--space-4)',
-                    fontWeight: 600,
-                  }}
-                >
-                  <span>⏱️ Berlaku selama:</span>
-                  <span
-                    style={{
-                      background: timeLeft < 60 ? 'var(--tint-error-15)' : 'var(--bg-tertiary)',
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      fontFamily: 'monospace',
-                    }}
-                  >
-                    {formatTimer(timeLeft)}
-                  </span>
-                </div>
-
-                {/* Token Manual Copy Fallback */}
-                <div
-                  style={{
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '10px',
-                    padding: '10px 12px',
-                    textAlign: 'left',
-                    marginBottom: 'var(--space-4)',
-                  }}
-                >
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                    Kamera tidak berfungsi? Salin kode manual ini ke perangkat baru:
+                {isLoading ? (
+                  <div style={{ padding: 'var(--space-8) 0', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⏳</div>
+                    <p style={{ fontSize: '0.9rem' }}>Menyiapkan enkripsi kunci keamanan...</p>
                   </div>
+                ) : isExpired ? (
                   <div
                     style={{
-                      fontFamily: 'monospace',
-                      fontSize: '0.75rem',
-                      wordBreak: 'break-all',
-                      color: 'var(--accent-300)',
-                      marginBottom: '8px',
+                      padding: 'var(--space-6)',
+                      background: 'var(--tint-error-08)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      borderRadius: '12px',
+                      marginBottom: 'var(--space-4)',
                     }}
                   >
-                    {sessionToken}
+                    <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⏱️</div>
+                    <div style={{ fontWeight: 600, color: 'var(--color-error)', marginBottom: '6px' }}>Sesi QR Telah Kedaluwarsa</div>
+                    <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)' }}>
+                      Demi keamanan Zero-Knowledge, sesi transfer hanya aktif selama 5 menit.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={startGenerateFlow}
+                      className="btn btn-primary"
+                      style={{ width: '100%', padding: '10px' }}
+                    >
+                      🔄 Buat QR Code Baru
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyToken}
-                    className="btn btn-secondary"
-                    style={{ width: '100%', fontSize: '0.8rem', padding: '6px 10px', justifyContent: 'center' }}
-                  >
-                    {copied ? '✅ Kode Berhasil Disalin!' : '📋 Salin Kode Manual'}
-                  </button>
-                </div>
-              </div>
-            ) : null}
+                ) : qrDataUrl ? (
+                  <div>
+                    <div
+                      style={{
+                        background: 'var(--text-on-accent)',
+                        padding: '12px',
+                        borderRadius: '12px',
+                        display: 'inline-block',
+                        boxShadow: 'var(--shadow-md)',
+                        marginBottom: 'var(--space-3)',
+                      }}
+                    >
+                      <img
+                        src={qrDataUrl}
+                        alt="QR Code Transfer Kunci"
+                        style={{ width: '220px', height: '220px', display: 'block' }}
+                      />
+                    </div>
 
-            {errorMsg && (
-              <div style={{ color: 'var(--color-error)', fontSize: '0.85rem', marginBottom: 'var(--space-3)' }}>
-                {errorMsg}
-              </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        fontSize: '0.85rem',
+                        color: timeLeft < 60 ? 'var(--color-error)' : 'var(--text-muted)',
+                        marginBottom: 'var(--space-4)',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span>⏱️ Berlaku selama:</span>
+                      <span
+                        style={{
+                          background: timeLeft < 60 ? 'var(--tint-error-15)' : 'var(--bg-tertiary)',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontFamily: 'monospace',
+                        }}
+                      >
+                        {formatTimer(timeLeft)}
+                      </span>
+                    </div>
+
+                    {/* Token Manual Copy Fallback */}
+                    <div
+                      style={{
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '10px',
+                        padding: '10px 12px',
+                        textAlign: 'left',
+                        marginBottom: 'var(--space-4)',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        Kamera tidak berfungsi? Salin kode manual ini ke perangkat baru:
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: 'monospace',
+                          fontSize: '0.75rem',
+                          wordBreak: 'break-all',
+                          color: 'var(--accent-300)',
+                          marginBottom: '8px',
+                        }}
+                      >
+                        {sessionToken}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCopyToken}
+                        className="btn btn-secondary"
+                        style={{ width: '100%', fontSize: '0.8rem', padding: '6px 10px', justifyContent: 'center' }}
+                      >
+                        {copied ? '✅ Kode Berhasil Disalin!' : '📋 Salin Kode Manual'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {errorMsg && (
+                  <div style={{ color: 'var(--color-error)', fontSize: '0.85rem', marginBottom: 'var(--space-3)' }}>
+                    {errorMsg}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

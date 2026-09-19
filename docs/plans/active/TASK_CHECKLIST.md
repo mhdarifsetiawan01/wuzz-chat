@@ -1,4 +1,3 @@
-# TASK_CHECKLIST.md
+# Task Checklist — Standby
 
-## Status: Standby
-Semua checklist tugas telah selesai.
+- [x] All tasks completed.

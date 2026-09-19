@@ -179,6 +179,9 @@ export class WsClient {
         this.destroyed = true
         if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
         this._emitStatus('disconnected')
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('wuzz:session_replaced'))
+        }
         // Pastikan UI menerima event SESSION_REPLACED agar modal konflik muncul seketika
         this.messageHandlers.forEach(h => h({
           type: 'system',

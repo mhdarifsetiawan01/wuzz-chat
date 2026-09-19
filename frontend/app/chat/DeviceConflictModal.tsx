@@ -85,7 +85,7 @@ export function DeviceConflictModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 150,
+        zIndex: 1100,
         padding: 'var(--space-4)',
       }}
     >

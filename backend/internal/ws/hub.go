@@ -704,3 +704,45 @@ func (h *Hub) IsDuplicateAndRecord(msgID string, ttl time.Duration) bool {
 	return false
 }
 
+// KickClientByUserID mengirimkan sinyal SESSION_REPLACED / kick dan menutup koneksi WebSocket
+// untuk klien dengan userID tertentu. Jika exceptDeviceID diisi, hanya menendang perangkat selain device tersebut.
+func (h *Hub) KickClientByUserID(userID, exceptDeviceID, reason string) {
+	h.mu.RLock()
+	client, exists := h.clients[userID]
+	h.mu.RUnlock()
+
+	if !exists || client == nil {
+		return
+	}
+
+	if exceptDeviceID != "" && client.DeviceID == exceptDeviceID {
+		return
+	}
+
+	if reason == "" {
+		reason = "SESSION_REPLACED: Akun Anda dibuka dari perangkat lain."
+	}
+
+	log.Printf("[Hub %s] kick client %s (deviceID=%s | exceptDevice=%s | reason=%s)", h.nodeID[:8], userID, client.DeviceID, exceptDeviceID, reason)
+
+	go func(c *Client) {
+		kickMsg := Message{
+			ID:        uuid.New().String(),
+			Type:      TypeSystem,
+			Content:   reason,
+			Timestamp: time.Now().UTC(),
+		}
+		select {
+		case c.send <- kickMsg:
+		default:
+		}
+		time.Sleep(500 * time.Millisecond)
+		if c.conn != nil {
+			closeMsg := websocket.FormatCloseMessage(4001, reason)
+			_ = c.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(1000*time.Millisecond))
+			time.Sleep(100 * time.Millisecond)
+			_ = c.conn.Close()
+		}
+	}(client)
+}
+

@@ -454,6 +454,8 @@ sequenceDiagram
     B->>B: Buka In-App Camera Scanner (html5-qrcode) / Input Kode Manual
     B->>S: POST /api/users/transfer/consume (session_token, new_device_id)
     Note over S: Atomic DB Tx: Cek Token + is_used=true + users.active_device_id=new_device_id
+    S-->>A: WebSocket Kick (SESSION_REPLACED, Code 4001, Grace 500ms)
+    Note over A: Auto-dismiss Modal QR & Tampilkan Notifikasi Selesai
     S->>B: Return encrypted_bundle
     B->>B: PBKDF2(session_token) ➔ AES-GCM Decrypt
     B->>B: Simpan Keypair ke IndexedDB & CacheStorage
@@ -462,7 +464,7 @@ sequenceDiagram
 
 1. **Jaminan Keamanan Zero-Knowledge**: Private key tidak pernah menyentuh database server dalam bentuk plaintext. Hanya ciphertext terenkripsi AES-256-GCM dengan kunci turunan dari session token yang disimpan sementara di tabel `device_transfer_sessions`.
 2. **In-App Camera Scanner Terintegrasi**: Perangkat baru menggunakan library `html5-qrcode` langsung di dalam modal untuk memindai QR code dari layar perangkat lama. Untuk Android PWA WebAPK, diterapkan **Pre-Warm Permission Strategy** (memanggil `getUserMedia()` sesegera mungkin sebelum async chain agar gesture token pengguna tidak kedaluwarsa) dan **Native Camera Intent Capture Fallback** (`<input type="file" accept="image/*" capture="environment">`) yang memicu intent kamera sistem Android native tanpa terbatas oleh `Permissions Policy` WebView. Manifest PWA juga mendeklarasikan `"permissions": ["camera"]` untuk instalasi WebAPK.
-3. **Atomic One-Time Use**: Operasi download dan pengalihan status sesi dikunci dalam 1 transaksi database SQL (`SELECT ... FOR UPDATE` di PostgreSQL / `BEGIN EXCLUSIVE` di SQLite) untuk mencegah race condition atau double-consumption.
+3. **Atomic One-Time Use & Direct WebSocket Kick**: Operasi download dan pengalihan status sesi dikunci dalam 1 transaksi database SQL (`SELECT ... FOR UPDATE` di PostgreSQL / `BEGIN EXCLUSIVE` di SQLite) untuk mencegah race condition atau double-consumption. Seketika transaksi berhasil, backend memicu kick WebSocket (`KickClientByUserID`) ke perangkat lama dengan kode `4001: SESSION_REPLACED`, memicu auto-dismiss pada modal QR perangkat lama.
 4. **Resilience & Fallback Berlapis**: Sesi transfer otomatis kedaluwarsa dalam 5 menit. Terdapat 3 jalur fallback: (a) **In-App Live Scanner** (`html5-qrcode` dengan pre-warm strategy), (b) **Native Camera Capture** (`<input capture="environment">` via sistem Android), dan (c) **Input Kode Manual** 64-karakter Hex untuk situasi tanpa kamera sama sekali. Untuk akses kamera live scanner penuh tanpa batasan platform, solusi optimal adalah **Android Native App** (MLKit BarcodeScanning API).
 
 ---

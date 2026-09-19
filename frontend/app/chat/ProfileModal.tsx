@@ -68,6 +68,21 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     }
   }, [user, isOpen])
 
+  useEffect(() => {
+    const handleSessionReplaced = () => {
+      setIsTransferModalOpen(false)
+      onClose()
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wuzz:session_replaced', handleSessionReplaced)
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('wuzz:session_replaced', handleSessionReplaced)
+      }
+    }
+  }, [onClose])
+
   if (!isOpen || !user) return null
 
   const handleToggleCompression = (e: React.ChangeEvent<HTMLInputElement>) => {

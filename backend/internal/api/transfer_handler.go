@@ -11,16 +11,32 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
+// WebSocketHub mendefinisikan kontrak minimal untuk menendang koneksi klien lama saat sesi dialihkan.
+type WebSocketHub interface {
+	KickClientByUserID(userID, exceptDeviceID, reason string)
+}
+
 // TransferHandler mengelola pembuatan dan konsumsi sesi pemindahan kunci E2EE via QR Code.
 type TransferHandler struct {
 	transferStore store.TransferStore
+	hub           WebSocketHub
 }
 
-// NewTransferHandler membuat instance baru TransferHandler.
-func NewTransferHandler(transferStore store.TransferStore) *TransferHandler {
+// NewTransferHandler membuat instance baru TransferHandler dengan WebSocketHub opsional.
+func NewTransferHandler(transferStore store.TransferStore, hub ...WebSocketHub) *TransferHandler {
+	var h WebSocketHub
+	if len(hub) > 0 {
+		h = hub[0]
+	}
 	return &TransferHandler{
 		transferStore: transferStore,
+		hub:           h,
 	}
+}
+
+// SetHub menyuntikkan instance WebSocketHub ke TransferHandler.
+func (h *TransferHandler) SetHub(hub WebSocketHub) {
+	h.hub = hub
 }
 
 type CreateTransferRequest struct {
@@ -139,6 +155,11 @@ func (h *TransferHandler) ConsumeSession(w http.ResponseWriter, r *http.Request)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Terjadi kesalahan sistem saat memproses transfer."})
 		}
 		return
+	}
+
+	// Single Device Enforcement: Segera tendang sesi WebSocket perangkat lama
+	if h.hub != nil {
+		h.hub.KickClientByUserID(claims.UserID, req.DeviceID, "SESSION_REPLACED: Kunci keamanan telah dipindahkan ke perangkat baru.")
 	}
 
 	w.Header().Set("Content-Type", "application/json")

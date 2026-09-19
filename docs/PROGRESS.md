@@ -1274,4 +1274,39 @@ Ketika pengguna telah berhasil login kembali setelah logout, riwayat URL di pera
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully in 265ms** (0 TypeScript error, 0 lint error).
 - **Backend Tests (`go test -v ./...`)**: **100% PASS** di seluruh package internal WebSocket & REST API.
 
+---
+
+## Milestone 8.13 — Direct WebSocket Kick on E2EE Key Transfer & Modal Hierarchy Hardening
+**Tanggal**: 2026-09-20  
+**Branch**: `dev`
+
+### Latar Belakang & Masalah
+Ketika akun login di browser laptop dan menghasilkan QR Code transfer kunci E2EE, lalu pengguna memindai QR Code tersebut dari aplikasi HP (PWA), login di HP berhasil dan sesi terambil alih. Namun di browser laptop:
+1. Sesi WebSocket laptop tidak otomatis terlogout dan tetap terhubung karena endpoint `POST /api/users/transfer/consume` di backend belum memicu kick WebSocket langsung.
+2. `DeviceConflictModal` di laptop memiliki z-index 150 yang tertutup secara visual di belakang backdrop modal `DeviceTransferModal` (z-index 1000).
+3. `DeviceTransferModal` di laptop tidak mendengarkan event pergantian sesi (`wuzz:session_replaced`) dan tidak memiliki auto-dismiss/transition feedback.
+
+### Solusi & Perubahan Terverifikasi
+1. **`backend/internal/ws/hub.go`**:
+   - Menambahkan method `KickClientByUserID(userID, exceptDeviceID, reason string)` pada WebSocket `Hub`.
+   - Mengirim payload `SESSION_REPLACED` ke channel `send`, menerapkan jeda 500ms grace period untuk buffer flush, mengirim Close Frame (Code 4001), dan menutup koneksi socket secara tertib.
+2. **`backend/internal/api/transfer_handler.go` & `backend/main.go`**:
+   - Mendefinisikan interface `WebSocketHub` dan menginjeksi `Hub` ke `TransferHandler`.
+   - Pada `ConsumeSession`, seketika bundle diverifikasi dan `active_device_id` diperbarui, backend langsung memanggil `h.hub.KickClientByUserID(session.UserID, req.DeviceID, "SESSION_REPLACED")`.
+3. **`backend/internal/api/transfer_handler_test.go`**:
+   - Menambahkan unit test `TestTransferHandler_DirectWebSocketKick` untuk memverifikasi pemanggilan `KickClientByUserID` saat sesi di-consume.
+4. **`frontend/lib/ws-client.ts`**:
+   - Memancarkan CustomEvent `wuzz:session_replaced` saat menerima Close Code 4001 atau event `SESSION_REPLACED`.
+5. **`frontend/app/chat/DeviceTransferModal.tsx`**:
+   - Menambahkan listener `wuzz:session_replaced`.
+   - Menampilkan visual feedback *"✅ Kunci Keamanan Berhasil Dipindahkan!"* saat sesi terambil alih.
+   - Mengotomatiskan auto-dismiss modal dalam 1.2 detik.
+6. **`frontend/app/chat/DeviceConflictModal.tsx` & `frontend/app/chat/ProfileModal.tsx`**:
+   - Menyelaraskan z-index `DeviceConflictModal` ke `1100` (`var(--z-modal-top)`) agar selalu berada di lapisan teratas.
+   - Menambahkan auto-close `ProfileModal` saat event `wuzz:session_replaced` diterima.
+
+### Test Evidence
+- **Backend Tests (`go test -v ./...`)**: **100% PASS** di seluruh package internal (API, Crypto, DB, WS).
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error, 0 lint warning).
+
 

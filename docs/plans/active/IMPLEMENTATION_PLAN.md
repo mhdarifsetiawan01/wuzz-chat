@@ -1,4 +1,4 @@
-# IMPLEMENTATION_PLAN.md
+# Implementation Plan — Standby
 
-## Status: Standby
-Tidak ada rencana implementasi aktif. Seluruh rencana sebelumnya telah diarsipkan.
+## 📌 Status
+No active plan in progress. Standby for next user requirements.
