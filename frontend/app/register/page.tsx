@@ -83,7 +83,9 @@ export default function RegisterPage() {
 
     if (data?.token && data?.user) {
       login(data.token, data.user)
-      router.push('/chat')
+      // Gunakan router.replace agar halaman register tidak tertinggal di history stack.
+      // Jika router.push dipakai, user bisa Back ke register → auto-redirect ke /chat → loop.
+      router.replace('/chat')
     }
   }
 
