@@ -18,6 +18,8 @@ erDiagram
     CONVERSATIONS ||--o{ CONVERSATION_MEMBERS : contains
     CONVERSATIONS ||--o{ CONVERSATION_JOIN_REQUESTS : receives
     CONVERSATIONS ||--o{ MESSAGES : has
+    CONVERSATIONS ||--o{ PINNED_MESSAGES : pins
+    MESSAGES ||--o{ PINNED_MESSAGES : pinned_as
     MESSAGES ||--o{ MESSAGE_RECEIPTS : tracked_by
     MESSAGES ||--o{ ATTACHMENTS : includes
 
@@ -70,6 +72,8 @@ erDiagram
         varchar conversation_id FK
         uuid user_id FK
         varchar role "creator / admin / member"
+        boolean is_pinned "true if user pinned conversation in sidebar"
+        timestamp pinned_at "nullable timestamp when pinned"
         timestamp cleared_at "nullable timestamp for user clear chat"
         timestamp joined_at
     }
@@ -84,6 +88,14 @@ erDiagram
         timestamp updated_at
     }
 
+    PINNED_MESSAGES {
+        varchar id PK "pin_<UUIDv4>"
+        varchar conversation_id FK
+        varchar message_id FK
+        varchar pinned_by FK "user UUID who pinned the message"
+        timestamp created_at
+    }
+
     MESSAGES {
         uuid id PK
         uuid conversation_id FK
@@ -96,7 +108,9 @@ erDiagram
         varchar status "pending / sent / delivered / read"
         varchar type "text / image / video / audio / document"
         text content
-        boolean is_edited
+        boolean is_edited "true if edited within 15-minute window"
+        timestamp edited_at "nullable timestamp when edited"
+        boolean is_forwarded "true if message was forwarded"
         boolean is_deleted "true if message was recalled for everyone"
         text deleted_for_users "JSON array of user UUIDs who deleted for themselves"
         text mentions "JSON array of mentioned user UUIDs ['uuid', ...] (DEC-013)"
@@ -190,6 +204,9 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 |---|---|---|
 | `message` | Bidirectional | Pengiriman dan penerimaan pesan teks/media |
 | `message_deleted` | Server ➔ Client | Broadcast notifikasi pesan ditarik/dihapus untuk semua orang |
+| `message_edited` | Server ➔ Client | Broadcast notifikasi pesan diperbarui (diedit) dalam batas 15 menit |
+| `message_pinned` | Server ➔ Client | Broadcast notifikasi pesan disematkan dalam percakapan (max 3) |
+| `message_unpinned` | Server ➔ Client | Broadcast notifikasi pesan dilepas sematannya dari percakapan |
 | `typing` | Bidirectional | Notifikasi bahwa user sedang mengetik di obrolan |
 | `receipt` | Bidirectional | Laporan status pesan (`sent`, `delivered`, `read`) secara single atau bulk room |
 | `reaction`| Bidirectional | Toggle penambahan/penghapusan reaksi emoji pada pesan |
@@ -218,10 +235,18 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `PUT` | `/api/users/public-key` | Mendaftarkan / memperbarui Public Key kriptografi E2EE | Bearer Token |
 | `GET` | `/api/users/profile?id=&username=` | Mengambil profil publik pengguna lain via UUID atau @username (termasuk `public_key` & `is_verified`) | Bearer Token |
 | `GET` | `/api/users/search?q=` | Mencari user berdasarkan username/nama (termasuk `public_key` & `is_verified`) | Bearer Token |
-| `GET` | `/api/conversations` | Daftar obrolan aktif beserta pesan terakhir, `peer_public_key`, `peer_avatar_url`, dan `peer_is_verified` | Bearer Token |
+| `GET` | `/api/conversations` | Daftar obrolan aktif beserta pesan terakhir, `peer_public_key`, `peer_avatar_url`, `peer_is_verified`, dan status pin | Bearer Token |
 | `POST` | `/api/conversations` | Membuat obrolan baru (Direct atau Group) | Bearer Token |
+| `POST` | `/api/conversations/pin` | Menyematkan obrolan di bagian atas sidebar (per-user) | Bearer Token |
+| `POST` | `/api/conversations/unpin` | Melepas sematan obrolan dari sidebar (per-user) | Bearer Token |
 | `DELETE` / `POST` | `/api/conversations?id=` / `/api/conversations/clear` | Menghapus riwayat percakapan untuk user pemanggil (*Delete for Me*) | Bearer Token |
 | `DELETE` / `POST` | `/api/messages?id=&type=` / `/api/messages/delete` | Menghapus pesan (*for_me* kapanpun, atau *for_everyone* ≤ 60s) | Bearer Token |
+| `PUT` | `/api/messages/edit` | Mengedit teks pesan dalam batas waktu 15 menit (khusus pengirim asli) | Bearer Token |
+| `POST` | `/api/messages/forward` | Meneruskan pesan ke 1–5 room tujuan sekaligus (diberi flag `is_forwarded`) | Bearer Token |
+| `POST` | `/api/messages/pin` | Menyematkan pesan penting dalam obrolan (maks 3 pin per room, FIFO auto-unpin) | Bearer Token |
+| `POST` | `/api/messages/unpin` | Melepas sematan pesan dari obrolan | Bearer Token |
+| `GET` | `/api/messages/pinned?conversation_id=` | Mengambil daftar pesan yang disematkan dalam percakapan (maks 3) | Bearer Token |
+| `GET` | `/api/messages/search?conversation_id=&q=` | Pencarian kata kunci pesan dalam chat (menghormati `cleared_at` & filter deleted) | Bearer Token |
 | `POST` | `/api/groups` | Membuat grup baru (publik / privat) | Bearer Token |
 | `GET` | `/api/groups/search?q=` | Mencari grup publik berdasarkan username/nama | Bearer Token |
 | `GET` | `/api/groups/{id}` | Mengambil detail grup atau subgrup (Parent Gate protected). Mengembalikan 403 Forbidden jika non-anggota mengakses grup privat (dilindungi gerbang otorisasi client-side DEC-013) | Bearer Token |

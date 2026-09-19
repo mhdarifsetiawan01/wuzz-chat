@@ -1,3 +1,3 @@
-# Task Checklist — Standby
+# Active Task Checklist
 
-- [ ] Standby untuk task berikutnya.
+*Standby — Menunggu penugasan task berikutnya.*

@@ -22,6 +22,7 @@ Dokumen ini menyajikan panduan arsitektur komprehensif mengenai seluruh lapisan 
    - 2.13 [Fail-Closed Write Gate & Ephemeral Forum Topics Lifecycle](#213-fail-closed-write-gate--ephemeral-forum-topics-lifecycle)
    - 2.14 [Forum Topics Access Control & Join Request Purge Lifecycle](#214-forum-topics-access-control--join-request-purge-lifecycle)
    - 2.15 [Mitigasi Akses Tautan Langsung Grup Privat & WebSocket Drop Guard (DEC-013)](#215-mitigasi-akses-tautan-langsung-grup-privat--websocket-drop-guard-dec-013)
+   - 2.16 [Keamanan Message Management Suite (BOLA, Recall Unpin, Edit Window, & Search Privacy)](#216-keamanan-message-management-suite-bola-recall-unpin-edit-window--search-privacy)
 3. [Arsitektur Performa & Skalabilitas (Performance Optimization)](#-3-arsitektur-performa--skalabilitas-performance-optimization)
    - 3.1 [Penyelesaian Masalah $N+1$ Query pada `GetUserConversations`](#31-penyelesaian-masalah-n1-query-pada-getuserconversations)
    - 3.2 [Indeks Performa Database (PostgreSQL & SQLite)](#32-indeks-performa-database-postgresql--sqlite)
@@ -241,6 +242,16 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   2. **WebSocket Join Drop Guard**: State `privateGroupDenied` memblokir pengiriman frame WebSocket `{ type: "join", room: targetRoomId }` dan membatalkan inisialisasi timeout riwayat pesan seketika, mencegah koneksi liar ke server.
   3. **Shielding UI Aurora Glassmorphism**: Seluruh komponen percakapan (`StatusBar`, `ChatWindow`, `MessageInput`) digantikan oleh kartu proteksi otorisasi bertema *Aurora Glassmorphism* yang menjelaskan status privat grup tanpa membocorkan isi obrolan, jumlah anggota, atau identitas admin. Tombol kembali mengeksekusi `router.replace('/chat')` untuk membersihkan URL history.
 
+### 2.16 Keamanan Message Management Suite (BOLA, Recall Unpin, Edit Window, & Search Privacy)
+* **Lokasi Kode**: [`backend/internal/api/chat_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/chat_handler.go) & [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go)
+* **Vektor Ancaman yang Dimigasikasi**:
+  1. **BOLA pada Forward Pesan**: Penyerang menyertakan `target_room_ids` milik orang lain. Handler memvalidasi `IsUserInRoom` untuk setiap room target secara individual; jika satu saja tidak sah, request langsung dibatalkan dengan status `403 Forbidden`. Batas maksimal 5 target juga mencegah eksploitasi spam massal.
+  2. **BOLA pada Pin & Unpin**: Endpoint `/api/messages/pin`, `/unpin`, dan `/pinned` memverifikasi keanggotaan pengguna di room target (`IsUserInRoom`). Bukan anggota ditolak dengan `403 Forbidden`.
+  3. **Penyematan Pesan Terhapus**: Handler menolak menyematkan pesan yang sudah ditarik (`is_deleted = true`) dengan status `400 Bad Request`.
+  4. **Auto-Unpin saat Pesan Ditarik**: Ketika pengirim melakukan *Delete for Everyone*, server secara otomatis menghapus pesan tersebut dari tabel `pinned_messages` sehingga pesan yang ditarik tidak menggantung di banner sematan room.
+  5. **Batas Waktu Edit 15 Menit & Verifikasi UUID**: Hanya pengirim asli (`from_id == user.id`) yang dapat mengedit pesan. Edit setelah 15 menit ditolak (`400 Bad Request`) untuk menjaga integritas riwayat percakapan.
+  6. **Privasi In-Chat Search**: Mesin kueri pencarian menerapkan filter `AND (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)` sehingga pesan-pesan lama sebelum pengguna melakukan *Clear Chat* tidak akan bocor ke hasil pencarian.
+
 ---
 
 
@@ -368,6 +379,12 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - Pengecekan `IsDuplicateAndRecord` berpresisi `UnixNano()` dengan TTL 2 menit: jika pesan terdeteksi duplikat, server membatalkan broadcast ke room dan broker Redis, namun langsung membalas ACK ke klien agar klien menghentikan pengiriman ulang.
   - Setiap pengiriman pesan masuk yang menyertakan `request_id` otomatis dibalas dengan paket transport `{ type: "ack", request_id: "...", status: "ok" }`.
 
+### 3.15 Optimasi Indeks Pinned Messages & In-Chat Search Query
+* **Lokasi Kode**: [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go)
+* **Karakteristik Kueri**:
+  - Pinned Messages menggunakan composite index `idx_pinned_messages_conv(conversation_id, created_at DESC)` dengan batas maksimal 3 entri, memastikan performa baca $O(1)$ tanpa full-table scan.
+  - In-Chat Search memanfaatkan parameter terikat SQL (`ILIKE $3` pada Postgres, `LIKE ?` pada SQLite) yang mengecualikan pesan terhapus dan pesan sebelum `cleared_at`, menghasilkan kueri yang aman dari SQL injection serta efisien pada dataset ratusan ribu pesan.
+
 ---
 
 ## 🧪 4. Matriks Pengujian Otomatis & Verifikasi E2E
@@ -386,6 +403,7 @@ Seluruh lapisan keamanan dan optimasi performa di atas dilindungi oleh suite pen
 | **Push Notification Lifecycle E2E** | [`backend/internal/ws/e2e_push_notification_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/e2e_push_notification_test.go) | • Subscribe VAPID endpoint<br>• Offline push dispatch<br>• Unsubscribe endpoint & cleanup | ✅ **100% PASS** |
 | **Zero-Knowledge Key Migration & Transfer** | [`backend/internal/api/transfer_handler_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/transfer_handler_test.go) | • Atomic session consume<br>• Anti-replay 410 Gone<br>• Unauthorized 403 Forbidden & Expired TTL | ✅ **100% PASS** |
 | **Single Active Device WebSocket Kick** | [`backend/internal/ws/hub_single_device_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub_single_device_test.go) | • Sesi WebSocket lama otomatis di-kick (`SESSION_REPLACED`) saat login baru<br>• Hard conflict blocker & 0% kebocoran plaintext | ✅ **100% PASS** |
+| **Message Management Suite (Edit, Forward, Pin, Search)** | [`backend/internal/api/chat_handler_message_pin_search_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/chat_handler_message_pin_search_test.go) | • Pin message max 3 (FIFO unpin)<br>• BOLA protection on pin, unpin, search<br>• Auto unpin on recalled message<br>• Search respects cleared_at privacy<br>• Edit 15m window & forward 1-5 rooms | ✅ **100% PASS** |
 
 ---
 

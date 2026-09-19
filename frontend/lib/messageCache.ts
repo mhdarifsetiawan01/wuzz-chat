@@ -41,6 +41,9 @@ export interface CachedMessageRecord {
   media_size?: number
   reply_to?: CachedReplyTo
   reactions?: Record<string, string[]>
+  is_edited?: boolean
+  edited_at?: string
+  is_forwarded?: boolean
   cachedAt: number              // epoch ms — kapan record ini terakhir disimpan
 }
 
@@ -369,6 +372,9 @@ export function toCachedRecord(msg: {
   media_size?: number
   reply_to?: { id: string; content: string; sender_id: string; sender_display_name?: string }
   reactions?: Record<string, string[]>
+  is_edited?: boolean
+  edited_at?: string
+  is_forwarded?: boolean
 }): CachedMessageRecord {
   return {
     id: msg.id,
@@ -385,6 +391,9 @@ export function toCachedRecord(msg: {
     media_mime_type: msg.media_mime_type,
     media_file_name: msg.media_file_name,
     media_size: msg.media_size,
+    is_edited: msg.is_edited,
+    edited_at: msg.edited_at,
+    is_forwarded: msg.is_forwarded,
     reply_to: msg.reply_to
       ? {
           id: msg.reply_to.id,
@@ -395,5 +404,42 @@ export function toCachedRecord(msg: {
       : undefined,
     reactions: msg.reactions,
     cachedAt: Date.now(),
+  }
+}
+
+/**
+ * Memperbarui konten dan status edit pesan di IndexedDB secara langsung.
+ */
+export async function updateMessageContentInCache(
+  msgId: string,
+  newContent: string,
+  editedAt?: string
+): Promise<void> {
+  if (!msgId || typeof window === 'undefined') return
+
+  try {
+    const db = await openMsgDB()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite')
+      const store = tx.objectStore(STORE_NAME)
+      const getReq = store.get(msgId)
+
+      getReq.onsuccess = () => {
+        const record = getReq.result as CachedMessageRecord | undefined
+        if (record) {
+          record.content = newContent
+          record.is_edited = true
+          if (editedAt) record.edited_at = editedAt
+          record.cachedAt = Date.now()
+          store.put(record)
+        }
+        resolve()
+      }
+
+      getReq.onerror = () => reject(getReq.error)
+      tx.oncomplete = () => db.close()
+    })
+  } catch (err) {
+    console.warn('[MsgCache] Gagal update konten pesan diedit di cache:', err)
   }
 }

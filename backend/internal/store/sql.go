@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )
@@ -149,6 +150,17 @@ func (s *SQLMessageStore) autoMigrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_join_requests_conv_status ON conversation_join_requests(conversation_id, status);`,
 		`CREATE INDEX IF NOT EXISTS idx_join_requests_user ON conversation_join_requests(user_id);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_join_requests_conv_user ON conversation_join_requests(conversation_id, user_id);`,
+		// Tabel Pinned Messages (Milestone 8.3D: Pin Message dalam percakapan)
+		`CREATE TABLE IF NOT EXISTS pinned_messages (
+			id VARCHAR(64) PRIMARY KEY,
+			conversation_id VARCHAR(128) NOT NULL,
+			message_id VARCHAR(64) NOT NULL,
+			pinned_by VARCHAR(64) NOT NULL,
+			pinned_at TIMESTAMP NOT NULL,
+			expires_at TIMESTAMP DEFAULT NULL,
+			UNIQUE(conversation_id, message_id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_pinned_messages_conv ON pinned_messages(conversation_id, pinned_at DESC);`,
 	}
 
 	for _, query := range migrations {
@@ -176,9 +188,14 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS file_size BIGINT DEFAULT 0;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS media_status VARCHAR(32) DEFAULT 'active';`)
 		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMP DEFAULT NULL;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT FALSE;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_for_users TEXT DEFAULT '[]';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS mentions TEXT DEFAULT '[]';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_edited BOOLEAN DEFAULT FALSE;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_forwarded BOOLEAN DEFAULT FALSE;`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(room_id, status);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_to_status ON messages(to_id, status);`)
 
@@ -217,9 +234,14 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN file_size BIGINT DEFAULT 0;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN media_status VARCHAR(32) DEFAULT 'active';`)
 		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN cleared_at TIMESTAMP DEFAULT NULL;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE;`)
+		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN pinned_at DATETIME DEFAULT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN deleted_for_users TEXT DEFAULT '[]';`)
 		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN mentions TEXT DEFAULT '[]';`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN is_edited BOOLEAN DEFAULT FALSE;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN edited_at DATETIME DEFAULT NULL;`)
+		_, _ = s.db.Exec(`ALTER TABLE messages ADD COLUMN is_forwarded BOOLEAN DEFAULT FALSE;`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(room_id, status);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_to_status ON messages(to_id, status);`)
 
@@ -280,11 +302,12 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 
 	var query string
 	if s.driverName == "postgres" {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, created_at)
-		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`
+		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, is_edited, edited_at, is_forwarded, created_at)
+		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+		         ON CONFLICT (id) DO NOTHING`
 	} else {
-		query = `INSERT INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, created_at)
-		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		query = `INSERT OR IGNORE INTO messages (id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, is_edited, edited_at, is_forwarded, created_at)
+		         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
 	_, err := s.db.Exec(
@@ -308,6 +331,9 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 		msg.IsDeleted,
 		deletedForUsers,
 		mentions,
+		msg.IsEdited,
+		msg.EditedAt,
+		msg.IsForwarded,
 		msg.Timestamp.UTC(),
 	)
 	return err
@@ -507,9 +533,10 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'),
+			       COALESCE(is_edited, FALSE), edited_at, COALESCE(is_forwarded, FALSE), created_at
 			FROM (
-				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.is_deleted, m.deleted_for_users, m.mentions, m.created_at
+				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.is_deleted, m.deleted_for_users, m.mentions, m.is_edited, m.edited_at, m.is_forwarded, m.created_at
 				FROM messages m
 				LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = $1
 				WHERE m.room_id = $2
@@ -524,9 +551,10 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'),
+			       COALESCE(is_edited, FALSE), edited_at, COALESCE(is_forwarded, FALSE), created_at
 			FROM (
-				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.is_deleted, m.deleted_for_users, m.mentions, m.created_at
+				SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, m.status, m.reply_to_id, m.reply_to_nickname, m.reply_to_content, m.reactions, m.media_url, m.media_type, m.file_name, m.file_size, m.media_status, m.is_deleted, m.deleted_for_users, m.mentions, m.is_edited, m.edited_at, m.is_forwarded, m.created_at
 				FROM messages m
 				LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = ?
 				WHERE m.room_id = ?
@@ -543,9 +571,10 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'),
+			       COALESCE(is_edited, FALSE), edited_at, COALESCE(is_forwarded, FALSE), created_at
 			FROM (
-				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, created_at
+				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, is_edited, edited_at, is_forwarded, created_at
 				FROM messages
 				WHERE room_id = $1
 				ORDER BY created_at DESC
@@ -558,9 +587,10 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'),
+			       COALESCE(is_edited, FALSE), edited_at, COALESCE(is_forwarded, FALSE), created_at
 			FROM (
-				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, created_at
+				SELECT id, room_id, from_id, from_nickname, to_id, content, status, reply_to_id, reply_to_nickname, reply_to_content, reactions, media_url, media_type, file_name, file_size, media_status, is_deleted, deleted_for_users, mentions, is_edited, edited_at, is_forwarded, created_at
 				FROM messages
 				WHERE room_id = ?
 				ORDER BY created_at DESC
@@ -606,6 +636,9 @@ func (s *SQLMessageStore) GetRoomHistoryForUser(roomID, userID string, limit int
 			&isDeleted,
 			&deletedForUsers,
 			&mentions,
+			&m.IsEdited,
+			&m.EditedAt,
+			&m.IsForwarded,
 			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("gagal scan baris history: %w", err)
@@ -668,7 +701,8 @@ func (s *SQLMessageStore) GetRoomHistorySince(roomID, userID string, since time.
 			SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, 
 			       COALESCE(m.status, 'sent'), COALESCE(m.reply_to_id, ''), COALESCE(m.reply_to_nickname, ''), COALESCE(m.reply_to_content, ''), COALESCE(m.reactions, '[]'),
 			       COALESCE(m.media_url, ''), COALESCE(m.media_type, ''), COALESCE(m.file_name, ''), COALESCE(m.file_size, 0), COALESCE(m.media_status, 'active'),
-			       COALESCE(m.is_deleted, FALSE), COALESCE(m.deleted_for_users, '[]'), COALESCE(m.mentions, '[]'), m.created_at
+			       COALESCE(m.is_deleted, FALSE), COALESCE(m.deleted_for_users, '[]'), COALESCE(m.mentions, '[]'),
+			       COALESCE(m.is_edited, FALSE), m.edited_at, COALESCE(m.is_forwarded, FALSE), m.created_at
 			FROM messages m
 			LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = $1
 			WHERE m.room_id = $2
@@ -682,7 +716,8 @@ func (s *SQLMessageStore) GetRoomHistorySince(roomID, userID string, since time.
 			SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, 
 			       COALESCE(m.status, 'sent'), COALESCE(m.reply_to_id, ''), COALESCE(m.reply_to_nickname, ''), COALESCE(m.reply_to_content, ''), COALESCE(m.reactions, '[]'),
 			       COALESCE(m.media_url, ''), COALESCE(m.media_type, ''), COALESCE(m.file_name, ''), COALESCE(m.file_size, 0), COALESCE(m.media_status, 'active'),
-			       COALESCE(m.is_deleted, FALSE), COALESCE(m.deleted_for_users, '[]'), COALESCE(m.mentions, '[]'), m.created_at
+			       COALESCE(m.is_deleted, FALSE), COALESCE(m.deleted_for_users, '[]'), COALESCE(m.mentions, '[]'),
+			       COALESCE(m.is_edited, FALSE), m.edited_at, COALESCE(m.is_forwarded, FALSE), m.created_at
 			FROM messages m
 			LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = ?
 			WHERE m.room_id = ?
@@ -698,7 +733,8 @@ func (s *SQLMessageStore) GetRoomHistorySince(roomID, userID string, since time.
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'),
+			       COALESCE(is_edited, FALSE), edited_at, COALESCE(is_forwarded, FALSE), created_at
 			FROM messages
 			WHERE room_id = $1
 			  AND created_at > $2
@@ -710,7 +746,8 @@ func (s *SQLMessageStore) GetRoomHistorySince(roomID, userID string, since time.
 			SELECT id, room_id, from_id, from_nickname, to_id, content, 
 			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'),
+			       COALESCE(is_edited, FALSE), edited_at, COALESCE(is_forwarded, FALSE), created_at
 			FROM messages
 			WHERE room_id = ?
 			  AND created_at > ?
@@ -755,6 +792,9 @@ func (s *SQLMessageStore) GetRoomHistorySince(roomID, userID string, since time.
 			&isDeleted,
 			&deletedForUsers,
 			&mentions,
+			&m.IsEdited,
+			&m.EditedAt,
+			&m.IsForwarded,
 			&createdAt,
 		); err != nil {
 			return nil, fmt.Errorf("gagal scan baris history since: %w", err)
@@ -808,13 +848,15 @@ func (s *SQLMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
 		query = `SELECT id, room_id, from_id, from_nickname, to_id, content, 
 		                COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 		                COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-		                COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
+		                COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'),
+		                COALESCE(is_edited, FALSE), edited_at, COALESCE(is_forwarded, FALSE), created_at
 		         FROM messages WHERE id = $1`
 	} else {
 		query = `SELECT id, room_id, from_id, from_nickname, to_id, content, 
 		                COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
 		                COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
-		                COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'), created_at
+		                COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'),
+		                COALESCE(is_edited, FALSE), edited_at, COALESCE(is_forwarded, FALSE), created_at
 		         FROM messages WHERE id = ?`
 	}
 
@@ -846,6 +888,9 @@ func (s *SQLMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
 		&isDeleted,
 		&deletedForUsers,
 		&mentions,
+		&m.IsEdited,
+		&m.EditedAt,
+		&m.IsForwarded,
 		&createdAt,
 	)
 	if err != nil {
@@ -907,6 +952,7 @@ func (s *SQLMessageStore) DeleteMessage(msgID, userID string, deleteForEveryone 
 		if _, err := s.db.Exec(query, msgID); err != nil {
 			return nil, err
 		}
+		_ = s.UnpinMessage(msg.RoomID, msgID)
 		msg.Content = "🚫 Pesan ini telah dihapus"
 		msg.MediaURL = ""
 		msg.MediaType = ""
@@ -946,6 +992,118 @@ func (s *SQLMessageStore) DeleteMessage(msgID, userID string, deleteForEveryone 
 		msg.DeletedForUsers = jsonStr
 		return msg, nil
 	}
+}
+
+// EditMessage mengedit isi pesan yang sudah terkirim dalam batas window 15 menit.
+// Ownership check HANYA menggunakan userID (users.id UUID) — hanya pengirim yang dapat mengedit.
+func (s *SQLMessageStore) EditMessage(msgID, userID, newContent string) (*StoredMessage, error) {
+	msg, err := s.GetMessageByID(msgID)
+	if err != nil || msg == nil {
+		return nil, fmt.Errorf("pesan tidak ditemukan")
+	}
+
+	// Validasi kepemilikan pesan: HANYA berdasarkan from_id (UUID)
+	if msg.FromID == "" || msg.FromID != userID {
+		return nil, fmt.Errorf("hanya pengirim yang dapat mengedit pesan ini")
+	}
+
+	// Validasi pesan tidak terhapus
+	if msg.IsDeleted {
+		return nil, fmt.Errorf("pesan yang telah dihapus tidak dapat diedit")
+	}
+
+	// Validasi pesan bukan media
+	if msg.MediaURL != "" {
+		return nil, fmt.Errorf("pesan media tidak dapat diedit")
+	}
+
+	// Validasi window waktu <= 15 menit (900 detik)
+	if time.Since(msg.Timestamp) > 15*time.Minute {
+		return nil, fmt.Errorf("pesan sudah lebih dari 15 menit dan tidak dapat diedit")
+	}
+
+	newContent = strings.TrimSpace(newContent)
+	if newContent == "" {
+		return nil, fmt.Errorf("isi pesan baru tidak boleh kosong")
+	}
+
+	now := time.Now().UTC()
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE messages SET content = $1, is_edited = TRUE, edited_at = $2 WHERE id = $3`
+	} else {
+		query = `UPDATE messages SET content = ?, is_edited = TRUE, edited_at = ? WHERE id = ?`
+	}
+
+	if _, err := s.db.Exec(query, newContent, now, msgID); err != nil {
+		return nil, fmt.Errorf("gagal update pesan: %w", err)
+	}
+
+	msg.Content = newContent
+	msg.IsEdited = true
+	msg.EditedAt = &now
+	return msg, nil
+}
+
+// ForwardMessage meneruskan pesan ke 1 sampai 5 percakapan target.
+func (s *SQLMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname string, targetRoomIDs []string) ([]StoredMessage, error) {
+	if len(targetRoomIDs) == 0 {
+		return nil, fmt.Errorf("target_room_ids tidak boleh kosong")
+	}
+	if len(targetRoomIDs) > 5 {
+		return nil, fmt.Errorf("maksimal meneruskan pesan ke 5 percakapan sekaligus")
+	}
+
+	srcMsg, err := s.GetMessageByID(srcMsgID)
+	if err != nil {
+		return nil, fmt.Errorf("pesan sumber tidak ditemukan: %w", err)
+	}
+	if srcMsg.IsDeleted {
+		return nil, fmt.Errorf("tidak dapat meneruskan pesan yang telah dihapus")
+	}
+
+	var forwardedMessages []StoredMessage
+	now := time.Now().UTC()
+
+	for _, targetRoomID := range targetRoomIDs {
+		targetRoomID = strings.TrimSpace(targetRoomID)
+		if targetRoomID == "" {
+			continue
+		}
+
+		newMsg := StoredMessage{
+			ID:              uuid.New().String(),
+			RoomID:          targetRoomID,
+			FromID:          senderID,
+			Nickname:        senderNickname,
+			ToID:            targetRoomID,
+			Content:         srcMsg.Content,
+			Status:          "sent",
+			ReplyToID:       "",
+			ReplyToNickname: "",
+			ReplyToContent:  "",
+			Reactions:       "[]",
+			MediaURL:        srcMsg.MediaURL,
+			MediaType:       srcMsg.MediaType,
+			FileName:        srcMsg.FileName,
+			FileSize:        srcMsg.FileSize,
+			MediaStatus:     srcMsg.MediaStatus,
+			IsDeleted:       false,
+			DeletedForUsers: "[]",
+			Mentions:        "[]",
+			IsEdited:        false,
+			EditedAt:        nil,
+			IsForwarded:     true,
+			Timestamp:       now,
+		}
+
+		if err := s.Save(newMsg); err != nil {
+			return nil, fmt.Errorf("gagal menyimpan pesan terusan untuk room %s: %w", targetRoomID, err)
+		}
+		forwardedMessages = append(forwardedMessages, newMsg)
+	}
+
+	return forwardedMessages, nil
 }
 
 // AcknowledgeMediaDownload mencatat bahwa client telah mengunduh media.
@@ -1119,6 +1277,318 @@ func (s *SQLMessageStore) MarkMediaExpired(msgID string) error {
 	return err
 }
 
+// PinMessage menyematkan pesan dalam percakapan (maksimal 3 pesan per percakapan).
+func (s *SQLMessageStore) PinMessage(convID, msgID, userID string, durationHours int) (*PinnedMessage, error) {
+	msg, err := s.GetMessageByID(msgID)
+	if err != nil || msg == nil {
+		return nil, fmt.Errorf("pesan tidak ditemukan")
+	}
+	if msg.RoomID != convID {
+		return nil, fmt.Errorf("pesan bukan milik percakapan ini")
+	}
+	if msg.IsDeleted {
+		return nil, fmt.Errorf("pesan yang telah dihapus tidak dapat disematkan")
+	}
+
+	// Cek apakah pesan sudah ter-pin
+	var existingID string
+	var checkQuery string
+	if s.driverName == "postgres" {
+		checkQuery = `SELECT id FROM pinned_messages WHERE conversation_id = $1 AND message_id = $2;`
+	} else {
+		checkQuery = `SELECT id FROM pinned_messages WHERE conversation_id = ? AND message_id = ?;`
+	}
+	err = s.db.QueryRow(checkQuery, convID, msgID).Scan(&existingID)
+	isAlreadyPinned := (err == nil && existingID != "")
+
+	now := time.Now().UTC()
+	var expiresAt *time.Time
+	if durationHours > 0 {
+		exp := now.Add(time.Duration(durationHours) * time.Hour)
+		expiresAt = &exp
+	}
+
+	if isAlreadyPinned {
+		var updateQuery string
+		if s.driverName == "postgres" {
+			updateQuery = `UPDATE pinned_messages SET pinned_by = $1, pinned_at = $2, expires_at = $3 WHERE id = $4;`
+		} else {
+			updateQuery = `UPDATE pinned_messages SET pinned_by = ?, pinned_at = ?, expires_at = ? WHERE id = ?;`
+		}
+		if _, err := s.db.Exec(updateQuery, userID, now, expiresAt, existingID); err != nil {
+			return nil, fmt.Errorf("gagal memperbarui pesan tersemat: %w", err)
+		}
+		return &PinnedMessage{
+			ID:             existingID,
+			ConversationID: convID,
+			MessageID:      msgID,
+			PinnedBy:       userID,
+			PinnedAt:       now,
+			ExpiresAt:      expiresAt,
+			Message:        msg,
+		}, nil
+	}
+
+	// Enforce max 3 pinned messages: jika sudah 3 atau lebih, unpin yang tertua (FIFO)
+	var count int
+	var countQuery string
+	if s.driverName == "postgres" {
+		countQuery = `SELECT COUNT(*) FROM pinned_messages WHERE conversation_id = $1;`
+	} else {
+		countQuery = `SELECT COUNT(*) FROM pinned_messages WHERE conversation_id = ?;`
+	}
+	_ = s.db.QueryRow(countQuery, convID).Scan(&count)
+
+	if count >= 3 {
+		if s.driverName == "postgres" {
+			_, _ = s.db.Exec(`DELETE FROM pinned_messages WHERE id IN (
+				SELECT id FROM pinned_messages WHERE conversation_id = $1 ORDER BY pinned_at ASC LIMIT 1
+			);`, convID)
+		} else {
+			_, _ = s.db.Exec(`DELETE FROM pinned_messages WHERE id IN (
+				SELECT id FROM pinned_messages WHERE conversation_id = ? ORDER BY pinned_at ASC LIMIT 1
+			);`, convID)
+		}
+	}
+
+	pinID := uuid.New().String()
+	var insertQuery string
+	if s.driverName == "postgres" {
+		insertQuery = `INSERT INTO pinned_messages (id, conversation_id, message_id, pinned_by, pinned_at, expires_at)
+		               VALUES ($1, $2, $3, $4, $5, $6);`
+	} else {
+		insertQuery = `INSERT INTO pinned_messages (id, conversation_id, message_id, pinned_by, pinned_at, expires_at)
+		               VALUES (?, ?, ?, ?, ?, ?);`
+	}
+
+	if _, err := s.db.Exec(insertQuery, pinID, convID, msgID, userID, now, expiresAt); err != nil {
+		return nil, fmt.Errorf("gagal menyematkan pesan: %w", err)
+	}
+
+	return &PinnedMessage{
+		ID:             pinID,
+		ConversationID: convID,
+		MessageID:      msgID,
+		PinnedBy:       userID,
+		PinnedAt:       now,
+		ExpiresAt:      expiresAt,
+		Message:        msg,
+	}, nil
+}
+
+// UnpinMessage melepas sematan pesan dalam percakapan.
+func (s *SQLMessageStore) UnpinMessage(convID, msgID string) error {
+	if s.driverName == "postgres" {
+		_, err := s.db.Exec(`DELETE FROM pinned_messages WHERE conversation_id = $1 AND (message_id = $2 OR id = $2);`, convID, msgID)
+		return err
+	}
+	_, err := s.db.Exec(`DELETE FROM pinned_messages WHERE conversation_id = ? AND (message_id = ? OR id = ?);`, convID, msgID, msgID)
+	return err
+}
+
+// GetPinnedMessages mengambil semua pesan yang disematkan dalam percakapan yang belum kadaluarsa.
+func (s *SQLMessageStore) GetPinnedMessages(convID string) ([]PinnedMessage, error) {
+	now := time.Now().UTC()
+	var query string
+	var rows *sql.Rows
+	var err error
+
+	if s.driverName == "postgres" {
+		query = `SELECT id, conversation_id, message_id, pinned_by, pinned_at, expires_at
+		         FROM pinned_messages
+		         WHERE conversation_id = $1 AND (expires_at IS NULL OR expires_at > $2)
+		         ORDER BY pinned_at DESC
+		         LIMIT 3;`
+		rows, err = s.db.Query(query, convID, now)
+	} else {
+		query = `SELECT id, conversation_id, message_id, pinned_by, pinned_at, expires_at
+		         FROM pinned_messages
+		         WHERE conversation_id = ? AND (expires_at IS NULL OR expires_at > ?)
+		         ORDER BY pinned_at DESC
+		         LIMIT 3;`
+		rows, err = s.db.Query(query, convID, now)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("gagal query pinned messages: %w", err)
+	}
+	defer rows.Close()
+
+	var pins []PinnedMessage
+	for rows.Next() {
+		var p PinnedMessage
+		var pinnedAt time.Time
+		var exp sql.NullTime
+		if err := rows.Scan(&p.ID, &p.ConversationID, &p.MessageID, &p.PinnedBy, &pinnedAt, &exp); err != nil {
+			continue
+		}
+		p.PinnedAt = pinnedAt.UTC()
+		if exp.Valid {
+			t := exp.Time.UTC()
+			p.ExpiresAt = &t
+		}
+
+		// Ambil data pesan lengkap untuk rendering UI
+		if msg, err := s.GetMessageByID(p.MessageID); err == nil && msg != nil {
+			if msg.IsDeleted {
+				continue
+			}
+			p.Message = msg
+		}
+
+		pins = append(pins, p)
+	}
+
+	if pins == nil {
+		pins = []PinnedMessage{}
+	}
+	return pins, nil
+}
+
+// SearchMessages mencari riwayat pesan teks dalam suatu room/percakapan.
+func (s *SQLMessageStore) SearchMessages(roomID, userID, query string, limit int) ([]StoredMessage, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	searchPattern := "%" + strings.TrimSpace(query) + "%"
+
+	var sqlQuery string
+	var rows *sql.Rows
+	var err error
+
+	if userID != "" {
+		if s.driverName == "postgres" {
+			sqlQuery = `
+			SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, 
+			       COALESCE(m.status, 'sent'), COALESCE(m.reply_to_id, ''), COALESCE(m.reply_to_nickname, ''), COALESCE(m.reply_to_content, ''), COALESCE(m.reactions, '[]'),
+			       COALESCE(m.media_url, ''), COALESCE(m.media_type, ''), COALESCE(m.file_name, ''), COALESCE(m.file_size, 0), COALESCE(m.media_status, 'active'),
+			       COALESCE(m.is_deleted, FALSE), COALESCE(m.deleted_for_users, '[]'), COALESCE(m.mentions, '[]'),
+			       COALESCE(m.is_edited, FALSE), m.edited_at, COALESCE(m.is_forwarded, FALSE), m.created_at
+			FROM messages m
+			LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = $1
+			WHERE m.room_id = $2
+			  AND m.is_deleted = FALSE
+			  AND m.content ILIKE $3
+			  AND (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)
+			ORDER BY m.created_at DESC
+			LIMIT $4;`
+			rows, err = s.db.Query(sqlQuery, userID, roomID, searchPattern, limit)
+		} else {
+			sqlQuery = `
+			SELECT m.id, m.room_id, m.from_id, m.from_nickname, m.to_id, m.content, 
+			       COALESCE(m.status, 'sent'), COALESCE(m.reply_to_id, ''), COALESCE(m.reply_to_nickname, ''), COALESCE(m.reply_to_content, ''), COALESCE(m.reactions, '[]'),
+			       COALESCE(m.media_url, ''), COALESCE(m.media_type, ''), COALESCE(m.file_name, ''), COALESCE(m.file_size, 0), COALESCE(m.media_status, 'active'),
+			       COALESCE(m.is_deleted, FALSE), COALESCE(m.deleted_for_users, '[]'), COALESCE(m.mentions, '[]'),
+			       COALESCE(m.is_edited, FALSE), m.edited_at, COALESCE(m.is_forwarded, FALSE), m.created_at
+			FROM messages m
+			LEFT JOIN conversation_members cm ON m.room_id = cm.conversation_id AND cm.user_id = ?
+			WHERE m.room_id = ?
+			  AND m.is_deleted = FALSE
+			  AND m.content LIKE ?
+			  AND (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)
+			ORDER BY m.created_at DESC
+			LIMIT ?;`
+			rows, err = s.db.Query(sqlQuery, userID, roomID, searchPattern, limit)
+		}
+	} else {
+		if s.driverName == "postgres" {
+			sqlQuery = `
+			SELECT id, room_id, from_id, from_nickname, to_id, content, 
+			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'),
+			       COALESCE(is_edited, FALSE), edited_at, COALESCE(is_forwarded, FALSE), created_at
+			FROM messages
+			WHERE room_id = $1
+			  AND is_deleted = FALSE
+			  AND content ILIKE $2
+			ORDER BY created_at DESC
+			LIMIT $3;`
+			rows, err = s.db.Query(sqlQuery, roomID, searchPattern, limit)
+		} else {
+			sqlQuery = `
+			SELECT id, room_id, from_id, from_nickname, to_id, content, 
+			       COALESCE(status, 'sent'), COALESCE(reply_to_id, ''), COALESCE(reply_to_nickname, ''), COALESCE(reply_to_content, ''), COALESCE(reactions, '[]'),
+			       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'),
+			       COALESCE(is_deleted, FALSE), COALESCE(deleted_for_users, '[]'), COALESCE(mentions, '[]'),
+			       COALESCE(is_edited, FALSE), edited_at, COALESCE(is_forwarded, FALSE), created_at
+			FROM messages
+			WHERE room_id = ?
+			  AND is_deleted = FALSE
+			  AND content LIKE ?
+			ORDER BY created_at DESC
+			LIMIT ?;`
+			rows, err = s.db.Query(sqlQuery, roomID, searchPattern, limit)
+		}
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("gagal mencari pesan: %w", err)
+	}
+	defer rows.Close()
+
+	var results []StoredMessage
+	for rows.Next() {
+		var m StoredMessage
+		var createdAt time.Time
+		var status, replyToID, replyToNickname, replyToContent, reactions string
+		var mediaURL, mediaType, fileName, mediaStatus string
+		var fileSize int64
+		var isDeleted bool
+		var deletedForUsers, mentions string
+
+		if err := rows.Scan(
+			&m.ID,
+			&m.RoomID,
+			&m.FromID,
+			&m.Nickname,
+			&m.ToID,
+			&m.Content,
+			&status,
+			&replyToID,
+			&replyToNickname,
+			&replyToContent,
+			&reactions,
+			&mediaURL,
+			&mediaType,
+			&fileName,
+			&fileSize,
+			&mediaStatus,
+			&isDeleted,
+			&deletedForUsers,
+			&mentions,
+			&m.IsEdited,
+			&m.EditedAt,
+			&m.IsForwarded,
+			&createdAt,
+		); err != nil {
+			return nil, fmt.Errorf("gagal scan search message: %w", err)
+		}
+
+		m.Status = status
+		m.ReplyToID = replyToID
+		m.ReplyToNickname = replyToNickname
+		m.ReplyToContent = replyToContent
+		m.Reactions = reactions
+		m.MediaURL = mediaURL
+		m.MediaType = mediaType
+		m.FileName = fileName
+		m.FileSize = fileSize
+		m.MediaStatus = mediaStatus
+		m.IsDeleted = isDeleted
+		m.DeletedForUsers = deletedForUsers
+		m.Mentions = mentions
+		m.Timestamp = createdAt.UTC()
+
+		results = append(results, m)
+	}
+
+	if results == nil {
+		results = []StoredMessage{}
+	}
+	return results, nil
+}
+
 // Close menutup koneksi pool database.
 func (s *SQLMessageStore) Close() error {
 	if s.db != nil {
@@ -1128,4 +1598,5 @@ func (s *SQLMessageStore) Close() error {
 }
 
 var _ MessageStore = (*SQLMessageStore)(nil)
+
 

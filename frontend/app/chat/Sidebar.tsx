@@ -259,6 +259,49 @@ export function Sidebar({
     setConfirmDeleteConv(null)
   }
 
+  const handleTogglePin = async (conv: ConversationItem) => {
+    const isPinning = !conv.is_pinned
+    const endpoint = isPinning ? '/api/conversations/pin' : '/api/conversations/unpin'
+
+    setConversations(prev => {
+      const next = prev.map(c => {
+        if (c.id === conv.id) {
+          return {
+            ...c,
+            is_pinned: isPinning,
+            pinned_at: isPinning ? new Date().toISOString() : undefined,
+          }
+        }
+        return c
+      })
+      next.sort((a, b) => {
+        if (Boolean(a.is_pinned) !== Boolean(b.is_pinned)) {
+          return a.is_pinned ? -1 : 1
+        }
+        if (a.is_pinned && b.is_pinned) {
+          if (a.pinned_at && b.pinned_at) {
+            return new Date(b.pinned_at).getTime() - new Date(a.pinned_at).getTime()
+          }
+        }
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      })
+      conversationsRef.current = next
+      return next
+    })
+
+    try {
+      const { error } = await apiRequest(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ conversation_id: conv.id }),
+      })
+      if (error) {
+        loadConversations()
+      }
+    } catch {
+      loadConversations()
+    }
+  }
+
   // Helper dekripsi snippet pesan terakhir percakapan E2EE
   const decryptSnippet = async (
     rawContent?: string,
@@ -464,6 +507,8 @@ export function Sidebar({
                 last_sender: lastIncomingMessage.nickname || 'Pengguna',
                 last_sender_id: incomingSenderId || '',
                 last_status: lastIncomingMessage.status || 'sent',
+                is_pinned: prev[index].is_pinned,
+                pinned_at: prev[index].pinned_at,
                 updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
               }
             : {
@@ -477,11 +522,23 @@ export function Sidebar({
                 last_sender: lastIncomingMessage.nickname || 'Pengguna',
                 last_sender_id: incomingSenderId || '',
                 last_status: lastIncomingMessage.status || 'sent',
+                is_pinned: false,
                 updated_at: lastIncomingMessage.timestamp?.toString() || new Date().toISOString(),
               }
 
           const remaining = prev.filter(c => c.id !== room)
           const nextList = [updatedItem, ...remaining]
+          nextList.sort((a, b) => {
+            if (Boolean(a.is_pinned) !== Boolean(b.is_pinned)) {
+              return a.is_pinned ? -1 : 1
+            }
+            if (a.is_pinned && b.is_pinned) {
+              if (a.pinned_at && b.pinned_at) {
+                return new Date(b.pinned_at).getTime() - new Date(a.pinned_at).getTime()
+              }
+            }
+            return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          })
           conversationsRef.current = nextList
           return nextList
         })
@@ -983,10 +1040,22 @@ export function Sidebar({
                             {c.type === 'group' ? (c.is_public ? '🌐 ' : '👥 ') : null}
                             {c.title || c.id}
                             {c.peer_is_verified && <VerifiedBadge size={14} />}
+                            {c.is_pinned && <span className="conv-pinned-indicator" title="Percakapan disematkan">📌</span>}
                           </span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             {timeStr && <span className="conv-time">{timeStr}</span>}
                             <div className="conv-actions">
+                              <button
+                                type="button"
+                                className={`conv-pin-btn ${c.is_pinned ? 'active' : ''}`}
+                                title={c.is_pinned ? 'Lepas sematan percakapan' : 'Sematkan percakapan (Pin)'}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleTogglePin(c)
+                                }}
+                              >
+                                📌
+                              </button>
                               <button
                                 type="button"
                                 className="conv-delete-btn"

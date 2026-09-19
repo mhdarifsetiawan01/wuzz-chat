@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import type { Message } from '@/lib/types'
+import type { Message, PinnedMessage } from '@/lib/types'
 import { MessageBubble } from './MessageBubble'
+import { PinnedMessageBanner } from './PinnedMessageBanner'
 
 interface ChatWindowProps {
   messages: Message[]
@@ -16,11 +17,17 @@ interface ChatWindowProps {
   isDirectChat?: boolean
   peerAvatarUrl?: string
   peerNickname?: string
+  pinnedMessages?: PinnedMessage[]
   onRetryHistory?: () => void
   onReply?: (message: Message) => void
   onReact?: (messageId: string, emoji: string) => void
   onImageClick?: (imageUrl: string, fileName?: string) => void
   onDeleteMessage?: (messageId: string, type: 'for_me' | 'for_everyone') => void
+  onEditMessage?: (message: Message) => void
+  onForwardMessage?: (message: Message) => void
+  onPinMessage?: (message: Message) => void
+  onUnpinMessage?: (messageId: string) => void
+  onJumpToMessage?: (messageId: string) => void
   members?: import('@/lib/types').GroupMember[]
 }
 
@@ -36,11 +43,17 @@ export function ChatWindow({
   isDirectChat = false,
   peerAvatarUrl = '',
   peerNickname = '',
+  pinnedMessages = [],
   onRetryHistory,
   onReply,
   onReact,
   onImageClick,
   onDeleteMessage,
+  onEditMessage,
+  onForwardMessage,
+  onPinMessage,
+  onUnpinMessage,
+  onJumpToMessage,
   members,
 }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -145,6 +158,15 @@ export function ChatWindow({
       aria-live="polite"
       aria-relevant="additions"
     >
+      {/* Banner Pesan Tersemat (Milestone 8.3D) */}
+      {pinnedMessages.length > 0 && onJumpToMessage && onUnpinMessage && (
+        <PinnedMessageBanner
+          pinnedMessages={pinnedMessages}
+          onJumpToMessage={onJumpToMessage}
+          onUnpinMessage={onUnpinMessage}
+        />
+      )}
+
       {isE2EE && (
         <div
           style={{
@@ -169,22 +191,30 @@ export function ChatWindow({
         </div>
       )}
 
-      {messages.map((msg, idx) => (
-        <MessageBubble
-          key={msg.id || `${msg.timestamp ?? ''}-${idx}`}
-          message={msg}
-          selfId={selfId}
-          selfNickname={selfNickname}
-          isDirectChat={isDirectChat}
-          peerAvatarUrl={peerAvatarUrl}
-          peerNickname={peerNickname}
-          onReply={onReply}
-          onReact={onReact}
-          onImageClick={onImageClick}
-          onDeleteMessage={onDeleteMessage}
-          members={members}
-        />
-      ))}
+      {messages.map((msg, idx) => {
+        const isMsgPinned = Boolean(msg.id && pinnedMessages.some((p) => p.message_id === msg.id))
+        return (
+          <MessageBubble
+            key={msg.id || `${msg.timestamp ?? ''}-${idx}`}
+            message={msg}
+            selfId={selfId}
+            selfNickname={selfNickname}
+            isDirectChat={isDirectChat}
+            peerAvatarUrl={peerAvatarUrl}
+            peerNickname={peerNickname}
+            isPinned={isMsgPinned}
+            onReply={onReply}
+            onReact={onReact}
+            onImageClick={onImageClick}
+            onDeleteMessage={onDeleteMessage}
+            onEditMessage={onEditMessage}
+            onForwardMessage={onForwardMessage}
+            onPinMessage={onPinMessage}
+            onUnpinMessage={onUnpinMessage}
+            members={members}
+          />
+        )
+      })}
 
       {/* Typing indicator — muncul saat anggota lain sedang mengetik */}
       {isPeerTyping && (

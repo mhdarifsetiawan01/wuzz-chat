@@ -111,6 +111,9 @@ Setiap frame pesan WebSocket menggunakan format JSON:
 |---|---|---|
 | `join` | Klien ➔ Server | Masuk ke ruang chat: `{"type":"join", "room":"...", "since":"<ISO_TIMESTAMP>"}` — Sertakan parameter `since` (diambil dari pesan lokal terbaru di SQLite Room/CoreData) untuk mengaktifkan **Delta Offline Sync** (server hanya mengirim pesan baru). |
 | `message` | Bidirectional | Dekripsi konten teks (`e2ee:v1:...`) ➔ Tambahkan ke list UI chat ➔ Balas `receipt: "delivered"` |
+| `message_edited` | Server ➔ Klien | Konten pesan diperbarui oleh pengirim (dalam batas 15 menit). Perbarui teks pesan di SQLite/CoreData lokal dan timeline UI, tampilkan label `(diedit)`. |
+| `message_pinned` | Server ➔ Klien | Pesan disematkan dalam percakapan (maksimal 3 pin). Tambahkan ke banner sematan atas chat room. |
+| `message_unpinned` | Server ➔ Klien | Pesan dilepas sematannya dari percakapan. Hapus dari banner sematan chat room. |
 | `receipt` | Bidirectional | Update status tanda centang pesan (`pending` ➔ `sent` ➔ `delivered` ➔ `read`) |
 | `typing` | Bidirectional | Tampilkan animasi indikator lawan bicara sedang mengetik. *Catatan*: Batasi pengiriman maks 3 event per 2 detik (backend menerapkan sliding-window rate limit). |
 | `reaction` | Bidirectional | Update badge emoji reaction di balon chat terkait |
@@ -471,6 +474,12 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - Saat pengguna membuka tautan langsung grup privat (`/chat?room=grp_...` atau deep link mobile `wuzzchat://chat?room=grp_...`) di mana pengguna bukan anggota: API `GET /api/groups/{id}` mengembalikan `HTTP 403 Forbidden`.
   - Klien mobile **DILARANG** memasukkan pengguna ke ruang obrolan kosong, **DILARANG** mengirim frame WebSocket `{ type: "join" }`, dan **DILARANG** memicu timer connection timeout palsu (*"Koneksi Sedang Terhambat"*).
   - Klien mobile **WAJIB** merender layar/modal proteksi otorisasi bertema *Aurora Glassmorphism* ("🔒 Grup Ini Bersifat Privat") yang menginformasikan bahwa pengguna bukan anggota grup, serta menyediakan tombol aksi kembali ke beranda obrolan utama (`router.replace('/chat')`).
+- [ ] **Message Management Suite (Milestone 8.3)**:
+  - **Edit Pesan**: Mendukung pengeditan pesan dalam window 15 menit via `PUT /api/messages/edit`, memperbarui konten di penyimpanan lokal, dan menampilkan label visual `(diedit)` pada bubble pesan saat menerima event `message_edited`.
+  - **Forward Pesan**: Mendukung penerusan pesan ke 1–5 ruang obrolan sekaligus via `POST /api/messages/forward`, menampilkan lencana visual `↪ Diteruskan` jika `is_forwarded: true`.
+  - **Pin Chat (Sidebar)**: Mendukung penyematan obrolan di bagian atas sidebar via `POST /api/conversations/pin` dan `POST /api/conversations/unpin`, mengurutkan daftar obrolan dengan prioritas chat yang disematkan (`is_pinned == true`).
+  - **Pin Message (Dalam Obrolan)**: Mendukung penyematan hingga 3 pesan per room via `POST /api/messages/pin`, `POST /api/messages/unpin`, `GET /api/messages/pinned`, menampilkan banner multi-pin di bagian atas obrolan, menangani event real-time `message_pinned` & `message_unpinned`, dan aksi jump-to-message saat banner pin diklik.
+  - **In-Chat Text Search**: Mendukung pencarian pesan dalam obrolan aktif via `GET /api/messages/search?conversation_id=...&q=...`, badge counter hasil (X/Y), navigasi Atas/Bawah, dan auto-scroll ke posisi pesan yang ditemukan.
 - [ ] **Push Notification**: FCM/APNs token terdaftar ke `POST /api/notifications/subscribe`, Zero-Knowledge Background Decryption di service layer, dan pencabutan token saat logout.
 
 ---

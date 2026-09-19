@@ -10,6 +10,9 @@ export type MessageType =
   | 'history'
   | 'room_users'
   | 'message_deleted'
+  | 'message_edited'
+  | 'message_pinned'
+  | 'message_unpinned'
   | 'ack'
   | 'call_offer'
   | 'call_answer'
@@ -82,12 +85,27 @@ export interface Message {
   file_size?: number
   media_status?: 'active' | 'downloaded' | 'expired' | string
   is_deleted?: boolean
+  is_edited?: boolean
+  edited_at?: string
+  is_forwarded?: boolean
+  new_content?: string
+  pinned?: PinnedMessage
   mentions?: string[]    // User UUIDs yang di-mention
   sdp?: string
   candidate?: string
   since?: string         // Timestamp ISO8601 checkpoint untuk delta offline sync
   messages?: Message[]   // Digunakan saat type = 'history'
   users?: RoomUser[]     // Digunakan saat type = 'room_users'
+}
+
+export interface PinnedMessage {
+  id: string
+  conversation_id: string
+  message_id: string
+  pinned_by: string
+  pinned_at: string
+  expires_at?: string
+  message?: Message
 }
 
 export interface AppConfig {
@@ -218,6 +236,8 @@ export interface ConversationItem {
   last_sender_id?: string
   last_status?: MessageReceiptStatus
   unread_count?: number
+  is_pinned?: boolean
+  pinned_at?: string
   updated_at: string
 }
 

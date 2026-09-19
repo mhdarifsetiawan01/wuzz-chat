@@ -85,6 +85,11 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
 | **Multi-User Mentions (@username)** | ✅ Siap | Validasi fail-closed keanggotaan room, format data kekal UUID (`mentions: ["uuid", ...]`), Web Push prioritas |
 | **OpenGraph Link Preview** | ✅ Siap | Aman dari SSRF (Private IP Pinning & DNS Rebinding Guard) + Cache |
 | **Web Push Notification** | ✅ Siap | VAPID Web Push standard (Chrome, Firefox, Safari iOS/macOS, PWA) |
+| **Edit Pesan** | ✅ Siap | Window 15 menit, flag `is_edited`, `edited_at`, real-time WS `message_edited` |
+| **Forward Pesan** | ✅ Siap | Multi-target 1–5 room, penandaan `is_forwarded: true`, validasi BOLA per room |
+| **Pin Chat (Sidebar)** | ✅ Siap | Per-user isolation di `conversation_members`, endpoint `/pin` & `/unpin` |
+| **Pin Pesan (Dalam Chat)** | ✅ Siap | Max 3 pin per room (FIFO), endpoint `/pin`, `/unpin`, `/pinned`, WS real-time |
+| **In-Chat Text Search** | ✅ Siap | Query `q`, case-insensitive, menghormati `cleared_at` privasi & `is_deleted` |
 
 ---
 
@@ -363,9 +368,51 @@ Membersihkan isi riwayat pesan percakapan khusus untuk pengguna saat ini (*Delet
 
 ---
 
+#### 13. `POST /api/conversations/pin`
+Menyematkan (pin) percakapan di bagian atas sidebar secara per-user.
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "room_id": "direct_11111111_22222222"
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "room_id": "direct_11111111_22222222",
+    "is_pinned": true
+  }
+  ```
+- **Error Codes**: `400 Bad Request` (room_id kosong), `403 Forbidden` (BOLA: Pengguna bukan anggota percakapan).
+
+---
+
+#### 14. `POST /api/conversations/unpin`
+Melepas sematan (unpin) percakapan dari sidebar per-user.
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "room_id": "direct_11111111_22222222"
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "room_id": "direct_11111111_22222222",
+    "is_pinned": false
+  }
+  ```
+- **Error Codes**: `400 Bad Request` (room_id kosong), `403 Forbidden` (BOLA: Pengguna bukan anggota percakapan).
+
+---
+
 ### 3.4 Manajemen Pesan
 
-#### 13. `DELETE /api/messages?id=<msg_id>&delete_for_everyone=<bool>` *(atau `POST /api/messages/delete`)*
+#### 15. `DELETE /api/messages?id=<msg_id>&delete_for_everyone=<bool>` *(atau `POST /api/messages/delete`)*
 Menghapus pesan spesifik.
 - **Autentikasi**: `Bearer <token>`
 - **Payload / Query Parameters**:
@@ -375,6 +422,7 @@ Menghapus pesan spesifik.
   1. Hanya pengirim asli pesan yang boleh melakukan *Delete for Everyone* (divalidasi secara ketat di backend berdasarkan `users.id` / UUID pengirim `from_id`, bukan `nickname` atau `display_name`).
   2. Hanya dapat dilakukan dalam jangka waktu **maksimal 1 menit (60 detik)** sejak pesan dikirim. Melebihi 1 menit akan ditolak backend dengan status `400 Bad Request`.
   3. Menghasilkan broadcast real-time event `message_deleted` ke seluruh anggota room.
+  4. Jika pesan yang ditarik sedang disematkan (*pinned*), server otomatis menghapusnya dari daftar `pinned_messages`.
 - **Success Response (200 OK)**:
   ```json
   {
@@ -387,9 +435,176 @@ Menghapus pesan spesifik.
 
 ---
 
+#### 16. `PUT /api/messages/edit`
+Mengedit konten pesan yang sudah terkirim (hanya untuk pengirim asli dalam batas waktu 15 menit).
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "message_id": "msg_uuid_123",
+    "content": "Konten pesan yang telah diperbarui"
+  }
+  ```
+- **Aturan Edit**:
+  1. Hanya pengirim asli (`from_id == user.id`) yang berhak mengedit pesan.
+  2. Batas waktu edit adalah **15 menit** sejak pesan dibuat (`CreatedAt`). Melebihi 15 menit akan ditolak (`400 Bad Request: Batas waktu edit pesan (15 menit) telah terlewat`).
+  3. Pesan yang telah dihapus (`is_deleted = true`) tidak dapat diedit.
+  4. Menghasilkan broadcast real-time event `message_edited` ke seluruh anggota room melalui WebSocket dan Redis pub/sub.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message_id": "msg_uuid_123",
+    "room_id": "direct_11111111_22222222",
+    "content": "Konten pesan yang telah diperbarui",
+    "is_edited": true,
+    "edited_at": "2026-09-19T12:00:00Z"
+  }
+  ```
+- **Error Codes**: `400 Bad Request`, `403 Forbidden` (bukan pengirim), `404 Not Found`.
+
+---
+
+#### 17. `POST /api/messages/forward`
+Meneruskan pesan ke satu atau beberapa percakapan tujuan (1 s/d 5 target sekaligus).
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "message_id": "msg_uuid_123",
+    "target_room_ids": [
+      "direct_11111111_33333333",
+      "grp_44444444_55555555"
+    ]
+  }
+  ```
+- **Aturan Forward**:
+  1. Pengirim wajib menjadi anggota di setiap `target_room_ids` (validasi BOLA ketat, jika bukan anggota akan ditolak dengan `403 Forbidden`).
+  2. Jumlah room tujuan dibatasi antara 1 hingga 5 (`len(target_room_ids) > 5` ditolak `400 Bad Request`).
+  3. Pesan baru yang dibuat di tiap target room otomatis ditandai dengan flag `is_forwarded: true`.
+  4. Setiap pesan yang diteruskan disiarkan via WebSocket Hub ke masing-masing room penerima.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "forwarded_count": 2,
+    "messages": [
+      {
+        "id": "msg_new_uuid_1",
+        "room": "direct_11111111_33333333",
+        "from": "user_uuid",
+        "content": "Isi pesan yang diteruskan",
+        "is_forwarded": true,
+        "timestamp": "2026-09-19T12:00:00Z"
+      }
+    ]
+  }
+  ```
+
+---
+
+#### 18. `POST /api/messages/pin`
+Menyematkan pesan penting di dalam obrolan (terlihat oleh seluruh anggota percakapan).
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "message_id": "msg_uuid_123",
+    "room_id": "direct_11111111_22222222"
+  }
+  ```
+- **Aturan Pin Message**:
+  1. Pengguna wajib merupakan anggota percakapan (`403 Forbidden`).
+  2. Pesan yang telah dihapus tidak dapat disematkan (`400 Bad Request`).
+  3. Batas maksimal pin per room adalah **3 pesan**. Jika menyematkan pesan ke-4, sistem secara otomatis melepas (*FIFO auto-unpin*) pesan yang paling lama disematkan.
+  4. Menghasilkan broadcast real-time event `message_pinned` ke seluruh anggota percakapan.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message_id": "msg_uuid_123",
+    "room_id": "direct_11111111_22222222",
+    "is_pinned": true
+  }
+  ```
+
+---
+
+#### 19. `POST /api/messages/unpin`
+Melepas sematan pesan dari percakapan.
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "message_id": "msg_uuid_123",
+    "room_id": "direct_11111111_22222222"
+  }
+  ```
+- **Aturan Unpin**:
+  1. Pengguna wajib merupakan anggota percakapan (`403 Forbidden`).
+  2. Menghasilkan broadcast real-time event `message_unpinned` ke seluruh anggota percakapan.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message_id": "msg_uuid_123",
+    "room_id": "direct_11111111_22222222",
+    "is_pinned": false
+  }
+  ```
+
+---
+
+#### 20. `GET /api/messages/pinned?conversation_id=<room_id>`
+Mengambil daftar pesan yang sedang disematkan dalam percakapan aktif (maks 3 pesan, terurut dari yang terbaru disematkan).
+- **Autentikasi**: `Bearer <token>`
+- **Query Parameter**:
+  - `conversation_id` atau `room_id` (string): ID percakapan.
+- **Success Response (200 OK)**:
+  ```json
+  [
+    {
+      "id": "msg_uuid_123",
+      "room": "direct_11111111_22222222",
+      "from": "user_uuid",
+      "content": "Pengumuman jadwal rapat",
+      "is_pinned": true,
+      "timestamp": "2026-09-19T10:00:00Z"
+    }
+  ]
+  ```
+- **Error Codes**: `403 Forbidden` (bukan anggota percakapan).
+
+---
+
+#### 21. `GET /api/messages/search?conversation_id=<room_id>&q=<keyword>`
+Mencari pesan teks dalam percakapan tertentu berdasarkan kata kunci.
+- **Autentikasi**: `Bearer <token>`
+- **Query Parameter**:
+  - `conversation_id` atau `room_id` (string): ID percakapan.
+  - `q` (string): Kata kunci pencarian (case-insensitive substring match).
+- **Privasi & Keamanan**:
+  1. Pengguna wajib anggota percakapan (`403 Forbidden`).
+  2. Menghormati timestamp `cleared_at` milik pengguna — pesan sebelum `cleared_at` tidak akan bocor dalam hasil pencarian.
+  3. Mengecualikan pesan yang telah ditarik (`is_deleted = true`).
+- **Success Response (200 OK)**:
+  ```json
+  [
+    {
+      "id": "msg_uuid_123",
+      "room": "direct_11111111_22222222",
+      "from": "user_uuid",
+      "content": "Dokumen final proposal proyek",
+      "timestamp": "2026-09-19T10:00:00Z"
+    }
+  ]
+  ```
+
+---
+
 ### 3.5 Media & Konfigurasi
 
-#### 14. `GET /api/config`
+#### 22. `GET /api/config`
 Mengambil parameter konfigurasi publik backend (fitur toggle, batas ukuran file, retention TTL).
 - **Autentikasi**: Publik
 - **Success Response (200 OK)**:
@@ -405,7 +620,7 @@ Mengambil parameter konfigurasi publik backend (fitur toggle, batas ukuran file,
 
 ---
 
-#### 15. `POST /api/media/upload`
+#### 23. `POST /api/media/upload`
 Mengunggah berkas gambar, audio, dokumen, atau video.
 - **Autentikasi**: `Bearer <token>`
 - **Content-Type**: `multipart/form-data`
@@ -425,7 +640,7 @@ Mengunggah berkas gambar, audio, dokumen, atau video.
 
 ---
 
-#### 16. `POST /api/media/ack`
+#### 24. `POST /api/media/ack`
 Mengirim konfirmasi unduhan berkas oleh penerima pesan. 
 - **Direct Message (1-on-1)**: Memicu backend untuk menghapus berkas fisik secara instan dari Supabase Storage (*WhatsApp Store-and-Forward Lifecycle*, $0 storage cost).
 - **Obrolan Grup & Forum Topics (`grp_...`, `sub_...`)**: Konfirmasi unduhan dicatat tanpa menghapus berkas fisik (*Shared Media Hub*), menjamin berkas tetap tersedia bagi seluruh anggota grup hingga masa TTL (7 hari) berakhir.
@@ -449,7 +664,7 @@ Mengirim konfirmasi unduhan berkas oleh penerima pesan.
 
 ### 3.6 Link Preview (OpenGraph)
 
-#### 17. `GET /api/link-preview?url=<target_url>`
+#### 25. `GET /api/link-preview?url=<target_url>`
 Mengambil metadata judul, deskripsi, favicon, dan cover image dari tautan web. Backend dilengkapi proteksi **Anti-SSRF** (Anti Private IP & DNS Rebinding Guard) dan Redis/Memory cache.
 - **Autentikasi**: `Bearer <token>`
 - **Success Response (200 OK)**:
@@ -469,7 +684,7 @@ Mengambil metadata judul, deskripsi, favicon, dan cover image dari tautan web. B
 
 ### 3.7 Push Notifications (Web Push VAPID)
 
-#### 18. `GET /api/notifications/vapid-public-key`
+#### 26. `GET /api/notifications/vapid-public-key`
 Mengambil kunci publik VAPID untuk inisialisasi `PushManager.subscribe()` di browser/PWA.
 - **Autentikasi**: Publik
 - **Success Response (200 OK)**:
@@ -481,7 +696,7 @@ Mengambil kunci publik VAPID untuk inisialisasi `PushManager.subscribe()` di bro
 
 ---
 
-#### 19. `POST /api/notifications/subscribe`
+#### 27. `POST /api/notifications/subscribe`
 Mendaftarkan push subscription milik browser / mobile device user yang sedang login.
 - **Autentikasi**: `Bearer <token>`
 - **Request Body**:
@@ -505,7 +720,7 @@ Mendaftarkan push subscription milik browser / mobile device user yang sedang lo
 
 ---
 
-#### 20. `POST /api/notifications/unsubscribe`
+#### 28. `POST /api/notifications/unsubscribe`
 Mencabut subscription push notification tertentu.
 - **Autentikasi**: `Bearer <token>`
 - **Request Body**:
@@ -521,7 +736,7 @@ Mencabut subscription push notification tertentu.
 
 Fitur untuk memindahkan private key E2EE antar-perangkat secara *end-to-end* tanpa membocorkannya ke backend.
 
-#### 21. `POST /api/users/transfer/create`
+#### 29. `POST /api/users/transfer/create`
 Dijalankan oleh perangkat lama untuk menaruh bundle private key terenkripsi.
 - **Autentikasi**: `Bearer <token>`
 - **Request Body**:
@@ -542,7 +757,7 @@ Dijalankan oleh perangkat lama untuk menaruh bundle private key terenkripsi.
 
 ---
 
-#### 22. `POST /api/users/transfer/consume`
+#### 30. `POST /api/users/transfer/consume`
 Dijalankan oleh perangkat baru (setelah scan QR code) untuk mengambil bundle terenkripsi secara satu kali (*one-time use*).
 - **Autentikasi**: `Bearer <token>`
 - **Request Body**:
@@ -565,7 +780,7 @@ Dijalankan oleh perangkat baru (setelah scan QR code) untuk mengambil bundle ter
 
 ### 3.9 Health Check
 
-#### 23. `GET /health`
+#### 31. `GET /health`
 Liveness dan readiness probe untuk load balancer / orchestrator (Fly.io).
 - **Autentikasi**: Publik
 - **Success Response (200 OK)**:
@@ -582,7 +797,7 @@ Liveness dan readiness probe untuk load balancer / orchestrator (Fly.io).
 
 Layanan REST API lengkap untuk mengelola percakapan grup multi-anggota (Milestone 8.2A). Identitas grup menggunakan format `grp_<UUIDv4>` pada kolom `conversations.id`.
 
-#### 24. `POST /api/groups`
+#### 32. `POST /api/groups`
 Membuat grup percakapan baru. Pembuat grup otomatis menjadi anggota dengan role `creator`.
 - **Autentikasi**: `Bearer <token>`
 - **Request Body**:
@@ -619,7 +834,7 @@ Membuat grup percakapan baru. Pembuat grup otomatis menjadi anggota dengan role 
 
 ---
 
-#### 25. `GET /api/groups/search?q={query}&limit=20`
+#### 33. `GET /api/groups/search?q={query}&limit=20`
 Mencari grup dengan status publik (`is_public = true`) berdasarkan nama atau `@group_username`.
 - **Autentikasi**: `Bearer <token>`
 - **Query Params**:
@@ -642,7 +857,7 @@ Mencari grup dengan status publik (`is_public = true`) berdasarkan nama atau `@g
 
 ---
 
-#### 26. `GET /api/groups/{id}`
+#### 34. `GET /api/groups/{id}`
 Mengambil informasi detail grup. Dapat diakses oleh anggota grup, atau siapapun jika grup bertipe publik.
 - **Autentikasi**: `Bearer <token>`
 - **Success Response (200 OK)**:
@@ -672,7 +887,7 @@ Mengambil informasi detail grup. Dapat diakses oleh anggota grup, atau siapapun 
 
 ---
 
-#### 27. `POST /api/groups/{id}/join`
+#### 35. `POST /api/groups/{id}/join`
 Bergabung ke grup publik secara mandiri (*self-join*). Ditolak (403 Forbidden) jika grup privat.
 > 💡 **Alur Klien Frontend / Mobile**: Klien wajib menampilkan modal pratinjau konfirmasi (`GroupPreviewModal.tsx`) sebelum mengeksekusi endpoint ini guna mencegah *accidental auto-join* saat pengguna menjelajahi hasil pencarian (DEC-012).
 - **Autentikasi**: `Bearer <token>`
@@ -686,7 +901,7 @@ Bergabung ke grup publik secara mandiri (*self-join*). Ditolak (403 Forbidden) j
 
 ---
 
-#### 28. `GET /api/groups/{id}/members`
+#### 36. `GET /api/groups/{id}/members`
 Mengambil daftar anggota grup beserta peran (`creator`, `admin`, `member`) dan status verified badge.
 - **Autentikasi**: `Bearer <token>` (wajib anggota grup)
 - **Success Response (200 OK)**:
@@ -715,7 +930,7 @@ Mengambil daftar anggota grup beserta peran (`creator`, `admin`, `member`) dan s
 
 ---
 
-#### 29. `POST /api/groups/{id}/members`
+#### 37. `POST /api/groups/{id}/members`
 Menambahkan anggota baru ke grup. Hanya dapat dijalankan oleh `creator` atau `admin`.
 - **Autentikasi**: `Bearer <token>`
 - **Request Body**:
@@ -734,7 +949,7 @@ Menambahkan anggota baru ke grup. Hanya dapat dijalankan oleh `creator` atau `ad
 
 ---
 
-#### 30. `DELETE /api/groups/{id}/members/{userId}`
+#### 38. `DELETE /api/groups/{id}/members/{userId}`
 Mengeluarkan anggota dari grup (*kick*), atau keluar dari grup (*leave group* jika `userId == currentUserID`).
 - **Autentikasi**: `Bearer <token>`
 - **Hak Akses**:
@@ -751,7 +966,7 @@ Mengeluarkan anggota dari grup (*kick*), atau keluar dari grup (*leave group* ji
 
 ---
 
-#### 31. `PATCH /api/groups/{id}/members/{userId}/role`
+#### 39. `PATCH /api/groups/{id}/members/{userId}/role`
 Mengubah peran anggota (promosi ke `admin` atau demosi ke `member`).
 - **Autentikasi**: `Bearer <token>` (hanya `creator` grup)
 - **Request Body**:
@@ -770,7 +985,7 @@ Mengubah peran anggota (promosi ke `admin` atau demosi ke `member`).
 
 ---
 
-#### 32. `PATCH /api/groups/{id}`
+#### 40. `PATCH /api/groups/{id}`
 Memperbarui metadata grup (judul, deskripsi, avatar, atau visibilitas publik/privat).
 - **Autentikasi**: `Bearer <token>` (hanya `creator` atau `admin`)
 - **Request Body**:
@@ -792,7 +1007,7 @@ Memperbarui metadata grup (judul, deskripsi, avatar, atau visibilitas publik/pri
 
 ---
 
-#### 33. `GET /api/groups/{id}/subgroups` (Forum Topics List)
+#### 41. `GET /api/groups/{id}/subgroups` (Forum Topics List)
 Mengambil daftar topik forum / subgrup aktif di bawah grup induk (`parent_id = id`). Memeriksa keanggotaan grup induk secara ketat (*Parent-Membership Gate*); bukan anggota grup utama akan ditolak (`HTTP 403 Forbidden`).
 - **Autentikasi**: `Bearer <token>` (wajib anggota aktif grup utama)
 - **Path Parameter**: `id` — ID grup utama (`grp_<UUID>`)
@@ -824,7 +1039,7 @@ Mengambil daftar topik forum / subgrup aktif di bawah grup induk (`parent_id = i
 
 ---
 
-#### 34. `POST /api/groups/{id}/subgroups` (Create Forum Topic)
+#### 42. `POST /api/groups/{id}/subgroups` (Create Forum Topic)
 Membuat ruang topik forum baru bertopik ephemeral dengan masa aktif TTL otomatis (`expires_at`) dan kontrol visibilitas/hak akses (`is_public`). Pembuat otomatis menjadi anggota pertama topik forum. Broadcast notifikasi event `subgroup_created` dikirim ke grup utama.
 - **Autentikasi**: `Bearer <token>` (wajib Pembuat / Admin grup induk — peran `creator` atau `admin`)
 - **Path Parameter**: `id` — ID grup utama (`grp_<UUID>`)
@@ -867,7 +1082,7 @@ Membuat ruang topik forum baru bertopik ephemeral dengan masa aktif TTL otomatis
 
 ---
 
-#### 35. `POST /api/groups/{id}/join-request`
+#### 43. `POST /api/groups/{id}/join-request`
 Mengajukan permohonan izin bergabung ke subgrup privat. Pemohon wajib anggota aktif di grup induk. Permohonan berstatus `pending` dan dapat ditinjau oleh admin/creator.
 - **Autentikasi**: `Bearer <token>` (wajib anggota grup induk)
 - **Path Parameter**: `id` — ID subgrup (`sub_<UUID>`)
@@ -885,7 +1100,7 @@ Mengajukan permohonan izin bergabung ke subgrup privat. Pemohon wajib anggota ak
 
 ---
 
-#### 36. `GET /api/groups/{id}/join-requests`
+#### 44. `GET /api/groups/{id}/join-requests`
 Mengambil seluruh daftar permohonan bergabung berstatus `pending` untuk subgrup privat tertentu. Hanya dapat diakses oleh admin/creator subgrup atau admin/creator grup induk.
 - **Autentikasi**: `Bearer <token>` (wajib admin/creator)
 - **Path Parameter**: `id` — ID subgrup (`sub_<UUID>`)
@@ -913,7 +1128,7 @@ Mengambil seluruh daftar permohonan bergabung berstatus `pending` untuk subgrup 
 
 ---
 
-#### 37. `POST /api/groups/{id}/join-requests/{requestId}/action`
+#### 45. `POST /api/groups/{id}/join-requests/{requestId}/action`
 Menyetujui (`approve: true`) atau menolak (`approve: false`) permohonan bergabung ke subgrup privat. Jika disetujui, pemohon otomatis ditambahkan sebagai `member` di `conversation_members` dan status request menjadi `approved`.
 - **Autentikasi**: `Bearer <token>` (wajib admin/creator)
 - **Path Parameter**:
@@ -1164,12 +1379,11 @@ Menambahkan atau menarik reaksi emoji pada pesan.
     }
   ]
 }
-}
 ```
 
 ---
 
-#### 8. `message_deleted` (Server ➔ Client)
+#### 9. `message_deleted` (Server ➔ Client)
 Diterima ketika pesan tertentu ditarik untuk semua orang (*Delete for Everyone*).
 ```json
 {
@@ -1184,7 +1398,49 @@ Diterima ketika pesan tertentu ditarik untuk semua orang (*Delete for Everyone*)
 
 ---
 
-#### 9. WebRTC Signaling Events (P2P Calling)
+#### 10. `message_edited` (Server ➔ Client)
+Diterima ketika pengirim asli memperbarui isi teks pesan (dalam batas waktu 15 menit).
+```json
+{
+  "type": "message_edited",
+  "id": "msg_001",
+  "room": "direct_11111111_22222222",
+  "content": "Teks pesan yang telah diedit",
+  "is_edited": true,
+  "edited_at": "2026-09-19T12:00:00Z"
+}
+```
+
+---
+
+#### 11. `message_pinned` (Server ➔ Client)
+Diterima ketika sebuah pesan disematkan di dalam percakapan (maksimal 3 pin per percakapan).
+```json
+{
+  "type": "message_pinned",
+  "id": "msg_001",
+  "room": "direct_11111111_22222222",
+  "content": "Pengumuman penting yang disematkan",
+  "from": "user_uuid_pengirim",
+  "from_display": "Nama Pengirim"
+}
+```
+
+---
+
+#### 12. `message_unpinned` (Server ➔ Client)
+Diterima ketika sebuah pesan dilepas sematannya dari percakapan.
+```json
+{
+  "type": "message_unpinned",
+  "id": "msg_001",
+  "room": "direct_11111111_22222222"
+}
+```
+
+---
+
+#### 13. WebRTC Signaling Events (P2P Calling)
 Digunakan untuk negosiasi panggilan suara/video tanpa menyentuh database chat:
 - `call_offer`: Pemanggil mengirim SDP offer.
 - `call_answer`: Penerima mengirim SDP answer.
@@ -1214,7 +1470,7 @@ Contoh payload `ice_candidate`:
 
 ---
 
-#### 10. `system` (Server ➔ Client)
+#### 14. `system` (Server ➔ Client)
 Pesan pemberitahuan sistem atau error dari backend.
 ```json
 {

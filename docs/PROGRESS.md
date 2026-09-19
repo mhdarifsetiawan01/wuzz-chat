@@ -469,8 +469,8 @@
         - **Deployment**: Live di Fly.io production — health check `{"status":"ok"}` selesai.
 
 - **🎯 Next Milestone:**
-  1. [ ] **Milestone 8.2: Group Chat Engine & Member Management** — Percakapan multi-user, role Admin/Member, multicast WebSocket broadcast, unread count per-anggota, dan Bad Words Sensor Filter.
-  2. [ ] **Milestone 8.3: Message Management Suite** — Edit pesan (15 menit), forward pesan, pin chat & pin message, starred message, dan in-chat search.
+  1. [x] **Milestone 8.2: Group Chat Engine & Member Management** — Percakapan multi-user, role Admin/Member, multicast WebSocket broadcast, unread count per-anggota, dan Bad Words Sensor Filter.
+  2. [x] **Milestone 8.3: Message Management Suite** — Edit pesan (15 menit), forward pesan, pin chat & pin message, starred message, dan in-chat search.
   3. [ ] *(Opsional Future)* Android Native App untuk akses kamera native penuh (Live QR Scanner tanpa batasan WebAPK permissions).
 
 
@@ -972,4 +972,59 @@ Sebelumnya, beberapa bagian sistem menggunakan `display_name` / `nickname` (stri
 - Backend: Unit test `ack_idempotency_test.go` (`TestClient_MessageAckDispatch`, `TestHub_ServerSideIdempotency`, `TestHub_IdempotencyTTL`) — **100% PASS**.
 - `go test -v ./...` di seluruh modul backend — **100% PASS**.
 - Frontend: `npm run build` — **100% PASS (0 error, 0 warning)**.
+
+---
+
+### 💬 Milestone 8.3: Message Management Suite (Edit, Forward, Pin Chat, Pin Message, In-Chat Search)
+
+**Tanggal**: 19 September 2026  
+**Status**: ✅ **SELESAI & TERVERIFIKASI (Dev Branch)**  
+**Branch Aktif**: `dev`
+
+**Ringkasan Fitur & Arsitektur yang Diimplementasikan**:
+1. **Sub-8.3.A: Edit Pesan (Window 15 Menit)**:
+   - REST API `PUT /api/messages/edit` dengan body `{"message_id": "...", "content": "..."}`.
+   - Otorisasi ketat UUID: hanya pengirim asli (`from_id == user.id`) yang berhak mengedit.
+   - Window 15 menit ditegakkan di backend (`time.Since(CreatedAt) > 15*time.Minute` mengembalikan HTTP 400).
+   - Penolakan pesan ditarik (`is_deleted` = true).
+   - Kolom `is_edited BOOLEAN DEFAULT false` dan `edited_at TIMESTAMP` pada tabel `messages` dengan auto-migration SQLite/Postgres.
+   - Real-time event WebSocket `type: "message_edited"` disiarkan ke seluruh anggota room dan diteruskan ke Redis pub/sub.
+   - Frontend inline editing di `MessageInput.tsx` dengan preview tombol Batal/Simpan, penyesuaian cache lokal `messageCache.ts`, dan label visual `(diedit)` di `MessageBubble.tsx`.
+2. **Sub-8.3.B: Forward Pesan (Multi-Kontak 1–5 Target)**:
+   - REST API `POST /api/messages/forward` dengan body `{"message_id": "...", "target_room_ids": [...]}`.
+   - Validasi batas 1 s/d 5 room tujuan sekaligus.
+   - Validasi BOLA per room: pengguna wajib merupakan anggota di setiap target room (HTTP 403 jika melanggar).
+   - Penandaan kekal `is_forwarded: true` pada pesan hasil forward di database dan cache.
+   - Siaran real-time via WebSocket Hub ke masing-masing target room.
+   - Komponen modal interaktif `ForwardMessageModal.tsx` bertema Aurora Glassmorphic dengan filter pencarian kontak/grup dan counter target.
+   - Lencana visual `↪ Diteruskan` di bagian atas bubble pesan.
+3. **Sub-8.3.C: Pin Chat (Sidebar Per-User)**:
+   - Kolom `is_pinned BOOLEAN DEFAULT false` dan `pinned_at TIMESTAMP` pada tabel `conversation_members`.
+   - Terisolasi penuh per user: menyematkan chat tidak mempengaruhi urutan obrolan user lain di room yang sama.
+   - REST API `POST /api/conversations/pin` dan `POST /api/conversations/unpin`.
+   - Query `GetUserConversations` mengurutkan percakapan dengan prioritas: `ORDER BY is_pinned DESC, last_message_time DESC`.
+   - Lencana pin 📌 di `Sidebar.tsx`, menu konteks desktop, dan aksi pin/unpin instan.
+4. **Sub-8.3.D: Pin Message (Dalam Chat / Room Pinned Messages)**:
+   - Tabel relasional `pinned_messages` (`id`, `conversation_id`, `message_id`, `pinned_by`, `created_at`) dengan composite index `idx_pinned_messages_conv(conversation_id, created_at)`.
+   - Batas maksimal 3 pin per room ditegakkan secara FIFO otomatis di backend: saat pesan ke-4 disematkan, pesan terlama otomatis dilepas.
+   - Proteksi integritas: pesan yang terhapus (`is_deleted = true`) ditolak untuk disematkan (HTTP 400).
+   - Sinkronisasi penarikan pesan: saat pesan ditarik for everyone, backend otomatis menghapus sematan dari `pinned_messages`.
+   - REST API: `POST /api/messages/pin`, `POST /api/messages/unpin`, `GET /api/messages/pinned?conversation_id=...`.
+   - WebSocket event: `message_pinned` dan `message_unpinned` real-time broadcast ke room.
+   - Banner interaktif `PinnedMessageBanner.tsx` dengan carousel navigasi multi-pin (1/3, 2/3), tombol unpin, dan aksi klik lompat (*jump-to-message*) dengan animasi pendaran emas `.msg-highlight-glow`.
+5. **Sub-8.3.E: In-Chat Text Search**:
+   - REST API `GET /api/messages/search?conversation_id=...&q=...`.
+   - Mesin pencarian case-insensitive substring match di database store (`SearchMessages`).
+   - Privasi mutlak: menghormati timestamp `cleared_at` milik pengguna agar riwayat yang sudah dibersihkan tidak bocor dalam hasil pencarian.
+   - Mengecualikan pesan ditarik (`is_deleted = false`).
+   - Integrasi search bar elegan di `StatusBar.tsx` dengan badge penghitung temuan (misal: "2 / 5"), tombol navigasi Atas/Bawah (ArrowUp/ArrowDown), shortcut Escape untuk menutup, dan otomatis scroll-into-view dengan animasi highlight biru pendar `.msg-search-highlight`.
+6. **Security & Performance Audit**:
+   - Analisis STRIDE menyeluruh lulus 100%.
+   - Proteksi BOLA/IDOR pada seluruh endpoint pin, unpin, forward, edit, search.
+   - Indeks database komposit mencegah full table scan saat query pinned messages dan search.
+
+**Verifikasi & Test Evidence**:
+- Backend: `go test -count=1 ./...` — **100% PASS** (termasuk 7 skenario integrasi di `chat_handler_message_pin_search_test.go`, `chat_handler_edit_test.go`, `chat_handler_forward_test.go`, `chat_handler_pin_test.go`).
+- Frontend: `npm run build` di `frontend/` — **100% PASS** (265ms compile, 0 TypeScript/ESLint error).
+
 

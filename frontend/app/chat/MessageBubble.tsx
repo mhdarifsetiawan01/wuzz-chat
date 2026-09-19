@@ -23,6 +23,11 @@ interface MessageBubbleProps {
   onReact?: (messageId: string, emoji: string) => void
   onImageClick?: (imageUrl: string, fileName?: string) => void
   onDeleteMessage?: (messageId: string, type: 'for_me' | 'for_everyone') => void
+  onEditMessage?: (message: Message) => void
+  onForwardMessage?: (message: Message) => void
+  isPinned?: boolean
+  onPinMessage?: (message: Message) => void
+  onUnpinMessage?: (messageId: string) => void
   members?: import('@/lib/types').GroupMember[]
 }
 
@@ -148,6 +153,11 @@ export function MessageBubble({
   onReact,
   onImageClick,
   onDeleteMessage,
+  onEditMessage,
+  onForwardMessage,
+  isPinned = false,
+  onPinMessage,
+  onUnpinMessage,
   members,
 }: MessageBubbleProps) {
   const isSystem = message.type === 'system' || message.from === 'server'
@@ -205,6 +215,12 @@ export function MessageBubble({
   }, [isDeleteModalOpen, message.timestamp])
 
   const canDeleteForEveryone = isSelf && remainingSeconds > 0 && !message.is_deleted
+
+  // Batas waktu edit: 15 menit dari pengiriman pesan (hanya pengirim dan bukan media/deleted)
+  const isWithin15Min = message.timestamp
+    ? (Date.now() - new Date(message.timestamp).getTime()) < 15 * 60 * 1000
+    : false
+  const canEdit = isSelf && !message.is_deleted && !message.media_url && isWithin15Min
 
   const handleDeleteConfirm = async (type: 'for_me' | 'for_everyone') => {
     if (!message.id || !onDeleteMessage) return
@@ -422,6 +438,22 @@ export function MessageBubble({
           
           <div className="message-bubble-wrapper">
         <div className={`message-bubble ${selfId && message.mentions?.includes(selfId) ? 'message-bubble-mentioned' : ''}`}>
+          {/* Label Disematkan / Pinned Indicator */}
+          {isPinned && (
+            <div className="message-pinned-badge" title="Pesan ini disematkan di percakapan">
+              <span>📌</span>
+              <span>Disematkan</span>
+            </div>
+          )}
+
+          {/* Label Diteruskan / Forwarded Indicator */}
+          {message.is_forwarded && (
+            <div className="message-forwarded-badge" title="Pesan ini diteruskan">
+              <span className="forwarded-icon">↪</span>
+              <span className="forwarded-text">Diteruskan</span>
+            </div>
+          )}
+
           {/* Quoted / Reply Preview Block */}
           {message.reply_to && (
             <div
@@ -558,6 +590,14 @@ export function MessageBubble({
           {/* Timestamp & Receipt Status */}
           {!isSystem && (
             <div className="message-meta-row">
+              {message.is_edited && (
+                <span
+                  className="msg-edited-label"
+                  title={message.edited_at ? `Diedit pada ${new Date(message.edited_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` : 'Diedit'}
+                >
+                  (diedit)
+                </span>
+              )}
               {time && (
                 <span className="message-meta" aria-label={`Dikirim pukul ${time}`}>
                   {time}
@@ -596,6 +636,36 @@ export function MessageBubble({
             >
               ↩️
             </button>
+            {canEdit && (
+              <button
+                type="button"
+                className="bubble-action-btn edit-btn"
+                onClick={() => onEditMessage?.(message)}
+                title="Edit pesan (15 menit)"
+              >
+                ✏️
+              </button>
+            )}
+            {!message.is_deleted && (
+              <button
+                type="button"
+                className="bubble-action-btn forward-btn"
+                onClick={() => onForwardMessage?.(message)}
+                title="Teruskan pesan"
+              >
+                ↪️
+              </button>
+            )}
+            {!message.is_deleted && (
+              <button
+                type="button"
+                className={`bubble-action-btn pin-msg-btn ${isPinned ? 'pinned' : ''}`}
+                onClick={() => (isPinned ? onUnpinMessage?.(message.id!) : onPinMessage?.(message))}
+                title={isPinned ? 'Lepas sematan pesan' : 'Sematkan pesan ini'}
+              >
+                📌
+              </button>
+            )}
             <button
               type="button"
               className="bubble-action-btn delete-btn"

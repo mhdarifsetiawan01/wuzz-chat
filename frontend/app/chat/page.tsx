@@ -3,7 +3,7 @@
 import { useEffect, useReducer, useState, useCallback, useRef, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { WsClient } from '@/lib/ws-client'
-import type { Message, MessageType, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User, ActiveCallInfo, GroupDetails } from '@/lib/types'
+import type { Message, MessageType, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User, ActiveCallInfo, GroupDetails, PinnedMessage } from '@/lib/types'
 import { StatusBar } from './StatusBar'
 import { ChatWindow } from './ChatWindow'
 import { MessageInput } from './MessageInput'
@@ -16,6 +16,7 @@ import { GroupInfoDrawer } from './GroupInfoDrawer'
 import CreateSubGroupModal from './CreateSubGroupModal'
 import SubGroupListDrawer from './SubGroupListDrawer'
 import GroupPreviewModal from './GroupPreviewModal'
+import { ForwardMessageModal } from './ForwardMessageModal'
 import { soundManager, playOutgoingRing, playIncomingRing, stopCallSounds } from '@/lib/sound'
 import { WebRTCAudioSession } from '@/lib/webrtc/webrtcAudio'
 import { useAuth } from '@/lib/auth-context'
@@ -39,6 +40,7 @@ import {
   cacheMessages,
   cacheMessage,
   updateCachedMessageStatus,
+  updateMessageContentInCache,
   deleteCachedMessage,
   toCachedRecord,
   type CachedMessageRecord,
@@ -69,6 +71,7 @@ type ChatAction =
   | { type: 'UPDATE_MESSAGE_REACTIONS'; payload: { id: string; reactions: ReactionItem[] } }
   | { type: 'DELETE_MESSAGE_LOCAL'; payload: { id: string } }
   | { type: 'UPDATE_MESSAGE_DELETED'; payload: { id: string; content?: string } }
+  | { type: 'EDIT_MESSAGE'; payload: { id: string; newContent: string; editedAt?: string } }
   | { type: 'SET_MESSAGES'; payload: Message[] }
   | { type: 'SET_PEER_INFO'; payload: { nickname?: string; avatarUrl?: string; userId?: string; isVerified?: boolean } }
   | { type: 'SET_PEER_NICKNAME'; payload: string }
@@ -174,6 +177,21 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ),
       }
     }
+    case 'EDIT_MESSAGE': {
+      return {
+        ...state,
+        messages: state.messages.map(m =>
+          m.id === action.payload.id
+            ? {
+                ...m,
+                content: action.payload.newContent,
+                is_edited: true,
+                edited_at: action.payload.editedAt || new Date().toISOString(),
+              }
+            : m
+        ),
+      }
+    }
     case 'SET_MESSAGES': {
       return { ...state, messages: action.payload }
     }
@@ -263,6 +281,9 @@ function ChatPageContent() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [lastIncomingMessage, setLastIncomingMessage] = useState<Message | null>(null)
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
+  const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null)
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null)
+  const [forwardConversations, setForwardConversations] = useState<ConversationItem[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(Boolean(roomId))
   const [isHistoryError, setIsHistoryError] = useState(false)
   const [peerPublicKeyJWK, setPeerPublicKeyJWK] = useState<string>('')
@@ -280,6 +301,11 @@ function ChatPageContent() {
   const [isCreateSubGroupOpen, setIsCreateSubGroupOpen] = useState(false)
   const [directPreviewGroup, setDirectPreviewGroup] = useState<GroupDetails | null>(null)
   const [privateGroupDenied, setPrivateGroupDenied] = useState<{ id: string; error?: string } | null>(null)
+  const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<string[]>([])
+  const [searchIndex, setSearchIndex] = useState(0)
   const activeCallRef = useRef<ActiveCallInfo | null>(null)
   const webrtcAudioRef = useRef<WebRTCAudioSession | null>(null)
   const pendingOfferSdpRef = useRef<string | null>(null)
@@ -589,6 +615,163 @@ function ChatPageContent() {
   }, [logout])
 
   // ----------------------------------------------------------------
+  // Pinned Messages & In-Chat Search Handlers (Milestone 8.3D & 8.3E)
+  // ----------------------------------------------------------------
+  const fetchPinnedMessages = useCallback(async (currentRoomId: string) => {
+    if (!currentRoomId) {
+      setPinnedMessages([])
+      return
+    }
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
+      const res = await fetch(`/api/messages/pinned?room_id=${encodeURIComponent(currentRoomId)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.pinned) {
+          setPinnedMessages(data.pinned)
+        }
+      }
+    } catch {}
+  }, [])
+
+  const handlePinMessage = useCallback(async (message: Message) => {
+    if (!roomId || !message.id) return
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
+      const res = await fetch('/api/messages/pin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          conversation_id: roomId,
+          message_id: message.id,
+          duration_hours: 0,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.pinned) {
+          setPinnedMessages((prev) => {
+            const filtered = prev.filter((p) => p.message_id !== message.id)
+            return [data.pinned as PinnedMessage, ...filtered].slice(0, 3)
+          })
+        }
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert(err.error || 'Gagal menyematkan pesan')
+      }
+    } catch {
+      alert('Terjadi kesalahan saat menyematkan pesan')
+    }
+  }, [roomId])
+
+  const handleUnpinMessage = useCallback(async (messageId: string) => {
+    if (!roomId || !messageId) return
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') || '' : ''
+      const res = await fetch('/api/messages/unpin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          conversation_id: roomId,
+          message_id: messageId,
+        }),
+      })
+      if (res.ok) {
+        setPinnedMessages((prev) => prev.filter((p) => p.message_id !== messageId && p.id !== messageId))
+      }
+    } catch {}
+  }, [roomId])
+
+  const handleJumpToMessage = useCallback((messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.remove('msg-highlight-glow')
+      void el.offsetWidth
+      el.classList.add('msg-highlight-glow')
+      setTimeout(() => {
+        el.classList.remove('msg-highlight-glow')
+      }, 2400)
+    }
+  }, [])
+
+  const scrollToSearchMatch = useCallback((targetId: string) => {
+    if (typeof document === 'undefined') return
+    document.querySelectorAll('.msg-search-highlight').forEach((el) => {
+      el.classList.remove('msg-search-highlight')
+    })
+    const el = document.getElementById(`msg-${targetId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('msg-search-highlight')
+    }
+  }, [])
+
+  const handleSearchChange = useCallback((q: string) => {
+    setSearchQuery(q)
+    const qLower = q.trim().toLowerCase()
+    if (!qLower) {
+      setSearchResults([])
+      setSearchIndex(0)
+      if (typeof document !== 'undefined') {
+        document.querySelectorAll('.msg-search-highlight').forEach((el) => {
+          el.classList.remove('msg-search-highlight')
+        })
+      }
+      return
+    }
+
+    const matches = state.messages
+      .filter((m) => !m.is_deleted && m.content?.toLowerCase().includes(qLower))
+      .map((m) => m.id!)
+      .filter(Boolean)
+
+    setSearchResults(matches)
+    setSearchIndex(0)
+    if (matches.length > 0) {
+      scrollToSearchMatch(matches[0])
+    } else if (typeof document !== 'undefined') {
+      document.querySelectorAll('.msg-search-highlight').forEach((el) => {
+        el.classList.remove('msg-search-highlight')
+      })
+    }
+  }, [state.messages, scrollToSearchMatch])
+
+  const handleNextSearchMatch = useCallback(() => {
+    if (searchResults.length === 0) return
+    const nextIdx = (searchIndex + 1) % searchResults.length
+    setSearchIndex(nextIdx)
+    scrollToSearchMatch(searchResults[nextIdx])
+  }, [searchResults, searchIndex, scrollToSearchMatch])
+
+  const handlePrevSearchMatch = useCallback(() => {
+    if (searchResults.length === 0) return
+    const prevIdx = (searchIndex - 1 + searchResults.length) % searchResults.length
+    setSearchIndex(prevIdx)
+    scrollToSearchMatch(searchResults[prevIdx])
+  }, [searchResults, searchIndex, scrollToSearchMatch])
+
+  const handleCloseSearch = useCallback(() => {
+    setIsSearching(false)
+    setSearchQuery('')
+    setSearchResults([])
+    setSearchIndex(0)
+    if (typeof document !== 'undefined') {
+      document.querySelectorAll('.msg-search-highlight').forEach((el) => {
+        el.classList.remove('msg-search-highlight')
+      })
+    }
+  }, [])
+
+  // ----------------------------------------------------------------
   // 1. Efek Perpindahan Ruang Obrolan (Room Switcher): 0ms Load & Join
   //    Dijalankan saat `roomId` berubah TANPA disconnect WebSocket!
   // ----------------------------------------------------------------
@@ -598,6 +781,7 @@ function ChatPageContent() {
       dispatch({ type: 'SET_ROOM_USERS', payload: [] })
       dispatch({ type: 'SET_PEER_INFO', payload: { nickname: '', avatarUrl: '', userId: '' } })
       setReplyingTo(null)
+      setEditingMessage(null)
       setLightboxData(null)
       setIsMemberListOpen(false)
       setIsLoadingHistory(false)
@@ -612,10 +796,17 @@ function ChatPageContent() {
     dispatch({ type: 'SET_ROOM_USERS', payload: [] })
     dispatch({ type: 'SET_PEER_INFO', payload: { nickname: '', avatarUrl: '', userId: '' } })
     setReplyingTo(null)
+    setEditingMessage(null)
     setLightboxData(null)
     setIsMemberListOpen(false)
     setIsLoadingHistory(true)
     setIsHistoryError(false)
+    setPinnedMessages([])
+    setIsSearching(false)
+    setSearchQuery('')
+    setSearchResults([])
+    setSearchIndex(0)
+    fetchPinnedMessages(roomId)
 
     // Cache-First Instant Load: Baca riwayat pesan dari IndexedDB lokal (0ms)
     getCachedMessages(roomId).then((cached) => {
@@ -1167,6 +1358,37 @@ function ChatPageContent() {
           break
         }
 
+        case 'message_edited': {
+          const editId = msg.id
+          const editContent = msg.new_content || msg.content
+          if (editId && editContent) {
+            dispatch({
+              type: 'EDIT_MESSAGE',
+              payload: { id: editId, newContent: editContent, editedAt: msg.edited_at },
+            })
+            updateMessageContentInCache(editId, editContent, msg.edited_at).catch(() => {})
+          }
+          break
+        }
+
+        case 'message_pinned': {
+          if (msg.room === currentRoom && msg.pinned) {
+            setPinnedMessages((prev) => {
+              const newPin = msg.pinned as PinnedMessage
+              const filtered = prev.filter((p) => p.message_id !== newPin.message_id && p.id !== newPin.id)
+              return [newPin, ...filtered].slice(0, 3)
+            })
+          }
+          break
+        }
+
+        case 'message_unpinned': {
+          if (msg.room === currentRoom && msg.id) {
+            setPinnedMessages((prev) => prev.filter((p) => p.message_id !== msg.id && p.id !== msg.id))
+          }
+          break
+        }
+
         case 'leave': {
           dispatch({ type: 'SET_PEER_TYPING', payload: { typing: false } })
           break
@@ -1407,6 +1629,85 @@ function ChatPageContent() {
       alert(err.message || 'Gagal menghapus pesan')
     }
   }, [])
+
+  const handleSaveEdit = useCallback(async (messageId: string, newContent: string) => {
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') : null
+      const res = await fetch('/api/messages/edit', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ message_id: messageId, new_content: newContent }),
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Gagal mengedit pesan')
+      }
+      const data = await res.json()
+      dispatch({
+        type: 'EDIT_MESSAGE',
+        payload: { id: messageId, newContent: data.new_content || newContent, editedAt: data.edited_at },
+      })
+      updateMessageContentInCache(messageId, data.new_content || newContent, data.edited_at).catch(() => {})
+      setEditingMessage(null)
+    } catch (err: any) {
+      alert(err.message || 'Gagal mengedit pesan')
+      throw err
+    }
+  }, [])
+
+  const handleOpenForward = useCallback(async (msg: Message) => {
+    setForwardingMessage(msg)
+    try {
+      const { data } = await apiRequest<ConversationItem[]>('/api/conversations')
+      if (data && Array.isArray(data)) {
+        setForwardConversations(data)
+      }
+    } catch (err) {
+      console.error('Failed to load conversations for forward:', err)
+    }
+  }, [])
+
+  const handleForwardMessage = useCallback(async (messageId: string, targetRoomIds: string[]) => {
+    const { data, error } = await apiRequest<{ success: boolean; messages: any[] }>('/api/messages/forward', {
+      method: 'POST',
+      body: JSON.stringify({
+        message_id: messageId,
+        target_room_ids: targetRoomIds,
+      }),
+    })
+    if (error) {
+      throw new Error(error)
+    }
+    if (data?.messages && Array.isArray(data.messages)) {
+      for (const m of data.messages) {
+        if (m.room_id === roomId) {
+          dispatch({
+            type: 'ADD_MESSAGE',
+            payload: {
+              id: m.id,
+              type: 'message',
+              from: m.from_id,
+              nickname: m.nickname,
+              room: m.room_id,
+              content: m.content,
+              status: m.status || 'sent',
+              media_url: m.media_url,
+              media_type: m.media_type,
+              file_name: m.file_name,
+              file_size: m.file_size,
+              media_status: m.media_status,
+              is_forwarded: true,
+              timestamp: m.timestamp,
+            },
+          })
+        }
+      }
+    }
+  }, [roomId])
 
   const handleSend = useCallback(async (content: string, media?: { url: string; media_type: string; file_name: string; file_size: number }, mentions?: string[]) => {
     if (!roomId) return
@@ -1958,6 +2259,15 @@ function ChatPageContent() {
                 parentGroupName={parentGroupName}
                 onBack={() => handleSelectRoom('')}
                 onStartAudioCall={handleStartAudioCall}
+                isSearching={isSearching}
+                searchQuery={searchQuery}
+                searchMatchCount={searchResults.length}
+                currentSearchIndex={searchIndex}
+                onToggleSearch={() => setIsSearching((prev) => !prev)}
+                onSearchChange={handleSearchChange}
+                onNextSearchMatch={handleNextSearchMatch}
+                onPrevSearchMatch={handlePrevSearchMatch}
+                onCloseSearch={handleCloseSearch}
               />
 
               <ChatWindow
@@ -1972,11 +2282,17 @@ function ChatPageContent() {
                 isDirectChat={Boolean(roomId && !roomId.startsWith('grp_') && !roomId.startsWith('sub_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
                 peerAvatarUrl={state.peerAvatarUrl || ''}
                 peerNickname={state.peerNickname || ''}
+                pinnedMessages={pinnedMessages}
+                onPinMessage={handlePinMessage}
+                onUnpinMessage={handleUnpinMessage}
+                onJumpToMessage={handleJumpToMessage}
                 onRetryHistory={handleRetryHistory}
                 onReply={setReplyingTo}
                 onReact={handleReact}
                 onImageClick={(url, name) => setLightboxData({ url, fileName: name })}
                 onDeleteMessage={handleDeleteMessage}
+                onEditMessage={(msg) => setEditingMessage({ id: msg.id!, content: msg.content || '' })}
+                onForwardMessage={handleOpenForward}
                 members={groupDetails?.members}
               />
 
@@ -1986,6 +2302,9 @@ function ChatPageContent() {
                 disabled={!isConnected || groupDetails?.status === 'expired'}
                 replyTo={replyingTo}
                 onCancelReply={() => setReplyingTo(null)}
+                editingMessage={editingMessage}
+                onCancelEdit={() => setEditingMessage(null)}
+                onSaveEdit={handleSaveEdit}
                 stagedExternalFile={draggedFile}
                 onClearStagedExternalFile={() => setDraggedFile(null)}
                 members={groupDetails?.members}
@@ -2133,6 +2452,16 @@ function ChatPageContent() {
             })
           }
         }}
+      />
+
+      {/* Modal Teruskan Pesan (Multi-Contact / Group Max 5) */}
+      <ForwardMessageModal
+        isOpen={Boolean(forwardingMessage)}
+        onClose={() => setForwardingMessage(null)}
+        message={forwardingMessage}
+        conversations={forwardConversations}
+        currentRoomId={roomId}
+        onForward={handleForwardMessage}
       />
     </div>
   )
