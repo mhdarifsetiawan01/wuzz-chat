@@ -401,9 +401,10 @@ func (h *ChatHandler) ForwardMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		MessageID     string   `json:"message_id"`
-		ID            string   `json:"id"`
-		TargetRoomIDs []string `json:"target_room_ids"`
+		MessageID        string   `json:"message_id"`
+		ID               string   `json:"id"`
+		TargetRoomIDs    []string `json:"target_room_ids"`
+		PlaintextContent string   `json:"plaintext_content"` // plaintext override agar tidak copy ciphertext E2EE dari room asal
 	}
 
 	if r.Body != nil {
@@ -455,7 +456,7 @@ func (h *ChatHandler) ForwardMessage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	forwardedMsgs, err := h.messageStore.ForwardMessage(msgID, claims.UserID, senderNickname, req.TargetRoomIDs)
+	forwardedMsgs, err := h.messageStore.ForwardMessage(msgID, claims.UserID, senderNickname, req.TargetRoomIDs, req.PlaintextContent)
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "tidak ditemukan") {

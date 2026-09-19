@@ -1047,7 +1047,9 @@ func (s *SQLMessageStore) EditMessage(msgID, userID, newContent string) (*Stored
 }
 
 // ForwardMessage meneruskan pesan ke 1 sampai 5 percakapan target.
-func (s *SQLMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname string, targetRoomIDs []string) ([]StoredMessage, error) {
+// plaintextContent adalah plaintext override dari frontend (sudah di-decrypt dari ciphertext E2EE room asal).
+// Jika diisi, digunakan sebagai konten pesan terusan agar tidak menyalin ciphertext antar room yang kuncinya berbeda.
+func (s *SQLMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname string, targetRoomIDs []string, plaintextContent string) ([]StoredMessage, error) {
 	if len(targetRoomIDs) == 0 {
 		return nil, fmt.Errorf("target_room_ids tidak boleh kosong")
 	}
@@ -1061,6 +1063,13 @@ func (s *SQLMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname stri
 	}
 	if srcMsg.IsDeleted {
 		return nil, fmt.Errorf("tidak dapat meneruskan pesan yang telah dihapus")
+	}
+
+	// Tentukan konten pesan terusan:
+	// Prioritaskan plaintext dari frontend agar tidak menyalin ciphertext E2EE antar room yang berbeda kunci AES-nya.
+	forwardContent := srcMsg.Content
+	if strings.TrimSpace(plaintextContent) != "" {
+		forwardContent = strings.TrimSpace(plaintextContent)
 	}
 
 	var forwardedMessages []StoredMessage
@@ -1078,7 +1087,7 @@ func (s *SQLMessageStore) ForwardMessage(srcMsgID, senderID, senderNickname stri
 			FromID:          senderID,
 			Nickname:        senderNickname,
 			ToID:            "",
-			Content:         srcMsg.Content,
+			Content:         forwardContent,
 			Status:          "sent",
 			ReplyToID:       "",
 			ReplyToNickname: "",

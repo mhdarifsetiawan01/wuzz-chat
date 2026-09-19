@@ -1672,11 +1672,18 @@ function ChatPageContent() {
   }, [])
 
   const handleForwardMessage = useCallback(async (messageId: string, targetRoomIds: string[]) => {
+    // Ambil plaintext dari pesan yang sedang di-forward.
+    // message.content sudah berisi teks ter-decrypt (dirender di UI).
+    // message.raw_content adalah ciphertext asli — jika berbeda dari content, berarti sudah berhasil di-decrypt.
+    // Kirim plaintext ini ke backend agar tidak menyalin ciphertext E2EE antar room yang berbeda kunci AES-nya.
+    const plaintextContent = forwardingMessage?.content || ''
+
     const { data, error } = await apiRequest<{ success: boolean; messages: any[] }>('/api/messages/forward', {
       method: 'POST',
       body: JSON.stringify({
         message_id: messageId,
         target_room_ids: targetRoomIds,
+        plaintext_content: plaintextContent, // plaintext override — fix E2EE cross-room forward bug
       }),
     })
     if (error) {
@@ -1707,7 +1714,7 @@ function ChatPageContent() {
         }
       }
     }
-  }, [roomId])
+  }, [roomId, forwardingMessage])
 
   const handleSend = useCallback(async (content: string, media?: { url: string; media_type: string; file_name: string; file_size: number }, mentions?: string[]) => {
     if (!roomId) return
