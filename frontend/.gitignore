@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Design QA (plugin Qoder "Design Review") — salinan plugin & dependensi lokal
+.design-qa/plugin/
+.design-qa/npm-cache/

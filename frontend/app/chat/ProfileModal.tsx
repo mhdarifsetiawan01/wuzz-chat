@@ -676,7 +676,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                   marginTop: 'var(--space-2)',
                 }}
               >
-                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#f87171', marginBottom: '8px' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-error)', marginBottom: '8px' }}>
                   Zona Akun
                 </div>
                 <button

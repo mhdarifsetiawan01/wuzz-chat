@@ -674,7 +674,7 @@ export function DeviceTransferModal({
                 }}
               >
                 <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⏱️</div>
-                <div style={{ fontWeight: 600, color: '#f87171', marginBottom: '6px' }}>Sesi QR Telah Kedaluwarsa</div>
+                <div style={{ fontWeight: 600, color: 'var(--color-error)', marginBottom: '6px' }}>Sesi QR Telah Kedaluwarsa</div>
                 <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)' }}>
                   Demi keamanan Zero-Knowledge, sesi transfer hanya aktif selama 5 menit.
                 </p>
@@ -769,7 +769,7 @@ export function DeviceTransferModal({
             ) : null}
 
             {errorMsg && (
-              <div style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: 'var(--space-3)' }}>
+              <div style={{ color: 'var(--color-error)', fontSize: '0.85rem', marginBottom: 'var(--space-3)' }}>
                 {errorMsg}
               </div>
             )}
@@ -895,7 +895,7 @@ export function DeviceTransferModal({
                     style={{
                       background: 'rgba(239, 68, 68, 0.1)',
                       border: '1px solid rgba(239, 68, 68, 0.3)',
-                      color: '#f87171',
+                      color: 'var(--color-error)',
                       padding: '14px 16px',
                       borderRadius: '12px',
                       fontSize: '0.825rem',
@@ -1014,7 +1014,7 @@ export function DeviceTransferModal({
                     style={{
                       background: 'rgba(239, 68, 68, 0.1)',
                       border: '1px solid rgba(239, 68, 68, 0.3)',
-                      color: '#f87171',
+                      color: 'var(--color-error)',
                       padding: '8px 12px',
                       borderRadius: '8px',
                       fontSize: '0.825rem',
@@ -1083,7 +1083,7 @@ export function DeviceTransferModal({
                     style={{
                       background: 'rgba(239, 68, 68, 0.1)',
                       border: '1px solid rgba(239, 68, 68, 0.3)',
-                      color: '#f87171',
+                      color: 'var(--color-error)',
                       padding: '8px 12px',
                       borderRadius: '8px',
                       fontSize: '0.825rem',

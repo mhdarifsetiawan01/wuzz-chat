@@ -800,7 +800,7 @@ export function Sidebar({
             onClick={() => setIsCreateGroupOpen(true)}
             title="Buat Grup Obrolan Baru"
             style={{
-              background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+              background: 'linear-gradient(135deg, var(--accent-500), var(--accent-secondary))',
               color: '#fff',
               fontWeight: 600,
               fontSize: '0.8rem',
@@ -897,7 +897,7 @@ export function Sidebar({
                 {/* Grup Publik */}
                 {publicGroupResults.length > 0 && (
                   <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#818cf8', textTransform: 'uppercase', padding: '4px 12px', letterSpacing: '0.5px' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-secondary)', textTransform: 'uppercase', padding: '4px 12px', letterSpacing: '0.5px' }}>
                       Grup Publik ({publicGroupResults.length})
                     </div>
                     <ul className="conversations-list">
@@ -921,7 +921,7 @@ export function Sidebar({
                               width: 42,
                               height: 42,
                               borderRadius: '50%',
-                              background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+                              background: 'linear-gradient(135deg, var(--accent-500), var(--accent-secondary))',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -934,7 +934,7 @@ export function Sidebar({
                               <div className="conv-top">
                                 <span className="conv-name">🌐 {g.title}</span>
                                 {g.group_username && (
-                                  <span className="conv-time" style={{ color: '#818cf8', fontSize: '0.75rem' }}>@{g.group_username}</span>
+                                  <span className="conv-time" style={{ color: 'var(--accent-secondary)', fontSize: '0.75rem' }}>@{g.group_username}</span>
                                 )}
                               </div>
                               <div className="conv-bottom" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -946,7 +946,7 @@ export function Sidebar({
                                   padding: '2px 8px',
                                   borderRadius: 10,
                                   background: isAlreadyMember ? 'rgba(255,255,255,0.1)' : 'rgba(59,130,246,0.3)',
-                                  color: isAlreadyMember ? 'var(--text-muted)' : '#60a5fa',
+                                  color: isAlreadyMember ? 'var(--text-muted)' : 'var(--accent-400)',
                                   fontWeight: 600
                                 }}>
                                   {isAlreadyMember ? 'Terdaftar' : '+ Gabung'}
@@ -1015,7 +1015,7 @@ export function Sidebar({
                           width: 44,
                           height: 44,
                           borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #3b82f6, #818cf8)',
+                          background: 'linear-gradient(135deg, var(--accent-500), var(--accent-secondary))',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',

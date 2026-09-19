@@ -1,0 +1,835 @@
+{
+  "mode": "write",
+  "total": 107,
+  "files": [
+    {
+      "file": "app/globals.css",
+      "replacements": 46,
+      "hits": [
+        {
+          "line": 309,
+          "values": [
+            "#60a5fa",
+            "#818cf8"
+          ]
+        },
+        {
+          "line": 479,
+          "values": [
+            "#94a3b8"
+          ]
+        },
+        {
+          "line": 716,
+          "values": [
+            "#f8fafc"
+          ]
+        },
+        {
+          "line": 1371,
+          "values": [
+            "#f87171"
+          ]
+        },
+        {
+          "line": 1685,
+          "values": [
+            "#60a5fa"
+          ]
+        },
+        {
+          "line": 1704,
+          "values": [
+            "#60a5fa"
+          ]
+        },
+        {
+          "line": 1705,
+          "values": [
+            "#93c5fd"
+          ]
+        },
+        {
+          "line": 2000,
+          "values": [
+            "#f87171"
+          ]
+        },
+        {
+          "line": 2316,
+          "values": [
+            "#60a5fa"
+          ]
+        },
+        {
+          "line": 2380,
+          "values": [
+            "#93c5fd"
+          ]
+        },
+        {
+          "line": 2396,
+          "values": [
+            "#60a5fa"
+          ]
+        },
+        {
+          "line": 2444,
+          "values": [
+            "#60a5fa"
+          ]
+        },
+        {
+          "line": 2450,
+          "values": [
+            "#93c5fd"
+          ]
+        },
+        {
+          "line": 2461,
+          "values": [
+            "#f8fafc"
+          ]
+        },
+        {
+          "line": 2732,
+          "values": [
+            "#60a5fa",
+            "#818cf8"
+          ]
+        },
+        {
+          "line": 3269,
+          "values": [
+            "#f87171"
+          ]
+        },
+        {
+          "line": 3714,
+          "values": [
+            "#f8fafc"
+          ]
+        },
+        {
+          "line": 3730,
+          "values": [
+            "#f8fafc"
+          ]
+        },
+        {
+          "line": 3840,
+          "values": [
+            "#93c5fd"
+          ]
+        },
+        {
+          "line": 3865,
+          "values": [
+            "#94a3b8"
+          ]
+        },
+        {
+          "line": 3960,
+          "values": [
+            "#f87171"
+          ]
+        },
+        {
+          "line": 4190,
+          "values": [
+            "#f87171"
+          ]
+        },
+        {
+          "line": 4624,
+          "values": [
+            "#94a3b8"
+          ]
+        },
+        {
+          "line": 4650,
+          "values": [
+            "#2563eb"
+          ]
+        },
+        {
+          "line": 4690,
+          "values": [
+            "#f8fafc"
+          ]
+        },
+        {
+          "line": 4696,
+          "values": [
+            "#94a3b8"
+          ]
+        },
+        {
+          "line": 5167,
+          "values": [
+            "#3b82f6"
+          ]
+        },
+        {
+          "line": 5231,
+          "values": [
+            "#60a5fa"
+          ]
+        },
+        {
+          "line": 5248,
+          "values": [
+            "#fbbf24"
+          ]
+        },
+        {
+          "line": 5254,
+          "values": [
+            "#a5b4fc"
+          ]
+        },
+        {
+          "line": 5262,
+          "values": [
+            "#60a5fa"
+          ]
+        },
+        {
+          "line": 5274,
+          "values": [
+            "#93c5fd"
+          ]
+        },
+        {
+          "line": 5353,
+          "values": [
+            "#3b82f6"
+          ]
+        },
+        {
+          "line": 5371,
+          "values": [
+            "#60a5fa"
+          ]
+        },
+        {
+          "line": 5383,
+          "values": [
+            "#93c5fd"
+          ]
+        },
+        {
+          "line": 5389,
+          "values": [
+            "#94a3b8"
+          ]
+        },
+        {
+          "line": 5413,
+          "values": [
+            "#64748b"
+          ]
+        },
+        {
+          "line": 5430,
+          "values": [
+            "#64748b"
+          ]
+        },
+        {
+          "line": 5444,
+          "values": [
+            "#f87171"
+          ]
+        },
+        {
+          "line": 5498,
+          "values": [
+            "#f8fafc"
+          ]
+        },
+        {
+          "line": 5512,
+          "values": [
+            "#93c5fd"
+          ]
+        },
+        {
+          "line": 5520,
+          "values": [
+            "#94a3b8"
+          ]
+        },
+        {
+          "line": 5538,
+          "values": [
+            "#f87171"
+          ]
+        },
+        {
+          "line": 5543,
+          "values": [
+            "#3b82f6"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "app/chat/SubGroupListDrawer.tsx",
+      "replacements": 10,
+      "hits": [
+        {
+          "line": 403,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 511,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 596,
+          "values": [],
+          "count": 2
+        },
+        {
+          "line": 635,
+          "values": [],
+          "count": 2
+        },
+        {
+          "line": 658,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 683,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 720,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 738,
+          "values": [],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/GroupInfoDrawer.tsx",
+      "replacements": 9,
+      "hits": [
+        {
+          "line": 198,
+          "values": [],
+          "count": 2
+        },
+        {
+          "line": 242,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 253,
+          "values": [],
+          "count": 2
+        },
+        {
+          "line": 276,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 329,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 428,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 462,
+          "values": [],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/Sidebar.tsx",
+      "replacements": 9,
+      "hits": [
+        {
+          "line": 803,
+          "values": [],
+          "count": 2
+        },
+        {
+          "line": 900,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 924,
+          "values": [],
+          "count": 2
+        },
+        {
+          "line": 937,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 949,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 1018,
+          "values": [],
+          "count": 2
+        }
+      ]
+    },
+    {
+      "file": "app/chat/CreateSubGroupModal.tsx",
+      "replacements": 8,
+      "hits": [
+        {
+          "line": 165,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 223,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 235,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 255,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 267,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 307,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 339,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 365,
+          "values": [],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/CreateGroupModal.tsx",
+      "replacements": 6,
+      "hits": [
+        {
+          "line": 231,
+          "values": [],
+          "count": 2
+        },
+        {
+          "line": 313,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 335,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 473,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 524,
+          "values": [],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/DeviceTransferModal.tsx",
+      "replacements": 5,
+      "hits": [
+        {
+          "line": 677,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 772,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 898,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 1017,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 1086,
+          "values": [],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/GroupPreviewModal.tsx",
+      "replacements": 4,
+      "hits": [
+        {
+          "line": 152,
+          "values": [],
+          "count": 2
+        },
+        {
+          "line": 169,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 197,
+          "values": [],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/StatusBar.tsx",
+      "replacements": 3,
+      "hits": [
+        {
+          "line": 239,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 247,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 336,
+          "values": [],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/DeviceConflictModal.tsx",
+      "replacements": 2,
+      "hits": [
+        {
+          "line": 126,
+          "values": [],
+          "count": 1
+        },
+        {
+          "line": 136,
+          "values": [],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/page.tsx",
+      "replacements": 2,
+      "hits": [
+        {
+          "line": 2228,
+          "values": [],
+          "count": 2
+        }
+      ]
+    },
+    {
+      "file": "app/chat/AvatarStudio.tsx",
+      "replacements": 1,
+      "hits": [
+        {
+          "line": 219,
+          "values": [],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/chat/ProfileModal.tsx",
+      "replacements": 1,
+      "hits": [
+        {
+          "line": 679,
+          "values": [],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "file": "app/transfer/page.tsx",
+      "replacements": 1,
+      "hits": [
+        {
+          "line": 131,
+          "values": [],
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "leftovers": [
+    {
+      "file": "app/chat/AvatarStudio.tsx",
+      "line": 251,
+      "hex": "#93c5fd",
+      "snippet": "? '2.5px solid #93c5fd'"
+    },
+    {
+      "file": "app/chat/GroupInfoDrawer.tsx",
+      "line": 401,
+      "hex": "#f472b6",
+      "snippet": "? '#f472b6'"
+    },
+    {
+      "file": "app/chat/GroupInfoDrawer.tsx",
+      "line": 403,
+      "hex": "#60a5fa",
+      "snippet": "? '#60a5fa'"
+    },
+    {
+      "file": "app/chat/MessageBubble.tsx",
+      "line": 94,
+      "hex": "#60a5fa",
+      "snippet": "const SENDER_COLORS = ['#60a5fa', '#a78bfa', '#fb7185', '#34d399', '#fbbf24', '#38bdf8', '"
+    },
+    {
+      "file": "app/chat/MessageBubble.tsx",
+      "line": 94,
+      "hex": "#fb7185",
+      "snippet": "const SENDER_COLORS = ['#60a5fa', '#a78bfa', '#fb7185', '#34d399', '#fbbf24', '#38bdf8', '"
+    },
+    {
+      "file": "app/chat/MessageBubble.tsx",
+      "line": 94,
+      "hex": "#34d399",
+      "snippet": "const SENDER_COLORS = ['#60a5fa', '#a78bfa', '#fb7185', '#34d399', '#fbbf24', '#38bdf8', '"
+    },
+    {
+      "file": "app/chat/MessageBubble.tsx",
+      "line": 94,
+      "hex": "#fbbf24",
+      "snippet": "const SENDER_COLORS = ['#60a5fa', '#a78bfa', '#fb7185', '#34d399', '#fbbf24', '#38bdf8', '"
+    },
+    {
+      "file": "app/chat/MessageBubble.tsx",
+      "line": 94,
+      "hex": "#818cf8",
+      "snippet": "const SENDER_COLORS = ['#60a5fa', '#a78bfa', '#fb7185', '#34d399', '#fbbf24', '#38bdf8', '"
+    },
+    {
+      "file": "app/chat/MessageBubble.tsx",
+      "line": 97,
+      "hex": "#60a5fa",
+      "snippet": "if (!nameOrId || !nameOrId.trim()) return '#60a5fa'"
+    },
+    {
+      "file": "app/chat/Sidebar.tsx",
+      "line": 668,
+      "hex": "#60a5fa",
+      "snippet": "<stop offset=\"50%\" stopColor=\"#60a5fa\" />"
+    },
+    {
+      "file": "app/chat/VerifiedBadge.tsx",
+      "line": 49,
+      "hex": "#3b82f6",
+      "snippet": "<stop offset=\"100%\" stopColor=\"#3b82f6\" />"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 10,
+      "hex": "#090d16",
+      "snippet": "--bg-base:       #090d16;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 27,
+      "hex": "#f8fafc",
+      "snippet": "--text-primary:  #f8fafc;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 28,
+      "hex": "#94a3b8",
+      "snippet": "--text-secondary:#94a3b8;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 29,
+      "hex": "#64748b",
+      "snippet": "--text-muted:    #64748b;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 30,
+      "hex": "#090d16",
+      "snippet": "--text-inverse:  #090d16;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 33,
+      "hex": "#3b82f6",
+      "snippet": "1. Warna Primer (Utama): Soft Azure / Sky Blue (#3b82f6 - #60a5fa)"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 33,
+      "hex": "#60a5fa",
+      "snippet": "1. Warna Primer (Utama): Soft Azure / Sky Blue (#3b82f6 - #60a5fa)"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 34,
+      "hex": "#818cf8",
+      "snippet": "2. Warna Sekunder: Soft Lavender / Iris Violet (#818cf8 - #a78bfa)"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 35,
+      "hex": "#f472b6",
+      "snippet": "3. Warna Tersier (Aksen): Soft Coral / Rose Pink (#f472b6 - #fb7185)"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 35,
+      "hex": "#fb7185",
+      "snippet": "3. Warna Tersier (Aksen): Soft Coral / Rose Pink (#f472b6 - #fb7185)"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 37,
+      "hex": "#3b82f6",
+      "snippet": "--accent-500:    #3b82f6;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 38,
+      "hex": "#60a5fa",
+      "snippet": "--accent-400:    #60a5fa;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 39,
+      "hex": "#93c5fd",
+      "snippet": "--accent-300:    #93c5fd;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 40,
+      "hex": "#2563eb",
+      "snippet": "--accent-600:    #2563eb;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 42,
+      "hex": "#3b82f6",
+      "snippet": "--accent-gradient: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 44,
+      "hex": "#818cf8",
+      "snippet": "--accent-secondary:      #818cf8;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 45,
+      "hex": "#a5b4fc",
+      "snippet": "--accent-secondary-soft: #a5b4fc;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 47,
+      "hex": "#818cf8",
+      "snippet": "--secondary-gradient:    linear-gradient(135deg, #818cf8 0%, #c084fc 100%);"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 49,
+      "hex": "#f472b6",
+      "snippet": "--accent-tertiary:       #f472b6;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 50,
+      "hex": "#fb7185",
+      "snippet": "--accent-tertiary-hover: #fb7185;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 52,
+      "hex": "#f472b6",
+      "snippet": "--tertiary-gradient:     linear-gradient(135deg, #f472b6 0%, #e11d48 100%);"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 55,
+      "hex": "#34d399",
+      "snippet": "--color-online:  #34d399;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 56,
+      "hex": "#64748b",
+      "snippet": "--color-offline: #64748b;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 57,
+      "hex": "#f87171",
+      "snippet": "--color-error:   #f87171;"
+    },
+    {
+      "file": "app/globals.css",
+      "line": 58,
+      "hex": "#fbbf24",
+      "snippet": "--color-warning: #fbbf24;"
+    },
+    {
+      "file": "app/layout.tsx",
+      "line": 32,
+      "hex": "#090d16",
+      "snippet": "themeColor: '#090d16',"
+    }
+  ]
+}

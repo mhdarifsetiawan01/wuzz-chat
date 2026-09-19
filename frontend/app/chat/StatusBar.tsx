@@ -236,7 +236,7 @@ export function StatusBar({
                         </span>
                       )}
                       <span style={{ color: 'var(--border-subtle, rgba(255,255,255,0.3))' }}>•</span>
-                      <span style={{ color: '#93c5fd', fontSize: '0.72rem', fontWeight: 500, flexShrink: 0 }}>
+                      <span style={{ color: 'var(--accent-300)', fontSize: '0.72rem', fontWeight: 500, flexShrink: 0 }}>
                         Forum
                       </span>
                       <span style={{ color: 'var(--border-subtle, rgba(255,255,255,0.3))' }}>•</span>
@@ -244,7 +244,7 @@ export function StatusBar({
                         {groupDetails?.member_count ?? roomUsers.length} anggota
                       </span>
                       {groupDetails?.status === 'expired' && (
-                        <span style={{ color: '#f87171', fontWeight: 600, fontSize: '0.7rem', flexShrink: 0 }}>
+                        <span style={{ color: 'var(--color-error)', fontWeight: 600, fontSize: '0.7rem', flexShrink: 0 }}>
                           (Kedaluwarsa)
                         </span>
                       )}
@@ -333,7 +333,7 @@ export function StatusBar({
                 alignItems: 'center', 
                 gap: '5px',
                 background: 'rgba(59, 130, 246, 0.15)',
-                color: '#60a5fa',
+                color: 'var(--accent-400)',
                 border: '1px solid rgba(59, 130, 246, 0.3)',
                 borderRadius: '16px',
                 fontWeight: 600

@@ -400,7 +400,7 @@ export default function SubGroupListDrawer({
                               borderRadius: '8px',
                               border: '1px solid rgba(239, 68, 68, 0.3)',
                               background: 'rgba(239, 68, 68, 0.1)',
-                              color: '#f87171',
+                              color: 'var(--color-error)',
                               fontSize: '0.78rem',
                               fontWeight: 600,
                               cursor: isProcessing ? 'not-allowed' : 'pointer',
@@ -508,7 +508,7 @@ export default function SubGroupListDrawer({
                 </div>
               ) : errorMessage ? (
                 <div style={{ padding: '30px 10px', textAlign: 'center' }}>
-                  <p style={{ color: '#f87171', fontSize: '0.85rem', marginBottom: '12px' }}>
+                  <p style={{ color: 'var(--color-error)', fontSize: '0.85rem', marginBottom: '12px' }}>
                     ⚠️ {errorMessage}
                   </p>
                   <button 
@@ -593,7 +593,7 @@ export default function SubGroupListDrawer({
                                   padding: '2px 7px',
                                   borderRadius: '6px',
                                   background: isPublic ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                                  color: isPublic ? '#34d399' : '#fbbf24',
+                                  color: isPublic ? 'var(--color-online)' : 'var(--color-warning)',
                                   border: isPublic ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(245, 158, 11, 0.25)',
                                   display: 'inline-flex',
                                   alignItems: 'center',
@@ -632,7 +632,7 @@ export default function SubGroupListDrawer({
                               borderRadius: '20px',
                               whiteSpace: 'nowrap',
                               background: rem.isUrgent ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                              color: rem.isUrgent ? '#fbbf24' : '#34d399',
+                              color: rem.isUrgent ? 'var(--color-warning)' : 'var(--color-online)',
                               border: rem.isUrgent ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
                             }}
                           >
@@ -655,7 +655,7 @@ export default function SubGroupListDrawer({
                                 style={{
                                   background: 'rgba(245, 158, 11, 0.1)',
                                   border: '1px solid rgba(245, 158, 11, 0.3)',
-                                  color: '#fbbf24',
+                                  color: 'var(--color-warning)',
                                   borderRadius: '6px',
                                   padding: '2px 8px',
                                   fontSize: '0.72rem',
@@ -680,7 +680,7 @@ export default function SubGroupListDrawer({
                                 borderRadius: '8px',
                                 fontWeight: 600,
                                 background: 'rgba(59, 130, 246, 0.2)',
-                                color: '#60a5fa',
+                                color: 'var(--accent-400)',
                                 border: '1px solid rgba(59, 130, 246, 0.4)',
                               }}
                             >
@@ -717,7 +717,7 @@ export default function SubGroupListDrawer({
                                 borderRadius: '8px',
                                 fontWeight: 600,
                                 background: 'rgba(245, 158, 11, 0.1)',
-                                color: '#fbbf24',
+                                color: 'var(--color-warning)',
                                 border: '1px solid rgba(245, 158, 11, 0.3)',
                                 cursor: 'not-allowed',
                               }}
@@ -735,7 +735,7 @@ export default function SubGroupListDrawer({
                                 borderRadius: '8px',
                                 fontWeight: 600,
                                 background: 'rgba(245, 158, 11, 0.18)',
-                                color: '#fbbf24',
+                                color: 'var(--color-warning)',
                                 border: '1px solid rgba(245, 158, 11, 0.4)',
                                 cursor: isRequesting ? 'not-allowed' : 'pointer',
                               }}
