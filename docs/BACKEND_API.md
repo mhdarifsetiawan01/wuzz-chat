@@ -475,14 +475,16 @@ Meneruskan pesan ke satu atau beberapa percakapan tujuan (1 s/d 5 target sekalig
     "target_room_ids": [
       "direct_11111111_33333333",
       "grp_44444444_55555555"
-    ]
+    ],
+    "plaintext_content": "Isi pesan terdekripsi (opsional, untuk cross-room E2EE forward override)"
   }
   ```
 - **Aturan Forward**:
   1. Pengirim wajib menjadi anggota di setiap `target_room_ids` (validasi BOLA ketat, jika bukan anggota akan ditolak dengan `403 Forbidden`).
   2. Jumlah room tujuan dibatasi antara 1 hingga 5 (`len(target_room_ids) > 5` ditolak `400 Bad Request`).
   3. Pesan baru yang dibuat di tiap target room otomatis ditandai dengan flag `is_forwarded: true`.
-  4. Setiap pesan yang diteruskan disiarkan via WebSocket Hub ke masing-masing room penerima.
+  4. **Cross-Room E2EE Plaintext Override**: Jika `plaintext_content` dikirim (non-empty), backend menggunakan teks ini sebagai `content` pesan baru, mencegah kegagalan dekripsi E2EE cross-room akibat perbedaan encryption key antar direct room. Jika kosong, fallback menggunakan `srcMsg.Content` dari database.
+  5. Setiap pesan yang diteruskan disiarkan via WebSocket Hub ke masing-masing room penerima.
 - **Success Response (200 OK)**:
   ```json
   {
