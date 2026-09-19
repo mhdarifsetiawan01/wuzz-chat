@@ -7,6 +7,7 @@ import type { User } from './types'
 
 import { unsubscribeFromPushNotifications } from './pushNotification'
 import { clearAllMessageCache } from './messageCache'
+import { getOrCreateDeviceId } from './crypto/keyStore'
 
 interface AuthContextType {
   user: User | null
@@ -14,6 +15,7 @@ interface AuthContextType {
   isLoading: boolean
   login: (token: string, user: User) => void
   logout: () => Promise<void>
+  localLogout: () => void
   updateUser: (user: User) => void
 }
 
@@ -23,6 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   login: () => {},
   logout: async () => {},
+  localLogout: () => {},
   updateUser: () => {},
 })
 
@@ -67,9 +70,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('wuzz_user_profile', JSON.stringify(newUser))
   }
 
+  const localLogout = () => {
+    setToken(null)
+    setUser(null)
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('wuzz_auth_token')
+      localStorage.removeItem('wuzz_user_profile')
+    }
+  }
+
   const logout = async () => {
     try {
-      await apiRequest('/api/auth/logout', { method: 'POST' })
+      const deviceId = typeof window !== 'undefined' ? getOrCreateDeviceId() : ''
+      await apiRequest('/api/auth/logout', {
+        method: 'POST',
+        headers: deviceId ? { 'X-Device-ID': deviceId } : undefined,
+        body: JSON.stringify({ device_id: deviceId }),
+      })
     } catch (err) {
       console.warn('[Auth] Gagal memberitahu server saat logout:', err)
     }
@@ -83,10 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn('[Auth] Gagal membersihkan message cache saat logout:', err)
     }
-    setToken(null)
-    setUser(null)
-    localStorage.removeItem('wuzz_auth_token')
-    localStorage.removeItem('wuzz_user_profile')
+    localLogout()
   }
 
   const updateUser = (updatedUser: User) => {
@@ -95,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout, localLogout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

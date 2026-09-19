@@ -79,9 +79,30 @@ func TestAuthHandler_LogoutAndDeviceReleaseFlow(t *testing.T) {
 		t.Fatalf("expected 409 Conflict for Device 2 before logout, got: %d", wConflict.Code)
 	}
 
-	// 4. Alice melakukan LOGOUT di Device 1 -> POST /api/auth/logout
+	// 3b. Device 2 membatalkan login dan memanggil POST /api/auth/logout dengan device_id "device_mobile"
+	// -> Proteksi Device-Aware Logout HARUS menjaga active_device_id tetap "device_laptop"!
+	reqLogoutDev2 := httptest.NewRequest(http.MethodPost, "/api/auth/logout", bytes.NewReader([]byte(`{"device_id":"device_mobile"}`)))
+	reqLogoutDev2.Header.Set("Authorization", "Bearer "+token)
+	reqLogoutDev2.Header.Set("Content-Type", "application/json")
+	wLogoutDev2 := httptest.NewRecorder()
+	auth.RequireJWT()(http.HandlerFunc(authHandler.Logout)).ServeHTTP(wLogoutDev2, reqLogoutDev2)
+	if wLogoutDev2.Code != http.StatusOK {
+		t.Fatalf("expected 200 for device 2 cancellation logout, got: %d: %s", wLogoutDev2.Code, wLogoutDev2.Body.String())
+	}
+
+	// Verifikasi di database: active_device_id HARUS TETAP "device_laptop" (tidak boleh terhapus oleh Device 2!)
+	_, _, activeDevStillDevice1, err := userStore.GetE2EEInfo(user.ID)
+	if err != nil {
+		t.Fatalf("failed to get E2EE info: %v", err)
+	}
+	if activeDevStillDevice1 != "device_laptop" {
+		t.Fatalf("CRITICAL SECURITY: active_device_id expected 'device_laptop', but was wiped out to: '%s'", activeDevStillDevice1)
+	}
+
+	// 4. Alice secara sukarela melakukan LOGOUT di Device 1 asli -> POST /api/auth/logout dengan X-Device-ID "device_laptop"
 	reqLogout := httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)
 	reqLogout.Header.Set("Authorization", "Bearer "+token)
+	reqLogout.Header.Set("X-Device-ID", "device_laptop")
 	wLogout := httptest.NewRecorder()
 	auth.RequireJWT()(http.HandlerFunc(authHandler.Logout)).ServeHTTP(wLogout, reqLogout)
 	if wLogout.Code != http.StatusOK {

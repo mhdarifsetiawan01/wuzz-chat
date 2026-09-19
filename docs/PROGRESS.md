@@ -1198,3 +1198,31 @@ Warna status drift untuk peran semantik yang sama: merah error 5 nilai (`--color
 - **Backend Tests (`go test -count=1 ./...`)**: **100% PASS** di seluruh package (`api`, `auth`, `broker`, `push`, `storage`, `store`, `worker`, `ws`).
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 TypeScript/ESLint error, 8 static pages).
 
+---
+
+## Bugfix & Hardening — Device Conflict Cancellation & Device-Aware Logout Protection
+**Tanggal**: 2026-09-19
+**Branch**: `dev`
+
+### Latar Belakang & Masalah
+Ketika akun login di Device 1 (aktif), lalu mencoba login di Device 2 dan muncul modal `DeviceConflictModal`, pengguna menekan tombol *"Batalkan & Keluar"* di Device 2. Sebelumnya, tombol ini memanggil fungsi `logout()` dari `useAuth()`, yang mengirim request `POST /api/auth/logout` ke backend. Karena backend mengeksekusi pembersihan `active_device_id` tanpa mengecek device pemohon, `active_device_id` milik Device 1 di database terhapus secara tidak sengaja, membuka celah keamanan dan merusak integritas proteksi single active device Device 1.
+
+### Solusi & Perubahan (Defense-in-Depth)
+1. **`backend/internal/store/user_store.go`**:
+   - Memperbarui `ClearActiveDevice(userID string, deviceID ...string) error` di interface `UserStore` dan struct `SQLUserStore`.
+   - Menggunakan query kondisional: `UPDATE users SET active_device_id = '' WHERE id = $1 AND (active_device_id = $2 OR active_device_id = '')`.
+   - Hanya menghapus sesi jika `deviceID` pemohon cocok dengan `active_device_id` di database.
+2. **`backend/internal/api/auth_handler.go`**:
+   - Handler `Logout` kini mengekstrak `device_id` dari JSON payload (`LogoutRequest`), header `X-Device-ID`, atau query parameter, lalu meneruskannya ke `ClearActiveDevice`.
+3. **`backend/internal/api/auth_logout_test.go`**:
+   - Menambahkan skenario uji Device 2 membatalkan login via `POST /api/auth/logout`: verifikasi ketat bahwa `active_device_id` di database tetap `"device_laptop"` (Device 1 aman).
+4. **`frontend/lib/auth-context.tsx`**:
+   - Menambahkan `localLogout()` untuk membersihkan sesi di browser lokal (hapus token dan profil di `localStorage`) tanpa memanggil server.
+   - Mengirim `device_id` (dari `getOrCreateDeviceId()`) pada header dan body saat pemanggilan `logout()` resmi.
+5. **`frontend/app/chat/page.tsx`**:
+   - Pada `handleDeviceConflictLogout`, jika `!deviceConflict.isRotated` (perangkat penantang yang ditolak), aplikasi hanya memanggil `localLogout()` dan membersihkan IndexedDB lokal tanpa memanggil endpoint backend.
+
+### Test Evidence
+- **Backend Tests (`go test -count=1 ./...`)**: **100% PASS** di seluruh 8 package.
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error).
+

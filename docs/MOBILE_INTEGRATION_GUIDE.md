@@ -62,13 +62,13 @@ sequenceDiagram
        "endpoint": "https://fcm.googleapis.com/fcm/send/<FCM_REGISTRATION_TOKEN>"
      }
      ```
-   - Saat logout, panggil `POST /api/auth/logout` untuk melepaskan `active_device_id` di database server, serta panggil `POST /api/notifications/unsubscribe` dengan body `{ "endpoint": "..." }`.
+   - Saat logout resmi/sukarela, panggil `POST /api/auth/logout` dengan menyertakan header `X-Device-ID: <device_id>` atau body `{"device_id": "<device_id>"}` untuk melepaskan `active_device_id` di database server secara aman, serta panggil `POST /api/notifications/unsubscribe` dengan body `{ "endpoint": "..." }`.
 3. **Koneksi WebSocket**:
    - Selalu sertakan query `?token=<JWT>` saat inisialisasi socket.
    - Implementasikan **Exponential Backoff Auto-Reconnect** (1s, 2s, 4s, 8s, maks 30s) saat koneksi terputus (misal saat HP berganti jaringan dari WiFi ke 4G/5G).
 4. **E2EE Key Management & Conflict Guard**:
    - Selalu sertakan `device_id` unik perangkat saat sinkronisasi `PUT /api/users/public-key`.
-   - Jika menerima HTTP 409 Conflict (`KEY_ALREADY_REGISTERED`), tampilkan dialog konfirmasi apakah pengguna ingin mereset kunci ke perangkat ini via `POST /api/users/public-key/reset`.
+   - Jika menerima HTTP 409 Conflict (`KEY_ALREADY_REGISTERED`), tampilkan dialog konfirmasi apakah pengguna ingin mereset kunci ke perangkat ini via `POST /api/users/public-key/reset`. Jika pengguna membatalkan dialog tersebut, **hanya bersihkan sesi lokal tanpa memanggil `POST /api/auth/logout` ke server**, agar sesi aktif perangkat utama tidak terganggu.
    - Ini memastikan *Safety Number* 30-digit selalu konsisten antar perangkat dan percakapan.
 
 ---

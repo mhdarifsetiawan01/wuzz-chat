@@ -274,7 +274,7 @@ function ChatPageContent() {
   }, [searchParamRoom])
 
   const roomId = selectedRoomId
-  const { user, isLoading: isAuthLoading, logout } = useAuth()
+  const { user, isLoading: isAuthLoading, logout, localLogout } = useAuth()
 
   const [state, dispatch] = useReducer(chatReducer, initialState)
   const [isMemberListOpen, setIsMemberListOpen] = useState(false)
@@ -607,12 +607,18 @@ function ChatPageContent() {
       if (user?.id) {
         await clearLocalKeyPair(user.id)
       }
-      await logout()
+      // Jika konflik ini adalah penolakan perangkat baru (!isRotated), JANGAN panggil logout server
+      // karena perangkat ini tidak memiliki hak atas sesi aktif dan tidak boleh mengosongkan active_device_id milik Device 1!
+      if (!deviceConflict.isRotated) {
+        localLogout()
+      } else {
+        await logout()
+      }
     } catch {}
     if (typeof window !== 'undefined') {
       window.location.href = '/login'
     }
-  }, [logout])
+  }, [logout, localLogout, user?.id, deviceConflict.isRotated])
 
   // ----------------------------------------------------------------
   // Pinned Messages & In-Chat Search Handlers (Milestone 8.3D & 8.3E)

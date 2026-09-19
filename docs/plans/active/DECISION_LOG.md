@@ -1,3 +1,3 @@
 # Decision Log
 
-> Standby — menunggu penugasan berikutnya.
+*Status: Standby — Tidak ada keputusan aktif saat ini.*

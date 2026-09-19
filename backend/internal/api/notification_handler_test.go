@@ -44,7 +44,7 @@ func (m *mockUserStoreForNotificationAPI) UpdatePublicKeyWithDevice(userID, publ
 func (m *mockUserStoreForNotificationAPI) ForceResetPublicKey(userID, publicKey, deviceID string) (int, error) {
 	return 2, nil
 }
-func (m *mockUserStoreForNotificationAPI) ClearActiveDevice(userID string) error {
+func (m *mockUserStoreForNotificationAPI) ClearActiveDevice(userID string, deviceID ...string) error {
 	return nil
 }
 func (m *mockUserStoreForNotificationAPI) GetE2EEInfo(userID string) (string, int, string, error) {

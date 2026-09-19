@@ -1,3 +1,3 @@
 # Active Implementation Plan
 
-> Standby — menunggu penugasan berikutnya.
+*Status: Standby — Tidak ada rencana aktif saat ini.*

@@ -1,3 +1,3 @@
-# Handover Notes
+# Handover & Verification Notes
 
-> Standby — menunggu penugasan berikutnya.
+*Status: Standby — Tidak ada catatan serah terima aktif saat ini.*
