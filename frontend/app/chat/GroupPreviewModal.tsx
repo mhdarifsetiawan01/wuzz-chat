@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { GroupDetails } from '@/lib/types'
 import { apiRequest } from '@/lib/api'
 
@@ -38,7 +39,7 @@ export default function GroupPreviewModal({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, isLoading, onClose])
 
-  if (!isOpen || !group) return null
+  if (!isOpen || !group || typeof document === 'undefined') return null
 
   const handleJoin = async () => {
     setIsLoading(true)
@@ -79,7 +80,7 @@ export default function GroupPreviewModal({
   const isEmojiAvatar = group.avatar_url?.startsWith('emoji:')
   const emojiChar = isEmojiAvatar ? group.avatar_url?.replace('emoji:', '') : '👥'
 
-  return (
+  return createPortal(
     <div 
       className="group-modal-backdrop z-modal" 
       onClick={() => !isLoading && onClose()} 
@@ -322,6 +323,7 @@ export default function GroupPreviewModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

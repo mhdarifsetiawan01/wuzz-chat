@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { apiRequest } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
@@ -1170,7 +1171,7 @@ export function Sidebar({
       />
 
       {/* Modal Konfirmasi Hapus Percakapan */}
-      {confirmDeleteConv && (
+      {confirmDeleteConv && typeof document !== 'undefined' && createPortal(
         <div
           className="modal-backdrop"
           onClick={e => {
@@ -1187,7 +1188,7 @@ export function Sidebar({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 120,
+            zIndex: 'var(--z-modal)' as any,
             padding: 'var(--space-4)',
           }}
         >
@@ -1293,7 +1294,8 @@ export function Sidebar({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal Buat Grup Baru */}

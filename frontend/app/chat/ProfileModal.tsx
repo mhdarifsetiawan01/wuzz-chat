@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { apiRequest } from '@/lib/api'
@@ -83,7 +84,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     }
   }, [onClose])
 
-  if (!isOpen || !user) return null
+  if (!isOpen || !user || typeof document === 'undefined') return null
 
   const handleToggleCompression = (e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked
@@ -138,7 +139,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const mbUsed = (cacheStats.totalBytes / (1024 * 1024)).toFixed(2)
   const isVerified = Boolean(user.is_verified)
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop profile-modal-backdrop"
       onClick={e => {
@@ -156,11 +157,11 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 100,
+        zIndex: 'var(--z-modal)' as any,
         padding: 'var(--space-4)',
       }}
     >
-      <div className="modal-card profile-modal-card">
+      <div className="modal-card profile-modal-card" onClick={e => e.stopPropagation()}>
         {/* Mobile Drag Indicator */}
         <div
           style={{
@@ -179,7 +180,10 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           {/* Close Button */}
           <button
             type="button"
-            onClick={handleClose}
+            onClick={e => {
+              e.stopPropagation()
+              handleClose()
+            }}
             style={{
               position: 'absolute',
               top: '12px',
@@ -761,6 +765,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         currentUserId={user.id}
         onClose={() => setIsTransferModalOpen(false)}
       />
-    </div>
+    </div>,
+    document.body
   )
 }

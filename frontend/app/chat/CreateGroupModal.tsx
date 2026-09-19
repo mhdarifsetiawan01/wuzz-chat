@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { User, GroupDetails } from '@/lib/types'
 import { apiRequest } from '@/lib/api'
 import { UserAvatar } from './UserAvatar'
@@ -90,7 +91,7 @@ export default function CreateGroupModal({
     }
   }, [searchQuery])
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === 'undefined') return null
 
   const toggleSelectUser = (user: User) => {
     setSelectedUserIds(prev => {
@@ -176,7 +177,7 @@ export default function CreateGroupModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="group-modal-backdrop" onClick={onClose}>
       <div 
         className="group-modal-card" 
@@ -566,6 +567,7 @@ export default function CreateGroupModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

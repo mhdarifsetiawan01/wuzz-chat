@@ -1309,4 +1309,42 @@ Ketika akun login di browser laptop dan menghasilkan QR Code transfer kunci E2EE
 - **Backend Tests (`go test -v ./...`)**: **100% PASS** di seluruh package internal (API, Crypto, DB, WS).
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error, 0 lint warning).
 
+---
+
+## Milestone 8.14 — Root-Level React Portal Architecture & Z-Index Modal Stacking Hardening
+**Tanggal**: 2026-09-20  
+**Branch**: `dev`
+
+### Latar Belakang & Masalah
+1. **Bug Popup Profil Desktop/Laptop Tidak Bisa Ditutup**:
+   - `ProfileModal.tsx` dirender di dalam `<aside className="chat-sidebar">`. Karena `.chat-sidebar` memiliki properti CSS `backdrop-filter: var(--glass-blur)` dan `transition: transform ...`, browser modern membentuk *new containing block* bagi elemen `position: fixed`.
+   - Akibatnya, backdrop modal terkurung di dalam lebar sidebar 400px, kartu modal (480px) meluap ke kanan dan jatuh di bawah tumpukan `.chat-main-pane` / `.status-bar` (`z-index: 10/50`).
+   - Tombol tutup (`✕`) di pojok kanan atas (`right: 12px` / x = 428px) berada tepat di bawah `.status-bar`, sehingga klik mouse tidak pernah mencapai tombol. Klik di luar kartu juga mengenai area chat, bukan backdrop. Modal tampak tidak bisa ditutup sama sekali di desktop.
+2. **Bug Tombol "Pindah Kunci via QR / Kode" Tidak Beraksi di PWA HP**:
+   - Pada `DeviceConflictModal.tsx` ("Perangkat Lain Sedang Aktif"), `zIndex` disetel ke `1100`, sementara modal pemindai QR `DeviceTransferModal.tsx` memiliki `zIndex: 1000`.
+   - Karena `1000 < 1100`, saat tombol diklik, `DeviceTransferModal` sebenarnya terbuka tetapi tenggelam di belakang backdrop hitam 85% milik `DeviceConflictModal`. Pengguna di HP/PWA melihat tidak ada respon apa-apa.
+
+### Solusi & Perubahan Terverifikasi
+1. **Arsitektur Root-Level Portal (`createPortal`)**:
+   - Membungkus modal-modal dengan `createPortal(..., document.body)` dari `react-dom` dengan null guard `typeof document === 'undefined'`:
+     - `frontend/app/chat/ProfileModal.tsx`
+     - `frontend/app/chat/ContactProfileModal.tsx`
+     - `frontend/app/chat/DeviceConflictModal.tsx`
+     - `frontend/app/chat/DeviceTransferModal.tsx`
+     - `frontend/app/chat/CreateGroupModal.tsx`
+     - `frontend/app/chat/GroupPreviewModal.tsx`
+     - `frontend/app/chat/MemberListModal.tsx`
+     - Modal konfirmasi hapus percakapan (`confirmDeleteConv`) di `frontend/app/chat/Sidebar.tsx`
+   - Menjamin seluruh modal melepaskan diri dari stacking context dan clipping container lokal (sidebar, status bar, header).
+2. **Restrukturisasi Skala Z-Index (Design System Compliant)**:
+   - Menyelaraskan seluruh modal dasar (`DeviceConflictModal`, `ProfileModal`, `ContactProfileModal`, dll) ke `zIndex: 'var(--z-modal)' as any` (1000).
+   - Menyelaraskan modal anak / overlay bertingkat (`DeviceTransferModal`) ke `zIndex: 'var(--z-modal-top)' as any` (1100).
+   - Menjamin `DeviceTransferModal` selalu tampil 100 level di atas modal konflik maupun profil.
+3. **Event Isolation & Bubbling Guard**:
+   - Menambahkan `onClick={e => e.stopPropagation()}` pada seluruh `.modal-card` dan tombol aksi agar klik di dalam konten modal tidak memicu trigger backdrop.
+
+### Test Evidence
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully in 1692ms** (0 error TypeScript & Turbopack).
+- **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh unit & integration test.
+
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { generateSafetyNumber } from '@/lib/crypto/e2ee'
 import { getLocalUserKeyPair } from '@/lib/crypto/keyStore'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
@@ -51,7 +52,7 @@ export function SafetyNumberModal({
     }
   }, [isOpen, currentUserId, peerPublicKeyJWK])
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === 'undefined') return null
 
   const handleCopy = () => {
     navigator.clipboard.writeText(safetyNumber)
@@ -59,7 +60,7 @@ export function SafetyNumberModal({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop"
       onClick={(e) => {
@@ -76,12 +77,13 @@ export function SafetyNumberModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 120,
+        zIndex: 'var(--z-modal)' as any,
         padding: 'var(--space-4)',
       }}
     >
       <div
         className="modal-card"
+        onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--bg-card)',
           border: '1px solid var(--border-color)',
@@ -147,6 +149,7 @@ export function SafetyNumberModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

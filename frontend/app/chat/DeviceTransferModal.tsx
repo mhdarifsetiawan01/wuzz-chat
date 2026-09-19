@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import QRCode from 'qrcode'
 import { Html5Qrcode } from 'html5-qrcode'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
@@ -544,9 +545,9 @@ export function DeviceTransferModal({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop"
       style={{
@@ -560,12 +561,13 @@ export function DeviceTransferModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000,
+        zIndex: 'var(--z-modal-top)' as any,
         padding: 'var(--space-4)',
       }}
     >
       <div
         className="modal-card"
+        onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--bg-overlay)',
           backdropFilter: 'var(--glass-blur)',
@@ -1169,6 +1171,7 @@ export function DeviceTransferModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

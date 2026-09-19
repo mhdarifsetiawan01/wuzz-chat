@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { DeviceTransferModal } from './DeviceTransferModal'
 
@@ -55,7 +56,7 @@ export function DeviceConflictModal({
     }
   }, 'device_conflict')
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === 'undefined') return null
 
   const handleReset = async () => {
     if (isResetting || isLoggingOut) return
@@ -70,27 +71,28 @@ export function DeviceConflictModal({
     }
   }
 
-  return (
+  return createPortal(
     <>
       <div
         className="modal-backdrop"
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.85)',
-        backdropFilter: 'blur(10px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1100,
-        padding: 'var(--space-4)',
-      }}
-    >
-      <div
-        className="modal-card"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.85)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 'var(--z-modal)' as any,
+          padding: 'var(--space-4)',
+        }}
+      >
+        <div
+          className="modal-card"
+          onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--bg-overlay)',
           backdropFilter: 'var(--glass-blur)',
@@ -242,6 +244,7 @@ export function DeviceConflictModal({
           }
         }}
       />
-    </>
+    </>,
+    document.body
   )
 }

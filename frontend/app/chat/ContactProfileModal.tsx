@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { apiRequest } from '@/lib/api'
 import type { User } from '@/lib/types'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
@@ -53,7 +54,7 @@ export function ContactProfileModal({
     }
   }, [isOpen, initialUser, userId, username])
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === 'undefined') return null
 
   const formatJoinDate = (dateStr?: string) => {
     if (!dateStr) return 'Baru saja'
@@ -67,7 +68,7 @@ export function ContactProfileModal({
 
   const avatarDisplay = profile?.avatar_url || (profile?.display_name || profile?.username || '?')[0].toUpperCase()
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop"
       onClick={e => {
@@ -84,12 +85,13 @@ export function ContactProfileModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 110,
+        zIndex: 'var(--z-modal)' as any,
         padding: 'var(--space-4)',
       }}
     >
       <div
         className="modal-card"
+        onClick={e => e.stopPropagation()}
         style={{
           background: 'var(--bg-overlay)',
           backdropFilter: 'var(--glass-blur)',
@@ -119,7 +121,10 @@ export function ContactProfileModal({
           <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>Info Kontak</h3>
           <button
             type="button"
-            onClick={handleClose}
+            onClick={e => {
+              e.stopPropagation()
+              handleClose()
+            }}
             style={{
               background: 'none',
               border: 'none',
@@ -215,6 +220,7 @@ export function ContactProfileModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { RoomUser } from '@/lib/types'
 import { ContactProfileModal } from './ContactProfileModal'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
@@ -26,9 +27,9 @@ export function MemberListModal({
   const [selectedUser, setSelectedUser] = useState<RoomUser | null>(null)
   const handleClose = useModalBackHandler(isOpen, onClose, 'member_list')
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <>
       <div
         className="modal-backdrop"
@@ -103,7 +104,8 @@ export function MemberListModal({
         userId={selectedUser?.id}
         username={selectedUser?.username || selectedUser?.nickname}
       />
-    </>
+    </>,
+    document.body
   )
 }
 
