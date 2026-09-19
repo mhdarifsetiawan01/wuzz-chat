@@ -4,19 +4,25 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
 )
 
 type GroupHandler struct {
-	groupStore store.GroupStore
-	userStore  store.UserStore
-	hub        *ws.Hub
+	groupStore  store.GroupStore
+	userStore   store.UserStore
+	hub         *ws.Hub
+	pushService *push.Service
 }
 
 func NewGroupHandler(gs store.GroupStore, us store.UserStore) *GroupHandler {
@@ -34,6 +40,10 @@ func writeGroupJSONError(w http.ResponseWriter, code int, message string) {
 
 func (h *GroupHandler) SetHub(hub *ws.Hub) {
 	h.hub = hub
+}
+
+func (h *GroupHandler) SetPushService(ps *push.Service) {
+	h.pushService = ps
 }
 
 // CreateGroup menangani POST /api/groups
@@ -655,6 +665,70 @@ func (h *GroupHandler) handleRequestToJoinSubGroup(w http.ResponseWriter, curren
 		"success": true,
 		"message": "Permohonan bergabung berhasil diajukan, menunggu persetujuan admin",
 	})
+
+	// Kirim notifikasi real-time (WebSocket & Web Push) khusus ke Creator dan Admin subgrup
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ [JoinRequest] Recovered in notification goroutine: %v", r)
+			}
+		}()
+
+		adminIDs, err := h.groupStore.GetSubGroupAdmins(groupID)
+		if err != nil || len(adminIDs) == 0 {
+			return
+		}
+
+		// Filter keluar pemohon jika ada di daftar admin (edge case)
+		var targetAdminIDs []string
+		for _, aid := range adminIDs {
+			if aid != currentUserID {
+				targetAdminIDs = append(targetAdminIDs, aid)
+			}
+		}
+		if len(targetAdminIDs) == 0 {
+			return
+		}
+
+		// Ambil identitas pemohon
+		applicantName := "Seseorang"
+		if user, err := h.userStore.GetUserByID(currentUserID); err == nil && user != nil {
+			if user.DisplayName != "" {
+				applicantName = user.DisplayName
+			} else if user.Username != "" {
+				applicantName = user.Username
+			}
+		}
+
+		// Ambil nama subgrup
+		subGroupTitle := "subgrup privat"
+		if details, err := h.groupStore.GetGroupDetails(groupID, currentUserID); err == nil && details != nil && details.Title != "" {
+			subGroupTitle = details.Title
+		}
+
+		content := fmt.Sprintf("%s meminta izin bergabung ke topik '%s'", applicantName, subGroupTitle)
+		now := time.Now().UTC()
+		notifyMsg := ws.Message{
+			ID:        uuid.New().String(),
+			Type:      ws.TypeJoinRequest,
+			Room:      groupID,
+			From:      currentUserID,
+			Nickname:  applicantName,
+			Content:   content,
+			Timestamp: now,
+		}
+
+		if h.hub != nil {
+			h.hub.NotifyUsers(targetAdminIDs, notifyMsg)
+		}
+
+		if h.pushService != nil {
+			pushTitle := "Permohonan Izin Subgrup"
+			pushTag := "join-request-" + groupID
+			pushURL := "/chat?room=" + groupID
+			h.pushService.NotifyUsers(targetAdminIDs, pushTitle, content, pushTag, pushURL)
+		}
+	}()
 }
 
 // handleGetJoinRequests mengambil daftar seluruh permohonan bergabung subgrup yang masih pending.
@@ -704,7 +778,7 @@ func (h *GroupHandler) handleRespondJoinRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err := h.groupStore.RespondJoinRequest(groupID, requestID, currentUserID, req.Approve)
+	targetUserID, err := h.groupStore.RespondJoinRequest(groupID, requestID, currentUserID, req.Approve)
 	if err != nil {
 		if errors.Is(err, store.ErrGroupNotFound) {
 			http.Error(w, `{"error":"Subgrup tidak ditemukan"}`, http.StatusNotFound)
@@ -718,10 +792,57 @@ func (h *GroupHandler) handleRespondJoinRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Jika disetujui, update kehadiran room users
+	// Jika disetujui, update kehadiran room users & invalidate cache
 	if req.Approve && h.hub != nil {
 		h.hub.BroadcastRoomUsers(groupID)
+		h.hub.InvalidateRoomMembersCache(groupID)
 	}
+
+	// Kirim notifikasi balik secara live ke pemohon (targetUserID)
+	go func(targetID string, approved bool) {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ [JoinResponse] Recovered in notification goroutine: %v", r)
+			}
+		}()
+
+		if targetID == "" {
+			return
+		}
+
+		subGroupTitle := "subgrup"
+		if details, err := h.groupStore.GetGroupDetails(groupID, currentUserID); err == nil && details != nil && details.Title != "" {
+			subGroupTitle = details.Title
+		}
+
+		actionText := "disetujui"
+		if !approved {
+			actionText = "ditolak"
+		}
+
+		content := fmt.Sprintf("Permohonan bergabung Anda ke topik '%s' telah %s.", subGroupTitle, actionText)
+		now := time.Now().UTC()
+		respMsg := ws.Message{
+			ID:        uuid.New().String(),
+			Type:      ws.TypeJoinRequest,
+			Room:      groupID,
+			From:      "server",
+			Nickname:  "Sistem",
+			Content:   content,
+			Timestamp: now,
+		}
+
+		if h.hub != nil {
+			h.hub.NotifyUsers([]string{targetID}, respMsg)
+		}
+
+		if h.pushService != nil {
+			pushTitle := "Status Permohonan Subgrup"
+			pushTag := "join-response-" + groupID
+			pushURL := "/chat?room=" + groupID
+			h.pushService.NotifyUsers([]string{targetID}, pushTitle, content, pushTag, pushURL)
+		}
+	}(targetUserID, req.Approve)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{

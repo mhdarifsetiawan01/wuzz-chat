@@ -1372,5 +1372,32 @@ Pesan yang dikirimkan ke penerima yang sedang menutup aplikasi PWA/web tertahan 
 - **Backend Tests (`go test -count=1 ./...`)**: **100% PASS** di seluruh unit & integration test.
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
 
+---
+
+## 🚀 Milestone 8.11: Scoped Real-Time Join Request Notification & Badge Counter (20 September 2026)
+
+### Latar Belakang Masalah
+Ketika pengguna mengajukan izin bergabung (*join request*) ke subgrup/forum privat (`POST /api/groups/{id}/join-request`), permohonan hanya tersimpan diam di database relasional `conversation_join_requests`. Tidak ada notifikasi real-time WebSocket, tidak ada Web Push notification, dan tidak ada indikator badge jumlah permohonan tertunda di tombol `📋 Kelola Izin`. Admin hanya dapat mengetahui adanya permohonan jika membuka subgrup drawer dan mengklik tombol tersebut secara berkala.
+
+### Solusi & Perubahan Terverifikasi (DEC-014)
+1. **Penyaringan Ketat Penerima Notifikasi (*Scoped Recipient Model*)**:
+   - Menambahkan method `GetSubGroupAdmins(subGroupID)` di `backend/internal/store/group_store.go`: hanya mengambil `creator` subgrup dan anggota dengan role `admin` atau `creator` di dalam subgrup tersebut.
+   - Admin grup induk yang **tidak bergabung** ke subgrup privat **TIDAK dikirimi notifikasi**, mencegah spam notifikasi dan menjaga privasi ruang diskusi.
+2. **Pengiriman Notifikasi Real-Time Ganda (WebSocket + Web Push)**:
+   - Menambahkan method `NotifyUsers` di `backend/internal/push/push.go` dan `backend/internal/ws/hub.go`.
+   - Menambahkan `TypeJoinRequest` di `backend/internal/ws/message.go` dan `types.ts`.
+   - Pada `handleRequestToJoinSubGroup`: dispatch WebSocket event dan Web Push notification langsung ke admin/creator subgrup terkait.
+   - Pada `handleRespondJoinRequest`: dispatch notifikasi balik secara live ke pemohon (`targetUserID`) saat permohonan disetujui atau ditolak.
+3. **Pending Requests Counter di Endpoint Subgrup**:
+   - Menambahkan kolom `pending_requests_count` pada kueri `GetActiveSubGroups` di `backend/internal/store/group_store.go`.
+   - Menambahkan `pending_requests_count?: number` pada interface `SubGroupItem` di `frontend/lib/types.ts`.
+4. **Indikator Badge & In-App Banner di Frontend**:
+   - Pada `frontend/app/chat/SubGroupListDrawer.tsx`: tombol `📋 Kelola Izin` kini menampilkan badge counter permohonan pending (misal `📋 Kelola Izin 🔴 1`), serta memperbarui counter secara optimistik saat aksi setujui/tolak dieksekusi.
+   - Pada `frontend/app/chat/page.tsx`: WebSocket listener menangkap event `join_request` dan memunculkan toast banner in-app serta notifikasi native peramban jika tab sedang di latar belakang.
+
+### Test Evidence
+- **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh unit, store, api, dan integration test suite (termasuk unit test join request di `subgroup_test.go` dan `group_handler_test.go`).
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
+
 
 

@@ -1,11 +1,10 @@
-# Implementation Progress — Milestone 8.13
+# Implementation Progress
 
-## 📋 Task Breakdown
-- [x] **Task 1: Backend Hub Kick Method** (`backend/internal/ws/hub.go`)
-- [x] **Task 2: Backend TransferHandler Direct Kick Integration** (`backend/internal/api/transfer_handler.go` & `backend/main.go`)
-- [x] **Task 3: Backend Unit Tests Update** (`backend/internal/api/transfer_handler_test.go` & `backend/internal/ws/hub_single_device_test.go`)
-- [x] **Task 4: Frontend WebSocket Event Dispatch** (`frontend/lib/ws-client.ts`)
-- [x] **Task 5: Frontend DeviceTransferModal Auto-Dismiss & Transition** (`frontend/app/chat/DeviceTransferModal.tsx`)
-- [x] **Task 6: Frontend Z-Index & Modal Hierarchy Hardening** (`frontend/app/chat/DeviceConflictModal.tsx` & `frontend/app/chat/ProfileModal.tsx`)
-- [x] **Task 7: Automated Verification & Testing Suite Execution** (`go test ./...` & `npm run build`)
-
+## Checklist
+- [x] Task 1: Backend Store — Implementasi `GetSubGroupAdmins` & `pending_requests_count` di `group_store.go`
+- [x] Task 2: Backend Push & Hub — Implementasi `NotifyUsers` di `push.go` dan `hub.go`
+- [x] Task 3: Backend API Handler — Integrasi notifikasi di `handleRequestToJoinSubGroup` dan `handleRespondJoinRequest` di `group_handler.go`
+- [x] Task 4: Backend Unit Tests — Uji verifikasi logic notifikasi dan resolusi admin subgrup
+- [x] Task 5: Frontend Types & SubGroupListDrawer — Tampilkan badge counter pending requests & toast notifikasi
+- [x] Task 6: Frontend WebSocket Listener — Tangani event `join_request` di `page.tsx`
+- [x] Task 7: Automated Verification — Eksekusi `go test -v ./...` dan `npm run build`

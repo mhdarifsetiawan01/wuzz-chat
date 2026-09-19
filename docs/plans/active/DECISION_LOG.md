@@ -1,4 +1,4 @@
 # Decision Log — Standby
 
-## Status
-- No active decisions pending.
+## 🎯 Active Decisions
+- Status: Standby.

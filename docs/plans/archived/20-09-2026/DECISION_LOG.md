@@ -1,13 +1,17 @@
-# Decision Log — Milestone 8.13
+# Decision Log
 
-## DEC-014: Direct WebSocket Kick on E2EE Key Transfer Consume
-- **Context**: Saat perangkat baru memanggil `POST /api/users/transfer/consume`, basis data diperbarui tetapi perangkat lama di WebSocket Hub tidak segera ditendang sampai perangkat baru melakukan handshake upgrade WebSocket.
-- **Decision**: `TransferHandler` disuntikkan dependensi `*ws.Hub` sehingga pemanggilan `ConsumeTransferSession` yang berhasil akan langsung memanggil `h.hub.KickClientByUserID` seketika.
-- **Consequences**: Mengeliminasi window race condition di mana perangkat lama masih merasa aktif saat transfer telah selesai dikonsumsi.
-
-## DEC-015: Unified Z-Index Modal Hierarchy & Event-Driven Auto-Dismiss
-- **Context**: `DeviceTransferModal` (z-index 160) menutupi `DeviceConflictModal` (z-index 150) di layar laptop, dan modal generator QR tidak mendengarkan event pergantian sesi.
-- **Decision**: 
-  1. `DeviceConflictModal` dinaikkan ke `var(--z-modal-top)` (1100).
-  2. `DeviceTransferModal` dan `ProfileModal` diset ke `var(--z-modal)` (1000).
-  3. `WsClient` memancarkan custom event `wuzz:session_replaced` agar modal yang terbuka dapat menampilkan pesan sukses pengalihan dan menutup dirinya sendiri secara mulus.
+## 🎯 DEC-014: Scoped Notification Recipient Model for Sub-Group Join Requests
+- **Date**: 2026-09-20
+- **Status**: Accepted
+- **Context**: 
+  Subgrup privat mewajibkan permohonan izin gabung (`POST /api/groups/{id}/join-request`). Sebelumnya data hanya tersimpan secara pasif di database `conversation_join_requests`. Admin/creator tidak menerima alert real-time atau push notification.
+- **Decision**:
+  1. **Strict Target Notification**: Notifikasi hanya dikirimkan ke:
+     - Creator dari subgrup tersebut (`conversations.created_by`)
+     - Anggota subgrup yang memiliki role `admin` atau `creator` di tabel `conversation_members` subgrup.
+     - Admin/creator grup induk yang belum/tidak bergabung ke subgrup privat TIDAK menerima notifikasi untuk menghindari spam dan menjaga privasi ruang diskusi subgrup.
+  2. **Multi-Channel Dispatch**:
+     - WebSocket: Pengiriman event instan ke koneksi admin/creator yang sedang online.
+     - Web Push Notification: Pengiriman notifikasi latar belakang ke admin/creator yang sedang offline/background.
+  3. **Badge Counter**: Menambahkan kolom `pending_requests_count` pada respons `GET /api/groups/{parent_id}/subgroups` untuk menampilkan badge jumlah permohonan tertunda pada tombol `📋 Kelola Izin`.
+  4. **Feedback Loop ke Pemohon**: Saat admin menyetujui (`approved`) atau menolak (`rejected`), pemohon (`targetUserID`) menerima WebSocket event & Push Notification secara real-time.

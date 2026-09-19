@@ -14,6 +14,7 @@ export type MessageType =
   | 'message_pinned'
   | 'message_unpinned'
   | 'ack'
+  | 'join_request'
   | 'call_offer'
   | 'call_answer'
   | 'ice_candidate'
@@ -200,6 +201,7 @@ export interface SubGroupItem {
   is_member?: boolean
   is_public?: boolean
   has_pending_request?: boolean
+  pending_requests_count?: number
 }
 
 export interface JoinRequestItem {

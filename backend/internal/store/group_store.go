@@ -67,6 +67,7 @@ type SubGroupItem struct {
 	IsMember          bool       `json:"is_member"`
 	IsPublic          bool       `json:"is_public"`
 	HasPendingRequest bool       `json:"has_pending_request"`
+	PendingRequestsCount int     `json:"pending_requests_count,omitempty"`
 }
 
 // JoinRequestItem merepresentasikan permohonan bergabung ke subgrup privat.
@@ -101,7 +102,8 @@ type GroupStore interface {
 	JoinSubGroup(subGroupID, userID string) error
 	RequestToJoinSubGroup(subGroupID, userID string) error
 	GetPendingJoinRequests(subGroupID, adminUserID string) ([]JoinRequestItem, error)
-	RespondJoinRequest(subGroupID, requestID, adminUserID string, approve bool) error
+	RespondJoinRequest(subGroupID, requestID, adminUserID string, approve bool) (string, error)
+	GetSubGroupAdmins(subGroupID string) ([]string, error)
 	ExpireSubGroupsBatch() (int, error)
 }
 
@@ -910,7 +912,8 @@ func (s *SQLUserStore) GetActiveSubGroups(parentID, currentUserID string) ([]Sub
 				COALESCE(c.is_public, true) AS is_public,
 				COUNT(DISTINCT cm.user_id) AS member_count,
 				BOOL_OR(cm.user_id = $2) AS is_member,
-				BOOL_OR(cjr.id IS NOT NULL) AS has_pending_request
+				BOOL_OR(cjr.id IS NOT NULL) AS has_pending_request,
+				(SELECT COUNT(*) FROM conversation_join_requests WHERE conversation_id = c.id AND status = 'pending') AS pending_requests_count
 			FROM conversations c
 			LEFT JOIN conversation_members cm ON c.id = cm.conversation_id
 			LEFT JOIN conversation_join_requests cjr ON c.id = cjr.conversation_id AND cjr.user_id = $2 AND cjr.status = 'pending'
@@ -928,7 +931,8 @@ func (s *SQLUserStore) GetActiveSubGroups(parentID, currentUserID string) ([]Sub
 				COALESCE(c.is_public, 1) AS is_public,
 				COUNT(DISTINCT cm.user_id) AS member_count,
 				MAX(CASE WHEN cm.user_id = ? THEN 1 ELSE 0 END) AS is_member,
-				MAX(CASE WHEN cjr.id IS NOT NULL THEN 1 ELSE 0 END) AS has_pending_request
+				MAX(CASE WHEN cjr.id IS NOT NULL THEN 1 ELSE 0 END) AS has_pending_request,
+				(SELECT COUNT(*) FROM conversation_join_requests WHERE conversation_id = c.id AND status = 'pending') AS pending_requests_count
 			FROM conversations c
 			LEFT JOIN conversation_members cm ON c.id = cm.conversation_id
 			LEFT JOIN conversation_join_requests cjr ON c.id = cjr.conversation_id AND cjr.user_id = ? AND cjr.status = 'pending'
@@ -964,6 +968,7 @@ func (s *SQLUserStore) GetActiveSubGroups(parentID, currentUserID string) ([]Sub
 				&item.ID, &item.ParentID, &item.Title, &item.Description,
 				&expiresAt, &item.CreatedBy, &item.CreatedAt, &item.Status,
 				&isPublicVal, &item.MemberCount, &isMemberVal, &hasPendingVal,
+				&item.PendingRequestsCount,
 			); err != nil {
 				continue
 			}
@@ -978,6 +983,7 @@ func (s *SQLUserStore) GetActiveSubGroups(parentID, currentUserID string) ([]Sub
 				&item.ID, &item.ParentID, &item.Title, &item.Description,
 				&expiresAt, &item.CreatedBy, &item.CreatedAt, &item.Status,
 				&isPublicInt, &item.MemberCount, &isMemberInt, &hasPendingInt,
+				&item.PendingRequestsCount,
 			); err != nil {
 				continue
 			}
@@ -1295,12 +1301,13 @@ func (s *SQLUserStore) GetPendingJoinRequests(subGroupID, adminUserID string) ([
 }
 
 // RespondJoinRequest menyetujui (approve) atau menolak (reject) permohonan bergabung ke subgrup privat.
-func (s *SQLUserStore) RespondJoinRequest(subGroupID, requestID, adminUserID string, approve bool) error {
+// Mengembalikan targetUserID dari pemohon agar sistem dapat mengirimkan notifikasi balik.
+func (s *SQLUserStore) RespondJoinRequest(subGroupID, requestID, adminUserID string, approve bool) (string, error) {
 	subGroupID = strings.TrimSpace(subGroupID)
 	requestID = strings.TrimSpace(requestID)
 	adminUserID = strings.TrimSpace(adminUserID)
 	if subGroupID == "" || requestID == "" || adminUserID == "" {
-		return errors.New("subGroupID, requestID, dan adminUserID wajib diisi")
+		return "", errors.New("subGroupID, requestID, dan adminUserID wajib diisi")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -1316,10 +1323,10 @@ func (s *SQLUserStore) RespondJoinRequest(subGroupID, requestID, adminUserID str
 	}
 	err := s.db.QueryRowContext(ctx, q, subGroupID).Scan(&parentID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ErrGroupNotFound
+		return "", ErrGroupNotFound
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// 2. Cek otorisasi admin/creator
@@ -1327,7 +1334,7 @@ func (s *SQLUserStore) RespondJoinRequest(subGroupID, requestID, adminUserID str
 	parentRole, _ := s.GetUserRoleInGroup(parentID, adminUserID)
 	isAuth := subRole == "creator" || subRole == "admin" || parentRole == "creator" || parentRole == "admin"
 	if !isAuth {
-		return ErrUnauthorizedGroup
+		return "", ErrUnauthorizedGroup
 	}
 
 	// 3. Ambil data request
@@ -1340,19 +1347,19 @@ func (s *SQLUserStore) RespondJoinRequest(subGroupID, requestID, adminUserID str
 	}
 	err = s.db.QueryRowContext(ctx, reqQuery, requestID, subGroupID).Scan(&reqConvID, &targetUserID, &currentStatus)
 	if errors.Is(err, sql.ErrNoRows) {
-		return errors.New("permohonan bergabung tidak ditemukan")
+		return "", errors.New("permohonan bergabung tidak ditemukan")
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
 	if currentStatus != "pending" {
-		return fmt.Errorf("permohonan bergabung sudah diproses sebelumnya (status: %s)", currentStatus)
+		return "", fmt.Errorf("permohonan bergabung sudah diproses sebelumnya (status: %s)", currentStatus)
 	}
 
 	now := time.Now().UTC()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("gagal memulai transaksi: %w", err)
+		return "", fmt.Errorf("gagal memulai transaksi: %w", err)
 	}
 	defer func() {
 		_ = tx.Rollback()
@@ -1372,7 +1379,7 @@ func (s *SQLUserStore) RespondJoinRequest(subGroupID, requestID, adminUserID str
 	}
 	_, err = tx.ExecContext(ctx, updateReqQ, newStatus, adminUserID, now, requestID)
 	if err != nil {
-		return fmt.Errorf("gagal update status permohonan: %w", err)
+		return "", fmt.Errorf("gagal update status permohonan: %w", err)
 	}
 
 	// 5. Jika disetujui, masukkan ke conversation_members
@@ -1392,11 +1399,70 @@ func (s *SQLUserStore) RespondJoinRequest(subGroupID, requestID, adminUserID str
 		}
 		_, err = tx.ExecContext(ctx, insertMemberQ, subGroupID, targetUserID, now)
 		if err != nil {
-			return fmt.Errorf("gagal menambahkan anggota ke subgrup: %w", err)
+			return "", fmt.Errorf("gagal menambahkan anggota ke subgrup: %w", err)
 		}
 	}
 
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return "", err
+	}
+	return targetUserID, nil
+}
+
+// GetSubGroupAdmins mengembalikan daftar userID dari pembuat (creator) dan admin yang terdaftar sebagai anggota subgrup tersebut.
+// Pengecekan ini strictly scoped: admin grup induk yang tidak bergabung ke subgrup TIDAK akan masuk ke daftar ini.
+func (s *SQLUserStore) GetSubGroupAdmins(subGroupID string) ([]string, error) {
+	subGroupID = strings.TrimSpace(subGroupID)
+	if subGroupID == "" {
+		return nil, errors.New("subGroupID tidak boleh kosong")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var query string
+	if s.driverName == "postgres" {
+		query = `
+			SELECT user_id FROM conversation_members 
+			WHERE conversation_id = $1 AND role IN ('creator', 'admin')
+			UNION
+			SELECT created_by FROM conversations 
+			WHERE id = $1 AND created_by IS NOT NULL AND created_by != ''
+		`
+	} else {
+		query = `
+			SELECT user_id FROM conversation_members 
+			WHERE conversation_id = ? AND role IN ('creator', 'admin')
+			UNION
+			SELECT created_by FROM conversations 
+			WHERE id = ? AND created_by IS NOT NULL AND created_by != ''
+		`
+	}
+
+	var rows *sql.Rows
+	var err error
+	if s.driverName == "postgres" {
+		rows, err = s.db.QueryContext(ctx, query, subGroupID)
+	} else {
+		rows, err = s.db.QueryContext(ctx, query, subGroupID, subGroupID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var adminIDs []string
+	seen := make(map[string]bool)
+	for rows.Next() {
+		var uid string
+		if err := rows.Scan(&uid); err == nil && uid != "" {
+			if !seen[uid] {
+				seen[uid] = true
+				adminIDs = append(adminIDs, uid)
+			}
+		}
+	}
+	return adminIDs, nil
 }
 
 // ExpireSubGroupsBatch memperbarui seluruh subgrup yang telah melewati masa expires_at menjadi status 'expired'

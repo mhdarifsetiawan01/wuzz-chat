@@ -1,12 +1,18 @@
-# Implementation Summary — Milestone 8.13
+# Implementation Summary — Sub-Group Join Request Notification Engine
 
-## 📊 Status Snapshot
-- **Milestone**: 8.13 — E2EE Device Transfer Auto-Dismiss, Immediate Backend WebSocket Kick & Z-Index Hierarchy
-- **Status**: Planning / In-Progress
-- **Owner**: Antigravity Assistant
+## 📋 Executive Overview
+- **Fitur**: Real-Time Join Request Notification & Badge Counter untuk Subgrup/Topik Forum Privat.
+- **Tujuan**: Memastikan admin & pembuat subgrup privat segera mengetahui permohonan izin gabung dari anggota melalui WebSocket real-time dan Web Push notification, serta menampilkan visual badge counter pada UI drawer subgrup.
+- **Status**: Active Implementation (Phase 1).
 
-## 🎯 Core Objectives
-1. Mencegah modal QR generator di laptop menggantung tanpa respon saat HP berhasil memindai QR code.
-2. Mengirimkan sinyal `SESSION_REPLACED` secara instan dari backend `TransferHandler` ke WebSocket `Hub` saat endpoint `POST /api/users/transfer/consume` dipanggil oleh HP.
-3. Memperbaiki hierarki tumpukan visual (`z-index`) agar `DeviceConflictModal` (`var(--z-modal-top)`) selalu berada di atas seluruh modal (termasuk `ProfileModal` dan `DeviceTransferModal`).
-4. Memberikan feedback visual yang jelas di layar laptop ("✅ Kunci berhasil dipindahkan ke HP! Sesi ini dinonaktifkan") sebelum beralih ke modal konflik / auto-logout.
+## 🚀 Key Deliverables
+1. Backend:
+   - Query `GetSubGroupAdmins` di `group_store.go` untuk menyaring creator & admin yang merupakan anggota subgrup tersebut.
+   - Metode `NotifyUsers` di `pushService` untuk pengiriman Web Push ke daftar user ID tertentu.
+   - Metode `NotifyUser` di `Hub` untuk pengiriman pesan WebSocket spesifik ke target user.
+   - Pengiriman notifikasi pada `handleRequestToJoinSubGroup` (ke admin subgrup) dan `handleRespondJoinRequest` (ke pemohon).
+   - Penambahan `pending_requests_count` di `GetSubGroups`.
+2. Frontend:
+   - Update tipe `SubGroupItem` dengan `pending_requests_count?: number`.
+   - Update UI `SubGroupListDrawer.tsx` dengan badge visual pada tombol "📋 Kelola Izin" dan handling event live notification.
+   - Update `page.tsx` WebSocket listener untuk menangkap event `join_request` dan memunculkan toast/alert informatif.

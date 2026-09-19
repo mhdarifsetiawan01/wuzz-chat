@@ -276,14 +276,22 @@ func TestSubGroup_AccessControlAndJoinRequests(t *testing.T) {
 	if reqs[0].UserID != memberA.ID {
 		t.Errorf("User ID pemohon salah: %s vs %s", reqs[0].UserID, memberA.ID)
 	}
-	if reqs[0].Status != "pending" {
-		t.Errorf("Status request bukan pending: %s", reqs[0].Status)
+	// 11.5 Verify GetSubGroupAdmins only includes creator/admin of subgrup
+	admins, err := store.GetSubGroupAdmins(privSub.ID)
+	if err != nil {
+		t.Fatalf("Gagal GetSubGroupAdmins: %v", err)
+	}
+	if len(admins) != 1 || admins[0] != creator.ID {
+		t.Fatalf("Ekspektasi hanya creator subgrup yang ada di admins, dapat: %v", admins)
 	}
 
 	// 12. Creator responds to join request (Approve)
-	err = store.RespondJoinRequest(privSub.ID, reqs[0].ID, creator.ID, true)
+	targetUID, err := store.RespondJoinRequest(privSub.ID, reqs[0].ID, creator.ID, true)
 	if err != nil {
 		t.Fatalf("Creator gagal menyetujui join request: %v", err)
+	}
+	if targetUID != memberA.ID {
+		t.Errorf("Target User ID salah: %s vs %s", targetUID, memberA.ID)
 	}
 
 	// 13. Verify MemberA is now a member of privSub

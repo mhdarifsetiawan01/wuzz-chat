@@ -1081,7 +1081,8 @@ Mengambil daftar topik forum / subgrup aktif di bawah grup induk (`parent_id = i
         "created_at": "2026-09-18T12:00:00Z",
         "member_count": 4,
         "is_member": true,
-        "remaining_seconds": 604790
+        "remaining_seconds": 604790,
+        "pending_requests_count": 1
       }
     ]
   }
@@ -1092,8 +1093,8 @@ Mengambil daftar topik forum / subgrup aktif di bawah grup induk (`parent_id = i
 ---
 
 #### 42. `POST /api/groups/{id}/subgroups` (Create Forum Topic)
-Membuat ruang topik forum baru bertopik ephemeral dengan masa aktif TTL otomatis (`expires_at`) dan kontrol visibilitas/hak akses (`is_public`). Pembuat otomatis menjadi anggota pertama topik forum. Broadcast notifikasi event `subgroup_created` dikirim ke grup utama.
-- **Autentikasi**: `Bearer <token>` (wajib Pembuat / Admin grup induk — peran `creator` atau `admin`)
+Membuat topik forum / subgrup baru di bawah grup induk. Dibatasi secara ketat hanya untuk **Creator** dan **Admin** grup induk (*Parent RBAC Gate*).
+- **Autentikasi**: `Bearer <token>` (wajib Creator atau Admin grup utama)
 - **Path Parameter**: `id` — ID grup utama (`grp_<UUID>`)
 - **Request Body**:
   ```json
@@ -1104,25 +1105,26 @@ Membuat ruang topik forum baru bertopik ephemeral dengan masa aktif TTL otomatis
     "is_public": false
   }
   ```
-  *Keterangan parameter*:
-  - `duration`: `"7_days"` (default, 1 minggu) atau `"30_days"` (1 bulan).
-  - `is_public`: `true` (Terbuka/Public — semua anggota parent bebas join) atau `false` (Privat — memerlukan izin admin).
+- **Catatan Parameter `duration`**:
+  - `"7_days"`: Kedaluwarsa dalam 7 hari (default)
+  - `"30_days"`: Kedaluwarsa dalam 30 hari
+- **Catatan Parameter `is_public`**:
+  - `true`: Publik (anggota grup induk dapat langsung bergabung)
+  - `false`: Privat (wajib mengajukan izin bergabung atau diundang oleh pembuat)
 - **Success Response (201 Created)**:
   ```json
   {
     "success": true,
     "subgroup": {
       "id": "sub_9e67b2d5-4567-4890-bcde-fabc12345678",
+      "parent_id": "grp_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "title": "Diskusi Sprint Go Backend",
       "description": "Topik diskusi arsitektur real-time",
-      "avatar_url": "💬",
+      "status": "active",
       "is_public": false,
-      "parent_id": "grp_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "expires_at": "2026-09-25T12:00:00Z",
       "created_by": "uuid-user-alice",
       "created_at": "2026-09-18T12:00:00Z",
-      "updated_at": "2026-09-18T12:00:00Z",
-      "status": "active",
-      "expires_at": "2026-09-25T12:00:00Z",
       "member_count": 1,
       "my_role": "creator"
     }
@@ -1135,9 +1137,13 @@ Membuat ruang topik forum baru bertopik ephemeral dengan masa aktif TTL otomatis
 ---
 
 #### 43. `POST /api/groups/{id}/join-request`
-Mengajukan permohonan izin bergabung ke subgrup privat. Pemohon wajib anggota aktif di grup induk. Permohonan berstatus `pending` dan dapat ditinjau oleh admin/creator.
+Mengajukan permohonan izin bergabung ke subgrup privat. Pemohon wajib anggota aktif di grup induk. Permohonan berstatus `pending` dan memicu notifikasi real-time ganda (WebSocket event `join_request` dan Web Push) khusus ke Creator subgrup dan Admin yang terdaftar sebagai anggota subgrup tersebut.
 - **Autentikasi**: `Bearer <token>` (wajib anggota grup induk)
 - **Path Parameter**: `id` — ID subgrup (`sub_<UUID>`)
+- **Real-Time Notification Dispatch**:
+  - WebSocket Hub mengirimkan event `join_request` langsung ke koneksi aktif Creator dan Admin subgrup.
+  - Web Push Notification dikirimkan ke perangkat offline milik Creator dan Admin subgrup (`"tag": "join-request-<subGroupID>"`).
+  - Admin grup induk yang **tidak bergabung** ke subgrup privat tidak menerima notifikasi untuk mencegah spam (DEC-014).
 - **Success Response (200 OK)**:
   ```json
   {
@@ -1529,6 +1535,21 @@ Pesan pemberitahuan sistem atau error dari backend.
   "type": "system",
   "from": "server",
   "content": "ERROR: Akses ditolak: Anda bukan anggota percakapan ini"
+}
+```
+
+---
+
+#### 15. `join_request` (Server ➔ Client)
+Notifikasi permohonan bergabung ke subgrup privat yang dikirimkan secara langsung ke koneksi aktif Creator dan Admin subgrup, atau notifikasi hasil peninjauan (*approval/rejection*) yang dikirimkan balik ke pemohon.
+```json
+{
+  "type": "join_request",
+  "room": "sub_9e67b2d5-4567-4890-bcde-fabc12345678",
+  "from": "uuid-user-charlie",
+  "nickname": "Charlie",
+  "content": "Charlie meminta izin bergabung ke topik 'Diskusi Sprint Go Backend'",
+  "timestamp": "2026-09-20T02:20:00.000Z"
 }
 ```
 

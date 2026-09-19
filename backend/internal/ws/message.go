@@ -20,6 +20,7 @@ const (
 	TypeMessagePinned MessageType = "message_pinned"  // pesan disematkan dalam room
 	TypeMessageUnpinned MessageType = "message_unpinned" // sematan pesan dicabut dari room
 	TypeAck       MessageType = "ack"        // konfirmasi penerimaan paket transport level (request_id acknowledgment)
+	TypeJoinRequest MessageType = "join_request" // notifikasi permohonan izin bergabung subgrup / update status ke pemohon
 
 	// WebRTC Signaling Event Types (P2P Calling)
 	TypeCallOffer    MessageType = "call_offer"    // SDP offer dari pemanggil

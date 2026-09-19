@@ -436,5 +436,107 @@ func TestGroupHandler_SubGroups(t *testing.T) {
 			t.Fatalf("Expected 403 Forbidden, got %d: %s", detRR.Code, detRR.Body.String())
 		}
 	})
+
+	// 10. Alur Permohonan Izin Subgrup Privat (Join Request & Approval)
+	t.Run("Private Subgroup Join Request and Approval Flow", func(t *testing.T) {
+		// Buat subgrup privat baru oleh Alice
+		privBody := `{"title":"Forum Privat","description":"Topik Khusus","duration":"7_days","is_public":false}`
+		privReq := httptest.NewRequest(http.MethodPost, "/api/groups/"+parentID+"/subgroups", bytes.NewReader([]byte(privBody)))
+		privCtx := auth.SetUserContext(privReq.Context(), &auth.UserClaims{UserID: userAlice.ID, Username: userAlice.Username})
+		privReq = privReq.WithContext(privCtx)
+		privRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(privRR, privReq)
+		if privRR.Code != http.StatusCreated {
+			t.Fatalf("Gagal membuat subgrup privat: %d - %s", privRR.Code, privRR.Body.String())
+		}
+
+		var privRes struct {
+			Subgroup struct {
+				ID string `json:"id"`
+			} `json:"subgroup"`
+		}
+		_ = json.NewDecoder(privRR.Body).Decode(&privRes)
+		privSubID := privRes.Subgroup.ID
+
+		// Charlie (anggota grup induk) mengajukan izin bergabung
+		reqJoin := httptest.NewRequest(http.MethodPost, "/api/groups/"+privSubID+"/join-request", nil)
+		reqCtx := auth.SetUserContext(reqJoin.Context(), &auth.UserClaims{UserID: userCharlie.ID, Username: userCharlie.Username})
+		reqJoin = reqJoin.WithContext(reqCtx)
+		reqRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(reqRR, reqJoin)
+		if reqRR.Code != http.StatusOK {
+			t.Fatalf("Gagal mengajukan izin bergabung: %d - %s", reqRR.Code, reqRR.Body.String())
+		}
+
+		// Alice melihat daftar subgrup di grup induk: pastikan pending_requests_count terisi
+		listReq := httptest.NewRequest(http.MethodGet, "/api/groups/"+parentID+"/subgroups", nil)
+		listCtx := auth.SetUserContext(listReq.Context(), &auth.UserClaims{UserID: userAlice.ID, Username: userAlice.Username})
+		listReq = listReq.WithContext(listCtx)
+		listRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(listRR, listReq)
+		if listRR.Code != http.StatusOK {
+			t.Fatalf("Gagal mengambil daftar subgrup: %d - %s", listRR.Code, listRR.Body.String())
+		}
+
+		var listRes struct {
+			Subgroups []struct {
+				ID                   string `json:"id"`
+				PendingRequestsCount int    `json:"pending_requests_count"`
+			} `json:"subgroups"`
+		}
+		_ = json.NewDecoder(listRR.Body).Decode(&listRes)
+		var foundPriv bool
+		for _, sg := range listRes.Subgroups {
+			if sg.ID == privSubID {
+				foundPriv = true
+				if sg.PendingRequestsCount != 1 {
+					t.Errorf("Ekspektasi pending_requests_count = 1, dapat: %d", sg.PendingRequestsCount)
+				}
+			}
+		}
+		if !foundPriv {
+			t.Fatalf("Subgrup privat tidak ditemukan di daftar subgrup")
+		}
+
+		// Alice mengambil daftar permohonan izin
+		getPendingReq := httptest.NewRequest(http.MethodGet, "/api/groups/"+privSubID+"/join-requests", nil)
+		getPendingReq = getPendingReq.WithContext(privCtx)
+		getPendingRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(getPendingRR, getPendingReq)
+		if getPendingRR.Code != http.StatusOK {
+			t.Fatalf("Gagal mengambil pending join requests: %d - %s", getPendingRR.Code, getPendingRR.Body.String())
+		}
+
+		var pendingRes struct {
+			Requests []struct {
+				ID     string `json:"id"`
+				UserID string `json:"user_id"`
+			} `json:"requests"`
+		}
+		_ = json.NewDecoder(getPendingRR.Body).Decode(&pendingRes)
+		if len(pendingRes.Requests) != 1 {
+			t.Fatalf("Ekspektasi 1 permohonan, dapat: %d", len(pendingRes.Requests))
+		}
+		reqID := pendingRes.Requests[0].ID
+
+		// Alice menyetujui permohonan Charlie
+		actionBody := `{"approve": true}`
+		actionReq := httptest.NewRequest(http.MethodPost, "/api/groups/"+privSubID+"/join-requests/"+reqID+"/action", bytes.NewReader([]byte(actionBody)))
+		actionReq = actionReq.WithContext(privCtx)
+		actionRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(actionRR, actionReq)
+		if actionRR.Code != http.StatusOK {
+			t.Fatalf("Gagal menyetujui permohonan: %d - %s", actionRR.Code, actionRR.Body.String())
+		}
+
+		// Verifikasi Charlie sekarang dapat melihat detail subgrup privat
+		charlieDetReq := httptest.NewRequest(http.MethodGet, "/api/groups/"+privSubID, nil)
+		charlieDetReq = charlieDetReq.WithContext(reqCtx)
+		charlieDetRR := httptest.NewRecorder()
+		handler.RouteGroupRequest(charlieDetRR, charlieDetReq)
+		if charlieDetRR.Code != http.StatusOK {
+			t.Fatalf("Charlie gagal melihat detail subgrup setelah diapprove: %d - %s", charlieDetRR.Code, charlieDetRR.Body.String())
+		}
+	})
 }
 

@@ -235,11 +235,20 @@ export default function SubGroupListDrawer({
         throw new Error(error)
       }
       setJoinRequests((prev) => prev.filter((r) => r.id !== requestId))
-      if (approve) {
-        setSubgroups((prev) =>
-          prev.map((s) => (s.id === reviewSubGroup.id ? { ...s, member_count: s.member_count + 1 } : s))
-        )
-      }
+      setSubgroups((prev) =>
+        prev.map((s) => {
+          if (s.id === reviewSubGroup.id) {
+            const currentPending = s.pending_requests_count ?? 1
+            const newPending = Math.max(0, currentPending - 1)
+            return {
+              ...s,
+              member_count: approve ? s.member_count + 1 : s.member_count,
+              pending_requests_count: newPending,
+            }
+          }
+          return s
+        })
+      )
       setSuccessToast(approve ? 'Permohonan disetujui!' : 'Permohonan ditolak.')
       setTimeout(() => setSuccessToast(''), 3000)
     } catch (err: unknown) {
@@ -653,17 +662,41 @@ export default function SubGroupListDrawer({
                                 type="button"
                                 onClick={() => openReviewPanel(sub)}
                                 style={{
-                                  background: 'rgba(245, 158, 11, 0.1)',
-                                  border: '1px solid rgba(245, 158, 11, 0.3)',
-                                  color: 'var(--color-warning)',
+                                  background: (sub.pending_requests_count && sub.pending_requests_count > 0)
+                                    ? 'rgba(239, 68, 68, 0.12)'
+                                    : 'rgba(245, 158, 11, 0.1)',
+                                  border: (sub.pending_requests_count && sub.pending_requests_count > 0)
+                                    ? '1px solid rgba(239, 68, 68, 0.35)'
+                                    : '1px solid rgba(245, 158, 11, 0.3)',
+                                  color: (sub.pending_requests_count && sub.pending_requests_count > 0)
+                                    ? 'var(--color-error)'
+                                    : 'var(--color-warning)',
                                   borderRadius: '6px',
                                   padding: '2px 8px',
                                   fontSize: '0.72rem',
                                   fontWeight: 600,
                                   cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
                                 }}
                               >
-                                📋 Kelola Izin
+                                <span>📋 Kelola Izin</span>
+                                {Boolean(sub.pending_requests_count && sub.pending_requests_count > 0) && (
+                                  <span
+                                    style={{
+                                      backgroundColor: 'var(--color-error)',
+                                      color: '#ffffff',
+                                      borderRadius: '9999px',
+                                      padding: '1px 5px',
+                                      fontSize: '0.65rem',
+                                      fontWeight: 700,
+                                      lineHeight: 1,
+                                    }}
+                                  >
+                                    {sub.pending_requests_count}
+                                  </span>
+                                )}
                               </button>
                             )}
                           </div>

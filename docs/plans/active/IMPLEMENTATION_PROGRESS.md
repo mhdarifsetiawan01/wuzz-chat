@@ -1,4 +1,4 @@
 # Implementation Progress — Standby
 
-## 📝 Checklist
-- [x] All tasks completed and archived.
+## Checklist
+- [ ] Ready for next task.

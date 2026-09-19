@@ -22,10 +22,11 @@ const (
 
 // ClusterEvent adalah amplop event yang dikirimkan melalui Redis Pub/Sub ke instance lain.
 type ClusterEvent struct {
-	NodeID   string  `json:"node_id"`
-	RoomID   string  `json:"room_id"`
-	SenderID string  `json:"sender_id"`
-	Message  Message `json:"message"`
+	NodeID       string  `json:"node_id"`
+	RoomID       string  `json:"room_id"`
+	SenderID     string  `json:"sender_id"`
+	TargetUserID string  `json:"target_user_id,omitempty"`
+	Message      Message `json:"message"`
 }
 
 // Hub adalah pusat kendali: menyimpan semua client aktif dan room,
@@ -118,7 +119,11 @@ func (h *Hub) SetBroker(b broker.MessageBroker) {
 		}
 
 		// Teruskan pesan ke client lokal yang terhubung di node ini
-		h.broadcastLocal(event.RoomID, event.Message, event.SenderID)
+		if event.TargetUserID != "" {
+			h.NotifyUser(event.TargetUserID, event.Message)
+		} else {
+			h.broadcastLocal(event.RoomID, event.Message, event.SenderID)
+		}
 	})
 
 	if err != nil {
@@ -679,6 +684,63 @@ func (h *Hub) notifyClient(clientID string, msg Message) {
 	select {
 	case c.send <- msg:
 	default:
+	}
+}
+
+// NotifyUser mengirimkan pesan WebSocket langsung ke satu user (berdasarkan userID atau nickname).
+func (h *Hub) NotifyUser(userID string, msg Message) {
+	h.mu.RLock()
+	c, ok := h.findClientLocked(userID)
+	h.mu.RUnlock()
+	if !ok {
+		return
+	}
+	select {
+	case c.send <- msg:
+	default:
+		log.Printf("[Hub %s] buffer penuh untuk user %s, pesan di-drop", h.nodeID[:8], userID)
+	}
+}
+
+// NotifyUsers mengirimkan pesan WebSocket langsung ke sejumlah target user IDs.
+// Juga mem-publish event ke cluster Redis jika broker aktif.
+func (h *Hub) NotifyUsers(userIDs []string, msg Message) {
+	if len(userIDs) == 0 {
+		return
+	}
+
+	h.mu.RLock()
+	var targets []*Client
+	for _, uid := range userIDs {
+		if c, ok := h.findClientLocked(uid); ok {
+			targets = append(targets, c)
+		}
+	}
+	b := h.broker
+	h.mu.RUnlock()
+
+	for _, c := range targets {
+		select {
+		case c.send <- msg:
+		default:
+			log.Printf("[Hub %s] buffer penuh untuk client %s, notifikasi di-drop", h.nodeID[:8], c.ID)
+		}
+	}
+
+	if b != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		for _, uid := range userIDs {
+			event := ClusterEvent{
+				NodeID:       h.nodeID,
+				RoomID:       msg.Room,
+				TargetUserID: uid,
+				Message:      msg,
+			}
+			if payload, err := json.Marshal(event); err == nil {
+				_ = b.Publish(ctx, ClusterEventsChannel, payload)
+			}
+		}
 	}
 }
 

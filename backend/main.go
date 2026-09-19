@@ -331,6 +331,7 @@ func main() {
 	// REST API Routes (Group Chat Engine & Member Management)
 	if groupHandler != nil {
 		groupHandler.SetHub(hub)
+		groupHandler.SetPushService(pushService)
 
 		mux.HandleFunc("/api/groups", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPost {

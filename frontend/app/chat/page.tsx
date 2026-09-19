@@ -302,6 +302,7 @@ function ChatPageContent() {
   const [directPreviewGroup, setDirectPreviewGroup] = useState<GroupDetails | null>(null)
   const [privateGroupDenied, setPrivateGroupDenied] = useState<{ id: string; error?: string } | null>(null)
   const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([])
+  const [inAppToast, setInAppToast] = useState<{ message: string } | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<string[]>([])
@@ -1040,6 +1041,29 @@ function ChatPageContent() {
               })).catch(() => {})
             } else {
               setLastIncomingMessage(systemMsg)
+            }
+          }
+          break
+        }
+
+        case 'join_request': {
+          if (msg.content) {
+            setInAppToast({ message: msg.content })
+            setTimeout(() => setInAppToast(null), 6000)
+
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
+              try {
+                new Notification('Wuzz Chat', {
+                  body: msg.content,
+                  icon: '/favicon.ico',
+                  tag: `join-req-${msg.room || 'general'}`,
+                })
+              } catch {}
+            }
+
+            // Jika sedang membuka room grup induk atau subgrup, perbarui detail grup
+            if (currentRoom && (currentRoom.startsWith('grp_') || currentRoom.startsWith('sub_'))) {
+              fetchGroupDetailsRef.current?.(currentRoom)
             }
           }
           break
@@ -2478,6 +2502,34 @@ function ChatPageContent() {
         currentRoomId={roomId}
         onForward={handleForwardMessage}
       />
+
+      {/* In-App Toast Alert (Join Requests & System Notices) */}
+      {inAppToast && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '16px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 'var(--z-toast)',
+            backgroundColor: 'var(--bg-card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+            boxShadow: 'var(--shadow-lg)',
+            padding: '10px 18px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: '0.85rem',
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            pointerEvents: 'none',
+          }}
+        >
+          <span>🔔</span>
+          <span>{inAppToast.message}</span>
+        </div>
+      )}
     </div>
   )
 }
