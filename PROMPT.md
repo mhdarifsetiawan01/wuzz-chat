@@ -23,6 +23,7 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 5. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
 6. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
 7. 📜 **[`PRD-websocket-chat-app.md`](PRD-websocket-chat-app.md)**: Spesifikasi awal produk.
+8. 🎨 **[`frontend/DESIGN.md`](frontend/DESIGN.md)**: Standar design system resmi (token-first `:root`, unified z-index scale, modal primitives, utility CSS classes, dan aturan dynamic-only inline styles).
 
 ---
 
@@ -124,6 +125,9 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 8. **Aturan Ketahanan Server Lambat & Jaringan Flaky (SOP)**:
    - AI **WAJIB selalu bekerja dengan asumsi bahwa server berada dalam kondisi lambat (medium-slow response, latensi 200–800ms+), sering terputus, atau mengalami timeout**. Dilarang mengasumsikan kondisi ideal/instan.
    - Setiap fitur wajib mengantisipasi kegagalan jaringan: State Gatekeeper di handshake HTTP WebSocket (status 403 untuk perangkat usang), jeda flush minimal 500ms + timeout 1000ms pada event pemutusan sesi, Optimistic UI + Write-Through IndexedDB cache, batas waktu terkelola (`AbortController` 15 detik untuk query / 60 detik untuk media upload), exponential backoff dengan terminal close code 4001, dan proteksi disabled button / loading state seketika untuk mencegah race condition klik ganda.
+9. **Aturan Kepatuhan Design System & Token-First (SOP)**:
+   - Setiap modifikasi UI/UX frontend **WAJIB mematuhi token `:root` di `frontend/app/globals.css` dan panduan `frontend/DESIGN.md`**.
+   - **Dilarang keras menggunakan raw hex** (gunakan `var(--token)`), **dilarang literal rgba tint** (gunakan `var(--tint-accent-*)` / `var(--tint-error-*)`), **dilarang magic z-index** (terutama `99999`, wajib pakai `var(--z-modal)` / `var(--z-modal-top)`), **wajib pakai unified modal primitives** (`.modal-overlay` + `.modal-card-unified`), dan inline styles **hanya untuk nilai dinamis runtime**.
 
 ---
 
