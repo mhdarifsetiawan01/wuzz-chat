@@ -1,3 +1,4 @@
 # Decision Log
 
-*Status: Standby — Tidak ada keputusan aktif saat ini.*
+- Standby: Belum ada keputusan teknis aktif baru.
+

@@ -1,3 +1,3 @@
 # Active Implementation Progress
 
-*Status: Standby — Tidak ada tugas aktif saat ini.*
+- [ ] Standby: Menunggu tugas baru dari pengguna.

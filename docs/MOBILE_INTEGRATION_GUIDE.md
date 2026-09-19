@@ -63,6 +63,7 @@ sequenceDiagram
      }
      ```
    - Saat logout resmi/sukarela, panggil `POST /api/auth/logout` dengan menyertakan header `X-Device-ID: <device_id>` atau body `{"device_id": "<device_id>"}` untuk melepaskan `active_device_id` di database server secara aman, serta panggil `POST /api/notifications/unsubscribe` dengan body `{ "endpoint": "..." }`.
+   - *Rekomendasi Klien Mobile*: Terapkan pola **Local-First Purge** (hapus token dari Secure Storage/Keychain seketika) dan gunakan network timeout **30 detik** saat memanggil logout server. Jika server lambat atau timeout, biarkan klien tetap kembali ke layar login dengan aman tanpa membekukan antarmuka.
 3. **Koneksi WebSocket**:
    - Selalu sertakan query `?token=<JWT>` saat inisialisasi socket.
    - Implementasikan **Exponential Backoff Auto-Reconnect** (1s, 2s, 4s, 8s, maks 30s) saat koneksi terputus (misal saat HP berganti jaringan dari WiFi ke 4G/5G).

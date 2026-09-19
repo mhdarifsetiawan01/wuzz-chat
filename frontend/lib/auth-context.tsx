@@ -80,16 +80,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = async () => {
+    // 1. Ambil snapshot token dan deviceId sebelum storage lokal dibersihkan
+    const savedToken = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') : null
+    const deviceId = typeof window !== 'undefined' ? getOrCreateDeviceId() : ''
+
+    // 2. SYNCHRONOUS LOCAL-FIRST PURGE (0ms Guarantee):
+    // Hapus kredensial di localStorage dan state React seketika.
+    // Menjamin sesi lama langsung musnah dan tidak akan auto-redirect ke /chat jika terjadi timeout atau interupsi.
+    localLogout()
+
+    // 3. Beritahu backend dengan timeout terkelola 30 detik (AbortController)
     try {
-      const deviceId = typeof window !== 'undefined' ? getOrCreateDeviceId() : ''
-      await apiRequest('/api/auth/logout', {
-        method: 'POST',
-        headers: deviceId ? { 'X-Device-ID': deviceId } : undefined,
-        body: JSON.stringify({ device_id: deviceId }),
-      })
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      try {
+        await apiRequest('/api/auth/logout', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            ...(savedToken ? { Authorization: `Bearer ${savedToken}` } : {}),
+            ...(deviceId ? { 'X-Device-ID': deviceId } : {}),
+          },
+          body: JSON.stringify({ device_id: deviceId }),
+        })
+      } finally {
+        clearTimeout(timeoutId)
+      }
     } catch (err) {
-      console.warn('[Auth] Gagal memberitahu server saat logout:', err)
+      console.warn('[Auth] Gagal atau timeout saat memberitahu server saat logout (lanjut pembersihan lokal):', err)
     }
+
+    // 4. Unsubscribe push notifications & bersihkan cache pesan
     try {
       await unsubscribeFromPushNotifications()
     } catch (err) {
@@ -100,7 +121,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn('[Auth] Gagal membersihkan message cache saat logout:', err)
     }
-    localLogout()
   }
 
   const updateUser = (updatedUser: User) => {

@@ -1226,3 +1226,34 @@ Ketika akun login di Device 1 (aktif), lalu mencoba login di Device 2 dan muncul
 - **Backend Tests (`go test -count=1 ./...`)**: **100% PASS** di seluruh 8 package.
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error).
 
+---
+
+## Milestone 8.11 — Anti-Infinite Reset Loop, 30s Server Timeout & Loading Logout UI
+**Tanggal**: 2026-09-19  
+**Branch**: `dev`
+
+### Latar Belakang & Masalah
+1. **Infinite Ping-Pong Reset Loop**:
+   Ketika Device 1 aktif, lalu Device 2 login dan memilih *"Reset & masuk..."*, Device 1 menerima modal konflik rotasi (*"Kunci keamanan telah diperbarui"*). Jika pengguna di Device 1 mengklik *"🔄 Atau Keluar & Masuk Ulang Akun"*, sebelumnya terjadi navigasi prematur ke `/login` sebelum token lama di `localStorage` terhapus bersih. Akibatnya, `useEffect` di halaman login mendeteksi token masih tersimpan dan seketika melakukan auto-redirect kembali ke `/chat` tanpa meminta password. Di `/chat`, Device 1 mendeteksi konflik dan jika pengguna memilih reset, Device 1 mengambil alih kembali tanpa input kredensial, menciptakan siklus ping-pong tiada akhir.
+2. **Ketiadaan Batas Waktu Terkelola & Indikator Loading**:
+   Pemanggilan `POST /api/auth/logout` sebelumnya rentan menggantung jika koneksi seluler lambat. Selain itu, tidak ada feedback loading visual dan tombol tidak di-disable saat logout diproses, sehingga berisiko memicu *double-click race condition*.
+
+### Solusi & Perubahan Terverifikasi
+1. **`frontend/lib/auth-context.tsx`**:
+   - **Synchronous 0ms Local Purge**: Memindahkan `localLogout()` ke baris pertama fungsi `logout()`. Token dan profil pengguna di `localStorage` serta auth state React dihapus seketika (0ms) sebelum request jaringan dijalankan.
+   - **Saved Token Snapshot**: Mengambil snapshot token sebelum dihapus agar header `Authorization: Bearer <savedToken>` tetap terkirim secara sah ke backend.
+   - **30-Second AbortController**: Membungkus API request logout dengan batas waktu terkelola 30.000 ms (30 detik). Jika server lambat atau timeout, error ditangani secara anggun (*graceful*) karena kredensial lokal sudah terhapus bersih.
+2. **`frontend/app/chat/DeviceConflictModal.tsx` & `frontend/app/chat/ProfileModal.tsx`**:
+   - Menambahkan state `isLoggingOut`.
+   - Tombol logout di-disable (`disabled`, `opacity: 0.7`, `cursor: not-allowed`) dan menampilkan teks `⏳ Memproses Keluar...` saat proses logout sedang berjalan.
+3. **`frontend/app/chat/page.tsx`**:
+   - Pada handler `handleDeviceConflictLogout`, `localLogout()` dipanggil secara instan, menunggu `logout()` jika `isRotated`, lalu mengarahkan ke `/login?logout=1`.
+4. **`frontend/app/login/page.tsx`**:
+   - Menambahkan deteksi parameter `?logout=1` via `useSearchParams()`.
+   - Mengabaikan auto-redirect ke `/chat` saat parameter `logout=1` terdeteksi, membersihkan sisa kredensial di storage, dan menampilkan banner notifikasi: *"ℹ️ Anda telah berhasil keluar. Silakan masuk kembali."*.
+   - Pengguna diwajibkan memasukkan username dan password baru untuk masuk.
+
+### Test Evidence
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully in 281ms** (0 TypeScript error, 0 lint error).
+- **Backend Tests (`go test -count=1 ./...`)**: **100% PASS** di seluruh 8 package internal.
+

@@ -26,10 +26,23 @@ export function DeviceConflictModal({
   onTransferSuccess,
 }: DeviceConflictModalProps) {
   const [isResetting, setIsResetting] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isTransferOpen, setIsTransferOpen] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const isTransferOpenRef = useRef(isTransferOpen)
   isTransferOpenRef.current = isTransferOpen
+
+  const handleLogoutAction = async () => {
+    if (isLoggingOut || isResetting) return
+    setIsLoggingOut(true)
+    setErrorMsg('')
+    try {
+      await onLogout()
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Gagal memproses logout')
+      setIsLoggingOut(false)
+    }
+  }
 
   // Menangani tombol back di browser HP:
   // Jika transfer modal sedang terbuka, tutup transfer modal dulu.
@@ -38,16 +51,14 @@ export function DeviceConflictModal({
     if (isTransferOpenRef.current) {
       setIsTransferOpen(false)
     } else {
-      onLogout()
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login'
-      }
+      handleLogoutAction()
     }
   }, 'device_conflict')
 
   if (!isOpen) return null
 
   const handleReset = async () => {
+    if (isResetting || isLoggingOut) return
     setIsResetting(true)
     setErrorMsg('')
     try {
@@ -162,15 +173,11 @@ export function DeviceConflictModal({
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => {
-                  onLogout()
-                  if (typeof window !== 'undefined') {
-                    window.location.href = '/login'
-                  }
-                }}
-                style={{ width: '100%', padding: '10px', fontSize: '0.9rem' }}
+                onClick={handleLogoutAction}
+                disabled={isLoggingOut || isResetting}
+                style={{ width: '100%', padding: '10px', fontSize: '0.9rem', opacity: isLoggingOut ? 0.7 : 1 }}
               >
-                🔄 Atau Keluar & Masuk Ulang Akun
+                {isLoggingOut ? '⏳ Memproses Keluar...' : '🔄 Atau Keluar & Masuk Ulang Akun'}
               </button>
             </>
           ) : (
@@ -179,7 +186,7 @@ export function DeviceConflictModal({
                 type="button"
                 className="btn btn-primary"
                 onClick={handleReset}
-                disabled={isResetting}
+                disabled={isResetting || isLoggingOut}
                 style={{ width: '100%', padding: '12px', fontSize: '0.95rem' }}
               >
                 {isResetting ? '⏳ Mengaktifkan Perangkat...' : '🔑 Reset & Masuk di Perangkat Ini'}
@@ -189,7 +196,7 @@ export function DeviceConflictModal({
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setIsTransferOpen(true)}
-                disabled={isResetting}
+                disabled={isResetting || isLoggingOut}
                 style={{
                   width: '100%',
                   padding: '10px',
@@ -205,16 +212,11 @@ export function DeviceConflictModal({
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => {
-                  onLogout()
-                  if (typeof window !== 'undefined') {
-                    window.location.href = '/login'
-                  }
-                }}
-                disabled={isResetting}
-                style={{ width: '100%', padding: '10px', fontSize: '0.9rem' }}
+                onClick={handleLogoutAction}
+                disabled={isResetting || isLoggingOut}
+                style={{ width: '100%', padding: '10px', fontSize: '0.9rem', opacity: isLoggingOut ? 0.7 : 1 }}
               >
-                Batalkan & Keluar
+                {isLoggingOut ? '⏳ Memproses Keluar...' : 'Batalkan & Keluar'}
               </button>
             </>
           )}
