@@ -139,10 +139,16 @@ func TestPushService_InitializationAndVAPID(t *testing.T) {
 		CreatedAt: time.Now(),
 	})
 
-	svc.NotifyOfflineRecipients("dm_alice_bob", "uid_alice", "Alice", "Halo Bob!", "text", []string{"uid_alice"})
+	var deliveredMsgID string
+	svc.SetDeliveryCallback(func(msgID, roomID, recipientUserID string) {
+		deliveredMsgID = msgID
+	})
+
+	svc.NotifyOfflineRecipients("msg-001", "dm_alice_bob", "uid_alice", "Alice", "Halo Bob!", "text", []string{"uid_alice"})
 
 	// Beri jeda sejenak untuk goroutine
 	time.Sleep(100 * time.Millisecond)
+	_ = deliveredMsgID
 
 	// Verifikasi pengiriman payload dan handling graceful tanpa crash
 	ctx := context.Background()
@@ -165,6 +171,7 @@ func TestNotifyOfflineRecipients_WithMentions(t *testing.T) {
 
 	// Test NotifyOfflineRecipients with mentions array containing Bob's UUID
 	svc.NotifyOfflineRecipients(
+		"msg-002",
 		"grp_tech",
 		"uid_alice",
 		"Alice",

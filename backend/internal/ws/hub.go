@@ -66,6 +66,24 @@ func (h *Hub) SetPushService(ps *push.Service) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.pushService = ps
+	if ps != nil {
+		ps.SetDeliveryCallback(func(msgID, roomID, recipientUserID string) {
+			if msgID == "" || roomID == "" {
+				return
+			}
+			// Update status pesan menjadi 'delivered' di DB jika belum 'read'
+			if err := h.messageStore.UpdateMessageStatus(msgID, string(StatusDelivered)); err == nil {
+				// Broadcast status delivered ke room agar pengirim menerima centang 2 abu-abu
+				h.BroadcastRoom(roomID, Message{
+					ID:        msgID,
+					Type:      TypeReceipt,
+					Room:      roomID,
+					Status:    StatusDelivered,
+					Timestamp: time.Now().UTC(),
+				}, recipientUserID)
+			}
+		})
+	}
 }
 
 // SetUserStore menyuntikkan UserStore opsional untuk resolusi anggota percakapan.
@@ -515,7 +533,7 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 		h.mu.RUnlock()
 
 		if ps != nil {
-			ps.NotifyOfflineRecipients(roomID, msg.From, msg.Nickname, msg.Content, msg.MediaType, onlineIDs, msg.Mentions)
+			ps.NotifyOfflineRecipients(msg.ID, roomID, msg.From, msg.Nickname, msg.Content, msg.MediaType, onlineIDs, msg.Mentions)
 		}
 	}
 

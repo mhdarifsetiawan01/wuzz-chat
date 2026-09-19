@@ -5,7 +5,7 @@ import { apiRequest } from './api'
 
 import type { User } from './types'
 
-import { unsubscribeFromPushNotifications } from './pushNotification'
+import { unsubscribeFromPushNotifications, saveAuthTokenToCache, clearAuthTokenFromCache } from './pushNotification'
 import { clearAllMessageCache } from './messageCache'
 import { getOrCreateDeviceId } from './crypto/keyStore'
 
@@ -41,8 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (savedToken && savedUser) {
       try {
+        const parsedUser = JSON.parse(savedUser)
         setToken(savedToken)
-        setUser(JSON.parse(savedUser))
+        setUser(parsedUser)
+        saveAuthTokenToCache(savedToken, parsedUser.id)
         
         // Sync fresh profile from server
         apiRequest<User>('/api/auth/me').then(({ data, error, status }) => {
@@ -68,11 +70,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(newUser)
     localStorage.setItem('wuzz_auth_token', newToken)
     localStorage.setItem('wuzz_user_profile', JSON.stringify(newUser))
+    saveAuthTokenToCache(newToken, newUser.id)
   }
 
   const localLogout = () => {
     setToken(null)
     setUser(null)
+    clearAuthTokenFromCache()
     if (typeof window !== 'undefined') {
       localStorage.removeItem('wuzz_auth_token')
       localStorage.removeItem('wuzz_user_profile')

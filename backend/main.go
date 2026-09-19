@@ -291,6 +291,13 @@ func main() {
 				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 			}
 		}))
+		mux.HandleFunc("/api/messages/receipt", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				auth.RequireJWT()(http.HandlerFunc(chatHandler.UpdateReceipt)).ServeHTTP(w, r)
+			} else {
+				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+			}
+		}))
 		mux.HandleFunc("/api/messages/pin", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodPost {
 				auth.RequireJWT()(http.HandlerFunc(chatHandler.PinMessage)).ServeHTTP(w, r)

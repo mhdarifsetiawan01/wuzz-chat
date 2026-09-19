@@ -97,6 +97,9 @@ func (s *MemoryMessageStore) UpdateMessageStatus(msgID string, status string) er
 	for roomID, msgs := range s.messages {
 		for i, m := range msgs {
 			if m.ID == msgID {
+				if status == "delivered" && (m.Status == "read" || m.Status == "deleted") {
+					return nil
+				}
 				s.messages[roomID][i].Status = status
 				return nil
 			}

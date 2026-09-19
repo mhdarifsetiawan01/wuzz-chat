@@ -17,11 +17,19 @@ import (
 
 // Service mengelola pengiriman push notification via standard Web Push (VAPID) dan gateway FCM.
 type Service struct {
-	vapidPublicKey  string
-	vapidPrivateKey string
-	vapidSubject    string
-	userStore       store.UserStore
-	mu              sync.RWMutex
+	vapidPublicKey   string
+	vapidPrivateKey  string
+	vapidSubject     string
+	userStore        store.UserStore
+	deliveryCallback func(msgID, roomID, recipientUserID string)
+	mu               sync.RWMutex
+}
+
+// SetDeliveryCallback menetapkan fungsi callback saat push notification berhasil diterima push service (Delivery ACK).
+func (s *Service) SetDeliveryCallback(cb func(msgID, roomID, recipientUserID string)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.deliveryCallback = cb
 }
 
 // NotificationPayload merepresentasikan struktur payload data JSON yang dikirimkan ke Service Worker.
@@ -131,6 +139,7 @@ func (s *Service) SendWebPush(ctx context.Context, sub store.PushSubscription, p
 
 // NotifyOfflineRecipients menyaring anggota yang sedang offline dan mengirimkan push notification.
 func (s *Service) NotifyOfflineRecipients(
+	msgID string,
 	roomID string,
 	senderID string,
 	senderNickname string,
@@ -258,6 +267,7 @@ func (s *Service) NotifyOfflineRecipients(
 			Badge: "/favicon.ico",
 			Tag:   "chat-" + roomID,
 			Data: map[string]interface{}{
+				"message_id":        msgID,
 				"room_id":           roomID,
 				"sender_id":         senderID,
 				"sender_nickname":   senderNickname,
@@ -305,6 +315,13 @@ func (s *Service) NotifyOfflineRecipients(
 				}
 				if err := s.SendWebPush(ctx, subscription, bytesToSend); err != nil {
 					log.Printf("⚠️ [Push] Gagal mengirim push ke endpoint %s: %v", safePrefix(subscription.Endpoint, 24), err)
+				} else {
+					s.mu.RLock()
+					cb := s.deliveryCallback
+					s.mu.RUnlock()
+					if cb != nil && msgID != "" {
+						cb(msgID, roomID, subscription.UserID)
+					}
 				}
 			}(sub)
 		}

@@ -1,4 +1,4 @@
-# Handover Status — Standby
+# Handover — Standby
 
-## 📦 Deliverables Status
-- All deliverables for Milestone 8.13 completed and archived.
+## 📋 Status
+- Implementation completed and archived to docs/plans/archived/20-09-2026-background-delivery-receipt/.

@@ -1,8 +1,8 @@
 // Service Worker untuk Wuzz Chat Push Notification
 // Standard W3C Web Push & Service Worker API dengan Zero-Knowledge Client-Side E2EE Background Decryption
-// Version: 1.0.6
+// Version: 1.0.7
 
-const SW_VERSION = '1.0.6';
+const SW_VERSION = '1.0.7';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -247,6 +247,58 @@ async function tryDecryptPushContent(encryptedPayload, roomId, senderPubKeyJWK, 
   }
 }
 
+// Mengambil auth token dari CacheStorage agar SW bisa request authenticated ke REST API
+async function getStoredAuthToken() {
+  try {
+    if (typeof caches !== 'undefined') {
+      const cache = await caches.open('wuzz-auth-cache');
+      const resp = await cache.match('/__auth_token');
+      if (resp) {
+        const data = await resp.json();
+        if (data && data.token) {
+          return data.token;
+        }
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Mengirimkan laporan tanda terima 'delivered' ke backend saat notifikasi mendarat di HP
+async function reportBackgroundDeliveryReceipt(messageId, roomId) {
+  if (!messageId || !roomId) return;
+  try {
+    const token = await getStoredAuthToken();
+    if (!token) {
+      console.warn('[SW Push] Token tidak ditemukan di CacheStorage, melewati background delivery ACK');
+      return;
+    }
+
+    const payload = JSON.stringify({
+      message_id: messageId,
+      room_id: roomId,
+      status: 'delivered',
+    });
+
+    const response = await fetch('/api/messages/receipt', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: payload,
+    });
+
+    if (response.ok) {
+      console.log(`[SW Push] ✅ Background Delivery Receipt terkirim untuk pesan: ${messageId}`);
+    } else {
+      console.warn(`[SW Push] ⚠️ Gagal kirim background receipt (HTTP ${response.status})`);
+    }
+  } catch (err) {
+    console.warn('[SW Push] ⚠️ Network error saat kirim background delivery receipt:', err);
+  }
+}
+
 // Tangani event push dari server
 self.addEventListener('push', (event) => {
   if (!event.data) {
@@ -317,6 +369,11 @@ self.addEventListener('push', (event) => {
         renotify: true,
         requireInteraction: true,
       };
+
+      // Kirim Background Delivery Receipt ke server agar centang 2 abu-abu langsung aktif di pengirim
+      if (customData.message_id && customData.room_id) {
+        reportBackgroundDeliveryReceipt(customData.message_id, customData.room_id);
+      }
 
       return self.registration.showNotification(title, options);
     })()

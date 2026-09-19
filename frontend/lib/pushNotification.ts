@@ -269,3 +269,28 @@ export async function getActiveServiceWorkerVersion(): Promise<string | null> {
     return null
   }
 }
+
+// Menyimpan auth token ke CacheStorage agar Service Worker background push dapat mengaksesnya instan (< 1ms)
+export async function saveAuthTokenToCache(token: string, userId: string): Promise<void> {
+  if (typeof window === 'undefined' || !('caches' in window)) return
+  try {
+    const cache = await window.caches.open('wuzz-auth-cache')
+    await cache.put(
+      '/__auth_token',
+      new Response(JSON.stringify({ token, userId }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+  } catch (err) {
+    console.warn('[Push] Gagal menyimpan auth token ke CacheStorage:', err)
+  }
+}
+
+// Menghapus auth token dari CacheStorage saat user logout
+export async function clearAuthTokenFromCache(): Promise<void> {
+  if (typeof window === 'undefined' || !('caches' in window)) return
+  try {
+    const cache = await window.caches.open('wuzz-auth-cache')
+    await cache.delete('/__auth_token')
+  } catch {}
+}

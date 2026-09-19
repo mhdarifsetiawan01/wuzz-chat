@@ -1347,4 +1347,30 @@ Ketika akun login di browser laptop dan menghasilkan QR Code transfer kunci E2EE
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully in 1692ms** (0 error TypeScript & Turbopack).
 - **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh unit & integration test.
 
+---
+
+## 🚀 Milestone 8.10: Dual-Tier Background Delivery Receipt (20 September 2026)
+
+### Latar Belakang Masalah
+Pesan yang dikirimkan ke penerima yang sedang menutup aplikasi PWA/web tertahan di status **Centang 1 (✓ `sent`)**, meskipun notifikasi push sudah masuk dan tampil di HP penerima. Pesan baru berubah menjadi **Centang 2 abu-abu (✓✓ `delivered`)** saat penerima membuka aplikasi PWA / web (karena status delivered sebelumnya hanya dipicu pada event WebSocket `onJoin`).
+
+### Solusi & Perubahan Terverifikasi
+1. **Backend Go — Web Push & Gateway Delivery ACK**:
+   - Menambahkan parameter `msgID string` ke `NotifyOfflineRecipients` di `backend/internal/push/push.go` dan menyertakannya ke payload push notification (`"message_id": msgID`).
+   - Mendaftarkan `SetDeliveryCallback` di `backend/internal/ws/hub.go`: seketika gateway WebPush (Google FCM / Apple APNs) menerima pesan (HTTP 201/200), server Go langsung menandai pesan sebagai `delivered` di DB dan mem-broadcast `TypeReceipt (status: delivered)` ke room pengirim via WebSocket Hub.
+   - Menambahkan **Anti-Downgrade Status Guard** pada `backend/internal/store/sql.go` dan `backend/internal/store/memory.go` agar status `read` (centang 2 biru) tidak pernah ter-downgrade menjadi `delivered`.
+2. **Backend Go — REST API Delivery Receipt Endpoint**:
+   - Menambahkan method `UpdateReceipt(w, r)` di `backend/internal/api/chat_handler.go` untuk menangani `POST /api/messages/receipt`.
+   - Mendaftarkan route di `backend/main.go` dengan proteksi middleware `auth.RequireJWT()` dan validasi BOLA `IsUserInConversation`.
+   - Menambahkan unit test `backend/internal/api/chat_handler_receipt_test.go` (lulus 100%).
+3. **Frontend Next.js — CacheStorage & Service Worker ACK**:
+   - Menambahkan `saveAuthTokenToCache` dan `clearAuthTokenFromCache` di `frontend/lib/pushNotification.ts`.
+   - Sinkronisasi token autentikasi ke `CacheStorage` browser (`wuzz-auth-cache`) pada `frontend/lib/auth-context.tsx`.
+   - Memperbarui Service Worker di `frontend/public/sw.js` (bump ke `v1.0.7`): saat event `push` aktif, Service Worker melakukan background `fetch('/api/messages/receipt')` dengan token dari CacheStorage.
+
+### Test Evidence
+- **Backend Tests (`go test -count=1 ./...`)**: **100% PASS** di seluruh unit & integration test.
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
+
+
 

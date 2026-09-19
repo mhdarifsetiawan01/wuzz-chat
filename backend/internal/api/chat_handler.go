@@ -832,5 +832,69 @@ func (h *ChatHandler) SearchMessages(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// UpdateReceipt memproses laporan tanda terima pesan (delivered / read) dari background service worker atau REST client.
+func (h *ChatHandler) UpdateReceipt(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		MessageID string `json:"message_id"`
+		RoomID    string `json:"room_id"`
+		Status    string `json:"status"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
+		return
+	}
+
+	req.MessageID = strings.TrimSpace(req.MessageID)
+	req.RoomID = strings.TrimSpace(req.RoomID)
+	req.Status = strings.ToLower(strings.TrimSpace(req.Status))
+
+	if req.RoomID == "" || (req.Status != "delivered" && req.Status != "read") {
+		http.Error(w, `{"error":"Field room_id dan status valid ('delivered'|'read') wajib diisi"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Validasi Hak Akses Room (BOLA Prevention)
+	if h.userStore != nil {
+		isAuth, err := h.userStore.IsUserInConversation(req.RoomID, claims.UserID)
+		if err != nil || !isAuth {
+			http.Error(w, `{"error":"Akses ditolak: Anda bukan anggota percakapan ini"}`, http.StatusForbidden)
+			return
+		}
+	}
+
+	// 1. Update status di MessageStore
+	if req.MessageID != "" {
+		_ = h.messageStore.UpdateMessageStatus(req.MessageID, req.Status)
+	} else if req.Status == "read" {
+		_ = h.messageStore.MarkRoomMessagesAsRead(req.RoomID, claims.UserID)
+	} else if req.Status == "delivered" {
+		_, _ = h.messageStore.MarkUserMessagesAsDelivered(claims.UserID)
+	}
+
+	// 2. Broadcast TypeReceipt ke room via Hub jika tersedia
+	if h.hub != nil {
+		h.hub.BroadcastRoom(req.RoomID, ws.Message{
+			ID:        req.MessageID,
+			Type:      ws.TypeReceipt,
+			Room:      req.RoomID,
+			Status:    ws.MessageStatus(req.Status),
+			Timestamp: time.Now().UTC(),
+		}, claims.UserID)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"success": true,
+		"status":  req.Status,
+	})
+}
+
 
 

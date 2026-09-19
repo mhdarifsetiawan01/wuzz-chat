@@ -626,9 +626,35 @@ Mencari pesan teks dalam percakapan tertentu berdasarkan kata kunci.
 
 ---
 
+#### 22. `POST /api/messages/receipt`
+Melaporkan tanda terima pesan (Background Delivery Receipt atau Read Receipt) dari Service Worker latar belakang atau REST client.
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "message_id": "msg_uuid_123",
+    "room_id": "direct_11111111_22222222",
+    "status": "delivered"
+  }
+  ```
+- **Ketentuan & Keamanan**:
+  1. Pengguna wajib merupakan anggota sah dari `room_id` (`403 Forbidden` jika bukan anggota).
+  2. Nilai `status` yang diterima: `"delivered"` atau `"read"`.
+  3. **Anti-Downgrade Status Guard**: Jika pesan sudah berstatus `read`, pelaporan `delivered` tidak akan menurunkan status pesan kembali menjadi `delivered`.
+  4. Backend mengupdate status di database dan mem-broadcast event `TypeReceipt` ke room pengirim melalui WebSocket Hub / Redis cluster.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "status": "delivered"
+  }
+  ```
+
+---
+
 ### 3.5 Media & Konfigurasi
 
-#### 22. `GET /api/config`
+#### 23. `GET /api/config`
 Mengambil parameter konfigurasi publik backend (fitur toggle, batas ukuran file, retention TTL).
 - **Autentikasi**: Publik
 - **Success Response (200 OK)**:

@@ -343,10 +343,18 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 // UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
 func (s *SQLMessageStore) UpdateMessageStatus(msgID string, status string) error {
 	var query string
-	if s.driverName == "postgres" {
-		query = `UPDATE messages SET status = $1 WHERE id = $2`
+	if status == "delivered" {
+		if s.driverName == "postgres" {
+			query = `UPDATE messages SET status = $1 WHERE id = $2 AND status != 'read' AND status != 'deleted'`
+		} else {
+			query = `UPDATE messages SET status = ? WHERE id = ? AND status != 'read' AND status != 'deleted'`
+		}
 	} else {
-		query = `UPDATE messages SET status = ? WHERE id = ?`
+		if s.driverName == "postgres" {
+			query = `UPDATE messages SET status = $1 WHERE id = $2`
+		} else {
+			query = `UPDATE messages SET status = ? WHERE id = ?`
+		}
 	}
 	_, err := s.db.Exec(query, status, msgID)
 	return err
