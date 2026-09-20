@@ -44,6 +44,8 @@ export default function RootLayout({
         <AuthProvider>
           {children}
         </AuthProvider>
+        {/* Portal root untuk semua modal — terpisah dari .chat-app-container stacking context */}
+        <div id="modal-portal-root" />
       </body>
     </html>
   )

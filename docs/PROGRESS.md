@@ -1744,4 +1744,27 @@ Menyempurnakan keandalan operasional, fleksibilitas integrasi, serta kecepatan r
 ### Test Evidence
 - `npm run build` (Turbopack Next.js 16) lulus ✅ — 0 TypeScript error, 0 kompilasi error.
 
+---
+
+## 🎨 UI/UX Refactor: AI Memory Modals Design System Compliance & Portal Root Isolation (20 September 2026)
+
+### Latar Belakang & Masalah
+- **Isu**: Tampilan modal "Arsip Memori" dan "Review Draft Memori AI" di mobile melayang tidak beraturan, backdrop tidak muncul, dan card terhimpit di bagian atas layar.
+- **Root Cause**: Komponen modal memori sebelumnya ditulis menggunakan utility classes Tailwind CSS (`fixed inset-0 z-[1000]`, `bg-slate-900`, dll) padahal proyek `wuzz-chat` menggunakan Custom Design System berbasis CSS Variables di `globals.css` tanpa Tailwind CSS compiler, sehingga seluruh class styling tersebut tidak dirender oleh browser.
+
+### Perbaikan yang Dilakukan
+1. **Portal Root Isolation (`frontend/app/layout.tsx` & `frontend/lib/usePortalTarget.ts`)**:
+   - Menambahkan `<div id="modal-portal-root" />` di luar konteks `.chat-app-container`.
+   - Mengimplementasikan custom hook `usePortalTarget()` untuk binding portal modal ke target elemen yang valid.
+2. **Standardisasi Design System Primitives**:
+   - Mengonversi `GroupMemoryListModal.tsx` dan `GroupMemoryDetailModal.tsx` ke primitive `.group-modal-backdrop.z-modal`, `.group-modal-card`, `.group-modal-header`, `.group-modal-close-btn`, `.group-form-input`, dan `.group-modal-body`.
+   - Di mobile (`@media (max-width: 640px)`), modal otomatis tampil sebagai bottom sheet dengan transisi halus (`modalSlideUp`).
+3. **Kartu Tinjauan & Komponen Pendukung (`ReviewCards.tsx`, `MemoryDraftReviewModal.tsx`, `ConfidenceBadge.tsx`, `globals.css`)**:
+   - Menambahkan utility classes `.memory-review-card`, `.memory-textarea`, dan `.memory-evidence-item` di `globals.css`.
+   - Mengganti seluruh sisa class Tailwind di `ConfidenceBadge` dan dialog tolak draft dengan styling berbasis token CSS (`var(--bg-elevated)`, `var(--border-default)`, `var(--accent-500)`).
+
+### Test Evidence
+- `npm run build` (Turbopack Next.js 16) lulus ✅ — 0 TypeScript error, 0 linting error.
+- `go test ./...` (Backend Go) lulus ✅ — 100% test passed.
+
 
