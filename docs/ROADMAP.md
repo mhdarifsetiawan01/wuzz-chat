@@ -376,22 +376,22 @@ Membangun platform chatting modern yang:
   5. **Journey Lite MVP**: Rekonstruksi alur diskusi dinamis (Awalnya... → Kemudian... → Akhirnya...) untuk menangkap esensi perjalanan pemikiran kelompok.
 
 - **Milestone Implementasi MVP (M1 – M7)**:
-  - 🛠️ **Milestone M1: Foundation & Data Model (AKTIF 🟡)**:
+  - ✅ **Milestone M1: Foundation & Data Model (SELESAI ✅)**:
     - SQL Migration: 7 tabel baru (`forum_memory_jobs`, `memory_drafts`, `memory_artifacts`, `artifact_evidences`, `approved_memories`, `memory_review_actions`, `memory_view_events`).
     - Domain Entities & Repository Go: Struct model dan query transaksional.
-  - ⏳ **Milestone M2: Job Queue & Expiry Trigger**:
+  - ✅ **Milestone M2: Job Queue & Expiry Trigger (SELESAI ✅)**:
     - Pola Queue PostgreSQL `FOR UPDATE SKIP LOCKED` non-blocking di Go backend.
     - Integrasi otomatis saat Forum bertransisi ke status `'expired'`.
-  - 🧠 **Milestone M3: AI Service Integration**:
+  - ✅ **Milestone M3: AI Service Integration (SELESAI ✅)**:
     - Abstraksi `AIService` interface di Go backend.
     - Prompt engine dengan limit 1.000 pesan, parsing JSON terstruktur, ekstraksi Evidence, dan Confidence scoring.
-  - 🔌 **Milestone M4: Review Backend API**:
-    - REST API Suite Review Admin: `GET /api/groups/{id}/memories/drafts`, `POST /api/memory-drafts/{id}/approve`, `POST /reject`, `PATCH /artifacts/{id}`.
-  - 🖥️ **Milestone M5: Admin Review UI (Frontend Next.js)**:
-    - Banner & drawer review di forum kedaluwarsa, kartu ringkasan, dialog keputusan + preview evidence, switch hapus Journey Lite, tombol satu-klik *"Setujui Semua"*.
-  - 📖 **Milestone M6: Member Knowledge Viewer (Frontend Next.js)**:
-    - Tab/Viewer "Memori Forum" di arsip forum dan grup induk untuk seluruh anggota grup.
-  - 🔔 **Milestone M7: E2E Integration & Notification Polish**:
+  - ✅ **Milestone M4: Review Backend API (SELESAI ✅)**:
+    - REST API Suite Review Admin: `GET /api/groups/{id}/memories/drafts`, `POST /api/memory/drafts/{id}/approve`, `POST /reject`, `PATCH /artifacts/{id}`.
+  - ✅ **Milestone M5: Admin Review UI (Frontend Next.js) (SELESAI ✅)**:
+    - Banner & drawer review di forum kedaluwarsa, kartu ringkasan, dialog keputusan + preview evidence, switch hapus Journey Lite, tombol satu-klik *"Setujui & Publikasikan"*.
+  - ✅ **Milestone M6: Member Knowledge Viewer (Frontend Next.js) (SELESAI ✅)**:
+    - Tab/Viewer "Memori Forum" di arsip forum dan grup induk untuk seluruh anggota grup, modal linimasa arsip memori, dan modal detail pengetahuan terpublikasi.
+  - 🔔 **Milestone M7: E2E Integration & Notification Polish (🟡 AKTIF)**:
     - Notifikasi push/WebSocket ke Admin saat draft siap dan ke Member saat memori terbit. Audit log & metrics tracking.
 
 ---

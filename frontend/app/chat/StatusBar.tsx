@@ -26,6 +26,7 @@ interface StatusBarProps {
   onOpenGroupInfo?: () => void
   onOpenMemberList: () => void
   onOpenSubgroups?: () => void
+  onOpenMemoryList?: () => void
   onBackToParent?: () => void
   parentGroupName?: string
   onBack?: () => void
@@ -66,6 +67,7 @@ export function StatusBar({
   onOpenGroupInfo,
   onOpenMemberList,
   onOpenSubgroups,
+  onOpenMemoryList,
   onBackToParent,
   parentGroupName,
   onBack,
@@ -361,6 +363,21 @@ export function StatusBar({
                     style={{ fontSize: '0.75rem', padding: '5px 9px', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
                     <span>ℹ️</span> <span className="status-btn-text">Info</span>
+                  </button>
+                )}
+                {onOpenMemoryList && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsActionsExpanded(false)
+                      onOpenMemoryList()
+                    }}
+                    className="status-btn status-icon-btn"
+                    title="Arsip Memori Pengetahuan AI"
+                    aria-label="Memori Grup AI"
+                    style={{ fontSize: '0.75rem', padding: '5px 9px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    <span>🧠</span> <span className="status-btn-text">Memori</span>
                   </button>
                 )}
                 {roomId && (

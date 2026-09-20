@@ -1628,5 +1628,31 @@ Membangun antarmuka web (UI/UX) bagi Admin dan Creator grup untuk meninjau, meny
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
 - **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh paket backend.
 
+---
+
+## 🚀 Milestone 10.6: Group Memory AI — Member Knowledge Viewer (20 September 2026)
+
+### Latar Belakang & Implementasi
+Membangun antarmuka bagi seluruh anggota grup untuk menelusuri, membaca, dan mempelajari memori pengetahuan yang telah divalidasi dan dipublikasikan oleh admin:
+1. **Modal Arsip Linimasa Memori (`frontend/app/chat/memory/GroupMemoryListModal.tsx`)**:
+   - Menampilkan daftar linimasa arsip memori grup dengan kartu ringkasan interaktif.
+   - Fitur pencarian instan klien (filtering judul forum, ringkasan, atau nama admin validator).
+   - Badge jumlah keputusan dan indikator status penyuntingan (*Telah Disunting*).
+2. **Modal Detail Pengetahuan Terpublikasi (`frontend/app/chat/memory/GroupMemoryDetailModal.tsx`)**:
+   - Menampilkan ringkasan eksekutif (*Snapshot Summary*), kartu butir keputusan terverifikasi (*Decisions*), kutipan bukti asli (*Evidence Citations*) dengan metadata pengirim dan cap waktu lokal.
+   - Menampilkan visualisasi *Journey Lite* (*Awalnya... Kemudian... Akhirnya...*) jika tersedia.
+   - Signature verifikasi admin dengan nama validator dan tanggal persetujuan.
+   - Deep-linking interaktif "Buka di percakapan asli →" dan "Buka Forum Asli" yang langsung menavigasi pengguna ke riwayat pesan forum terkait.
+3. **Integrasi Entry Point Pengguna (`frontend/app/chat/`)**:
+   - **Status Bar (`StatusBar.tsx`)**: Menambahkan tombol aksi `🧠 Memori` pada header grup untuk akses langsung satu ketukan ke koleksi pengetahuan AI.
+   - **Drawer Topik Forum (`SubGroupListDrawer.tsx`)**: Menambahkan tombol permanen **"🧠 Arsip Memori Pengetahuan AI"** bagi seluruh anggota grup.
+   - **Banner Forum Kedaluwarsa (`page.tsx`)**: Menampilkan banner informatif otomatis saat anggota membuka forum yang telah kedaluwarsa dengan tombol **"🧠 Lihat Memori Grup →"**.
+   - **Wiring State Global (`page.tsx`)**: State `isMemoryListOpen` dan `selectedApprovedMemoryId` terhubung mulus dengan routing chat.
+
+### Test Evidence
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully in 2.4s** (Next.js 16.3.5 Turbopack, 0 TypeScript & lint error).
+- **Backend Tests (`go test -v ./...`)**: **100% PASS** di seluruh modul backend Go.
+- **Server Lifecycle**: 0 listening ports terabaikan (`ss -tulpn` bersih).
+
 
 

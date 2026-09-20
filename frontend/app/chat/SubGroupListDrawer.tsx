@@ -12,6 +12,7 @@ interface SubGroupListDrawerProps {
   onSelectSubGroup: (subGroupId: string, title: string) => void
   onOpenCreateModal: () => void
   onOpenReviewModal?: (draftId: string) => void
+  onOpenMemoryList?: () => void
   currentUserId?: string
   currentUserRole?: string
 }
@@ -49,6 +50,7 @@ export default function SubGroupListDrawer({
   onSelectSubGroup,
   onOpenCreateModal,
   onOpenReviewModal,
+  onOpenMemoryList,
   currentUserId,
   currentUserRole,
 }: SubGroupListDrawerProps) {
@@ -520,6 +522,42 @@ export default function SubGroupListDrawer({
                   }}
                 >
                   <span>➕</span> Buat Topik Forum Baru
+                </button>
+              </div>
+            )}
+
+            {/* Navigasi Arsip Memori Grup AI (Tersedia untuk seluruh anggota grup) */}
+            {onOpenMemoryList && (
+              <div style={{ padding: '12px 20px 0 20px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose()
+                    onOpenMemoryList()
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%)',
+                    border: '1px solid rgba(147, 197, 253, 0.25)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.1rem' }}>🧠</span>
+                    <span>Arsip Memori Pengetahuan AI</span>
+                  </div>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--accent-400)', fontWeight: 600 }}>
+                    Buka Arsip →
+                  </span>
                 </button>
               </div>
             )}

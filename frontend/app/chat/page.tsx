@@ -16,6 +16,8 @@ import { GroupInfoDrawer } from './GroupInfoDrawer'
 import CreateSubGroupModal from './CreateSubGroupModal'
 import SubGroupListDrawer from './SubGroupListDrawer'
 import { MemoryDraftReviewModal } from './memory/MemoryDraftReviewModal'
+import GroupMemoryListModal from './memory/GroupMemoryListModal'
+import GroupMemoryDetailModal from './memory/GroupMemoryDetailModal'
 import GroupPreviewModal from './GroupPreviewModal'
 import { ForwardMessageModal } from './ForwardMessageModal'
 import { soundManager, playOutgoingRing, playIncomingRing, stopCallSounds } from '@/lib/sound'
@@ -302,6 +304,8 @@ function ChatPageContent() {
   const [isSubGroupListOpen, setIsSubGroupListOpen] = useState(false)
   const [isCreateSubGroupOpen, setIsCreateSubGroupOpen] = useState(false)
   const [reviewDraftId, setReviewDraftId] = useState<string | null>(null)
+  const [isMemoryListOpen, setIsMemoryListOpen] = useState(false)
+  const [selectedApprovedMemoryId, setSelectedApprovedMemoryId] = useState<string | null>(null)
   const [directPreviewGroup, setDirectPreviewGroup] = useState<GroupDetails | null>(null)
   const [privateGroupDenied, setPrivateGroupDenied] = useState<{ id: string; error?: string } | null>(null)
   const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([])
@@ -2295,6 +2299,7 @@ function ChatPageContent() {
                 onOpenGroupInfo={() => setIsGroupInfoOpen(true)}
                 onOpenMemberList={() => setIsMemberListOpen(true)}
                 onOpenSubgroups={() => setIsSubGroupListOpen(true)}
+                onOpenMemoryList={() => setIsMemoryListOpen(true)}
                 onBackToParent={() => {
                   if (groupDetails?.parent_id) {
                     handleSelectRoom(groupDetails.parent_id)
@@ -2313,6 +2318,49 @@ function ChatPageContent() {
                 onPrevSearchMatch={handlePrevSearchMatch}
                 onCloseSearch={handleCloseSearch}
               />
+
+              {/* Banner Forum Expired & Akses Memori AI */}
+              {groupDetails?.parent_id && groupDetails?.status === 'expired' && (
+                <div
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderBottom: '1px solid rgba(147, 197, 253, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    fontSize: '0.82rem',
+                    color: 'var(--text-primary)',
+                    flexShrink: 0,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <span style={{ fontSize: '1.05rem' }}>🏛️</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      Topik forum ini telah kedaluwarsa & diarsipkan.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMemoryListOpen(true)}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--accent-500)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }}
+                  >
+                    🧠 Lihat Memori Grup →
+                  </button>
+                </div>
+              )}
 
               <ChatWindow
                 messages={state.messages}
@@ -2411,6 +2459,10 @@ function ChatPageContent() {
                   setIsSubGroupListOpen(false)
                   setReviewDraftId(draftId)
                 }}
+                onOpenMemoryList={() => {
+                  setIsSubGroupListOpen(false)
+                  setIsMemoryListOpen(true)
+                }}
               />
 
               {/* Modal Pembuatan Subgrup Baru */}
@@ -2424,7 +2476,7 @@ function ChatPageContent() {
                 }}
               />
 
-              {/* Modal Review Draft Memori AI */}
+              {/* Modal Review Draft Memori AI (Admin/Creator) */}
               <MemoryDraftReviewModal
                 draftId={reviewDraftId || ''}
                 isOpen={!!reviewDraftId}
@@ -2439,6 +2491,34 @@ function ChatPageContent() {
                 }}
                 onJumpToMessage={(forumId) => {
                   setReviewDraftId(null)
+                  handleSelectRoom(forumId)
+                }}
+              />
+
+              {/* Modal Linimasa Arsip Memori Grup AI (Seluruh Member) */}
+              <GroupMemoryListModal
+                isOpen={isMemoryListOpen}
+                onClose={() => setIsMemoryListOpen(false)}
+                groupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
+                groupName={parentGroupName || groupDetails?.title || 'Grup'}
+                onSelectMemory={(memoryId) => {
+                  setSelectedApprovedMemoryId(memoryId)
+                }}
+              />
+
+              {/* Modal Detail Memori Pengetahuan Terpublikasi AI */}
+              <GroupMemoryDetailModal
+                memoryId={selectedApprovedMemoryId || ''}
+                isOpen={!!selectedApprovedMemoryId}
+                onClose={() => setSelectedApprovedMemoryId(null)}
+                onJumpToMessage={(forumId) => {
+                  setSelectedApprovedMemoryId(null)
+                  setIsMemoryListOpen(false)
+                  handleSelectRoom(forumId)
+                }}
+                onOpenForumChat={(forumId) => {
+                  setSelectedApprovedMemoryId(null)
+                  setIsMemoryListOpen(false)
                   handleSelectRoom(forumId)
                 }}
               />
