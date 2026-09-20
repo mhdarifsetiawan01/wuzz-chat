@@ -1537,3 +1537,31 @@ Menghubungkan trigger kedaluwarsa forum ke antrean AI dan membangun background d
    - Menjalankan `MemoryJobWorker` secara concurrent saat booting dengan graceful shutdown terkelola.
 5. **Automated Test Suite**:
    - `subgroup_ttl_worker_test.go` & `memory_worker_test.go`: 100% PASS.
+
+---
+
+## 🚀 Milestone 10.3: Group Memory AI — AI Service Integration & Structured Output (20 September 2026)
+
+### Latar Belakang & Implementasi
+Mengintegrasikan layanan AI dan pemrosesan terstruktur untuk menyaring riwayat diskusi forum expired menjadi draft pengetahuan yang komprehensif, tahan injeksi prompt, dan terverifikasi bukti snapshot:
+1. **Definisi Kontrak & Immutable Prompt Engine (`backend/internal/ai/service.go`)**:
+   - Tipe data kontrak `MemoryGenerationInput`, `MemoryGenerationOutput`, `DecisionWithEvidence`, `JourneyPhaseInput`.
+   - System prompt immutabel dengan pembatas `[DATA DISKUSI]` untuk pencegahan prompt injection dari pesan pengguna.
+   - Interface `AIService` untuk abstraksi provider model kecerdasan buatan.
+2. **Parser JSON, Normalizer & Providers (`backend/internal/ai/provider.go`)**:
+   - `ParseStructuredOutput()` yang membersihkan markdown fence, memvalidasi JSON schema, serta menormalisasi confidence score (0.0 - 1.0).
+   - `MockAIService` untuk pengujian offline dan `GeminiProvider` untuk integrasi REST API Google Gemini (`gemini-1.5-flash`).
+   - Pabrik instansiasi `NewAIServiceFromEnv()` yang mendeteksi `GEMINI_API_KEY` / `AI_API_KEY` dengan fallback otomatis ke mock provider saat dev/test.
+3. **Pipeline Pemrosesan & Evidence Resolver (`backend/internal/ai/processor.go`)**:
+   - Implementasi `MemoryProcessor` yang memenuhi interface `worker.MemoryJobProcessor`.
+   - Mengambil hingga 1.000 riwayat pesan forum dan mengirimkannya ke AI Service.
+   - Resolusi bukti snapshot pesan (`message_preview` max 200 karakter, `message_sender_name`, dan `message_sent_at`) yang memastikan integritas bukti keputusan meskipun pesan asli dihapus (`delete for everyone`).
+   - Menyimpan seluruh artefak (Summary, Decisions + Evidences, Journey Lite) secara atomik ke dalam `MemoryDraft` berstatus `pending_review`.
+4. **Wiring System & Test Suite (`backend/main.go` & `backend/internal/ai/service_test.go`)**:
+   - Menghubungkan `MemoryProcessor` ke `MemoryJobWorker` via `memoryWorker.SetProcessor(memoryProcessor)`.
+   - Pengujian unit dan full pipeline (`service_test.go`) lulus 100%.
+
+### Test Evidence
+- **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh unit, store, worker, broker, api, dan ai package.
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
+

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bms-del112/wuzz-chat/internal/ai"
 	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/broker"
@@ -122,7 +123,10 @@ func main() {
 
 	// Inisialisasi Group Memory AI Background Job Worker (15 detik interval)
 	if memoryStore != nil {
+		aiService := ai.NewAIServiceFromEnv()
+		memoryProcessor := ai.NewMemoryProcessor(memoryStore, messageStore, groupStore, aiService)
 		memoryWorker := worker.NewMemoryJobWorker(memoryStore, messageStore, 15*time.Second)
+		memoryWorker.SetProcessor(memoryProcessor)
 		memoryWorker.Start()
 		defer memoryWorker.Stop()
 	}

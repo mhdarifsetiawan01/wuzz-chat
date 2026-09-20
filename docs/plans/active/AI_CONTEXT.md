@@ -2,11 +2,12 @@
 
 - **Repository**: wuzz-chat
 - **Branch**: feature/group-memory-ai
-- **Feature**: Group Memory AI — Milestone 2 (Job Queue & Expiry Trigger)
-- **Active Task**: M2 Job Queue Worker & SubGroup TTL Trigger Integration
+- **Feature**: Group Memory AI — Milestone 3 (AI Service Integration & Structured Output)
+- **Active Task**: M3 AI Engine, Prompt Builder, JSON Contract, Evidence Resolver & Draft Pipeline
 - **Constraints**:
   - Work strictly on branch `feature/group-memory-ai`.
-  - Non-blocking asynchronous worker (goroutine daemon).
-  - PostgreSQL `FOR UPDATE SKIP LOCKED` / SQLite atomic claim concurrency safety.
-  - Integration with existing `SubGroupTTLWorker` without breaking current auto-purge logic.
-  - Zero disruption to real-time chat throughput.
+  - Strict Group-Scoped data isolation.
+  - Limit 1.000 messages with `was_truncated` flag if exceeded.
+  - Strict Boundary `[DATA DISKUSI]` to prevent prompt injection.
+  - Evidence snapshot isolation (withstand message deletion).
+  - Pluggable AI provider interface with Mock provider for offline testing and real provider support.
