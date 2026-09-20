@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { ApprovedMemoryDetail } from '@/lib/types'
 import { fetchApprovedMemoryDetail } from '@/lib/api'
 import { ConfidenceBadge } from './ConfidenceBadge'
@@ -73,7 +74,7 @@ export function GroupMemoryDetailModal({
     }
   }
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-[1000] flex items-center justify-center p-0 sm:p-4 transition-opacity"
       style={{
@@ -364,6 +365,11 @@ export function GroupMemoryDetailModal({
       </div>
     </div>
   )
+
+  // Render ke document.body via portal agar tidak terpotong oleh
+  // stacking context parent (.chat-main-pane: overflow:hidden + position:relative)
+  if (typeof document === 'undefined') return null
+  return createPortal(modalContent, document.body)
 }
 
 export default GroupMemoryDetailModal

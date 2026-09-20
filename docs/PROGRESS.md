@@ -1720,5 +1720,28 @@ Menyempurnakan keandalan operasional, fleksibilitas integrasi, serta kecepatan r
 
 
 
+---
+
+## 🐛 Bug Fix: Modal Memori Terpotong di Mobile & Banner Draft Tidak Muncul (20 September 2026)
+
+### Bug 1 — Banner "Draft Siap Direview" tidak muncul untuk Admin
+- **Isu**: Setelah forum expired dan AI memproses draft, banner review di `SubGroupListDrawer` tidak muncul meskipun draft sudah ada di database.
+- **Root Cause**: `canCreateTopic` dipakai di dalam `useCallback` tapi tidak masuk dependency array `[parentGroupId]` → fetch draft tidak pernah dipicu ulang saat role user ter-load setelah render pertama.
+- **Solusi**: Pisahkan fetch draft dari `fetchSubgroups` ke `useEffect` tersendiri dengan dependency `[isOpen, canCreateTopic, parentGroupId]` agar reaktif terhadap perubahan role. Juga reset `memoryDrafts` saat drawer ditutup.
+- **File**: [`frontend/app/chat/SubGroupListDrawer.tsx`](../frontend/app/chat/SubGroupListDrawer.tsx)
+
+### Bug 2 — Modal "Arsip Memori" terpotong/berantakan di mobile
+- **Isu**: Saat klik "Buka Arsip →", modal `GroupMemoryListModal` muncul hanya setengah layar dan tidak punya overlay penuh di mobile.
+- **Root Cause**: `.chat-main-pane` di CSS memiliki `overflow: hidden` + `position: relative` + `z-index: 10` → menciptakan **stacking context baru** yang menjebak `position: fixed` child. Modal `fixed inset-0` menjadi relatif terhadap container, bukan viewport.
+- **Solusi**: Gunakan `createPortal(modalContent, document.body)` di ketiga modal memory (`GroupMemoryListModal`, `GroupMemoryDetailModal`, `MemoryDraftReviewModal`) agar di-render langsung ke `<body>`, bebas dari stacking context parent.
+- **Files**: `frontend/app/chat/memory/GroupMemoryListModal.tsx`, `GroupMemoryDetailModal.tsx`, `MemoryDraftReviewModal.tsx`
+
+### Bug 3 — Drawer & modal terbuka bersamaan (visual clash)
+- **Isu**: Saat klik "Buka Arsip" atau "Review →" di drawer, drawer dan modal tampil bersamaan sebelum animasi tutup selesai.
+- **Solusi**: Tambah `setTimeout(..., 300ms)` di handler `onOpenMemoryList` dan `onOpenReviewModal` di `page.tsx` agar drawer selesai animasi menutup sebelum modal terbuka.
+- **File**: [`frontend/app/chat/page.tsx`](../frontend/app/chat/page.tsx)
+
+### Test Evidence
+- `npm run build` (Turbopack Next.js 16) lulus ✅ — 0 TypeScript error, 0 kompilasi error.
 
 

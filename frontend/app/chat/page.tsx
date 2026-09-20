@@ -2465,11 +2465,13 @@ function ChatPageContent() {
                 }}
                 onOpenReviewModal={(draftId) => {
                   setIsSubGroupListOpen(false)
-                  setReviewDraftId(draftId)
+                  // Delay untuk beri waktu drawer menutup sebelum modal terbuka
+                  setTimeout(() => setReviewDraftId(draftId), 300)
                 }}
                 onOpenMemoryList={() => {
                   setIsSubGroupListOpen(false)
-                  setIsMemoryListOpen(true)
+                  // Delay untuk beri waktu drawer menutup sebelum modal terbuka
+                  setTimeout(() => setIsMemoryListOpen(true), 300)
                 }}
               />
 
