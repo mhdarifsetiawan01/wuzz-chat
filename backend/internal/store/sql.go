@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,11 +29,39 @@ func NewSQLMessageStore(driverName, dataSourceName string) (*SQLMessageStore, er
 		return nil, fmt.Errorf("gagal membuka database (%s): %w", driverName, err)
 	}
 
-	// Konfigurasi connection pool yang optimal dan aman (kompatibel dengan Supabase & SQLite)
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(10)
-	db.SetConnMaxLifetime(5 * time.Minute)
-	db.SetConnMaxIdleTime(2 * time.Minute)
+	// Konfigurasi connection pool yang dapat disetel via Environment Variable (Default aman untuk Supabase Free & Pro Tier)
+	maxOpen := 25
+	if v := os.Getenv("DB_MAX_OPEN_CONNS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxOpen = n
+		}
+	}
+
+	maxIdle := 10
+	if v := os.Getenv("DB_MAX_IDLE_CONNS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxIdle = n
+		}
+	}
+
+	maxLifetime := 5 * time.Minute
+	if v := os.Getenv("DB_CONN_MAX_LIFETIME_MINUTES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxLifetime = time.Duration(n) * time.Minute
+		}
+	}
+
+	maxIdleTime := 2 * time.Minute
+	if v := os.Getenv("DB_CONN_MAX_IDLE_TIME_MINUTES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxIdleTime = time.Duration(n) * time.Minute
+		}
+	}
+
+	db.SetMaxOpenConns(maxOpen)
+	db.SetMaxIdleConns(maxIdle)
+	db.SetConnMaxLifetime(maxLifetime)
+	db.SetConnMaxIdleTime(maxIdleTime)
 
 	if driverName == "sqlite" {
 		_, _ = db.Exec("PRAGMA journal_mode=WAL;")

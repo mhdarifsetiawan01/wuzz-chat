@@ -137,9 +137,21 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Inisialisasi Dual-Tier Rate Limiter untuk Auth Endpoint
-	// - Layer 1 (IP Limit): 100 request / menit per IP (mencegah DDoS & aman untuk WiFi/NAT kantor)
-	// - Layer 2 (User Limit): 15 request / menit per username (mencegah brute-force akun spesifik)
-	authLimiter := auth.NewDualTierRateLimiter(100, 15, 1*time.Minute)
+	// - Layer 1 (IP Limit): Default 100 request / menit per IP (dapat diubah via AUTH_RATE_LIMIT_IP)
+	// - Layer 2 (User Limit): Default 15 request / menit per username (dapat diubah via AUTH_RATE_LIMIT_USER)
+	authRateLimitIP := 100
+	if v := os.Getenv("AUTH_RATE_LIMIT_IP"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			authRateLimitIP = n
+		}
+	}
+	authRateLimitUser := 15
+	if v := os.Getenv("AUTH_RATE_LIMIT_USER"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			authRateLimitUser = n
+		}
+	}
+	authLimiter := auth.NewDualTierRateLimiter(authRateLimitIP, authRateLimitUser, 1*time.Minute)
 
 	// Helper CORS Middleware untuk REST API
 	withCORS := func(h http.HandlerFunc) http.HandlerFunc {
