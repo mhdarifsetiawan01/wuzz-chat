@@ -37,22 +37,22 @@ export function SummaryReviewCard({ artifact, onSaveContent }: SummaryReviewCard
   }
 
   return (
-    <div
-      className="p-4 rounded-xl transition-all"
-      style={{
-        backgroundColor: 'var(--bg-surface)',
-        border: '1px solid var(--border-default)',
-      }}
-    >
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold tracking-wide uppercase" style={{ color: 'var(--accent-400)' }}>
+    <div className="memory-review-card">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--accent-400)' }}>
             📌 Ringkasan Diskusi
           </span>
           {artifact.is_human_edited && (
             <span
-              className="text-[11px] px-2 py-0.5 rounded-md font-medium"
-              style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-300)' }}
+              style={{
+                fontSize: '0.7rem',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontWeight: 500,
+                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                color: 'var(--accent-300)',
+              }}
             >
               Telah Disunting
             </span>
@@ -62,29 +62,21 @@ export function SummaryReviewCard({ artifact, onSaveContent }: SummaryReviewCard
       </div>
 
       {isEditing ? (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <textarea
             value={draftContent}
             onChange={(e) => setDraftContent(e.target.value)}
             rows={4}
-            className="w-full p-3 rounded-lg text-sm resize-y transition-all focus:outline-none"
-            style={{
-              backgroundColor: 'var(--bg-base)',
-              border: '1px solid var(--accent-500)',
-              color: 'var(--text-primary)',
-            }}
+            className="memory-textarea"
             placeholder="Tulis ringkasan diskusi yang telah dikurasi..."
           />
-          <div className="flex items-center justify-end gap-2">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
             <button
               type="button"
               onClick={handleCancel}
               disabled={isSaving}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              style={{
-                backgroundColor: 'var(--bg-tertiary)',
-                color: 'var(--text-secondary)',
-              }}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
             >
               Batal
             </button>
@@ -92,11 +84,8 @@ export function SummaryReviewCard({ artifact, onSaveContent }: SummaryReviewCard
               type="button"
               onClick={handleSave}
               disabled={isSaving || !draftContent.trim()}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
-              style={{
-                backgroundColor: 'var(--accent-500)',
-                color: 'var(--text-inverse)',
-              }}
+              className="btn btn-primary"
+              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
             >
               {isSaving ? 'Menyimpan...' : 'Simpan Suntingan'}
             </button>
@@ -104,15 +93,26 @@ export function SummaryReviewCard({ artifact, onSaveContent }: SummaryReviewCard
         </div>
       ) : (
         <div>
-          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>
+          <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
             {artifact.content}
           </p>
-          <div className="mt-3 flex justify-end">
+          <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className="text-xs flex items-center gap-1 font-medium transition-colors px-2 py-1 rounded hover:bg-slate-800/50"
-              style={{ color: 'var(--accent-400)' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '0.78rem',
+                fontWeight: 500,
+                color: 'var(--accent-400)',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
             >
               ✏ Sunting Ringkasan
             </button>
@@ -160,28 +160,39 @@ export function DecisionReviewCard({
   }
 
   return (
-    <div
-      className="p-4 rounded-xl transition-all space-y-3"
-      style={{
-        backgroundColor: 'var(--bg-surface)',
-        border: '1px solid var(--border-default)',
-      }}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <div className="memory-review-card">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
-            className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-            style={{ backgroundColor: 'var(--accent-500)', color: 'var(--text-inverse)' }}
+            style={{
+              width: '22px',
+              height: '22px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              backgroundColor: 'var(--accent-500)',
+              color: 'var(--text-on-accent)',
+              flexShrink: 0,
+            }}
           >
             {index}
           </span>
-          <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-primary)' }}>
             Poin Keputusan #{index}
           </span>
           {artifact.is_human_edited && (
             <span
-              className="text-[11px] px-2 py-0.5 rounded-md font-medium"
-              style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-300)' }}
+              style={{
+                fontSize: '0.7rem',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontWeight: 500,
+                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                color: 'var(--accent-300)',
+              }}
             >
               Telah Disunting
             </span>
@@ -191,20 +202,15 @@ export function DecisionReviewCard({
       </div>
 
       {isEditing ? (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <textarea
             value={draftContent}
             onChange={(e) => setDraftContent(e.target.value)}
             rows={3}
-            className="w-full p-3 rounded-lg text-sm resize-y transition-all focus:outline-none"
-            style={{
-              backgroundColor: 'var(--bg-base)',
-              border: '1px solid var(--accent-500)',
-              color: 'var(--text-primary)',
-            }}
+            className="memory-textarea"
             placeholder="Tulis revisi keputusan..."
           />
-          <div className="flex items-center justify-end gap-2">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
             <button
               type="button"
               onClick={() => {
@@ -212,8 +218,8 @@ export function DecisionReviewCard({
                 setIsEditing(false)
               }}
               disabled={isSaving}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
             >
               Batal
             </button>
@@ -221,23 +227,33 @@ export function DecisionReviewCard({
               type="button"
               onClick={handleSave}
               disabled={isSaving || !draftContent.trim()}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              style={{ backgroundColor: 'var(--accent-500)', color: 'var(--text-inverse)' }}
+              className="btn btn-primary"
+              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
             >
               {isSaving ? 'Menyimpan...' : 'Simpan'}
             </button>
           </div>
         </div>
       ) : (
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+          <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.5, color: 'var(--text-primary)' }}>
             {artifact.content}
           </p>
           <button
             type="button"
             onClick={() => setIsEditing(true)}
-            className="text-xs font-medium whitespace-nowrap px-2 py-1 rounded transition-colors hover:bg-slate-800/50 flex-shrink-0"
-            style={{ color: 'var(--accent-400)' }}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '0.78rem',
+              fontWeight: 500,
+              color: 'var(--accent-400)',
+              cursor: 'pointer',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
+            }}
           >
             ✏ Sunting
           </button>
@@ -246,40 +262,38 @@ export function DecisionReviewCard({
 
       {/* Evidence Snapshot Block */}
       {artifact.evidences && artifact.evidences.length > 0 && (
-        <div className="pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-          <div className="text-xs font-medium mb-2 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+        <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <span>🔍 Bukti Sumber Pesan Diskusi:</span>
           </div>
-          <div className="space-y-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {artifact.evidences.map((ev, evIdx) => (
-              <div
-                key={ev.id || evIdx}
-                className="p-2.5 rounded-lg text-xs space-y-1"
-                style={{
-                  backgroundColor: 'rgba(15, 23, 42, 0.65)',
-                  borderLeft: '3px solid var(--accent-500)',
-                  border: '1px solid var(--border-subtle)',
-                  borderLeftWidth: '3px',
-                }}
-              >
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-semibold" style={{ color: 'var(--accent-300)' }}>
+              <div key={ev.id || evIdx} className="memory-evidence-item">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--accent-300)' }}>
                     👤 {ev.message_sender_name}
                   </span>
                   <span style={{ color: 'var(--text-muted)' }}>
                     {ev.message_sent_at ? new Date(ev.message_sent_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : ''}
                   </span>
                 </div>
-                <p className="italic text-xs leading-normal" style={{ color: 'var(--text-secondary)' }}>
+                <p style={{ margin: 0, fontStyle: 'italic', fontSize: '0.78rem', lineHeight: 1.4, color: 'var(--text-secondary)' }}>
                   &ldquo;{ev.message_preview}&rdquo;
                 </p>
                 {onJumpToMessage && ev.message_id && (
-                  <div className="flex justify-end pt-1">
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '4px' }}>
                     <button
                       type="button"
                       onClick={() => onJumpToMessage(forumId, ev.message_id)}
-                      className="text-[11px] font-medium hover:underline flex items-center gap-1"
-                      style={{ color: 'var(--accent-400)' }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--accent-400)',
+                        fontSize: '0.74rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
                     >
                       Buka di diskusi asli →
                     </button>
@@ -354,22 +368,22 @@ export function JourneyLiteReviewCard({
   }
 
   return (
-    <div
-      className="p-4 rounded-xl transition-all space-y-3"
-      style={{
-        backgroundColor: 'var(--bg-surface)',
-        border: '1px solid var(--border-default)',
-      }}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--accent-secondary)' }}>
+    <div className="memory-review-card">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--accent-400)' }}>
             🧭 Perjalanan Diskusi (Journey Lite)
           </span>
           {artifact.is_human_edited && (
             <span
-              className="text-[11px] px-2 py-0.5 rounded-md font-medium"
-              style={{ backgroundColor: 'rgba(59, 130, 246, 0.15)', color: 'var(--accent-300)' }}
+              style={{
+                fontSize: '0.7rem',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontWeight: 500,
+                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                color: 'var(--accent-300)',
+              }}
             >
               Telah Disunting
             </span>
@@ -379,20 +393,15 @@ export function JourneyLiteReviewCard({
       </div>
 
       {isEditing ? (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <textarea
             value={draftContent}
             onChange={(e) => setDraftContent(e.target.value)}
             rows={4}
-            className="w-full p-3 rounded-lg text-sm resize-y transition-all focus:outline-none"
-            style={{
-              backgroundColor: 'var(--bg-base)',
-              border: '1px solid var(--accent-secondary)',
-              color: 'var(--text-primary)',
-            }}
+            className="memory-textarea"
             placeholder="Tulis revisi linimasa perjalanan diskusi..."
           />
-          <div className="flex items-center justify-end gap-2">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
             <button
               type="button"
               onClick={() => {
@@ -400,8 +409,8 @@ export function JourneyLiteReviewCard({
                 setIsEditing(false)
               }}
               disabled={isSaving}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
             >
               Batal
             </button>
@@ -409,55 +418,87 @@ export function JourneyLiteReviewCard({
               type="button"
               onClick={handleSave}
               disabled={isSaving || !draftContent.trim()}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-              style={{ backgroundColor: 'var(--accent-500)', color: 'var(--text-inverse)' }}
+              className="btn btn-primary"
+              style={{ fontSize: '0.78rem', padding: '6px 14px' }}
             >
               {isSaving ? 'Menyimpan...' : 'Simpan'}
             </button>
           </div>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {isParsedJSON ? (
-            <div className="space-y-2 text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                fontSize: '0.85rem',
+                lineHeight: 1.5,
+                color: 'var(--text-primary)',
+              }}
+            >
               {initially && (
                 <div>
-                  <span className="font-semibold text-xs text-sky-400">Awalnya: </span>
+                  <span style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--color-info)' }}>Awalnya: </span>
                   <span>{initially}</span>
                 </div>
               )}
               {then && (
                 <div>
-                  <span className="font-semibold text-xs text-indigo-400">Kemudian: </span>
+                  <span style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--accent-400)' }}>Kemudian: </span>
                   <span>{then}</span>
                 </div>
               )}
               {finally_ && (
                 <div>
-                  <span className="font-semibold text-xs text-emerald-400">Akhirnya: </span>
+                  <span style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--color-success)' }}>Akhirnya: </span>
                   <span>{finally_}</span>
                 </div>
               )}
             </div>
           ) : (
-            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>
+            <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.6, whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
               {artifact.content}
             </p>
           )}
 
-          <div className="mt-3 pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div style={{ marginTop: '4px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button
               type="button"
               onClick={() => setShowConfirmRemove(true)}
-              className="text-xs font-medium flex items-center gap-1 transition-colors px-2 py-1 rounded text-rose-400 hover:bg-rose-500/10"
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '0.78rem',
+                fontWeight: 500,
+                color: 'var(--color-error)',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
             >
               🗑 Hapus dari Memori
             </button>
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className="text-xs font-medium transition-colors px-2 py-1 rounded hover:bg-slate-800/50"
-              style={{ color: 'var(--accent-400)' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '0.78rem',
+                fontWeight: 500,
+                color: 'var(--accent-400)',
+                cursor: 'pointer',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
             >
               ✏ Sunting Alur
             </button>
@@ -468,25 +509,31 @@ export function JourneyLiteReviewCard({
       {/* Confirmation Dialog to Remove Journey */}
       {showConfirmRemove && (
         <div
-          className="p-3 rounded-lg border mt-2 space-y-2 text-xs"
           style={{
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            borderColor: 'rgba(239, 68, 68, 0.3)',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            backgroundColor: 'var(--tint-error-15)',
+            marginTop: '8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            fontSize: '0.8rem',
           }}
         >
-          <p className="font-semibold" style={{ color: 'var(--color-danger)' }}>
+          <p style={{ fontWeight: 600, color: 'var(--color-error)', margin: 0 }}>
             Hapus Perjalanan Diskusi dari Memori Permanen?
           </p>
-          <p style={{ color: 'var(--text-secondary)' }}>
+          <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.76rem', lineHeight: 1.4 }}>
             Bagian ini tidak akan ditampilkan pada kartu memori grup bagi anggota. Ringkasan dan poin keputusan tetap disimpan.
           </p>
-          <div className="flex justify-end gap-2 pt-1">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '4px' }}>
             <button
               type="button"
               onClick={() => setShowConfirmRemove(false)}
               disabled={isRemoving}
-              className="px-2.5 py-1 rounded text-xs font-medium"
-              style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.75rem', padding: '4px 10px' }}
             >
               Batal
             </button>
@@ -494,8 +541,14 @@ export function JourneyLiteReviewCard({
               type="button"
               onClick={handleConfirmRemove}
               disabled={isRemoving}
-              className="px-2.5 py-1 rounded text-xs font-medium transition-colors"
-              style={{ backgroundColor: 'var(--color-danger)', color: '#ffffff' }}
+              className="btn"
+              style={{
+                fontSize: '0.75rem',
+                padding: '4px 12px',
+                backgroundColor: 'var(--color-danger)',
+                color: '#ffffff',
+                fontWeight: 600,
+              }}
             >
               {isRemoving ? 'Menghapus...' : 'Ya, Hapus Bagian Ini'}
             </button>
@@ -513,16 +566,18 @@ export function JourneyLiteReviewCard({
 export function JourneyLiteSkippedCard() {
   return (
     <div
-      className="p-3.5 rounded-xl border text-xs"
       style={{
+        padding: '14px 16px',
+        borderRadius: '12px',
+        border: '1px solid var(--border-subtle)',
         backgroundColor: 'rgba(15, 23, 42, 0.4)',
-        borderColor: 'var(--border-subtle)',
+        fontSize: '0.8rem',
         color: 'var(--text-muted)',
       }}
     >
-      <div className="flex items-center gap-2">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <span>ℹ️</span>
-        <span className="italic">
+        <span style={{ fontStyle: 'italic', lineHeight: 1.4 }}>
           Perjalanan diskusi dilewati oleh AI karena forum berlangsung singkat dengan konsensus cepat tanpa perdebatan opsi.
         </span>
       </div>

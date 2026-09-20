@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { usePortalTarget } from '@/lib/usePortalTarget'
 import { MemoryDraftDetail, MemoryArtifactItem } from '@/lib/types'
 import {
   fetchMemoryDraftDetail,
@@ -34,6 +35,7 @@ export function MemoryDraftReviewModal({
   onRejected,
   onJumpToMessage,
 }: MemoryDraftReviewModalProps) {
+  const portalTarget = usePortalTarget()
   const [draft, setDraft] = useState<MemoryDraftDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
@@ -174,94 +176,129 @@ export function MemoryDraftReviewModal({
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center p-0 sm:p-4 transition-opacity"
-      style={{
-        backgroundColor: 'rgba(9, 13, 22, 0.85)',
-        backdropFilter: 'blur(8px)',
-      }}
+      className="group-modal-backdrop z-modal"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="draft-review-title"
     >
       <div
-        className="w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-2xl flex flex-col rounded-none sm:rounded-2xl overflow-hidden shadow-2xl transition-all"
-        style={{
-          backgroundColor: 'var(--bg-base)',
-          border: '1px solid var(--border-default)',
-        }}
+        className="group-modal-card"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 680, maxHeight: '90vh', padding: 0 }}
       >
-        {/* Sticky Header */}
-        <div
-          className="sticky top-0 z-20 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between border-b flex-shrink-0"
-          style={{
-            backgroundColor: 'var(--bg-surface)',
-            borderColor: 'var(--border-default)',
-            backdropFilter: 'blur(12px)',
-          }}
-        >
-          <div className="flex items-center gap-3 min-w-0">
+        {/* Header Modal */}
+        <div className="group-modal-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 -ml-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-primary)',
+                fontSize: '1.25rem',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                flexShrink: 0,
+              }}
               title="Kembali"
+              aria-label="Kembali"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
+              ←
             </button>
-            <div className="min-w-0">
-              <h2 className="text-base font-bold truncate flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <div style={{ minWidth: 0 }}>
+              <h2
+                id="draft-review-title"
+                style={{
+                  margin: 0,
+                  fontSize: '1.05rem',
+                  fontWeight: 600,
+                  color: 'var(--text-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 <span>🧠 Review Memori AI Forum</span>
                 {hasEdits && (
                   <span
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: 'var(--color-warning)' }}
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                      padding: '2px 7px',
+                      borderRadius: '9999px',
+                      backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                      color: 'var(--color-warning)',
+                    }}
                   >
                     Ada Suntingan
                   </span>
                 )}
               </h2>
-              <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+              <span
+                style={{
+                  fontSize: '0.78rem',
+                  color: 'var(--text-muted)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  display: 'block',
+                }}
+              >
                 {draft?.forum_title || 'Memvalidasi Keputusan Forum'}
-              </p>
+              </span>
             </div>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="text-xs px-2.5 py-1 rounded-lg font-medium transition-colors"
-            style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+            className="group-modal-close-btn"
+            aria-label="Tutup review memori"
           >
-            Tutup
+            ✕
           </button>
         </div>
 
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        <div
+          className="group-modal-body"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            padding: '20px',
+          }}
+        >
           {isLoading ? (
-            <div className="py-16 text-center space-y-3">
-              <div
-                className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto"
-                style={{ borderColor: 'var(--accent-500)', borderTopColor: 'transparent' }}
-              />
-              <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                Memuat draft ringkasan memori...
-              </p>
+            <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div className="spinner" style={{ margin: '0 auto 12px' }} />
+              <p style={{ fontSize: '0.85rem', margin: 0 }}>Memuat draft ringkasan memori...</p>
             </div>
           ) : errorMessage ? (
             <div
-              className="p-4 rounded-xl border text-sm space-y-2"
               style={{
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                borderColor: 'rgba(239, 68, 68, 0.3)',
-                color: 'var(--color-danger)',
+                backgroundColor: 'var(--tint-error-15)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: 'var(--color-error)',
+                padding: '14px 16px',
+                borderRadius: '12px',
+                fontSize: '0.85rem',
               }}
             >
-              <p className="font-semibold">Terjadi Kesalahan</p>
-              <p className="text-xs">{errorMessage}</p>
+              <p style={{ fontWeight: 600, margin: '0 0 4px' }}>Terjadi Kesalahan</p>
+              <p style={{ margin: '0 0 10px', fontSize: '0.8rem' }}>{errorMessage}</p>
               <button
                 type="button"
                 onClick={loadDraft}
-                className="text-xs underline font-medium"
+                className="btn btn-secondary"
+                style={{ fontSize: '0.75rem', padding: '4px 10px' }}
               >
                 Coba lagi
               </button>
@@ -342,38 +379,42 @@ export function MemoryDraftReviewModal({
           ) : null}
         </div>
 
-        {/* Sticky Action Bar */}
+        {/* Action Bar Footer */}
         {draft && !isLoading && (
           <div
-            className="sticky bottom-0 z-20 px-4 py-3 sm:px-6 sm:py-3.5 border-t flex items-center justify-between gap-2 flex-shrink-0"
+            className="group-modal-footer"
             style={{
-              backgroundColor: 'var(--bg-surface)',
-              borderColor: 'var(--border-default)',
-              backdropFilter: 'blur(12px)',
-              paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))',
+              padding: '14px 20px',
+              paddingBottom: 'max(14px, env(safe-area-inset-bottom, 0px))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
+              flexWrap: 'wrap',
             }}
           >
             <button
               type="button"
               onClick={() => setShowRejectModal(true)}
               disabled={isSubmitting}
-              className="px-3 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 text-rose-400 hover:bg-rose-500/10 border border-rose-500/20"
+              className="btn btn-secondary"
+              style={{
+                fontSize: '0.8rem',
+                padding: '8px 14px',
+                color: 'var(--color-error)',
+                borderColor: 'rgba(239, 68, 68, 0.3)',
+              }}
             >
-              <span>❌</span>
-              <span className="hidden sm:inline">Tolak Draft</span>
-              <span className="sm:hidden">Tolak</span>
+              <span>❌ Tolak Draft</span>
             </button>
 
-            <div className="flex items-center gap-2">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors"
-                style={{
-                  backgroundColor: 'var(--bg-tertiary)',
-                  color: 'var(--text-secondary)',
-                }}
+                className="btn btn-secondary"
+                style={{ fontSize: '0.8rem', padding: '8px 14px' }}
               >
                 Nanti Saja
               </button>
@@ -382,17 +423,21 @@ export function MemoryDraftReviewModal({
                 type="button"
                 onClick={handleApprove}
                 disabled={isSubmitting}
-                className="px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                className="btn btn-primary"
                 style={{
+                  fontSize: '0.8rem',
+                  padding: '8px 16px',
                   backgroundColor: 'var(--color-success)',
-                  color: '#ffffff',
+                  borderColor: 'var(--color-success)',
                   opacity: isSubmitting ? 0.6 : 1,
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
                 }}
               >
                 {isSubmitting ? (
                   <>
-                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
                     <span>Mempublikasikan...</span>
                   </>
                 ) : (
@@ -410,50 +455,45 @@ export function MemoryDraftReviewModal({
       {/* Modal Dialog Konfirmasi Tolak */}
       {showRejectModal && (
         <div
-          className="fixed inset-0 z-[1100] flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)' }}
+          className="group-modal-backdrop"
+          style={{ zIndex: 'var(--z-modal-top)' as any, backgroundColor: 'rgba(0, 0, 0, 0.82)' }}
+          onClick={() => !isRejecting && setShowRejectModal(false)}
         >
           <div
-            className="w-full max-w-md p-5 rounded-2xl border space-y-4 shadow-2xl"
-            style={{
-              backgroundColor: 'var(--bg-base)',
-              borderColor: 'var(--border-default)',
-            }}
+            className="group-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 440, padding: '20px', gap: '14px' }}
           >
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-rose-400 flex items-center gap-2">
-                <span>⚠️ Tolak Draft Memori AI?</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--color-error)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>⚠️</span> Tolak Draft Memori AI?
               </h3>
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                 Draft ini akan ditolak dan tidak akan dipublikasikan ke memori grup. Tindakan ini tidak dapat dibatalkan.
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)' }}>
                 Alasan Penolakan (Opsional):
               </label>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 rows={3}
-                className="w-full p-2.5 rounded-lg text-xs resize-none focus:outline-none"
-                style={{
-                  backgroundColor: 'var(--bg-surface)',
-                  border: '1px solid var(--border-default)',
-                  color: 'var(--text-primary)',
-                }}
+                className="group-form-textarea"
+                style={{ fontSize: '0.82rem', resize: 'none' }}
                 placeholder="Misal: Diskusi tidak konklusif atau tidak relevan untuk grup..."
               />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)' }}>
               <button
                 type="button"
                 onClick={() => setShowRejectModal(false)}
                 disabled={isRejecting}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium"
-                style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}
+                className="btn btn-secondary"
+                style={{ fontSize: '0.8rem', padding: '6px 12px' }}
               >
                 Batal
               </button>
@@ -461,8 +501,14 @@ export function MemoryDraftReviewModal({
                 type="button"
                 onClick={handleConfirmReject}
                 disabled={isRejecting}
-                className="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all text-white flex items-center gap-1.5"
-                style={{ backgroundColor: 'var(--color-danger)' }}
+                className="btn"
+                style={{
+                  fontSize: '0.8rem',
+                  padding: '6px 14px',
+                  backgroundColor: 'var(--color-danger)',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                }}
               >
                 {isRejecting ? 'Menolak...' : 'Ya, Tolak Draft'}
               </button>
@@ -473,8 +519,8 @@ export function MemoryDraftReviewModal({
     </div>
   )
 
-  // Render ke document.body via portal agar tidak terpotong oleh
-  // stacking context parent (.chat-main-pane: overflow:hidden + position:relative)
-  if (typeof document === 'undefined') return null
-  return createPortal(modalContent, document.body)
+  // Render ke #modal-portal-root via portal agar bebas dari
+  // stacking context parent (.chat-app-container / .chat-main-pane)
+  if (!portalTarget) return null
+  return createPortal(modalContent, portalTarget)
 }
