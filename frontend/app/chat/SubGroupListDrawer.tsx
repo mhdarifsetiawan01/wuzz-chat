@@ -70,6 +70,7 @@ export default function SubGroupListDrawer({
 
   // State untuk draft memori AI yang menunggu review (Admin/Creator)
   const [memoryDrafts, setMemoryDrafts] = useState<MemoryDraftListItem[]>([])
+  const [expiringId, setExpiringId] = useState<string | null>(null)
 
   const fetchSubgroups = useCallback(async () => {
     if (!parentGroupId) return
@@ -207,8 +208,6 @@ export default function SubGroupListDrawer({
       setRequestingId(null)
     }
   }
-
-  const [expiringId, setExpiringId] = useState<string | null>(null)
 
   const handleExpireNow = async (sub: SubGroupItem) => {
     if (!window.confirm(`Akhiri masa aktif topik "${sub.title}" sekarang untuk memicu pembuatan memori AI secara instan?`)) {

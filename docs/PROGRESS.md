@@ -1708,6 +1708,17 @@ Menyempurnakan keandalan operasional, fleksibilitas integrasi, serta kecepatan r
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
 - **Server Lifecycle**: 0 listening ports terabaikan (`fuser 8080/tcp 3000/tcp` bersih).
 
+---
+
+## 🐛 Bug Fix: SubGroupListDrawer React Hooks Order Violation (20 September 2026)
+
+### Latar Belakang & Perbaikan
+- **Isu**: Mengklik tombol `🏛️ Forum` di status bar menyebabkan seluruh halaman crash ke error boundary (*"This page couldn't load"*).
+- **Root Cause**: Deklarasi hook `const [expiringId, setExpiringId] = useState<string | null>(null)` berada di bawah *early return* `if (!isOpen) return null`, melanggar aturan urutan rendering React (*Rendered more hooks than during previous render*).
+- **Solusi**: Memindahkan hook `expiringId` ke puncak komponen (sebelum pengecekan `isOpen`) di [`frontend/app/chat/SubGroupListDrawer.tsx`](../frontend/app/chat/SubGroupListDrawer.tsx).
+- **Verifikasi**: `npm run build` Turbopack lulus 100% tanpa error.
+
+
 
 
 
