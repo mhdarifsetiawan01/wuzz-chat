@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -345,6 +346,15 @@ func TestAI_ProviderFactoryAndErrors(t *testing.T) {
 	if _, ok := svc.(*MockAIService); !ok {
 		t.Errorf("expected MockAIService from env")
 	}
+
+	// Test Groq provider factory
+	t.Setenv("AI_PROVIDER", "groq")
+	t.Setenv("GROQ_API_KEY", "test-groq-key")
+	t.Setenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+	groqSvc := NewAIServiceFromEnv()
+	if _, ok := groqSvc.(*GroqProvider); !ok {
+		t.Errorf("expected GroqProvider from env when AI_PROVIDER=groq")
+	}
 }
 
 func TestAI_MemoryProcessorWithPushNotification(t *testing.T) {
@@ -373,6 +383,50 @@ func TestAI_MemoryProcessorWithPushNotification(t *testing.T) {
 	completedJob, _ := memStore.GetJobByID(ctx, job.ID)
 	if completedJob.Status != store.JobStatusCompleted {
 		t.Errorf("expected completed job, got %s", completedJob.Status)
+	}
+}
+
+func TestAI_GroqProvider_Live(t *testing.T) {
+	apiKey := os.Getenv("GROQ_API_KEY")
+	if apiKey == "" {
+		t.Skip("GROQ_API_KEY tidak diset, lewati live test")
+	}
+
+	model := os.Getenv("GROQ_MODEL")
+	if model == "" {
+		model = "qwen/qwen3.8-27b"
+	}
+
+	provider := NewGroqProvider(apiKey, model)
+	input := MemoryGenerationInput{
+		ForumTitle:        "Rencana Liburan Bareng",
+		GroupTitle:        "Keluarga Besar",
+		DurationDays:      7,
+		TotalMessageCount: 4,
+		Messages: []store.StoredMessage{
+			{ID: "msg_1", Nickname: "Alice", Content: "Halo semua, bagaimana kalau kita liburan akhir tahun ke Yogyakarta?", Timestamp: time.Now().Add(-4 * time.Hour)},
+			{ID: "msg_2", Nickname: "Bob", Content: "Ide bagus! Kita bisa kunjungi Candi Borobudur dan Malioboro.", Timestamp: time.Now().Add(-3 * time.Hour)},
+			{ID: "msg_3", Nickname: "Charlie", Content: "Saya setuju ke Yogyakarta. Anggaran per orang kira-kira 1.5 juta ya.", Timestamp: time.Now().Add(-2 * time.Hour)},
+			{ID: "msg_4", Nickname: "Alice", Content: "Oke sepakat ya, tanggal 25-28 Desember kita ke Yogyakarta.", Timestamp: time.Now().Add(-1 * time.Hour)},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	output, err := provider.GenerateMemory(ctx, input)
+	if err != nil {
+		t.Fatalf("Groq GenerateMemory gagal: %v", err)
+	}
+
+	if output.Summary.Content == "" {
+		t.Errorf("Summary.Content kosong")
+	}
+	t.Logf("✅ [Live Groq Test] Summary: %s (Confidence: %s)", output.Summary.Content, output.Summary.Confidence)
+	t.Logf("✅ [Live Groq Test] Decisions (%d): %+v", len(output.Decisions), output.Decisions)
+	if !output.JourneyLite.Skipped && output.JourneyLite.Content != nil {
+		t.Logf("✅ [Live Groq Test] Journey Lite: Initially='%s', Then='%s', Finally='%s'",
+			output.JourneyLite.Content.Initially, output.JourneyLite.Content.Then, output.JourneyLite.Content.Finally)
 	}
 }
 

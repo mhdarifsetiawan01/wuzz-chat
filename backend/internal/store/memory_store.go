@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -225,13 +228,20 @@ func NewSQLMemoryStore(db *sql.DB, driverName string) *SQLMemoryStore {
 // -----------------------------------------------------------------------------
 
 func (s *SQLMemoryStore) CreateJob(ctx context.Context, forumID, groupID string) (*ForumMemoryJob, error) {
+	maxAttempts := 3
+	if envMax := strings.TrimSpace(os.Getenv("MEMORY_JOB_MAX_ATTEMPTS")); envMax != "" {
+		if val, err := strconv.Atoi(envMax); err == nil && val > 0 {
+			maxAttempts = val
+		}
+	}
+
 	job := &ForumMemoryJob{
 		ID:             uuid.New().String(),
 		ForumID:        forumID,
 		GroupID:        groupID,
 		Status:         JobStatusQueued,
 		AttemptCount:   0,
-		MaxAttempts:    3,
+		MaxAttempts:    maxAttempts,
 		IsTerminalFail: false,
 		LastError:      "",
 		MessageCount:   0,

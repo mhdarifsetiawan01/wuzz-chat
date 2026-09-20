@@ -1136,6 +1136,27 @@ Membuat topik forum / subgrup baru di bawah grup induk. Dibatasi secara ketat ha
 
 ---
 
+#### 42b. `POST /api/groups/{id}/subgroups/{subId}/expire` (Instant Expiry / Force Expire Forum)
+Mengakhiri masa aktif forum secara instan (bypass TTL) dan langsung mendaftarkan `ForumMemoryJob` ke antrean pemrosesan Group Memory AI tanpa perlu menunggu batas waktu TTL berakhir. Hanya dapat dieksekusi oleh Admin atau Creator grup induk atau Creator subgrup tersebut.
+- **Autentikasi**: `Bearer <token>` (Admin/Creator)
+- **Path Parameters**:
+  - `id`: ID grup induk (`grp_...`)
+  - `subId`: ID topik subgrup (`sub_...`)
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Forum berhasil diakhiri secara instan dan dimasukkan ke antrean Memory AI",
+    "subgroup_id": "sub_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "job_id": "job_09876543-21ba-dcfe-1098-76543210fedc"
+  }
+  ```
+- **Error Responses**:
+  - `403 Forbidden`: Pengguna bukan Admin/Creator grup induk maupun Creator subgrup
+  - `500 Internal Server Error`: Gagal memutakhirkan status atau mendaftarkan job
+
+---
+
 #### 43. `POST /api/groups/{id}/join-request`
 Mengajukan permohonan izin bergabung ke subgrup privat. Pemohon wajib anggota aktif di grup induk. Permohonan berstatus `pending` dan memicu notifikasi real-time ganda (WebSocket event `join_request` dan Web Push) khusus ke Creator subgrup dan Admin yang terdaftar sebagai anggota subgrup tersebut.
 - **Autentikasi**: `Bearer <token>` (wajib anggota grup induk)

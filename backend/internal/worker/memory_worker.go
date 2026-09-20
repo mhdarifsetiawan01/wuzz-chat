@@ -3,6 +3,9 @@ package worker
 import (
 	"context"
 	"log"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,6 +40,13 @@ func NewMemoryJobWorker(ms store.MemoryStore, msgStore store.MessageStore, inter
 		interval:     interval,
 		batchSize:    5,
 		stopCh:       make(chan struct{}),
+	}
+}
+
+// SetBatchSize mengatur jumlah job yang diambil dalam 1 batch kueri antrean.
+func (w *MemoryJobWorker) SetBatchSize(batchSize int) {
+	if batchSize > 0 {
+		w.batchSize = batchSize
 	}
 }
 
@@ -147,24 +157,32 @@ func (w *MemoryJobWorker) processSingleJob(ctx context.Context, job *store.Forum
 
 // handleJobFailure mengelola retry scheduler dan status terminal kegagalan job.
 func (w *MemoryJobWorker) handleJobFailure(ctx context.Context, job *store.ForumMemoryJob, err error) {
-	log.Printf("❌ [MemoryJobWorker] Job %s gagal: %v", job.ID, err)
-
 	isTerminal := job.AttemptCount >= job.MaxAttempts
+
+	// Cek error terminal non-retryable (misal: API key salah / 401 / 403 / unrecoverable auth)
+	errLower := strings.ToLower(err.Error())
+	if strings.Contains(errLower, "authentication failed") ||
+		strings.Contains(errLower, "invalid api key") ||
+		strings.Contains(errLower, "status 401") ||
+		strings.Contains(errLower, "status 403") {
+		isTerminal = true
+		log.Printf("🚫 [MemoryJobWorker] Job %s mengalami error autentikasi terminal (401/403). Tidak akan di-retry.", job.ID)
+	}
 	var nextRetry *time.Time
 
 	if !isTerminal {
 		var delay time.Duration
 		switch job.AttemptCount {
 		case 1:
-			delay = 30 * time.Second
+			delay = getWorkerDelayEnv("MEMORY_RETRY_DELAY_1", 30*time.Second)
 		case 2:
-			delay = 2 * time.Minute
+			delay = getWorkerDelayEnv("MEMORY_RETRY_DELAY_2", 2*time.Minute)
 		default:
-			delay = 8 * time.Minute
+			delay = getWorkerDelayEnv("MEMORY_RETRY_DELAY_3", 8*time.Minute)
 		}
 		t := time.Now().UTC().Add(delay)
 		nextRetry = &t
-		log.Printf("🔁 [MemoryJobWorker] Menjadwalkan retry job %s pada %v", job.ID, t)
+		log.Printf("🔁 [MemoryJobWorker] Menjadwalkan retry job %s pada %v (Jeda: %v)", job.ID, t, delay)
 	} else {
 		log.Printf("🚫 [MemoryJobWorker] Job %s mencapai batas maksimal percobaan (%d), ditandai terminal fail",
 			job.ID, job.MaxAttempts)
@@ -173,4 +191,17 @@ func (w *MemoryJobWorker) handleJobFailure(ctx context.Context, job *store.Forum
 	if failErr := w.memoryStore.FailJob(ctx, job.ID, err.Error(), isTerminal, nextRetry); failErr != nil {
 		log.Printf("⚠️ [MemoryJobWorker] Gagal update fail state job %s: %v", job.ID, failErr)
 	}
+}
+
+// getWorkerDelayEnv membaca konfigurasi jeda waktu retry dari environment variable (dalam detik atau string duration).
+func getWorkerDelayEnv(key string, fallback time.Duration) time.Duration {
+	if val := strings.TrimSpace(os.Getenv(key)); val != "" {
+		if sec, err := strconv.Atoi(val); err == nil && sec > 0 {
+			return time.Duration(sec) * time.Second
+		}
+		if d, err := time.ParseDuration(val); err == nil && d > 0 {
+			return d
+		}
+	}
+	return fallback
 }

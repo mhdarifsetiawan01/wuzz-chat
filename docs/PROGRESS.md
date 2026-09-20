@@ -1679,5 +1679,35 @@ Menuntaskan seluruh rangkaian implementasi fitur Group Memory AI ("AI captures. 
 - **Backend Test Suite (`go test -v ./...`)**: **100% PASS** di seluruh modul (`internal/store`, `internal/worker`, `internal/ai`, `internal/api`, `internal/ws`, `internal/push`).
 - **Server Lifecycle**: 0 listening ports terabaikan (`ss -tulpn` bersih).
 
+---
+
+## 🚀 Milestone 10.8: Group Memory AI — Groq Provider Integration, Instant Expiry Bypass & Full Config Modularization (20 September 2026)
+
+### Latar Belakang & Implementasi
+Menyempurnakan keandalan operasional, fleksibilitas integrasi, serta kecepatan respons dari ekosistem Group Memory AI:
+1. **Groq LPU Provider Engine (`backend/internal/ai/provider.go`)**:
+   - Menambahkan implementasi `GroqProvider` yang kompatibel dengan protokol OpenAI Chat Completions dan format keluaran `response_format: {"type": "json_object"}`.
+   - Model aktif terverifikasi: `qwen/qwen3.8-27b` dengan waktu pemrosesan inferensi ~2 detik per ringkasan forum.
+   - Menambahkan dukungan URL base modular (`GROQ_BASE_URL`, `GEMINI_BASE_URL`, `AI_BASE_URL`).
+2. **Instant Expiry & TTL Bypass Flow (`backend/` & `frontend/`)**:
+   - **Database Store (`backend/internal/store/group_store.go`)**: Method `ExpireSubGroupNow(subGroupID string)` untuk memanipulasi `expires_at` ke masa lampau.
+   - **REST API (`backend/internal/api/group_handler.go`)**: Endpoint `POST /api/groups/{id}/subgroups/{subId}/expire` yang secara atomik mengunci forum dan langsung menjadwalkan `ForumMemoryJob`.
+   - **Frontend UI (`frontend/app/chat/SubGroupListDrawer.tsx`)**: Tombol aksi admin **"⚡ Akhiri & AI"** pada setiap kartu forum topik.
+3. **Pembersihan Seluruh Hardcoded Constants Menjadi Modular**:
+   - Seluruh batasan, timeout, interval, dan parameter dihubungkan ke environment variables:
+     - Hyperparameter AI: `AI_TIMEOUT_SECONDS` (default 45s), `AI_TEMPERATURE` (default 0.2).
+     - Pemrosesan Pesan: `MEMORY_MAX_MESSAGES_ANALYSIS` (default 1000), `MEMORY_EVIDENCE_MAX_PREVIEW_LEN` (default 200).
+     - Background Worker: `MEMORY_WORKER_INTERVAL_SECONDS` (default 15s), `MEMORY_JOB_BATCH_SIZE` (default 5), `MEMORY_JOB_MAX_ATTEMPTS` (default 3).
+     - Negative Error Recovery: `MEMORY_RETRY_DELAY_1` (30s), `MEMORY_RETRY_DELAY_2` (2m), `MEMORY_RETRY_DELAY_3` (8m).
+   - Pemutakhiran menyeluruh pada `backend/.env.example` dan `backend/.env`.
+4. **Verifikasi Simulasi Live End-to-End Headless**:
+   - Menjalankan simulasi penuh tanpa browser: Registrasi user, pembentukan grup, pembuatan forum, pengiriman 5 chat interaktif via WebSocket, instant expire bypass, ekstraksi AI Groq (2 decisions + snapshot evidence + summary), validasi dan publikasi admin, serta pembacaan linimasa memori oleh anggota grup.
+
+### Test Evidence
+- **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh modul backend Go.
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
+- **Server Lifecycle**: 0 listening ports terabaikan (`fuser 8080/tcp 3000/tcp` bersih).
+
+
 
 

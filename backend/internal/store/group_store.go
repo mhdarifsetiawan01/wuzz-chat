@@ -106,6 +106,7 @@ type GroupStore interface {
 	GetSubGroupAdmins(subGroupID string) ([]string, error)
 	ExpireSubGroupsBatch() (int, error)
 	ExpireSubGroupsBatchDetailed() ([]ExpiredSubGroupItem, error)
+	ExpireSubGroupNow(subGroupID string) error
 }
 
 // ExpiredSubGroupItem merepresentasikan forum dan parent group yang kedaluwarsa.
@@ -1569,4 +1570,21 @@ func (s *SQLUserStore) ExpireSubGroupsBatch() (int, error) {
 	list, err := s.ExpireSubGroupsBatchDetailed()
 	return len(list), err
 }
+
+// ExpireSubGroupNow mengatur expires_at suatu subgrup ke waktu lampau untuk memfasilitasi bypass TTL testing / admin force expire.
+func (s *SQLUserStore) ExpireSubGroupNow(subGroupID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	past := time.Now().UTC().Add(-1 * time.Second)
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE conversations SET expires_at = $1 WHERE id = $2 AND parent_id IS NOT NULL AND parent_id != ''`
+	} else {
+		query = `UPDATE conversations SET expires_at = ? WHERE id = ? AND parent_id IS NOT NULL AND parent_id != ''`
+	}
+	_, err := s.db.ExecContext(ctx, query, past, subGroupID)
+	return err
+}
+
 

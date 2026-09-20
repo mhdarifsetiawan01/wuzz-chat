@@ -208,6 +208,40 @@ export default function SubGroupListDrawer({
     }
   }
 
+  const [expiringId, setExpiringId] = useState<string | null>(null)
+
+  const handleExpireNow = async (sub: SubGroupItem) => {
+    if (!window.confirm(`Akhiri masa aktif topik "${sub.title}" sekarang untuk memicu pembuatan memori AI secara instan?`)) {
+      return
+    }
+    setExpiringId(sub.id)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+    try {
+      const { error } = await apiRequest<{ status: string; message: string }>(
+        `/api/groups/${encodeURIComponent(parentGroupId)}/subgroups/${encodeURIComponent(sub.id)}/expire`,
+        {
+          method: 'POST',
+          signal: controller.signal,
+        }
+      )
+      clearTimeout(timeoutId)
+      if (error) {
+        throw new Error(error)
+      }
+      setSuccessToast(`Masa aktif topik "${sub.title}" berhasil diakhiri! AI sedang memproses memori.`)
+      setTimeout(() => setSuccessToast(''), 5000)
+      await fetchSubgroups()
+    } catch (err: unknown) {
+      clearTimeout(timeoutId)
+      const errObj = err as { message?: string }
+      alert(errObj?.message || 'Gagal mengakhiri topik forum')
+    } finally {
+      setExpiringId(null)
+    }
+  }
+
   const openReviewPanel = async (sub: SubGroupItem) => {
     setReviewSubGroup(sub)
     setIsLoadingRequests(true)
@@ -814,6 +848,32 @@ export default function SubGroupListDrawer({
                                     {sub.pending_requests_count}
                                   </span>
                                 )}
+                              </button>
+                            )}
+
+                            {/* Tombol Bypass TTL: Akhiri Forum & Proses Memori AI untuk Admin/Creator */}
+                            {canAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleExpireNow(sub)}
+                                disabled={expiringId === sub.id}
+                                title="Bypass TTL: Akhiri topik ini sekarang dan langsung buat Memori AI"
+                                style={{
+                                  background: 'var(--tint-accent-10)',
+                                  border: '1px solid rgba(99, 102, 241, 0.35)',
+                                  color: 'var(--accent-400)',
+                                  borderRadius: '6px',
+                                  padding: '2px 8px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 600,
+                                  cursor: expiringId === sub.id ? 'wait' : 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                }}
+                              >
+                                <span>⚡</span>
+                                <span>{expiringId === sub.id ? 'Memproses...' : 'Akhiri & AI'}</span>
                               </button>
                             )}
                           </div>

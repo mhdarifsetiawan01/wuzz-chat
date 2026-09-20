@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +40,24 @@ func (p *MemoryProcessor) SetPushService(ps *push.Service) {
 	p.pushService = ps
 }
 
+func getMaxMessagesAnalysis() int {
+	if v := os.Getenv("MEMORY_MAX_MESSAGES_ANALYSIS"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil && val > 0 {
+			return val
+		}
+	}
+	return 1000
+}
+
+func getEvidenceMaxPreviewLen() int {
+	if v := os.Getenv("MEMORY_EVIDENCE_MAX_PREVIEW_LEN"); v != "" {
+		if val, err := strconv.Atoi(v); err == nil && val > 0 {
+			return val
+		}
+	}
+	return 200
+}
+
 // ProcessMemoryJob mengeksekusi pipeline pembuatan draft memori lengkap untuk satu forum kedaluwarsa.
 func (p *MemoryProcessor) ProcessMemoryJob(ctx context.Context, job *store.ForumMemoryJob, messageCount int) error {
 	log.Printf("🧠 [MemoryProcessor] Memulai pemrosesan AI untuk forum %s (Grup: %s)...", job.ForumID, job.GroupID)
@@ -54,10 +74,12 @@ func (p *MemoryProcessor) ProcessMemoryJob(ctx context.Context, job *store.Forum
 		}
 	}
 
-	// 2. Ambil riwayat pesan percakapan dari forum (maksimal 1.000 pesan kronologis terurut)
+	maxMessages := getMaxMessagesAnalysis()
+
+	// 2. Ambil riwayat pesan percakapan dari forum (maksimal pesan kronologis terurut sesuai konfigurasi)
 	var rawMessages []store.StoredMessage
 	if p.messageStore != nil {
-		history, err := p.messageStore.GetRoomHistory(job.ForumID, 1000)
+		history, err := p.messageStore.GetRoomHistory(job.ForumID, maxMessages)
 		if err != nil {
 			return fmt.Errorf("gagal mengambil riwayat pesan forum: %w", err)
 		}
@@ -72,13 +94,13 @@ func (p *MemoryProcessor) ProcessMemoryJob(ctx context.Context, job *store.Forum
 		}
 	}
 
-	// Batasi maksimal 1.000 pesan (Section 5)
+	// Batasi maksimal pesan (Section 5)
 	wasTruncated := false
 	truncationNote := ""
-	if len(validMessages) > 1000 {
+	if len(validMessages) > maxMessages {
 		wasTruncated = true
-		truncationNote = fmt.Sprintf("CATATAN: Forum ini memiliki %d pesan. Analisis dibatasi ke 1.000 pesan terakhir.", len(validMessages))
-		validMessages = validMessages[len(validMessages)-1000:]
+		truncationNote = fmt.Sprintf("CATATAN: Forum ini memiliki %d pesan. Analisis dibatasi ke %d pesan terakhir.", len(validMessages), maxMessages)
+		validMessages = validMessages[len(validMessages)-maxMessages:]
 	}
 
 	// 3. Penanganan khusus jika forum kosong (< 1 pesan valid)
@@ -172,8 +194,11 @@ func (p *MemoryProcessor) ProcessMemoryJob(ctx context.Context, job *store.Forum
 
 			if origMsg, exists := msgMap[cleanID]; exists {
 				preview := strings.TrimSpace(origMsg.Content)
-				if len(preview) > 200 {
-					preview = preview[:197] + "..."
+				maxPreview := getEvidenceMaxPreviewLen()
+				if len(preview) > maxPreview && maxPreview > 3 {
+					preview = preview[:maxPreview-3] + "..."
+				} else if len(preview) > maxPreview {
+					preview = preview[:maxPreview]
 				}
 				if preview == "" && origMsg.MediaType != "" {
 					preview = fmt.Sprintf("[Lampiran: %s]", origMsg.MediaType)

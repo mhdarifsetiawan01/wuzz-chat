@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -197,6 +198,41 @@ type GeminiProvider struct {
 	httpClient *http.Client
 }
 
+func getAITimeout() time.Duration {
+	if v := os.Getenv("AI_TIMEOUT_SECONDS"); v != "" {
+		if sec, err := strconv.Atoi(v); err == nil && sec > 0 {
+			return time.Duration(sec) * time.Second
+		}
+	}
+	return 45 * time.Second
+}
+
+func getAITemperature() float64 {
+	if v := os.Getenv("AI_TEMPERATURE"); v != "" {
+		if val, err := strconv.ParseFloat(v, 64); err == nil && val >= 0.0 && val <= 2.0 {
+			return val
+		}
+	}
+	return 0.2
+}
+
+func getGeminiBaseURL() string {
+	if v := strings.TrimSpace(os.Getenv("GEMINI_BASE_URL")); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	return "https://generativelanguage.googleapis.com/v1beta/models"
+}
+
+func getGroqBaseURL() string {
+	if v := strings.TrimSpace(os.Getenv("GROQ_BASE_URL")); v != "" {
+		return v
+	}
+	if v := strings.TrimSpace(os.Getenv("AI_BASE_URL")); v != "" {
+		return v
+	}
+	return "https://api.groq.com/openai/v1/chat/completions"
+}
+
 // NewGeminiProvider membuat instance GeminiProvider.
 func NewGeminiProvider(apiKey string, model string) *GeminiProvider {
 	if model == "" {
@@ -206,7 +242,7 @@ func NewGeminiProvider(apiKey string, model string) *GeminiProvider {
 		apiKey: apiKey,
 		model:  model,
 		httpClient: &http.Client{
-			Timeout: 45 * time.Second,
+			Timeout: getAITimeout(),
 		},
 	}
 }
@@ -244,7 +280,7 @@ type geminiResponse struct {
 }
 
 func (g *GeminiProvider) GenerateMemory(ctx context.Context, input MemoryGenerationInput) (*MemoryGenerationOutput, error) {
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", g.model, g.apiKey)
+	url := fmt.Sprintf("%s/%s:generateContent?key=%s", getGeminiBaseURL(), g.model, g.apiKey)
 
 	userPrompt := BuildUserPrompt(input)
 
@@ -259,7 +295,7 @@ func (g *GeminiProvider) GenerateMemory(ctx context.Context, input MemoryGenerat
 			},
 		},
 	}
-	reqBody.GenerationConfig.Temperature = 0.2
+	reqBody.GenerationConfig.Temperature = getAITemperature()
 	reqBody.GenerationConfig.ResponseMimeType = "application/json"
 
 	bodyBytes, err := json.Marshal(reqBody)
@@ -311,8 +347,125 @@ func (g *GeminiProvider) GenerateMemory(ctx context.Context, input MemoryGenerat
 	return ParseStructuredOutput(rawText)
 }
 
+// -----------------------------------------------------------------------------
+// Groq / LPU Provider (OpenAI-Compatible API)
+// -----------------------------------------------------------------------------
+
+// GroqProvider memanggil Groq Cloud REST API (OpenAI-compatible /v1/chat/completions).
+type GroqProvider struct {
+	apiKey     string
+	model      string
+	httpClient *http.Client
+}
+
+// NewGroqProvider membuat instance GroqProvider.
+func NewGroqProvider(apiKey string, model string) *GroqProvider {
+	if model == "" {
+		model = "qwen/qwen3.8-27b"
+	}
+	return &GroqProvider{
+		apiKey: apiKey,
+		model:  model,
+		httpClient: &http.Client{
+			Timeout: getAITimeout(),
+		},
+	}
+}
+
+type groqMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type groqResponseFormat struct {
+	Type string `json:"type"`
+}
+
+type groqRequest struct {
+	Model          string              `json:"model"`
+	Messages       []groqMessage       `json:"messages"`
+	Temperature    float64             `json:"temperature"`
+	ResponseFormat *groqResponseFormat `json:"response_format,omitempty"`
+}
+
+type groqResponse struct {
+	Choices []struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	} `json:"choices"`
+	Error *struct {
+		Message string `json:"message"`
+		Type    string `json:"type"`
+	} `json:"error,omitempty"`
+}
+
+func (g *GroqProvider) GenerateMemory(ctx context.Context, input MemoryGenerationInput) (*MemoryGenerationOutput, error) {
+	url := getGroqBaseURL()
+	userPrompt := BuildUserPrompt(input)
+
+	reqBody := groqRequest{
+		Model: g.model,
+		Messages: []groqMessage{
+			{Role: "system", Content: SystemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+		Temperature:    getAITemperature(),
+		ResponseFormat: &groqResponseFormat{Type: "json_object"},
+	}
+
+	bodyBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("gagal marshal groq request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("gagal membuat http request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+g.apiKey)
+
+	resp, err := g.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("gagal memanggil Groq API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("gagal membaca respons Groq: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable {
+			return nil, fmt.Errorf("%w (status %d): %s", ErrAIRateLimited, resp.StatusCode, string(respBytes))
+		}
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("%w (status %d): %s", ErrAIBadAuth, resp.StatusCode, string(respBytes))
+		}
+		return nil, fmt.Errorf("Groq API error (status %d): %s", resp.StatusCode, string(respBytes))
+	}
+
+	var gResp groqResponse
+	if err := json.Unmarshal(respBytes, &gResp); err != nil {
+		return nil, fmt.Errorf("gagal decode response Groq: %w", err)
+	}
+
+	if gResp.Error != nil {
+		return nil, fmt.Errorf("Groq error: %s (type %s)", gResp.Error.Message, gResp.Error.Type)
+	}
+
+	if len(gResp.Choices) == 0 || gResp.Choices[0].Message.Content == "" {
+		return nil, ErrEmptyAIResponse
+	}
+
+	rawText := gResp.Choices[0].Message.Content
+	return ParseStructuredOutput(rawText)
+}
+
 // NewAIServiceFromEnv menginisialisasi AIService berdasarkan environment variable.
-// Mendukung AI_PROVIDER (default "gemini", opsi "openai", "claude", "ollama", "mock") dan AI_MODEL.
+// Mendukung AI_PROVIDER (default "gemini", opsi "groq", "openai", "claude", "ollama", "mock") dan AI_MODEL.
 // Jika API key tidak ditemukan, fallback ke MockAIService yang aman dan deterministik untuk development/test.
 func NewAIServiceFromEnv() AIService {
 	provider := strings.ToLower(strings.TrimSpace(os.Getenv("AI_PROVIDER")))
@@ -338,6 +491,22 @@ func NewAIServiceFromEnv() AIService {
 		if apiKey != "" {
 			log.Printf("🤖 [AIService] Menggunakan Google Gemini Provider (Model: %s)", model)
 			return NewGeminiProvider(apiKey, model)
+		}
+	case "groq":
+		groqKey := strings.TrimSpace(os.Getenv("GROQ_API_KEY"))
+		if groqKey == "" {
+			groqKey = apiKey
+		}
+		groqModel := strings.TrimSpace(os.Getenv("GROQ_MODEL"))
+		if groqModel == "" {
+			groqModel = model
+		}
+		if groqModel == "" || groqModel == "gemini-1.5-flash" {
+			groqModel = "qwen/qwen3.8-27b"
+		}
+		if groqKey != "" {
+			log.Printf("🤖 [AIService] Menggunakan Groq LPU Provider (Model: %s)", groqModel)
+			return NewGroqProvider(groqKey, groqModel)
 		}
 	case "mock":
 		log.Printf("🧪 [AIService] Mode eksplisit mock dipilih. Menggunakan MockAIService.")

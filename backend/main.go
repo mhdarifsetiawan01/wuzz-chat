@@ -125,14 +125,26 @@ func main() {
 		defer subGroupWorker.Stop()
 	}
 
-	// Inisialisasi Group Memory AI Background Job Worker (15 detik interval)
+	// Inisialisasi Group Memory AI Background Job Worker (configurable via env)
 	if memoryStore != nil {
+		workerInterval := 15 * time.Second
+		if envInt := os.Getenv("MEMORY_WORKER_INTERVAL_SECONDS"); envInt != "" {
+			if val, err := strconv.Atoi(envInt); err == nil && val > 0 {
+				workerInterval = time.Duration(val) * time.Second
+			}
+		}
+
 		aiService := ai.NewAIServiceFromEnv()
 		memoryProcessor := ai.NewMemoryProcessor(memoryStore, messageStore, groupStore, aiService)
 		if pushService != nil {
 			memoryProcessor.SetPushService(pushService)
 		}
-		memoryWorker := worker.NewMemoryJobWorker(memoryStore, messageStore, 15*time.Second)
+		memoryWorker := worker.NewMemoryJobWorker(memoryStore, messageStore, workerInterval)
+		if envBatch := os.Getenv("MEMORY_JOB_BATCH_SIZE"); envBatch != "" {
+			if val, err := strconv.Atoi(envBatch); err == nil && val > 0 {
+				memoryWorker.SetBatchSize(val)
+			}
+		}
 		memoryWorker.SetProcessor(memoryProcessor)
 		memoryWorker.Start()
 		defer memoryWorker.Stop()

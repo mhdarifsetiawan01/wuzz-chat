@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -175,6 +176,17 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 		case http.MethodPost:
 			h.handleCreateSubGroup(w, r, claims.UserID, groupID)
 		default:
+			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// 2b. /api/groups/{id}/subgroups/{subId}/expire (Instant Expiry Bypass untuk testing & admin force-close)
+	if len(parts) == 4 && parts[1] == "subgroups" && parts[3] == "expire" {
+		subID := parts[2]
+		if r.Method == http.MethodPost {
+			h.handleInstantExpireSubGroup(w, claims.UserID, groupID, subID)
+		} else {
 			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 		}
 		return
@@ -869,5 +881,67 @@ func (h *GroupHandler) handleRespondJoinRequest(w http.ResponseWriter, r *http.R
 		"message": fmt.Sprintf("Permohonan berhasil %s", map[bool]string{true: "disetujui", false: "ditolak"}[req.Approve]),
 	})
 }
+
+// handleInstantExpireSubGroup menangani POST /api/groups/{id}/subgroups/{subId}/expire
+// Mengakhiri masa aktif forum secara instan (bypass TTL) dan langsung memicu pembuatan ForumMemoryJob.
+func (h *GroupHandler) handleInstantExpireSubGroup(w http.ResponseWriter, userID, groupID, subID string) {
+	// Validasi apakah user adalah anggota / admin dari parent group
+	role, err := h.groupStore.GetUserRoleInGroup(groupID, userID)
+	if err != nil || (role != "admin" && role != "creator") {
+		// Periksa apakah user adalah creator dari subgrup
+		subAdmins, _ := h.groupStore.GetSubGroupAdmins(subID)
+		isAdmin := false
+		for _, adminID := range subAdmins {
+			if adminID == userID {
+				isAdmin = true
+				break
+			}
+		}
+		if !isAdmin {
+			writeGroupJSONError(w, http.StatusForbidden, "Hanya admin atau kreator grup yang dapat mengakhiri masa aktif forum")
+			return
+		}
+	}
+
+	// 1. Set expires_at ke masa lalu
+	if err := h.groupStore.ExpireSubGroupNow(subID); err != nil {
+		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal mempercepat waktu kedaluwarsa subgrup: "+err.Error())
+		return
+	}
+
+	// 2. Jalankan batch expire untuk mengubah status menjadi 'expired'
+	expiredList, err := h.groupStore.ExpireSubGroupsBatchDetailed()
+	if err != nil {
+		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal memproses status expired: "+err.Error())
+		return
+	}
+
+	// 3. Jika memoryHandler tersedia, buat ForumMemoryJob
+	var createdJobID string
+	if h.memoryHandler != nil && h.memoryHandler.memoryStore != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		job, err := h.memoryHandler.memoryStore.CreateJob(ctx, subID, groupID)
+		cancel()
+		if err == nil && job != nil {
+			createdJobID = job.ID
+			log.Printf("🧠 [GroupHandler] ForumMemoryJob dibuat seketika untuk forum %s (Job ID: %s)", subID, job.ID)
+		}
+	}
+
+	// 4. Broadcast event WebSocket jika hub tersedia
+	if h.hub != nil {
+		h.hub.BroadcastGroupSystemEvent(groupID, "subgroup_expired", "Topik forum telah berakhir dan memori AI sedang diproses.")
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":        "ok",
+		"message":       "Forum berhasil diakhiri masa aktifnya dan antrean AI Memory dipicu.",
+		"subgroup_id":   subID,
+		"expired_count": len(expiredList),
+		"job_id":        createdJobID,
+	})
+}
+
 
 
