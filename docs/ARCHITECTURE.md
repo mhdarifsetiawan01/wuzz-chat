@@ -650,3 +650,61 @@ Seksi ini mendokumentasikan desain arsitektur untuk fitur monetisasi (Avatar Pre
 
 ---
 
+## 🧠 8. Group Memory AI Architecture (Forum Intelligence & Knowledge Engine)
+
+Dokumen Spesifikasi Detail: [`docs/GROUP_MEMORY_AI_SPEC.md`](./GROUP_MEMORY_AI_SPEC.md)
+
+Fitur Group Memory AI mewujudkan visi *"AI captures. Humans validate. Wuzz remembers."* untuk mentransformasikan forum diskusi (sub-group) yang kedaluwarsa menjadi memori terstruktur grup yang telah divalidasi manusia.
+
+### 8.1 Arsitektur Komponen & Lifecycle
+
+```text
+[Forum Expired (TTL Worker)]
+           │
+           ▼
+[INSERT INTO forum_memory_jobs (status='QUEUED')]
+           │
+           ▼
+[Background Memory Worker] ◄── PostgreSQL 'FOR UPDATE SKIP LOCKED' (Non-blocking)
+           │
+           ├─ 1. Ambil riwayat percakapan (Max 1.000 pesan, snapshot sender, text, timestamp)
+           ├─ 2. Format Prompt Contract & Panggil AIService Provider (LLM)
+           ├─ 3. Parse & Validasi Structured JSON (Summary, Decisions + Evidence, Journey Lite)
+           │
+           ▼
+[INSERT INTO memory_drafts (status='DRAFT')]
+  ├── memory_artifacts (SUMMARY, DECISION, JOURNEY_LITE)
+  └── artifact_evidences (snapshot teks asli pesan pendukung keputusan)
+           │
+           ▼
+[Notifikasi Realtime ke Admin Grup via WebSocket & Push]
+           │
+           ▼
+[Admin Review Portal (<30s UX)]
+  ├── Setujui Semua (Approve All)
+  ├── Edit Per-Artefak (Edit inline)
+  ├── Hapus Journey Lite (Toggle remove)
+  └── Tolak Draft (Reject)
+           │
+           ▼ (Saat Status → 'APPROVED')
+[INSERT INTO approved_memories] (Immutable Read-Model Cache JSONB)
+  └── Broadcast Notifikasi ke Seluruh Member Grup
+```
+
+### 8.2 Skema Tabel Baru (7 Tabel Terisolasi)
+
+1. **`forum_memory_jobs`**: Antrean proses AI asinkron dengan pola `FOR UPDATE SKIP LOCKED` dan tracking status `QUEUED`, `PROCESSING`, `COMPLETED`, `FAILED`.
+2. **`memory_drafts`**: Kontainer draft hasil keluaran AI berstatus `DRAFT`, `APPROVED`, `REJECTED`.
+3. **`memory_artifacts`**: Butir-butir artefak memori (`SUMMARY`, `DECISION`, `JOURNEY_LITE`) dengan confidence level (`HIGH`, `MEDIUM`, `LOW`) dan audit flag `is_human_edited`.
+4. **`artifact_evidences`**: Bukti kutipan pesan asli pendukung keputusan (`message_id`, `message_preview`, `message_sender_name`, `message_sent_at`) yang tahan terhadap penghapusan pesan asli (*self-contained snapshot*).
+5. **`approved_memories`**: Read-model terdenormalisasi berkecepatan tinggi yang menyimpan snapshot final JSONB untuk konsumsi instan seluruh anggota grup.
+6. **`memory_review_actions`**: Audit log append-only yang merekam setiap aksi admin (`APPROVED`, `REJECTED`, `EDITED_ARTIFACT`, `REMOVED_JOURNEY_LITE`).
+7. **`memory_view_events`**: Tracking analitik pembacaan memori oleh admin dan anggota grup.
+
+### 8.3 Prinsip Keamanan & Isolasi (Group-Scoped)
+
+- **Anti Data Leakage**: Seluruh query, worker, dan otorisasi API divalidasi ganda di tingkat aplikasi dan kueri SQL menggunakan `group_id` yang terikat ke `conversations.parent_id`.
+- **Anti Prompt Injection**: Pesan user di-wrap di dalam boundary tegas `[DATA DISKUSI]` dan system prompt secara ketat mengabaikan segala instruksi yang terkandung di dalam tubuh pesan diskusi.
+- **Data Minimization**: UUID internal user dan token sesi tidak pernah dikirim ke LLM; hanya display name, timestamp, dan isi teks percakapan.
+
+---

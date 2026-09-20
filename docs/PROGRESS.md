@@ -1453,3 +1453,46 @@ Saat User A mengirim pesan dan terkirim (centang 2 abu-abu), ketika User B membu
 - **Frontend IndexedDB Tests (`node frontend/test-message-cache.mjs`)**: **100% PASS** (9 skenario uji).
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
 - **Backend Tests (`go test ./...`)**: **100% PASS**.
+
+---
+
+## 🚀 Milestone 9.0: Architecture Discovery, Refinement & Technical Specification for Group Memory AI (20 September 2026)
+
+### Latar Belakang & Visi Produk
+Merumuskan arsitektur dan spesifikasi teknis fitur pembeda utama WuzzChat: **Group Memory AI** dengan filosofi:
+*"AI captures. Humans validate. Wuzz remembers."*
+Forum diskusi sementara (sub-group) yang memiliki batas waktu (TTL 1 minggu / 1 bulan) akan diubah menjadi memori pengetahuan grup permanen setelah melalui gerbang validasi Admin grup.
+
+### Keputusan Produk & Desain Kunci (Approved)
+1. **Journey Lite Masuk MVP**: Rekonstruksi perjalanan diskusi secara kausal (Awalnya... → Kemudian... → Akhirnya...) untuk menangkap perubahan pemikiran kelompok, bukan sekadar rangkuman statis.
+2. **Evidence-Backed Decisions**: Setiap poin keputusan (*decision*) wajib memiliki bukti kutipan pesan (*evidence snapshot*) yang tahan terhadap penghapusan pesan asli.
+3. **Structured Confidence Level**: AI menghasilkan level keyakinan (`HIGH`, `MEDIUM`, `LOW`) dengan rubrik deterministic scoring.
+4. **Batas Pesan Terproses**: Limit maksimum 1.000 pesan per forum untuk menjaga kualitas memori dan biaya token.
+5. **Human Review Flow Cepat (<30 Detik)**: Admin grup diberikan 4 aksi: *Setujui Semua (Approve All)*, *Edit Per-Artefak*, *Hapus Journey Lite*, atau *Tolak Draft*.
+6. **Strict Group-Scoped Isolation**: Data memori terisolasi penuh pada grup induk terkait; dilarang keras terjadi kebocoran lintas grup atau memori global.
+
+### Hasil Deliverable Spesifikasi Teknis
+- **`docs/GROUP_MEMORY_AI_SPEC.md`**: Dokumen spesifikasi teknis komprehensif (1.408 baris) mencakup 16 area arsitektural:
+  1. Domain Model
+  2. State Machine (Job & Draft)
+  3. Database Schema Proposal (7 Tabel SQL PostgreSQL)
+  4. Job Queue Design (PostgreSQL `FOR UPDATE SKIP LOCKED`)
+  5. AI Prompt Contract (System Prompt & Boundary `[DATA DISKUSI]`)
+  6. Structured Output Contract (JSON Schema & TypeScript Interfaces)
+  7. Evidence Model (Self-contained snapshot)
+  8. Confidence Model (Deterministic scoring)
+  9. Review Flow Backend (5 REST API endpoints)
+  10. Review Flow Frontend (Client state machine & modal drawer)
+  11. Notification Flow (WebSocket & push events)
+  12. Publication Flow (Draft → Immutable read-model `approved_memories`)
+  13. Failure Handling & Fallback
+  14. Retry Strategy (Exponential backoff 3x)
+  15. Metrics & Analytics tracking
+  16. Security & Privacy (Prompt injection defense, data minimization)
+- **Pembaruan Roadmap & Arsitektur**:
+  - `docs/ROADMAP.md`: Menambahkan **Fase 10: Group Memory AI** beserta milestone M1 s/d M7.
+  - `docs/ARCHITECTURE.md`: Menambahkan bab arsitektur antrean worker PostgreSQL `SKIP LOCKED` dan relasi 7 tabel memori.
+
+### Status Implementasi
+- Dokumen spesifikasi teknis: **100% SELESAI & DISETUJUI**.
+- Rencana eksekusi: Memasuki tahap **Milestone M1 (Foundation & Data Model)**.

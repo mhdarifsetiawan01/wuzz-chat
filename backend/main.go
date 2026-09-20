@@ -50,12 +50,15 @@ func main() {
 	var userStore store.UserStore
 	var groupStore store.GroupStore
 	var transferStore store.TransferStore
+	var memoryStore store.MemoryStore
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
 		userStore = sqlUserStore
 		groupStore = sqlUserStore
 		transferStore = store.NewSQLTransferStore(sqlStore.DB(), sqlStore.DriverName())
+		memoryStore = store.NewSQLMemoryStore(sqlStore.DB(), sqlStore.DriverName())
 	}
+	_ = memoryStore
 
 	// Inisialisasi Push Notification Service (Web Push VAPID & Multi-Platform Gateway)
 	pushService := push.NewService(userStore)

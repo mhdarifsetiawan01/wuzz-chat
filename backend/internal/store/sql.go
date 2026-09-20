@@ -192,6 +192,127 @@ func (s *SQLMessageStore) autoMigrate() error {
 			UNIQUE(conversation_id, message_id)
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_pinned_messages_conv ON pinned_messages(conversation_id, pinned_at DESC);`,
+
+		// Group Memory AI (Fase 10 / Milestone 1)
+		// 1. Tabel Forum Memory Jobs
+		`CREATE TABLE IF NOT EXISTS forum_memory_jobs (
+			id VARCHAR(64) PRIMARY KEY,
+			forum_id VARCHAR(128) UNIQUE NOT NULL,
+			group_id VARCHAR(128) NOT NULL,
+			status VARCHAR(32) NOT NULL DEFAULT 'QUEUED',
+			attempt_count INTEGER NOT NULL DEFAULT 0,
+			max_attempts INTEGER NOT NULL DEFAULT 3,
+			is_terminal_fail BOOLEAN NOT NULL DEFAULT FALSE,
+			last_error TEXT DEFAULT '',
+			message_count INTEGER DEFAULT 0,
+			created_at TIMESTAMP NOT NULL,
+			started_at TIMESTAMP DEFAULT NULL,
+			completed_at TIMESTAMP DEFAULT NULL,
+			next_retry_at TIMESTAMP DEFAULT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_fmj_status_next_retry ON forum_memory_jobs(status, next_retry_at);`,
+		`CREATE INDEX IF NOT EXISTS idx_fmj_forum_id ON forum_memory_jobs(forum_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_fmj_group_id ON forum_memory_jobs(group_id);`,
+
+		// 2. Tabel Memory Drafts
+		`CREATE TABLE IF NOT EXISTS memory_drafts (
+			id VARCHAR(64) PRIMARY KEY,
+			job_id VARCHAR(64) UNIQUE NOT NULL,
+			forum_id VARCHAR(128) NOT NULL,
+			group_id VARCHAR(128) NOT NULL,
+			status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
+			message_count_processed INTEGER NOT NULL DEFAULT 0,
+			was_truncated BOOLEAN NOT NULL DEFAULT FALSE,
+			truncation_note TEXT DEFAULT '',
+			reviewed_at TIMESTAMP DEFAULT NULL,
+			reviewed_by VARCHAR(64) DEFAULT '',
+			rejection_reason TEXT DEFAULT '',
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_md_forum_id ON memory_drafts(forum_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_md_group_id_status ON memory_drafts(group_id, status);`,
+		`CREATE INDEX IF NOT EXISTS idx_md_reviewed_by ON memory_drafts(reviewed_by);`,
+
+		// 3. Tabel Memory Artifacts
+		`CREATE TABLE IF NOT EXISTS memory_artifacts (
+			id VARCHAR(64) PRIMARY KEY,
+			draft_id VARCHAR(64) NOT NULL,
+			type VARCHAR(32) NOT NULL,
+			content TEXT NOT NULL,
+			ai_original_content TEXT NOT NULL,
+			confidence VARCHAR(16) NOT NULL DEFAULT 'MEDIUM',
+			is_human_edited BOOLEAN NOT NULL DEFAULT FALSE,
+			is_removed BOOLEAN NOT NULL DEFAULT FALSE,
+			position INTEGER DEFAULT NULL,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_ma_draft_id ON memory_artifacts(draft_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_ma_draft_id_type ON memory_artifacts(draft_id, type);`,
+
+		// 4. Tabel Artifact Evidences
+		`CREATE TABLE IF NOT EXISTS artifact_evidences (
+			id VARCHAR(64) PRIMARY KEY,
+			artifact_id VARCHAR(64) NOT NULL,
+			message_id VARCHAR(64) NOT NULL,
+			message_preview VARCHAR(255) NOT NULL,
+			message_sender_name VARCHAR(128) NOT NULL,
+			message_sent_at TIMESTAMP NOT NULL,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_ae_artifact_id ON artifact_evidences(artifact_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_ae_message_id ON artifact_evidences(message_id);`,
+
+		// 5. Tabel Approved Memories (Immutable Read-Model Cache)
+		`CREATE TABLE IF NOT EXISTS approved_memories (
+			id VARCHAR(64) PRIMARY KEY,
+			draft_id VARCHAR(64) UNIQUE NOT NULL,
+			forum_id VARCHAR(128) UNIQUE NOT NULL,
+			group_id VARCHAR(128) NOT NULL,
+			approved_by VARCHAR(64) NOT NULL,
+			approved_at TIMESTAMP NOT NULL,
+			has_human_edits BOOLEAN NOT NULL DEFAULT FALSE,
+			snapshot_summary TEXT NOT NULL,
+			snapshot_summary_conf VARCHAR(16) NOT NULL DEFAULT 'MEDIUM',
+			snapshot_decisions TEXT NOT NULL DEFAULT '[]',
+			snapshot_journey_lite TEXT DEFAULT '',
+			snapshot_journey_conf VARCHAR(16) DEFAULT '',
+			is_journey_lite_removed BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_am_forum_id ON approved_memories(forum_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_am_group_id ON approved_memories(group_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_am_approved_at ON approved_memories(group_id, approved_at DESC);`,
+
+		// 6. Tabel Memory Review Actions (Append-Only Audit Log)
+		`CREATE TABLE IF NOT EXISTS memory_review_actions (
+			id VARCHAR(64) PRIMARY KEY,
+			draft_id VARCHAR(64) NOT NULL,
+			admin_id VARCHAR(64) NOT NULL,
+			action VARCHAR(32) NOT NULL,
+			artifact_id VARCHAR(64) DEFAULT '',
+			old_content TEXT DEFAULT '',
+			new_content TEXT DEFAULT '',
+			rejection_reason TEXT DEFAULT '',
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_mra_draft_id ON memory_review_actions(draft_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_mra_admin_id ON memory_review_actions(admin_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_mra_created_at ON memory_review_actions(created_at DESC);`,
+
+		// 7. Tabel Memory View Events (Analytics Tracking)
+		`CREATE TABLE IF NOT EXISTS memory_view_events (
+			id VARCHAR(64) PRIMARY KEY,
+			approved_memory_id VARCHAR(64) NOT NULL,
+			forum_id VARCHAR(128) NOT NULL,
+			group_id VARCHAR(128) NOT NULL,
+			viewer_id VARCHAR(64) NOT NULL,
+			viewer_role VARCHAR(16) NOT NULL DEFAULT 'MEMBER',
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_mve_approved_memory_id ON memory_view_events(approved_memory_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_mve_viewer_memory ON memory_view_events(viewer_id, approved_memory_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_mve_group_created ON memory_view_events(group_id, created_at DESC);`,
 	}
 
 	for _, query := range migrations {

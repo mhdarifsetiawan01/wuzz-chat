@@ -71,18 +71,14 @@ Membangun platform chatting modern yang:
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 9: Seamless Continuity (Multi-Device Sync & Offline Resilience)  │
+│  FASE 10: Group Memory AI (Forum Intelligence & Knowledge) (🟡 AKTIF) │
+│  - M1-M7: Journey Lite, Decision + Evidence, Human Validation (<30s)   │
+│  - PostgreSQL SKIP LOCKED Queue, Read-Model Memory, Group Scoped AI    │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+┌──────────────────────────────────▼─────────────────────────────────────┐
+│  FASE 11: Seamless Continuity & Multi-Device (Multi-Device Sync)       │
 │  - Multi-Device Sessions, Cross-Device E2EE Keys, Offline Outbox Queue │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 10: Broadcast Power (Public/Private Channels & Discovery)        │
-│  - 1-to-Many Channels, Broadcast Lists, Discussion Threads             │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 11: AI-Native Chat Experience (Competitive Differentiator)       │
-│  - Voice Note AI Transcriber, Chat Summarizer TL;DR, Copilot Bot       │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -365,10 +361,40 @@ Membangun platform chatting modern yang:
     - **Inventory Drawer**: Daftar avatar yang sudah dimiliki, tombol "Pasang sebagai Avatar Aktif".
     - Integrasi ke `AvatarStudio.tsx` sebagai opsi ke-4: *"Pilih dari Koleksi Premium-ku"*.
 
-  > **Catatan Arsitektur**: `users.avatar_url` tetap berfungsi sebagai "slot aktif" yang di-render di seluruh UI. Avatar premium hanyalah mekanisme untuk mengisi slot ini dari katalog terkurasi, bukan mengganti struktur render yang sudah ada.
-
 ---
 
+### Fase 10: Group Memory AI — Forum Intelligence & Group Knowledge (Status: 🟡 SPEC APPROVED / MVP PLANNING)
+*Tujuan: Mewujudkan visi "AI captures. Humans validate. Wuzz remembers." — Mengubah forum diskusi sementara (sub-group) yang kedaluwarsa menjadi memori kolektif grup yang abadi dan terkurasi manusia.*
+
+*Dokumen Spesifikasi Utama: [`docs/GROUP_MEMORY_AI_SPEC.md`](./GROUP_MEMORY_AI_SPEC.md)*
+
+- **Prinsip Arsitektur & Aturan Produk**:
+  1. **Strict Group Scoped**: Memori grup terisolasi 100% per grup. Tidak ada memori global atau cross-group leakage.
+  2. **Human Validation Gate**: AI hanya menghasilkan *Draft Memory*. Tidak ada memori yang dipublikasikan ke anggota tanpa persetujuan Admin grup.
+  3. **Fast Review Experience**: Admin dapat memvalidasi draft memori dalam < 30 detik (Approve All, Edit Per-Artifact, Remove Journey Lite, atau Reject).
+  4. **Evidence-Backed Decisions**: Setiap butir keputusan (*decision*) wajib memiliki bukti kutipan pesan asli (*evidence*) dengan fallback snapshot tahan hapus.
+  5. **Journey Lite MVP**: Rekonstruksi alur diskusi dinamis (Awalnya... → Kemudian... → Akhirnya...) untuk menangkap esensi perjalanan pemikiran kelompok.
+
+- **Milestone Implementasi MVP (M1 – M7)**:
+  - 🛠️ **Milestone M1: Foundation & Data Model (AKTIF 🟡)**:
+    - SQL Migration: 7 tabel baru (`forum_memory_jobs`, `memory_drafts`, `memory_artifacts`, `artifact_evidences`, `approved_memories`, `memory_review_actions`, `memory_view_events`).
+    - Domain Entities & Repository Go: Struct model dan query transaksional.
+  - ⏳ **Milestone M2: Job Queue & Expiry Trigger**:
+    - Pola Queue PostgreSQL `FOR UPDATE SKIP LOCKED` non-blocking di Go backend.
+    - Integrasi otomatis saat Forum bertransisi ke status `'expired'`.
+  - 🧠 **Milestone M3: AI Service Integration**:
+    - Abstraksi `AIService` interface di Go backend.
+    - Prompt engine dengan limit 1.000 pesan, parsing JSON terstruktur, ekstraksi Evidence, dan Confidence scoring.
+  - 🔌 **Milestone M4: Review Backend API**:
+    - REST API Suite Review Admin: `GET /api/groups/{id}/memories/drafts`, `POST /api/memory-drafts/{id}/approve`, `POST /reject`, `PATCH /artifacts/{id}`.
+  - 🖥️ **Milestone M5: Admin Review UI (Frontend Next.js)**:
+    - Banner & drawer review di forum kedaluwarsa, kartu ringkasan, dialog keputusan + preview evidence, switch hapus Journey Lite, tombol satu-klik *"Setujui Semua"*.
+  - 📖 **Milestone M6: Member Knowledge Viewer (Frontend Next.js)**:
+    - Tab/Viewer "Memori Forum" di arsip forum dan grup induk untuk seluruh anggota grup.
+  - 🔔 **Milestone M7: E2E Integration & Notification Polish**:
+    - Notifikasi push/WebSocket ke Admin saat draft siap dan ke Member saat memori terbit. Audit log & metrics tracking.
+
+---
 
 ## 🏛️ Arsitektur Target Platform
 
