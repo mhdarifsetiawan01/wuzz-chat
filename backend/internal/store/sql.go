@@ -27,10 +27,11 @@ func NewSQLMessageStore(driverName, dataSourceName string) (*SQLMessageStore, er
 		return nil, fmt.Errorf("gagal membuka database (%s): %w", driverName, err)
 	}
 
-	// Konfigurasi connection pool yang aman
+	// Konfigurasi connection pool yang optimal dan aman (kompatibel dengan Supabase & SQLite)
 	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
+	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetConnMaxIdleTime(2 * time.Minute)
 
 	if driverName == "sqlite" {
 		_, _ = db.Exec("PRAGMA journal_mode=WAL;")

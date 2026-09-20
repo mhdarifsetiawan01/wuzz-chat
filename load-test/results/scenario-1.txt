@@ -1,0 +1,2054 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: scenario-1-dm-100users.js
+        output: json (results/scenario-1.json)
+
+     scenarios: (100.00%) 1 scenario, 100 max VUs, 3m10s max duration (incl. graceful stop):
+              * dm_users: Up to 100 looping VUs for 3m0s over 3 stages (gracefulRampDown: 10s, gracefulStop: 30s)
+
+time="2026-09-20T03:55:34+07:00" level=info msg="\n🔐 Setup: Pre-login 100 user... (estimasi 8 menit)" source=console
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+time="2026-09-20T03:56:18+07:00" level=info msg="✅ Setup progress: 10/100 user logged in" source=console
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+time="2026-09-20T03:57:06+07:00" level=info msg="✅ Setup progress: 20/100 user logged in" source=console
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+time="2026-09-20T03:57:53+07:00" level=info msg="✅ Setup progress: 30/100 user logged in" source=console
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+time="2026-09-20T03:58:40+07:00" level=info msg="✅ Setup progress: 40/100 user logged in" source=console
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+time="2026-09-20T03:59:28+07:00" level=info msg="✅ Setup progress: 50/100 user logged in" source=console
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+time="2026-09-20T04:00:15+07:00" level=info msg="✅ Setup progress: 60/100 user logged in" source=console
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+time="2026-09-20T04:01:03+07:00" level=info msg="✅ Setup progress: 70/100 user logged in" source=console
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+time="2026-09-20T04:01:51+07:00" level=info msg="✅ Setup progress: 80/100 user logged in" source=console
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+time="2026-09-20T04:02:38+07:00" level=info msg="✅ Setup progress: 90/100 user logged in" source=console
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+
+Run        [ 100% ] setup()
+dm_users   [   0% ]
+time="2026-09-20T04:03:26+07:00" level=info msg="✅ Setup progress: 100/100 user logged in" source=console
+time="2026-09-20T04:03:26+07:00" level=info msg="\n✅ Setup selesai: 100/100 token berhasil\n" source=console
+
+running (7m52.0s), 001/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   0% ] 001/100 VUs  0m00.6s/3m00.0s
+
+running (7m53.0s), 005/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   1% ] 005/100 VUs  0m01.6s/3m00.0s
+
+running (7m54.0s), 008/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   1% ] 008/100 VUs  0m02.6s/3m00.0s
+
+running (7m55.0s), 011/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   2% ] 011/100 VUs  0m03.6s/3m00.0s
+
+running (7m56.0s), 015/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   3% ] 015/100 VUs  0m04.6s/3m00.0s
+
+running (7m57.0s), 018/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   3% ] 018/100 VUs  0m05.6s/3m00.0s
+
+running (7m58.0s), 021/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   4% ] 021/100 VUs  0m06.6s/3m00.0s
+
+running (7m59.0s), 025/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   4% ] 025/100 VUs  0m07.6s/3m00.0s
+
+running (8m00.0s), 028/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   5% ] 028/100 VUs  0m08.6s/3m00.0s
+
+running (8m01.0s), 031/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   5% ] 031/100 VUs  0m09.6s/3m00.0s
+
+running (8m02.0s), 035/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   6% ] 035/100 VUs  0m10.6s/3m00.0s
+
+running (8m03.0s), 038/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   6% ] 038/100 VUs  0m11.6s/3m00.0s
+
+running (8m04.0s), 041/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   7% ] 041/100 VUs  0m12.6s/3m00.0s
+
+running (8m05.0s), 045/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   8% ] 045/100 VUs  0m13.6s/3m00.0s
+
+running (8m06.0s), 048/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   8% ] 048/100 VUs  0m14.6s/3m00.0s
+
+running (8m07.0s), 051/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   9% ] 051/100 VUs  0m15.6s/3m00.0s
+
+running (8m08.0s), 055/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [   9% ] 055/100 VUs  0m16.6s/3m00.0s
+
+running (8m09.0s), 058/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  10% ] 058/100 VUs  0m17.6s/3m00.0s
+
+running (8m10.0s), 061/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  10% ] 061/100 VUs  0m18.6s/3m00.0s
+
+running (8m11.0s), 065/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  11% ] 065/100 VUs  0m19.6s/3m00.0s
+
+running (8m12.0s), 068/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  11% ] 068/100 VUs  0m20.6s/3m00.0s
+
+running (8m13.0s), 071/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  12% ] 071/100 VUs  0m21.6s/3m00.0s
+
+running (8m14.0s), 075/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  13% ] 075/100 VUs  0m22.6s/3m00.0s
+
+running (8m15.0s), 078/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  13% ] 078/100 VUs  0m23.6s/3m00.0s
+
+running (8m16.0s), 081/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  14% ] 081/100 VUs  0m24.6s/3m00.0s
+
+running (8m17.0s), 085/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  14% ] 085/100 VUs  0m25.6s/3m00.0s
+
+running (8m18.0s), 088/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  15% ] 088/100 VUs  0m26.6s/3m00.0s
+
+running (8m19.0s), 091/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  15% ] 091/100 VUs  0m27.6s/3m00.0s
+
+running (8m20.0s), 095/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  16% ] 095/100 VUs  0m28.6s/3m00.0s
+
+running (8m21.0s), 098/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  16% ] 098/100 VUs  0m29.6s/3m00.0s
+
+running (8m22.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  17% ] 100/100 VUs  0m30.6s/3m00.0s
+
+running (8m23.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  18% ] 100/100 VUs  0m31.6s/3m00.0s
+
+running (8m24.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  18% ] 100/100 VUs  0m32.6s/3m00.0s
+
+running (8m25.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  19% ] 100/100 VUs  0m33.6s/3m00.0s
+
+running (8m26.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  19% ] 100/100 VUs  0m34.6s/3m00.0s
+
+running (8m27.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  20% ] 100/100 VUs  0m35.6s/3m00.0s
+
+running (8m28.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  20% ] 100/100 VUs  0m36.6s/3m00.0s
+
+running (8m29.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  21% ] 100/100 VUs  0m37.6s/3m00.0s
+
+running (8m30.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  21% ] 100/100 VUs  0m38.6s/3m00.0s
+
+running (8m31.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  22% ] 100/100 VUs  0m39.6s/3m00.0s
+
+running (8m32.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  23% ] 100/100 VUs  0m40.6s/3m00.0s
+
+running (8m33.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  23% ] 100/100 VUs  0m41.6s/3m00.0s
+
+running (8m34.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  24% ] 100/100 VUs  0m42.6s/3m00.0s
+
+running (8m35.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  24% ] 100/100 VUs  0m43.6s/3m00.0s
+
+running (8m36.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  25% ] 100/100 VUs  0m44.6s/3m00.0s
+
+running (8m37.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  25% ] 100/100 VUs  0m45.6s/3m00.0s
+
+running (8m38.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  26% ] 100/100 VUs  0m46.6s/3m00.0s
+
+running (8m39.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  26% ] 100/100 VUs  0m47.6s/3m00.0s
+
+running (8m40.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  27% ] 100/100 VUs  0m48.6s/3m00.0s
+
+running (8m41.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  28% ] 100/100 VUs  0m49.6s/3m00.0s
+
+running (8m42.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  28% ] 100/100 VUs  0m50.6s/3m00.0s
+
+running (8m43.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  29% ] 100/100 VUs  0m51.6s/3m00.0s
+
+running (8m44.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  29% ] 100/100 VUs  0m52.6s/3m00.0s
+
+running (8m45.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  30% ] 100/100 VUs  0m53.6s/3m00.0s
+
+running (8m46.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  30% ] 100/100 VUs  0m54.6s/3m00.0s
+
+running (8m47.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  31% ] 100/100 VUs  0m55.6s/3m00.0s
+
+running (8m48.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  31% ] 100/100 VUs  0m56.6s/3m00.0s
+
+running (8m49.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  32% ] 100/100 VUs  0m57.6s/3m00.0s
+
+running (8m50.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  33% ] 100/100 VUs  0m58.6s/3m00.0s
+
+running (8m51.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  33% ] 100/100 VUs  0m59.6s/3m00.0s
+
+running (8m52.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  34% ] 100/100 VUs  1m00.6s/3m00.0s
+
+running (8m53.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  34% ] 100/100 VUs  1m01.6s/3m00.0s
+
+running (8m54.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  35% ] 100/100 VUs  1m02.6s/3m00.0s
+
+running (8m55.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  35% ] 100/100 VUs  1m03.6s/3m00.0s
+
+running (8m56.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  36% ] 100/100 VUs  1m04.6s/3m00.0s
+
+running (8m57.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  36% ] 100/100 VUs  1m05.6s/3m00.0s
+
+running (8m58.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  37% ] 100/100 VUs  1m06.6s/3m00.0s
+
+running (8m59.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  38% ] 100/100 VUs  1m07.6s/3m00.0s
+
+running (9m00.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  38% ] 100/100 VUs  1m08.6s/3m00.0s
+time="2026-09-20T04:04:35+07:00" level=error msg="[VU 28] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (9m01.0s), 100/100 VUs, 0 complete and 0 interrupted iterations
+dm_users   [  39% ] 100/100 VUs  1m09.6s/3m00.0s
+time="2026-09-20T04:04:36+07:00" level=error msg="[VU 29] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (9m02.0s), 100/100 VUs, 1 complete and 0 interrupted iterations
+dm_users   [  39% ] 100/100 VUs  1m10.6s/3m00.0s
+
+running (9m03.0s), 100/100 VUs, 2 complete and 0 interrupted iterations
+dm_users   [  40% ] 100/100 VUs  1m11.6s/3m00.0s
+
+running (9m04.0s), 100/100 VUs, 2 complete and 0 interrupted iterations
+dm_users   [  40% ] 100/100 VUs  1m12.6s/3m00.0s
+
+running (9m05.0s), 100/100 VUs, 2 complete and 0 interrupted iterations
+dm_users   [  41% ] 100/100 VUs  1m13.6s/3m00.0s
+time="2026-09-20T04:04:40+07:00" level=error msg="[VU 40] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+time="2026-09-20T04:04:40+07:00" level=error msg="[VU 44] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (9m06.0s), 100/100 VUs, 2 complete and 0 interrupted iterations
+dm_users   [  41% ] 100/100 VUs  1m14.6s/3m00.0s
+
+running (9m07.0s), 100/100 VUs, 4 complete and 0 interrupted iterations
+dm_users   [  42% ] 100/100 VUs  1m15.6s/3m00.0s
+time="2026-09-20T04:04:42+07:00" level=error msg="[VU 47] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+time="2026-09-20T04:04:42+07:00" level=error msg="[VU 41] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (9m08.0s), 100/100 VUs, 4 complete and 0 interrupted iterations
+dm_users   [  43% ] 100/100 VUs  1m16.6s/3m00.0s
+
+running (9m09.0s), 100/100 VUs, 6 complete and 0 interrupted iterations
+dm_users   [  43% ] 100/100 VUs  1m17.6s/3m00.0s
+time="2026-09-20T04:04:44+07:00" level=error msg="[VU 49] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (9m10.0s), 100/100 VUs, 6 complete and 0 interrupted iterations
+dm_users   [  44% ] 100/100 VUs  1m18.6s/3m00.0s
+
+running (9m11.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  44% ] 100/100 VUs  1m19.6s/3m00.0s
+
+running (9m12.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  45% ] 100/100 VUs  1m20.6s/3m00.0s
+
+running (9m13.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  45% ] 100/100 VUs  1m21.6s/3m00.0s
+
+running (9m14.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  46% ] 100/100 VUs  1m22.6s/3m00.0s
+
+running (9m15.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  46% ] 100/100 VUs  1m23.6s/3m00.0s
+
+running (9m16.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  47% ] 100/100 VUs  1m24.6s/3m00.0s
+
+running (9m17.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  48% ] 100/100 VUs  1m25.6s/3m00.0s
+
+running (9m18.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  48% ] 100/100 VUs  1m26.6s/3m00.0s
+
+running (9m19.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  49% ] 100/100 VUs  1m27.6s/3m00.0s
+
+running (9m20.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  49% ] 100/100 VUs  1m28.6s/3m00.0s
+
+running (9m21.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  50% ] 100/100 VUs  1m29.6s/3m00.0s
+time="2026-09-20T04:04:56+07:00" level=error msg="[VU 94] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (9m22.0s), 100/100 VUs, 7 complete and 0 interrupted iterations
+dm_users   [  50% ] 100/100 VUs  1m30.6s/3m00.0s
+
+running (9m23.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  51% ] 100/100 VUs  1m31.6s/3m00.0s
+
+running (9m24.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  51% ] 100/100 VUs  1m32.6s/3m00.0s
+
+running (9m25.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  52% ] 100/100 VUs  1m33.6s/3m00.0s
+
+running (9m26.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  53% ] 100/100 VUs  1m34.6s/3m00.0s
+
+running (9m27.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  53% ] 100/100 VUs  1m35.6s/3m00.0s
+
+running (9m28.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  54% ] 100/100 VUs  1m36.6s/3m00.0s
+
+running (9m29.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  54% ] 100/100 VUs  1m37.6s/3m00.0s
+
+running (9m30.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  55% ] 100/100 VUs  1m38.6s/3m00.0s
+
+running (9m31.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  55% ] 100/100 VUs  1m39.6s/3m00.0s
+
+running (9m32.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  56% ] 100/100 VUs  1m40.6s/3m00.0s
+
+running (9m33.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  56% ] 100/100 VUs  1m41.6s/3m00.0s
+
+running (9m34.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  57% ] 100/100 VUs  1m42.6s/3m00.0s
+
+running (9m35.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  58% ] 100/100 VUs  1m43.6s/3m00.0s
+
+running (9m36.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  58% ] 100/100 VUs  1m44.6s/3m00.0s
+
+running (9m37.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  59% ] 100/100 VUs  1m45.6s/3m00.0s
+
+running (9m38.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  59% ] 100/100 VUs  1m46.6s/3m00.0s
+
+running (9m39.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  60% ] 100/100 VUs  1m47.6s/3m00.0s
+
+running (9m40.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  60% ] 100/100 VUs  1m48.6s/3m00.0s
+
+running (9m41.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  61% ] 100/100 VUs  1m49.6s/3m00.0s
+
+running (9m42.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  61% ] 100/100 VUs  1m50.6s/3m00.0s
+
+running (9m43.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  62% ] 100/100 VUs  1m51.6s/3m00.0s
+
+running (9m44.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  63% ] 100/100 VUs  1m52.6s/3m00.0s
+
+running (9m45.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  63% ] 100/100 VUs  1m53.6s/3m00.0s
+
+running (9m46.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  64% ] 100/100 VUs  1m54.6s/3m00.0s
+
+running (9m47.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  64% ] 100/100 VUs  1m55.6s/3m00.0s
+
+running (9m48.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  65% ] 100/100 VUs  1m56.6s/3m00.0s
+
+running (9m49.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  65% ] 100/100 VUs  1m57.6s/3m00.0s
+
+running (9m50.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  66% ] 100/100 VUs  1m58.6s/3m00.0s
+
+running (9m51.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  66% ] 100/100 VUs  1m59.6s/3m00.0s
+
+running (9m52.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  67% ] 100/100 VUs  2m00.6s/3m00.0s
+
+running (9m53.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  68% ] 100/100 VUs  2m01.6s/3m00.0s
+
+running (9m54.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  68% ] 100/100 VUs  2m02.6s/3m00.0s
+time="2026-09-20T04:05:29+07:00" level=error msg="[VU 14] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (9m55.0s), 100/100 VUs, 8 complete and 0 interrupted iterations
+dm_users   [  69% ] 100/100 VUs  2m03.6s/3m00.0s
+time="2026-09-20T04:05:30+07:00" level=error msg="[VU 16] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (9m56.0s), 100/100 VUs, 9 complete and 0 interrupted iterations
+dm_users   [  69% ] 100/100 VUs  2m04.6s/3m00.0s
+
+running (9m57.0s), 100/100 VUs, 10 complete and 0 interrupted iterations
+dm_users   [  70% ] 100/100 VUs  2m05.6s/3m00.0s
+
+running (9m58.0s), 100/100 VUs, 10 complete and 0 interrupted iterations
+dm_users   [  70% ] 100/100 VUs  2m06.6s/3m00.0s
+
+running (9m59.0s), 100/100 VUs, 10 complete and 0 interrupted iterations
+dm_users   [  71% ] 100/100 VUs  2m07.6s/3m00.0s
+
+running (10m00.0s), 100/100 VUs, 10 complete and 0 interrupted iterations
+dm_users   [  71% ] 100/100 VUs  2m08.6s/3m00.0s
+
+running (10m01.0s), 100/100 VUs, 10 complete and 0 interrupted iterations
+dm_users   [  72% ] 100/100 VUs  2m09.6s/3m00.0s
+
+running (10m02.0s), 100/100 VUs, 10 complete and 0 interrupted iterations
+dm_users   [  73% ] 100/100 VUs  2m10.6s/3m00.0s
+
+running (10m03.0s), 100/100 VUs, 10 complete and 0 interrupted iterations
+dm_users   [  73% ] 100/100 VUs  2m11.6s/3m00.0s
+
+running (10m04.0s), 100/100 VUs, 10 complete and 0 interrupted iterations
+dm_users   [  74% ] 100/100 VUs  2m12.6s/3m00.0s
+time="2026-09-20T04:05:38+07:00" level=error msg="[VU 29] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (10m05.0s), 100/100 VUs, 10 complete and 0 interrupted iterations
+dm_users   [  74% ] 100/100 VUs  2m13.6s/3m00.0s
+
+running (10m06.0s), 100/100 VUs, 11 complete and 0 interrupted iterations
+dm_users   [  75% ] 100/100 VUs  2m14.6s/3m00.0s
+
+running (10m07.0s), 100/100 VUs, 11 complete and 0 interrupted iterations
+dm_users   [  75% ] 100/100 VUs  2m15.6s/3m00.0s
+
+running (10m08.0s), 100/100 VUs, 11 complete and 0 interrupted iterations
+dm_users   [  76% ] 100/100 VUs  2m16.6s/3m00.0s
+
+running (10m09.0s), 100/100 VUs, 11 complete and 0 interrupted iterations
+dm_users   [  76% ] 100/100 VUs  2m17.6s/3m00.0s
+
+running (10m10.0s), 100/100 VUs, 11 complete and 0 interrupted iterations
+dm_users   [  77% ] 100/100 VUs  2m18.6s/3m00.0s
+time="2026-09-20T04:05:45+07:00" level=error msg="[VU 74] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (10m11.0s), 100/100 VUs, 11 complete and 0 interrupted iterations
+dm_users   [  78% ] 100/100 VUs  2m19.6s/3m00.0s
+
+running (10m12.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  78% ] 100/100 VUs  2m20.6s/3m00.0s
+
+running (10m13.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  79% ] 100/100 VUs  2m21.6s/3m00.0s
+
+running (10m14.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  79% ] 100/100 VUs  2m22.6s/3m00.0s
+
+running (10m15.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  80% ] 100/100 VUs  2m23.6s/3m00.0s
+
+running (10m16.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  80% ] 100/100 VUs  2m24.6s/3m00.0s
+
+running (10m17.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  81% ] 100/100 VUs  2m25.6s/3m00.0s
+
+running (10m18.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  81% ] 100/100 VUs  2m26.6s/3m00.0s
+
+running (10m19.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  82% ] 100/100 VUs  2m27.6s/3m00.0s
+
+running (10m20.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  83% ] 100/100 VUs  2m28.6s/3m00.0s
+
+running (10m21.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  83% ] 100/100 VUs  2m29.6s/3m00.0s
+
+running (10m22.0s), 100/100 VUs, 12 complete and 0 interrupted iterations
+dm_users   [  84% ] 100/100 VUs  2m30.6s/3m00.0s
+
+running (10m23.0s), 100/100 VUs, 13 complete and 0 interrupted iterations
+dm_users   [  84% ] 100/100 VUs  2m31.6s/3m00.0s
+
+running (10m24.0s), 100/100 VUs, 15 complete and 0 interrupted iterations
+dm_users   [  85% ] 100/100 VUs  2m32.6s/3m00.0s
+
+running (10m25.0s), 100/100 VUs, 19 complete and 0 interrupted iterations
+dm_users   [  85% ] 100/100 VUs  2m33.6s/3m00.0s
+
+running (10m26.0s), 100/100 VUs, 23 complete and 0 interrupted iterations
+dm_users   [  86% ] 100/100 VUs  2m34.6s/3m00.0s
+
+running (10m27.0s), 100/100 VUs, 25 complete and 0 interrupted iterations
+dm_users   [  86% ] 100/100 VUs  2m35.6s/3m00.0s
+
+running (10m28.0s), 100/100 VUs, 27 complete and 0 interrupted iterations
+dm_users   [  87% ] 100/100 VUs  2m36.6s/3m00.0s
+
+running (10m29.0s), 100/100 VUs, 30 complete and 0 interrupted iterations
+dm_users   [  88% ] 100/100 VUs  2m37.6s/3m00.0s
+time="2026-09-20T04:06:04+07:00" level=error msg="[VU 88] WS error: websocket: close 1006 (abnormal closure): unexpected EOF" source=console
+
+running (10m30.0s), 100/100 VUs, 33 complete and 0 interrupted iterations
+dm_users   [  88% ] 100/100 VUs  2m38.6s/3m00.0s
+
+running (10m31.0s), 099/100 VUs, 38 complete and 0 interrupted iterations
+dm_users   [  89% ] 099/100 VUs  2m39.6s/3m00.0s
+
+running (10m32.0s), 098/100 VUs, 40 complete and 1 interrupted iterations
+dm_users   [  89% ] 098/100 VUs  2m40.6s/3m00.0s
+
+running (10m33.0s), 094/100 VUs, 43 complete and 5 interrupted iterations
+dm_users   [  90% ] 094/100 VUs  2m41.6s/3m00.0s
+
+running (10m34.0s), 091/100 VUs, 46 complete and 8 interrupted iterations
+dm_users   [  90% ] 091/100 VUs  2m42.6s/3m00.0s
+
+running (10m35.0s), 088/100 VUs, 49 complete and 11 interrupted iterations
+dm_users   [  91% ] 088/100 VUs  2m43.6s/3m00.0s
+
+running (10m36.0s), 085/100 VUs, 51 complete and 14 interrupted iterations
+dm_users   [  91% ] 085/100 VUs  2m44.6s/3m00.0s
+
+running (10m37.0s), 082/100 VUs, 52 complete and 17 interrupted iterations
+dm_users   [  92% ] 082/100 VUs  2m45.6s/3m00.0s
+
+running (10m38.0s), 076/100 VUs, 55 complete and 20 interrupted iterations
+dm_users   [  93% ] 076/100 VUs  2m46.6s/3m00.0s
+
+running (10m39.0s), 069/100 VUs, 58 complete and 24 interrupted iterations
+dm_users   [  93% ] 069/100 VUs  2m47.6s/3m00.0s
+
+running (10m40.0s), 063/100 VUs, 61 complete and 27 interrupted iterations
+dm_users   [  94% ] 063/100 VUs  2m48.6s/3m00.0s
+
+running (10m41.0s), 056/100 VUs, 65 complete and 30 interrupted iterations
+dm_users   [  94% ] 056/100 VUs  2m49.6s/3m00.0s
+
+running (10m42.0s), 050/100 VUs, 67 complete and 34 interrupted iterations
+dm_users   [  95% ] 050/100 VUs  2m50.6s/3m00.0s
+
+running (10m43.0s), 048/100 VUs, 68 complete and 35 interrupted iterations
+dm_users   [  95% ] 048/100 VUs  2m51.6s/3m00.0s
+
+running (10m44.0s), 048/100 VUs, 68 complete and 35 interrupted iterations
+dm_users   [  96% ] 048/100 VUs  2m52.6s/3m00.0s
+
+running (10m45.0s), 048/100 VUs, 68 complete and 35 interrupted iterations
+dm_users   [  96% ] 048/100 VUs  2m53.6s/3m00.0s
+
+running (10m46.0s), 048/100 VUs, 68 complete and 35 interrupted iterations
+dm_users   [  97% ] 048/100 VUs  2m54.6s/3m00.0s
+
+running (10m47.0s), 048/100 VUs, 68 complete and 35 interrupted iterations
+dm_users   [  98% ] 048/100 VUs  2m55.6s/3m00.0s
+
+running (10m48.0s), 045/100 VUs, 68 complete and 38 interrupted iterations
+dm_users   [  98% ] 045/100 VUs  2m56.6s/3m00.0s
+
+running (10m49.0s), 042/100 VUs, 68 complete and 41 interrupted iterations
+dm_users   [  99% ] 042/100 VUs  2m57.6s/3m00.0s
+
+running (10m50.0s), 039/100 VUs, 68 complete and 44 interrupted iterations
+dm_users   [  99% ] 039/100 VUs  2m58.6s/3m00.0s
+
+running (10m51.0s), 035/100 VUs, 68 complete and 48 interrupted iterations
+dm_users   [ 100% ] 035/100 VUs  2m59.6s/3m00.0s
+
+running (10m52.0s), 032/100 VUs, 68 complete and 51 interrupted iterations
+dm_users ↓ [ 100% ] 034/100 VUs  3m0s
+
+running (10m53.0s), 029/100 VUs, 68 complete and 54 interrupted iterations
+dm_users ↓ [ 100% ] 034/100 VUs  3m0s
+
+running (10m54.0s), 025/100 VUs, 68 complete and 58 interrupted iterations
+dm_users ↓ [ 100% ] 034/100 VUs  3m0s
+
+running (10m55.0s), 022/100 VUs, 68 complete and 61 interrupted iterations
+dm_users ↓ [ 100% ] 034/100 VUs  3m0s
+
+running (10m56.0s), 019/100 VUs, 68 complete and 64 interrupted iterations
+dm_users ↓ [ 100% ] 034/100 VUs  3m0s
+
+running (10m57.0s), 015/100 VUs, 68 complete and 68 interrupted iterations
+dm_users ↓ [ 100% ] 034/100 VUs  3m0s
+
+running (10m58.0s), 012/100 VUs, 68 complete and 71 interrupted iterations
+dm_users ↓ [ 100% ] 034/100 VUs  3m0s
+
+running (10m59.0s), 009/100 VUs, 68 complete and 74 interrupted iterations
+dm_users ↓ [ 100% ] 034/100 VUs  3m0s
+
+running (11m00.0s), 005/100 VUs, 68 complete and 78 interrupted iterations
+dm_users ↓ [ 100% ] 034/100 VUs  3m0s
+
+running (11m01.0s), 002/100 VUs, 68 complete and 81 interrupted iterations
+dm_users ↓ [ 100% ] 034/100 VUs  3m0s
+
+     ✓ ws 101
+
+     checks.........................: 100.00% 69 out of 69
+     data_received..................: 1.9 MB  2.9 kB/s
+     data_sent......................: 1.1 MB  1.7 kB/s
+     http_req_blocked...............: avg=745.11µs min=300ns    med=671ns    max=74.44ms  p(90)=792ns    p(95)=834ns   
+     http_req_connecting............: avg=282.6µs  min=0s       med=0s       max=28.26ms  p(90)=0s       p(95)=0s      
+     http_req_duration..............: avg=256.9ms  min=239.49ms med=242.36ms max=920.08ms p(90)=248.06ms p(95)=256.29ms
+       { expected_response:true }...: avg=256.9ms  min=239.49ms med=242.36ms max=920.08ms p(90)=248.06ms p(95)=256.29ms
+   ✓ http_req_failed................: 0.00%   0 out of 100
+     http_req_receiving.............: avg=98.32µs  min=51.56µs  med=91.68µs  max=224.5µs  p(90)=135.97µs p(95)=152.16µs
+     http_req_sending...............: avg=195.25µs min=97.49µs  med=186.48µs max=436.74µs p(90)=240.92µs p(95)=293.34µs
+     http_req_tls_handshaking.......: avg=452.92µs min=0s       med=0s       max=45.29ms  p(90)=0s       p(95)=0s      
+     http_req_waiting...............: avg=256.6ms  min=239.19ms med=242.04ms max=919.57ms p(90)=247.78ms p(95)=255.97ms
+     http_reqs......................: 100     0.151203/s
+     iteration_duration.............: avg=2m17s    min=1m1s     med=2m31s    max=2m31s    p(90)=2m31s    p(95)=2m31s   
+     iterations.....................: 68      0.102818/s
+     vus............................: 2       min=0        max=100
+     vus_max........................: 100     min=100      max=100
+     ws_connecting..................: avg=692.81ms min=234.02ms med=432.8ms  max=8.13s    p(90)=1.24s    p(95)=1.75s   
+     ws_msgs_received...............: 7182    10.85937/s
+     ws_msgs_sent...................: 7929    11.988854/s
+     ws_session_duration............: avg=2m17s    min=1m0s     med=2m30s    max=2m30s    p(90)=2m30s    p(95)=2m30s   
+     ws_sessions....................: 151     0.228316/s
+   ✓ wuzz_messages_sent.............: 7778    11.760538/s
+   ✓ wuzz_msg_latency_ms............: avg=0s       min=0s       med=0s       max=0s       p(90)=0s       p(95)=0s      
+   ✓ wuzz_ws_connect_ms.............: avg=692.97ms min=234ms    med=433ms    max=8.13s    p(90)=1.24s    p(95)=1.75s   
+
+
+running (11m01.4s), 000/100 VUs, 68 complete and 83 interrupted iterations
+dm_users ✓ [ 100% ] 001/100 VUs  3m0s

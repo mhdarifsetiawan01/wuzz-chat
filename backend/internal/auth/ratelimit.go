@@ -1,6 +1,9 @@
 package auth
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -104,7 +107,7 @@ func GetClientIP(r *http.Request) string {
 	return ip
 }
 
-// RateLimitMiddleware membungkus handler dengan rate limiter HTTP 429.
+// RateLimitMiddleware membungkus handler dengan rate limiter HTTP 429 berbasis IP (Legacy/Simple).
 func RateLimitMiddleware(limiter *IPRateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -120,3 +123,86 @@ func RateLimitMiddleware(limiter *IPRateLimiter) func(http.Handler) http.Handler
 		})
 	}
 }
+
+// DualTierRateLimiter menggabungkan rate limit per-IP (anti-DDoS) dan per-Username (anti-brute-force).
+type DualTierRateLimiter struct {
+	ipLimiter   *IPRateLimiter
+	userLimiter *IPRateLimiter
+}
+
+// NewDualTierRateLimiter membuat rate limiter bertingkat baru.
+// ipLimit: batas request per IP (misal 100/menit)
+// userLimit: batas request per username (misal 15/menit)
+func NewDualTierRateLimiter(ipLimit, userLimit int, window time.Duration) *DualTierRateLimiter {
+	return &DualTierRateLimiter{
+		ipLimiter:   NewIPRateLimiter(ipLimit, window),
+		userLimiter: NewIPRateLimiter(userLimit, window),
+	}
+}
+
+// Allow memeriksa apakah kombinasi IP dan Username diizinkan.
+func (d *DualTierRateLimiter) Allow(ip, username string) (bool, string) {
+	if !d.ipLimiter.Allow(ip) {
+		return false, "ip"
+	}
+	if username != "" {
+		normalizedUser := strings.ToLower(strings.TrimSpace(username))
+		if !d.userLimiter.Allow(normalizedUser) {
+			return false, "user"
+		}
+	}
+	return true, ""
+}
+
+// ExtractUsernameFromBody mencoba mengekstrak field "username" dari JSON body request
+// tanpa merusak stream body untuk handler berikutnya.
+func ExtractUsernameFromBody(r *http.Request) string {
+	if r.Body == nil || r.Method != http.MethodPost {
+		return ""
+	}
+
+	// Batasi pembacaan maksimal 4KB untuk mencegah memory exhaustion
+	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 4096))
+	if err != nil || len(bodyBytes) == 0 {
+		return ""
+	}
+
+	// Kembalikan r.Body agar dapat dibaca kembali oleh handler berikutnya
+	r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+	var payload struct {
+		Username string `json:"username"`
+	}
+	if err := json.Unmarshal(bodyBytes, &payload); err == nil && payload.Username != "" {
+		return payload.Username
+	}
+
+	return ""
+}
+
+// DualRateLimitMiddleware membungkus handler dengan perlindungan rate limit IP + Username.
+func DualRateLimitMiddleware(limiter *DualTierRateLimiter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := GetClientIP(r)
+			username := ExtractUsernameFromBody(r)
+
+			allowed, reason := limiter.Allow(ip, username)
+			if !allowed {
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Retry-After", "60")
+				w.WriteHeader(http.StatusTooManyRequests)
+
+				if reason == "user" {
+					_, _ = w.Write([]byte(`{"error":"Terlalu banyak percobaan pada akun ini. Silakan coba lagi setelah 1 menit."}`))
+				} else {
+					_, _ = w.Write([]byte(`{"error":"Terlalu banyak permintaan dari jaringan ini. Silakan coba beberapa saat lagi."}`))
+				}
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+

@@ -1,0 +1,1338 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: scenario-1b-dm-14users.js
+        output: json (results/scenario-1b.json)
+
+     scenarios: (100.00%) 1 scenario, 14 max VUs, 2m40s max duration (incl. graceful stop):
+              * dm_14users: Up to 14 looping VUs for 2m30s over 3 stages (gracefulRampDown: 10s, gracefulStop: 30s)
+
+time="2026-09-20T03:33:44+07:00" level=info msg="\n🔐 Setup: Pre-login 14 confirmed users..." source=console
+time="2026-09-20T03:33:44+07:00" level=info msg="✅ loadtest_user_001" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:33:49+07:00" level=info msg="✅ loadtest_user_002" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:33:54+07:00" level=info msg="✅ loadtest_user_003" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:33:58+07:00" level=warning msg="[setup] Rate limited, tunggu 65 detik..." source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:35:03+07:00" level=info msg="✅ loadtest_user_004" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:35:08+07:00" level=info msg="✅ loadtest_user_005" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:35:13+07:00" level=info msg="✅ loadtest_user_006" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:35:17+07:00" level=warning msg="[setup] Rate limited, tunggu 65 detik..." source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:36:23+07:00" level=info msg="✅ loadtest_user_007" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:36:27+07:00" level=info msg="✅ loadtest_user_008" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:36:32+07:00" level=info msg="✅ loadtest_user_009" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:36:37+07:00" level=warning msg="[setup] Rate limited, tunggu 65 detik..." source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:37:42+07:00" level=info msg="✅ loadtest_user_010" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:37:47+07:00" level=info msg="✅ loadtest_user_012" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:37:51+07:00" level=info msg="✅ loadtest_user_014" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:37:56+07:00" level=info msg="✅ loadtest_user_017" source=console
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+
+Run          [ 100% ] setup()
+dm_14users   [   0% ]
+time="2026-09-20T03:38:01+07:00" level=info msg="✅ loadtest_user_018" source=console
+time="2026-09-20T03:38:01+07:00" level=info msg="\n✅ Setup: 14/14 token siap\n" source=console
+
+running (4m18.0s), 00/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   1% ] 00/14 VUs  0m00.9s/2m30.0s
+time="2026-09-20T03:38:02+07:00" level=info msg="[VU 7] ✅ Connected → dm_lt14_pair_3" source=console
+
+running (4m19.0s), 01/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   1% ] 01/14 VUs  0m01.9s/2m30.0s
+time="2026-09-20T03:38:03+07:00" level=info msg="[VU 2] ✅ Connected → dm_lt14_pair_0" source=console
+
+running (4m20.0s), 02/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   2% ] 02/14 VUs  0m02.9s/2m30.0s
+time="2026-09-20T03:38:04+07:00" level=info msg="[VU 6] ✅ Connected → dm_lt14_pair_2" source=console
+
+running (4m21.0s), 03/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   3% ] 03/14 VUs  0m03.9s/2m30.0s
+time="2026-09-20T03:38:05+07:00" level=info msg="[VU 3] ✅ Connected → dm_lt14_pair_1" source=console
+
+running (4m22.0s), 04/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   3% ] 04/14 VUs  0m04.9s/2m30.0s
+time="2026-09-20T03:38:06+07:00" level=info msg="[VU 4] ✅ Connected → dm_lt14_pair_1" source=console
+
+running (4m23.0s), 05/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   4% ] 05/14 VUs  0m05.9s/2m30.0s
+time="2026-09-20T03:38:08+07:00" level=info msg="[VU 5] ✅ Connected → dm_lt14_pair_2" source=console
+
+running (4m24.0s), 06/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   5% ] 06/14 VUs  0m06.9s/2m30.0s
+time="2026-09-20T03:38:09+07:00" level=info msg="[VU 8] ✅ Connected → dm_lt14_pair_3" source=console
+
+running (4m25.0s), 07/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   5% ] 07/14 VUs  0m07.9s/2m30.0s
+time="2026-09-20T03:38:10+07:00" level=info msg="[VU 1] ✅ Connected → dm_lt14_pair_0" source=console
+
+running (4m26.0s), 08/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   6% ] 08/14 VUs  0m08.9s/2m30.0s
+
+running (4m27.0s), 09/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   7% ] 09/14 VUs  0m09.9s/2m30.0s
+time="2026-09-20T03:38:11+07:00" level=info msg="[VU 9] ✅ Connected → dm_lt14_pair_4" source=console
+
+running (4m28.0s), 10/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   7% ] 10/14 VUs  0m10.9s/2m30.0s
+time="2026-09-20T03:38:12+07:00" level=info msg="[VU 12] ✅ Connected → dm_lt14_pair_5" source=console
+
+running (4m29.0s), 11/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   8% ] 11/14 VUs  0m11.9s/2m30.0s
+time="2026-09-20T03:38:13+07:00" level=info msg="[VU 10] ✅ Connected → dm_lt14_pair_4" source=console
+
+running (4m30.0s), 12/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   9% ] 12/14 VUs  0m12.9s/2m30.0s
+time="2026-09-20T03:38:14+07:00" level=info msg="[VU 14] ✅ Connected → dm_lt14_pair_6" source=console
+
+running (4m31.0s), 12/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [   9% ] 12/14 VUs  0m13.9s/2m30.0s
+time="2026-09-20T03:38:15+07:00" level=info msg="[VU 11] ✅ Connected → dm_lt14_pair_5" source=console
+
+running (4m32.0s), 13/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  10% ] 13/14 VUs  0m14.9s/2m30.0s
+time="2026-09-20T03:38:16+07:00" level=info msg="[VU 13] ✅ Connected → dm_lt14_pair_6" source=console
+
+running (4m33.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  11% ] 14/14 VUs  0m15.9s/2m30.0s
+
+running (4m34.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  11% ] 14/14 VUs  0m16.9s/2m30.0s
+
+running (4m35.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  12% ] 14/14 VUs  0m17.9s/2m30.0s
+
+running (4m36.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  13% ] 14/14 VUs  0m18.9s/2m30.0s
+
+running (4m37.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  13% ] 14/14 VUs  0m19.9s/2m30.0s
+
+running (4m38.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  14% ] 14/14 VUs  0m20.9s/2m30.0s
+
+running (4m39.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  15% ] 14/14 VUs  0m21.9s/2m30.0s
+
+running (4m40.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  15% ] 14/14 VUs  0m22.9s/2m30.0s
+
+running (4m41.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  16% ] 14/14 VUs  0m23.9s/2m30.0s
+
+running (4m42.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  17% ] 14/14 VUs  0m24.9s/2m30.0s
+
+running (4m43.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  17% ] 14/14 VUs  0m25.9s/2m30.0s
+
+running (4m44.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  18% ] 14/14 VUs  0m26.9s/2m30.0s
+
+running (4m45.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  19% ] 14/14 VUs  0m27.9s/2m30.0s
+
+running (4m46.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  19% ] 14/14 VUs  0m28.9s/2m30.0s
+
+running (4m47.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  20% ] 14/14 VUs  0m29.9s/2m30.0s
+
+running (4m48.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  21% ] 14/14 VUs  0m30.9s/2m30.0s
+
+running (4m49.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  21% ] 14/14 VUs  0m31.9s/2m30.0s
+
+running (4m50.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  22% ] 14/14 VUs  0m32.9s/2m30.0s
+
+running (4m51.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  23% ] 14/14 VUs  0m33.9s/2m30.0s
+
+running (4m52.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  23% ] 14/14 VUs  0m34.9s/2m30.0s
+
+running (4m53.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  24% ] 14/14 VUs  0m35.9s/2m30.0s
+
+running (4m54.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  25% ] 14/14 VUs  0m36.9s/2m30.0s
+
+running (4m55.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  25% ] 14/14 VUs  0m37.9s/2m30.0s
+
+running (4m56.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  26% ] 14/14 VUs  0m38.9s/2m30.0s
+
+running (4m57.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  27% ] 14/14 VUs  0m39.9s/2m30.0s
+
+running (4m58.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  27% ] 14/14 VUs  0m40.9s/2m30.0s
+
+running (4m59.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  28% ] 14/14 VUs  0m41.9s/2m30.0s
+
+running (5m00.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  29% ] 14/14 VUs  0m42.9s/2m30.0s
+
+running (5m01.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  29% ] 14/14 VUs  0m43.9s/2m30.0s
+
+running (5m02.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  30% ] 14/14 VUs  0m44.9s/2m30.0s
+
+running (5m03.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  31% ] 14/14 VUs  0m45.9s/2m30.0s
+
+running (5m04.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  31% ] 14/14 VUs  0m46.9s/2m30.0s
+
+running (5m05.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  32% ] 14/14 VUs  0m47.9s/2m30.0s
+
+running (5m06.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  33% ] 14/14 VUs  0m48.9s/2m30.0s
+
+running (5m07.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  33% ] 14/14 VUs  0m49.9s/2m30.0s
+
+running (5m08.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  34% ] 14/14 VUs  0m50.9s/2m30.0s
+
+running (5m09.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  35% ] 14/14 VUs  0m51.9s/2m30.0s
+
+running (5m10.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  35% ] 14/14 VUs  0m52.9s/2m30.0s
+
+running (5m11.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  36% ] 14/14 VUs  0m53.9s/2m30.0s
+
+running (5m12.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  37% ] 14/14 VUs  0m54.9s/2m30.0s
+
+running (5m13.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  37% ] 14/14 VUs  0m55.9s/2m30.0s
+
+running (5m14.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  38% ] 14/14 VUs  0m56.9s/2m30.0s
+
+running (5m15.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  39% ] 14/14 VUs  0m57.9s/2m30.0s
+
+running (5m16.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  39% ] 14/14 VUs  0m58.9s/2m30.0s
+
+running (5m17.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  40% ] 14/14 VUs  0m59.9s/2m30.0s
+
+running (5m18.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  41% ] 14/14 VUs  1m00.9s/2m30.0s
+
+running (5m19.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  41% ] 14/14 VUs  1m01.9s/2m30.0s
+
+running (5m20.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  42% ] 14/14 VUs  1m02.9s/2m30.0s
+
+running (5m21.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  43% ] 14/14 VUs  1m03.9s/2m30.0s
+
+running (5m22.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  43% ] 14/14 VUs  1m04.9s/2m30.0s
+
+running (5m23.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  44% ] 14/14 VUs  1m05.9s/2m30.0s
+
+running (5m24.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  45% ] 14/14 VUs  1m06.9s/2m30.0s
+
+running (5m25.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  45% ] 14/14 VUs  1m07.9s/2m30.0s
+
+running (5m26.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  46% ] 14/14 VUs  1m08.9s/2m30.0s
+
+running (5m27.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  47% ] 14/14 VUs  1m09.9s/2m30.0s
+
+running (5m28.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  47% ] 14/14 VUs  1m10.9s/2m30.0s
+
+running (5m29.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  48% ] 14/14 VUs  1m11.9s/2m30.0s
+
+running (5m30.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  49% ] 14/14 VUs  1m12.9s/2m30.0s
+
+running (5m31.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  49% ] 14/14 VUs  1m13.9s/2m30.0s
+
+running (5m32.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  50% ] 14/14 VUs  1m14.9s/2m30.0s
+
+running (5m33.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  51% ] 14/14 VUs  1m15.9s/2m30.0s
+
+running (5m34.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  51% ] 14/14 VUs  1m16.9s/2m30.0s
+
+running (5m35.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  52% ] 14/14 VUs  1m17.9s/2m30.0s
+
+running (5m36.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  53% ] 14/14 VUs  1m18.9s/2m30.0s
+
+running (5m37.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  53% ] 14/14 VUs  1m19.9s/2m30.0s
+
+running (5m38.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  54% ] 14/14 VUs  1m20.9s/2m30.0s
+
+running (5m39.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  55% ] 14/14 VUs  1m21.9s/2m30.0s
+
+running (5m40.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  55% ] 14/14 VUs  1m22.9s/2m30.0s
+
+running (5m41.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  56% ] 14/14 VUs  1m23.9s/2m30.0s
+
+running (5m42.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  57% ] 14/14 VUs  1m24.9s/2m30.0s
+
+running (5m43.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  57% ] 14/14 VUs  1m25.9s/2m30.0s
+
+running (5m44.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  58% ] 14/14 VUs  1m26.9s/2m30.0s
+
+running (5m45.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  59% ] 14/14 VUs  1m27.9s/2m30.0s
+
+running (5m46.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  59% ] 14/14 VUs  1m28.9s/2m30.0s
+
+running (5m47.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  60% ] 14/14 VUs  1m29.9s/2m30.0s
+
+running (5m48.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  61% ] 14/14 VUs  1m30.9s/2m30.0s
+
+running (5m49.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  61% ] 14/14 VUs  1m31.9s/2m30.0s
+
+running (5m50.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  62% ] 14/14 VUs  1m32.9s/2m30.0s
+
+running (5m51.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  63% ] 14/14 VUs  1m33.9s/2m30.0s
+
+running (5m52.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  63% ] 14/14 VUs  1m34.9s/2m30.0s
+
+running (5m53.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  64% ] 14/14 VUs  1m35.9s/2m30.0s
+
+running (5m54.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  65% ] 14/14 VUs  1m36.9s/2m30.0s
+
+running (5m55.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  65% ] 14/14 VUs  1m37.9s/2m30.0s
+
+running (5m56.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  66% ] 14/14 VUs  1m38.9s/2m30.0s
+
+running (5m57.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  67% ] 14/14 VUs  1m39.9s/2m30.0s
+
+running (5m58.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  67% ] 14/14 VUs  1m40.9s/2m30.0s
+
+running (5m59.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  68% ] 14/14 VUs  1m41.9s/2m30.0s
+
+running (6m00.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  69% ] 14/14 VUs  1m42.9s/2m30.0s
+
+running (6m01.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  69% ] 14/14 VUs  1m43.9s/2m30.0s
+
+running (6m02.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  70% ] 14/14 VUs  1m44.9s/2m30.0s
+
+running (6m03.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  71% ] 14/14 VUs  1m45.9s/2m30.0s
+
+running (6m04.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  71% ] 14/14 VUs  1m46.9s/2m30.0s
+
+running (6m05.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  72% ] 14/14 VUs  1m47.9s/2m30.0s
+
+running (6m06.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  73% ] 14/14 VUs  1m48.9s/2m30.0s
+
+running (6m07.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  73% ] 14/14 VUs  1m49.9s/2m30.0s
+
+running (6m08.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  74% ] 14/14 VUs  1m50.9s/2m30.0s
+
+running (6m09.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  75% ] 14/14 VUs  1m51.9s/2m30.0s
+
+running (6m10.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  75% ] 14/14 VUs  1m52.9s/2m30.0s
+
+running (6m11.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  76% ] 14/14 VUs  1m53.9s/2m30.0s
+
+running (6m12.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  77% ] 14/14 VUs  1m54.9s/2m30.0s
+
+running (6m13.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  77% ] 14/14 VUs  1m55.9s/2m30.0s
+
+running (6m14.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  78% ] 14/14 VUs  1m56.9s/2m30.0s
+
+running (6m15.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  79% ] 14/14 VUs  1m57.9s/2m30.0s
+
+running (6m16.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  79% ] 14/14 VUs  1m58.9s/2m30.0s
+
+running (6m17.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  80% ] 14/14 VUs  1m59.9s/2m30.0s
+
+running (6m18.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  81% ] 14/14 VUs  2m00.9s/2m30.0s
+
+running (6m19.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  81% ] 14/14 VUs  2m01.9s/2m30.0s
+
+running (6m20.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  82% ] 14/14 VUs  2m02.9s/2m30.0s
+
+running (6m21.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  83% ] 14/14 VUs  2m03.9s/2m30.0s
+
+running (6m22.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  83% ] 14/14 VUs  2m04.9s/2m30.0s
+
+running (6m23.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  84% ] 14/14 VUs  2m05.9s/2m30.0s
+
+running (6m24.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  85% ] 14/14 VUs  2m06.9s/2m30.0s
+
+running (6m25.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  85% ] 14/14 VUs  2m07.9s/2m30.0s
+
+running (6m26.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  86% ] 14/14 VUs  2m08.9s/2m30.0s
+
+running (6m27.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  87% ] 14/14 VUs  2m09.9s/2m30.0s
+
+running (6m28.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  87% ] 14/14 VUs  2m10.9s/2m30.0s
+
+running (6m29.0s), 14/14 VUs, 0 complete and 0 interrupted iterations
+dm_14users   [  88% ] 14/14 VUs  2m11.9s/2m30.0s
+time="2026-09-20T03:40:13+07:00" level=info msg="[VU 7] ✅ Connected → dm_lt14_pair_3" source=console
+
+running (6m30.0s), 14/14 VUs, 1 complete and 0 interrupted iterations
+dm_14users   [  89% ] 14/14 VUs  2m12.9s/2m30.0s
+time="2026-09-20T03:40:15+07:00" level=info msg="[VU 2] ✅ Connected → dm_lt14_pair_0" source=console
+
+running (6m31.0s), 14/14 VUs, 2 complete and 0 interrupted iterations
+dm_14users   [  89% ] 14/14 VUs  2m13.9s/2m30.0s
+time="2026-09-20T03:40:16+07:00" level=info msg="[VU 6] ✅ Connected → dm_lt14_pair_2" source=console
+
+running (6m32.0s), 14/14 VUs, 3 complete and 0 interrupted iterations
+dm_14users   [  90% ] 14/14 VUs  2m14.9s/2m30.0s
+time="2026-09-20T03:40:17+07:00" level=info msg="[VU 3] ✅ Connected → dm_lt14_pair_1" source=console
+
+running (6m33.0s), 14/14 VUs, 4 complete and 0 interrupted iterations
+dm_14users   [  91% ] 14/14 VUs  2m15.9s/2m30.0s
+time="2026-09-20T03:40:18+07:00" level=info msg="[VU 4] ✅ Connected → dm_lt14_pair_1" source=console
+
+running (6m34.0s), 14/14 VUs, 5 complete and 0 interrupted iterations
+dm_14users   [  91% ] 14/14 VUs  2m16.9s/2m30.0s
+
+running (6m35.0s), 14/14 VUs, 6 complete and 0 interrupted iterations
+dm_14users   [  92% ] 14/14 VUs  2m17.9s/2m30.0s
+time="2026-09-20T03:40:19+07:00" level=info msg="[VU 5] ✅ Connected → dm_lt14_pair_2" source=console
+
+running (6m36.0s), 14/14 VUs, 7 complete and 0 interrupted iterations
+dm_14users   [  93% ] 14/14 VUs  2m18.9s/2m30.0s
+time="2026-09-20T03:40:20+07:00" level=info msg="[VU 8] ✅ Connected → dm_lt14_pair_3" source=console
+
+running (6m37.0s), 14/14 VUs, 8 complete and 0 interrupted iterations
+dm_14users   [  93% ] 14/14 VUs  2m19.9s/2m30.0s
+time="2026-09-20T03:40:21+07:00" level=info msg="[VU 1] ✅ Connected → dm_lt14_pair_0" source=console
+
+running (6m38.0s), 14/14 VUs, 8 complete and 0 interrupted iterations
+dm_14users   [  94% ] 14/14 VUs  2m20.9s/2m30.0s
+time="2026-09-20T03:40:22+07:00" level=info msg="[VU 9] ✅ Connected → dm_lt14_pair_4" source=console
+
+running (6m39.0s), 14/14 VUs, 9 complete and 0 interrupted iterations
+dm_14users   [  95% ] 14/14 VUs  2m21.9s/2m30.0s
+
+running (6m40.0s), 13/14 VUs, 10 complete and 0 interrupted iterations
+dm_14users   [  95% ] 13/14 VUs  2m22.9s/2m30.0s
+
+running (6m41.0s), 12/14 VUs, 11 complete and 0 interrupted iterations
+dm_14users   [  96% ] 12/14 VUs  2m23.9s/2m30.0s
+
+running (6m42.0s), 11/14 VUs, 12 complete and 0 interrupted iterations
+dm_14users   [  97% ] 11/14 VUs  2m24.9s/2m30.0s
+
+running (6m43.0s), 10/14 VUs, 13 complete and 0 interrupted iterations
+dm_14users   [  97% ] 10/14 VUs  2m25.9s/2m30.0s
+
+running (6m44.0s), 09/14 VUs, 13 complete and 1 interrupted iterations
+dm_14users   [  98% ] 09/14 VUs  2m26.9s/2m30.0s
+
+running (6m45.0s), 09/14 VUs, 13 complete and 1 interrupted iterations
+dm_14users   [  99% ] 09/14 VUs  2m27.9s/2m30.0s
+
+running (6m46.0s), 09/14 VUs, 13 complete and 1 interrupted iterations
+dm_14users   [  99% ] 09/14 VUs  2m28.9s/2m30.0s
+
+running (6m47.0s), 09/14 VUs, 13 complete and 1 interrupted iterations
+dm_14users   [ 100% ] 09/14 VUs  2m29.9s/2m30.0s
+
+running (6m48.0s), 09/14 VUs, 13 complete and 1 interrupted iterations
+dm_14users ↓ [ 100% ] 09/14 VUs  2m30s
+
+running (6m49.0s), 08/14 VUs, 13 complete and 2 interrupted iterations
+dm_14users ↓ [ 100% ] 09/14 VUs  2m30s
+
+running (6m50.0s), 07/14 VUs, 13 complete and 3 interrupted iterations
+dm_14users ↓ [ 100% ] 09/14 VUs  2m30s
+
+running (6m51.0s), 06/14 VUs, 13 complete and 4 interrupted iterations
+dm_14users ↓ [ 100% ] 09/14 VUs  2m30s
+
+running (6m52.0s), 05/14 VUs, 13 complete and 5 interrupted iterations
+dm_14users ↓ [ 100% ] 09/14 VUs  2m30s
+
+running (6m53.0s), 04/14 VUs, 13 complete and 6 interrupted iterations
+dm_14users ↓ [ 100% ] 09/14 VUs  2m30s
+
+running (6m54.0s), 03/14 VUs, 13 complete and 7 interrupted iterations
+dm_14users ↓ [ 100% ] 09/14 VUs  2m30s
+
+running (6m55.0s), 02/14 VUs, 13 complete and 8 interrupted iterations
+dm_14users ↓ [ 100% ] 09/14 VUs  2m30s
+
+running (6m56.0s), 02/14 VUs, 13 complete and 8 interrupted iterations
+dm_14users ↓ [ 100% ] 09/14 VUs  2m30s
+
+running (6m57.0s), 01/14 VUs, 13 complete and 9 interrupted iterations
+dm_14users ↓ [ 100% ] 09/14 VUs  2m30s
+
+     ✓ ws 101 connected
+
+     checks.........................: 100.00% 14 out of 14
+     data_received..................: 279 kB  668 B/s
+     data_sent......................: 180 kB  430 B/s
+     http_req_blocked...............: avg=4.16ms   min=311ns    med=631ns    max=70.73ms  p(90)=977ns    p(95)=14.14ms 
+     http_req_connecting............: avg=1.64ms   min=0s       med=0s       max=27.91ms  p(90)=0s       p(95)=5.58ms  
+     http_req_duration..............: avg=207.68ms min=29.35ms  med=239.48ms max=256.48ms p(90)=244.95ms p(95)=247.64ms
+       { expected_response:true }...: avg=241.56ms min=237.59ms med=240.48ms max=256.48ms p(90)=245.19ms p(95)=249.3ms 
+     http_req_failed................: 17.64%  3 out of 17
+     http_req_receiving.............: avg=252.93µs min=61.67µs  med=114.06µs max=2.57ms   p(90)=144.3µs  p(95)=633.4µs 
+     http_req_sending...............: avg=213.55µs min=121.21µs med=219.25µs max=273.77µs p(90)=270.07µs p(95)=271.02µs
+     http_req_tls_handshaking.......: avg=2.45ms   min=0s       med=0s       max=41.68ms  p(90)=0s       p(95)=8.33ms  
+     http_req_waiting...............: avg=207.21ms min=29.04ms  med=239.11ms max=256.13ms p(90)=243.35ms p(95)=246.72ms
+     http_reqs......................: 17      0.040755/s
+     iteration_duration.............: avg=2m11s    min=2m11s    med=2m11s    max=2m11s    p(90)=2m11s    p(95)=2m11s   
+     iterations.....................: 13      0.031166/s
+     vus............................: 1       min=0        max=14
+     vus_max........................: 14      min=14       max=14
+     ws_connecting..................: avg=244.36ms min=236.88ms med=244.1ms  max=253.36ms p(90)=250.79ms p(95)=252.13ms
+     ws_msgs_received...............: 998     2.392581/s
+     ws_msgs_sent...................: 1007    2.414157/s
+     ws_session_duration............: avg=2m10s    min=2m10s    med=2m10s    max=2m10s    p(90)=2m10s    p(95)=2m10s   
+     ws_sessions....................: 23      0.05514/s
+   ✓ wuzz_messages_sent.............: 984     2.359018/s
+   ✓ wuzz_ws_connect_ms.............: avg=244.65ms min=237ms    med=245ms    max=254ms    p(90)=251.2ms  p(95)=252.9ms 
+
+
+running (6m57.1s), 00/14 VUs, 13 complete and 10 interrupted iterations
+dm_14users ✓ [ 100% ] 01/14 VUs  2m30s

@@ -136,8 +136,10 @@ func main() {
 	// Setup routing
 	mux := http.NewServeMux()
 
-	// Inisialisasi Rate Limiter untuk Auth Endpoint (15 request / menit per IP untuk anti-brute force)
-	authLimiter := auth.NewIPRateLimiter(15, 1*time.Minute)
+	// Inisialisasi Dual-Tier Rate Limiter untuk Auth Endpoint
+	// - Layer 1 (IP Limit): 100 request / menit per IP (mencegah DDoS & aman untuk WiFi/NAT kantor)
+	// - Layer 2 (User Limit): 15 request / menit per username (mencegah brute-force akun spesifik)
+	authLimiter := auth.NewDualTierRateLimiter(100, 15, 1*time.Minute)
 
 	// Helper CORS Middleware untuk REST API
 	withCORS := func(h http.HandlerFunc) http.HandlerFunc {
@@ -176,13 +178,13 @@ func main() {
 	})
 	mux.Handle("/uploads/", http.StripPrefix("/uploads/", corsValidator.Middleware(fileHandler)))
 
-	// REST API Routes (Auth) dengan Rate Limiting
+	// REST API Routes (Auth) dengan Dual-Tier Rate Limiting
 	if authHandler != nil {
 		mux.HandleFunc("/api/auth/register", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RateLimitMiddleware(authLimiter)(http.HandlerFunc(authHandler.Register)).ServeHTTP(w, r)
+			auth.DualRateLimitMiddleware(authLimiter)(http.HandlerFunc(authHandler.Register)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/login", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RateLimitMiddleware(authLimiter)(http.HandlerFunc(authHandler.Login)).ServeHTTP(w, r)
+			auth.DualRateLimitMiddleware(authLimiter)(http.HandlerFunc(authHandler.Login)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/me", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.Me)).ServeHTTP(w, r)

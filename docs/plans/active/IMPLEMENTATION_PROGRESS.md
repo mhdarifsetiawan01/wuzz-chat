@@ -1,4 +1,4 @@
 # Implementation Progress — Standby
 
-## Checklist
-- [ ] Ready for next task.
+## 📋 Task Checklist
+- [ ] Standby

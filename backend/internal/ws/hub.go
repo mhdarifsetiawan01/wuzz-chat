@@ -118,6 +118,8 @@ func (h *Hub) SetBroker(b broker.MessageBroker) {
 			return
 		}
 
+		log.Printf("[Hub %s] menerima cluster event dari node %s room=%s msgID=%s", h.nodeID[:8], event.NodeID[:8], event.RoomID, event.Message.ID)
+
 		// Teruskan pesan ke client lokal yang terhubung di node ini
 		if event.TargetUserID != "" {
 			h.NotifyUser(event.TargetUserID, event.Message)

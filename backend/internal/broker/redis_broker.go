@@ -77,20 +77,16 @@ func (r *RedisBroker) Subscribe(ctx context.Context, channel string, handler fun
 
 	r.pubsub[channel] = pubsub
 
-	// Jalankan loop pembacaan pesan di goroutine terpisah
+	// Jalankan loop pembacaan pesan di goroutine terpisah menggunakan ReceiveMessage
 	go func() {
-		ch := pubsub.Channel()
 		for {
-			select {
-			case <-r.ctx.Done():
+			msg, err := pubsub.ReceiveMessage(r.ctx)
+			if err != nil {
+				// Context dibatalkan atau koneksi ditutup
 				return
-			case msg, ok := <-ch:
-				if !ok {
-					return
-				}
-				if msg != nil {
-					handler(msg.Channel, []byte(msg.Payload))
-				}
+			}
+			if msg != nil {
+				handler(msg.Channel, []byte(msg.Payload))
 			}
 		}
 	}()

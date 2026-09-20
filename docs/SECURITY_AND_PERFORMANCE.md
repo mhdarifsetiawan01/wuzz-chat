@@ -395,6 +395,15 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Login Route Guard (`?logout=1`)**: Halaman login memeriksa flag `logout=1` untuk memblokir auto-redirect ke linimasa pesan dan memaksa input username/password baru saat pengguna baru saja logout.
   - **Anti-Stale History Poisoning (`history.replaceState` & Auth Priority)**: Jika pengguna telah login kembali dan menekan tombol *Back* hingga mencapai rute login, pengecekan `!isAuthLoading && user` diprioritaskan di baris pertama `useEffect` untuk langsung memantulkan pengguna ke `/chat` (`router.replace`) tanpa memanggil `localLogout()`. Selain itu, saat pertama kali mendarat di `/login?logout=1`, parameter kueri langsung dibersihkan seketika via `window.history.replaceState` agar tidak tertinggal di history stack peramban.
 
+### 3.17 Dual-Tier Rate Limiting & Database Pool Tuning (DEC-001)
+* **Lokasi Kode**: [`backend/internal/auth/ratelimit.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/ratelimit.go) & [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go)
+* **Proteksi Multi-Layer Auth**:
+  - **Layer 1 (Per-IP / 100 req/menit)**: Mencegah banjir trafik DDoS pada endpoint autentikasi (`/api/auth/login` & `/api/auth/register`) sekaligus aman untuk pengguna di satu WiFi/kantor (shared NAT IP).
+  - **Layer 2 (Per-Username / 15 req/menit)**: Mengunci batas tebak password per akun spesifik. Kegagalan berulang hanya memblokir username yang diserang tanpa mempengaruhi pengguna lain di IP yang sama.
+  - **Body Stream Preservation**: Membaca field `username` secara aman dengan `io.LimitReader(r.Body, 4096)` dan me-restore stream via `io.NopCloser(bytes.NewReader(bodyBytes))`.
+* **Database Connection Pool**:
+  - `SetMaxOpenConns(25)`, `SetMaxIdleConns(10)`, `SetConnMaxIdleTime(2m)`, `SetConnMaxLifetime(5m)` untuk efisiensi pool connection Supabase.
+
 ---
 
 ## 🧪 4. Matriks Pengujian Otomatis & Verifikasi E2E

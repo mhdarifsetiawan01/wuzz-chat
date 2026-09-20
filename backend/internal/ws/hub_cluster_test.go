@@ -98,3 +98,82 @@ func TestHub_ClusterSync(t *testing.T) {
 		t.Errorf("Expected content '%s', got '%s'", testMsg.Content, receivedOnNodeB.Content)
 	}
 }
+
+func TestHub_LiveRedisClusterSync(t *testing.T) {
+	redisURL := "rediss://default:gQAAAAAAAdJlAAIgcDI1ZmNjN2QxMmRhZGI0YzY2YTExMjZjNjdkNTBiMDdhOA@exotic-walleye-119397.upstash.io:6379"
+
+	brokerA, err := broker.NewRedisBroker(redisURL)
+	if err != nil {
+		t.Skipf("Skipping Live Redis test: %v", err)
+	}
+	defer brokerA.Close()
+
+	brokerB, err := broker.NewRedisBroker(redisURL)
+	if err != nil {
+		t.Skipf("Skipping Live Redis test: %v", err)
+	}
+	defer brokerB.Close()
+
+	hubA := NewHub(store.NewMemoryClientStore(), store.NewMemoryMessageStore())
+	hubA.SetBroker(brokerA)
+
+	hubB := NewHub(store.NewMemoryClientStore(), store.NewMemoryMessageStore())
+	hubB.SetBroker(brokerB)
+
+	// Berikan jeda waktu yang cukup agar koneksi TLS & Pub/Sub subscription di Upstash cloud aktif
+	time.Sleep(1000 * time.Millisecond)
+
+	client2Send := make(chan Message, 10)
+	client2 := &Client{
+		ID:       "client-remote-b",
+		Nickname: "Bob Remote",
+		RoomID:   "room-live-cluster",
+		hub:      hubB,
+		send:     client2Send,
+	}
+	hubB.Register(client2)
+	hubB.JoinRoom(client2, "room-live-cluster")
+
+	testMsg := Message{
+		ID:        "msg-redis-live-999",
+		Type:      TypeMessage,
+		From:      "client-remote-a",
+		Nickname:  "Alice Remote",
+		Room:      "room-live-cluster",
+		Content:   "Pesan live antar node via Upstash Redis!",
+		Timestamp: time.Now().UTC(),
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	var received Message
+	go func() {
+		defer wg.Done()
+		timeout := time.After(5 * time.Second)
+		for {
+			select {
+			case msg := <-client2Send:
+				if msg.Type == TypeMessage {
+					received = msg
+					return
+				}
+			case <-timeout:
+				t.Errorf("Timeout waiting for message across live Redis cluster")
+				return
+			}
+		}
+	}()
+
+	hubA.BroadcastRoom("room-live-cluster", testMsg, "client-remote-a")
+
+	wg.Wait()
+
+	if received.ID != testMsg.ID {
+		t.Fatalf("Expected msg ID %s via Live Redis, got: %s", testMsg.ID, received.ID)
+	}
+	if received.Content != testMsg.Content {
+		t.Fatalf("Expected content '%s', got: '%s'", testMsg.Content, received.Content)
+	}
+}
+

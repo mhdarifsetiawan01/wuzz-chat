@@ -1399,5 +1399,33 @@ Ketika pengguna mengajukan izin bergabung (*join request*) ke subgrup/forum priv
 - **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh unit, store, api, dan integration test suite (termasuk unit test join request di `subgroup_test.go` dan `group_handler_test.go`).
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
 
+---
 
+## 🚀 Milestone 8.12: Production Load Testing, Dual-Tier Rate Limiting & Scalability Optimizations (20 September 2026)
 
+### Latar Belakang & Hasil Load Test Production
+Pengujian beban (load & stress test) menggunakan Grafana k6 v0.55.0 dijalankan secara langsung ke production Fly.io (`wuzz-chat-backend.fly.dev`) dan Supabase PostgreSQL (`ap-northeast-2`):
+- **Skenario 1b (14 DM Users)**: 100% stabil, latensi WS 244ms, zero disconnect.
+- **Skenario 1 (100 Concurrent DM Users)**: Berhasil mentransmisikan 7.778 pesan (~11.7 msg/s), latensi WS p(95) 1.75s.
+- **Skenario 2 (Group Chat 10 Users)**: 12.445 pesan tersalurkan (Fanout 10.35x), 0% packet loss.
+- **Skenario 3 (Stress 250 Users)**: 37.020 pesan diterima live (23 MB throughput), 100% WS handshake success.
+- **Skenario 4 (Spike DDoS Test)**: Memblokir lonjakan 50 login/detik dengan 0 server error (500).
+
+### Solusi & Optimasi Backend Terverifikasi
+1. **Dual-Tier Rate Limiting (`backend/internal/auth/ratelimit.go`)**:
+   - **Layer 1 (Per-IP / Anti-DDoS)**: Batas dilonggarkan ke **100 request/menit per IP** untuk mencegah false-positive pada jaringan kantor/kampus (shared NAT).
+   - **Layer 2 (Per-Username / Anti-Brute Force)**: Dibatasi maksimal **15 request/menit per username** dengan pesan penolakan yang presisi.
+   - **Body Stream Preservation**: Membaca field `username` dari body JSON secara aman (dibatasi 4KB) dan me-restore `r.Body` (`io.NopCloser`) untuk downstream handler.
+2. **Database Connection Pool Tuning (`backend/internal/store/sql.go`)**:
+   - `db.SetMaxOpenConns(25)` dan `db.SetMaxIdleConns(10)`.
+   - `db.SetConnMaxIdleTime(2 * time.Minute)` dan `db.SetConnMaxLifetime(5 * time.Minute)`.
+3. **Live Redis Pub/Sub Cluster Verification (`backend/internal/broker/`, `backend/internal/ws/`)**:
+   - Streaming channel `ReceiveMessage(r.ctx)` pada `redis_broker.go` tanpa perantara channel buffer wrapper.
+   - Uji E2E Live Redis (`TestHub_LiveRedisClusterSync` & `TestRedisBroker_Integration`) PASS 100% antar-instance node via Upstash Redis.
+4. **Deploy Fly.io Production**:
+   - Berhasil di-deploy ke `wuzz-chat-backend.fly.dev` (Health check: HTTP/2 200 OK).
+
+### Test Evidence
+- **Backend Tests (`go test -v ./...`)**: **100% PASS** di seluruh unit, store, api, broker, ws, dan integration test suite.
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
+- **Production Health Check**: `curl -sI https://wuzz-chat-backend.fly.dev/health` ➔ `HTTP/2 200 OK`.
