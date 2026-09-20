@@ -1,4 +1,12 @@
-import { AppConfig, MediaUploadResponse, LinkPreview } from './types'
+import {
+  AppConfig,
+  MediaUploadResponse,
+  LinkPreview,
+  MemoryDraftListItem,
+  MemoryDraftDetail,
+  ApprovedMemoryListItem,
+  ApprovedMemoryDetail,
+} from './types'
 
 // API client helper untuk berkomunikasi dengan Go REST API
 const API_BASE = typeof window !== 'undefined' ? '' : (process.env.BACKEND_API_URL || process.env.BACKEND_URL || 'http://localhost:8080')
@@ -143,6 +151,54 @@ export async function deleteMessageApi(
     }),
   })
 }
+
+// =============================================================================
+// Group Memory AI Client Helpers (Milestone 10)
+// =============================================================================
+
+export async function fetchMemoryDrafts(groupId: string): Promise<{ data?: MemoryDraftListItem[]; error?: string }> {
+  return apiRequest<MemoryDraftListItem[]>(`/api/memory/drafts?group_id=${encodeURIComponent(groupId)}`)
+}
+
+export async function fetchMemoryDraftDetail(draftId: string): Promise<{ data?: { draft: MemoryDraftDetail }; error?: string }> {
+  return apiRequest<{ draft: MemoryDraftDetail }>(`/api/memory/drafts/${encodeURIComponent(draftId)}`)
+}
+
+export async function approveMemoryDraft(draftId: string, withChanges?: boolean): Promise<{ data?: any; error?: string }> {
+  const action = withChanges ? 'approve-with-changes' : 'approve'
+  return apiRequest<any>(`/api/memory/drafts/${encodeURIComponent(draftId)}/${action}`, {
+    method: 'POST',
+  })
+}
+
+export async function rejectMemoryDraft(draftId: string, reason?: string): Promise<{ data?: any; error?: string }> {
+  return apiRequest<any>(`/api/memory/drafts/${encodeURIComponent(draftId)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: reason || '' }),
+  })
+}
+
+export async function updateMemoryArtifact(draftId: string, artifactId: string, content: string): Promise<{ data?: any; error?: string }> {
+  return apiRequest<any>(`/api/memory/drafts/${encodeURIComponent(draftId)}/artifacts/${encodeURIComponent(artifactId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  })
+}
+
+export async function removeJourneyLite(draftId: string): Promise<{ data?: any; error?: string }> {
+  return apiRequest<any>(`/api/memory/drafts/${encodeURIComponent(draftId)}/journey`, {
+    method: 'DELETE',
+  })
+}
+
+export async function fetchGroupMemories(groupId: string, limit = 20, offset = 0): Promise<{ data?: ApprovedMemoryListItem[]; error?: string }> {
+  return apiRequest<ApprovedMemoryListItem[]>(`/api/groups/${encodeURIComponent(groupId)}/memories?limit=${limit}&offset=${offset}`)
+}
+
+export async function fetchApprovedMemoryDetail(memoryId: string): Promise<{ data?: ApprovedMemoryDetail; error?: string }> {
+  return apiRequest<ApprovedMemoryDetail>(`/api/memories/${encodeURIComponent(memoryId)}`)
+}
+
 
 
 

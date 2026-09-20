@@ -1,8 +1,8 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { SubGroupItem, JoinRequestItem } from '@/lib/types'
-import { apiRequest } from '@/lib/api'
+import { SubGroupItem, JoinRequestItem, MemoryDraftListItem } from '@/lib/types'
+import { apiRequest, fetchMemoryDrafts } from '@/lib/api'
 
 interface SubGroupListDrawerProps {
   isOpen: boolean
@@ -11,6 +11,7 @@ interface SubGroupListDrawerProps {
   parentGroupName: string
   onSelectSubGroup: (subGroupId: string, title: string) => void
   onOpenCreateModal: () => void
+  onOpenReviewModal?: (draftId: string) => void
   currentUserId?: string
   currentUserRole?: string
 }
@@ -47,6 +48,7 @@ export default function SubGroupListDrawer({
   parentGroupName,
   onSelectSubGroup,
   onOpenCreateModal,
+  onOpenReviewModal,
   currentUserId,
   currentUserRole,
 }: SubGroupListDrawerProps) {
@@ -63,6 +65,9 @@ export default function SubGroupListDrawer({
   const [isLoadingRequests, setIsLoadingRequests] = useState(false)
   const [actionReqId, setActionReqId] = useState<string | null>(null)
   const [successToast, setSuccessToast] = useState<string>('')
+
+  // State untuk draft memori AI yang menunggu review (Admin/Creator)
+  const [memoryDrafts, setMemoryDrafts] = useState<MemoryDraftListItem[]>([])
 
   const fetchSubgroups = useCallback(async () => {
     if (!parentGroupId) return
@@ -82,6 +87,17 @@ export default function SubGroupListDrawer({
         throw new Error(error)
       }
       setSubgroups(data?.subgroups || [])
+
+      // Muat draft memori jika admin/creator
+      if (canCreateTopic) {
+        fetchMemoryDrafts(parentGroupId)
+          .then((res) => {
+            if (res.data) {
+              setMemoryDrafts(res.data)
+            }
+          })
+          .catch(() => {})
+      }
     } catch (err: unknown) {
       clearTimeout(timeoutId)
       const errObj = err as { name?: string; message?: string }
@@ -510,6 +526,69 @@ export default function SubGroupListDrawer({
 
             {/* List Forum */}
             <div className="group-modal-body" style={{ padding: '16px 20px' }}>
+              {/* Banner Review Memori AI (Khusus Admin/Creator saat ada draft pending) */}
+              {canCreateTopic && memoryDrafts.length > 0 && (
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                    border: '1px solid rgba(147, 197, 253, 0.3)',
+                    marginBottom: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '1.1rem' }}>🧠</span>
+                      <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                        Draft Memori AI Siap Direview
+                      </strong>
+                      <span
+                        style={{
+                          background: 'var(--color-danger)',
+                          color: '#fff',
+                          fontSize: '0.68rem',
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {memoryDrafts.length}
+                      </span>
+                    </div>
+                    <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+                      {memoryDrafts.length === 1
+                        ? `Forum "${memoryDrafts[0].forum_title}" telah expired dan siap divalidasi.`
+                        : `${memoryDrafts.length} forum telah expired dan menunggu validasi admin.`}
+                    </p>
+                  </div>
+                  {onOpenReviewModal && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenReviewModal(memoryDrafts[0].draft_id)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '8px',
+                        background: 'var(--accent-500)',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        border: 'none',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                      }}
+                    >
+                      Review →
+                    </button>
+                  )}
+                </div>
+              )}
+
               {isLoading ? (
                 <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
                   <div className="spinner" style={{ margin: '0 auto 12px' }} />

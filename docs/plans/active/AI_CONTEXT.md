@@ -1,20 +1,16 @@
-# AI Context — Milestone 4: Review Backend API & Knowledge Endpoints
+# AI Context — Milestone 5: Admin Review UI (Frontend Next.js)
 
 ## Active Focus
 - **Fitur**: Group Memory AI
-- **Milestone**: M4 — Review Backend API & Knowledge Endpoints
+- **Milestone**: M5 — Admin Review UI (Frontend Next.js)
 - **Branch**: `feature/group-memory-ai`
-- **Head Commit**: `89a2b6c`
-- **Database Status**: 7 tabel auto-migrated di SQLite & PostgreSQL.
-- **Worker Status**: Background job worker `MemoryJobWorker` sudah aktif dengan injeksi `MemoryProcessor`.
+- **Head Commit**: `08365f7`
+- **Backend Readiness**: Endpoint REST API untuk review draft (`/api/memory/drafts/...`) sudah aktif dan terverifikasi 100%.
 
-## Target Endpoints
-1. `GET /api/memory/drafts?group_id={id}` (Admin only)
-2. `GET /api/memory/drafts/{draft_id}` (Admin only)
-3. `POST /api/memory/drafts/{draft_id}/approve` (Admin only)
-4. `POST /api/memory/drafts/{draft_id}/reject` (Admin only)
-5. `PATCH /api/memory/drafts/{draft_id}/artifacts/{artifact_id}` (Admin only)
-6. `DELETE /api/memory/drafts/{draft_id}/journey` (Admin only)
-7. `POST /api/memory/drafts/{draft_id}/approve-with-changes` (Admin only)
-8. `GET /api/groups/{id}/memories` (All members)
-9. `GET /api/memories/{memory_id}` (All members + view event tracking)
+## Target Frontend Components
+1. `frontend/lib/types.ts`: TypeScript contracts for Drafts, Artifacts, Evidences.
+2. `frontend/lib/api.ts`: API clients for fetch drafts, get detail, approve, reject, edit, delete journey.
+3. `frontend/app/chat/memory/MemoryDraftReviewModal.tsx`: Main modal / full-page review flow.
+4. `frontend/app/chat/memory/ConfidenceBadge.tsx`: Visual confidence indicator (HIGH, MEDIUM, LOW).
+5. `frontend/app/chat/memory/ReviewCards.tsx`: SummaryReviewCard, DecisionReviewCard with evidence snippets, JourneyLiteReviewCard.
+6. `frontend/app/chat/SubGroupListDrawer.tsx`: Admin review entry point with badge count.

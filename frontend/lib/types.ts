@@ -243,6 +243,112 @@ export interface ConversationItem {
   updated_at: string
 }
 
+// =============================================================================
+// Group Memory AI Types (Milestone 10)
+// =============================================================================
 
+export type MemoryConfidence = 'HIGH' | 'MEDIUM' | 'LOW'
 
+export interface ArtifactEvidenceItem {
+  id: string
+  artifact_id?: string
+  message_id: string
+  message_preview: string
+  message_sender_name: string
+  message_sent_at: string
+  created_at?: string
+}
 
+export interface MemoryArtifactItem {
+  id: string
+  draft_id: string
+  type: 'SUMMARY' | 'DECISION' | 'JOURNEY_LITE'
+  content: string
+  ai_original_content?: string
+  confidence: MemoryConfidence
+  is_human_edited: boolean
+  is_removed: boolean
+  position?: number
+  created_at: string
+  updated_at: string
+  evidences?: ArtifactEvidenceItem[]
+}
+
+export interface MemoryDraftDetail {
+  id: string
+  job_id: string
+  forum_id: string
+  forum_title?: string
+  group_id: string
+  status: 'DRAFT' | 'APPROVED' | 'REJECTED'
+  message_count_processed: number
+  was_truncated: boolean
+  truncation_note?: string
+  reviewed_at?: string
+  reviewed_by?: string
+  rejection_reason?: string
+  created_at: string
+  artifacts: MemoryArtifactItem[]
+}
+
+export interface MemoryDraftListItem {
+  draft_id: string
+  forum_id: string
+  forum_title: string
+  group_id: string
+  status: string
+  message_count_processed: number
+  was_truncated: boolean
+  artifact_count: number
+  created_at: string
+}
+
+export interface ApprovedEvidenceItem {
+  message_id: string
+  preview: string
+  sender_name: string
+  sent_at: string
+}
+
+export interface ApprovedDecisionItem {
+  position: number
+  text: string
+  confidence: MemoryConfidence
+  is_human_edited?: boolean
+  evidences: ApprovedEvidenceItem[]
+}
+
+export interface ApprovedMemoryListItem {
+  id: string
+  forum_id: string
+  forum_title: string
+  group_id: string
+  approved_by: string
+  approved_by_name: string
+  approved_at: string
+  has_human_edits: boolean
+  snapshot_summary: string
+  snapshot_summary_conf: MemoryConfidence
+  decision_count: number
+  has_journey_lite: boolean
+  is_journey_lite_removed: boolean
+}
+
+export interface ApprovedMemoryDetail {
+  id: string
+  draft_id: string
+  forum_id: string
+  forum_title: string
+  group_id: string
+  approved_by: string
+  approved_by_name: string
+  approved_at: string
+  has_human_edits: boolean
+  snapshot_summary: string
+  snapshot_summary_conf: MemoryConfidence
+  snapshot_decisions: ApprovedDecisionItem[]
+  snapshot_journey_lite?: string
+  snapshot_journey_conf?: MemoryConfidence
+  is_journey_lite_removed: boolean
+  created_at: string
+}

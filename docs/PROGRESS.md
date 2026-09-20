@@ -1597,4 +1597,36 @@ Membangun REST API terproteksi dengan kontrol akses multi-tier (RBAC) untuk vali
 - **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh unit, store, worker, broker, api, dan ai package (termasuk `TestMemoryHandler_AdminReviewLifecycle` & `TestMemoryHandler_RejectDraft`).
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
 
+---
+
+## 🚀 Milestone 10.5: Group Memory AI — Admin Review UI (20 September 2026)
+
+### Latar Belakang & Implementasi
+Membangun antarmuka web (UI/UX) bagi Admin dan Creator grup untuk meninjau, menyunting, dan memvalidasi draft memori AI sebelum dipublikasikan secara permanen:
+1. **Definisi Tipe & Kontrak TypeScript (`frontend/lib/types.ts`)**:
+   - `MemoryConfidence`, `ArtifactEvidenceItem`, `MemoryArtifactItem`, `MemoryDraftDetail`, `MemoryDraftListItem`.
+   - `ApprovedEvidenceItem`, `ApprovedDecisionItem`, `ApprovedMemoryListItem`, `ApprovedMemoryDetail`.
+2. **Klien REST API Helper (`frontend/lib/api.ts`)**:
+   - `fetchMemoryDrafts`, `fetchMemoryDraftDetail`, `approveMemoryDraft`, `rejectMemoryDraft`, `updateMemoryArtifact`, `removeJourneyLite`.
+   - Terintegrasi dengan mekanisme `AbortController` timeout 15 detik dan otomatis token recovery.
+3. **Komponen Kartu Review (`frontend/app/chat/memory/`)**:
+   - `ConfidenceBadge`: Badge visual tingkat keyakinan (HIGH: hijau ●, MEDIUM: amber ◐, LOW: merah ○).
+   - `SummaryReviewCard`: Menampilkan teks ringkasan diskusi AI dengan mode penyuntingan inline.
+   - `DecisionReviewCard`: Menampilkan poin keputusan terstruktur beserta kutipan bukti sumber percakapan (`message_preview`, pengirim, tanggal) dan link tautan "Buka di diskusi asli →".
+   - `JourneyLiteReviewCard`: Menampilkan kronologi alur diskusi (*Awalnya... Kemudian... Akhirnya...*) serta opsi tombol [🗑 Hapus dari Memori] dengan dialog konfirmasi aman.
+   - `JourneyLiteSkippedCard`: Komponen placeholder saat forum singkat langsung mencapai konsensus.
+4. **Modal Container & Sticky Action Bar (`frontend/app/chat/memory/MemoryDraftReviewModal.tsx`)**:
+   - Mengikuti kaidah *Dual-Platform (Mobile 100dvh & Desktop Modal)* dengan sticky header dan sticky action bar berpadding safe-area insets.
+   - Tombol `[✅ Setujui & Publikasikan]` (otomatis mendeteksi suntingan untuk `approve-with-changes`).
+   - Tombol `[❌ Tolak Draft]` dengan dialog input alasan penolakan.
+   - Perlindungan loading state & disabled button untuk mencegah duplikasi submit (*double-click race condition*).
+5. **Integrasi Entry Point di Chat UI (`SubGroupListDrawer.tsx` & `page.tsx`)**:
+   - Banner **"Draft Memori AI Siap Direview"** otomatis tampil di drawer topik forum bagi Admin saat ada forum kedaluwarsa yang siap divalidasi.
+   - Integrasi modal review ke state utama chat dengan feedback in-app toast saat disetujui/ditolak.
+
+### Test Evidence
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
+- **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh paket backend.
+
+
 

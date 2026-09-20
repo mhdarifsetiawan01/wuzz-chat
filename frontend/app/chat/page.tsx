@@ -15,6 +15,7 @@ import { Sidebar } from './Sidebar'
 import { GroupInfoDrawer } from './GroupInfoDrawer'
 import CreateSubGroupModal from './CreateSubGroupModal'
 import SubGroupListDrawer from './SubGroupListDrawer'
+import { MemoryDraftReviewModal } from './memory/MemoryDraftReviewModal'
 import GroupPreviewModal from './GroupPreviewModal'
 import { ForwardMessageModal } from './ForwardMessageModal'
 import { soundManager, playOutgoingRing, playIncomingRing, stopCallSounds } from '@/lib/sound'
@@ -300,6 +301,7 @@ function ChatPageContent() {
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false)
   const [isSubGroupListOpen, setIsSubGroupListOpen] = useState(false)
   const [isCreateSubGroupOpen, setIsCreateSubGroupOpen] = useState(false)
+  const [reviewDraftId, setReviewDraftId] = useState<string | null>(null)
   const [directPreviewGroup, setDirectPreviewGroup] = useState<GroupDetails | null>(null)
   const [privateGroupDenied, setPrivateGroupDenied] = useState<{ id: string; error?: string } | null>(null)
   const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([])
@@ -2405,6 +2407,10 @@ function ChatPageContent() {
                 onOpenCreateModal={() => {
                   setIsCreateSubGroupOpen(true)
                 }}
+                onOpenReviewModal={(draftId) => {
+                  setIsSubGroupListOpen(false)
+                  setReviewDraftId(draftId)
+                }}
               />
 
               {/* Modal Pembuatan Subgrup Baru */}
@@ -2415,6 +2421,25 @@ function ChatPageContent() {
                 parentGroupName={parentGroupName || groupDetails?.title || 'Grup Utama'}
                 onSubGroupCreated={(newSubGroup) => {
                   handleSelectRoom(newSubGroup.id)
+                }}
+              />
+
+              {/* Modal Review Draft Memori AI */}
+              <MemoryDraftReviewModal
+                draftId={reviewDraftId || ''}
+                isOpen={!!reviewDraftId}
+                onClose={() => setReviewDraftId(null)}
+                onApproved={() => {
+                  setReviewDraftId(null)
+                  setInAppToast({ message: '🧠 Memori grup berhasil divalidasi dan dipublikasikan!' })
+                }}
+                onRejected={() => {
+                  setReviewDraftId(null)
+                  setInAppToast({ message: 'Draft memori berhasil ditolak.' })
+                }}
+                onJumpToMessage={(forumId) => {
+                  setReviewDraftId(null)
+                  handleSelectRoom(forumId)
                 }}
               />
             </>
