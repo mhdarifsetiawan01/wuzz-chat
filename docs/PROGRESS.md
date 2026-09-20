@@ -1429,3 +1429,27 @@ Pengujian beban (load & stress test) menggunakan Grafana k6 v0.55.0 dijalankan s
 - **Backend Tests (`go test -v ./...`)**: **100% PASS** di seluruh unit, store, api, broker, ws, dan integration test suite.
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
 - **Production Health Check**: `curl -sI https://wuzz-chat-backend.fly.dev/health` ➔ `HTTP/2 200 OK`.
+
+---
+
+## 🚀 Milestone 8.13: Real-Time Read Receipt Fix & Bulk Status Storage Sync (20 September 2026)
+
+### Latar Belakang Masalah
+Saat User A mengirim pesan dan terkirim (centang 2 abu-abu), ketika User B membuka chat, status di device User A tidak langsung berubah menjadi centang 2 biru dan baru berubah saat User B membalas pesan. Penyebabnya adalah:
+1. Guard `if (currentRoom && ...)` di WebSocket listener frontend membuang event `TypeReceipt` saat User A berada di halaman Home / Daftar Chat / Sidebar.
+2. Bulk read receipt (`!msg.id`) saat membuka room tidak memperbarui status di IndexedDB lokal pengirim.
+
+### Solusi & Implementasi
+1. **IndexedDB Batch Status Update (`frontend/lib/messageCache.ts`)**:
+   - Menambahkan fungsi `updateRoomCachedMessagesStatus(roomId, newStatus)` yang memanfaatkan index `by_room` untuk iterasi cepat non-blocking.
+   - Menerapkan *anti-regression guard* berbasis `STATUS_WEIGHT` (mencegah status `read` tertimpa kembali menjadi `delivered`/`sent`).
+2. **WebSocket Event Routing (`frontend/app/chat/page.tsx`)**:
+   - Menyesuaikan penanganan `case 'receipt':` agar selalu meneruskan event ke `setLastIncomingMessage(msg)` sehingga snippet dan icon di `Sidebar.tsx` langsung ter-update secara real-time.
+   - Mengintegrasikan pembaruan status bulk ke IndexedDB lokal saat menerima `TypeReceipt` tingkat room.
+3. **Automated Test Suite (`frontend/test-message-cache.mjs`)**:
+   - Menambahkan skenario Test 6b untuk memverifikasi `updateRoomCachedMessagesStatus` dan proteksi anti-downgrade.
+
+### Test Evidence
+- **Frontend IndexedDB Tests (`node frontend/test-message-cache.mjs`)**: **100% PASS** (9 skenario uji).
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
+- **Backend Tests (`go test ./...`)**: **100% PASS**.

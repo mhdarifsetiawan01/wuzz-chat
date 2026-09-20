@@ -1,6 +1,5 @@
-# AI Context — Standby
+# AI Context
 
-## 🎯 Target Repository & Scope
-- **Repository**: `wuzz-chat`
-- **Active Branch**: `dev`
+- **Repository**: wuzz-chat
+- **Branch**: dev
 - **Status**: Standby

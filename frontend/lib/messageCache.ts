@@ -255,6 +255,58 @@ export async function updateCachedMessageStatus(
   }
 }
 
+/**
+ * Memperbarui status seluruh pesan di suatu room (digunakan saat menerima bulk read receipt dari lawan bicara).
+ * Menggunakan index `by_room` untuk iterasi cepat dan anti-regression weight (hanya mengupdate jika newStatus > currentStatus).
+ */
+export async function updateRoomCachedMessagesStatus(
+  roomId: string,
+  newStatus: string
+): Promise<void> {
+  if (!roomId || typeof window === 'undefined') return
+
+  try {
+    const db = await openMsgDB()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite')
+      const store = tx.objectStore(STORE_NAME)
+      const index = store.index(ROOM_IDX)
+      const request = index.openCursor(IDBKeyRange.only(roomId))
+      const newWeight = STATUS_WEIGHT[newStatus] ?? 0
+      const now = Date.now()
+
+      request.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
+        if (cursor) {
+          const record = cursor.value as CachedMessageRecord
+          const currentWeight = STATUS_WEIGHT[record.status] ?? 0
+
+          if (newStatus === 'deleted' || newWeight > currentWeight) {
+            cursor.update({
+              ...record,
+              status: newStatus,
+              cachedAt: now,
+            })
+          }
+          cursor.continue()
+        }
+      }
+
+      request.onerror = () => reject(request.error)
+      tx.oncomplete = () => {
+        db.close()
+        resolve()
+      }
+      tx.onerror = () => {
+        db.close()
+        reject(tx.error)
+      }
+    })
+  } catch (err) {
+    console.warn('[MsgCache] Gagal update bulk status room di IndexedDB:', err)
+  }
+}
+
 // ----------------------------------------------------------------
 // Delete — Single Record
 // ----------------------------------------------------------------

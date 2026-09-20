@@ -11,6 +11,7 @@ const {
   cacheMessage,
   getCachedMessages,
   updateCachedMessageStatus,
+  updateRoomCachedMessagesStatus,
   deleteCachedMessage,
   clearRoomCache,
   clearAllMessageCache,
@@ -138,6 +139,42 @@ async function runTests() {
   assert.equal(afterDelete.length, 2, 'Room 1 should now have 2 messages (msg-002, msg-004)')
   assert.ok(!afterDelete.some(m => m.id === 'msg-001'), 'msg-001 should be completely removed')
   console.log('  ✅ PASSED: Single message deletion verified.\n')
+
+  // Test 6b: Bulk Room Read Receipt Update (updateRoomCachedMessagesStatus)
+  console.log('▶ Test 6b: Bulk Room Read Receipt Update (updateRoomCachedMessagesStatus)')
+  const bulkRoom = 'room-bulk-test-001'
+  await cacheMessages([
+    {
+      id: 'bulk-1',
+      room_id: bulkRoom,
+      content: 'Pesan 1',
+      sender_id: 'alice-uuid',
+      created_at: '2026-09-16T10:00:00Z',
+      status: 'sent',
+      type: 'text',
+      cachedAt: Date.now(),
+    },
+    {
+      id: 'bulk-2',
+      room_id: bulkRoom,
+      content: 'Pesan 2',
+      sender_id: 'alice-uuid',
+      created_at: '2026-09-16T10:01:00Z',
+      status: 'delivered',
+      type: 'text',
+      cachedAt: Date.now(),
+    },
+  ])
+  await updateRoomCachedMessagesStatus(bulkRoom, 'read')
+  const bulkUpdated = await getCachedMessages(bulkRoom)
+  assert.equal(bulkUpdated[0].status, 'read', 'Pesan 1 must become read')
+  assert.equal(bulkUpdated[1].status, 'read', 'Pesan 2 must become read')
+  // Anti-downgrade check on bulk
+  await updateRoomCachedMessagesStatus(bulkRoom, 'delivered')
+  const bulkRechecked = await getCachedMessages(bulkRoom)
+  assert.equal(bulkRechecked[0].status, 'read', 'Pesan 1 must NOT downgrade to delivered')
+  assert.equal(bulkRechecked[1].status, 'read', 'Pesan 2 must NOT downgrade to delivered')
+  console.log('  ✅ PASSED: Bulk room read receipt update & anti-downgrade verified.\n')
 
   // Test 7: Clear Room Cache (Bersihkan Obrolan)
   console.log('▶ Test 7: clearRoomCache (Bersihkan Obrolan)')

@@ -40,6 +40,7 @@ import {
   cacheMessages,
   cacheMessage,
   updateCachedMessageStatus,
+  updateRoomCachedMessagesStatus,
   updateMessageContentInCache,
   deleteCachedMessage,
   toCachedRecord,
@@ -1241,16 +1242,18 @@ function ChatPageContent() {
         }
 
         case 'receipt': {
-          if (currentRoom && (msg.room === currentRoom || !msg.room)) {
-            setLastIncomingMessage(msg)
-            if (msg.status) {
+          setLastIncomingMessage(msg)
+          if (msg.status) {
+            if (currentRoom && (msg.room === currentRoom || !msg.room)) {
               dispatch({
                 type: 'UPDATE_MESSAGE_STATUS',
                 payload: { id: msg.id, status: msg.status },
               })
-              if (msg.id) {
-                updateCachedMessageStatus(msg.id, msg.status).catch(() => {})
-              }
+            }
+            if (msg.id) {
+              updateCachedMessageStatus(msg.id, msg.status).catch(() => {})
+            } else if (msg.room) {
+              updateRoomCachedMessagesStatus(msg.room, msg.status).catch(() => {})
             }
           }
           break

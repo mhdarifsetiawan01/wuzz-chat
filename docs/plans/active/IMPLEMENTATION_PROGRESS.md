@@ -1,4 +1,3 @@
-# Implementation Progress — Standby
+# Implementation Progress
 
-## 📋 Task Checklist
-- [ ] Standby
+*No active task in progress.*

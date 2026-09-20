@@ -1,3 +1,3 @@
-# Handover & Verification Notes — Standby
+# Handover & Verification Status
 
-- Standby
+*Standby.*

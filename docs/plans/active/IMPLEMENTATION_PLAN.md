@@ -1,4 +1,3 @@
-# Implementation Plan — Standby
+# Implementation Plan
 
-## 🎯 Objective
-- Standby state.
+*Standby for next task.*
