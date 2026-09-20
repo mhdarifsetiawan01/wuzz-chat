@@ -129,6 +129,9 @@ func main() {
 	if memoryStore != nil {
 		aiService := ai.NewAIServiceFromEnv()
 		memoryProcessor := ai.NewMemoryProcessor(memoryStore, messageStore, groupStore, aiService)
+		if pushService != nil {
+			memoryProcessor.SetPushService(pushService)
+		}
 		memoryWorker := worker.NewMemoryJobWorker(memoryStore, messageStore, 15*time.Second)
 		memoryWorker.SetProcessor(memoryProcessor)
 		memoryWorker.Start()

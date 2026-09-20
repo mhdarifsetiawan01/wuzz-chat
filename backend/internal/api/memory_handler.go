@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -401,6 +402,44 @@ func (h *MemoryHandler) handleApproveDraft(w http.ResponseWriter, r *http.Reques
 	// Real-time notification broadcast ke member jika hub aktif
 	if h.hub != nil {
 		h.hub.BroadcastGroupSystemEvent(draft.GroupID, "memory_approved", "🧠 Memori grup baru telah divalidasi dan ditambahkan ke arsip!")
+	}
+
+	// Kirim Web Push Notification ke seluruh member grup (Section 11 Spec)
+	if h.pushService != nil && h.groupStore != nil {
+		go func(groupID, forumID, memoryID, approvedAdminID string) {
+			members, err := h.groupStore.GetGroupMembers(groupID)
+			if err != nil || len(members) == 0 {
+				return
+			}
+			recipientIDs := make([]string, 0, len(members))
+			for _, m := range members {
+				if m.UserID != approvedAdminID && m.UserID != "" {
+					recipientIDs = append(recipientIDs, m.UserID)
+				}
+			}
+			if len(recipientIDs) == 0 {
+				return
+			}
+
+			forumTitle := "Forum Diskusi"
+			if forumDetails, err := h.groupStore.GetGroupDetails(forumID, ""); err == nil && forumDetails != nil && forumDetails.Title != "" {
+				forumTitle = forumDetails.Title
+			}
+
+			h.pushService.NotifyMemoryEvent(
+				recipientIDs,
+				"✅ Memory Grup Tersedia",
+				fmt.Sprintf("Memory dari forum '%s' kini tersedia. Baca ringkasan, keputusan, dan perjalanan diskusinya.", forumTitle),
+				"memory_published_"+memoryID,
+				map[string]interface{}{
+					"type":               "memory_published",
+					"group_id":           groupID,
+					"forum_id":           forumID,
+					"approved_memory_id": memoryID,
+					"deep_link":          fmt.Sprintf("/chat?roomId=%s&openMemory=%s", groupID, memoryID),
+				},
+			)
+		}(draft.GroupID, draft.ForumID, approvedMem.ID, currentUserID)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

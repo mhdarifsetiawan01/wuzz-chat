@@ -268,14 +268,22 @@ async function decryptSingleMessage(m: Message, key: CryptoKey | null): Promise<
 function ChatPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const searchParamRoom = searchParams.get('room') || searchParams.get('peer') || ''
+  const searchParamRoom = searchParams.get('room') || searchParams.get('roomId') || searchParams.get('peer') || ''
+  const searchParamOpenDraft = searchParams.get('openDraft') || ''
+  const searchParamOpenMemory = searchParams.get('openMemory') || ''
   const [selectedRoomId, setSelectedRoomId] = useState<string>(searchParamRoom)
 
-  // Sinkronkan state saat URL query param berubah dari navigasi luar/browser back
+  // Sinkronkan state saat URL query param berubah dari navigasi luar/browser back/deep-link
   useEffect(() => {
     setSelectedRoomId(searchParamRoom)
     setPrivateGroupDenied(null)
-  }, [searchParamRoom])
+    if (searchParamOpenDraft) {
+      setReviewDraftId(searchParamOpenDraft)
+    }
+    if (searchParamOpenMemory) {
+      setSelectedApprovedMemoryId(searchParamOpenMemory)
+    }
+  }, [searchParamRoom, searchParamOpenDraft, searchParamOpenMemory])
 
   const roomId = selectedRoomId
   const { user, isLoading: isAuthLoading, logout, localLogout } = useAuth()

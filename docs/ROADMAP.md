@@ -71,7 +71,7 @@ Membangun platform chatting modern yang:
 └──────────────────────────────────┬─────────────────────────────────────┘
                                    │
 ┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 10: Group Memory AI (Forum Intelligence & Knowledge) (🟡 AKTIF) │
+│  FASE 10: Group Memory AI (Forum Intelligence & Knowledge) (✅ SELESAI) │
 │  - M1-M7: Journey Lite, Decision + Evidence, Human Validation (<30s)   │
 │  - PostgreSQL SKIP LOCKED Queue, Read-Model Memory, Group Scoped AI    │
 └──────────────────────────────────┬─────────────────────────────────────┘
@@ -363,7 +363,7 @@ Membangun platform chatting modern yang:
 
 ---
 
-### Fase 10: Group Memory AI — Forum Intelligence & Group Knowledge (Status: 🟡 SPEC APPROVED / MVP PLANNING)
+### Fase 10: Group Memory AI — Forum Intelligence & Group Knowledge (Status: ✅ SELESAI)
 *Tujuan: Mewujudkan visi "AI captures. Humans validate. Wuzz remembers." — Mengubah forum diskusi sementara (sub-group) yang kedaluwarsa menjadi memori kolektif grup yang abadi dan terkurasi manusia.*
 
 *Dokumen Spesifikasi Utama: [`docs/GROUP_MEMORY_AI_SPEC.md`](./GROUP_MEMORY_AI_SPEC.md)*
@@ -391,8 +391,8 @@ Membangun platform chatting modern yang:
     - Banner & drawer review di forum kedaluwarsa, kartu ringkasan, dialog keputusan + preview evidence, switch hapus Journey Lite, tombol satu-klik *"Setujui & Publikasikan"*.
   - ✅ **Milestone M6: Member Knowledge Viewer (Frontend Next.js) (SELESAI ✅)**:
     - Tab/Viewer "Memori Forum" di arsip forum dan grup induk untuk seluruh anggota grup, modal linimasa arsip memori, dan modal detail pengetahuan terpublikasi.
-  - 🔔 **Milestone M7: E2E Integration & Notification Polish (🟡 AKTIF)**:
-    - Notifikasi push/WebSocket ke Admin saat draft siap dan ke Member saat memori terbit. Audit log & metrics tracking.
+  - ✅ **Milestone M7: E2E Integration & Notification Polish (SELESAI ✅)**:
+    - Notifikasi push/WebSocket ke Admin saat draft siap dan ke Member saat memori terbit. Provider factory multi-vendor, PWA deep-linking (`sw.js`), audit log & metrics tracking.
 
 ---
 

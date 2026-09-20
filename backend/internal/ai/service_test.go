@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/google/uuid"
 	_ "modernc.org/sqlite"
@@ -322,3 +323,56 @@ func TestAI_MemoryProcessor_EmptyForum(t *testing.T) {
 		t.Errorf("expected 0 messages processed, got %d", draft.MessageCountProcessed)
 	}
 }
+
+func TestAI_ProviderFactoryAndErrors(t *testing.T) {
+	// Test error helpers
+	if !IsRetryableAIError(ErrAIRateLimited) {
+		t.Errorf("expected ErrAIRateLimited to be retryable")
+	}
+	if !IsRetryableAIError(ErrAITimeout) {
+		t.Errorf("expected ErrAITimeout to be retryable")
+	}
+	if !IsRetryableAIError(ErrInvalidJSONOutput) {
+		t.Errorf("expected ErrInvalidJSONOutput to be retryable")
+	}
+	if IsRetryableAIError(ErrAIBadAuth) {
+		t.Errorf("expected ErrAIBadAuth to NOT be retryable")
+	}
+
+	// Test factory fallback
+	t.Setenv("AI_PROVIDER", "mock")
+	svc := NewAIServiceFromEnv()
+	if _, ok := svc.(*MockAIService); !ok {
+		t.Errorf("expected MockAIService from env")
+	}
+}
+
+func TestAI_MemoryProcessorWithPushNotification(t *testing.T) {
+	msgStore, userStore, memStore, cleanup := setupTestAIEngineEnv(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	creator, _ := userStore.Register("notif_creator", "Creator", "Pass123!")
+	group, _ := userStore.CreateGroup("Push Group", "Desc", "", creator.ID, "push_grp", true, nil)
+	sub, _ := userStore.CreateSubGroup(group.ID, "Topik Notif", "Desc", creator.ID, "7_days", true)
+
+	job, err := memStore.CreateJob(ctx, sub.ID, group.ID)
+	if err != nil {
+		t.Fatalf("CreateJob gagal: %v", err)
+	}
+
+	pushSvc := push.NewService(userStore)
+	processor := NewMemoryProcessor(memStore, msgStore, userStore, &MockAIService{})
+	processor.SetPushService(pushSvc)
+
+	err = processor.ProcessMemoryJob(ctx, job, 0)
+	if err != nil {
+		t.Fatalf("ProcessMemoryJob with push gagal: %v", err)
+	}
+
+	completedJob, _ := memStore.GetJobByID(ctx, job.ID)
+	if completedJob.Status != store.JobStatusCompleted {
+		t.Errorf("expected completed job, got %s", completedJob.Status)
+	}
+}
+

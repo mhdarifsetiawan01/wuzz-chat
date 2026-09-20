@@ -21,7 +21,25 @@ var (
 	ErrEmptyAIResponse   = errors.New("respons dari AI kosong")
 	ErrInvalidJSONOutput = errors.New("output AI bukan format JSON yang valid")
 	ErrSummaryMissing    = errors.New("konten summary tidak ditemukan dalam output AI")
+	ErrAIRateLimited     = errors.New("ai provider rate limit (429)")
+	ErrAITimeout         = errors.New("ai provider request timeout")
+	ErrAIBadAuth         = errors.New("ai provider authentication failed (invalid api key)")
 )
+
+// IsRetryableAIError menentukan apakah error AI layak untuk di-retry.
+func IsRetryableAIError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrAIRateLimited) || errors.Is(err, ErrAITimeout) || errors.Is(err, ErrInvalidJSONOutput) || errors.Is(err, ErrEmptyAIResponse) {
+		return true
+	}
+	errStr := strings.ToLower(err.Error())
+	if strings.Contains(errStr, "429") || strings.Contains(errStr, "resource_exhausted") || strings.Contains(errStr, "timeout") || strings.Contains(errStr, "503") || strings.Contains(errStr, "502") {
+		return true
+	}
+	return false
+}
 
 var jsonBlockRegex = regexp.MustCompile(`(?s)\{.*\}`)
 
@@ -267,6 +285,12 @@ func (g *GeminiProvider) GenerateMemory(ctx context.Context, input MemoryGenerat
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable {
+			return nil, fmt.Errorf("%w (status %d): %s", ErrAIRateLimited, resp.StatusCode, string(respBytes))
+		}
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("%w (status %d): %s", ErrAIBadAuth, resp.StatusCode, string(respBytes))
+		}
 		return nil, fmt.Errorf("Gemini API error (status %d): %s", resp.StatusCode, string(respBytes))
 	}
 
@@ -288,21 +312,39 @@ func (g *GeminiProvider) GenerateMemory(ctx context.Context, input MemoryGenerat
 }
 
 // NewAIServiceFromEnv menginisialisasi AIService berdasarkan environment variable.
-// Jika GEMINI_API_KEY atau AI_API_KEY ditemukan, gunakan provider Gemini nyata.
-// Jika tidak, gunakan MockAIService yang aman dan deterministik untuk development/test.
+// Mendukung AI_PROVIDER (default "gemini", opsi "openai", "claude", "ollama", "mock") dan AI_MODEL.
+// Jika API key tidak ditemukan, fallback ke MockAIService yang aman dan deterministik untuk development/test.
 func NewAIServiceFromEnv() AIService {
+	provider := strings.ToLower(strings.TrimSpace(os.Getenv("AI_PROVIDER")))
+	if provider == "" {
+		provider = "gemini"
+	}
+
 	apiKey := strings.TrimSpace(os.Getenv("GEMINI_API_KEY"))
 	if apiKey == "" {
 		apiKey = strings.TrimSpace(os.Getenv("AI_API_KEY"))
 	}
 
-	if apiKey != "" {
-		model := strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
-		if model == "" {
-			model = "gemini-1.5-flash"
+	model := strings.TrimSpace(os.Getenv("AI_MODEL"))
+	if model == "" {
+		model = strings.TrimSpace(os.Getenv("GEMINI_MODEL"))
+	}
+	if model == "" {
+		model = "gemini-1.5-flash"
+	}
+
+	switch provider {
+	case "gemini":
+		if apiKey != "" {
+			log.Printf("🤖 [AIService] Menggunakan Google Gemini Provider (Model: %s)", model)
+			return NewGeminiProvider(apiKey, model)
 		}
-		log.Printf("🤖 [AIService] Menggunakan Google Gemini Provider (Model: %s)", model)
-		return NewGeminiProvider(apiKey, model)
+	case "mock":
+		log.Printf("🧪 [AIService] Mode eksplisit mock dipilih. Menggunakan MockAIService.")
+		return &MockAIService{}
+	default:
+		log.Printf("⚠️ [AIService] Provider '%s' belum dikonfigurasi aktif. Menggunakan MockAIService.", provider)
+		return &MockAIService{}
 	}
 
 	log.Printf("🧪 [AIService] API Key tidak ditemukan. Menggunakan MockAIService (Deterministic Test Mode)")

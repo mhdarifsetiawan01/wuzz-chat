@@ -389,6 +389,75 @@ func (s *Service) NotifyUsers(userIDs []string, title, body, tag, url string) {
 	}()
 }
 
+// NotifyMemoryEvent mengirimkan Web Push Notification terstruktur untuk event Group Memory AI (Section 11 Spec).
+func (s *Service) NotifyMemoryEvent(userIDs []string, title, body, tag string, data map[string]interface{}) {
+	if len(userIDs) == 0 {
+		return
+	}
+
+	s.mu.RLock()
+	us := s.userStore
+	s.mu.RUnlock()
+
+	if us == nil {
+		return
+	}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ [Push] Recovered from panic in NotifyMemoryEvent: %v", r)
+			}
+		}()
+
+		subs, err := us.GetPushSubscriptionsForRecipients(userIDs)
+		if err != nil || len(subs) == 0 {
+			return
+		}
+
+		if data == nil {
+			data = make(map[string]interface{})
+		}
+		if _, ok := data["url"]; !ok {
+			if deepLink, ok := data["deep_link"].(string); ok {
+				data["url"] = deepLink
+			} else {
+				data["url"] = "/chat"
+			}
+		}
+
+		payloadObj := NotificationPayload{
+			Title:     title,
+			Body:      body,
+			Icon:      "/favicon.ico",
+			Badge:     "/favicon.ico",
+			Tag:       tag,
+			Data:      data,
+			Timestamp: time.Now().UnixMilli(),
+		}
+
+		payloadBytes, err := json.Marshal(payloadObj)
+		if err != nil {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		var wg sync.WaitGroup
+		for _, sub := range subs {
+			wg.Add(1)
+			go func(subscription store.PushSubscription) {
+				defer wg.Done()
+				if err := s.SendWebPush(ctx, subscription, payloadBytes); err != nil {
+					log.Printf("⚠️ [Push] Gagal mengirim push NotifyMemoryEvent ke endpoint %s: %v", safePrefix(subscription.Endpoint, 24), err)
+				}
+			}(sub)
+		}
+		wg.Wait()
+	}()
+}
+
 func safePrefix(s string, maxLen int) string {
 	runes := []rune(s)
 	if len(runes) <= maxLen {

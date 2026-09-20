@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/google/uuid"
 )
@@ -19,6 +20,7 @@ type MemoryProcessor struct {
 	messageStore store.MessageStore
 	groupStore   store.GroupStore
 	aiService    AIService
+	pushService  *push.Service
 }
 
 // NewMemoryProcessor membuat instance baru MemoryProcessor.
@@ -29,6 +31,11 @@ func NewMemoryProcessor(memStore store.MemoryStore, msgStore store.MessageStore,
 		groupStore:   groupStore,
 		aiService:    ai,
 	}
+}
+
+// SetPushService menyetel push service untuk pengiriman Web Push ke admin & member.
+func (p *MemoryProcessor) SetPushService(ps *push.Service) {
+	p.pushService = ps
 }
 
 // ProcessMemoryJob mengeksekusi pipeline pembuatan draft memori lengkap untuk satu forum kedaluwarsa.
@@ -224,6 +231,39 @@ func (p *MemoryProcessor) ProcessMemoryJob(ctx context.Context, job *store.Forum
 	// 7. Tandai Job Selesai (COMPLETED)
 	if err := p.memoryStore.CompleteJob(ctx, job.ID, len(validMessages)); err != nil {
 		return fmt.Errorf("gagal update complete job state: %w", err)
+	}
+
+	// 8. Kirim Web Push Notification ke Admin & Creator Grup (Section 11 Spec)
+	if p.pushService != nil && p.groupStore != nil {
+		go func(groupID, forumID, draftID, title string) {
+			members, err := p.groupStore.GetGroupMembers(groupID)
+			if err != nil || len(members) == 0 {
+				return
+			}
+			adminIDs := make([]string, 0, len(members))
+			for _, m := range members {
+				if m.Role == "admin" || m.Role == "creator" {
+					adminIDs = append(adminIDs, m.UserID)
+				}
+			}
+			if len(adminIDs) == 0 {
+				return
+			}
+
+			p.pushService.NotifyMemoryEvent(
+				adminIDs,
+				"📝 Draft Memory Siap Direview",
+				fmt.Sprintf("Forum '%s' telah selesai. AI telah menyusun ringkasan dan keputusan. Tinjau sebelum dipublikasikan ke anggota grup.", title),
+				"memory_draft_ready_"+draftID,
+				map[string]interface{}{
+					"type":      "memory_draft_ready",
+					"group_id":  groupID,
+					"forum_id":  forumID,
+					"draft_id":  draftID,
+					"deep_link": fmt.Sprintf("/chat?roomId=%s&openDraft=%s", groupID, draftID),
+				},
+			)
+		}(job.GroupID, job.ForumID, draft.ID, forumTitle)
 	}
 
 	log.Printf("🎉 [MemoryProcessor] Sukses membuat MemoryDraft %s dengan %d artefak untuk forum %s",

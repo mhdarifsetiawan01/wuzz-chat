@@ -1,8 +1,8 @@
 // Service Worker untuk Wuzz Chat Push Notification
 // Standard W3C Web Push & Service Worker API dengan Zero-Knowledge Client-Side E2EE Background Decryption
-// Version: 1.0.7
+// Version: 1.0.8
 
-const SW_VERSION = '1.0.7';
+const SW_VERSION = '1.0.8';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -384,7 +384,7 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const rawUrl = (event.notification.data && event.notification.data.url) || '/chat';
+  const rawUrl = (event.notification.data && (event.notification.data.deep_link || event.notification.data.url)) || '/chat';
   const urlToOpen = new URL(rawUrl, self.location.origin).href;
 
   event.waitUntil(

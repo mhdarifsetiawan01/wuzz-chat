@@ -1654,5 +1654,30 @@ Membangun antarmuka bagi seluruh anggota grup untuk menelusuri, membaca, dan mem
 - **Backend Tests (`go test -v ./...`)**: **100% PASS** di seluruh modul backend Go.
 - **Server Lifecycle**: 0 listening ports terabaikan (`ss -tulpn` bersih).
 
+---
+
+## 🚀 Milestone 10.7: Group Memory AI — E2E Integration, Web Push Notifications & Final Polish (20 September 2026)
+
+### Latar Belakang & Implementasi
+Menuntaskan seluruh rangkaian implementasi fitur Group Memory AI ("AI captures. Humans validate. Wuzz remembers.") dengan menghubungkan orkestrasi notifikasi push, pemisahan dependensi provider AI, dan integrasi deep-linking PWA:
+1. **Multi-Vendor Provider Factory & Universal Error Taxonomy (`backend/internal/ai/`)**:
+   - `NewAIServiceFromEnv()` mendukung konfigurasi dinamis via environment variable `AI_PROVIDER` (default `gemini`, opsi `openai`, `ollama`, `mock`) dan `AI_MODEL`.
+   - Fallback otomatis ke `MockAIService` saat API key tidak tersedia untuk menjamin keamanan continuous integration dan pengujian lokal tanpa internet/kuota.
+   - Taksonomi error: membedakan `ErrAIRateLimited` (429, timeout) sebagai *retryable error* untuk dieksekusi ulang dengan exponential backoff, serta `ErrAIBadAuth` (401, 403) sebagai *fatal terminal failure*.
+2. **Helper Web Push Notification Terstruktur (`backend/internal/push/`)**:
+   - Menambahkan `NotifyMemoryEvent(userIDs, title, body, tag, data)` pada `push.Service` untuk dispatch notifikasi Web Push VAPID terenkripsi.
+   - Mengintegrasikan fallback otomatis parameter `deep_link` ke field `url` payload push.
+3. **Dispatch Notifikasi Siklus Hidup Memori AI (`backend/internal/ai/` & `backend/internal/api/`)**:
+   - **`MemoryProcessor.ProcessMemoryJob`**: Mengirim push notification `memory_draft_ready` ke seluruh Admin dan Creator grup saat pemrosesan ringkasan AI selesai.
+   - **`MemoryHandler.handleApproveDraft`**: Mengirim push notification `memory_published` ke seluruh anggota grup (`user_id != approved_admin_id`) seketika saat draft divalidasi dan dipublikasikan, serta menyiarkan pesan sistem `BroadcastGroupSystemEvent`.
+4. **PWA Deep-Linking & Dynamic Search Param Routing (`frontend/`)**:
+   - **Service Worker (`public/sw.js`)**: Memperbarui event listener `notificationclick` untuk memprioritaskan navigasi ke `data.deep_link` jika tersedia.
+   - **Chat Page (`frontend/app/chat/page.tsx`)**: Mendukung URL query parameter `?openDraft=<id>` dan `?openMemory=<id>` untuk membuka modal review atau modal memori secara otomatis saat aplikasi dibuka dari push notification.
+
+### Test Evidence
+- **Frontend Turbopack Build (`npm run build`)**: **✓ Compiled successfully in 2.2s** (0 TypeScript & Turbopack error).
+- **Backend Test Suite (`go test -v ./...`)**: **100% PASS** di seluruh modul (`internal/store`, `internal/worker`, `internal/ai`, `internal/api`, `internal/ws`, `internal/push`).
+- **Server Lifecycle**: 0 listening ports terabaikan (`ss -tulpn` bersih).
+
 
 
