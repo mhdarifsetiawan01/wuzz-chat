@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { MemoryDraftDetail, MemoryArtifactItem } from '@/lib/types'
 import {
   fetchMemoryDraftDetail,
@@ -171,7 +172,7 @@ export function MemoryDraftReviewModal({
   const decisionArtifacts = draft?.artifacts.filter((a) => a.type === 'DECISION' && !a.is_removed) || []
   const journeyArtifact = draft?.artifacts.find((a) => a.type === 'JOURNEY_LITE')
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-[1000] flex items-center justify-center p-0 sm:p-4 transition-opacity"
       style={{
@@ -471,4 +472,9 @@ export function MemoryDraftReviewModal({
       )}
     </div>
   )
+
+  // Render ke document.body via portal agar tidak terpotong oleh
+  // stacking context parent (.chat-main-pane: overflow:hidden + position:relative)
+  if (typeof document === 'undefined') return null
+  return createPortal(modalContent, document.body)
 }

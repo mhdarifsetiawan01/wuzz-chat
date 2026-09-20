@@ -90,17 +90,6 @@ export default function SubGroupListDrawer({
         throw new Error(error)
       }
       setSubgroups(data?.subgroups || [])
-
-      // Muat draft memori jika admin/creator
-      if (canCreateTopic) {
-        fetchMemoryDrafts(parentGroupId)
-          .then((res) => {
-            if (res.data) {
-              setMemoryDrafts(res.data)
-            }
-          })
-          .catch(() => {})
-      }
     } catch (err: unknown) {
       clearTimeout(timeoutId)
       const errObj = err as { name?: string; message?: string }
@@ -120,6 +109,23 @@ export default function SubGroupListDrawer({
       fetchSubgroups()
     }
   }, [isOpen, fetchSubgroups])
+
+  // Fetch draft memori secara terpisah, reaktif terhadap canCreateTopic
+  // (canCreateTopic bisa berubah setelah initial render saat data role ter-load)
+  useEffect(() => {
+    if (isOpen && canCreateTopic && parentGroupId) {
+      fetchMemoryDrafts(parentGroupId)
+        .then((res) => {
+          if (res.data) {
+            setMemoryDrafts(res.data)
+          }
+        })
+        .catch(() => {})
+    } else if (!isOpen) {
+      // Reset draft saat drawer ditutup
+      setMemoryDrafts([])
+    }
+  }, [isOpen, canCreateTopic, parentGroupId])
 
   // ESC key listener
   useEffect(() => {
