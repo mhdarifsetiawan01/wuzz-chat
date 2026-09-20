@@ -1,21 +1,15 @@
-# Implementation Summary — Group Memory AI (Milestone 1: Foundation & Data Model)
+# Implementation Summary — Group Memory AI (Milestone 2: Job Queue & Expiry Trigger)
 
-- **Status**: Milestone 1 Completed (Verified 100% Tests Pass)
-- **Goal**: Membangun fondasi skema database relasional (PostgreSQL & SQLite) dan Go Domain Store untuk 7 tabel entitas Group Memory AI.
+- **Status**: Milestone 2 Completed (Verified 100% Tests Pass)
+- **Goal**: Menghubungkan trigger kedaluwarsa forum ke antrean AI (`forum_memory_jobs`) dan membangun background daemon `MemoryJobWorker` di Go backend.
 - **Reference Spec**: `docs/GROUP_MEMORY_AI_SPEC.md`
 - **Accomplishments**:
-  1. Auto-migration DDL untuk 7 tabel baru di `backend/internal/store/sql.go`:
-     - `forum_memory_jobs`
-     - `memory_drafts`
-     - `memory_artifacts`
-     - `artifact_evidences`
-     - `approved_memories`
-     - `memory_review_actions`
-     - `memory_view_events`
-  2. Implementasi Go Domain Models, Types, Constants, `MemoryStore` Interface dan `SQLMemoryStore` di `backend/internal/store/memory_store.go`.
-  3. Integrasi inisialisasi `memoryStore` di `backend/main.go`.
-  4. Unit test suite komprehensif di `backend/internal/store/memory_store_test.go` (Lifecycle Job, Draft & Evidence, Review & Approval, Analytics View Events).
+  1. Ekstensi `ExpireSubGroupsBatchDetailed()` di `backend/internal/store/group_store.go`: Mengembalikan daftar forum dan grup induk yang baru kedaluwarsa secara atomik dan membersihkan join request.
+  2. Integrasi trigger di `SubGroupTTLWorker` (`backend/internal/worker/subgroup_ttl_worker.go`): Otomatis memanggil `CreateJob(ctx, forumID, groupID)` dengan penanganan idempotency.
+  3. Implementasi `MemoryJobWorker` daemon di `backend/internal/worker/memory_worker.go`: Polling antrean, klaim atomik `ClaimJob`, penghitungan pesan forum, ekstensi `MemoryJobProcessor` (M3 hook), serta retry scheduler backoff eksponensial (30 detik, 2 menit, 8 menit/terminal).
+  4. Wiring worker di `backend/main.go` dengan start & graceful shutdown deferral.
+  5. Unit & integration test suites komprehensif di `subgroup_ttl_worker_test.go` dan `memory_worker_test.go`.
 - **Test Evidence**:
-  - `go test -v ./internal/store -run TestMemoryStore_`: 100% PASS
+  - `go test -v ./internal/worker`: 100% PASS
   - `go test ./...` (seluruh backend): 100% PASS
   - `npm run build` (frontend): 100% COMPILED SUCCESSFULLY (0 error)

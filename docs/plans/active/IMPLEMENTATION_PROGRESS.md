@@ -1,7 +1,7 @@
-# Implementation Progress: Milestone 1 — Foundation & Data Model
+# Implementation Progress: Milestone 2 — Job Queue & Expiry Trigger
 
-- [x] **M1.1**: Skema SQL DDL & Migration 7 tabel di `backend/internal/store/sql.go`
-- [x] **M1.2**: Domain Types & Struct Model di `backend/internal/store/memory_store.go`
-- [x] **M1.3**: Interface `MemoryStore` & Implementasi SQL di `backend/internal/store/memory_store.go`
-- [x] **M1.4**: Unit & Integration Test Suite di `backend/internal/store/memory_store_test.go`
-- [x] **M1.5**: Full Test Suite Verification (`go test -v ./...` & `npm run build`)
+- [x] **M2.1**: Ekstensi `ExpireSubGroupsBatch` / trigger di `SubGroupTTLWorker` untuk membuat `ForumMemoryJob` otomatis
+- [x] **M2.2**: Implementasi `MemoryJobWorker` daemon di `backend/internal/worker/memory_worker.go`
+- [x] **M2.3**: Integrasi lifecycle worker di `backend/main.go` (start & graceful shutdown)
+- [x] **M2.4**: Unit & Integration Test Suite di `backend/internal/worker/memory_worker_test.go`
+- [x] **M2.5**: Full Test Suite Verification (`go test -v ./...` & `npm run build`)

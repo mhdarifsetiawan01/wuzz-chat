@@ -1495,4 +1495,45 @@ Forum diskusi sementara (sub-group) yang memiliki batas waktu (TTL 1 minggu / 1 
 
 ### Status Implementasi
 - Dokumen spesifikasi teknis: **100% SELESAI & DISETUJUI**.
-- Rencana eksekusi: Memasuki tahap **Milestone M1 (Foundation & Data Model)**.
+- Rencana eksekusi: Milestone M1 & M2 SELESAI di branch `feature/group-memory-ai`.
+
+---
+
+## 🚀 Milestone 10.1: Group Memory AI — Foundation & Data Model (20 September 2026)
+
+### Latar Belakang & Implementasi
+Membangun fondasi data persisten dan layer Go repository untuk mendukung 7 tabel entitas Group Memory AI:
+1. **Auto-Migration DDL 7 Tabel (`backend/internal/store/sql.go`)**:
+   - `forum_memory_jobs`: Job antrean AI asinkron (`QUEUED`, `PROCESSING`, `COMPLETED`, `FAILED`).
+   - `memory_drafts`: Kontainer draft hasil AI sebelum disetujui.
+   - `memory_artifacts`: Butir memori (`SUMMARY`, `DECISION`, `JOURNEY_LITE`) dengan confidence level.
+   - `artifact_evidences`: Kutipan pesan asli pendukung keputusan yang tahan terhadap penghapusan pesan asli.
+   - `approved_memories`: Read-model terdenormalisasi berkecepatan tinggi dengan snapshot JSONB keputusan.
+   - `memory_review_actions`: Audit log append-only merekam tindakan validasi admin.
+   - `memory_view_events`: Analitik pembacaan memori oleh anggota grup.
+2. **Domain Models & SQL Repository (`backend/internal/store/memory_store.go`)**:
+   - Interface `MemoryStore` dan implementasi `SQLMemoryStore` kompatibel PostgreSQL & SQLite.
+   - Integrasi inisialisasi `memoryStore` di `backend/main.go`.
+3. **Automated Test Suite**:
+   - `memory_store_test.go`: 100% PASS (Job lifecycle, Draft & Artifacts, Approval/Rejection, View Events).
+
+---
+
+## 🚀 Milestone 10.2: Group Memory AI — Job Queue & Expiry Trigger (20 September 2026)
+
+### Latar Belakang & Implementasi
+Menghubungkan trigger kedaluwarsa forum ke antrean AI dan membangun background daemon Go untuk memproses antrean job secara atomik dan non-blocking:
+1. **Ekstensi `ExpireSubGroupsBatchDetailed` (`backend/internal/store/group_store.go`)**:
+   - Mengembalikan daftar forum dan grup induk yang baru saja expired secara atomik dan membersihkan join request.
+2. **Pemicu Otomatis di `SubGroupTTLWorker` (`backend/internal/worker/subgroup_ttl_worker.go`)**:
+   - Injeksi `memoryStore` ke `SubGroupTTLWorker`.
+   - Saat subgrup kedaluwarsa, otomatis membuat `ForumMemoryJob` (`status = 'QUEUED'`) dengan guard idempotency.
+3. **Daemon Background Worker `MemoryJobWorker` (`backend/internal/worker/memory_worker.go`)**:
+   - Polling antrean `forum_memory_jobs` berstatus `QUEUED` secara berkala (default 15 detik).
+   - Operasi klaim atomik `ClaimJob` (`QUEUED` → `PROCESSING`) aman untuk multi-instance cluster.
+   - Menghitung jumlah pesan percakapan di forum dan menyediakan interface hook `MemoryJobProcessor` (siap diinjeksi modul AI di M3).
+   - Retry scheduler dengan exponential backoff bertingkat (30 detik, 2 menit, 8 menit / terminal fail).
+4. **Wiring Lifecycle Server (`backend/main.go`)**:
+   - Menjalankan `MemoryJobWorker` secara concurrent saat booting dengan graceful shutdown terkelola.
+5. **Automated Test Suite**:
+   - `subgroup_ttl_worker_test.go` & `memory_worker_test.go`: 100% PASS.

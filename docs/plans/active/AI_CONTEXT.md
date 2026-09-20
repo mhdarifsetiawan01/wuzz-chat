@@ -2,12 +2,11 @@
 
 - **Repository**: wuzz-chat
 - **Branch**: feature/group-memory-ai
-- **Feature**: Group Memory AI — Milestone 1 (Foundation & Data Model)
-- **Active Task**: M1 Database Schema & Store Models
+- **Feature**: Group Memory AI — Milestone 2 (Job Queue & Expiry Trigger)
+- **Active Task**: M2 Job Queue Worker & SubGroup TTL Trigger Integration
 - **Constraints**:
-  - Strict Dev-Only work (No work on `main`).
-  - Strict Group-Scoped data isolation (all queries bounded by `group_id`).
-  - No breaking changes to existing `conversations`, `messages`, `users` tables.
-  - Snapshot evidence model to withstand deletion of original messages.
-  - PostgreSQL `FOR UPDATE SKIP LOCKED` compatibility.
-  - Zero raw SQL drops/truncates.
+  - Work strictly on branch `feature/group-memory-ai`.
+  - Non-blocking asynchronous worker (goroutine daemon).
+  - PostgreSQL `FOR UPDATE SKIP LOCKED` / SQLite atomic claim concurrency safety.
+  - Integration with existing `SubGroupTTLWorker` without breaking current auto-purge logic.
+  - Zero disruption to real-time chat throughput.

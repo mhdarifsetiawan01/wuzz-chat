@@ -105,6 +105,13 @@ type GroupStore interface {
 	RespondJoinRequest(subGroupID, requestID, adminUserID string, approve bool) (string, error)
 	GetSubGroupAdmins(subGroupID string) ([]string, error)
 	ExpireSubGroupsBatch() (int, error)
+	ExpireSubGroupsBatchDetailed() ([]ExpiredSubGroupItem, error)
+}
+
+// ExpiredSubGroupItem merepresentasikan forum dan parent group yang kedaluwarsa.
+type ExpiredSubGroupItem struct {
+	ID       string `json:"id"`
+	ParentID string `json:"parent_id"`
 }
 
 // CreateGroup membuat entitas grup baru secara atomik di dalam 1 transaksi database.
@@ -1465,16 +1472,56 @@ func (s *SQLUserStore) GetSubGroupAdmins(subGroupID string) ([]string, error) {
 	return adminIDs, nil
 }
 
-// ExpireSubGroupsBatch memperbarui seluruh subgrup yang telah melewati masa expires_at menjadi status 'expired'
-// dan otomatis menghapus seluruh permohonan join request dari subgrup yang telah kedaluwarsa.
-func (s *SQLUserStore) ExpireSubGroupsBatch() (int, error) {
+// ExpireSubGroupsBatchDetailed mencari dan memperbarui seluruh subgrup yang kedaluwarsa menjadi 'expired',
+// mengembalikan daftar ID dan parent_id (group_id) yang terdampak, serta membersihkan join request.
+func (s *SQLUserStore) ExpireSubGroupsBatchDetailed() ([]ExpiredSubGroupItem, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	now := time.Now().UTC()
-	var query string
+	var selectQuery string
 	if s.driverName == "postgres" {
-		query = `
+		selectQuery = `
+			SELECT id, parent_id FROM conversations
+			WHERE parent_id IS NOT NULL 
+			  AND parent_id != ''
+			  AND (status = 'active' OR status IS NULL)
+			  AND expires_at IS NOT NULL 
+			  AND expires_at <= $1
+		`
+	} else {
+		selectQuery = `
+			SELECT id, parent_id FROM conversations
+			WHERE parent_id IS NOT NULL 
+			  AND parent_id != ''
+			  AND (status = 'active' OR status IS NULL)
+			  AND expires_at IS NOT NULL 
+			  AND expires_at <= ?
+		`
+	}
+
+	rows, err := s.db.QueryContext(ctx, selectQuery, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var expiredList []ExpiredSubGroupItem
+	for rows.Next() {
+		var item ExpiredSubGroupItem
+		if err := rows.Scan(&item.ID, &item.ParentID); err != nil {
+			return nil, err
+		}
+		expiredList = append(expiredList, item)
+	}
+
+	if len(expiredList) == 0 {
+		return nil, nil
+	}
+
+	var updateQuery string
+	if s.driverName == "postgres" {
+		updateQuery = `
 			UPDATE conversations
 			SET status = 'expired', updated_at = $1
 			WHERE parent_id IS NOT NULL 
@@ -1484,7 +1531,7 @@ func (s *SQLUserStore) ExpireSubGroupsBatch() (int, error) {
 			  AND expires_at <= $1
 		`
 	} else {
-		query = `
+		updateQuery = `
 			UPDATE conversations
 			SET status = 'expired', updated_at = ?
 			WHERE parent_id IS NOT NULL 
@@ -1495,19 +1542,13 @@ func (s *SQLUserStore) ExpireSubGroupsBatch() (int, error) {
 		`
 	}
 
-	var res sql.Result
-	var err error
 	if s.driverName == "postgres" {
-		res, err = s.db.ExecContext(ctx, query, now)
+		_, err = s.db.ExecContext(ctx, updateQuery, now)
 	} else {
-		res, err = s.db.ExecContext(ctx, query, now, now)
+		_, err = s.db.ExecContext(ctx, updateQuery, now, now)
 	}
 	if err != nil {
-		return 0, err
-	}
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, nil
+		return nil, err
 	}
 
 	// Purge seluruh permohonan join request dari subgrup yang berstatus 'expired'
@@ -1519,6 +1560,13 @@ func (s *SQLUserStore) ExpireSubGroupsBatch() (int, error) {
 	`
 	_, _ = s.db.ExecContext(ctx, purgeQuery)
 
-	return int(affected), nil
+	return expiredList, nil
+}
+
+// ExpireSubGroupsBatch memperbarui seluruh subgrup yang telah melewati masa expires_at menjadi status 'expired'
+// dan otomatis menghapus seluruh permohonan join request dari subgrup yang telah kedaluwarsa.
+func (s *SQLUserStore) ExpireSubGroupsBatch() (int, error) {
+	list, err := s.ExpireSubGroupsBatchDetailed()
+	return len(list), err
 }
 

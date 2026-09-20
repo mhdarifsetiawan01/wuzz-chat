@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"log"
 	"sync"
 	"time"
@@ -8,12 +9,14 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
-// SubGroupTTLWorker memantau dan memperbarui status subgrup yang telah mencapai batas expires_at menjadi 'expired'.
+// SubGroupTTLWorker memantau dan memperbarui status subgrup yang telah mencapai batas expires_at menjadi 'expired'
+// serta memicu pembuatan antrean ForumMemoryJob untuk Group Memory AI.
 type SubGroupTTLWorker struct {
-	groupStore store.GroupStore
-	interval   time.Duration
-	stopCh     chan struct{}
-	wg         sync.WaitGroup
+	groupStore  store.GroupStore
+	memoryStore store.MemoryStore
+	interval    time.Duration
+	stopCh      chan struct{}
+	wg          sync.WaitGroup
 }
 
 // NewSubGroupTTLWorker membuat instance baru SubGroupTTLWorker.
@@ -26,6 +29,11 @@ func NewSubGroupTTLWorker(gs store.GroupStore, interval time.Duration) *SubGroup
 		interval:   interval,
 		stopCh:     make(chan struct{}),
 	}
+}
+
+// SetMemoryStore menginjeksi MemoryStore ke SubGroupTTLWorker.
+func (w *SubGroupTTLWorker) SetMemoryStore(ms store.MemoryStore) {
+	w.memoryStore = ms
 }
 
 // Start menjalankan background goroutine untuk pemeriksaan TTL berkala secara non-blocking.
@@ -59,18 +67,35 @@ func (w *SubGroupTTLWorker) Stop() {
 	w.wg.Wait()
 }
 
-// ExpireOnce mengeksekusi satu siklus scanning dan updating status subgrup yang kedaluwarsa.
+// ExpireOnce mengeksekusi satu siklus scanning dan updating status subgrup yang kedaluwarsa,
+// serta memicu pembuatan ForumMemoryJob untuk subgrup yang baru saja kedaluwarsa.
 func (w *SubGroupTTLWorker) ExpireOnce() int {
 	if w.groupStore == nil {
 		return 0
 	}
-	affected, err := w.groupStore.ExpireSubGroupsBatch()
+	expiredItems, err := w.groupStore.ExpireSubGroupsBatchDetailed()
 	if err != nil {
 		log.Printf("⚠️ [SubGroupTTLWorker] Gagal memproses batch expire subgrup: %v", err)
 		return 0
 	}
+	affected := len(expiredItems)
 	if affected > 0 {
 		log.Printf("🔒 [SubGroupTTLWorker] Berhasil mengunci %d subgrup yang telah kedaluwarsa (status: 'expired')", affected)
+
+		// Pemicu otomatis (Trigger) pembuatan ForumMemoryJob untuk Group Memory AI
+		if w.memoryStore != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			for _, item := range expiredItems {
+				job, err := w.memoryStore.CreateJob(ctx, item.ID, item.ParentID)
+				if err != nil {
+					log.Printf("ℹ️ [SubGroupTTLWorker] Skip buat memory job forum %s: %v", item.ID, err)
+				} else {
+					log.Printf("🧠 [SubGroupTTLWorker] Berhasil membuat ForumMemoryJob (ID: %s) untuk forum %s", job.ID, item.ID)
+				}
+			}
+		}
 	}
 	return affected
 }

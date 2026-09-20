@@ -58,7 +58,6 @@ func main() {
 		transferStore = store.NewSQLTransferStore(sqlStore.DB(), sqlStore.DriverName())
 		memoryStore = store.NewSQLMemoryStore(sqlStore.DB(), sqlStore.DriverName())
 	}
-	_ = memoryStore
 
 	// Inisialisasi Push Notification Service (Web Push VAPID & Multi-Platform Gateway)
 	pushService := push.NewService(userStore)
@@ -114,8 +113,18 @@ func main() {
 	// Inisialisasi SubGroup TTL Worker untuk auto-expire topik subgrup (15 menit interval)
 	if groupStore != nil {
 		subGroupWorker := worker.NewSubGroupTTLWorker(groupStore, 15*time.Minute)
+		if memoryStore != nil {
+			subGroupWorker.SetMemoryStore(memoryStore)
+		}
 		subGroupWorker.Start()
 		defer subGroupWorker.Stop()
+	}
+
+	// Inisialisasi Group Memory AI Background Job Worker (15 detik interval)
+	if memoryStore != nil {
+		memoryWorker := worker.NewMemoryJobWorker(memoryStore, messageStore, 15*time.Second)
+		memoryWorker.Start()
+		defer memoryWorker.Stop()
 	}
 
 	// Inisialisasi Hub dengan dependency injection
