@@ -1565,3 +1565,36 @@ Mengintegrasikan layanan AI dan pemrosesan terstruktur untuk menyaring riwayat d
 - **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh unit, store, worker, broker, api, dan ai package.
 - **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
 
+---
+
+## 🚀 Milestone 10.4: Group Memory AI — Review Backend API & Knowledge Endpoints (20 September 2026)
+
+### Latar Belakang & Implementasi
+Membangun REST API terproteksi dengan kontrol akses multi-tier (RBAC) untuk validasi/kurasi draft memori oleh Admin serta konsumsi pengetahuan permanen bagi seluruh anggota grup:
+1. **Helper Kueri Store (`backend/internal/store/memory_store.go`)**:
+   - Menambahkan `GetArtifactByID` untuk validasi scope kepemilikan draft dan manipulasi artefak.
+   - Menambahkan `GetApprovedMemoryByID` untuk pemuatan detail memori terkurasi.
+2. **REST API Handler & Controller (`backend/internal/api/memory_handler.go`)**:
+   - **Admin Review Endpoints (Hanya Role Admin/Creator)**:
+     - `GET /api/memory/drafts?group_id={id}`: Mengambil daftar draft pending review di grup.
+     - `GET /api/memory/drafts/{draft_id}`: Detail draft lengkap dengan artefak dan evidence snapshot.
+     - `POST /api/memory/drafts/{draft_id}/approve`: Persetujuan draft secara atomik, publikasi `ApprovedMemory`, pencatatan `MemoryReviewAction`, dan broadcast WebSocket real-time ke grup.
+     - `POST /api/memory/drafts/{draft_id}/reject`: Penolakan draft dengan alasan dan pencatatan audit log `REJECTED`.
+     - `PATCH /api/memory/drafts/{draft_id}/artifacts/{artifact_id}`: Penyuntingan teks artefak, menandai `is_human_edited = true`, dan mencatat action audit `EDITED_*`.
+     - `DELETE /api/memory/drafts/{draft_id}/journey`: Penghapusan Journey Lite (`is_removed = true`) dan pencatatan action audit `REMOVED_JOURNEY_LITE`.
+     - `POST /api/memory/drafts/{draft_id}/approve-with-changes`: Persetujuan dengan penanda eksplisit `has_human_edits = true`.
+   - **Member Knowledge Endpoints (Semua Anggota Grup)**:
+     - `GET /api/groups/{id}/memories`: Daftar memori grup terkurasi dengan pagination limit & offset.
+     - `GET /api/memories/{memory_id}`: Detail memori terkurasi lengkap beserta snapshot keputusan dan perjalanan diskusi, sekaligus mencatat `memory_view_events` analitik secara async non-blocking.
+3. **Router Wiring & Sub-path Integration (`backend/main.go` & `backend/internal/api/group_handler.go`)**:
+   - Pendaftaran rute `/api/memory/` dan `/api/memories/` dengan middleware autentikasi JWT.
+   - Dispatching rute `/api/groups/{id}/memories` langsung di `RouteGroupRequest`.
+4. **Automated Test Suite (`backend/internal/api/memory_handler_test.go`)**:
+   - Pengujian otorisasi berlapis (Admin 200 OK vs Member/Outsider 403 Forbidden).
+   - Pengujian siklus hidup review penuh (List, Detail, Edit, Delete Journey, Approve with Changes, Reject, View List & Detail, View Events Tracking) 100% PASS.
+
+### Test Evidence
+- **Backend Tests (`go test ./...`)**: **100% PASS** di seluruh unit, store, worker, broker, api, dan ai package (termasuk `TestMemoryHandler_AdminReviewLifecycle` & `TestMemoryHandler_RejectDraft`).
+- **Frontend Build (`npm run build`)**: **✓ Compiled successfully** (0 error TypeScript & Turbopack).
+
+

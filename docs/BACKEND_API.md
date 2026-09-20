@@ -1211,6 +1211,242 @@ Menyetujui (`approve: true`) atau menolak (`approve: false`) permohonan bergabun
 
 ---
 
+### 3.4 Group Memory AI Endpoints (Kurasi Pengetahuan & Arsip Permanen)
+
+#### 46. `GET /api/memory/drafts?group_id={id}`
+Mengambil daftar draft ringkasan memori AI yang menunggu kurasi/tinjauan admin di grup tertentu.
+- **Autentikasi**: `Bearer <token>` (Wajib Admin atau Creator grup)
+- **Query Parameter**: `group_id` (string, wajib)
+- **Success Response (200 OK)**:
+  ```json
+  [
+    {
+      "draft_id": "7b2aa751-c84b-4270-8ca1-b1e25163b229",
+      "forum_id": "sub_157d4c5a-b913-42d3-8dd6-bd30098dee30",
+      "forum_title": "Arsitektur Database",
+      "group_id": "grp_e6b10890-55f4-443e-afdb-30b9f62bcdfb",
+      "status": "DRAFT",
+      "message_count_processed": 25,
+      "was_truncated": false,
+      "artifact_count": 3,
+      "created_at": "2026-09-20T19:16:34Z"
+    }
+  ]
+  ```
+
+---
+
+#### 47. `GET /api/memory/drafts/{draft_id}`
+Mengambil detail lengkap sebuah draft memori beserta seluruh artefak (Summary, Decisions + Evidences, Journey Lite).
+- **Autentikasi**: `Bearer <token>` (Wajib Admin atau Creator grup)
+- **Path Parameter**: `draft_id` — ID draft memori
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "draft": {
+      "id": "7b2aa751-c84b-4270-8ca1-b1e25163b229",
+      "job_id": "job_uuid",
+      "forum_id": "sub_157d4c5a",
+      "forum_title": "Arsitektur Database",
+      "group_id": "grp_e6b10890",
+      "status": "DRAFT",
+      "message_count_processed": 25,
+      "was_truncated": false,
+      "artifacts": [
+        {
+          "id": "art_summary_uuid",
+          "type": "SUMMARY",
+          "content": "Diskusi memutuskan migrasi database...",
+          "confidence": "HIGH",
+          "is_human_edited": false,
+          "is_removed": false
+        },
+        {
+          "id": "art_decision_uuid",
+          "type": "DECISION",
+          "content": "Menggunakan CockroachDB di region ap-southeast-1.",
+          "confidence": "HIGH",
+          "position": 1,
+          "is_human_edited": false,
+          "is_removed": false,
+          "evidences": [
+            {
+              "id": "ev_uuid",
+              "message_id": "msg_uuid",
+              "message_preview": "Saya setuju CockroachDB",
+              "message_sender_name": "Alice Admin",
+              "message_sent_at": "2026-09-20T19:00:00Z"
+            }
+          ]
+        },
+        {
+          "id": "art_journey_uuid",
+          "type": "JOURNEY_LITE",
+          "content": "{\"initially\":\"...\",\"then\":\"...\",\"finally_\":\"...\"}",
+          "confidence": "MEDIUM",
+          "is_human_edited": false,
+          "is_removed": false
+        }
+      ]
+    }
+  }
+  ```
+
+---
+
+#### 48. `POST /api/memory/drafts/{draft_id}/approve`
+Menyetujui draft memori dan mempublikasikannya sebagai memori terkurasi permanen grup.
+- **Autentikasi**: `Bearer <token>` (Wajib Admin/Creator)
+- **Path Parameter**: `draft_id`
+- **Request Body**: `{}` (kosong)
+- **Side Effect**:
+  - Draft di-update ke status `APPROVED`.
+  - Record baru dimasukkan ke `approved_memories`.
+  - Audit action `APPROVED` dicatat di `memory_review_actions`.
+  - WebSocket broadcast `memory_approved` dikirimkan ke room grup utama.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Draft memori berhasil divalidasi dan dipublikasikan",
+    "approved_memory": { ... }
+  }
+  ```
+
+---
+
+#### 49. `POST /api/memory/drafts/{draft_id}/approve-with-changes`
+Menyetujui draft setelah admin menyunting atau menghapus artefak tertentu.
+- **Autentikasi**: `Bearer <token>` (Wajib Admin/Creator)
+- **Side Effect**: Menandai `has_human_edits = true` dan audit action `APPROVED_WITH_EDITS`.
+- **Success Response (200 OK)**: Sama dengan approve biasa.
+
+---
+
+#### 50. `POST /api/memory/drafts/{draft_id}/reject`
+Menolak draft memori yang tidak layak/relevan untuk diabadikan.
+- **Autentikasi**: `Bearer <token>` (Wajib Admin/Creator)
+- **Request Body**:
+  ```json
+  {
+    "reason": "Diskusi tidak mencapai konsensus konklusif"
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Draft memori berhasil ditolak"
+  }
+  ```
+
+---
+
+#### 51. `PATCH /api/memory/drafts/{draft_id}/artifacts/{artifact_id}`
+Menyunting teks artefak (Summary / Decision).
+- **Autentikasi**: `Bearer <token>` (Wajib Admin/Creator)
+- **Request Body**:
+  ```json
+  {
+    "content": "Teks revisi hasil kurasi admin..."
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Konten artefak berhasil diperbarui",
+    "artifact": { ... }
+  }
+  ```
+
+---
+
+#### 52. `DELETE /api/memory/drafts/{draft_id}/journey`
+Menghapus artefak perjalanan diskusi (Journey Lite) dari draft memori (`is_removed = true`).
+- **Autentikasi**: `Bearer <token>` (Wajib Admin/Creator)
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Journey Lite berhasil dihapus dari draft memori"
+  }
+  ```
+
+---
+
+#### 53. `GET /api/groups/{id}/memories`
+Mengambil linimasa daftar memori grup yang telah disetujui (dapat diakses seluruh anggota grup).
+- **Autentikasi**: `Bearer <token>` (Wajib Anggota Grup Induk)
+- **Path Parameter**: `id` — ID grup induk
+- **Query Params**: `limit` (default 20, max 50), `offset` (default 0)
+- **Success Response (200 OK)**:
+  ```json
+  [
+    {
+      "id": "mem_uuid",
+      "forum_id": "sub_uuid",
+      "forum_title": "Arsitektur Database",
+      "group_id": "grp_uuid",
+      "approved_by": "user_admin_uuid",
+      "approved_by_name": "Alice Admin",
+      "approved_at": "2026-09-20T19:30:00Z",
+      "has_human_edits": true,
+      "snapshot_summary": "Keputusan final arsitektur...",
+      "snapshot_summary_conf": "HIGH",
+      "decision_count": 2,
+      "has_journey_lite": false,
+      "is_journey_lite_removed": true
+    }
+  ]
+  ```
+
+---
+
+#### 54. `GET /api/memories/{memory_id}`
+Mengambil detail memori grup terkurasi lengkap beserta butir keputusan, bukti kutipan asli, dan perjalanan diskusi.
+- **Autentikasi**: `Bearer <token>` (Wajib Anggota Grup Induk)
+- **Path Parameter**: `memory_id` — ID memori terkurasi
+- **Side Effect**: Merekam `memory_view_events` analitik pembacaan pengguna secara async.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "id": "mem_uuid",
+    "draft_id": "draft_uuid",
+    "forum_id": "sub_uuid",
+    "forum_title": "Arsitektur Database",
+    "group_id": "grp_uuid",
+    "approved_by": "user_admin_uuid",
+    "approved_by_name": "Alice Admin",
+    "approved_at": "2026-09-20T19:30:00Z",
+    "has_human_edits": true,
+    "snapshot_summary": "Keputusan final...",
+    "snapshot_summary_conf": "HIGH",
+    "snapshot_decisions": [
+      {
+        "position": 1,
+        "text": "Menggunakan CockroachDB Dedicated.",
+        "confidence": "HIGH",
+        "is_human_edited": true,
+        "evidences": [
+          {
+            "message_id": "msg_uuid",
+            "preview": "Saya setuju CockroachDB",
+            "sender_name": "Alice Admin",
+            "sent_at": "2026-09-20T19:00:00Z"
+          }
+        ]
+      }
+    ],
+    "snapshot_journey_lite": "",
+    "snapshot_journey_conf": "",
+    "is_journey_lite_removed": true,
+    "created_at": "2026-09-20T19:30:00Z"
+  }
+  ```
+
+---
+
 ## 4. Protokol WebSocket & Event Catalog
 
 ### 4.1 Koneksi & Parameter URL

@@ -1,10 +1,11 @@
-# Implementation Summary — Group Memory AI (Milestone 3: AI Service Integration & Structured Output)
+# Implementation Summary — Group Memory AI (Milestone 4: Review Backend API & Knowledge Endpoints)
 
-- **Status**: Completed (Awaiting User Confirmation "selesai" for Commit)
-- **Goal**: Membangun modul AI Service (Prompt Builder, Provider Interface, JSON Parser, Evidence Resolver) dan menghubungkannya ke `MemoryJobWorker` sehingga draft memori lengkap (Summary, Decisions + Evidences, Journey Lite) otomatis tercipta saat forum kedaluwarsa.
-- **Reference Spec**: `docs/GROUP_MEMORY_AI_SPEC.md` (Bagian 5, 6, 7, 8)
+- **Status**: Completed & Verified 100% (Awaiting User "selesai" Confirmation)
+- **Goal**: Membangun REST API terproteksi untuk Admin Review (approve, reject, edit, delete journey) dan Member Knowledge Viewer (approved memories list & detail).
+- **Reference Spec**: `docs/GROUP_MEMORY_AI_SPEC.md` (Bagian 9, 11)
+- **Active Branch**: `feature/group-memory-ai`
 - **Impact Area**:
-  - `backend/internal/ai/service.go` (Interface `AIService`, prompt builder, contract types, mock & real providers)
-  - `backend/internal/ai/processor.go` (Implementasi `MemoryJobProcessor` yang menghubungkan AI ke DB)
-  - `backend/internal/ai/service_test.go` (Unit tests untuk prompt building, output parsing, evidence resolution)
-  - `backend/main.go` (Injeksi `MemoryJobProcessor` ke `MemoryJobWorker`)
+  - `backend/internal/store/memory_store.go` (Kueri detail draft, update artifact, remove journey, approved memories list)
+  - `backend/internal/api/memory_handler.go` (Handler HTTP baru untuk review dan viewer dengan RBAC berlapis)
+  - `backend/internal/api/memory_handler_test.go` (Unit & Integration tests RBAC, draft review, dan member consumption)
+  - `backend/main.go` (Pendaftaran rute API ke Chi router)

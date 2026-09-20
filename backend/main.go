@@ -69,11 +69,15 @@ func main() {
 	var groupHandler *api.GroupHandler
 	var notificationHandler *api.NotificationHandler
 	var transferHandler *api.TransferHandler
+	var memoryHandler *api.MemoryHandler
 	if userStore != nil {
 		authHandler = api.NewAuthHandler(userStore)
 		chatHandler = api.NewChatHandler(userStore, messageStore)
 		groupHandler = api.NewGroupHandler(groupStore, userStore)
 		notificationHandler = api.NewNotificationHandler(pushService, userStore)
+		if memoryStore != nil {
+			memoryHandler = api.NewMemoryHandler(memoryStore, groupStore, userStore)
+		}
 	}
 	if transferStore != nil {
 		transferHandler = api.NewTransferHandler(transferStore)
@@ -375,6 +379,22 @@ func main() {
 		}))
 		mux.HandleFunc("/api/groups/", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(groupHandler.RouteGroupRequest)).ServeHTTP(w, r)
+		}))
+	}
+
+	// REST API Routes (Group Memory AI: Review & Member Knowledge)
+	if memoryHandler != nil {
+		memoryHandler.SetHub(hub)
+		memoryHandler.SetPushService(pushService)
+		if groupHandler != nil {
+			groupHandler.SetMemoryHandler(memoryHandler)
+		}
+
+		mux.HandleFunc("/api/memory/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(memoryHandler.RouteMemoryRequest)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/memories/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(memoryHandler.RouteApprovedMemoryRequest)).ServeHTTP(w, r)
 		}))
 	}
 

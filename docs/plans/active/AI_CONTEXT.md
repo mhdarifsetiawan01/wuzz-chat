@@ -1,13 +1,20 @@
-# AI Context
+# AI Context — Milestone 4: Review Backend API & Knowledge Endpoints
 
-- **Repository**: wuzz-chat
-- **Branch**: feature/group-memory-ai
-- **Feature**: Group Memory AI — Milestone 3 (AI Service Integration & Structured Output)
-- **Active Task**: M3 AI Engine, Prompt Builder, JSON Contract, Evidence Resolver & Draft Pipeline
-- **Constraints**:
-  - Work strictly on branch `feature/group-memory-ai`.
-  - Strict Group-Scoped data isolation.
-  - Limit 1.000 messages with `was_truncated` flag if exceeded.
-  - Strict Boundary `[DATA DISKUSI]` to prevent prompt injection.
-  - Evidence snapshot isolation (withstand message deletion).
-  - Pluggable AI provider interface with Mock provider for offline testing and real provider support.
+## Active Focus
+- **Fitur**: Group Memory AI
+- **Milestone**: M4 — Review Backend API & Knowledge Endpoints
+- **Branch**: `feature/group-memory-ai`
+- **Head Commit**: `89a2b6c`
+- **Database Status**: 7 tabel auto-migrated di SQLite & PostgreSQL.
+- **Worker Status**: Background job worker `MemoryJobWorker` sudah aktif dengan injeksi `MemoryProcessor`.
+
+## Target Endpoints
+1. `GET /api/memory/drafts?group_id={id}` (Admin only)
+2. `GET /api/memory/drafts/{draft_id}` (Admin only)
+3. `POST /api/memory/drafts/{draft_id}/approve` (Admin only)
+4. `POST /api/memory/drafts/{draft_id}/reject` (Admin only)
+5. `PATCH /api/memory/drafts/{draft_id}/artifacts/{artifact_id}` (Admin only)
+6. `DELETE /api/memory/drafts/{draft_id}/journey` (Admin only)
+7. `POST /api/memory/drafts/{draft_id}/approve-with-changes` (Admin only)
+8. `GET /api/groups/{id}/memories` (All members)
+9. `GET /api/memories/{memory_id}` (All members + view event tracking)

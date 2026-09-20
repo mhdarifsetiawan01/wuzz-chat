@@ -19,10 +19,11 @@ import (
 )
 
 type GroupHandler struct {
-	groupStore  store.GroupStore
-	userStore   store.UserStore
-	hub         *ws.Hub
-	pushService *push.Service
+	groupStore    store.GroupStore
+	userStore     store.UserStore
+	hub           *ws.Hub
+	pushService   *push.Service
+	memoryHandler *MemoryHandler
 }
 
 func NewGroupHandler(gs store.GroupStore, us store.UserStore) *GroupHandler {
@@ -44,6 +45,10 @@ func (h *GroupHandler) SetHub(hub *ws.Hub) {
 
 func (h *GroupHandler) SetPushService(ps *push.Service) {
 	h.pushService = ps
+}
+
+func (h *GroupHandler) SetMemoryHandler(mh *MemoryHandler) {
+	h.memoryHandler = mh
 }
 
 // CreateGroup menangani POST /api/groups
@@ -245,6 +250,20 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 		targetRequestID := parts[2]
 		if r.Method == http.MethodPost {
 			h.handleRespondJoinRequest(w, r, claims.UserID, groupID, targetRequestID)
+		} else {
+			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	// 10. /api/groups/{id}/memories (Member Knowledge List)
+	if len(parts) == 2 && parts[1] == "memories" {
+		if r.Method == http.MethodGet {
+			if h.memoryHandler != nil {
+				h.memoryHandler.HandleGetGroupMemories(w, r, claims.UserID, groupID)
+			} else {
+				http.Error(w, `{"error":"Memory service not available"}`, http.StatusServiceUnavailable)
+			}
 		} else {
 			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 		}

@@ -188,6 +188,7 @@ type MemoryStore interface {
 	GetDraftByForumID(ctx context.Context, forumID string) (*MemoryDraft, error)
 	GetDraftsByGroupID(ctx context.Context, groupID string, status string) ([]MemoryDraft, error)
 	GetArtifactsByDraftID(ctx context.Context, draftID string) ([]MemoryArtifact, error)
+	GetArtifactByID(ctx context.Context, id string) (*MemoryArtifact, error)
 	UpdateArtifact(ctx context.Context, artifactID string, content string, isHumanEdited bool) error
 	RemoveJourneyLite(ctx context.Context, draftID string) error
 
@@ -198,6 +199,7 @@ type MemoryStore interface {
 	GetReviewActions(ctx context.Context, draftID string) ([]MemoryReviewAction, error)
 
 	// Approved Memory & Analytics (M6 Member Viewer)
+	GetApprovedMemoryByID(ctx context.Context, id string) (*ApprovedMemory, error)
 	GetApprovedMemoryByForumID(ctx context.Context, forumID string) (*ApprovedMemory, error)
 	GetApprovedMemoriesByGroupID(ctx context.Context, groupID string, limit, offset int) ([]ApprovedMemory, error)
 	RecordViewEvent(ctx context.Context, event *MemoryViewEvent) error
@@ -850,6 +852,48 @@ func (s *SQLMemoryStore) GetArtifactsByDraftID(ctx context.Context, draftID stri
 	return artifacts, nil
 }
 
+func (s *SQLMemoryStore) GetArtifactByID(ctx context.Context, id string) (*MemoryArtifact, error) {
+	var query string
+	if s.driverName == "postgres" {
+		query = `SELECT id, draft_id, type, content, ai_original_content, confidence,
+			is_human_edited, is_removed, position, created_at, updated_at
+			FROM memory_artifacts WHERE id = $1`
+	} else {
+		query = `SELECT id, draft_id, type, content, ai_original_content, confidence,
+			is_human_edited, is_removed, position, created_at, updated_at
+			FROM memory_artifacts WHERE id = ?`
+	}
+
+	art := &MemoryArtifact{}
+	var pos sql.NullInt64
+
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&art.ID, &art.DraftID, &art.Type, &art.Content, &art.AIOriginalContent, &art.Confidence,
+		&art.IsHumanEdited, &art.IsRemoved, &pos, &art.CreatedAt, &art.UpdatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrArtifactNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("gagal query artifact by id: %w", err)
+	}
+
+	if pos.Valid {
+		p := int(pos.Int64)
+		art.Position = &p
+	}
+
+	if art.Type == ArtifactTypeDecision {
+		evidences, err := s.getEvidencesByArtifactID(ctx, art.ID)
+		if err != nil {
+			return nil, err
+		}
+		art.Evidences = evidences
+	}
+
+	return art, nil
+}
+
 func (s *SQLMemoryStore) getEvidencesByArtifactID(ctx context.Context, artifactID string) ([]ArtifactEvidence, error) {
 	var query string
 	if s.driverName == "postgres" {
@@ -1167,6 +1211,49 @@ func (s *SQLMemoryStore) GetReviewActions(ctx context.Context, draftID string) (
 // -----------------------------------------------------------------------------
 // Approved Memory Read-Model & Analytics
 // -----------------------------------------------------------------------------
+
+func (s *SQLMemoryStore) GetApprovedMemoryByID(ctx context.Context, id string) (*ApprovedMemory, error) {
+	var query string
+	if s.driverName == "postgres" {
+		query = `SELECT id, draft_id, forum_id, group_id, approved_by, approved_at,
+			has_human_edits, snapshot_summary, snapshot_summary_conf, snapshot_decisions,
+			snapshot_journey_lite, snapshot_journey_conf, is_journey_lite_removed, created_at
+			FROM approved_memories WHERE id = $1`
+	} else {
+		query = `SELECT id, draft_id, forum_id, group_id, approved_by, approved_at,
+			has_human_edits, snapshot_summary, snapshot_summary_conf, snapshot_decisions,
+			snapshot_journey_lite, snapshot_journey_conf, is_journey_lite_removed, created_at
+			FROM approved_memories WHERE id = ?`
+	}
+
+	mem := &ApprovedMemory{}
+	var jLite, jConf sql.NullString
+
+	err := s.db.QueryRowContext(ctx, query, id).Scan(
+		&mem.ID, &mem.DraftID, &mem.ForumID, &mem.GroupID, &mem.ApprovedBy, &mem.ApprovedAt,
+		&mem.HasHumanEdits, &mem.SnapshotSummary, &mem.SnapshotSummaryConf, &mem.SnapshotDecisions,
+		&jLite, &jConf, &mem.IsJourneyLiteRemoved, &mem.CreatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrApprovedMemoryNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("gagal query approved memory by id: %w", err)
+	}
+
+	if jLite.Valid {
+		mem.SnapshotJourneyLite = jLite.String
+	}
+	if jConf.Valid {
+		mem.SnapshotJourneyConf = jConf.String
+	}
+
+	if mem.SnapshotDecisions != "" {
+		_ = json.Unmarshal([]byte(mem.SnapshotDecisions), &mem.DecisionsList)
+	}
+
+	return mem, nil
+}
 
 func (s *SQLMemoryStore) GetApprovedMemoryByForumID(ctx context.Context, forumID string) (*ApprovedMemory, error) {
 	var query string
