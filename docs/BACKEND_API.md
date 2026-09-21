@@ -922,8 +922,10 @@ Dijalankan oleh perangkat baru (setelah scan QR code) untuk mengambil bundle ter
     "encrypted_bundle": "base64_ciphertext_of_keys_encrypted_with_shared_secret"
   }
   ```
-- **Siklus Hidup Sesi Lama (Direct WebSocket Kick)**:
-  Seketika `POST /api/users/transfer/consume` berhasil memvalidasi token dan memperbarui `active_device_id` ke `device_id` baru, backend memicu pemutusan koneksi WebSocket (`KickClientByUserID`) seketika ke seluruh sesi lama milik user terkait dengan frame `SESSION_REPLACED`, 500ms grace period buffer flush, dan Close Code `4001: SESSION_REPLACED`.
+- **Siklus Hidup Sesi Lama (Direct WebSocket Kick & Auto-Revocation)**:
+  Seketika `POST /api/users/transfer/consume` berhasil memvalidasi token dan memperbarui `active_device_id` ke `device_id` baru, backend memicu:
+  1. Pemutusan koneksi WebSocket (`KickClientByUserID`) seketika ke seluruh sesi lama milik user terkait dengan frame `SESSION_REPLACED`, 500ms grace period buffer flush, dan Close Code `4001: SESSION_REPLACED`.
+  2. Pencabutan seluruh sesi login perangkat lain milik pengguna di database (`sessions` table) via `RevokeAllOtherSessions`, sehingga token JWT lama langsung ditolak dengan status `401 Unauthorized`.
 - **Error Codes**: `404 Not Found`, `410 Gone` (`SESSION_EXPIRED` atau `SESSION_ALREADY_USED`), `403 Forbidden`.
 
 ---

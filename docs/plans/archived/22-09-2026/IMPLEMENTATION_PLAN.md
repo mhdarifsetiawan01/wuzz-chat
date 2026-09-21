@@ -1,28 +1,12 @@
-# Implementation Plan — Phase 1: Session Foundation & Remote Logout
+# Implementation Plan — Otomatisasi Pencabutan Sesi (Transfer, Reset, Keluar)
 
-## 1. Objectives
-- Implementasi auto-migration skema `sessions` di PostgreSQL dan SQLite.
-- Abstraksi `SessionStore` dan implementasi `SQLSessionStore`.
-- Penambahan helper `GenerateTokenDetailed` pada modul `internal/auth/jwt.go`.
-- Pengikatan sesi saat login/register (`CreateSession`) dengan JTI token JWT.
-- Penyediaan endpoint REST:
-  - `GET /api/auth/sessions`: Menampilkan sesi aktif milik user.
-  - `DELETE /api/auth/sessions/:id`: Mencabut sesi tertentu (remote logout).
-  - `POST /api/auth/sessions/revoke-others`: Mencabut seluruh sesi lain.
-- Sinkronisasi pencabutan sesi dengan `RequireJWT` middleware.
-- Penambahan UI inventaris sesi login aktif di `ProfileModal.tsx` (Tab Keamanan).
-- Background cleanup worker untuk sesi kedaluwarsa.
-
-## 2. Target Files
-- `backend/internal/store/sql.go`
-- `backend/internal/store/session_store.go` [NEW]
-- `backend/internal/store/token_store.go`
-- `backend/internal/auth/jwt.go`
-- `backend/internal/api/auth_handler.go`
-- `backend/internal/api/auth_session_test.go` [NEW]
-- `backend/main.go`
-- `frontend/app/chat/ProfileModal.tsx`
-
-## 3. Verification Strategy
-- Backend test suite: `go test -v -run "TestSession" ./...` dan `go test -v ./...`.
-- Frontend build check: `npm run build`.
+- **Tujuan**: Memastikan pencabutan sesi (session revocation), penendangan WebSocket, dan auto-redirect 401 bekerja secara komprehensif di seluruh skenario:
+  1. Transfer Kunci E2EE via QR / Kode.
+  2. Reset Kunci E2EE dengan Verifikasi Password.
+  3. Keluar (Logout) Akun & Penanganan Konflik Perangkat.
+- **Komponen Terdampak**:
+  - `backend/internal/api/transfer_handler.go`: Injeksi `sessionStore` & revoke sesi perangkat lain saat `ConsumeSession`.
+  - `backend/internal/api/auth_handler.go`: Injeksi `hub WebSocketHub`, revoke sesi lain & kick client saat `ResetPublicKey`, serta pastikan WebSocket ditutup saat `Logout`.
+  - `backend/main.go`: Sambungkan dependensi `sessionStore` dan `hub`.
+  - `frontend/app/chat/DeviceTransferModal.tsx`: Panggil `logout()` otomatis setelah pesan transfer berhasil.
+  - `frontend/app/chat/page.tsx`: Panggil `logout()` pada `handleDeviceConflictLogout`.

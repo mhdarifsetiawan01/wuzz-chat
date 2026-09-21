@@ -626,9 +626,11 @@ function ChatPageContent() {
       // Bersihkan sesi lokal seketika (0ms guarantee)
       localLogout()
 
-      // Jika rotasi (perangkat lama ditendang), jalankan logout server berbatas waktu 30 detik
-      if (deviceConflict.isRotated) {
+      // Jalankan logout server berbatas waktu untuk mencabut sesi di backend
+      try {
         await logout()
+      } catch (logoutErr) {
+        console.warn('[ConflictLogout] Gagal sync logout ke server:', logoutErr)
       }
     } catch (err) {
       console.warn('[ConflictLogout] Error saat proses logout konflik:', err)
@@ -636,7 +638,7 @@ function ChatPageContent() {
     if (typeof window !== 'undefined') {
       window.location.replace('/login?logout=1')
     }
-  }, [logout, localLogout, user?.id, deviceConflict.isRotated])
+  }, [logout, localLogout, user?.id])
 
   // ----------------------------------------------------------------
   // Pinned Messages & In-Chat Search Handlers (Milestone 8.3D & 8.3E)

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import QRCode from 'qrcode'
 import { Html5Qrcode } from 'html5-qrcode'
+import { useAuth } from '@/lib/auth-context'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { getLocalUserKeyPair } from '@/lib/crypto/keyStore'
 import { exportPrivateKeyJWK } from '@/lib/crypto/e2ee'
@@ -41,6 +42,7 @@ export function DeviceTransferModal({
     return initialMode
   }
 
+  const { logout } = useAuth()
   const [mode, setMode] = useState<'generate' | 'input' | 'scan'>(getDefaultMode())
   const [isLoading, setIsLoading] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
@@ -424,9 +426,15 @@ export function DeviceTransferModal({
       if (mode === 'generate' && isOpen) {
         setIsTransferredOut(true)
         clearTimer()
-        setTimeout(() => {
+        setTimeout(async () => {
+          try {
+            await logout()
+          } catch {}
           onClose()
-        }, 1200)
+          if (typeof window !== 'undefined') {
+            window.location.replace('/login?logout=1')
+          }
+        }, 1500)
       }
     }
 

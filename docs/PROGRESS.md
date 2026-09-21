@@ -1875,3 +1875,35 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 ### Test Evidence
 - **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 TypeScript error, 0 lint error).
 - **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+
+---
+
+## 2026-09-22: Otomatisasi Pencabutan Sesi (Session Revocation) pada Transfer, Reset, dan Keluar
+
+### Problem Description
+1. Saat transfer perangkat berhasil (`ConsumeSession`), sesi perangkat lama di tabel `sessions` tidak ter-revoke dan frontend modal QR hanya menutup modal tanpa memanggil `logout()`.
+2. Saat reset kunci publik (`ResetPublicKey`), sesi perangkat lain tidak ter-revoke dan WebSocket perangkat lain tidak ditendang.
+3. Saat pengguna membatalkan konflik perangkat (`!isRotated`) di `DeviceConflictModal`, `await logout()` tidak dipanggil ke server sehingga sesi tetap menggantung.
+
+### Implementation Details
+1. **Backend Transfer Handler (`backend/internal/api/transfer_handler.go`, `backend/main.go`)**:
+   - Menambahkan method `SetSessionStore(ss store.SessionStore)` pada `TransferHandler`.
+   - Pada `ConsumeSession`, saat transfer sukses dikonsumsi perangkat baru, otomatis memanggil `sessionStore.RevokeAllOtherSessions(claims.UserID, claims.ID)`. Sesi perangkat lama langsung ditandai `is_revoked = TRUE` di tabel database `sessions`.
+2. **Backend Auth Handler (`backend/internal/api/auth_handler.go`, `backend/main.go`)**:
+   - Menambahkan method `SetHub(hub WebSocketHub)` pada `AuthHandler`.
+   - Pada `ResetPublicKey`, saat kunci publik di-reset dengan verifikasi password:
+     - Memutus koneksi WebSocket perangkat lama seketika dengan sinyal `SESSION_REPLACED` melalui `hub.KickClientByUserID()`.
+     - Mencabut seluruh sesi perangkat lain di database via `sessionStore.RevokeAllOtherSessions(claims.UserID, claims.ID)`.
+   - Pada `RevokeAllOtherSessions`, backend juga menendang koneksi WebSocket perangkat lain secara live.
+   - Menyambungkan dependensi `sessionStore` dan `hub` di `backend/main.go`.
+3. **Frontend Auto-Logout & Clean Navigation (`frontend/app/chat/DeviceTransferModal.tsx`, `frontend/app/chat/page.tsx`)**:
+   - Di `DeviceTransferModal.tsx`, saat menerima sinyal transfer berhasil (`handleSessionReplaced`), status sukses ditampilkan selama 1,5 detik lalu mengeksekusi `await logout()` dan mengarahkan browser ke `/login?logout=1`.
+   - Di `page.tsx`, memastikan `await logout()` selalu dipanggil pada `handleDeviceConflictLogout` baik untuk kasus rotasi maupun pembatalan login baru.
+4. **Backend Automated Tests (`backend/internal/api/transfer_handler_test.go`, `backend/internal/api/auth_e2ee_test.go`)**:
+   - `TestTransferHandler_SessionRevocationOnConsume`: Memvalidasi sesi lama otomatis dicabut saat transfer selesai.
+   - `TestAuthHandler_ResetPublicKey_RevokesOtherSessionsAndKicksWebsocket`: Memvalidasi sesi lama dicabut dan WebSocket ditendang saat reset kunci.
+
+### Test Evidence
+- **Backend Unit & Integration Tests (`go test -v ./...`)**: **PASS 100%** across all packages.
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 TypeScript error, 0 lint error).
+

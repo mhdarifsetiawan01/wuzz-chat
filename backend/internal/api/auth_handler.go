@@ -17,6 +17,7 @@ type AuthHandler struct {
 	userStore    store.UserStore
 	tokenStore   store.TokenStore
 	sessionStore store.SessionStore
+	hub          WebSocketHub
 }
 
 func NewAuthHandler(us store.UserStore) *AuthHandler {
@@ -29,6 +30,10 @@ func (h *AuthHandler) SetTokenStore(ts store.TokenStore) {
 
 func (h *AuthHandler) SetSessionStore(ss store.SessionStore) {
 	h.sessionStore = ss
+}
+
+func (h *AuthHandler) SetHub(hub WebSocketHub) {
+	h.hub = hub
 }
 
 type RegisterRequest struct {
@@ -365,6 +370,19 @@ func (h *AuthHandler) ResetPublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Single Device Enforcement & Keamanan E2EE:
+	// Segera tendang sesi WebSocket perangkat lama karena kunci enkripsi telah di-reset
+	if h.hub != nil {
+		h.hub.KickClientByUserID(claims.UserID, req.DeviceID, "SESSION_REPLACED: Kunci keamanan telah di-reset dari perangkat lain.")
+	}
+
+	// Revoke seluruh sesi login perangkat lain milik pengguna ini (Phase 1: Active Session Management)
+	if h.sessionStore != nil && claims.ID != "" {
+		if err := h.sessionStore.RevokeAllOtherSessions(claims.UserID, claims.ID); err != nil {
+			log.Printf("⚠️ Gagal mencabut sesi perangkat lain saat reset kunci (user: %s): %v", claims.UserID, err)
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":      "ok",
@@ -676,6 +694,12 @@ func (h *AuthHandler) RevokeAllOtherSessions(w http.ResponseWriter, r *http.Requ
 			http.Error(w, `{"error":"Gagal mencabut sesi lain"}`, http.StatusInternalServerError)
 			return
 		}
+	}
+
+	// Tendang koneksi WebSocket perangkat lain jika terhubung
+	if h.hub != nil {
+		currentDeviceID := strings.TrimSpace(r.Header.Get("X-Device-ID"))
+		h.hub.KickClientByUserID(claims.UserID, currentDeviceID, "SESSION_REVOKED: Sesi login Anda telah dicabut dari jarak jauh.")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
