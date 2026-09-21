@@ -2,6 +2,9 @@
 
 Dokumen ini mendefinisikan desain skema data, alur komunikasi WebSocket, dan standar API untuk evolusi platform **Wuzz Chat** menuju aplikasi chatting modern kelas WhatsApp/Telegram.
 
+> 📖 **Arsitektur Identitas & Multi-Device**: Untuk peta jalan pemisahan sesi (`sessions`), registrasi perangkat (`devices`), multi-credential (`user_credentials`), Passkey WebAuthn, dan E2EE multi-device, lihat dokumen:
+> 👉 **[`docs/ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md)** (Status: Phase 0 SELESAI ✅, Phase 1 s/d 5 Siap Dieksekusi).
+
 ---
 
 ## 🗄️ 1. Skema Database Relasional (PostgreSQL / Supabase)

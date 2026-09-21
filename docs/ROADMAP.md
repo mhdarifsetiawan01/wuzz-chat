@@ -84,6 +84,18 @@ Membangun platform chatting modern yang:
 
 ---
 
+> 📖 **Spesifikasi Teknis Evolusi Identitas, Autentikasi & Multi-Device**:
+> Seluruh hasil audit arsitektur mendalam, cetak biru skema DDL non-destruktif, dan tahapan migrasi untuk **Fase 11 / Multi-Device & Passkey** didokumentasikan secara terperinci di:
+> 👉 **[`docs/ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md)**
+> - **Phase 0 (Identity & Auth Hardening)**: **SELESAI ✅** (JWT Revocation, Re-Auth Safe Reset Kunci, Ganti Password)
+> - **Phase 1 (Session Foundation)**: *Siap Dieksekusi* (Tabel `sessions`, Session Inventory API, Remote Logout)
+> - **Phase 2 (Device Registry)**: *Siap Dieksekusi* (Tabel `devices`, Multi-Device Metadata, Remote Device Revoke)
+> - **Phase 3 (Credential Separation)**: *Siap Dieksekusi* (Tabel `user_credentials`, Abstraksi Multi-Metode Login)
+> - **Phase 4 (Passkey / WebAuthn)**: *Siap Dieksekusi* (FIDO2 Biometric Login)
+> - **Phase 5 (Multi-Device E2EE Continuity)**: *Siap Dieksekusi* (Kriptografi per-perangkat / Signal Protocol Pattern)
+
+---
+
 ## 📋 Rincian Tiap Fase & Deliverables
 
 ### Fase 1: Real-Time Engine Foundation (Status: SELESAI ✅)
