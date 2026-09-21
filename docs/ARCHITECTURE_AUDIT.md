@@ -1,7 +1,7 @@
 # 🔍 WuzzChat — Architecture Audit & Identity Evolution Roadmap
 **Fokus:** Identity · Authentication · Device Management · Session Management · Multi-Device & Passkey Readiness  
 **Tanggal:** 21–22 September 2026  
-**Status:** **Phase 0 SELESAI ✅** | Phase 1 s/d Phase 5 Actionable Strategic Roadmap  
+**Status:** **Phase 0 & Phase 1 SELESAI ✅** | Phase 2 s/d Phase 5 Actionable Strategic Roadmap  
 
 ---
 
@@ -303,7 +303,7 @@ erDiagram
 
 ---
 
-#### 🛠️ Phase 1 — Session Foundation (STATUS: SIAP DIEKSEKUSI)
+#### 🛠️ Phase 1 — Session Foundation (STATUS: SELESAI ✅)
 
 > **Tujuan:** Server mulai mencatat inventaris sesi login secara terpusat (*Stateful Session Tracking*) tanpa memutus klien JWT yang ada.
 
@@ -484,7 +484,7 @@ Saat ini, jika pengguna lupa password, akun tidak dapat dipulihkan. Rencana pemu
 [Phase 0: Quick Wins] ──────────► [SELESAI ✅] (JWT Revocation, Safe Re-Auth, Change Password)
         │
         ▼
-[Phase 1: Session Foundation] ──► [TERDOKUMENTASI & SIAP DIEKSEKUSI] (Sessions Table & Remote Logout)
+[Phase 1: Session Foundation] ──► [SELESAI ✅] (Sessions Table, Active Inventory & Remote Logout)
         │
         ▼
 [Phase 2: Device Registry] ─────► [TERDOKUMENTASI & SIAP DIEKSEKUSI] (Devices Table & Multi-Device)

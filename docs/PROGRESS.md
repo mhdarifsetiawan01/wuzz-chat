@@ -1802,5 +1802,60 @@ Berdasarkan Audit Arsitektur Identitas dan Autentikasi WuzzChat, ditemukan 3 ker
 - `npm run build` di frontend: **PASS 100%** (Next.js 16.3.5 Turbopack compilation 0 error).
 - **Live Curl Testing**: **PASS 100%** (12/12 skenario live curl lulus sempurna terhadap server backend nyata).
 
+---
+
+## 🖥️ Phase 1: Session Foundation & Remote Logout (22 September 2026)
+
+### Latar Belakang & Masalah
+Sebagai kelanjutan dari Phase 0 (JWT Revocation & Password Hardening), pengguna memerlukan visibilitas penuh atas sesi aktif mereka dan kemampuan untuk melakukan pencabutan sesi secara jarak jauh (*Remote Logout*):
+1. **R5: Tidak Ada Session Inventory**: Pengguna tidak dapat melihat di perangkat atau peramban mana saja akun mereka sedang masuk.
+2. **Kebutuhan Remote Logout**: Pengguna tidak dapat mengeluarkan akun dari satu perangkat tertentu (misal: laptop kantor yang tertinggal) tanpa harus mengubah password akun.
+3. **Pencatatan Sesi Terpusat**: Perlunya tabel `sessions` terikat pada JTI token JWT untuk Stateful Session Tracking non-destruktif.
+
+### Solusi & Implementasi Teknis
+1. **Skema Basis Data & Auto-Migration (`backend/internal/store/sql.go`)**:
+   - Menambahkan tabel `sessions` di PostgreSQL dan SQLite:
+     ```sql
+     CREATE TABLE IF NOT EXISTS sessions (
+         id VARCHAR(64) PRIMARY KEY,              -- JTI dari JWT
+         user_id VARCHAR(64) NOT NULL,
+         device_id TEXT DEFAULT '',
+         user_agent TEXT DEFAULT '',
+         ip_address VARCHAR(45) DEFAULT '',
+         is_revoked BOOLEAN DEFAULT FALSE,
+         created_at TIMESTAMP NOT NULL,
+         expires_at TIMESTAMP NOT NULL,
+         last_active_at TIMESTAMP NOT NULL
+     );
+     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id, is_revoked);
+     CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+     ```
+2. **Session Store & Domain Layer (`backend/internal/store/session_store.go` [NEW])**:
+   - Definisikan struct `Session` dan interface `SessionStore`.
+   - Implementasi `SQLSessionStore` dengan method: `CreateSession`, `GetActiveSessions`, `RevokeSession`, `RevokeAllOtherSessions`, `IsSessionRevoked`, `TouchSession`, dan `CleanupExpiredSessions`.
+   - Menyelaraskan `IsTokenRevoked` di [`backend/internal/store/token_store.go`](../backend/internal/store/token_store.go) agar langsung mendeteksi sesi yang dicabut di tabel `sessions`.
+3. **JWT Helper & REST API Handlers (`backend/internal/auth/jwt.go`, `api/auth_handler.go`, `main.go`)**:
+   - Menambahkan `GenerateTokenDetailed` di `jwt.go` untuk mengekstraksi JTI dan masa kedaluwarsa secara langsung.
+   - Perekaman sesi login & register (`CreateSession`) dengan ekstraksi client IP (`CF-Connecting-IP`, `X-Forwarded-For`, `RemoteAddr`) dan `User-Agent`.
+   - Menambahkan endpoint REST baru:
+     - `GET /api/auth/sessions`: Menampilkan inventaris sesi aktif dengan penanda `is_current: true`.
+     - `DELETE /api/auth/sessions/:id`: Mencabut sesi tertentu dari jarak jauh.
+     - `POST /api/auth/sessions/revoke-others`: Mencabut seluruh sesi lain kecuali sesi saat ini.
+   - Mengintegrasikan pencabutan sesi di `Logout` dan `ChangePassword`.
+   - Background worker periodik (setiap 1 jam) di `main.go` untuk membersihkan sesi kedaluwarsa.
+4. **Frontend UI Manajemen Sesi Aktif (`frontend/lib/types.ts`, `frontend/app/chat/ProfileModal.tsx`)**:
+   - Menambahkan interface `AuthSession` di `types.ts`.
+   - Menambahkan kartu interaktif **"🖥️ Sesi Login Aktif"** pada Tab Keamanan di modal profil.
+   - Parsing User-Agent otomatis (label & icon Chrome di Windows, Safari di iOS, Firefox di Linux, dll).
+   - Indikator badge *"🟢 Sesi Ini"* pada sesi aktif perangkat saat ini.
+   - Tombol *"Cabut"* per-sesi dengan proteksi konfirmasi dan loading spinner.
+   - Tombol *"🚪 Keluar dari Semua Perangkat Lain"* jika terdapat lebih dari satu sesi aktif.
+
+### Test Evidence
+- **Backend Unit & Integration Tests (`backend/internal/api/auth_session_test.go` [NEW])**: **PASS 100%** (5 skenario pengujian sesi aktif, penanda `is_current`, remote revoke, revoke all others, dan expired cleanup).
+- **Full Backend Suite (`go test ./...`)**: **PASS 100%** across all packages.
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 TypeScript error, 0 lint error).
+
+
 
 

@@ -53,6 +53,7 @@ func main() {
 	var transferStore store.TransferStore
 	var memoryStore store.MemoryStore
 	var tokenStore store.TokenStore
+	var sessionStore store.SessionStore
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
 		userStore = sqlUserStore
@@ -62,6 +63,7 @@ func main() {
 		sqlTokenStore := store.NewSQLTokenStore(sqlStore.DB(), sqlStore.DriverName())
 		tokenStore = sqlTokenStore
 		auth.SetTokenChecker(sqlTokenStore)
+		sessionStore = store.NewSQLSessionStore(sqlStore.DB(), sqlStore.DriverName())
 	}
 
 	// Inisialisasi Push Notification Service (Web Push VAPID & Multi-Platform Gateway)
@@ -78,6 +80,9 @@ func main() {
 		authHandler = api.NewAuthHandler(userStore)
 		if tokenStore != nil {
 			authHandler.SetTokenStore(tokenStore)
+		}
+		if sessionStore != nil {
+			authHandler.SetSessionStore(sessionStore)
 		}
 		chatHandler = api.NewChatHandler(userStore, messageStore)
 		groupHandler = api.NewGroupHandler(groupStore, userStore)
@@ -111,6 +116,21 @@ func main() {
 					log.Printf("⚠️ Gagal membersihkan token kedaluwarsa: %v", err)
 				} else if cleaned > 0 {
 					log.Printf("🧹 Berhasil membersihkan %d token kedaluwarsa", cleaned)
+				}
+			}
+		}()
+	}
+
+	if sessionStore != nil {
+		// Background worker pembersih sesi login kedaluwarsa (setiap 1 jam)
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
+			for range ticker.C {
+				if cleaned, err := sessionStore.CleanupExpiredSessions(); err != nil {
+					log.Printf("⚠️ Gagal membersihkan sesi login kedaluwarsa: %v", err)
+				} else if cleaned > 0 {
+					log.Printf("🧹 Berhasil membersihkan %d sesi login kedaluwarsa", cleaned)
 				}
 			}
 		}()
@@ -260,6 +280,15 @@ func main() {
 		}))
 		mux.HandleFunc("/api/auth/logout", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.Logout)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/auth/sessions/revoke-others", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(authHandler.RevokeAllOtherSessions)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/auth/sessions", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(authHandler.GetActiveSessions)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/auth/sessions/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(authHandler.RevokeSession)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/profile", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.UpdateProfile)).ServeHTTP(w, r)

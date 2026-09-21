@@ -55,7 +55,7 @@ func (s *SQLTokenStore) RevokeToken(jti, userID string, expiresAt time.Time) err
 	return nil
 }
 
-// IsTokenRevoked memeriksa apakah suatu JTI tercatat dalam daftar token yang dicabut.
+// IsTokenRevoked memeriksa apakah suatu JTI tercatat dalam daftar token yang dicabut atau status sesi telah dicabut.
 func (s *SQLTokenStore) IsTokenRevoked(jti string) (bool, error) {
 	if jti == "" {
 		return false, nil
@@ -70,13 +70,29 @@ func (s *SQLTokenStore) IsTokenRevoked(jti string) (bool, error) {
 
 	var dummy int
 	err := s.db.QueryRow(query, jti).Scan(&dummy)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
+	if err == nil {
+		return true, nil
+	}
+	if err != sql.ErrNoRows {
 		return false, fmt.Errorf("gagal query revoked_tokens: %w", err)
 	}
-	return true, nil
+
+	// Periksa juga status pencabutan sesi di tabel sessions (Phase 1: Session Foundation)
+	var sessionQuery string
+	if s.driverName == "postgres" {
+		sessionQuery = `SELECT 1 FROM sessions WHERE id = $1 AND is_revoked = TRUE LIMIT 1`
+	} else {
+		sessionQuery = `SELECT 1 FROM sessions WHERE id = ? AND is_revoked = 1 LIMIT 1`
+	}
+
+	err = s.db.QueryRow(sessionQuery, jti).Scan(&dummy)
+	if err == nil {
+		return true, nil
+	}
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	return false, fmt.Errorf("gagal query sessions: %w", err)
 }
 
 // RevokeAllUserTokens membatalkan semua token yang diterbitkan sebelum saat ini untuk user tertentu (misal saat ganti password).

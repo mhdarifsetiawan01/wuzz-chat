@@ -329,6 +329,21 @@ func (s *SQLMessageStore) autoMigrate() error {
 			user_id VARCHAR(64) PRIMARY KEY,
 			revoked_before TIMESTAMP NOT NULL
 		);`,
+
+		// Tabel Sessions (Phase 1: Session Foundation & Remote Logout)
+		`CREATE TABLE IF NOT EXISTS sessions (
+			id VARCHAR(64) PRIMARY KEY,
+			user_id VARCHAR(64) NOT NULL,
+			device_id TEXT DEFAULT '',
+			user_agent TEXT DEFAULT '',
+			ip_address VARCHAR(45) DEFAULT '',
+			is_revoked BOOLEAN DEFAULT FALSE,
+			created_at TIMESTAMP NOT NULL,
+			expires_at TIMESTAMP NOT NULL,
+			last_active_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id, is_revoked);`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);`,
 	}
 
 	for _, query := range migrations {

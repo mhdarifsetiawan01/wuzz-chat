@@ -144,6 +144,20 @@ export interface SessionInfo {
   peerId?: string
 }
 
+// Info sesi login terpusat pengguna (Phase 1: Session Foundation)
+export interface AuthSession {
+  id: string
+  user_id: string
+  device_id: string
+  user_agent: string
+  ip_address: string
+  is_revoked: boolean
+  created_at: string
+  expires_at: string
+  last_active_at: string
+  is_current?: boolean
+}
+
 export interface User {
   id: string
   username: string

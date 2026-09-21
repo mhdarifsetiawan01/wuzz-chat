@@ -42,6 +42,20 @@ erDiagram
         timestamp created_at
     }
 
+    USERS ||--o{ SESSIONS : has_sessions
+
+    SESSIONS {
+        varchar id PK "JTI dari JWT"
+        varchar user_id FK "User UUID"
+        text device_id "device_id saat login"
+        text user_agent "Client User-Agent"
+        varchar ip_address "Client IP address"
+        boolean is_revoked "Status pencabutan sesi"
+        timestamp created_at
+        timestamp expires_at
+        timestamp last_active_at
+    }
+
     PUSH_SUBSCRIPTIONS {
         uuid id PK
         uuid user_id FK
