@@ -110,6 +110,19 @@ func ValidateRegistration(username, displayName, password string) error {
 		return ErrUsernameForbidden
 	}
 
+	if err := ValidatePassword(password); err != nil {
+		return err
+	}
+
+	if len(displayName) > 50 {
+		return ErrDisplayNameTooLong
+	}
+
+	return nil
+}
+
+// ValidatePassword memeriksa panjang dan validitas string password.
+func ValidatePassword(password string) error {
 	if password == "" {
 		return ErrPasswordEmpty
 	}
@@ -119,10 +132,6 @@ func ValidateRegistration(username, displayName, password string) error {
 	if len(password) > 128 {
 		return ErrPasswordTooLong
 	}
-
-	if len(displayName) > 50 {
-		return ErrDisplayNameTooLong
-	}
-
 	return nil
 }
+

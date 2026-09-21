@@ -313,6 +313,22 @@ func (s *SQLMessageStore) autoMigrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_mve_approved_memory_id ON memory_view_events(approved_memory_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_mve_viewer_memory ON memory_view_events(viewer_id, approved_memory_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_mve_group_created ON memory_view_events(group_id, created_at DESC);`,
+
+		// Tabel Revoked Tokens (Phase 0: Quick Wins - JWT Revocation)
+		`CREATE TABLE IF NOT EXISTS revoked_tokens (
+			jti VARCHAR(64) PRIMARY KEY,
+			user_id VARCHAR(64) NOT NULL,
+			revoked_at TIMESTAMP NOT NULL,
+			expires_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_revoked_tokens_user ON revoked_tokens(user_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expiry ON revoked_tokens(expires_at);`,
+
+		// Tabel User Token Revocations (Global Revocation per User, misal saat Change Password)
+		`CREATE TABLE IF NOT EXISTS user_token_revocations (
+			user_id VARCHAR(64) PRIMARY KEY,
+			revoked_before TIMESTAMP NOT NULL
+		);`,
 	}
 
 	for _, query := range migrations {

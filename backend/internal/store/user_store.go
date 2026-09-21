@@ -100,6 +100,8 @@ type UserStore interface {
 	DeletePushSubscriptionByUser(userID, endpoint string) error
 	GetPushSubscriptionsByUserID(userID string) ([]PushSubscription, error)
 	GetPushSubscriptionsForRecipients(recipientUserIDs []string) ([]PushSubscription, error)
+	ChangePassword(userID, newPasswordHash string) error
+	VerifyPassword(userID, plainPassword string) (bool, error)
 }
 
 // SQLUserStore adalah implementasi UserStore menggunakan SQL (SQLite & Postgres).
@@ -168,6 +170,43 @@ func (s *SQLUserStore) Authenticate(username, password string) (*User, error) {
 	}
 
 	return user, nil
+}
+
+// ChangePassword memperbarui password_hash user yang terdaftar.
+func (s *SQLUserStore) ChangePassword(userID, newPasswordHash string) error {
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE users SET password_hash = $1 WHERE id = $2`
+	} else {
+		query = `UPDATE users SET password_hash = ? WHERE id = ?`
+	}
+
+	res, err := s.db.Exec(query, newPasswordHash, userID)
+	if err != nil {
+		return fmt.Errorf("gagal update password: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+// VerifyPassword memvalidasi apakah plainPassword cocok dengan password_hash user saat ini.
+func (s *SQLUserStore) VerifyPassword(userID, plainPassword string) (bool, error) {
+	user, err := s.GetUserByID(userID)
+	if err != nil {
+		return false, err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(plainPassword)); err != nil {
+		return false, nil
+	}
+	return true, nil
 }
 
 // GetUserByID mengambil user berdasarkan ID.

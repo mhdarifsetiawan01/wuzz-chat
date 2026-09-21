@@ -1767,4 +1767,34 @@ Menyempurnakan keandalan operasional, fleksibilitas integrasi, serta kecepatan r
 - `npm run build` (Turbopack Next.js 16) lulus ✅ — 0 TypeScript error, 0 linting error.
 - `go test ./...` (Backend Go) lulus ✅ — 100% test passed.
 
+---
+
+## 🛡️ Fase 0: Identity & Auth Hardening (Quick Wins) (21 September 2026)
+
+### Latar Belakang & Masalah
+Berdasarkan Audit Arsitektur Identitas dan Autentikasi WuzzChat, ditemukan 3 kerentanan kritis yang perlu diselesaikan tanpa memicu breaking change:
+1. **R1: JWT Stateless Tanpa Revocation**: Logout tidak mencabut JWT, token tetap valid 7 hari setelah logout.
+2. **R2: ForceResetPublicKey Tanpa Re-Auth**: Siapapun yang memiliki token JWT valid dapat mengganti public key dan ID perangkat E2EE tanpa verifikasi ulang password.
+3. **R3: Tidak Ada Fitur Ganti Password**: Tidak ada endpoint untuk mengubah password atau memutus semua sesi aktif saat kredensial akun dicurigai bocor.
+
+### Solusi & Implementasi Teknis
+1. **JWT Revocation & Blacklist Management (R1)**:
+   - Membuat tabel non-destruktif `revoked_tokens` dan `user_token_revocations` di [`store/sql.go`](../backend/internal/store/sql.go).
+   - Menambahkan kontrak & implementasi `TokenStore` (`SQLTokenStore`) dengan fast-path memory cache `sync.Map` di [`store/token_store.go`](../backend/internal/store/token_store.go).
+   - Menyematkan JTI UUID (`uuid.New()`) pada `jwt.RegisteredClaims` di [`auth/jwt.go`](../backend/internal/auth/jwt.go).
+   - Middleware `RequireJWT` di [`auth/middleware.go`](../backend/internal/auth/middleware.go) memvalidasi status pencabutan token (JTI blacklist dan global user token revocation) berstatus `401 Unauthorized`.
+   - Menjalankan background cleanup worker setiap 1 jam di [`main.go`](../backend/main.go) untuk membersihkan token kedaluwarsa.
+2. **Re-Auth Gate pada Reset Kunci E2EE (R2)**:
+   - `ResetPublicKey` (`POST /api/users/public-key/reset`) kini mewajibkan kolom `password` dan memverifikasinya via `userStore.VerifyPassword` sebelum mengizinkan rotasi kunci perangkat di [`api/auth_handler.go`](../backend/internal/api/auth_handler.go).
+   - Menambahkan endpoint pre-check `POST /api/auth/verify-password` untuk re-autentikasi tindakan sensitif.
+3. **Change Password & Global Invalidation (R3)**:
+   - Menambahkan endpoint `POST /api/auth/change-password` di [`api/auth_handler.go`](../backend/internal/api/auth_handler.go).
+   - Memvalidasi password lama, memvalidasi kekuatan password baru (6–128 karakter via `auth.ValidatePassword`), memperbarui hash bcrypt di database, dan mencabut semua token JWT aktif pengguna tersebut (`RevokeAllUserTokens`).
+
+### Test Evidence
+- `go test -v ./...` di backend: **PASS 100%** (Termasuk `internal/api/auth_phase0_test.go` dan `internal/api/auth_e2ee_test.go`).
+- `npm run build` di frontend: **PASS 100%** (Next.js 16.3.5 Turbopack compilation 0 error).
+- **Live Curl Testing**: **PASS 100%** (12/12 skenario live curl lulus sempurna terhadap server backend nyata).
+
+
 

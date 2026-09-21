@@ -3,19 +3,27 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/store"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
-	userStore store.UserStore
+	userStore  store.UserStore
+	tokenStore store.TokenStore
 }
 
 func NewAuthHandler(us store.UserStore) *AuthHandler {
 	return &AuthHandler{userStore: us}
+}
+
+func (h *AuthHandler) SetTokenStore(ts store.TokenStore) {
+	h.tokenStore = ts
 }
 
 type RegisterRequest struct {
@@ -233,7 +241,13 @@ func (h *AuthHandler) UpdatePublicKey(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ResetPublicKey mereset paksa kunci publik E2EE ke perangkat baru dan menaikkan key_version.
+type ResetPublicKeyRequest struct {
+	PublicKey string `json:"public_key"`
+	DeviceID  string `json:"device_id"`
+	Password  string `json:"password"`
+}
+
+// ResetPublicKey mereset paksa kunci publik E2EE ke perangkat baru dan menaikkan key_version setelah verifikasi password.
 func (h *AuthHandler) ResetPublicKey(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodPut {
 		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
@@ -246,7 +260,7 @@ func (h *AuthHandler) ResetPublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req UpdatePublicKeyRequest
+	var req ResetPublicKeyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
 		return
@@ -259,6 +273,25 @@ func (h *AuthHandler) ResetPublicKey(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.PublicKey) > 4096 {
 		http.Error(w, `{"error":"public_key melebihi batas ukuran maksimum"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.Password == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Password wajib diisi untuk verifikasi identitas reset kunci",
+		})
+		return
+	}
+
+	validPass, err := h.userStore.VerifyPassword(claims.UserID, req.Password)
+	if err != nil || !validPass {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Password salah. Verifikasi identitas reset kunci gagal.",
+		})
 		return
 	}
 
@@ -281,7 +314,7 @@ type LogoutRequest struct {
 	DeviceID string `json:"device_id"`
 }
 
-// Logout menangani proses logout pengguna dan melepaskan sesi active_device_id di database jika device_id cocok.
+// Logout menangani proses logout pengguna, mencabut JWT aktif, dan melepaskan sesi active_device_id di database.
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
@@ -292,6 +325,17 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
 		return
+	}
+
+	// Revoke token JTI jika tokenStore terpasang dan claims memiliki JTI
+	if h.tokenStore != nil && claims.ID != "" {
+		exp := time.Now().Add(7 * 24 * time.Hour)
+		if claims.ExpiresAt != nil {
+			exp = claims.ExpiresAt.Time
+		}
+		if err := h.tokenStore.RevokeToken(claims.ID, claims.UserID, exp); err != nil {
+			log.Printf("⚠️ Gagal mencabut token jti %s saat logout: %v", claims.ID, err)
+		}
 	}
 
 	deviceID := strings.TrimSpace(r.Header.Get("X-Device-ID"))
@@ -317,6 +361,155 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":  "ok",
 		"message": "Berhasil logout dan melepaskan sesi perangkat aktif",
+	})
+}
+
+type VerifyPasswordRequest struct {
+	Password string `json:"password"`
+}
+
+// VerifyPassword memvalidasi password user untuk keperluan re-autentikasi / pre-check.
+func (h *AuthHandler) VerifyPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	var req VerifyPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.Password == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Password wajib diisi",
+		})
+		return
+	}
+
+	valid, err := h.userStore.VerifyPassword(claims.UserID, req.Password)
+	if err != nil || !valid {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":   "error",
+			"verified": false,
+			"error":    "Password salah",
+		})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "ok",
+		"verified": true,
+		"message":  "Password terverifikasi",
+	})
+}
+
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password"`
+	NewPassword string `json:"new_password"`
+}
+
+// ChangePassword memverifikasi password lama, memperbarui ke password baru, dan mencabut semua token aktif user.
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	var req ChangePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
+		return
+	}
+
+	if req.OldPassword == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Password lama wajib diisi",
+		})
+		return
+	}
+
+	// 1. Verifikasi password lama
+	valid, err := h.userStore.VerifyPassword(claims.UserID, req.OldPassword)
+	if err != nil || !valid {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Password lama salah",
+		})
+		return
+	}
+
+	// 2. Validasi kekuatan password baru
+	if err := auth.ValidatePassword(req.NewPassword); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	if req.OldPassword == req.NewPassword {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Password baru tidak boleh sama dengan password lama",
+		})
+		return
+	}
+
+	// 3. Hash password baru dengan bcrypt
+	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, `{"error":"Gagal memproses password baru"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// 4. Update database
+	if err := h.userStore.ChangePassword(claims.UserID, string(newHash)); err != nil {
+		http.Error(w, `{"error":"Gagal memperbarui password"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// 5. Invalidate / Revoke semua token aktif user ini
+	if h.tokenStore != nil {
+		if claims.ID != "" {
+			exp := time.Now().Add(7 * 24 * time.Hour)
+			if claims.ExpiresAt != nil {
+				exp = claims.ExpiresAt.Time
+			}
+			_ = h.tokenStore.RevokeToken(claims.ID, claims.UserID, exp)
+		}
+		if err := h.tokenStore.RevokeAllUserTokens(claims.UserID); err != nil {
+			log.Printf("⚠️ Gagal mencabut token user %s saat ganti password: %v", claims.UserID, err)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": "Password berhasil diubah. Semua sesi aktif telah dicabut. Silakan login kembali.",
 	})
 }
 

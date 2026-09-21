@@ -107,6 +107,12 @@ func (m *mockUserStoreForNotificationAPI) GetPushSubscriptionsByUserID(userID st
 func (m *mockUserStoreForNotificationAPI) GetPushSubscriptionsForRecipients(recipientUserIDs []string) ([]store.PushSubscription, error) {
 	return m.subs, nil
 }
+func (m *mockUserStoreForNotificationAPI) ChangePassword(userID, newPasswordHash string) error {
+	return nil
+}
+func (m *mockUserStoreForNotificationAPI) VerifyPassword(userID, plainPassword string) (bool, error) {
+	return true, nil
+}
 
 func TestNotificationHandler_Endpoints(t *testing.T) {
 	mockStore := &mockUserStoreForNotificationAPI{}

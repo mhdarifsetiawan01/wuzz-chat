@@ -52,12 +52,16 @@ func main() {
 	var groupStore store.GroupStore
 	var transferStore store.TransferStore
 	var memoryStore store.MemoryStore
+	var tokenStore store.TokenStore
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
 		userStore = sqlUserStore
 		groupStore = sqlUserStore
 		transferStore = store.NewSQLTransferStore(sqlStore.DB(), sqlStore.DriverName())
 		memoryStore = store.NewSQLMemoryStore(sqlStore.DB(), sqlStore.DriverName())
+		sqlTokenStore := store.NewSQLTokenStore(sqlStore.DB(), sqlStore.DriverName())
+		tokenStore = sqlTokenStore
+		auth.SetTokenChecker(sqlTokenStore)
 	}
 
 	// Inisialisasi Push Notification Service (Web Push VAPID & Multi-Platform Gateway)
@@ -72,6 +76,9 @@ func main() {
 	var memoryHandler *api.MemoryHandler
 	if userStore != nil {
 		authHandler = api.NewAuthHandler(userStore)
+		if tokenStore != nil {
+			authHandler.SetTokenStore(tokenStore)
+		}
 		chatHandler = api.NewChatHandler(userStore, messageStore)
 		groupHandler = api.NewGroupHandler(groupStore, userStore)
 		notificationHandler = api.NewNotificationHandler(pushService, userStore)
@@ -89,6 +96,21 @@ func main() {
 			for range ticker.C {
 				if _, err := transferStore.CleanupExpiredSessions(); err != nil {
 					log.Printf("⚠️ Gagal membersihkan sesi transfer kedaluwarsa: %v", err)
+				}
+			}
+		}()
+	}
+
+	if tokenStore != nil {
+		// Background worker pembersih token kedaluwarsa (setiap 1 jam)
+		go func() {
+			ticker := time.NewTicker(1 * time.Hour)
+			defer ticker.Stop()
+			for range ticker.C {
+				if cleaned, err := tokenStore.CleanupExpiredTokens(); err != nil {
+					log.Printf("⚠️ Gagal membersihkan token kedaluwarsa: %v", err)
+				} else if cleaned > 0 {
+					log.Printf("🧹 Berhasil membersihkan %d token kedaluwarsa", cleaned)
 				}
 			}
 		}()
@@ -241,6 +263,12 @@ func main() {
 		}))
 		mux.HandleFunc("/api/auth/profile", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.UpdateProfile)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/auth/verify-password", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(authHandler.VerifyPassword)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/auth/change-password", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(authHandler.ChangePassword)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/public-key", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet || r.Method == http.MethodHead {

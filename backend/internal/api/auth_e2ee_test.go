@@ -73,14 +73,42 @@ func TestAuthHandler_UpdateAndResetPublicKey(t *testing.T) {
 		t.Errorf("expected error KEY_ALREADY_REGISTERED, got: %v", conflictResp["error"])
 	}
 
-	// 3. ResetPublicKey from Device B -> MUST BE 200 OK and key_version = 2
-	reqReset := httptest.NewRequest(http.MethodPost, "/api/users/public-key/reset", bytes.NewReader(reqBody2))
+	// 3a. ResetPublicKey from Device B tanpa password -> HARUS 400 Bad Request
+	reqResetNoPass := httptest.NewRequest(http.MethodPost, "/api/users/public-key/reset", bytes.NewReader(reqBody2))
+	reqResetNoPass.Header.Set("Authorization", "Bearer "+token)
+	wResetNoPass := httptest.NewRecorder()
+	auth.RequireJWT()(http.HandlerFunc(authHandler.ResetPublicKey)).ServeHTTP(wResetNoPass, reqResetNoPass)
+	if wResetNoPass.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for ResetPublicKey without password, got %d: %s", wResetNoPass.Code, wResetNoPass.Body.String())
+	}
+
+	// 3b. ResetPublicKey from Device B dengan password salah -> HARUS 401 Unauthorized
+	reqBodyWrongPass, _ := json.Marshal(map[string]string{
+		"public_key": key2,
+		"device_id":  "device_mobile",
+		"password":   "wrongpass",
+	})
+	reqResetWrong := httptest.NewRequest(http.MethodPost, "/api/users/public-key/reset", bytes.NewReader(reqBodyWrongPass))
+	reqResetWrong.Header.Set("Authorization", "Bearer "+token)
+	wResetWrong := httptest.NewRecorder()
+	auth.RequireJWT()(http.HandlerFunc(authHandler.ResetPublicKey)).ServeHTTP(wResetWrong, reqResetWrong)
+	if wResetWrong.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401 for ResetPublicKey with wrong password, got %d: %s", wResetWrong.Code, wResetWrong.Body.String())
+	}
+
+	// 3c. ResetPublicKey from Device B dengan password benar -> MUST BE 200 OK and key_version = 2
+	reqBodyValidPass, _ := json.Marshal(map[string]string{
+		"public_key": key2,
+		"device_id":  "device_mobile",
+		"password":   "password123",
+	})
+	reqReset := httptest.NewRequest(http.MethodPost, "/api/users/public-key/reset", bytes.NewReader(reqBodyValidPass))
 	reqReset.Header.Set("Authorization", "Bearer "+token)
 	wReset := httptest.NewRecorder()
 	auth.RequireJWT()(http.HandlerFunc(authHandler.ResetPublicKey)).ServeHTTP(wReset, reqReset)
 
 	if wReset.Code != http.StatusOK {
-		t.Fatalf("expected status 200 for ResetPublicKey, got %d: %s", wReset.Code, wReset.Body.String())
+		t.Fatalf("expected status 200 for ResetPublicKey with correct password, got %d: %s", wReset.Code, wReset.Body.String())
 	}
 
 	var resetResp map[string]interface{}

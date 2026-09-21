@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 var (
@@ -35,13 +36,14 @@ func getJWTSecret() []byte {
 	return []byte(secret)
 }
 
-// GenerateToken membuat token JWT baru dengan masa berlaku 7 hari.
+// GenerateToken membuat token JWT baru dengan masa berlaku 7 hari dan JTI unik.
 func GenerateToken(userID, username, displayName string) (string, error) {
 	claims := UserClaims{
 		UserID:      userID,
 		Username:    username,
 		DisplayName: displayName,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.New().String(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "wuzz-chat",
