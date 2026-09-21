@@ -106,8 +106,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     }
   }, [onClose])
 
-  if (!isOpen || !user || typeof document === 'undefined') return null
-
   const handleToggleCompression = (e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked
     setCompressImages(checked)
@@ -316,7 +314,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   }
 
   const mbUsed = (cacheStats.totalBytes / (1024 * 1024)).toFixed(2)
-  const isVerified = Boolean(user.is_verified)
+  const isVerified = Boolean(user?.is_verified)
+
+  if (!isOpen || !user || typeof document === 'undefined') return null
 
   return createPortal(
     <div
