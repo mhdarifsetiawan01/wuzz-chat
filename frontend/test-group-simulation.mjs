@@ -128,6 +128,7 @@ async function runTest() {
           body: JSON.stringify({
             public_key: 'dummy_pub_key',
             device_id: aliceDeviceId,
+            password: 'K0k0r0k0@123',
           }),
         })
       }

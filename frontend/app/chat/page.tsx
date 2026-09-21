@@ -607,9 +607,9 @@ function ChatPageContent() {
   }, [user?.id, roomId])
 
   // Handler konfirmasi reset kunci keamanan E2EE pada perangkat ini
-  const handleConfirmDeviceReset = useCallback(async () => {
+  const handleConfirmDeviceReset = useCallback(async (password: string) => {
     if (!user?.id) return
-    await forceResetUserE2EE(user.id)
+    await forceResetUserE2EE(user.id, password)
     setDeviceConflict({ isOpen: false })
     setE2eeVerified(true)
     if (activePeerRef.current?.id) {

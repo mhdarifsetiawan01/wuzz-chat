@@ -1790,6 +1790,12 @@ Berdasarkan Audit Arsitektur Identitas dan Autentikasi WuzzChat, ditemukan 3 ker
 3. **Change Password & Global Invalidation (R3)**:
    - Menambahkan endpoint `POST /api/auth/change-password` di [`api/auth_handler.go`](../backend/internal/api/auth_handler.go).
    - Memvalidasi password lama, memvalidasi kekuatan password baru (6–128 karakter via `auth.ValidatePassword`), memperbarui hash bcrypt di database, dan mencabut semua token JWT aktif pengguna tersebut (`RevokeAllUserTokens`).
+4. **Frontend Synchronization (Auth, Logout, Device Conflict & Password UI)**:
+   - **API Interceptor Safe 401 Handling (`frontend/lib/api.ts`)**: Menambahkan whitelist endpoint verifikasi kredensial (`verify-password`, `change-password`, `public-key/reset`, `login`, `register`) agar kegagalan password (status 401) tidak memicu auto-logout dan redirect ke `/login?expired=1`.
+   - **Re-Auth E2EE Key Reset (`frontend/lib/crypto/keyStore.ts`)**: Fungsi `forceResetUserE2EE(userId, password)` kini mengirimkan field `password` ke `POST /api/users/public-key/reset`. Menghapus fallback reset tanpa password pada `importAndSaveTransferredKeyPair` karena transfer kunci via QR sudah didukung native oleh `PUT /api/users/public-key`.
+   - **Password Prompt pada Konflik Perangkat (`frontend/app/chat/DeviceConflictModal.tsx` & `page.tsx`)**: Menambahkan input password saat pengguna mengklik "🔑 Reset & Masuk di Perangkat Ini", meneruskan kredensial ke `forceResetUserE2EE`.
+   - **UI Ganti Password (`frontend/app/chat/ProfileModal.tsx`)**: Menambahkan form interaktif "🔑 Ganti Password Akun" di tab Keamanan & Akun. Terintegrasi dengan `POST /api/auth/change-password`, mengonfirmasi pengalihan, dan melakukan logout otomatis saat seluruh sesi lama dicabut.
+   - **Pembaruan Skrip Simulasi Pengujian (`frontend/test-*.mjs`)**: Menambahkan field `password` pada seluruh panggilan reset kunci di `test-two-device-simulation.mjs`, `test-group-simulation.mjs`, `test-two-user-e2ee-simulation.mjs`, `test-qr-device-transfer-simulation.mjs`, dan `test-android-pwa-simulation.mjs`.
 
 ### Test Evidence
 - `go test -v ./...` di backend: **PASS 100%** (Termasuk `internal/api/auth_phase0_test.go` dan `internal/api/auth_e2ee_test.go`).

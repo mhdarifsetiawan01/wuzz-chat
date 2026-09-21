@@ -11,7 +11,7 @@ interface DeviceConflictModalProps {
   keyVersion?: number
   currentUserId?: string
   onClose: () => void
-  onConfirmReset: () => Promise<void>
+  onConfirmReset: (password: string) => Promise<void>
   onLogout: () => void
   onTransferSuccess?: () => void
 }
@@ -29,6 +29,8 @@ export function DeviceConflictModal({
   const [isResetting, setIsResetting] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isTransferOpen, setIsTransferOpen] = useState(false)
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false)
+  const [passwordInput, setPasswordInput] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const isTransferOpenRef = useRef(isTransferOpen)
   isTransferOpenRef.current = isTransferOpen
@@ -58,12 +60,18 @@ export function DeviceConflictModal({
 
   if (!isOpen || typeof document === 'undefined') return null
 
-  const handleReset = async () => {
+  const handleReset = async (password: string) => {
+    if (!password.trim()) {
+      setErrorMsg('Password wajib diisi untuk verifikasi reset kunci')
+      return
+    }
     if (isResetting || isLoggingOut) return
     setIsResetting(true)
     setErrorMsg('')
     try {
-      await onConfirmReset()
+      await onConfirmReset(password.trim())
+      setShowPasswordPrompt(false)
+      setPasswordInput('')
       onClose()
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal mereset kunci keamanan')
@@ -182,16 +190,72 @@ export function DeviceConflictModal({
                 {isLoggingOut ? '⏳ Memproses Keluar...' : '🔄 Atau Keluar & Masuk Ulang Akun'}
               </button>
             </>
+          ) : showPasswordPrompt ? (
+            <>
+              <div style={{ width: '100%', marginBottom: 'var(--space-2)' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-1)' }}>
+                  Masukkan Password Akun Anda:
+                </label>
+                <input
+                  type="password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="Password akun Anda"
+                  autoFocus
+                  disabled={isResetting || isLoggingOut}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleReset(passwordInput)
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-input)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.9rem',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => handleReset(passwordInput)}
+                disabled={isResetting || isLoggingOut || !passwordInput.trim()}
+                style={{ width: '100%', padding: '12px', fontSize: '0.95rem' }}
+              >
+                {isResetting ? '⏳ Memverifikasi & Mereset...' : '🔑 Konfirmasi Reset Kunci'}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  setShowPasswordPrompt(false)
+                  setPasswordInput('')
+                  setErrorMsg('')
+                }}
+                disabled={isResetting || isLoggingOut}
+                style={{ width: '100%', padding: '8px', fontSize: '0.85rem' }}
+              >
+                Kembali
+              </button>
+            </>
           ) : (
             <>
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={handleReset}
+                onClick={() => setShowPasswordPrompt(true)}
                 disabled={isResetting || isLoggingOut}
                 style={{ width: '100%', padding: '12px', fontSize: '0.95rem' }}
               >
-                {isResetting ? '⏳ Mengaktifkan Perangkat...' : '🔑 Reset & Masuk di Perangkat Ini'}
+                🔑 Reset & Masuk di Perangkat Ini
               </button>
 
               <button

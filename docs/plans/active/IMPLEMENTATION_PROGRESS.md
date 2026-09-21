@@ -1,3 +1,4 @@
 # Implementation Progress — Standby
 
-- [ ] Menunggu task baru
+- **Status**: Standby
+- Belum ada tugas aktif.

@@ -42,12 +42,23 @@ export async function apiRequest<T>(
       const result = await res.json().catch(() => ({}))
 
       if (!res.ok) {
-        // Jika token expired / unauthorized dan bukan request login/register
-        if (res.status === 401 && typeof window !== 'undefined' && !endpoint.startsWith('/api/auth/login') && !endpoint.startsWith('/api/auth/register')) {
-          localStorage.removeItem('wuzz_auth_token')
-          localStorage.removeItem('wuzz_user_profile')
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login?expired=1'
+        // Jika token expired / unauthorized (dan bukan kegagalan verifikasi password atau login/register)
+        if (res.status === 401 && typeof window !== 'undefined') {
+          const isCredentialValidationEndpoint =
+            endpoint.startsWith('/api/auth/login') ||
+            endpoint.startsWith('/api/auth/register') ||
+            endpoint.startsWith('/api/auth/verify-password') ||
+            endpoint.startsWith('/api/auth/change-password') ||
+            endpoint.startsWith('/api/users/public-key/reset') ||
+            endpoint.startsWith('/api/user/public-key/reset')
+
+          if (!isCredentialValidationEndpoint) {
+            localStorage.removeItem('wuzz_auth_token')
+            localStorage.removeItem('wuzz_user_profile')
+            localStorage.removeItem('wuzz_auth_user')
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login?expired=1'
+            }
           }
         }
         return { error: result.error || `Request gagal dengan status ${res.status}`, status: res.status }

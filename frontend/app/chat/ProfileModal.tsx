@@ -54,6 +54,15 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [swVersion, setSwVersion] = useState<string | null>(null)
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false)
 
+  // Settings: Keamanan & Ganti Password
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [changePassError, setChangePassError] = useState('')
+  const [changePassSuccess, setChangePassSuccess] = useState('')
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+
   useEffect(() => {
     if (user && isOpen) {
       setDisplayName(user.display_name || user.username || '')
@@ -66,6 +75,12 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       setCompressImages(isImageCompressionEnabled())
       getMediaCacheStats().then(setCacheStats)
       getActiveServiceWorkerVersion().then(setSwVersion)
+      setOldPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setChangePassError('')
+      setChangePassSuccess('')
+      setShowPasswordForm(false)
     }
   }, [user, isOpen])
 
@@ -133,6 +148,62 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       setTimeout(() => {
         handleClose()
       }, 750)
+    }
+  }
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setChangePassError('')
+    setChangePassSuccess('')
+
+    if (!oldPassword) {
+      setChangePassError('Password lama wajib diisi')
+      return
+    }
+    if (!newPassword || newPassword.length < 6) {
+      setChangePassError('Password baru minimal 6 karakter')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setChangePassError('Konfirmasi password baru tidak cocok')
+      return
+    }
+
+    setIsChangingPassword(true)
+    try {
+      const { error: apiErr } = await apiRequest<{ status: string; message: string }>('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          old_password: oldPassword,
+          new_password: newPassword,
+        }),
+      })
+
+      if (apiErr) {
+        setChangePassError(apiErr)
+        setIsChangingPassword(false)
+        return
+      }
+
+      setChangePassSuccess('✅ Password berhasil diubah! Mengalihkan ke login...')
+      setOldPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+
+      setTimeout(async () => {
+        try {
+          await logout()
+        } catch {}
+        onClose()
+        if (typeof window !== 'undefined') {
+          window.location.replace('/login?logout=1')
+        } else {
+          router.replace('/login?logout=1')
+        }
+      }, 1500)
+    } catch (err: any) {
+      setChangePassError(err.message || 'Gagal mengubah password')
+      setIsChangingPassword(false)
     }
   }
 
@@ -684,6 +755,147 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 >
                   📸 Buka QR Scanner / Generator Kunci
                 </button>
+              </div>
+
+              {/* Change Password Card */}
+              <div
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                    🔑 Ganti Password Akun
+                  </div>
+                  {!showPasswordForm && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPasswordForm(true)}
+                      className="btn btn-ghost"
+                      style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                    >
+                      Ubah
+                    </button>
+                  )}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: showPasswordForm ? '12px' : '0', lineHeight: 1.4 }}>
+                  Perbarui kata sandi akun Anda. Mengubah password akan mencabut seluruh sesi login aktif demi keamanan.
+                </div>
+
+                {showPasswordForm && (
+                  <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        Password Saat Ini:
+                      </label>
+                      <input
+                        type="password"
+                        value={oldPassword}
+                        onChange={e => setOldPassword(e.target.value)}
+                        placeholder="Masukkan password lama"
+                        disabled={isChangingPassword}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-input)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.85rem',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        Password Baru (min. 6 karakter):
+                      </label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="Masukkan password baru"
+                        disabled={isChangingPassword}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-input)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.85rem',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        Konfirmasi Password Baru:
+                      </label>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        placeholder="Ulangi password baru"
+                        disabled={isChangingPassword}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-color)',
+                          background: 'var(--bg-input)',
+                          color: 'var(--text-primary)',
+                          fontSize: '0.85rem',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+
+                    {changePassError && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-error)', padding: '6px 10px', background: 'var(--tint-error-10)', borderRadius: 'var(--radius-sm)' }}>
+                        ⚠️ {changePassError}
+                      </div>
+                    )}
+
+                    {changePassSuccess && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-success)', padding: '6px 10px', background: 'var(--tint-success-10)', borderRadius: 'var(--radius-sm)' }}>
+                        {changePassSuccess}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
+                      <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={isChangingPassword}
+                        style={{ flex: 1, padding: '8px', fontSize: '0.85rem' }}
+                      >
+                        {isChangingPassword ? '⏳ Menyimpan...' : 'Simpan Password Baru'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={() => {
+                          setShowPasswordForm(false)
+                          setOldPassword('')
+                          setNewPassword('')
+                          setConfirmPassword('')
+                          setChangePassError('')
+                          setChangePassSuccess('')
+                        }}
+                        disabled={isChangingPassword}
+                        style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
 
               {/* Danger Zone: Logout */}

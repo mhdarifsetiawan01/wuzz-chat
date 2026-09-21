@@ -259,6 +259,7 @@ async function runAndroidPWASimulation() {
     body: JSON.stringify({
       public_key: aliceLaptopKey.publicKeyJWK,
       device_id: DEVICE_LAPTOP.id,
+      password: USER_ALICE.password,
     }),
   })
   const keyInfo1 = await resetRes1.json()
@@ -275,6 +276,7 @@ async function runAndroidPWASimulation() {
     body: JSON.stringify({
       public_key: bobKey.publicKeyJWK,
       device_id: 'dev_bob_device_01',
+      password: USER_BOB.password,
     }),
   })
   log.bob('Kunci E2EE Bob aktif di server.')
@@ -417,6 +419,7 @@ async function runAndroidPWASimulation() {
     body: JSON.stringify({
       public_key: aliceAndroidPWAKey.publicKeyJWK,
       device_id: DEVICE_ANDROID_PWA.id,
+      password: USER_ALICE.password,
     }),
   })
   const resetData2 = await resetRes2.json()
