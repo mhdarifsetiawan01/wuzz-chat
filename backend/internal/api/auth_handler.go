@@ -14,8 +14,9 @@ import (
 )
 
 type AuthHandler struct {
-	userStore  store.UserStore
-	tokenStore store.TokenStore
+	userStore    store.UserStore
+	tokenStore   store.TokenStore
+	sessionStore store.SessionStore
 }
 
 func NewAuthHandler(us store.UserStore) *AuthHandler {
@@ -26,20 +27,49 @@ func (h *AuthHandler) SetTokenStore(ts store.TokenStore) {
 	h.tokenStore = ts
 }
 
+func (h *AuthHandler) SetSessionStore(ss store.SessionStore) {
+	h.sessionStore = ss
+}
+
 type RegisterRequest struct {
 	Username    string `json:"username"`
 	DisplayName string `json:"display_name"`
 	Password    string `json:"password"`
+	DeviceID    string `json:"device_id"`
 }
 
 type LoginRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	DeviceID string `json:"device_id"`
 }
 
 type AuthResponse struct {
 	Token string      `json:"token"`
 	User  *store.User `json:"user"`
+}
+
+func getClientIP(r *http.Request) string {
+	if cfIP := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); cfIP != "" {
+		return cfIP
+	}
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		if len(parts) > 0 {
+			ip := strings.TrimSpace(parts[0])
+			if ip != "" {
+				return ip
+			}
+		}
+	}
+	if xri := strings.TrimSpace(r.Header.Get("X-Real-IP")); xri != "" {
+		return xri
+	}
+	host := r.RemoteAddr
+	if idx := strings.LastIndex(host, ":"); idx != -1 {
+		return host[:idx]
+	}
+	return host
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -82,10 +112,27 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.GenerateToken(user.ID, user.Username, user.DisplayName)
+	token, claims, err := auth.GenerateTokenDetailed(user.ID, user.Username, user.DisplayName)
 	if err != nil {
 		http.Error(w, `{"error":"Gagal generate token"}`, http.StatusInternalServerError)
 		return
+	}
+
+	if h.sessionStore != nil && claims != nil {
+		sess := &store.Session{
+			ID:           claims.ID,
+			UserID:       user.ID,
+			DeviceID:     strings.TrimSpace(req.DeviceID),
+			UserAgent:    r.UserAgent(),
+			IPAddress:    getClientIP(r),
+			IsRevoked:    false,
+			CreatedAt:    time.Now().UTC(),
+			ExpiresAt:    claims.ExpiresAt.Time,
+			LastActiveAt: time.Now().UTC(),
+		}
+		if err := h.sessionStore.CreateSession(sess); err != nil {
+			log.Printf("⚠️ Gagal mencatat sesi registrasi (user: %s): %v", user.ID, err)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -114,10 +161,27 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.GenerateToken(user.ID, user.Username, user.DisplayName)
+	token, claims, err := auth.GenerateTokenDetailed(user.ID, user.Username, user.DisplayName)
 	if err != nil {
 		http.Error(w, `{"error":"Gagal generate token"}`, http.StatusInternalServerError)
 		return
+	}
+
+	if h.sessionStore != nil && claims != nil {
+		sess := &store.Session{
+			ID:           claims.ID,
+			UserID:       user.ID,
+			DeviceID:     strings.TrimSpace(req.DeviceID),
+			UserAgent:    r.UserAgent(),
+			IPAddress:    getClientIP(r),
+			IsRevoked:    false,
+			CreatedAt:    time.Now().UTC(),
+			ExpiresAt:    claims.ExpiresAt.Time,
+			LastActiveAt: time.Now().UTC(),
+		}
+		if err := h.sessionStore.CreateSession(sess); err != nil {
+			log.Printf("⚠️ Gagal mencatat sesi login (user: %s): %v", user.ID, err)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -338,6 +402,13 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Revoke sesi di sessionStore (Phase 1: Session Foundation)
+	if h.sessionStore != nil && claims.ID != "" {
+		if err := h.sessionStore.RevokeSession(claims.ID, claims.UserID); err != nil {
+			log.Printf("⚠️ Gagal mencabut sesi %s saat logout: %v", claims.ID, err)
+		}
+	}
+
 	deviceID := strings.TrimSpace(r.Header.Get("X-Device-ID"))
 	if deviceID == "" {
 		deviceID = strings.TrimSpace(r.URL.Query().Get("device_id"))
@@ -506,10 +577,111 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// 6. Cabut semua sesi di sessionStore (Phase 1: Session Foundation)
+	if h.sessionStore != nil {
+		if err := h.sessionStore.RevokeAllOtherSessions(claims.UserID, ""); err != nil {
+			log.Printf("⚠️ Gagal mencabut sesi user %s saat ganti password: %v", claims.UserID, err)
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":  "ok",
 		"message": "Password berhasil diubah. Semua sesi aktif telah dicabut. Silakan login kembali.",
+	})
+}
+
+// GetActiveSessions mengembalikan daftar sesi login aktif milik pengguna.
+func (h *AuthHandler) GetActiveSessions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	sessions := make([]store.Session, 0)
+	if h.sessionStore != nil {
+		var err error
+		sessions, err = h.sessionStore.GetActiveSessions(claims.UserID, claims.ID)
+		if err != nil {
+			http.Error(w, `{"error":"Gagal mengambil daftar sesi"}`, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"sessions": sessions,
+	})
+}
+
+// RevokeSession mencabut satu sesi tertentu dari jarak jauh (remote logout).
+func (h *AuthHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	sessionID := strings.TrimPrefix(r.URL.Path, "/api/auth/sessions/")
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		http.Error(w, `{"error":"Session ID wajib disertakan"}`, http.StatusBadRequest)
+		return
+	}
+
+	if h.sessionStore != nil {
+		if err := h.sessionStore.RevokeSession(sessionID, claims.UserID); err != nil {
+			http.Error(w, `{"error":"Gagal mencabut sesi"}`, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if h.tokenStore != nil {
+		_ = h.tokenStore.RevokeToken(sessionID, claims.UserID, time.Now().Add(7*24*time.Hour))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": "Sesi berhasil dicabut",
+	})
+}
+
+// RevokeAllOtherSessions mencabut seluruh sesi aktif milik user selain sesi yang sedang digunakan saat ini.
+func (h *AuthHandler) RevokeAllOtherSessions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	if h.sessionStore != nil {
+		if err := h.sessionStore.RevokeAllOtherSessions(claims.UserID, claims.ID); err != nil {
+			http.Error(w, `{"error":"Gagal mencabut sesi lain"}`, http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": "Seluruh sesi lain berhasil dicabut",
 	})
 }
 

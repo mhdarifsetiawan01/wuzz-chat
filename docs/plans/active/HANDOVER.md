@@ -1,3 +1,3 @@
 # Handover — Standby
 
-- **Status**: Standby
+- Belum ada catatan handover aktif.

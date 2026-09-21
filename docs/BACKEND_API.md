@@ -263,11 +263,57 @@ Mengganti password akun pengguna dengan memvalidasi password lama, meng-update h
   - `400 Bad Request`: Password kosong, kurang dari 6 karakter, melebihi 128 karakter, atau sama dengan password lama.
   - `401 Unauthorized`: Password lama salah.
 
+#### 8. `GET /api/auth/sessions`
+Menampilkan daftar seluruh sesi login aktif milik pengguna yang belum dicabut dan belum kedaluwarsa.
+- **Autentikasi**: `Bearer <token>` (Wajib)
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "sessions": [
+      {
+        "id": "e4a2b91c-...",
+        "user_id": "usr_uuid...",
+        "device_id": "dev_laptop_456",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
+        "ip_address": "203.0.113.195",
+        "is_revoked": false,
+        "created_at": "2026-09-22T00:30:00Z",
+        "expires_at": "2026-09-29T00:30:00Z",
+        "last_active_at": "2026-09-22T00:35:00Z",
+        "is_current": true
+      }
+    ]
+  }
+  ```
+
+#### 9. `DELETE /api/auth/sessions/:id`
+Mencabut sesi tertentu dari jarak jauh (*remote logout*). Token JWT yang terikat pada sesi ini akan langsung ditolak (`401 Unauthorized`) pada request berikutnya.
+- **Autentikasi**: `Bearer <token>` (Wajib)
+- **URL Parameter**: `id` — ID sesi / JTI yang ingin dicabut.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "ok",
+    "message": "Sesi berhasil dicabut"
+  }
+  ```
+
+#### 10. `POST /api/auth/sessions/revoke-others`
+Mencabut seluruh sesi login aktif milik pengguna selain sesi yang sedang digunakan saat ini.
+- **Autentikasi**: `Bearer <token>` (Wajib)
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "ok",
+    "message": "Seluruh sesi lain berhasil dicabut"
+  }
+  ```
+
 ---
 
 ### 3.2 Manajemen Kunci E2EE
 
-#### 8. `PUT /api/users/public-key` *(atau `PUT /api/auth/public-key`)*
+#### 11. `PUT /api/users/public-key` *(atau `PUT /api/auth/public-key`)*
 Mendaftarkan atau memperbarui Public Key E2EE perangkat saat ini.
 - **Autentikasi**: `Bearer <token>`
 - **Request Body**:

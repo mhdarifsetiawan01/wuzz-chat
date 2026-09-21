@@ -38,7 +38,13 @@ func getJWTSecret() []byte {
 
 // GenerateToken membuat token JWT baru dengan masa berlaku 7 hari dan JTI unik.
 func GenerateToken(userID, username, displayName string) (string, error) {
-	claims := UserClaims{
+	tokenStr, _, err := GenerateTokenDetailed(userID, username, displayName)
+	return tokenStr, err
+}
+
+// GenerateTokenDetailed membuat token JWT baru dan mengembalikan string token beserta pointer UserClaims (berisi ID JTI dan ExpiresAt).
+func GenerateTokenDetailed(userID, username, displayName string) (string, *UserClaims, error) {
+	claims := &UserClaims{
 		UserID:      userID,
 		Username:    username,
 		DisplayName: displayName,
@@ -51,7 +57,11 @@ func GenerateToken(userID, username, displayName string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(getJWTSecret())
+	tokenStr, err := token.SignedString(getJWTSecret())
+	if err != nil {
+		return "", nil, err
+	}
+	return tokenStr, claims, nil
 }
 
 // ValidateToken memvalidasi string JWT token dan mengembalikan UserClaims jika sah.
