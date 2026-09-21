@@ -118,6 +118,12 @@ func (m *mockUserStoreForPush) GetPushSubscriptionsForRecipients(recipientUserID
 	}
 	return result, nil
 }
+func (m *mockUserStoreForPush) ChangePassword(userID, newPasswordHash string) error {
+	return nil
+}
+func (m *mockUserStoreForPush) VerifyPassword(userID, plainPassword string) (bool, error) {
+	return true, nil
+}
 
 func TestPushService_InitializationAndVAPID(t *testing.T) {
 	mockStore := &mockUserStoreForPush{}

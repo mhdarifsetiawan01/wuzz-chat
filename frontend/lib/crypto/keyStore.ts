@@ -268,9 +268,10 @@ export async function initUserE2EE(
   return keyPair
 }
 
-// Force reset E2EE key saat user memilih "Reset & Masuk di Sini"
+// Force reset E2EE key saat user memilih "Reset & Masuk di Sini" dengan verifikasi password
 export async function forceResetUserE2EE(
-  userId: string
+  userId: string,
+  password: string
 ): Promise<{ publicKeyJWK: string; privateKey: CryptoKey; publicKey: CryptoKey }> {
   const deviceId = getOrCreateDeviceId()
 
@@ -282,7 +283,7 @@ export async function forceResetUserE2EE(
     '/api/users/public-key/reset',
     {
       method: 'POST',
-      body: JSON.stringify({ public_key: pubJWK, device_id: deviceId }),
+      body: JSON.stringify({ public_key: pubJWK, device_id: deviceId, password }),
     }
   )
 
@@ -334,17 +335,6 @@ export async function importAndSaveTransferredKeyPair(
       body: JSON.stringify({ public_key: publicKeyJWK, device_id: deviceId }),
     }
   )
-
-  // Fallback: Jika terjadi conflict, gunakan reset endpoint untuk memastikan perangkat tetap aktif
-  if (res.status === 409 || res.error) {
-    res = await apiRequest<{ status: string; key_version?: number; error?: string }>(
-      '/api/users/public-key/reset',
-      {
-        method: 'POST',
-        body: JSON.stringify({ public_key: publicKeyJWK, device_id: deviceId }),
-      }
-    )
-  }
 
   if (res.error) {
     throw new Error(`Gagal mendaftarkan kunci ke server: ${res.error}`)

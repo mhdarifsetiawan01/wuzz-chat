@@ -23,6 +23,7 @@ Dokumen ini menyajikan panduan arsitektur komprehensif mengenai seluruh lapisan 
    - 2.14 [Forum Topics Access Control & Join Request Purge Lifecycle](#214-forum-topics-access-control--join-request-purge-lifecycle)
    - 2.15 [Mitigasi Akses Tautan Langsung Grup Privat & WebSocket Drop Guard (DEC-013)](#215-mitigasi-akses-tautan-langsung-grup-privat--websocket-drop-guard-dec-013)
    - 2.16 [Keamanan Message Management Suite (BOLA, Recall Unpin, Edit Window, & Search Privacy)](#216-keamanan-message-management-suite-bola-recall-unpin-edit-window--search-privacy)
+   - 2.17 [Identity & Auth Hardening: JWT Revocation Blacklist, E2EE Reset Re-auth Gate, & Global Invalidation](#217-identity--auth-hardening-jwt-revocation-blacklist-e2ee-reset-re-auth-gate--global-invalidation)
 3. [Arsitektur Performa & Skalabilitas (Performance Optimization)](#-3-arsitektur-performa--skalabilitas-performance-optimization)
    - 3.1 [Penyelesaian Masalah $N+1$ Query pada `GetUserConversations`](#31-penyelesaian-masalah-n1-query-pada-getuserconversations)
    - 3.2 [Indeks Performa Database (PostgreSQL & SQLite)](#32-indeks-performa-database-postgresql--sqlite)
@@ -253,6 +254,19 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   4. **Auto-Unpin saat Pesan Ditarik**: Ketika pengirim melakukan *Delete for Everyone*, server secara otomatis menghapus pesan tersebut dari tabel `pinned_messages` sehingga pesan yang ditarik tidak menggantung di banner sematan room.
   5. **Batas Waktu Edit 15 Menit & Verifikasi UUID**: Hanya pengirim asli (`from_id == user.id`) yang dapat mengedit pesan. Edit setelah 15 menit ditolak (`400 Bad Request`) untuk menjaga integritas riwayat percakapan.
   6. **Privasi In-Chat Search**: Mesin kueri pencarian menerapkan filter `AND (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)` sehingga pesan-pesan lama sebelum pengguna melakukan *Clear Chat* tidak akan bocor ke hasil pencarian.
+
+### 2.17 Identity & Auth Hardening: JWT Revocation Blacklist, E2EE Reset Re-auth Gate, & Global Invalidation
+* **Lokasi Kode**: [`backend/internal/auth/jwt.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/jwt.go), [`backend/internal/auth/middleware.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/middleware.go), [`backend/internal/store/token_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/token_store.go), & [`backend/internal/api/auth_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/auth_handler.go)
+* **Vektor Ancaman yang Dimigasikasi**:
+  1. **Stateless JWT Replay / Zombie Token After Logout (R1)**:
+     - *Masalah*: Token JWT 7 hari sebelumnya tetap valid meskipun pengguna sudah menekan tombol logout.
+     - *Solusi*: Setiap token disematkan pengenal unik `JTI` (`uuid.New()`) pada `RegisteredClaims.ID`. Saat `POST /api/auth/logout`, JTI dicatat ke tabel `revoked_tokens` dengan TTL sesuai kedaluwarsa token. Middleware `RequireJWT` memvalidasi JTI secara instan (0ms in-memory cache fallback database query); token yang telah logout langsung ditolak dengan status `401 Unauthorized`. Background worker membersihkan entri kedaluwarsa setiap 1 jam.
+  2. **E2EE Device Key Hijacking / Unauthenticated Force-Reset (R2)**:
+     - *Masalah*: Penyerang yang mencuri token JWT dapat memanggil `POST /api/users/public-key/reset` untuk mengganti public key dan mentransfer kepemilikan perangkat ke tangan penyerang secara sepihak.
+     - *Solusi Re-Auth Gate*: Endpoint reset public key kini mewajibkan kolom `password`. Backend memvalidasi password via `bcrypt.CompareHashAndPassword` sebelum mengizinkan rotasi kunci dan penaikan `key_version`. Tanpa password atau dengan password salah, server langsung menolak dengan `400 Bad Request` / `401 Unauthorized`.
+  3. **Stolen Session Persistence After Password Change (R3)**:
+     - *Masalah*: Pengguna yang menyadari akunnya dicurigai dibajak tidak memiliki sarana untuk memutus akses perangkat penyerang.
+     - *Solusi Global Invalidation*: Endpoint `POST /api/auth/change-password` memvalidasi password lama, memvalidasi kompleksitas password baru via `auth.ValidatePassword`, memperbarui hash bcrypt, dan mengeksekusi `tokenStore.RevokeAllUserTokens(userID)` yang mencatat penanda `user_token_revocations`. Seluruh token JWT yang diterbitkan sebelum waktu pergantian password seketika terblokir di middleware `RequireJWT`.
 
 ---
 

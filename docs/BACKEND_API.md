@@ -196,7 +196,7 @@ Memperbarui nama tampilan, status pesan, atau foto avatar profil.
 ---
 
 #### 5. `POST /api/auth/logout`
-Melakukan logout akun pengguna dan melepaskan sesi perangkat aktif (`active_device_id`) di database secara aman (*device-aware*), sehingga perangkat berikutnya yang login tidak terblokir oleh status 409 Conflict.
+Melakukan logout akun pengguna, mencabut JWT aktif (*token revocation via JTI blacklist*), dan melepaskan sesi perangkat aktif (`active_device_id`) di database secara aman (*device-aware*), sehingga perangkat berikutnya yang login tidak terblokir oleh status 409 Conflict.
 - **Autentikasi**: `Bearer <token>`
 - **Headers**: `X-Device-ID: <device_id>` *(opsional, dianjurkan)*
 - **Request Body** *(opsional)*:
@@ -205,7 +205,9 @@ Melakukan logout akun pengguna dan melepaskan sesi perangkat aktif (`active_devi
     "device_id": "dev_laptop_123"
   }
   ```
-  *Catatan Proteksi Device-Aware*: Jika `device_id` disertakan (via body, header `X-Device-ID`, atau query param), server hanya akan mengosongkan `active_device_id` jika cocok dengan ID perangkat aktif saat ini. Jika perangkat lain/penantang yang membatalkan login memanggil logout, sesi perangkat aktif utama tetap aman terlindungi.
+  *Catatan Proteksi*:
+  - **Token Revocation (R1)**: JTI token yang digunakan saat request ini langsung dicatat ke tabel `revoked_tokens`. Upaya mengakses endpoint dengan token yang sama setelah logout akan langsung ditolak dengan status `401 Unauthorized`.
+  - **Device-Aware Release**: Jika `device_id` disertakan (via body, header `X-Device-ID`, atau query param), server hanya akan mengosongkan `active_device_id` jika cocok dengan ID perangkat aktif saat ini.
 - **Success Response (200 OK)**:
   ```json
   {
@@ -217,9 +219,55 @@ Melakukan logout akun pengguna dan melepaskan sesi perangkat aktif (`active_devi
 
 ---
 
+#### 6. `POST /api/auth/verify-password`
+Melakukan verifikasi password pengguna aktif sebagai langkah pre-check sebelum menjalankan aksi sensitif (re-autentikasi).
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "password": "password_saat_ini"
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "ok",
+    "verified": true,
+    "message": "Password terverifikasi"
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: `{"error":"Password wajib diisi"}`
+  - `401 Unauthorized`: `{"status":"error","verified":false,"error":"Password salah"}`
+
+---
+
+#### 7. `POST /api/auth/change-password`
+Mengganti password akun pengguna dengan memvalidasi password lama, meng-update hash bcrypt password baru di database, dan mencabut semua token JWT aktif pengguna tersebut (*global token revocation*).
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "old_password": "password_lama_123",
+    "new_password": "password_baru_456"
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "ok",
+    "message": "Password berhasil diubah. Semua sesi aktif telah dicabut. Silakan login kembali."
+  }
+  ```
+- **Error Responses**:
+  - `400 Bad Request`: Password kosong, kurang dari 6 karakter, melebihi 128 karakter, atau sama dengan password lama.
+  - `401 Unauthorized`: Password lama salah.
+
+---
+
 ### 3.2 Manajemen Kunci E2EE
 
-#### 5. `PUT /api/users/public-key` *(atau `PUT /api/auth/public-key`)*
+#### 8. `PUT /api/users/public-key` *(atau `PUT /api/auth/public-key`)*
 Mendaftarkan atau memperbarui Public Key E2EE perangkat saat ini.
 - **Autentikasi**: `Bearer <token>`
 - **Request Body**:
@@ -250,14 +298,15 @@ Mendaftarkan atau memperbarui Public Key E2EE perangkat saat ini.
 
 ---
 
-#### 6. `POST /api/users/public-key/reset`
-Mereset paksa public key E2EE saat pengguna login di perangkat baru tanpa mentransfer kunci lama. Tindakan ini menaikkan nomor `key_version`.
+#### 9. `POST /api/users/public-key/reset`
+Mereset paksa public key E2EE saat pengguna login di perangkat baru tanpa mentransfer kunci lama. Tindakan ini menaikkan nomor `key_version` dan **wajib menyertakan password untuk verifikasi kepemilikan akun (R2 Re-auth Gate)**.
 - **Autentikasi**: `Bearer <token>`
 - **Request Body**:
   ```json
   {
     "public_key": "{\"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\"...\",\"y\":\"...\"}",
-    "device_id": "dev_iphone_999"
+    "device_id": "dev_iphone_999",
+    "password": "password_akun_pemilik"
   }
   ```
 - **Success Response (200 OK)**:
@@ -269,6 +318,9 @@ Mereset paksa public key E2EE saat pengguna login di perangkat baru tanpa mentra
     "key_version": 2
   }
   ```
+- **Error Responses**:
+  - `400 Bad Request`: `{"error":"Password wajib diisi untuk verifikasi identitas reset kunci"}`
+  - `401 Unauthorized`: `{"error":"Password salah. Verifikasi identitas reset kunci gagal."}`
 
 ---
 

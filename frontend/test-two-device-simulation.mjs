@@ -119,6 +119,7 @@ async function runSimulation() {
     body: JSON.stringify({
       public_key: keyPair1.publicKeyJWK,
       device_id: DEVICE_1_ID,
+      password: 'password123',
     }),
   })
 
@@ -222,6 +223,7 @@ async function runSimulation() {
     body: JSON.stringify({
       public_key: keyPair2.publicKeyJWK,
       device_id: DEVICE_2_ID,
+      password: 'password123',
     }),
   })
 

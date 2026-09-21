@@ -270,14 +270,14 @@ async function updatePublicKey(token, publicKey, deviceId) {
   return { status: res.status, data: await res.json() }
 }
 
-async function resetPublicKey(token, publicKey, deviceId) {
+async function resetPublicKey(token, publicKey, deviceId, password = 'password123') {
   const res = await fetch(`${BACKEND_URL}/api/users/public-key/reset`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ public_key: publicKey, device_id: deviceId }),
+    body: JSON.stringify({ public_key: publicKey, device_id: deviceId, password }),
   })
   return { status: res.status, data: await res.json() }
 }
