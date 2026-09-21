@@ -1856,6 +1856,22 @@ Sebagai kelanjutan dari Phase 0 (JWT Revocation & Password Hardening), pengguna 
 - **Full Backend Suite (`go test ./...`)**: **PASS 100%** across all packages.
 - **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 TypeScript error, 0 lint error).
 
+---
 
+## 2026-09-22: Fix React Hook Order Violation on ProfileModal Open
 
+### Problem Description
+Saat pengguna mengklik tombol avatar profil di header obrolan, aplikasi frontend Next.js mengalami crash dengan pesan *"This page couldn't load. Reload to try again, or go back."*.
 
+### Root Cause
+Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx), terdapat guard kondisional awal `if (!isOpen || !user || typeof document === 'undefined') return null` di baris 109. Ketika fitur manajemen sesi aktif ditambahkan di Phase 1, hooks baru (`useCallback` untuk `fetchSessions` dan `useEffect` untuk listener event) diletakkan di bawah baris 109. Akibatnya, saat modal tertutup dieksekusi 13 hooks, namun saat dibuka dieksekusi 15 hooks, melanggar *Rules of Hooks* React (`Rendered more hooks than during the previous render`) dan memicu fatal Error Boundary Next.js.
+
+### Implementation Details
+- Menghapus guard conditional return prematur dari baris 109 di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx).
+- Memindahkan guard return `if (!isOpen || !user || typeof document === 'undefined') return null` ke posisi paling bawah komponen tepat sebelum pemanggilan `return createPortal(...)`.
+- Memastikan `user?.is_verified` aman dari NPE (`null-safe`).
+- Seluruh hooks kini selalu dieksekusi secara seragam dan tanpa syarat (*unconditionally*) di setiap render.
+
+### Test Evidence
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 TypeScript error, 0 lint error).
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
