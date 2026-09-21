@@ -1,3 +1,4 @@
 # Handover — Standby
 
-- Belum ada catatan handover aktif.
+- **Status**: Standby
+- Menunggu instruksi atau siklus fitur berikutnya.

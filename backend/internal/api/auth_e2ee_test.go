@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
@@ -117,5 +118,121 @@ func TestAuthHandler_UpdateAndResetPublicKey(t *testing.T) {
 	}
 	if resetResp["key_version"] != float64(2) {
 		t.Errorf("expected key_version 2 after reset, got: %v", resetResp["key_version"])
+	}
+}
+
+type mockHubForResetTest struct {
+	kickedUserID string
+	kickedExcept string
+	kickedReason string
+	kickCalled   bool
+}
+
+func (m *mockHubForResetTest) KickClientByUserID(userID, exceptDeviceID, reason string) {
+	m.kickedUserID = userID
+	m.kickedExcept = exceptDeviceID
+	m.kickedReason = reason
+	m.kickCalled = true
+}
+
+func TestAuthHandler_ResetPublicKey_RevokesOtherSessionsAndKicksWebsocket(t *testing.T) {
+	tmpDB := filepath.Join(t.TempDir(), "test_api_auth_reset_sess.db")
+	sqlStore, err := store.NewSQLMessageStore("sqlite", tmpDB)
+	if err != nil {
+		t.Fatalf("failed to init SQLite store: %v", err)
+	}
+	defer sqlStore.Close()
+
+	userStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+	sessionStore := store.NewSQLSessionStore(sqlStore.DB(), sqlStore.DriverName())
+	authHandler := api.NewAuthHandler(userStore)
+	authHandler.SetSessionStore(sessionStore)
+	mockHub := &mockHubForResetTest{}
+	authHandler.SetHub(mockHub)
+
+	user, err := userStore.Register("user_reset_test", "User Reset Test", "password123")
+	if err != nil {
+		t.Fatalf("failed to register user: %v", err)
+	}
+
+	// 1. Catat sesi 1 (perangkat lama)
+	sessOld := &store.Session{
+		ID:           "sess_device_laptop_old",
+		UserID:       user.ID,
+		DeviceID:     "device_laptop_old",
+		UserAgent:    "Chrome on Linux",
+		IPAddress:    "127.0.0.1",
+		IsRevoked:    false,
+		CreatedAt:    time.Now().UTC(),
+		ExpiresAt:    time.Now().UTC().Add(7 * 24 * time.Hour),
+		LastActiveAt: time.Now().UTC(),
+	}
+	if err := sessionStore.CreateSession(sessOld); err != nil {
+		t.Fatalf("CreateSession old failed: %v", err)
+	}
+
+	// 2. Catat sesi 2 (perangkat baru yang sedang login dan melakukan reset kunci)
+	tokenNew, claimsNew, err := auth.GenerateTokenDetailed(user.ID, user.Username, user.DisplayName)
+	if err != nil {
+		t.Fatalf("GenerateTokenDetailed failed: %v", err)
+	}
+	sessNew := &store.Session{
+		ID:           claimsNew.ID,
+		UserID:       user.ID,
+		DeviceID:     "device_phone_new",
+		UserAgent:    "Chrome on Android",
+		IPAddress:    "127.0.0.1",
+		IsRevoked:    false,
+		CreatedAt:    time.Now().UTC(),
+		ExpiresAt:    claimsNew.ExpiresAt.Time,
+		LastActiveAt: time.Now().UTC(),
+	}
+	if err := sessionStore.CreateSession(sessNew); err != nil {
+		t.Fatalf("CreateSession new failed: %v", err)
+	}
+
+	// 3. Lakukan ResetPublicKey dari perangkat baru dengan password benar
+	reqBody, _ := json.Marshal(map[string]string{
+		"public_key": "pubkey_from_device_new",
+		"device_id":  "device_phone_new",
+		"password":   "password123",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/users/public-key/reset", bytes.NewReader(reqBody))
+	req.Header.Set("Authorization", "Bearer "+tokenNew)
+	w := httptest.NewRecorder()
+
+	auth.RequireJWT()(http.HandlerFunc(authHandler.ResetPublicKey)).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 for ResetPublicKey, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// 4. Verifikasi sesi perangkat lama otomatis ter-revoke
+	isOldRevoked, err := sessionStore.IsSessionRevoked(sessOld.ID)
+	if err != nil {
+		t.Fatalf("IsSessionRevoked failed: %v", err)
+	}
+	if !isOldRevoked {
+		t.Errorf("expected old session to be revoked after key reset, but it was still active!")
+	}
+
+	// 5. Verifikasi sesi perangkat baru tetap aktif
+	isNewRevoked, err := sessionStore.IsSessionRevoked(sessNew.ID)
+	if err != nil {
+		t.Fatalf("IsSessionRevoked failed: %v", err)
+	}
+	if isNewRevoked {
+		t.Errorf("expected new session to remain active, but it was revoked!")
+	}
+
+	// 6. Verifikasi WebSocket perangkat lama ditendang
+	if !mockHub.kickCalled {
+		t.Fatalf("expected KickClientByUserID to be called during ResetPublicKey")
+	}
+	if mockHub.kickedUserID != user.ID {
+		t.Errorf("expected kickedUserID %s, got: %s", user.ID, mockHub.kickedUserID)
+	}
+	if mockHub.kickedExcept != "device_phone_new" {
+		t.Errorf("expected kickedExcept 'device_phone_new', got: %s", mockHub.kickedExcept)
 	}
 }

@@ -225,3 +225,89 @@ func TestTransferHandler_DirectWebSocketKick(t *testing.T) {
 		t.Errorf("Ekspektasi kickedExcept = dev_target_new, dapat: %s", mockHub.kickedExcept)
 	}
 }
+
+func TestTransferHandler_SessionRevocationOnConsume(t *testing.T) {
+	msgStore, userStore, transferStore := setupTransferTestDB(t)
+	sessionStore := store.NewSQLSessionStore(msgStore.DB(), "sqlite")
+
+	handler := api.NewTransferHandler(transferStore)
+	handler.SetSessionStore(sessionStore)
+
+	user, err := userStore.Register("user_transfer_sess", "User Transfer Sess", "Password123!")
+	if err != nil {
+		t.Fatalf("Register gagal: %v", err)
+	}
+
+	// 1. Catat sesi 1 (perangkat lama)
+	sessOld := &store.Session{
+		ID:           "sess_old_laptop",
+		UserID:       user.ID,
+		DeviceID:     "dev_old_laptop",
+		UserAgent:    "Chrome on Linux",
+		IPAddress:    "127.0.0.1",
+		IsRevoked:    false,
+		CreatedAt:    time.Now().UTC(),
+		ExpiresAt:    time.Now().UTC().Add(7 * 24 * time.Hour),
+		LastActiveAt: time.Now().UTC(),
+	}
+	if err := sessionStore.CreateSession(sessOld); err != nil {
+		t.Fatalf("CreateSession old gagal: %v", err)
+	}
+
+	// 2. Catat sesi 2 (perangkat baru yang sedang login dan melakukan consume)
+	tokenNew, claimsNew, err := auth.GenerateTokenDetailed(user.ID, user.Username, user.DisplayName)
+	if err != nil {
+		t.Fatalf("GenerateTokenDetailed gagal: %v", err)
+	}
+	sessNew := &store.Session{
+		ID:           claimsNew.ID,
+		UserID:       user.ID,
+		DeviceID:     "dev_new_phone",
+		UserAgent:    "Safari on iPhone",
+		IPAddress:    "127.0.0.1",
+		IsRevoked:    false,
+		CreatedAt:    time.Now().UTC(),
+		ExpiresAt:    claimsNew.ExpiresAt.Time,
+		LastActiveAt: time.Now().UTC(),
+	}
+	if err := sessionStore.CreateSession(sessNew); err != nil {
+		t.Fatalf("CreateSession new gagal: %v", err)
+	}
+
+	// 3. Buat sesi transfer
+	sessionToken := "supersecretsessiontokentransfere2ee1234"
+	_ = transferStore.CreateTransferSession(user.ID, sessionToken, "encrypted_key_bundle_sample", 5*time.Minute)
+
+	// 4. Perangkat baru mengonsumsi transfer session
+	consumeBody, _ := json.Marshal(map[string]string{
+		"session_token": sessionToken,
+		"device_id":     "dev_new_phone",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/users/transfer/consume", bytes.NewReader(consumeBody))
+	req.Header.Set("Authorization", "Bearer "+tokenNew)
+	w := httptest.NewRecorder()
+
+	auth.RequireJWT()(http.HandlerFunc(handler.ConsumeSession)).ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Ekspektasi 200 OK saat consume transfer, dapat: %d (body: %s)", w.Code, w.Body.String())
+	}
+
+	// 5. Verifikasi sesi lama otomatis dicabut (is_revoked = TRUE)
+	isOldRevoked, err := sessionStore.IsSessionRevoked(sessOld.ID)
+	if err != nil {
+		t.Fatalf("IsSessionRevoked old gagal: %v", err)
+	}
+	if !isOldRevoked {
+		t.Errorf("Ekspektasi sesi perangkat lama otomatis ter-revoke, namun masih aktif!")
+	}
+
+	// 6. Verifikasi sesi perangkat baru tetap aktif (is_revoked = FALSE)
+	isNewRevoked, err := sessionStore.IsSessionRevoked(sessNew.ID)
+	if err != nil {
+		t.Fatalf("IsSessionRevoked new gagal: %v", err)
+	}
+	if isNewRevoked {
+		t.Errorf("Ekspektasi sesi perangkat baru tetap aktif, namun ikut ter-revoke!")
+	}
+}

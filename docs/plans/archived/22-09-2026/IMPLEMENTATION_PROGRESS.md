@@ -1,12 +1,9 @@
-# Implementation Progress — Phase 1: Session Foundation & Remote Logout
+# Implementation Progress — Otomatisasi Pencabutan Sesi (Transfer, Reset, Keluar)
 
-- [x] Task 1: Auto-migration tabel `sessions` di PostgreSQL & SQLite (`backend/internal/store/sql.go`)
-- [x] Task 2: Implementasi `SessionStore` & `SQLSessionStore` (`backend/internal/store/session_store.go`)
-- [x] Task 3: Helper `GenerateTokenDetailed` di `backend/internal/auth/jwt.go`
-- [x] Task 4: Integrasi Session Hook pada Login & Register di `backend/internal/api/auth_handler.go`
-- [x] Task 5: Implementasi Endpoint `GET /api/auth/sessions`, `DELETE /api/auth/sessions/:id`, dan `POST /api/auth/sessions/revoke-others`
-- [x] Task 6: Integrasi Revocation Checker dengan Sessions dan pemutusan sesi
-- [x] Task 7: Wire up `SessionStore` dan Background Worker di `backend/main.go`
-- [x] Task 8: Automated Test Suite `backend/internal/api/auth_session_test.go`
-- [x] Task 9: Frontend UI Manajemen Sesi Aktif di `frontend/app/chat/ProfileModal.tsx` (Tab Keamanan)
-- [x] Task 10: Mandatory Post-Task Verification (`npm run build` & `go test -v ./...`)
+- [x] Task 1: Injeksi `sessionStore` ke `TransferHandler` & eksekusi `RevokeAllOtherSessions` di `transfer_handler.go`
+- [x] Task 2: Injeksi `hub` ke `AuthHandler`, revoke sesi lain & kick WebSocket saat `ResetPublicKey` di `auth_handler.go`
+- [x] Task 3: Hubungkan dependensi `sessionStore` dan `hub` di `backend/main.go`
+- [x] Task 4: Tambahkan test suite backend untuk memverifikasi pencabutan sesi di transfer & reset kunci
+- [x] Task 5: Integrasi `logout()` di `frontend/app/chat/DeviceTransferModal.tsx`
+- [x] Task 6: Konsistensi pemanggilan `await logout()` di `frontend/app/chat/page.tsx` (`handleDeviceConflictLogout`)
+- [x] Task 7: Verifikasi automated tests backend (`go test ./...`) dan build frontend (`npm run build`)

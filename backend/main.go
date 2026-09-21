@@ -93,6 +93,9 @@ func main() {
 	}
 	if transferStore != nil {
 		transferHandler = api.NewTransferHandler(transferStore)
+		if sessionStore != nil {
+			transferHandler.SetSessionStore(sessionStore)
+		}
 
 		// Background worker pembersih sesi transfer kedaluwarsa (setiap 10 menit)
 		go func() {
@@ -201,6 +204,9 @@ func main() {
 	hub.SetBroker(messageBroker)
 	if transferHandler != nil {
 		transferHandler.SetHub(hub)
+	}
+	if authHandler != nil {
+		authHandler.SetHub(hub)
 	}
 
 	// Inisialisasi CORS Validator dinamis (mendukung multi-domain, Vercel preview, dan localhost)

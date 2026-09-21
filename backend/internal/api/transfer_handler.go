@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ type WebSocketHub interface {
 // TransferHandler mengelola pembuatan dan konsumsi sesi pemindahan kunci E2EE via QR Code.
 type TransferHandler struct {
 	transferStore store.TransferStore
+	sessionStore  store.SessionStore
 	hub           WebSocketHub
 }
 
@@ -37,6 +39,11 @@ func NewTransferHandler(transferStore store.TransferStore, hub ...WebSocketHub) 
 // SetHub menyuntikkan instance WebSocketHub ke TransferHandler.
 func (h *TransferHandler) SetHub(hub WebSocketHub) {
 	h.hub = hub
+}
+
+// SetSessionStore menyuntikkan instance SessionStore ke TransferHandler.
+func (h *TransferHandler) SetSessionStore(ss store.SessionStore) {
+	h.sessionStore = ss
 }
 
 type CreateTransferRequest struct {
@@ -160,6 +167,13 @@ func (h *TransferHandler) ConsumeSession(w http.ResponseWriter, r *http.Request)
 	// Single Device Enforcement: Segera tendang sesi WebSocket perangkat lama
 	if h.hub != nil {
 		h.hub.KickClientByUserID(claims.UserID, req.DeviceID, "SESSION_REPLACED: Kunci keamanan telah dipindahkan ke perangkat baru.")
+	}
+
+	// Revoke seluruh sesi login perangkat lain milik pengguna ini (Phase 1: Active Session Management)
+	if h.sessionStore != nil && claims.ID != "" {
+		if err := h.sessionStore.RevokeAllOtherSessions(claims.UserID, claims.ID); err != nil {
+			log.Printf("⚠️ Gagal mencabut sesi perangkat lain saat transfer kunci (user: %s): %v", claims.UserID, err)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
