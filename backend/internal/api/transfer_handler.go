@@ -15,6 +15,7 @@ import (
 // WebSocketHub mendefinisikan kontrak minimal untuk menendang koneksi klien lama saat sesi dialihkan.
 type WebSocketHub interface {
 	KickClientByUserID(userID, exceptDeviceID, reason string)
+	KickClientByDeviceID(userID, deviceID, reason string)
 }
 
 // TransferHandler mengelola pembuatan dan konsumsi sesi pemindahan kunci E2EE via QR Code.

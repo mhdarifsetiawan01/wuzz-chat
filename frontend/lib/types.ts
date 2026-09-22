@@ -158,6 +158,19 @@ export interface AuthSession {
   is_current?: boolean
 }
 
+// Info perangkat terdaftar (Phase 2A: Device Registry & Remote Logout)
+export interface UserDevice {
+  id: string
+  user_id: string
+  name: string
+  platform: string
+  user_agent?: string
+  ip_address?: string
+  is_active: boolean
+  last_seen_at?: string | null
+  created_at: string
+}
+
 export interface User {
   id: string
   username: string

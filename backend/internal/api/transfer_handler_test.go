@@ -188,6 +188,12 @@ func (m *mockWebSocketHub) KickClientByUserID(userID, exceptDeviceID, reason str
 	m.kickCalled = true
 }
 
+func (m *mockWebSocketHub) KickClientByDeviceID(userID, deviceID, reason string) {
+	m.kickedUserID = userID
+	m.kickedReason = reason
+	m.kickCalled = true
+}
+
 func TestTransferHandler_DirectWebSocketKick(t *testing.T) {
 	_, userStore, transferStore := setupTransferTestDB(t)
 	mockHub := &mockWebSocketHub{}

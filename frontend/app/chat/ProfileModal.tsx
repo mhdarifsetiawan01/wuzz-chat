@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { apiRequest } from '@/lib/api'
-import type { User, AuthSession } from '@/lib/types'
+import type { User, AuthSession, UserDevice } from '@/lib/types'
 import { isImageCompressionEnabled, setImageCompressionEnabled } from '@/lib/imageCompressor'
 import { getMediaCacheStats, clearMediaCache } from '@/lib/mediaCache'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
@@ -14,6 +14,7 @@ import { DeviceTransferModal } from './DeviceTransferModal'
 import { VerifiedBadge } from './VerifiedBadge'
 import { UserAvatar } from './UserAvatar'
 import { AvatarStudio } from './AvatarStudio'
+import { getOrCreateDeviceId } from '@/lib/crypto/keyStore'
 
 interface ProfileModalProps {
   isOpen: boolean
@@ -35,7 +36,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const handleClose = useModalBackHandler(isOpen, onClose, 'profile_modal')
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'profile' | 'media' | 'security'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'devices' | 'media' | 'security'>('profile')
   const [isAvatarStudioOpen, setIsAvatarStudioOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
@@ -69,6 +70,12 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [sessionError, setSessionError] = useState<string | null>(null)
   const [revokingSessionId, setRevokingSessionId] = useState<string | null>(null)
   const [isRevokingAllOthers, setIsRevokingAllOthers] = useState(false)
+
+  // Daftar Perangkat Terdaftar (Phase 2A: Device Registry & Remote Logout)
+  const [devices, setDevices] = useState<UserDevice[]>([])
+  const [isLoadingDevices, setIsLoadingDevices] = useState(false)
+  const [deviceError, setDeviceError] = useState<string | null>(null)
+  const [kickingDeviceId, setKickingDeviceId] = useState<string | null>(null)
 
   useEffect(() => {
     if (user && isOpen) {
@@ -257,6 +264,47 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       setSessions(prev => prev.filter(s => s.is_current))
     }
     setIsRevokingAllOthers(false)
+  }
+
+  const currentDeviceId = typeof window !== 'undefined'
+    ? getOrCreateDeviceId()
+    : ''
+
+  const fetchDevices = useCallback(async () => {
+    setIsLoadingDevices(true)
+    setDeviceError(null)
+    const { data, error: apiErr } = await apiRequest<UserDevice[]>('/api/auth/devices')
+    if (apiErr) {
+      setDeviceError(apiErr)
+    } else if (data) {
+      setDevices(data)
+    }
+    setIsLoadingDevices(false)
+  }, [])
+
+  useEffect(() => {
+    if (isOpen && activeTab === 'devices') {
+      fetchDevices()
+    }
+  }, [isOpen, activeTab, fetchDevices])
+
+  const handleKickDevice = async (deviceId: string, deviceName: string) => {
+    if (!window.confirm(`Apakah Anda yakin ingin mengeluarkan perangkat "${deviceName || deviceId}" dari akun Anda?`)) {
+      return
+    }
+    setKickingDeviceId(deviceId)
+    const { error: apiErr } = await apiRequest(`/api/auth/devices/${deviceId}`, {
+      method: 'DELETE',
+      headers: {
+        'X-Device-ID': currentDeviceId,
+      },
+    })
+    if (apiErr) {
+      alert(`Gagal mengeluarkan perangkat: ${apiErr}`)
+    } else {
+      setDevices(prev => prev.filter(d => d.id !== deviceId))
+    }
+    setKickingDeviceId(null)
   }
 
   const parseUserAgent = (ua: string) => {
@@ -468,6 +516,13 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
             onClick={() => setActiveTab('profile')}
           >
             <span>👤</span> Profil
+          </button>
+          <button
+            type="button"
+            className={`profile-tab-btn ${activeTab === 'devices' ? 'active' : ''}`}
+            onClick={() => setActiveTab('devices')}
+          >
+            <span>📱</span> Perangkat
           </button>
           <button
             type="button"
@@ -697,6 +752,190 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 </button>
               </div>
             </form>
+          )}
+
+          {/* ========================================================
+              TAB: PERANGKAT TERTAUT (Phase 2A: Device Registry)
+              ======================================================== */}
+          {activeTab === 'devices' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              {/* Header Card / Penjelasan */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1.25rem' }}>📱</span>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                      Perangkat Tertaut
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={fetchDevices}
+                    disabled={isLoadingDevices}
+                    className="btn btn-ghost"
+                    style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                    title="Segarkan daftar perangkat"
+                  >
+                    {isLoadingDevices ? '⏳' : '🔄 Segarkan'}
+                  </button>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  Daftar perangkat yang terdaftar menggunakan akun Anda. Anda dapat mengeluarkan perangkat yang tidak dikenali atau tidak lagi digunakan dari jarak jauh.
+                </div>
+              </div>
+
+              {/* Tautkan Perangkat Baru Button (QR Device Transfer) */}
+              <div
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 'var(--space-3)',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '2px' }}>
+                    📲 Tautkan Perangkat Baru
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    Pindai kode QR untuk menyalin akun ke HP atau Laptop lain
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTransferModalOpen(true)}
+                  className="btn btn-secondary"
+                  style={{
+                    fontSize: '0.775rem',
+                    padding: '7px 12px',
+                    whiteSpace: 'nowrap',
+                    background: 'var(--tint-accent-12)',
+                    color: 'var(--accent-300)',
+                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                    borderRadius: 'var(--radius-md)',
+                  }}
+                >
+                  Tautkan via QR
+                </button>
+              </div>
+
+              {/* Error Message */}
+              {deviceError && (
+                <div style={{ fontSize: '0.775rem', color: 'var(--color-error)', background: 'var(--tint-error-10)', padding: '10px 12px', borderRadius: 'var(--radius-md)' }}>
+                  ⚠️ {deviceError}
+                </div>
+              )}
+
+              {/* Device List */}
+              <div
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '14px',
+                }}
+              >
+                <div style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '10px' }}>
+                  Daftar Perangkat Aktif ({devices.length})
+                </div>
+
+                {isLoadingDevices && devices.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Memuat daftar perangkat...
+                  </div>
+                ) : devices.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '16px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Belum ada perangkat terdaftar.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {devices.map(device => {
+                      const isCurrent = device.id === currentDeviceId
+                      const { name: uaName, icon } = parseUserAgent(device.user_agent || '')
+                      const displayName = device.name || uaName
+                      const lastSeen = device.last_seen_at
+                        ? formatRelativeTime(device.last_seen_at)
+                        : 'Baru saja'
+
+                      return (
+                        <div
+                          key={device.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 12px',
+                            background: isCurrent ? 'var(--tint-accent-10)' : 'var(--bg-secondary)',
+                            border: isCurrent ? '1px solid rgba(59, 130, 246, 0.35)' : '1px solid var(--border-default)',
+                            borderRadius: 'var(--radius-sm)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                            <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>{icon}</span>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {displayName}
+                                </span>
+                                {isCurrent && (
+                                  <span
+                                    style={{
+                                      fontSize: '0.65rem',
+                                      padding: '1px 6px',
+                                      borderRadius: '10px',
+                                      background: 'var(--color-verified)',
+                                      color: '#fff',
+                                      fontWeight: 600,
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    Perangkat Ini
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                Terakhir aktif: {lastSeen}
+                                {device.ip_address && ` • ${device.ip_address}`}
+                              </div>
+                            </div>
+                          </div>
+
+                          {!isCurrent && (
+                            <button
+                              type="button"
+                              onClick={() => handleKickDevice(device.id, displayName)}
+                              disabled={kickingDeviceId === device.id}
+                              className="btn btn-ghost"
+                              style={{
+                                fontSize: '0.725rem',
+                                padding: '4px 10px',
+                                color: 'var(--color-error)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                borderRadius: 'var(--radius-sm)',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {kickingDeviceId === device.id ? '⏳ Mengeluarkan...' : 'Keluarkan'}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {/* ========================================================

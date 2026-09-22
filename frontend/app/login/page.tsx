@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { apiRequest } from '@/lib/api'
+import { getOrCreateDeviceId } from '@/lib/crypto/keyStore'
 
 function LoginContent() {
   const router = useRouter()
@@ -57,9 +58,10 @@ function LoginContent() {
     setError('')
     setIsLoading(true)
 
+    const deviceId = getOrCreateDeviceId()
     const { data, error: err } = await apiRequest<{ token: string; user: any }>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username: username.trim(), password }),
+      body: JSON.stringify({ username: username.trim(), password, device_id: deviceId }),
     })
 
     setIsLoading(false)

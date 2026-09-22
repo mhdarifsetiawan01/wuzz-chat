@@ -344,6 +344,19 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id, is_revoked);`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);`,
+		// Tabel Devices — Registry perangkat yang pernah login
+		`CREATE TABLE IF NOT EXISTS devices (
+			id VARCHAR(64) PRIMARY KEY,
+			user_id VARCHAR(64) NOT NULL,
+			name VARCHAR(128) DEFAULT '',
+			platform VARCHAR(32) DEFAULT 'web',
+			user_agent TEXT DEFAULT '',
+			ip_address VARCHAR(45) DEFAULT '',
+			is_active BOOLEAN NOT NULL DEFAULT TRUE,
+			last_seen_at TIMESTAMP,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_devices_user_active ON devices(user_id, is_active);`,
 	}
 
 	for _, query := range migrations {

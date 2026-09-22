@@ -9,6 +9,36 @@ import { unsubscribeFromPushNotifications, saveAuthTokenToCache, clearAuthTokenF
 import { clearAllMessageCache } from './messageCache'
 import { getOrCreateDeviceId } from './crypto/keyStore'
 
+/**
+ * Mendeteksi nama ramah perangkat dari User-Agent browser.
+ * Digunakan sebagai label perangkat di halaman manajemen device.
+ * @returns string — contoh: "Chrome on Windows", "Safari on iPhone"
+ */
+export function getDeviceName(): string {
+  if (typeof navigator === 'undefined') return 'Web Browser'
+
+  const ua = navigator.userAgent.toLowerCase()
+
+  // Deteksi OS
+  let os = 'Unknown OS'
+  if (ua.includes('windows')) os = 'Windows'
+  else if (ua.includes('iphone')) os = 'iPhone'
+  else if (ua.includes('ipad')) os = 'iPad'
+  else if (ua.includes('android')) os = 'Android'
+  else if (ua.includes('mac os')) os = 'Mac'
+  else if (ua.includes('linux')) os = 'Linux'
+
+  // Deteksi browser
+  let browser = 'Browser'
+  if (ua.includes('edg/')) browser = 'Edge'
+  else if (ua.includes('chrome') && !ua.includes('chromium')) browser = 'Chrome'
+  else if (ua.includes('firefox')) browser = 'Firefox'
+  else if (ua.includes('safari') && !ua.includes('chrome')) browser = 'Safari'
+  else if (ua.includes('opera') || ua.includes('opr/')) browser = 'Opera'
+
+  return `${browser} on ${os}`
+}
+
 interface AuthContextType {
   user: User | null
   token: string | null

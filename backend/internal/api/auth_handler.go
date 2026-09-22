@@ -17,6 +17,7 @@ type AuthHandler struct {
 	userStore    store.UserStore
 	tokenStore   store.TokenStore
 	sessionStore store.SessionStore
+	deviceStore  store.DeviceStore
 	hub          WebSocketHub
 }
 
@@ -30,6 +31,10 @@ func (h *AuthHandler) SetTokenStore(ts store.TokenStore) {
 
 func (h *AuthHandler) SetSessionStore(ss store.SessionStore) {
 	h.sessionStore = ss
+}
+
+func (h *AuthHandler) SetDeviceStore(ds store.DeviceStore) {
+	h.deviceStore = ds
 }
 
 func (h *AuthHandler) SetHub(hub WebSocketHub) {
@@ -75,6 +80,46 @@ func getClientIP(r *http.Request) string {
 		return host[:idx]
 	}
 	return host
+}
+
+// parseDeviceName membaca User-Agent string dan mengembalikan nama ramah untuk perangkat.
+// Contoh output: "Chrome on Windows", "Safari on iPhone", "Firefox on Android"
+func parseDeviceName(userAgent string) string {
+	ua := strings.ToLower(userAgent)
+
+	// Deteksi OS
+	os := "Unknown OS"
+	switch {
+	case strings.Contains(ua, "windows"):
+		os = "Windows"
+	case strings.Contains(ua, "iphone"):
+		os = "iPhone"
+	case strings.Contains(ua, "ipad"):
+		os = "iPad"
+	case strings.Contains(ua, "android"):
+		os = "Android"
+	case strings.Contains(ua, "mac os"):
+		os = "Mac"
+	case strings.Contains(ua, "linux"):
+		os = "Linux"
+	}
+
+	// Deteksi browser
+	browser := "Browser"
+	switch {
+	case strings.Contains(ua, "edg/"):
+		browser = "Edge"
+	case strings.Contains(ua, "chrome") && !strings.Contains(ua, "chromium"):
+		browser = "Chrome"
+	case strings.Contains(ua, "firefox"):
+		browser = "Firefox"
+	case strings.Contains(ua, "safari") && !strings.Contains(ua, "chrome"):
+		browser = "Safari"
+	case strings.Contains(ua, "opera") || strings.Contains(ua, "opr/"):
+		browser = "Opera"
+	}
+
+	return browser + " on " + os
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -123,6 +168,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.DeviceID == "" {
+		req.DeviceID = strings.TrimSpace(r.Header.Get("X-Device-ID"))
+	}
+
 	if h.sessionStore != nil && claims != nil {
 		sess := &store.Session{
 			ID:           claims.ID,
@@ -137,6 +186,23 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := h.sessionStore.CreateSession(sess); err != nil {
 			log.Printf("⚠️ Gagal mencatat sesi registrasi (user: %s): %v", user.ID, err)
+		}
+	}
+
+	// Daftarkan perangkat yang registrasi
+	if h.deviceStore != nil && strings.TrimSpace(req.DeviceID) != "" {
+		device := &store.Device{
+			ID:        strings.TrimSpace(req.DeviceID),
+			UserID:    user.ID,
+			Name:      parseDeviceName(r.UserAgent()),
+			Platform:  "web",
+			UserAgent: r.UserAgent(),
+			IPAddress: getClientIP(r),
+			IsActive:  true,
+			CreatedAt: time.Now().UTC(),
+		}
+		if err := h.deviceStore.RegisterOrUpdateDevice(device); err != nil {
+			log.Printf("⚠️ Gagal mendaftarkan device saat registrasi (user: %s, device: %s): %v", user.ID, req.DeviceID, err)
 		}
 	}
 
@@ -158,6 +224,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"Payload tidak valid"}`, http.StatusBadRequest)
 		return
+	}
+
+	if req.DeviceID == "" {
+		req.DeviceID = strings.TrimSpace(r.Header.Get("X-Device-ID"))
 	}
 
 	user, err := h.userStore.Authenticate(strings.TrimSpace(req.Username), req.Password)
@@ -186,6 +256,24 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := h.sessionStore.CreateSession(sess); err != nil {
 			log.Printf("⚠️ Gagal mencatat sesi login (user: %s): %v", user.ID, err)
+		}
+	}
+
+	// Daftarkan atau perbarui perangkat yang login
+	if h.deviceStore != nil && strings.TrimSpace(req.DeviceID) != "" {
+		device := &store.Device{
+			ID:        strings.TrimSpace(req.DeviceID),
+			UserID:    user.ID,
+			Name:      parseDeviceName(r.UserAgent()),
+			Platform:  "web",
+			UserAgent: r.UserAgent(),
+			IPAddress: getClientIP(r),
+			IsActive:  true,
+			CreatedAt: time.Now().UTC(),
+		}
+		if err := h.deviceStore.RegisterOrUpdateDevice(device); err != nil {
+			log.Printf("⚠️ Gagal mendaftarkan device (user: %s, device: %s): %v", user.ID, req.DeviceID, err)
+			// Non-fatal: login tetap berhasil meskipun device registration gagal
 		}
 	}
 
