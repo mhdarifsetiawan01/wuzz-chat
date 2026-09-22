@@ -2,6 +2,7 @@ package ws
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -81,16 +82,43 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Validasi Otoritas Device ID (Single Active Device Gatekeeper)
+	// 3. Validasi Otoritas Device ID (Level 2 Multi-Session Gatekeeper)
 	deviceID := strings.TrimSpace(r.URL.Query().Get("device_id"))
 	if deviceID == "" {
 		deviceID = strings.TrimSpace(r.Header.Get("X-Device-ID"))
 	}
-	if h.userStore != nil {
+
+	var hasDeviceStoreMatch bool
+	if h.deviceStore != nil {
+		devs, err := h.deviceStore.GetUserDevices(claims.UserID)
+		if err == nil && len(devs) > 0 {
+			hasDeviceStoreMatch = true
+			var foundDev *store.Device
+			for _, d := range devs {
+				if d.ID == deviceID {
+					foundDev = &d
+					break
+				}
+			}
+			if foundDev != nil && !foundDev.IsActive {
+				log.Printf("[Handler] Tolak koneksi WebSocket user %s: device '%s' telah dinonaktifkan", claims.UserID, deviceID)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"error":   "DEVICE_DEACTIVATED",
+					"code":    "DEVICE_KICKED",
+					"message": "Perangkat ini telah dikeluarkan dari akun Anda.",
+				})
+				return
+			}
+		}
+	}
+
+	// Fallback ke active_device_id single device jika deviceStore belum memiliki daftar devices untuk user ini
+	if !hasDeviceStoreMatch && h.userStore != nil {
 		_, _, activeDev, err := h.userStore.GetE2EEInfo(claims.UserID)
 		if err == nil && activeDev != "" {
-			// Jika user memiliki perangkat aktif yang sah di server, tolak jika device_id tidak cocok atau kosong
-			if deviceID != activeDev {
+			if deviceID != activeDev || deviceID == "" {
 				log.Printf("[Handler] Tolak koneksi WebSocket user %s: device_id '%s' tidak cocok dengan active_device_id '%s'", claims.UserID, deviceID, activeDev)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
@@ -135,6 +163,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	client.Username = claims.Username
 	client.DisplayName = claims.DisplayName
 	client.DeviceID = deviceID
+	if deviceID != "" {
+		client.SessionKey = fmt.Sprintf("%s:%s", clientID, deviceID)
+	} else {
+		client.SessionKey = clientID
+	}
 
 	// Daftarkan ke Hub
 	h.hub.Register(client)

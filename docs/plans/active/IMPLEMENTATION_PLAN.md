@@ -1,4 +1,3 @@
 # Implementation Plan — Standby
 
-- **Status**: Standby
-- Belum ada rencana implementasi aktif.
+Standby. Menunggu tugas berikutnya.

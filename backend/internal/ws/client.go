@@ -26,6 +26,7 @@ type Client struct {
 	DisplayName string
 	Nickname    string
 	DeviceID    string
+	SessionKey  string
 	RoomID      string
 	PeerID      string
 	JoinedAt    time.Time
@@ -48,6 +49,14 @@ func NewClient(id, nickname string, conn *websocket.Conn, hub *Hub) *Client {
 		conn:     conn,
 		send:     make(chan Message, sendBufferSize),
 	}
+}
+
+// getSenderKey mengembalikan sessionKey unik per perangkat klien, atau fallback ke ID.
+func (c *Client) getSenderKey() string {
+	if c.SessionKey != "" {
+		return c.SessionKey
+	}
+	return c.ID
 }
 
 // ReadPump membaca pesan dari WebSocket connection dan memprosesnya.
@@ -313,8 +322,8 @@ func (c *Client) onMessage(msg Message) {
 	msg.From = c.ID
 	msg.Nickname = c.Nickname
 
-	// Broadcast ke semua anggota lain di room dan simpan ke database
-	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
+	// Broadcast ke semua anggota lain di room (dan perangkat lain milik user) dan simpan ke database
+	c.hub.BroadcastRoom(targetRoom, msg, c.getSenderKey())
 
 	// Kirim balik konfirmasi receipt awal (sent atau delivered) ke sender
 	select {
@@ -369,7 +378,7 @@ func (c *Client) onReceipt(msg Message) {
 	msg.Room = targetRoom
 	msg.Type = TypeReceipt
 	// Broadcast receipt ke anggota percakapan (terutama sender asli)
-	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
+	c.hub.BroadcastRoom(targetRoom, msg, c.getSenderKey())
 }
 
 // onTyping mem-forward indikator typing ke anggota room.
@@ -394,7 +403,7 @@ func (c *Client) onTyping(msg Message) {
 
 	msg.Room = targetRoom
 	msg.Nickname = c.Nickname
-	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
+	c.hub.BroadcastRoom(targetRoom, msg, c.getSenderKey())
 }
 
 // onReaction memproses penambahan atau penghapusan reaksi emoji pada suatu pesan.
@@ -466,8 +475,8 @@ func (c *Client) onCallSignaling(msg Message) {
 	msg.Nickname = c.Nickname
 	msg.Timestamp = time.Now().UTC()
 
-	// Broadcast pesan sinyal WebRTC ke seluruh peer di room selain pengirim
-	c.hub.BroadcastRoom(targetRoom, msg, c.ID)
+	// Broadcast pesan sinyal WebRTC ke seluruh peer di room selain pengirim (termasuk perangkat lain pengirim)
+	c.hub.BroadcastRoom(targetRoom, msg, c.getSenderKey())
 }
 
 // isAuthorizedForRoom memeriksa apakah user saat ini merupakan anggota sah dari percakapan roomID.

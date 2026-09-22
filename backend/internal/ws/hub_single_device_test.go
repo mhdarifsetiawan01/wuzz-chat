@@ -11,6 +11,7 @@ func TestHub_SingleActiveDeviceKick(t *testing.T) {
 	cs := store.NewMemoryClientStore()
 	ms := store.NewMemoryMessageStore()
 	hub := NewHub(cs, ms)
+	hub.SetMaxActiveDevices(1)
 
 	userID := "user-alice-123"
 

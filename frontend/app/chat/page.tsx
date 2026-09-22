@@ -998,8 +998,11 @@ function ChatPageContent() {
       const currentRoom = roomIdRef.current || ''
       switch (msg.type) {
         case 'system': {
-          if (msg.content?.includes('SESSION_REPLACED')) {
+          if (msg.content?.includes('SESSION_REPLACED') || msg.content?.includes('DEVICE_KICKED')) {
             client.destroy()
+            if (msg.content?.includes('DEVICE_KICKED') && user?.id) {
+              clearLocalKeyPair(user.id).catch(err => console.warn('[Security] Gagal bersihkan local keypair:', err))
+            }
             setDeviceConflict({
               isOpen: true,
               isRotated: true,

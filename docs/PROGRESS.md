@@ -1938,4 +1938,37 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Frontend IndexedDB & Continuity Cache Tests (`npm run test:cache`)**: **PASS 100% (9/9)**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
 
+---
+
+## 2026-09-22: Arsitektur Multi-Device Level 2 (Multi-Session HP + Laptop Bersamaan)
+
+### Problem Description
+1. Sebelumnya in-memory Hub hanya mengizinkan 1 koneksi WebSocket per user (`clients map[string]*Client` dengan key `userID`), sehingga ketika user login di Laptop lalu membuka HP, koneksi Laptop langsung tertimpa dan terputus (*single active device limitation*).
+2. Pesan yang dikirim dari satu perangkat (misal Laptop) tidak diforward kembali ke perangkat lain milik user yang sama (HP), menyebabkan linimasa pesan antar perangkat tidak sinkron secara real-time.
+3. Saat perangkat dikeluarkan dari jarak jauh (*remote logout*), private key E2EE lokal di browser perangkat yang dikeluarkan belum dimusnahkan secara otomatis dari `IndexedDB`.
+
+### Implementation Details
+1. **Multi-Device Hub Architecture (`backend/internal/ws/hub.go`)**:
+   - Menambahkan konstanta `DefaultMaxActiveDevicesPerUser = 2` dan method konfigurasi dinamis `SetMaxActiveDevices(limit int)`.
+   - Mengubah struktur pemetaan koneksi menjadi `clients map[string]*Client` (key: `sessionKey`) dan `userClients map[string]map[string]*Client` (key: `userID -> deviceID -> *Client`).
+   - Penegakan **FIFO Session Eviction**: Ketika user yang sudah memiliki 2 perangkat aktif menghubungkan perangkat ke-3, perangkat yang paling awal aktif (`JoinedAt` tertua) otomatis menerima Close Code `4001` dengan pesan `SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.`.
+   - **Broadcast Fanout & Self-Sync**: `broadcastLocal()` mengirim pesan ke seluruh perangkat aktif setiap anggota room. Untuk pengirim pesan (`mID == senderUserID`), pesan tetap diteruskan ke perangkat pengirim yang lain sehingga linimasa chat HP & Laptop seketika sinkron.
+2. **WebSocket Client & Handler Routing (`backend/internal/ws/client.go`, `backend/internal/ws/handler.go`)**:
+   - Menambahkan field `SessionKey` dan helper `getSenderKey()` pada struct `Client`.
+   - Seluruh pemanggilan `BroadcastRoom` menggunakan `c.getSenderKey()` agar socket pengirim asal tidak menerima echo pesannya sendiri, namun perangkat lain milik pengirim tetap menerima pesan.
+   - Relaksasi gatekeeper: memvalidasi status keaktifan perangkat di `deviceStore` (menolak dengan status 403 jika `is_active = false`).
+3. **Frontend Terminal Kick & Keypair Cleanup (`frontend/lib/ws-client.ts`, `frontend/app/chat/page.tsx`)**:
+   - `ws-client.ts`: Penanganan Close Code 4001 (`SESSION_REPLACED` & `DEVICE_KICKED`) menghentikan loop reconnect otomatis secara terminal (`destroyed = true`).
+   - `page.tsx`: Memanggil `clearLocalKeyPair(user.id)` saat sinyal `DEVICE_KICKED` diterima untuk menghapus private key lokal dari `IndexedDB` (`wuzz_crypto_db`) dan `CacheStorage`.
+4. **Automated Testing (`backend/internal/ws/hub_multisession_test.go`, `frontend/test-multi-device-frontend.mjs`)**:
+   - Backend unit tests untuk kuota 2 perangkat, FIFO eviction perangkat ke-3, broadcast fanout, remote kick per-device, dan configurable limit (`PASS 100%`).
+   - Frontend integration tests untuk pemusnahan kunci lokal saat kick, penanganan terminal code 4001, dan deteksi pesan keluar self-sync (`PASS 100%`).
+
+### Test Evidence
+- **Backend Multi-Session Tests (`go test -v -run TestHub_MultiSession ./internal/ws/...`)**: **PASS 100%**.
+- **Backend Full Test Suite (`go test ./...`)**: **PASS 100%** (seluruh paket lulus tanpa regresi).
+- **Frontend Multi-Device Test (`npm run test:multi-device`)**: **PASS 100% (4/4 skenario)**.
+- **Frontend Cache Continuity Test (`npm run test:cache`)**: **PASS 100% (9/9 skenario)**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 error TypeScript/lint)**.
+
 

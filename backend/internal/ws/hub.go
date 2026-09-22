@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -29,17 +30,22 @@ type ClusterEvent struct {
 	Message      Message `json:"message"`
 }
 
+// DefaultMaxActiveDevicesPerUser menentukan batas maksimal perangkat aktif bersamaan per user (default 2: misal HP + Laptop).
+const DefaultMaxActiveDevicesPerUser = 2
+
 // Hub adalah pusat kendali: menyimpan semua client aktif dan room,
 // serta bertanggung jawab merutingkan pesan dan broadcast ke room.
 type Hub struct {
 	nodeID           string
-	clients          map[string]*Client            // clientID (UUID) -> *Client
+	clients          map[string]*Client            // sessionKey -> *Client
+	userClients      map[string]map[string]*Client // userID -> (deviceID -> *Client)
 	clientsByNick    map[string]*Client            // lowercase (username/nickname) -> *Client
-	rooms            map[string]map[string]*Client // roomID -> (clientID -> *Client)
+	rooms            map[string]map[string]*Client // roomID -> (sessionKey -> *Client)
 	roomMembersCache map[string][]string           // roomID -> []memberIdentifiers (in-memory cache)
 	roomMembersMu    sync.RWMutex                  // Mutex terisolasi untuk membership cache
 	dedupHistory     map[string]int64              // msgID -> unixTimestamp (idempotency deduplication cache)
 	dedupMu          sync.RWMutex                  // Mutex terisolasi untuk deduplication cache
+	maxActiveDevices int                           // batas perangkat aktif bersamaan per user
 	mu               sync.RWMutex
 	clientStore      store.ClientStore
 	messageStore     store.MessageStore
@@ -53,13 +59,25 @@ func NewHub(cs store.ClientStore, ms store.MessageStore) *Hub {
 	return &Hub{
 		nodeID:           uuid.New().String(),
 		clients:          make(map[string]*Client),
+		userClients:      make(map[string]map[string]*Client),
 		clientsByNick:    make(map[string]*Client),
 		rooms:            make(map[string]map[string]*Client),
 		roomMembersCache: make(map[string][]string),
 		dedupHistory:     make(map[string]int64),
+		maxActiveDevices: DefaultMaxActiveDevicesPerUser,
 		clientStore:      cs,
 		messageStore:     ms,
 	}
+}
+
+// SetMaxActiveDevices mengatur batas maksimal perangkat aktif bersamaan per user.
+func (h *Hub) SetMaxActiveDevices(limit int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if limit <= 0 {
+		limit = DefaultMaxActiveDevicesPerUser
+	}
+	h.maxActiveDevices = limit
 }
 
 // SetPushService menyuntikkan push.Service untuk pengiriman notifikasi pesan saat user offline.
@@ -140,11 +158,57 @@ func (h *Hub) NodeID() string {
 	return h.nodeID
 }
 
-// Register menambahkan client baru ke registry.
+// Register menambahkan client baru ke registry dengan dukungan multi-device (Level 2).
 func (h *Hub) Register(c *Client) {
+	if c.SessionKey == "" {
+		if c.DeviceID != "" {
+			c.SessionKey = fmt.Sprintf("%s:%s", c.ID, c.DeviceID)
+		} else {
+			c.SessionKey = c.ID
+		}
+	}
+	devKey := c.DeviceID
+	if devKey == "" {
+		devKey = c.SessionKey
+	}
+
 	h.mu.Lock()
-	oldClient, exists := h.clients[c.ID]
-	h.clients[c.ID] = c
+	devs, ok := h.userClients[c.ID]
+	if !ok {
+		devs = make(map[string]*Client)
+		h.userClients[c.ID] = devs
+	}
+
+	var kickClient *Client
+	var isSameDevice bool
+
+	// Kasus 1: Reconnect dari perangkat yang sama (hanya jika device_id valid dan cocok)
+	if c.DeviceID != "" && devs[c.DeviceID] != nil && devs[c.DeviceID] != c {
+		kickClient = devs[c.DeviceID]
+		isSameDevice = true
+		delete(h.clients, kickClient.SessionKey)
+	} else if len(devs) >= h.maxActiveDevices {
+		// Kasus 2: Kuota perangkat bersamaan tercapai, lakukan FIFO Eviction (tendang device tertua)
+		var oldestClient *Client
+		for _, devClient := range devs {
+			if oldestClient == nil || devClient.JoinedAt.Before(oldestClient.JoinedAt) {
+				oldestClient = devClient
+			}
+		}
+		if oldestClient != nil {
+			kickClient = oldestClient
+			isSameDevice = false
+			oldDevKey := oldestClient.DeviceID
+			if oldDevKey == "" {
+				oldDevKey = oldestClient.SessionKey
+			}
+			delete(devs, oldDevKey)
+			delete(h.clients, oldestClient.SessionKey)
+		}
+	}
+
+	devs[devKey] = c
+	h.clients[c.SessionKey] = c
 	if c.Username != "" {
 		h.clientsByNick[strings.ToLower(c.Username)] = c
 	}
@@ -153,10 +217,8 @@ func (h *Hub) Register(c *Client) {
 	}
 	h.mu.Unlock()
 
-	// Single Active Device Enforcement: Kick sesi WebSocket lama dari UserID yang sama
-	if exists && oldClient != nil && oldClient != c {
-		isSameDevice := oldClient.DeviceID != "" && c.DeviceID != "" && oldClient.DeviceID == c.DeviceID
-		log.Printf("[Hub %s] pergantian sesi client %s (isSameDevice=%v | oldDevice=%s newDevice=%s)", h.nodeID[:8], c.ID, isSameDevice, oldClient.DeviceID, c.DeviceID)
+	if kickClient != nil {
+		log.Printf("[Hub %s] pergantian/eviction sesi client %s (isSameDevice=%v | kickDevice=%s newDevice=%s)", h.nodeID[:8], c.ID, isSameDevice, kickClient.DeviceID, c.DeviceID)
 		go func(old *Client, sameDev bool) {
 			if !sameDev {
 				kickMsg := Message{
@@ -180,13 +242,12 @@ func (h *Hub) Register(c *Client) {
 				}
 			} else {
 				// Reconnect dari perangkat yang sama (misal refresh browser / reconnect normal)
-				// Tutup soket lama secara tertib tanpa mengirim sinyal SESSION_REPLACED
 				time.Sleep(50 * time.Millisecond)
 				if old.conn != nil {
 					_ = old.conn.Close()
 				}
 			}
-		}(oldClient, isSameDevice)
+		}(kickClient, isSameDevice)
 	}
 
 	if err := h.clientStore.Set(store.ClientRecord{
@@ -197,18 +258,23 @@ func (h *Hub) Register(c *Client) {
 		log.Printf("[Hub] gagal persist client %s: %v", c.ID, err)
 	}
 
-	log.Printf("[Hub %s] client terdaftar: id=%s nickname=%s | total=%d", h.nodeID[:8], c.ID, c.Nickname, h.count())
+	log.Printf("[Hub %s] client terdaftar: id=%s device=%s session=%s nickname=%s | total_koneksi=%d", h.nodeID[:8], c.ID, c.DeviceID, c.SessionKey, c.Nickname, h.count())
 }
 
 // JoinRoom mendaftarkan client ke dalam room tertentu.
 func (h *Hub) JoinRoom(c *Client, roomID string) {
+	cKey := c.SessionKey
+	if cKey == "" {
+		cKey = c.ID
+	}
+
 	var oldRoomID string
 	h.mu.Lock()
 	// Jika client sebelumnya ada di room lain, bersihkan dulu
 	if c.RoomID != "" && c.RoomID != roomID {
 		oldRoomID = c.RoomID
 		if room, ok := h.rooms[c.RoomID]; ok {
-			delete(room, c.ID)
+			delete(room, cKey)
 			if len(room) == 0 {
 				delete(h.rooms, c.RoomID)
 			}
@@ -219,9 +285,9 @@ func (h *Hub) JoinRoom(c *Client, roomID string) {
 	if _, ok := h.rooms[roomID]; !ok {
 		h.rooms[roomID] = make(map[string]*Client)
 	}
-	h.rooms[roomID][c.ID] = c
+	h.rooms[roomID][cKey] = c
 
-	log.Printf("[Hub %s] client %s (%s) bergabung ke room '%s' | member room=%d", h.nodeID[:8], c.ID, c.Nickname, roomID, len(h.rooms[roomID]))
+	log.Printf("[Hub %s] client %s (%s - device: %s) bergabung ke room '%s' | member room=%d", h.nodeID[:8], c.ID, c.Nickname, c.DeviceID, roomID, len(h.rooms[roomID]))
 	h.mu.Unlock()
 
 	// Broadcast update user list untuk room lama jika ada perpindahan
@@ -236,23 +302,52 @@ func (h *Hub) JoinRoom(c *Client, roomID string) {
 // Unregister menghapus client dari registry dan room-nya.
 func (h *Hub) Unregister(c *Client) {
 	roomID := c.RoomID
+	cKey := c.SessionKey
+	if cKey == "" {
+		cKey = c.ID
+	}
+	devKey := c.DeviceID
+	if devKey == "" {
+		devKey = cKey
+	}
+
 	h.mu.Lock()
-	_, exists := h.clients[c.ID]
+	_, exists := h.clients[cKey]
+	var remainingDevsCount int
 	if exists {
-		delete(h.clients, c.ID)
-		if c.Username != "" {
-			delete(h.clientsByNick, strings.ToLower(c.Username))
-		}
-		if c.Nickname != "" {
-			delete(h.clientsByNick, strings.ToLower(c.Nickname))
-		}
+		delete(h.clients, cKey)
 		close(c.send)
+	}
+
+	if devs, ok := h.userClients[c.ID]; ok {
+		delete(devs, devKey)
+		remainingDevsCount = len(devs)
+		if remainingDevsCount == 0 {
+			delete(h.userClients, c.ID)
+			if c.Username != "" {
+				delete(h.clientsByNick, strings.ToLower(c.Username))
+			}
+			if c.Nickname != "" {
+				delete(h.clientsByNick, strings.ToLower(c.Nickname))
+			}
+		} else {
+			// Masih ada perangkat lain milik user ini yang aktif, arahkan nick ke salah satu client yang tersisa
+			for _, rem := range devs {
+				if c.Username != "" {
+					h.clientsByNick[strings.ToLower(c.Username)] = rem
+				}
+				if c.Nickname != "" {
+					h.clientsByNick[strings.ToLower(c.Nickname)] = rem
+				}
+				break
+			}
+		}
 	}
 
 	// Hapus dari room
 	if roomID != "" {
 		if room, ok := h.rooms[roomID]; ok {
-			delete(room, c.ID)
+			delete(room, cKey)
 			if len(room) == 0 {
 				delete(h.rooms, roomID)
 			}
@@ -264,11 +359,14 @@ func (h *Hub) Unregister(c *Client) {
 		return
 	}
 
-	if err := h.clientStore.Delete(c.ID); err != nil {
-		log.Printf("[Hub %s] gagal hapus client %s dari store: %v", h.nodeID[:8], c.ID, err)
+	// Hanya hapus dari presence store jika seluruh perangkat user telah offline
+	if remainingDevsCount == 0 {
+		if err := h.clientStore.Delete(c.ID); err != nil {
+			log.Printf("[Hub %s] gagal hapus client %s dari store: %v", h.nodeID[:8], c.ID, err)
+		}
 	}
 
-	log.Printf("[Hub %s] client keluar: id=%s nickname=%s | sisa=%d", h.nodeID[:8], c.ID, c.Nickname, h.count())
+	log.Printf("[Hub %s] client keluar: id=%s device=%s | sisa_koneksi=%d", h.nodeID[:8], c.ID, c.DeviceID, h.count())
 
 	// Perbarui daftar user aktif di room (presence)
 	if roomID != "" {
@@ -287,13 +385,17 @@ func (h *Hub) BroadcastRoomUsers(roomID string) {
 	var users []RoomUser
 	var targets []*Client
 	if exists {
+		seenUsers := make(map[string]bool)
 		for _, client := range room {
-			users = append(users, RoomUser{
-				ID:          client.ID,
-				Username:    client.Username,
-				DisplayName: client.DisplayName,
-				Nickname:    client.Nickname,
-			})
+			if !seenUsers[client.ID] {
+				seenUsers[client.ID] = true
+				users = append(users, RoomUser{
+					ID:          client.ID,
+					Username:    client.Username,
+					DisplayName: client.DisplayName,
+					Nickname:    client.Nickname,
+				})
+			}
 			targets = append(targets, client)
 		}
 	}
@@ -410,40 +512,77 @@ func (h *Hub) InvalidateRoomMembersCache(roomID string) {
 	h.roomMembersMu.Unlock()
 }
 
-// findClientLocked mencari client berdasarkan ID atau username/nickname (wajib dipanggil saat h.mu terkunci).
-func (h *Hub) findClientLocked(identifier string) (*Client, bool) {
-	if c, ok := h.clients[identifier]; ok {
-		return c, true
+// findClientsLocked mencari semua client berdasarkan ID, sessionKey, atau username/nickname (wajib dipanggil saat h.mu terkunci).
+func (h *Hub) findClientsLocked(identifier string) []*Client {
+	var res []*Client
+	// 1. Cek apakah identifier adalah userID di userClients
+	if devs, ok := h.userClients[identifier]; ok {
+		for _, c := range devs {
+			res = append(res, c)
+		}
+		if len(res) > 0 {
+			return res
+		}
 	}
+
+	// 2. Cek apakah identifier adalah sessionKey spesifik di clients
+	if c, ok := h.clients[identifier]; ok {
+		return []*Client{c}
+	}
+
+	// 3. Cek via clientsByNick (username / nickname)
 	if c, ok := h.clientsByNick[strings.ToLower(identifier)]; ok {
-		return c, true
+		if devs, ok := h.userClients[c.ID]; ok {
+			for _, devClient := range devs {
+				res = append(res, devClient)
+			}
+			if len(res) > 0 {
+				return res
+			}
+		}
+		return []*Client{c}
+	}
+
+	return nil
+}
+
+// findClientLocked mencari satu client (kompatibilitas mundur saat h.mu terkunci).
+func (h *Hub) findClientLocked(identifier string) (*Client, bool) {
+	clients := h.findClientsLocked(identifier)
+	if len(clients) > 0 {
+		return clients[0], true
 	}
 	return nil, false
 }
 
 // broadcastLocal mengirimkan pesan hanya ke klien yang terhubung secara fisik di instance Hub ini.
-func (h *Hub) broadcastLocal(roomID string, msg Message, senderID string) {
+// senderKey dapat berupa SessionKey pengirim (spesifik perangkat) atau ID pengirim.
+func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
 	h.mu.RLock()
 	targetMap := make(map[*Client]bool)
 
 	// 1. Klien lokal yang sedang aktif membuka room ini
 	if room, roomExists := h.rooms[roomID]; roomExists {
-		for id, client := range room {
-			if id != senderID {
-				targetMap[client] = true
+		for key, client := range room {
+			if key == senderKey || client.SessionKey == senderKey {
+				continue
 			}
+			if senderKey == client.ID && len(h.userClients[client.ID]) <= 1 {
+				continue
+			}
+			targetMap[client] = true
 		}
 	}
 
 	// 2. Klien lokal lain yang merupakan anggota percakapan ini (misal di halaman daftar chat / sidebar)
-	// Menggunakan in-memory cache dan direct lookup O(M) tanpa query SQL dan tanpa scan linier O(N) seluruh h.clients
 	if roomID != "" {
 		memberIDs := h.getRoomMembers(roomID)
 		for _, mID := range memberIDs {
-			if mID == senderID {
-				continue
-			}
-			if client, found := h.findClientLocked(mID); found && client.ID != senderID {
+			clients := h.findClientsLocked(mID)
+			for _, client := range clients {
+				if client.SessionKey == senderKey || (senderKey == client.ID && len(clients) <= 1) {
+					continue
+				}
 				targetMap[client] = true
 			}
 		}
@@ -667,20 +806,36 @@ func (h *Hub) sendRoomHistory(clientID, roomID string, sinceStr ...string) {
 	})
 }
 
-// GetClient mengambil client berdasarkan ID.
+// GetClient mengambil client berdasarkan sessionKey atau userID.
 func (h *Hub) GetClient(id string) (*Client, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	c, ok := h.clients[id]
-	return c, ok
+	if c, ok := h.clients[id]; ok {
+		return c, true
+	}
+	if devs, ok := h.userClients[id]; ok {
+		for _, c := range devs {
+			return c, true
+		}
+	}
+	return nil, false
 }
 
 // notifyClient mengirim pesan ke satu client spesifik.
 func (h *Hub) notifyClient(clientID string, msg Message) {
 	h.mu.RLock()
 	c, ok := h.clients[clientID]
-	h.mu.RUnlock()
 	if !ok {
+		if devs, devOk := h.userClients[clientID]; devOk {
+			for _, devC := range devs {
+				c = devC
+				ok = true
+				break
+			}
+		}
+	}
+	h.mu.RUnlock()
+	if !ok || c == nil {
 		return
 	}
 	select {
@@ -689,22 +844,21 @@ func (h *Hub) notifyClient(clientID string, msg Message) {
 	}
 }
 
-// NotifyUser mengirimkan pesan WebSocket langsung ke satu user (berdasarkan userID atau nickname).
+// NotifyUser mengirimkan pesan WebSocket langsung ke satu user (seluruh perangkat aktifnya).
 func (h *Hub) NotifyUser(userID string, msg Message) {
 	h.mu.RLock()
-	c, ok := h.findClientLocked(userID)
+	targets := h.findClientsLocked(userID)
 	h.mu.RUnlock()
-	if !ok {
-		return
-	}
-	select {
-	case c.send <- msg:
-	default:
-		log.Printf("[Hub %s] buffer penuh untuk user %s, pesan di-drop", h.nodeID[:8], userID)
+	for _, c := range targets {
+		select {
+		case c.send <- msg:
+		default:
+			log.Printf("[Hub %s] buffer penuh untuk user %s (%s), pesan di-drop", h.nodeID[:8], userID, c.DeviceID)
+		}
 	}
 }
 
-// NotifyUsers mengirimkan pesan WebSocket langsung ke sejumlah target user IDs.
+// NotifyUsers mengirimkan pesan WebSocket langsung ke sejumlah target user IDs (seluruh perangkat aktif).
 // Juga mem-publish event ke cluster Redis jika broker aktif.
 func (h *Hub) NotifyUsers(userIDs []string, msg Message) {
 	if len(userIDs) == 0 {
@@ -714,9 +868,7 @@ func (h *Hub) NotifyUsers(userIDs []string, msg Message) {
 	h.mu.RLock()
 	var targets []*Client
 	for _, uid := range userIDs {
-		if c, ok := h.findClientLocked(uid); ok {
-			targets = append(targets, c)
-		}
+		targets = append(targets, h.findClientsLocked(uid)...)
 	}
 	b := h.broker
 	h.mu.RUnlock()
@@ -725,7 +877,7 @@ func (h *Hub) NotifyUsers(userIDs []string, msg Message) {
 		select {
 		case c.send <- msg:
 		default:
-			log.Printf("[Hub %s] buffer penuh untuk client %s, notifikasi di-drop", h.nodeID[:8], c.ID)
+			log.Printf("[Hub %s] buffer penuh untuk client %s (%s), notifikasi di-drop", h.nodeID[:8], c.ID, c.DeviceID)
 		}
 	}
 
@@ -787,17 +939,25 @@ func (h *Hub) IsDuplicateAndRecord(msgID string, ttl time.Duration) bool {
 }
 
 // KickClientByUserID mengirimkan sinyal SESSION_REPLACED / kick dan menutup koneksi WebSocket
-// untuk klien dengan userID tertentu. Jika exceptDeviceID diisi, hanya menendang perangkat selain device tersebut.
+// untuk seluruh koneksi milik userID tertentu. Jika exceptDeviceID diisi, hanya menendang perangkat selain device tersebut.
 func (h *Hub) KickClientByUserID(userID, exceptDeviceID, reason string) {
 	h.mu.RLock()
-	client, exists := h.clients[userID]
+	var targets []*Client
+	if devs, ok := h.userClients[userID]; ok {
+		for devID, c := range devs {
+			if exceptDeviceID != "" && devID == exceptDeviceID {
+				continue
+			}
+			targets = append(targets, c)
+		}
+	} else if c, ok := h.clients[userID]; ok {
+		if exceptDeviceID == "" || c.DeviceID != exceptDeviceID {
+			targets = append(targets, c)
+		}
+	}
 	h.mu.RUnlock()
 
-	if !exists || client == nil {
-		return
-	}
-
-	if exceptDeviceID != "" && client.DeviceID == exceptDeviceID {
+	if len(targets) == 0 {
 		return
 	}
 
@@ -805,42 +965,46 @@ func (h *Hub) KickClientByUserID(userID, exceptDeviceID, reason string) {
 		reason = "SESSION_REPLACED: Akun Anda dibuka dari perangkat lain."
 	}
 
-	log.Printf("[Hub %s] kick client %s (deviceID=%s | exceptDevice=%s | reason=%s)", h.nodeID[:8], userID, client.DeviceID, exceptDeviceID, reason)
-
-	go func(c *Client) {
-		kickMsg := Message{
-			ID:        uuid.New().String(),
-			Type:      TypeSystem,
-			Content:   reason,
-			Timestamp: time.Now().UTC(),
-		}
-		select {
-		case c.send <- kickMsg:
-		default:
-		}
-		time.Sleep(500 * time.Millisecond)
-		if c.conn != nil {
-			closeMsg := websocket.FormatCloseMessage(4001, reason)
-			_ = c.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(1000*time.Millisecond))
-			time.Sleep(100 * time.Millisecond)
-			_ = c.conn.Close()
-		}
-	}(client)
+	for _, client := range targets {
+		log.Printf("[Hub %s] kick client %s (deviceID=%s | exceptDevice=%s | reason=%s)", h.nodeID[:8], userID, client.DeviceID, exceptDeviceID, reason)
+		go func(c *Client) {
+			kickMsg := Message{
+				ID:        uuid.New().String(),
+				Type:      TypeSystem,
+				Content:   reason,
+				Timestamp: time.Now().UTC(),
+			}
+			select {
+			case c.send <- kickMsg:
+			default:
+			}
+			time.Sleep(500 * time.Millisecond)
+			if c.conn != nil {
+				closeMsg := websocket.FormatCloseMessage(4001, reason)
+				_ = c.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(1000*time.Millisecond))
+				time.Sleep(100 * time.Millisecond)
+				_ = c.conn.Close()
+			}
+		}(client)
+	}
 }
 
 // KickClientByDeviceID menendang koneksi WebSocket dari device tertentu milik user tertentu.
 // Dipanggil saat admin/user melakukan remote logout dari satu perangkat spesifik.
 func (h *Hub) KickClientByDeviceID(userID, deviceID, reason string) {
 	h.mu.RLock()
-	client, exists := h.clients[userID]
+	var client *Client
+	if devs, ok := h.userClients[userID]; ok {
+		client = devs[deviceID]
+	}
+	if client == nil {
+		if c, ok := h.clients[userID]; ok && c.DeviceID == deviceID {
+			client = c
+		}
+	}
 	h.mu.RUnlock()
 
-	if !exists || client == nil {
-		return
-	}
-
-	// Hanya kick jika device_id cocok
-	if client.DeviceID != deviceID {
+	if client == nil {
 		return
 	}
 

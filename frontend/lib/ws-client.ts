@@ -173,19 +173,20 @@ export class WsClient {
 
     this.ws.onclose = (event) => {
       // code 1000 = close normal (dipanggil oleh destroy())
-      // code 4001 = SESSION_REPLACED (akun dibuka dari perangkat lain, dilarang reconnect!)
-      if (event.code === 4001 || event.reason?.includes('SESSION_REPLACED')) {
-        console.warn('[WsClient] Sesi digantikan oleh perangkat lain (Code 4001 / SESSION_REPLACED). Menghentikan auto-reconnect.')
+      // code 4001 = SESSION_REPLACED / DEVICE_KICKED (akun dibuka dari perangkat lain / di-kick, dilarang reconnect!)
+      if (event.code === 4001 || event.reason?.includes('SESSION_REPLACED') || event.reason?.includes('DEVICE_KICKED')) {
+        const isKicked = event.reason?.includes('DEVICE_KICKED')
+        console.warn(`[WsClient] Sesi ditutup terminal (Code 4001 / ${event.reason || 'KICKED'}). Menghentikan auto-reconnect.`)
         this.destroyed = true
         if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
         this._emitStatus('disconnected')
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('wuzz:session_replaced'))
+          window.dispatchEvent(new CustomEvent('wuzz:session_replaced', { detail: { reason: event.reason } }))
         }
-        // Pastikan UI menerima event SESSION_REPLACED agar modal konflik muncul seketika
+        // Pastikan UI menerima event agar modal konflik / notifikasi kick muncul seketika
         this.messageHandlers.forEach(h => h({
           type: 'system',
-          content: 'SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.',
+          content: event.reason || (isKicked ? 'DEVICE_KICKED: Perangkat ini telah dikeluarkan.' : 'SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.'),
           timestamp: new Date().toISOString(),
         }))
         return

@@ -1,3 +1,3 @@
 # Decision Log — Standby
 
-- Belum ada keputusan aktif.
+No active decisions pending.
