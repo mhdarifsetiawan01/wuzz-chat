@@ -43,6 +43,7 @@ erDiagram
     }
 
     USERS ||--o{ SESSIONS : has_sessions
+    USERS ||--o{ DEVICES : has_devices
 
     SESSIONS {
         varchar id PK "JTI dari JWT"
@@ -54,6 +55,18 @@ erDiagram
         timestamp created_at
         timestamp expires_at
         timestamp last_active_at
+    }
+
+    DEVICES {
+        varchar id PK "dev_<uuid> dari localStorage"
+        varchar user_id FK "User UUID"
+        varchar name "Label nama ramah (Chrome on Windows)"
+        varchar platform "web / android / ios / desktop"
+        text user_agent "Client User-Agent"
+        varchar ip_address "Client IP address"
+        boolean is_active "Status perangkat aktif"
+        timestamp last_seen_at "Waktu terakhir terhubung ke WS"
+        timestamp created_at "Waktu pertama kali login"
     }
 
     PUSH_SUBSCRIPTIONS {

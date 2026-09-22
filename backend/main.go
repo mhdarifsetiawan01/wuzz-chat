@@ -54,6 +54,7 @@ func main() {
 	var memoryStore store.MemoryStore
 	var tokenStore store.TokenStore
 	var sessionStore store.SessionStore
+	var deviceStore store.DeviceStore
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
 		userStore = sqlUserStore
@@ -64,6 +65,7 @@ func main() {
 		tokenStore = sqlTokenStore
 		auth.SetTokenChecker(sqlTokenStore)
 		sessionStore = store.NewSQLSessionStore(sqlStore.DB(), sqlStore.DriverName())
+		deviceStore = store.NewSQLDeviceStore(sqlStore.DB(), sqlStore.DriverName())
 	}
 
 	// Inisialisasi Push Notification Service (Web Push VAPID & Multi-Platform Gateway)
@@ -76,6 +78,7 @@ func main() {
 	var notificationHandler *api.NotificationHandler
 	var transferHandler *api.TransferHandler
 	var memoryHandler *api.MemoryHandler
+	var deviceHandler *api.DeviceHandler
 	if userStore != nil {
 		authHandler = api.NewAuthHandler(userStore)
 		if tokenStore != nil {
@@ -83,6 +86,13 @@ func main() {
 		}
 		if sessionStore != nil {
 			authHandler.SetSessionStore(sessionStore)
+		}
+		if deviceStore != nil {
+			authHandler.SetDeviceStore(deviceStore)
+			deviceHandler = api.NewDeviceHandler(deviceStore)
+			if sessionStore != nil {
+				deviceHandler.SetSessionStore(sessionStore)
+			}
 		}
 		chatHandler = api.NewChatHandler(userStore, messageStore)
 		groupHandler = api.NewGroupHandler(groupStore, userStore)
@@ -208,6 +218,9 @@ func main() {
 	if authHandler != nil {
 		authHandler.SetHub(hub)
 	}
+	if deviceHandler != nil {
+		deviceHandler.SetHub(hub)
+	}
 
 	// Inisialisasi CORS Validator dinamis (mendukung multi-domain, Vercel preview, dan localhost)
 	corsValidator := auth.NewCORSValidatorFromEnv()
@@ -215,6 +228,9 @@ func main() {
 	// Inisialisasi handler WebSocket dengan validasi origin dinamis & single device gatekeeper
 	wsHandler := ws.NewHandler(hub, corsValidator)
 	wsHandler.SetUserStore(userStore)
+	if deviceStore != nil {
+		wsHandler.SetDeviceStore(deviceStore)
+	}
 
 	// Setup routing
 	mux := http.NewServeMux()
@@ -296,6 +312,14 @@ func main() {
 		mux.HandleFunc("/api/auth/sessions/", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.RevokeSession)).ServeHTTP(w, r)
 		}))
+		if deviceHandler != nil {
+			mux.HandleFunc("/api/auth/devices", withCORS(func(w http.ResponseWriter, r *http.Request) {
+				auth.RequireJWT()(http.HandlerFunc(deviceHandler.ListDevices)).ServeHTTP(w, r)
+			}))
+			mux.HandleFunc("/api/auth/devices/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+				auth.RequireJWT()(http.HandlerFunc(deviceHandler.RemoveDevice)).ServeHTTP(w, r)
+			}))
+		}
 		mux.HandleFunc("/api/auth/profile", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.UpdateProfile)).ServeHTTP(w, r)
 		}))

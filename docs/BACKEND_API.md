@@ -309,6 +309,38 @@ Mencabut seluruh sesi login aktif milik pengguna selain sesi yang sedang digunak
   }
   ```
 
+#### 11. `GET /api/auth/devices`
+Mengambil seluruh daftar perangkat terdaftar yang aktif (`is_active = true`) milik pengguna yang sedang terautentikasi (Phase 2A: Device Registry).
+- **Autentikasi**: `Bearer <token>` (Wajib)
+- **Success Response (200 OK)**:
+  ```json
+  [
+    {
+      "id": "dev_laptop_123",
+      "user_id": "usr_abc123",
+      "name": "Chrome on Windows",
+      "platform": "web",
+      "ip_address": "192.168.1.10",
+      "is_active": true,
+      "last_seen_at": "2026-09-22T08:50:00Z",
+      "created_at": "2026-09-22T08:00:00Z"
+    }
+  ]
+  ```
+
+#### 12. `DELETE /api/auth/devices/:id`
+Mengeluarkan perangkat tertentu dari jarak jauh (*remote logout*). Backend menonaktifkan perangkat di database dan seketika menendang koneksi WebSocket perangkat tersebut dengan kode Close `4001: DEVICE_KICKED`.
+- **Autentikasi**: `Bearer <token>` (Wajib)
+- **Header Tambahan**: `X-Device-ID: <current_device_id>` (untuk mencegah mengeluarkan perangkat saat ini)
+- **URL Parameter**: `id` — ID perangkat (`dev_<uuid>`) yang ingin dikeluarkan.
+- **Error Response (400 Bad Request)**: Jika mencoba mengeluarkan perangkat saat ini (`{"error":"Gunakan endpoint logout untuk keluar dari perangkat ini"}`).
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "message": "Perangkat berhasil dikeluarkan"
+  }
+  ```
+
 ---
 
 ### 3.2 Manajemen Kunci E2EE

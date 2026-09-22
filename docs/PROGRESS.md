@@ -1907,3 +1907,35 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Backend Unit & Integration Tests (`go test -v ./...`)**: **PASS 100%** across all packages.
 - **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 TypeScript error, 0 lint error).
 
+---
+
+## 2026-09-22: Arsitektur Multi-Device Level 1 (Device Registry & Remote Logout)
+
+### Problem Description
+1. Database backend sebelumnya hanya menyimpan 1 string `active_device_id` di tabel `users`, tanpa riwayat perangkat yang pernah terhubung, metadata User-Agent/OS/browser, atau IP address.
+2. Pengguna tidak memiliki visibilitas perangkat apa saja yang sedang aktif dan tidak bisa mengeluarkan perangkat lama/hilang dari jarak jauh (*remote logout*).
+3. Pengiriman `device_id` di frontend belum diintegrasikan ke halaman login dan registrasi awal.
+
+### Implementation Details
+1. **Skema & Store Perangkat (`backend/internal/store/sql.go`, `backend/internal/store/device_store.go`)**:
+   - DDL non-destruktif tabel `devices` (`id`, `user_id`, `name`, `platform`, `user_agent`, `ip_address`, `is_active`, `last_seen_at`, `created_at`) dan index `idx_devices_user_active`.
+   - Interface `DeviceStore` dan implementasi `SQLDeviceStore` dengan dukungan upsert dan pembaruan timestamp `last_seen_at`.
+2. **WebSocket Remote Kick (`backend/internal/ws/hub.go`, `backend/internal/ws/handler.go`, `backend/internal/api/transfer_handler.go`)**:
+   - Method `KickClientByDeviceID(userID, deviceID, reason)` pada Hub untuk memutuskan koneksi perangkat tertentu secara seketika dengan kode Close `4001: DEVICE_KICKED`.
+   - Injeksi `deviceStore` ke WebSocket handler untuk memperbarui `last_seen_at` otomatis saat upgrade HTTP ke WS berhasil.
+3. **REST API Device Management (`backend/internal/api/device_handler.go`, `backend/internal/api/auth_handler.go`, `backend/main.go`)**:
+   - `GET /api/auth/devices`: Mengembalikan daftar seluruh perangkat aktif milik pengguna.
+   - `DELETE /api/auth/devices/:id`: Mengeluarkan perangkat dari jarak jauh (guard: tolak jika perangkat saat ini).
+   - Injeksi pencatatan perangkat otomatis pada handler `Login` dan `Register`, lengkap dengan helper deteksi User-Agent ramah (`parseDeviceName`).
+4. **Frontend UI & State (`frontend/app/chat/ProfileModal.tsx`, `frontend/lib/types.ts`, `frontend/lib/auth-context.tsx`, `frontend/app/login/page.tsx`, `frontend/app/register/page.tsx`)**:
+   - Tab navigasi baru **"📱 Perangkat"** pada `ProfileModal.tsx` dengan daftar perangkat aktif, penanda *"Perangkat Ini"*, tombol *"Keluarkan"* per perangkat lain, dan tautan ke QR Device Transfer.
+   - Sinkronisasi pembacaan `currentDeviceId` dengan fungsi kanonikal `getOrCreateDeviceId()` (`wuzz_device_id`).
+   - Injeksi `device_id` pada form submit login & register.
+
+### Test Evidence
+- **Backend Unit & API Tests (`backend/internal/store/device_store_test.go`, `backend/internal/api/device_handler_test.go`)**: **PASS 100%**.
+- **Backend Full Test Suite (`go test -v -count=1 ./...`)**: **PASS 100%**.
+- **Frontend IndexedDB & Continuity Cache Tests (`npm run test:cache`)**: **PASS 100% (9/9)**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+
+

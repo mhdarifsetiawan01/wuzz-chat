@@ -828,3 +828,47 @@ func (h *Hub) KickClientByUserID(userID, exceptDeviceID, reason string) {
 	}(client)
 }
 
+// KickClientByDeviceID menendang koneksi WebSocket dari device tertentu milik user tertentu.
+// Dipanggil saat admin/user melakukan remote logout dari satu perangkat spesifik.
+func (h *Hub) KickClientByDeviceID(userID, deviceID, reason string) {
+	h.mu.RLock()
+	client, exists := h.clients[userID]
+	h.mu.RUnlock()
+
+	if !exists || client == nil {
+		return
+	}
+
+	// Hanya kick jika device_id cocok
+	if client.DeviceID != deviceID {
+		return
+	}
+
+	if reason == "" {
+		reason = "DEVICE_KICKED: Perangkat ini telah dikeluarkan dari jarak jauh."
+	}
+
+	log.Printf("[Hub %s] kick by device: user=%s device=%s reason=%s", h.nodeID[:8], userID, deviceID, reason)
+
+	go func(c *Client) {
+		kickMsg := Message{
+			ID:        uuid.New().String(),
+			Type:      TypeSystem,
+			Content:   reason,
+			Timestamp: time.Now().UTC(),
+		}
+		select {
+		case c.send <- kickMsg:
+		default:
+		}
+		time.Sleep(500 * time.Millisecond)
+		if c.conn != nil {
+			closeMsg := websocket.FormatCloseMessage(4001, reason)
+			_ = c.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(1000*time.Millisecond))
+			time.Sleep(100 * time.Millisecond)
+			_ = c.conn.Close()
+		}
+	}(client)
+}
+
+

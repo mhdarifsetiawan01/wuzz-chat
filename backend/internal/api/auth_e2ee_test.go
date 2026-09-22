@@ -135,6 +135,12 @@ func (m *mockHubForResetTest) KickClientByUserID(userID, exceptDeviceID, reason 
 	m.kickCalled = true
 }
 
+func (m *mockHubForResetTest) KickClientByDeviceID(userID, deviceID, reason string) {
+	m.kickedUserID = userID
+	m.kickedReason = reason
+	m.kickCalled = true
+}
+
 func TestAuthHandler_ResetPublicKey_RevokesOtherSessionsAndKicksWebsocket(t *testing.T) {
 	tmpDB := filepath.Join(t.TempDir(), "test_api_auth_reset_sess.db")
 	sqlStore, err := store.NewSQLMessageStore("sqlite", tmpDB)

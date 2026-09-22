@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { apiRequest } from '@/lib/api'
+import { getOrCreateDeviceId } from '@/lib/crypto/keyStore'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -65,12 +66,14 @@ export default function RegisterPage() {
     setError('')
     setIsLoading(true)
 
+    const deviceId = getOrCreateDeviceId()
     const { data, error: err } = await apiRequest<{ token: string; user: any }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         username: cleanUsername,
         display_name: cleanDisplayName || cleanUsername,
         password,
+        device_id: deviceId,
       }),
     })
 

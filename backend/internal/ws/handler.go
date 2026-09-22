@@ -23,6 +23,7 @@ import (
 type Handler struct {
 	hub           *Hub
 	userStore     store.UserStore
+	deviceStore   store.DeviceStore
 	corsValidator *auth.CORSValidator
 	upgrader      websocket.Upgrader
 }
@@ -50,6 +51,11 @@ func NewHandler(hub *Hub, cv ...*auth.CORSValidator) *Handler {
 // SetUserStore menyuntikkan store.UserStore untuk validasi kepemilikan perangkat saat handshake.
 func (h *Handler) SetUserStore(userStore store.UserStore) {
 	h.userStore = userStore
+}
+
+// SetDeviceStore menyuntikkan store.DeviceStore untuk update last_seen_at saat WebSocket connect.
+func (h *Handler) SetDeviceStore(deviceStore store.DeviceStore) {
+	h.deviceStore = deviceStore
 }
 
 // ServeHTTP menangani request WebSocket upgrade dengan autentikasi JWT & validasi device_id wajib.
@@ -103,6 +109,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("[Handler] WebSocket upgrade gagal: %v", err)
 		return
+	}
+
+	// Update last_seen_at device secara non-blocking
+	if h.deviceStore != nil && deviceID != "" {
+		go func() {
+			if err := h.deviceStore.TouchDevice(deviceID); err != nil {
+				log.Printf("[Handler] TouchDevice gagal (device: %s): %v", deviceID, err)
+			}
+		}()
 	}
 
 	// Bind identitas resmi dari claims JWT
