@@ -43,8 +43,9 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
 - REST API: Sertakan header `Authorization: Bearer <jwt_token>`.
 - WebSocket: Sertakan query parameter `?token=<jwt_token>` pada URL koneksi (`/ws?token=...`).
 
-### 1.3 Single Active Session (Device Eviction ala WhatsApp)
-- Backend menerapkan prinsip **Single Device Login**. Ketika akun yang sama terhubung dari tab/perangkat baru, koneksi WebSocket pada perangkat lama akan dikirimi event:
+### 1.3 Multi-Session & Kuota Perangkat (Level 2 Multi-Device)
+- Backend mengizinkan hingga **2 perangkat aktif bersamaan** per akun secara default (`DefaultMaxActiveDevicesPerUser = 2`, misal HP + Laptop).
+- Ketika perangkat ke-3 mencoba terhubung, koneksi perangkat yang paling lama aktif (**FIFO Eviction**) otomatis menerima sinyal WebSocket:
   ```json
   {
     "type": "system",
@@ -52,7 +53,8 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
     "content": "SESSION_REPLACED: Akun Anda dibuka dari perangkat lain."
   }
   ```
-  dan koneksi lama langsung ditutup secara elegan oleh backend.
+  dan ditutup secara tertib dengan WebSocket Close Code `4001`.
+- Seluruh pesan room disiarkan (*fanout*) ke seluruh perangkat aktif pengguna. Untuk pengirim, pesan juga diteruskan ke perangkat pengirim yang lain (*self-sync*) agar linimasa chat selalu sinkron antar layar.
 
 ### 1.4 Keamanan BOLA / IDOR
 - Seluruh endpoint percakapan (`/api/conversations/*`), penghapusan pesan, pengunggahan media, dan event WebSocket diproteksi dengan verifikasi keanggotaan room (`IsUserInConversation`). Pengguna dilarang keras mengakses atau mengirim event ke percakapan yang bukan haknya (mengembalikan `403 Forbidden` / error sistem).
@@ -1610,16 +1612,10 @@ wss://<backend-host>/ws?token=<JWT_TOKEN>&device_id=<DEVICE_ID>
 - **Query Params**:
   - `token` (*wajib*): JWT token otentikasi.
   - `device_id` (*opsional namun direkomendasikan*): UUID unik perangkat klien (`wuzz_device_id`). Dapat juga dikirim via header `X-Device-ID`.
-- **Single Active Device Gatekeeper**:
-  - Jika akun pengguna telah meregistrasikan perangkat aktif sah di database (`active_device_id`), koneksi yang mengirimkan `device_id` tidak cocok atau kosong akan **DITOLAK saat handshake HTTP** dengan status `HTTP 403 Forbidden`:
-    ```json
-    {
-      "error": "DEVICE_MISMATCH",
-      "code": "SESSION_REPLACED",
-      "message": "Akun Anda sedang aktif di perangkat lain."
-    }
-    ```
-  - Jika perangkat baru yang sah terhubung, sesi perangkat lama di Hub akan dikirimi event notifikasi `system` (`SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.`), diberikan jeda flush 250ms, lalu diputus secara tertib dengan WebSocket Close Control Frame **Code `4001`**. Klien wajib menghentikan auto-reconnect saat menerima Close Code `4001`.
+- **Multi-Device Gatekeeper & Kuota Sesi (Level 2)**:
+  - Backend memvalidasi integritas perangkat melalui tabel `devices`. Jika perangkat telah dinonaktifkan via remote logout (`is_active = false`), koneksi ditolak saat HTTP upgrade dengan status `HTTP 403 Forbidden` (`DEVICE_DEACTIVATED / DEVICE_KICKED`).
+  - Maksimal 2 perangkat aktif bersamaan per user (`DefaultMaxActiveDevicesPerUser = 2`). Jika perangkat ke-3 terhubung, perangkat tertua otomatis di-kick dengan Close Code **`4001: SESSION_REPLACED`**.
+  - Jika perangkat dikeluarkan dari jarak jauh (*remote logout* via `DELETE /api/auth/devices/:id`), koneksi soket perangkat tersebut ditutup seketika dengan Close Code **`4001: DEVICE_KICKED`**, memicu penghapusan private key lokal E2EE di browser perangkat target.
 - **Write Deadline**: 10 detik.
 - **Pong Wait**: 60 detik.
 - **Ping Period**: 54 detik (Server otomatis mengirim Ping frame secara periodik).
