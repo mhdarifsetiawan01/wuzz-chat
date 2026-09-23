@@ -57,7 +57,8 @@ Membangun platform chatting modern yang:
 >    - **Phase 5 (Multi-Device E2EE Continuity)**: **SELESAI ✅** (Master Key Sync via Secure QR Transfer + Active Device Lifecycle)
 > 2. 🏛️ **Transformasi Modular Monolith & DDD Engine (Track B)**: [`docs/MODULAR_MONOLITH_DDD.md`](MODULAR_MONOLITH_DDD.md)
 >    - **Fase 1 (GroupStore Decoupling)**: **SELESAI ✅ & DEPLOYED** (Pemisahan `SQLGroupStore` mandiri dari `SQLUserStore`)
->    - **Fase 2 (Auth/Identity Application Service)**: **TAHAP BERIKUTNYA 🎯** (Ekstraksi `AuthService` use cases, thin transport)
+>    - **Fase 2 (Auth/Identity Application Service)**: **SELESAI ✅ & DEPLOYED** (Ekstraksi `AuthService` use cases, thin transport, shared packages)
+>    - **Fase 3 (Messaging & Hub Decoupling)**: **TAHAP BERIKUTNYA 🎯** (Ekstraksi `MessageService`, decoupling WebSocket Hub)
 > 3. 🧠 **Group Memory AI Engine (Fase 10)**: [`docs/GROUP_MEMORY_AI_SPEC.md`](GROUP_MEMORY_AI_SPEC.md)
 >    - **Milestone M1–M7**: **SELESAI ✅** (SKIP LOCKED Job Queue, AI Service, Review UI, Knowledge Viewer, E2E Notifications)
 
@@ -427,11 +428,11 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
   - ✅ **Fase 1: Pemisahan GroupStore dari SQLUserStore (SELESAI & DEPLOYED ✅)**:
     - Ekstrak 22 method grup dari `SQLUserStore` ke struct mandiri `store.SQLGroupStore` (`backend/internal/store/sql_group_store.go`).
     - Inisialisasi mandiri di `main.go`. Seluruh test suite lulus 100% dan telah live di Fly.io.
-  - 🎯 **Fase 2: Application Service untuk Auth & Identity (FOKUS BERIKUTNYA 🎯)**:
+  - ✅ **Fase 2: Application Service untuk Auth & Identity (SELESAI & DEPLOYED ✅)**:
     - Membuat `AuthService` untuk use case login, register, device limits, dan session revocation.
     - Menjadikan `api/auth_handler.go` sebagai *thin transport* (hanya HTTP parsing & response formatting).
     - Memisahkan domain `Identity` (profil, E2EE key) dari domain `Auth` (kredensial, sesi, token).
-  - ⏳ **Fase 3: Application Service untuk Messaging & Hub Decoupling**:
+  - 🎯 **Fase 3: Application Service untuk Messaging & Hub Decoupling (FOKUS BERIKUTNYA 🎯)**:
     - Membuat `MessageService` untuk operasi pesan, reactions, receipts, dan pin.
     - Mengisolasi WebSocket Hub (`ws/hub.go`) dengan interface minimal `RoomAuthorizationChecker` (menghapus injeksi langsung `UserStore` DB).
   - ⏳ **Fase 4: Group & Forum Application Service**:
