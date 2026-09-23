@@ -350,6 +350,11 @@ func (s *SQLUserStore) UpdatePublicKeyWithDevice(userID, publicKey, deviceID str
 
 	// Jika sudah ada key terdaftar dan ada device terdaftar yang BERBEDA dari deviceID ini
 	if pubKey != "" && activeDev != "" && trimmedDev != "" && activeDev != trimmedDev {
+		// Multi-Device Phase 5: Jika kunci yang dikirim IDENTIK dengan kunci di server,
+		// perangkat ke-2 sudah mendapatkan kunci via QR Transfer → Izinkan tanpa menimpa active_device_id.
+		if strings.TrimSpace(pubKey) == trimmedKey {
+			return keyVer, nil
+		}
 		return keyVer, ErrKeyConflict
 	}
 

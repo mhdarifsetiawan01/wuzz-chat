@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
     "test:cache": "node test-message-cache.mjs",
-    "test:multi-device": "node test-multi-device-frontend.mjs"
+    "test:multi-device": "node test-multi-device-frontend.mjs",
+    "test:phase5": "node test-phase5-key-transfer.mjs"
   },
   "dependencies": {
     "html5-qrcode": "^2.3.8",

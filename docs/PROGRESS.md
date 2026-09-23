@@ -1971,4 +1971,36 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Frontend Cache Continuity Test (`npm run test:cache`)**: **PASS 100% (9/9 skenario)**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 error TypeScript/lint)**.
 
+---
+
+## 2026-09-23: Phase 5 — Multi-Device E2EE Continuity (Shared Master Key Pattern)
+
+### Problem Description
+1. Setelah Phase 2 mengizinkan 2 koneksi WebSocket paralel, login perangkat kedua (Laptop) tetap memicu `DeviceConflictModal` yang mengunci layar karena `UpdatePublicKeyWithDevice` di `user_store.go` menolak update kunci dengan HTTP 409 `ErrKeyConflict`.
+2. Handler `ConsumeSession` di `transfer_handler.go` secara otomatis memanggil `KickClientByUserID` dan `RevokeAllOtherSessions` yang menendang perangkat lama (HP) saat QR transfer berhasil.
+3. Alur transfer di frontend mengasumsikan pemindahan kunci 1 arah dengan melakukan logout perangkat lama.
+
+### Implementation Details
+1. **Backend Key-Matching Store (`backend/internal/store/user_store.go`)**:
+   - Menambahkan relaksasi key-matching pada `UpdatePublicKeyWithDevice`. Jika kunci publik yang dikirim oleh perangkat ke-2 identik dengan yang tersimpan di server (`strings.TrimSpace(pubKey) == trimmedKey`), kembalikan `(keyVer, nil)` (200 OK) tanpa menimpa `active_device_id`.
+2. **Transfer Handler Non-Destructive Continuity (`backend/internal/api/transfer_handler.go`)**:
+   - Menghapus pemanggilan `KickClientByUserID` dan `RevokeAllOtherSessions` saat transfer dikonsumsi. Kedua perangkat tetap aktif berdampingan.
+3. **Frontend Synchronized Flow (`frontend/app/chat/DeviceTransferModal.tsx`, `frontend/package.json`)**:
+   - Memperbarui teks pada modal transfer agar mencerminkan sinkronisasi multi-device.
+   - Menambahkan script verifikasi frontend `test:phase5` (`test-phase5-key-transfer.mjs`).
+4. **Automated Testing**:
+   - Backend unit tests (`backend/internal/store/user_store_multidevice_test.go`): Key-matching, reconnect, 409 conflict.
+   - Backend integration tests (`backend/internal/api/multidevice_e2ee_test.go`): HTTP 200 OK identik, expired 410, wrong user 403, replay 410, payload 400, unauthorized 401.
+   - Backend transfer test update (`backend/internal/api/transfer_handler_test.go`): Memastikan `kickCalled == false` dan sesi tetap aktif.
+   - Frontend tests: `npm run test:phase5` (3/3), `npm run test:multi-device` (4/4), `npm run test:cache` (9/9), dan `npm run build`.
+
+### Test Evidence
+- **Backend Unit & API Tests (`go test -v ./internal/store ./internal/api`)**: **PASS 100%**.
+- **Backend Full Test Suite (`go test ./...`)**: **PASS 100%**.
+- **Frontend Phase 5 Test (`npm run test:phase5`)**: **PASS 100% (3/3)**.
+- **Frontend Multi-Device Test (`npm run test:multi-device`)**: **PASS 100% (4/4)**.
+- **Frontend Cache Continuity Test (`npm run test:cache`)**: **PASS 100% (9/9)**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+
+
 

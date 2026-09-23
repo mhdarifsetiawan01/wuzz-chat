@@ -165,17 +165,9 @@ func (h *TransferHandler) ConsumeSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Single Device Enforcement: Segera tendang sesi WebSocket perangkat lama
-	if h.hub != nil {
-		h.hub.KickClientByUserID(claims.UserID, req.DeviceID, "SESSION_REPLACED: Kunci keamanan telah dipindahkan ke perangkat baru.")
-	}
-
-	// Revoke seluruh sesi login perangkat lain milik pengguna ini (Phase 1: Active Session Management)
-	if h.sessionStore != nil && claims.ID != "" {
-		if err := h.sessionStore.RevokeAllOtherSessions(claims.UserID, claims.ID); err != nil {
-			log.Printf("⚠️ Gagal mencabut sesi perangkat lain saat transfer kunci (user: %s): %v", claims.UserID, err)
-		}
-	}
+	// Multi-Device Phase 5: Setelah QR Transfer sukses, KEDUA perangkat tetap aktif berdampingan.
+	// Jika user ingin mengeluarkan perangkat lama, gunakan tab Perangkat di Profil.
+	log.Printf("[Transfer] User %s sync kunci E2EE ke device %s. Kedua perangkat tetap aktif.", claims.UserID, req.DeviceID)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
