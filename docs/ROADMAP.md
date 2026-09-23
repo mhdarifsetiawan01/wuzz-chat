@@ -298,9 +298,9 @@ Membangun platform chatting modern yang:
 - ✅ **Milestone 8.10: Backend Logout Endpoint & Consolidated Encrypted Messages Banner (SELESAI)**:
   - **Pelepasan Sesi Perangkat Aktif & Proteksi Device-Aware (`POST /api/auth/logout`)**: Endpoint logout resmi di backend Go yang mengosongkan kolom `users.active_device_id = ''` di database secara kondisional (*device-aware*), mencegah false conflict (HTTP 409) ketika pengguna berpindah ke perangkat baru setelah logout sah. Dilengkapi proteksi pembatalan konflik (*local-only cancellation*): jika perangkat baru/penantang menekan *"Batalkan & Keluar"* di modal konflik, frontend hanya melakukan `localLogout()` tanpa memanggil server sehingga sesi perangkat aktif utama tidak terhapus.
   - **Single Consolidated Banner for Encrypted Messages UX**: Menggantikan tumpukan puluhan bubble `🔒 [Pesan Terenkripsi]` dengan **1 buah banner sistem ringkas** di linimasa chat (`ChatWindow.tsx`) dan optimasi single-pass memoized loop $O(N)$ via `useMemo`.
-- 🔮 **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` via Redis Pub/Sub)**:
-  - *Tujuan*: Sinkronisasi pergantian sesi perangkat aktif lintas-mesin container Fly.io (multi-node cluster).
-  - *Mekanisme*: Saat pengguna login di Instance A dengan `device_id` baru, broadcast event `session_replaced` ke channel Redis `wuzz:cluster:events` agar Instance B yang menampung koneksi soket lama langsung menendang soket tersebut dengan Close Code 4001 (`SESSION_REPLACED`).
+- ✅ **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` & `DEVICE_KICKED` via Redis Pub/Sub) (SELESAI)**:
+  - *Tujuan*: Sinkronisasi pergantian sesi perangkat aktif dan remote logout lintas-mesin container Fly.io (multi-node cluster).
+  - *Mekanisme*: Saat pengguna login di Instance A dengan `device_id` baru atau mengeluarkan perangkat dari jarak jauh, event `session_kick` atau `device_kick` di-broadcast ke Redis channel `wuzz:cluster:events`. Instance B yang menampung koneksi soket lama langsung menendang koneksi tersebut dengan Close Code 4001 (`SESSION_REPLACED` / `DEVICE_KICKED`) tanpa duplicate loop (Anti-Echo Loop terisolasi). Dilindungi unit test suite `hub_cross_instance_kick_test.go` (100% PASS).
 
 ---
 

@@ -2152,3 +2152,35 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 ### Test Evidence
 - **Backend Full Test Suite (`go test ./...`)**: **PASS 100%**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+
+---
+
+## 2026-09-23: Multi-Node WebSocket Cluster Session Kick via Redis Pub/Sub (Post-Milestone 8)
+
+### Problem Description
+1. Pada konfigurasi multi-instance Fly.io (misal Instance A di Singapura dan Instance B di Tokyo), koneksi WebSocket klien terikat pada mesin fisik tempat socket di-upgrade.
+2. Jika pengguna login dari perangkat baru atau mereset kunci keamanan di Instance A, pemanggilan `KickClientByUserID` atau `KickClientByDeviceID` sebelumnya hanya menendang koneksi yang terhubung secara fisik di Instance A (`h.userClients[userID]`).
+3. Jika perangkat lama pengguna terhubung ke Instance B, koneksi tersebut tidak terputus dan tetap aktif, menyebabkan desinkronisasi sesi dan celah pergantian perangkat (*ghost active session*).
+
+### Implementation Details
+1. **ClusterEvent Struct Extension (`backend/internal/ws/hub.go`)**:
+   - Menambahkan field `EventType string` (`"session_kick"`, `"device_kick"`), `ExceptDeviceID string`, dan `KickReason string` dengan tag `omitempty` untuk kompatibilitas penuh dengan event cluster yang sudah ada.
+2. **Cluster Subscriber Dispatcher (`backend/internal/ws/hub.go`)**:
+   - Mengganti handler `SetBroker` dengan `switch event.EventType`:
+     - `"session_kick"`: Memanggil `h.kickClientByUserIDLocal(event.TargetUserID, event.ExceptDeviceID, event.KickReason)`.
+     - `"device_kick"`: Memanggil `h.kickClientByDeviceIDLocal(event.TargetUserID, event.SenderID, event.KickReason)`.
+     - `default`: Memproses broadcast room / direct message seperti sebelumnya.
+3. **Local Disconnect vs Cluster Broadcast Separation (`backend/internal/ws/hub.go`)**:
+   - Memisahkan eksekusi lokal ke `kickClientByUserIDLocal` dan `kickClientByDeviceIDLocal`.
+   - `KickClientByUserID` dan `KickClientByDeviceID` mengeksekusi penutupan soket lokal dan mem-publish `ClusterEvent` ke Redis channel `wuzz:cluster:events`.
+   - Pemisahan ini mencegah *re-publishing loop* antar node cluster sekaligus memastikan node pengirim tetap mem-broadcast event ke Redis walaupun target tidak memiliki koneksi lokal di node tersebut.
+4. **Unit Test Suite Komprehensif (`backend/internal/ws/hub_cross_instance_kick_test.go`)**:
+   - `TestHub_CrossInstanceSessionKick`: Menguji 2 Hub (Node A dan Node B) dengan broker bersama. Node A memanggil `KickClientByUserID`, memastikan perangkat di Node B terputus dan perangkat pengecualian di Node A tetap aman.
+   - `TestHub_CrossInstanceDeviceKick`: Node A dengan 0 koneksi lokal untuk user berhasil menendang perangkat spesifik di Node B via Redis Pub/Sub.
+   - `TestHub_AntiEchoLoop_SessionKick`: Memastikan node pemanggil tidak menerima duplikasi kick akibat echo loop dari Redis.
+
+### Test Evidence
+- **Cross-Instance Kick Tests (`go test -v -run "TestHub_Cross|TestHub_AntiEchoLoop" ./internal/ws/...`)**: **PASS 100% (3/3 tests)**.
+- **Backend Full Test Suite (`go test ./...`)**: **PASS 100% (Semua paket internal)**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+

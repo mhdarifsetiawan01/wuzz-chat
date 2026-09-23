@@ -1662,6 +1662,7 @@ wss://<backend-host>/ws?token=<JWT_TOKEN>&device_id=<DEVICE_ID>
   - Backend memvalidasi integritas perangkat melalui tabel `devices`. Jika perangkat telah dinonaktifkan via remote logout (`is_active = false`), koneksi ditolak saat HTTP upgrade dengan status `HTTP 403 Forbidden` (`DEVICE_DEACTIVATED / DEVICE_KICKED`).
   - Maksimal 2 perangkat aktif bersamaan per user (`DefaultMaxActiveDevicesPerUser = 2`). Jika perangkat ke-3 terhubung, perangkat tertua otomatis di-kick dengan Close Code **`4001: SESSION_REPLACED`**.
   - Jika perangkat dikeluarkan dari jarak jauh (*remote logout* via `DELETE /api/auth/devices/:id`), koneksi soket perangkat tersebut ditutup seketika dengan Close Code **`4001: DEVICE_KICKED`**, memicu penghapusan private key lokal E2EE di browser perangkat target.
+  - **Sinkronisasi Multi-Node Cluster**: Pada arsitektur multi-instance (Fly.io), sinyal kick (`session_kick` dan `device_kick`) di-broadcast secara real-time ke seluruh instance via Redis Pub/Sub channel `wuzz:cluster:events`. Hal ini menjamin soket tertutup seketika dengan Close Code 4001 meskipun perangkat target terhubung ke instance backend fisik yang berbeda.
 - **Write Deadline**: 10 detik.
 - **Pong Wait**: 60 detik.
 - **Ping Period**: 54 detik (Server otomatis mengirim Ping frame secara periodik).
