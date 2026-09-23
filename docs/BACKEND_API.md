@@ -150,12 +150,36 @@ Masuk dengan kredensial akun yang sudah ada.
   ```json
   {
     "username": "budi123",
-    "password": "passwordAman123"
+    "password": "passwordAman123",
+    "device_id": "dev_web_12345",
+    "confirm_override": false,
+    "kick_device_id": "dev_old_67890"
   }
   ```
+  * `device_id` (string, opsional): ID perangkat klien unik (`dev_<uuid>`).
+  * `confirm_override` (boolean, opsional): Jika `true`, mengeluarkan perangkat lama saat kuota maksimal 2 perangkat tercapai.
+  * `kick_device_id` (string, opsional): ID perangkat spesifik yang dipilih untuk dikeluarkan (default: perangkat paling lama aktif / FIFO).
 - **Success Response (200 OK)**:
-  Format sama dengan respons registrasi.
-- **Error Codes**: `400 Bad Request`, `401 Unauthorized` (Username/password salah), `429 Too Many Requests`.
+  Format sama dengan respons registrasi (`token`, `user`).
+- **Conflict Response (409 Conflict — DEVICE_LIMIT_REACHED)**:
+  Dikembalikan jika akun sudah aktif di 2 perangkat lain dan perangkat saat ini adalah perangkat baru (`confirm_override: false`).
+  ```json
+  {
+    "error": "DEVICE_LIMIT_REACHED",
+    "code": "DEVICE_LIMIT_REACHED",
+    "message": "Akun Anda saat ini sudah aktif di 2 perangkat lain.",
+    "max_devices": 2,
+    "active_devices": [
+      {
+        "id": "dev_laptop",
+        "name": "Chrome on Windows",
+        "platform": "web",
+        "last_seen_at": "2026-09-23T10:00:00Z"
+      }
+    ]
+  }
+  ```
+- **Error Codes**: `400 Bad Request`, `401 Unauthorized` (Username/password salah), `409 Conflict` (Batas kuota perangkat), `429 Too Many Requests`.
 
 ---
 

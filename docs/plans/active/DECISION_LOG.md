@@ -1,3 +1,3 @@
 # Decision Log — Standby
 
-No active decisions pending.
+- **Status**: Standby

@@ -26,6 +26,7 @@ type SessionStore interface {
 	GetActiveSessions(userID, currentSessionID string) ([]Session, error)
 	RevokeSession(sessionID, userID string) error
 	RevokeAllOtherSessions(userID, exceptSessionID string) error
+	RevokeDeviceSessions(deviceID, userID string) error
 	IsSessionRevoked(sessionID string) (bool, error)
 	TouchSession(sessionID string) error
 	CleanupExpiredSessions() (int64, error)
@@ -180,6 +181,26 @@ func (s *SQLSessionStore) RevokeAllOtherSessions(userID, exceptSessionID string)
 	_, err := s.db.Exec(query, userID, exceptSessionID)
 	if err != nil {
 		return fmt.Errorf("gagal mencabut sesi lain untuk user %s: %w", userID, err)
+	}
+	return nil
+}
+
+// RevokeDeviceSessions mencabut semua sesi aktif yang terikat pada deviceID tertentu milik user.
+func (s *SQLSessionStore) RevokeDeviceSessions(deviceID, userID string) error {
+	if deviceID == "" || userID == "" {
+		return nil
+	}
+
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE sessions SET is_revoked = TRUE WHERE device_id = $1 AND user_id = $2 AND is_revoked = FALSE`
+	} else {
+		query = `UPDATE sessions SET is_revoked = 1 WHERE device_id = ? AND user_id = ? AND is_revoked = 0`
+	}
+
+	_, err := s.db.Exec(query, deviceID, userID)
+	if err != nil {
+		return fmt.Errorf("gagal mencabut sesi device %s untuk user %s: %w", deviceID, userID, err)
 	}
 	return nil
 }

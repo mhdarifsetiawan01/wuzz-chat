@@ -171,10 +171,10 @@ User
 │   └── Remote Device Revoke         ❌ Belum ada
 │
 └── Session                          ⚠️ In-Memory / Blacklist Token Only
-    ├── Session Table                ❌ Belum ada tabel sessions (Target Phase 1)
+    ├── Session Table                ✅ Ada — sessions table (Phase 1)
     ├── Refresh Token                ❌ Belum ada (JWT fixed 7 hari)
-    ├── Session Expiry & Revoke      ✅ Ada via JTI Revocation
-    └── Concurrent Session Limit     ❌ Belum ada
+    ├── Session Expiry & Revoke      ✅ Ada via JTI Revocation & Remote Logout
+    └── Concurrent Session Limit     ✅ Ada (Batas 2 Device HTTP 409 + Hub FIFO Eviction)
 ```
 
 ---
