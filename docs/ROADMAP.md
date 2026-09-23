@@ -436,11 +436,12 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
     - Membuat domain `internal/messaging/` (`entity.go`, `repository.go`, `infra/sql_repository.go`) dengan Strangler Fig Pattern.
     - Membuat `MessageService` untuk use cases pesan (edit, delete, forward, pin, unpin, update receipt, search, direct chat, clear conversation).
     - Mengisolasi WebSocket Hub (`ws/hub.go` dan `ws/client.go`) dengan interface minimal `RoomAuthorizationChecker` (menghapus injeksi langsung `store.UserStore` DB).
-    - Menjadikan `api/chat_handler.go` sebagai *thin transport* dan menghubungkan `main.go`. Seluruh test suite lulus 100%.
-  - 🎯 **Fase 4: Group & Forum Application Service (FOKUS BERIKUTNYA 🎯)**:
-    - Membuat `GroupService` dan `ForumService` terpadu, memindahkan `SubGroupTTLWorker` ke domain worker grup.
-  - ⏳ **Fase 5: Memory Engine Generalization (`ContextSource` Abstraction)**:
+  - ✅ **Fase 4: Group & Forum Application Service (SELESAI ✅)**:
+    - Membuat domain `internal/group/` (`entity.go`, `repository.go`, `infra/sql_repository.go`), `GroupService` & `ForumService` terpadu, memindahkan `SubGroupTTLWorker` ke domain worker grup (`group/worker/ttl_worker.go`).
+    - Menjadikan `api/group_handler.go` sebagai *thin transport*, lulus seluruh test suite 100%, serta terverifikasi via client frontend simulation (`test-group-simulation.mjs`).
+  - 🎯 **Fase 5: Memory Engine Generalization (`ContextSource` Abstraction) (FOKUS BERIKUTNYA 🎯)**:
     - Mengabstraksikan sumber memori AI via interface `ContextSource` (mendukung Forum, Group, dan Direct Chat Memory).
+
   - ⏳ **Fase 6: Cleanup & Slim Entrypoint**:
     - Menyederhanakan `main.go` menjadi file bootstrap tipis dan memindahkan wiring dependensi ke `cmd/server/wire.go`.
 
