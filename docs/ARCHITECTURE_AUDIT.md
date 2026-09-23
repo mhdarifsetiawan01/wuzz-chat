@@ -1,7 +1,7 @@
 # 🔍 WuzzChat — Architecture Audit & Identity Evolution Roadmap
 **Fokus:** Identity · Authentication · Device Management · Session Management · Multi-Device & Passkey Readiness  
 **Tanggal:** 21–22 September 2026  
-**Status:** **Phase 0 & Phase 1 SELESAI ✅** | Phase 2 s/d Phase 5 Actionable Strategic Roadmap  
+**Status:** **Phase 0, Phase 1, Phase 2, & Phase 5 SELESAI ✅** | Roadmap Identitas & Multi-Device WuzzChat  
 
 ---
 
@@ -335,7 +335,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 
 ---
 
-#### 🔧 Phase 2 — Device Registry (STATUS: SIAP DIEKSEKUSI)
+#### 🔧 Phase 2 — Device Registry (STATUS: SELESAI ✅)
 
 > **Tujuan:** Memisahkan metadata dan state perangkat dari tabel `users` ke tabel khusus `devices`, meletakkan fondasi multi-device.
 
@@ -427,7 +427,7 @@ CREATE INDEX IF NOT EXISTS idx_passkeys_user ON passkey_credentials(user_id);
 
 ---
 
-#### 🔄 Phase 5 — Multi-Device E2EE Continuity (STATUS: SIAP DIEKSEKUSI SETELAH PHASE 2)
+#### 🔄 Phase 5 — Multi-Device E2EE Continuity (STATUS: SELESAI ✅)
 
 > **Tujuan:** Mengizinkan beberapa perangkat fisik (Laptop & HP) milik pengguna yang sama dapat membaca obrolan E2EE secara serentak.
 
@@ -465,12 +465,12 @@ Saat ini, jika pengguna lupa password, akun tidak dapat dipulihkan. Rencana pemu
 | 🔴 **P0** | `/api/auth/change-password` | POST | Ganti password & revoke token lama | **SELESAI ✅** |
 | 🔴 **P0** | `/api/auth/verify-password` | POST | Re-autentikasi password sebelum aksi kritis | **SELESAI ✅** |
 | 🔴 **P0** | `/api/users/public-key/reset` | POST | Reset kunci E2EE dengan proteksi password | **SELESAI ✅** |
-| 🟠 **P1** | `/api/auth/sessions` | GET | List daftar sesi aktif pengguna | Siap dieksekusi |
-| 🟠 **P1** | `/api/auth/sessions/:id` | DELETE | Cabut sesi perangkat tertentu secara remote | Siap dieksekusi |
+| 🟠 **P1** | `/api/auth/sessions` | GET | List daftar sesi aktif pengguna | **SELESAI ✅** |
+| 🟠 **P1** | `/api/auth/sessions/:id` | DELETE | Cabut sesi perangkat tertentu secara remote | **SELESAI ✅** |
 | 🟠 **P1** | `/api/auth/forgot-password` | POST | Minta token reset password via email | Siap dieksekusi |
 | 🟠 **P1** | `/api/auth/reset-password` | POST | Reset password menggunakan token recovery | Siap dieksekusi |
-| 🟡 **P2** | `/api/auth/devices` | GET | List perangkat terdaftar milik pengguna | Siap dieksekusi |
-| 🟡 **P2** | `/api/auth/devices/:id` | DELETE | Hapus perangkat & putus koneksi WebSocket | Siap dieksekusi |
+| 🟡 **P2** | `/api/auth/devices` | GET | List perangkat terdaftar milik pengguna | **SELESAI ✅** |
+| 🟡 **P2** | `/api/auth/devices/:id` | DELETE | Hapus perangkat & putus koneksi WebSocket | **SELESAI ✅** |
 | 🟡 **P3** | `/api/auth/passkeys/register/start` | POST | Mulai pendaftaran Passkey WebAuthn | Siap dieksekusi |
 | 🟡 **P3** | `/api/auth/passkeys/register/finish` | POST | Selesaikan pendaftaran Passkey WebAuthn | Siap dieksekusi |
 | 🟡 **P3** | `/api/auth/passkeys/login/start` | POST | Mulai autentikasi login Passkey | Siap dieksekusi |
@@ -487,7 +487,7 @@ Saat ini, jika pengguna lupa password, akun tidak dapat dipulihkan. Rencana pemu
 [Phase 1: Session Foundation] ──► [SELESAI ✅] (Sessions Table, Active Inventory & Remote Logout)
         │
         ▼
-[Phase 2: Device Registry] ─────► [TERDOKUMENTASI & SIAP DIEKSEKUSI] (Devices Table & Multi-Device)
+[Phase 2: Device Registry] ─────► [SELESAI ✅] (Devices Table, Multi-Device WS Hub, FIFO Eviction)
         │
         ▼
 [Phase 3: Credential Split] ────► [TERDOKUMENTASI & SIAP DIEKSEKUSI] (Multi-Credential Table)
@@ -496,5 +496,6 @@ Saat ini, jika pengguna lupa password, akun tidak dapat dipulihkan. Rencana pemu
 [Phase 4: Passkey / WebAuthn] ──► [TERDOKUMENTASI & SIAP DIEKSEKUSI] (FIDO2 Biometric Login)
         │
         ▼
-[Phase 5: Multi-Device E2EE] ───► [TERDOKUMENTASI & SIAP DIEKSEKUSI] (Per-Device Cryptography)
+[Phase 5: Multi-Device E2EE] ───► [SELESAI ✅] (Shared Master Key Pattern via QR Sync & Key-Matching)
+                                  [Phase 5B Roadmap]: Per-Device Signal Fanout Architecture
 ```
