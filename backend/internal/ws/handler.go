@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/store"
@@ -88,34 +89,57 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		deviceID = strings.TrimSpace(r.Header.Get("X-Device-ID"))
 	}
 
-	var hasDeviceStoreMatch bool
 	if h.deviceStore != nil {
-		devs, err := h.deviceStore.GetUserDevices(claims.UserID)
-		if err == nil && len(devs) > 0 {
-			hasDeviceStoreMatch = true
-			var foundDev *store.Device
-			for _, d := range devs {
-				if d.ID == deviceID {
-					foundDev = &d
-					break
+		if deviceID != "" {
+			// Periksa status perangkat di database
+			targetDev, err := h.deviceStore.GetDeviceByID(deviceID)
+			if err == nil && targetDev != nil {
+				if !targetDev.IsActive {
+					log.Printf("[Handler] Tolak koneksi WebSocket user %s: device '%s' telah dinonaktifkan", claims.UserID, deviceID)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusForbidden)
+					_ = json.NewEncoder(w).Encode(map[string]string{
+						"error":   "DEVICE_DEACTIVATED",
+						"code":    "DEVICE_KICKED",
+						"message": "Perangkat ini telah dikeluarkan dari akun Anda.",
+					})
+					return
+				}
+			} else if targetDev == nil {
+				// Perangkat belum terdaftar di tabel devices (misal sesi lama sebelum migrasi)
+				// Daftarkan sebagai perangkat aktif secara otomatis
+				newDev := &store.Device{
+					ID:        deviceID,
+					UserID:    claims.UserID,
+					Name:      parseDeviceName(r.UserAgent()),
+					Platform:  "web",
+					UserAgent: r.UserAgent(),
+					IPAddress: getClientIP(r),
+					IsActive:  true,
+					CreatedAt: time.Now().UTC(),
+				}
+				if err := h.deviceStore.RegisterOrUpdateDevice(newDev); err != nil {
+					log.Printf("[Handler] Auto-register device baru saat WS handshake gagal (user: %s, device: %s): %v", claims.UserID, deviceID, err)
 				}
 			}
-			if foundDev != nil && !foundDev.IsActive {
-				log.Printf("[Handler] Tolak koneksi WebSocket user %s: device '%s' telah dinonaktifkan", claims.UserID, deviceID)
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusForbidden)
-				_ = json.NewEncoder(w).Encode(map[string]string{
-					"error":   "DEVICE_DEACTIVATED",
-					"code":    "DEVICE_KICKED",
-					"message": "Perangkat ini telah dikeluarkan dari akun Anda.",
-				})
-				return
+
+			// Sinkronkan active_device_id di userStore jika kosong atau menunjuk ke perangkat yang sudah dinonaktifkan
+			if h.userStore != nil {
+				_, _, activeDev, err := h.userStore.GetE2EEInfo(claims.UserID)
+				if err == nil {
+					if activeDev == "" {
+						_ = h.userStore.SetActiveDevice(claims.UserID, deviceID)
+					} else if activeDev != deviceID {
+						actDevObj, _ := h.deviceStore.GetDeviceByID(activeDev)
+						if actDevObj == nil || !actDevObj.IsActive {
+							_ = h.userStore.SetActiveDevice(claims.UserID, deviceID)
+						}
+					}
+				}
 			}
 		}
-	}
-
-	// Fallback ke active_device_id single device jika deviceStore belum memiliki daftar devices untuk user ini
-	if !hasDeviceStoreMatch && h.userStore != nil {
+	} else if h.userStore != nil {
+		// Fallback ke active_device_id single device HANYA jika deviceStore tidak digunakan sama sekali
 		_, _, activeDev, err := h.userStore.GetE2EEInfo(claims.UserID)
 		if err == nil && activeDev != "" {
 			if deviceID != activeDev || deviceID == "" {
@@ -177,5 +201,50 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// readPump berjalan di goroutine ini (blocking sampai koneksi putus)
 	client.ReadPump()
+}
+
+func getClientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[0])
+	}
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return strings.TrimSpace(xri)
+	}
+	return r.RemoteAddr
+}
+
+func parseDeviceName(ua string) string {
+	if ua == "" {
+		return "Web Client"
+	}
+	uaLower := strings.ToLower(ua)
+	os := "Web"
+	switch {
+	case strings.Contains(uaLower, "android"):
+		os = "Android"
+	case strings.Contains(uaLower, "iphone") || strings.Contains(uaLower, "ipad"):
+		os = "iOS"
+	case strings.Contains(uaLower, "windows"):
+		os = "Windows"
+	case strings.Contains(uaLower, "macintosh") || strings.Contains(uaLower, "mac os"):
+		os = "macOS"
+	case strings.Contains(uaLower, "linux"):
+		os = "Linux"
+	}
+
+	browser := "Browser"
+	switch {
+	case strings.Contains(uaLower, "edg/"):
+		browser = "Edge"
+	case strings.Contains(uaLower, "chrome/") || strings.Contains(uaLower, "crios/"):
+		browser = "Chrome"
+	case strings.Contains(uaLower, "firefox/") || strings.Contains(uaLower, "fxios/"):
+		browser = "Firefox"
+	case strings.Contains(uaLower, "safari/") && !strings.Contains(uaLower, "chrome"):
+		browser = "Safari"
+	}
+
+	return fmt.Sprintf("%s on %s", browser, os)
 }
 

@@ -42,6 +42,9 @@ func (m *mockUserStoreForPush) ForceResetPublicKey(userID, publicKey, deviceID s
 func (m *mockUserStoreForPush) ClearActiveDevice(userID string, deviceID ...string) error {
 	return nil
 }
+func (m *mockUserStoreForPush) SetActiveDevice(userID, deviceID string) error {
+	return nil
+}
 func (m *mockUserStoreForPush) GetE2EEInfo(userID string) (string, int, string, error) {
 	return "", 1, "", nil
 }

@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -43,6 +44,9 @@ type DeviceStore interface {
 	// TouchDevice memperbarui last_seen_at ke waktu sekarang.
 	// Dipanggil saat WebSocket berhasil terhubung.
 	TouchDevice(deviceID string) error
+
+	// GetDeviceByID mengambil detail sebuah perangkat berdasarkan ID (aktif maupun nonaktif).
+	GetDeviceByID(deviceID string) (*Device, error)
 }
 
 // ─────────────────────────────────────────────
@@ -200,3 +204,32 @@ func (s *SQLDeviceStore) TouchDevice(deviceID string) error {
 	}
 	return nil
 }
+
+// GetDeviceByID mengambil detail sebuah perangkat berdasarkan ID (aktif maupun nonaktif).
+func (s *SQLDeviceStore) GetDeviceByID(deviceID string) (*Device, error) {
+	var query string
+	if s.isPostgres() {
+		query = `SELECT id, user_id, name, platform, ip_address, is_active, last_seen_at, created_at
+			FROM devices WHERE id=$1`
+	} else {
+		query = `SELECT id, user_id, name, platform, ip_address, is_active, last_seen_at, created_at
+			FROM devices WHERE id=?`
+	}
+
+	var d Device
+	var lastSeen sql.NullTime
+	err := s.db.QueryRow(query, deviceID).Scan(
+		&d.ID, &d.UserID, &d.Name, &d.Platform, &d.IPAddress, &d.IsActive, &lastSeen, &d.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // not found
+		}
+		return nil, fmt.Errorf("GetDeviceByID: %w", err)
+	}
+	if lastSeen.Valid {
+		d.LastSeenAt = &lastSeen.Time
+	}
+	return &d, nil
+}
+

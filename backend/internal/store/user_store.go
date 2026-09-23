@@ -85,6 +85,7 @@ type UserStore interface {
 	UpdatePublicKeyWithDevice(userID, publicKey, deviceID string) (int, error)
 	ForceResetPublicKey(userID, publicKey, deviceID string) (int, error)
 	ClearActiveDevice(userID string, deviceID ...string) error
+	SetActiveDevice(userID, deviceID string) error
 	GetE2EEInfo(userID string) (publicKey string, keyVersion int, activeDeviceID string, err error)
 	SearchUsers(query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
@@ -495,6 +496,21 @@ func (s *SQLUserStore) ClearActiveDevice(userID string, deviceID ...string) erro
 
 	if err != nil {
 		return fmt.Errorf("gagal mengosongkan active_device_id: %w", err)
+	}
+	return nil
+}
+
+// SetActiveDevice memperbarui active_device_id milik user ke perangkat tertentu.
+func (s *SQLUserStore) SetActiveDevice(userID, deviceID string) error {
+	var query string
+	if s.driverName == "postgres" {
+		query = `UPDATE users SET active_device_id = $1 WHERE id = $2`
+	} else {
+		query = `UPDATE users SET active_device_id = ? WHERE id = ?`
+	}
+	_, err := s.db.Exec(query, deviceID, userID)
+	if err != nil {
+		return fmt.Errorf("SetActiveDevice: %w", err)
 	}
 	return nil
 }
