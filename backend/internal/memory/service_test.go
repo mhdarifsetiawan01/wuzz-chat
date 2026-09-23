@@ -431,6 +431,24 @@ func TestMemoryService_DraftLifecycle(t *testing.T) {
 		if !errors.Is(errReapprove, ErrDraftAlreadyReviewed) {
 			t.Errorf("expected ErrDraftAlreadyReviewed on duplicate approve, got %v", errReapprove)
 		}
+
+		// ListDrafts dengan default status (antrean pending) harus 0 karena draft sudah APPROVED
+		pendingItems, errPending := svc.ListDrafts(ctx, groupID, "", adminID)
+		if errPending != nil {
+			t.Fatalf("ListDrafts pending check failed: %v", errPending)
+		}
+		if len(pendingItems) != 0 {
+			t.Errorf("expected 0 pending drafts after approval, got %d", len(pendingItems))
+		}
+
+		// ListDrafts dengan status 'all' harus mengembalikan 1 draft
+		allItems, errAll := svc.ListDrafts(ctx, groupID, "all", adminID)
+		if errAll != nil {
+			t.Fatalf("ListDrafts all check failed: %v", errAll)
+		}
+		if len(allItems) != 1 {
+			t.Errorf("expected 1 draft with status=all, got %d", len(allItems))
+		}
 	})
 
 	// 6. Test GetGroupMemories (Member Viewer)

@@ -117,7 +117,8 @@ export default function SubGroupListDrawer({
       fetchMemoryDrafts(parentGroupId)
         .then((res) => {
           if (res.data) {
-            setMemoryDrafts(res.data)
+            const pendingOnly = res.data.filter((d) => d.status === 'DRAFT')
+            setMemoryDrafts(pendingOnly)
           }
         })
         .catch(() => {})

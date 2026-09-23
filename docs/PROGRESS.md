@@ -2319,3 +2319,29 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Backend Full Test Suite (`go test ./...`)**: **PASS 100% (seluruh paket internal backend)**.
 - **Real Frontend Client Simulation (`frontend/test-memory-simulation.mjs`)**: **PASS 100% (14 langkah end-to-end lifecycle penuh: expire forum, worker AI draft generation, draft detail, patch artifact, approve draft, read memory archive & detail, RBAC/BOLA validation)**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors, 8/8 routes prerendered)**.
+
+---
+
+## 2026-09-24: Bug Fix — AI Memory Draft Curation Queue & Drawer Notification Desync
+
+### Problem Description
+1. Pada `SubGroupListDrawer`, banner "Draft Memori AI Siap Direview" menampilkan jumlah draf yang tidak nol (misal 3) padahal seluruh draf forum telah disetujui sebelumnya dan sudah muncul di tab Arsip Memori.
+2. Ketika admin membuka antrean tersebut dan mengklik "Setujui & Publikasikan", muncul error `HTTP 409 Conflict: "Draft telah disetujui atau ditolak sebelumnya"`.
+3. **Penyebab Akar**: Endpoint backend `GET /api/memory/drafts?group_id={id}` (`MemoryService.ListDrafts`) sebelumnya tidak menerapkan default filter status saat query parameter `status` kosong, sehingga mengambil seluruh draf di database (termasuk `APPROVED` dan `REJECTED`). Modal review di frontend juga tidak menangani kondisi status draf non-`DRAFT` secara anggun.
+
+### Implementation Details
+1. **Backend Default Status Filter (`backend/internal/memory/service.go`)**:
+   - `filterStatus` diinisialisasi default ke `DraftStatusDraft` ("`DRAFT`") jika `status == ""`. Klien dapat meneruskan `status=all` untuk mematikan filter jika memerlukan riwayat penuh.
+2. **Backend Unit Test (`backend/internal/memory/service_test.go`)**:
+   - Menambahkan assertion lifecycle: setelah draf diapprove, `ListDrafts(groupID, "")` harus mengembalikan `0` pending draf, dan `ListDrafts(groupID, "all")` mengembalikan `1` draf.
+3. **Frontend Drawer Sanitasi (`frontend/app/chat/SubGroupListDrawer.tsx`)**:
+   - Menerapkan defense-in-depth: `res.data.filter((d) => d.status === 'DRAFT')` sebelum dimasukkan ke state `memoryDrafts`.
+4. **Frontend Modal Fallback (`frontend/app/chat/memory/MemoryDraftReviewModal.tsx`)**:
+   - Menampilkan badge status di header ("Sudah Disetujui" / "Ditolak").
+   - Menampilkan banner alert di body yang ramah pengguna jika draf telah divalidasi.
+   - Mengganti tombol aksi footer menjadi hanya tombol "Tutup" jika status draf bukan `DRAFT` (mencegah double-approval & HTTP 409).
+
+### Test Evidence
+- **Memory Unit Tests (`go test -v ./internal/memory/...`)**: **PASS 100%**.
+- **Backend Full Suite (`go test ./...`)**: **PASS 100%**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors, 8/8 routes prerendered)**.

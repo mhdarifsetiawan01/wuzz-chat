@@ -166,7 +166,16 @@ func (s *MemoryService) ListDrafts(ctx context.Context, groupID, status, current
 		return nil, ErrUnauthorizedAccess
 	}
 
-	drafts, err := s.repo.GetDraftsByParentID(ctx, groupID, status)
+	// Default: jika status kosong, hanya ambil draft yang berstatus DRAFT (antrean pending review).
+	// Jika status == "all" (case-insensitive), kosongkan status agar repo mengambil seluruh status.
+	filterStatus := status
+	if filterStatus == "" {
+		filterStatus = DraftStatusDraft
+	} else if strings.EqualFold(filterStatus, "all") {
+		filterStatus = ""
+	}
+
+	drafts, err := s.repo.GetDraftsByParentID(ctx, groupID, filterStatus)
 	if err != nil {
 		return nil, fmt.Errorf("gagal mengambil daftar draft: %w", err)
 	}
