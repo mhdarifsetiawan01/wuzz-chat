@@ -1,3 +1,4 @@
 # Implementation Progress — Standby
 
-- **Status**: Standby / Completed.
+- **Status**: Standby
+- Seluruh milestone telah selesai dan diarsipkan.

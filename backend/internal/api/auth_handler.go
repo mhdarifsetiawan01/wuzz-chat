@@ -49,9 +49,11 @@ type RegisterRequest struct {
 }
 
 type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	DeviceID string `json:"device_id"`
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	DeviceID        string `json:"device_id"`
+	ConfirmOverride bool   `json:"confirm_override,omitempty"`
+	KickDeviceID    string `json:"kick_device_id,omitempty"`
 }
 
 type AuthResponse struct {
@@ -234,6 +236,65 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, `{"error":"Username atau password salah"}`, http.StatusUnauthorized)
 		return
+	}
+
+	// Validasi kuota perangkat aktif (Maksimal 2 perangkat bersamaan)
+	reqDeviceID := strings.TrimSpace(req.DeviceID)
+	const maxActiveDevices = 2
+
+	if h.deviceStore != nil && reqDeviceID != "" {
+		activeDevices, err := h.deviceStore.GetUserDevices(user.ID)
+		if err == nil {
+			var isExistingDevice bool
+			for _, d := range activeDevices {
+				if d.ID == reqDeviceID {
+					isExistingDevice = true
+					break
+				}
+			}
+
+			// Jika perangkat ini baru dan kuota perangkat aktif sudah mencapai/melebihi batas (2 perangkat)
+			if !isExistingDevice && len(activeDevices) >= maxActiveDevices {
+				if !req.ConfirmOverride {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusConflict)
+					_ = json.NewEncoder(w).Encode(map[string]interface{}{
+						"error":          "DEVICE_LIMIT_REACHED",
+						"code":           "DEVICE_LIMIT_REACHED",
+						"message":        "Akun Anda saat ini sudah aktif di 2 perangkat lain.",
+						"max_devices":    maxActiveDevices,
+						"active_devices": activeDevices,
+					})
+					return
+				}
+
+				// Jika ConfirmOverride == true: nonaktifkan perangkat yang dipilih atau perangkat tertua
+				var kickDeviceID string
+				if strings.TrimSpace(req.KickDeviceID) != "" {
+					targetKick := strings.TrimSpace(req.KickDeviceID)
+					for _, d := range activeDevices {
+						if d.ID == targetKick {
+							kickDeviceID = d.ID
+							break
+						}
+					}
+				}
+				// Fallback jika KickDeviceID kosong atau tidak cocok: pilih perangkat paling lama aktif (elemen terakhir pada query ORDER BY DESC)
+				if kickDeviceID == "" && len(activeDevices) > 0 {
+					kickDeviceID = activeDevices[len(activeDevices)-1].ID
+				}
+
+				if kickDeviceID != "" {
+					_ = h.deviceStore.DeactivateDevice(kickDeviceID, user.ID)
+					if h.sessionStore != nil {
+						_ = h.sessionStore.RevokeDeviceSessions(kickDeviceID, user.ID)
+					}
+					if h.hub != nil {
+						h.hub.KickClientByDeviceID(user.ID, kickDeviceID, "SESSION_REPLACED: Akun Anda dibuka dari perangkat baru.")
+					}
+				}
+			}
+		}
 	}
 
 	token, claims, err := auth.GenerateTokenDetailed(user.ID, user.Username, user.DisplayName)

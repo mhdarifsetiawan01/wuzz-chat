@@ -2038,6 +2038,35 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Backend API Package Tests (`go test ./internal/api/...`)**: **PASS 100%**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
 
+---
 
+## 2026-09-23: Login Device Limit Guard & Interactive Device Eviction Modal
 
+### Problem Description
+1. Pengguna dapat login di perangkat ke-3 tanpa ada peringatan awal di form login, namun saat masuk ke `/chat`, perangkat ke-3 tidak dapat beroperasi secara normal akibat terbentur proteksi kunci E2EE (`KEY_ALREADY_REGISTERED` / `DeviceConflictModal`) dan batas koneksi WebSocket Hub (`DefaultMaxActiveDevicesPerUser = 2`).
+2. Ketiadaan validasi dini di endpoint `POST /api/auth/login` menimbulkan ambiguitas bagi pengguna.
 
+### Implementation Details
+1. **Backend Device Limit Gate (`backend/internal/api/auth_handler.go`)**:
+   - Memperluas `LoginRequest` dengan parameter `confirm_override` (bool) dan `kick_device_id` (string).
+   - Menambahkan pengecekan kuota perangkat aktif (`GetUserDevices`).
+   - Jika kuota 2 perangkat terpenuhi dan perangkat yang mencoba login adalah perangkat baru ke-3:
+     - Jika `confirm_override == false`: Mengembalikan HTTP 409 Conflict dengan kode `DEVICE_LIMIT_REACHED` dan payload daftar perangkat aktif (`active_devices`).
+     - Jika `confirm_override == true`: Menonaktifkan perangkat yang dipilih (`DeactivateDevice`), mencabut sesi perangkat terkait (`RevokeDeviceSessions`), dan memutuskan koneksi WebSocket secara real-time (`KickClientByDeviceID`).
+2. **Session Store Device Revocation (`backend/internal/store/session_store.go`)**:
+   - Menambahkan method `RevokeDeviceSessions(deviceID, userID string) error` untuk mencabut seluruh sesi JWT yang terikat pada perangkat yang dikeluarkan.
+3. **Backend Unit Testing (`backend/internal/api/auth_handler_device_limit_test.go`)**:
+   - Menambahkan skenario test komprehensif: registrasi, login device ke-2, re-login device ke-1 (tanpa error), penolakan device ke-3 (409 Conflict), dan pergantian perangkat berhasil via `confirm_override`.
+4. **Frontend Device Limit Modal (`frontend/app/login/DeviceLimitModal.tsx`)**:
+   - Komponen modal interaktif menggunakan token primitives `DESIGN.md` (`.modal-overlay`, `.modal-card-unified`, `.modal-header-unified`, dst).
+   - Menampilkan daftar perangkat aktif dengan ikon platform, nama OS/peramban, waktu aktif terakhir, dan penanda "Paling Lama".
+   - Mengintegrasikan `useModalBackHandler` untuk penanganan tombol Back di browser mobile.
+5. **Frontend Login Integration (`frontend/app/login/page.tsx`, `frontend/lib/api.ts`)**:
+   - Memperbarui `apiRequest` agar menyertakan data respons pada kondisi non-OK (`!res.ok`).
+   - Menangkap error `DEVICE_LIMIT_REACHED` di halaman login dan membuka modal pemilihan perangkat.
+   - Mengirim ulang login dengan `confirm_override: true` dan `kick_device_id`.
+
+### Test Evidence
+- **Backend Unit Tests (`go test -v ./internal/api/ -run TestAuthHandler_DeviceLimitFlow`)**: **PASS 100%**.
+- **Backend Full Test Suite (`go test -v ./...`)**: **PASS 100%**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.

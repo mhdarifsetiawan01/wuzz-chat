@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { apiRequest } from '@/lib/api'
 import { getOrCreateDeviceId } from '@/lib/crypto/keyStore'
+import { DeviceLimitModal, ActiveDeviceItem } from './DeviceLimitModal'
 
 function LoginContent() {
   const router = useRouter()
@@ -21,6 +22,17 @@ function LoginContent() {
   const [infoMsg, setInfoMsg] = useState(isLogout ? 'ℹ️ Anda telah berhasil keluar. Silakan masuk kembali.' : '')
   const [error, setError] = useState(isExpired ? '⚠️ Sesi Anda telah berakhir. Silakan masuk kembali.' : '')
   const [isLoading, setIsLoading] = useState(false)
+  const [deviceLimitModal, setDeviceLimitModal] = useState<{
+    isOpen: boolean
+    activeDevices: ActiveDeviceItem[]
+    isSubmitting: boolean
+    error: string
+  }>({
+    isOpen: false,
+    activeDevices: [],
+    isSubmitting: false,
+    error: '',
+  })
 
   // Redirect ke /chat (atau URL tujuan) jika sudah terautentikasi
   useEffect(() => {
@@ -59,7 +71,7 @@ function LoginContent() {
     setIsLoading(true)
 
     const deviceId = getOrCreateDeviceId()
-    const { data, error: err } = await apiRequest<{ token: string; user: any }>('/api/auth/login', {
+    const { data, error: err, status } = await apiRequest<{ token?: string; user?: any; code?: string; active_devices?: ActiveDeviceItem[] }>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username: username.trim(), password, device_id: deviceId }),
     })
@@ -67,6 +79,15 @@ function LoginContent() {
     setIsLoading(false)
 
     if (err) {
+      if (status === 409 && data?.code === 'DEVICE_LIMIT_REACHED') {
+        setDeviceLimitModal({
+          isOpen: true,
+          activeDevices: Array.isArray(data.active_devices) ? data.active_devices : [],
+          isSubmitting: false,
+          error: '',
+        })
+        return
+      }
       setError(err)
       return
     }
@@ -74,6 +95,37 @@ function LoginContent() {
     if (data?.token && data?.user) {
       login(data.token, data.user)
       // Gunakan router.replace agar halaman login tidak tertinggal di history stack browser
+      if (redirectUrl) {
+        router.replace(redirectUrl)
+      } else {
+        router.replace(redirectRoom ? `/chat?room=${encodeURIComponent(redirectRoom)}` : '/chat')
+      }
+    }
+  }
+
+  const handleConfirmKickDevice = async (kickDeviceId: string) => {
+    setDeviceLimitModal(prev => ({ ...prev, isSubmitting: true, error: '' }))
+    const deviceId = getOrCreateDeviceId()
+
+    const { data, error: err } = await apiRequest<{ token?: string; user?: any }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({
+        username: username.trim(),
+        password,
+        device_id: deviceId,
+        confirm_override: true,
+        kick_device_id: kickDeviceId,
+      }),
+    })
+
+    if (err) {
+      setDeviceLimitModal(prev => ({ ...prev, isSubmitting: false, error: err }))
+      return
+    }
+
+    if (data?.token && data?.user) {
+      setDeviceLimitModal(prev => ({ ...prev, isOpen: false, isSubmitting: false }))
+      login(data.token, data.user)
       if (redirectUrl) {
         router.replace(redirectUrl)
       } else {
@@ -186,6 +238,15 @@ function LoginContent() {
           </Link>
         </div>
       </div>
+
+      <DeviceLimitModal
+        isOpen={deviceLimitModal.isOpen}
+        activeDevices={deviceLimitModal.activeDevices}
+        isSubmitting={deviceLimitModal.isSubmitting}
+        errorMessage={deviceLimitModal.error}
+        onClose={() => setDeviceLimitModal(prev => ({ ...prev, isOpen: false, error: '' }))}
+        onConfirm={handleConfirmKickDevice}
+      />
     </main>
   )
 }

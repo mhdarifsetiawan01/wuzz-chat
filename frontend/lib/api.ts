@@ -61,7 +61,7 @@ export async function apiRequest<T>(
             }
           }
         }
-        return { error: result.error || `Request gagal dengan status ${res.status}`, status: res.status }
+        return { error: result.error || `Request gagal dengan status ${res.status}`, status: res.status, data: result }
       }
 
       return { data: result, status: res.status }
