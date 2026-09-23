@@ -357,6 +357,20 @@ func (s *SQLMessageStore) autoMigrate() error {
 			created_at TIMESTAMP NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_devices_user_active ON devices(user_id, is_active);`,
+
+		// Tabel Kredensial (Phase 3: Credential Separation)
+		`CREATE TABLE IF NOT EXISTS user_credentials (
+			id VARCHAR(64) PRIMARY KEY,
+			user_id VARCHAR(64) NOT NULL,
+			type VARCHAR(32) NOT NULL,
+			identifier TEXT DEFAULT '',
+			secret_data TEXT NOT NULL,
+			name VARCHAR(128) DEFAULT '',
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_credentials_user ON user_credentials(user_id, type);`,
+		`CREATE INDEX IF NOT EXISTS idx_credentials_ident ON user_credentials(identifier);`,
 	}
 
 	for _, query := range migrations {

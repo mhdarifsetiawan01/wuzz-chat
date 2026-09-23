@@ -55,6 +55,7 @@ func main() {
 	var tokenStore store.TokenStore
 	var sessionStore store.SessionStore
 	var deviceStore store.DeviceStore
+	var credentialStore store.CredentialStore
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
 		userStore = sqlUserStore
@@ -66,6 +67,8 @@ func main() {
 		auth.SetTokenChecker(sqlTokenStore)
 		sessionStore = store.NewSQLSessionStore(sqlStore.DB(), sqlStore.DriverName())
 		deviceStore = store.NewSQLDeviceStore(sqlStore.DB(), sqlStore.DriverName())
+		credentialStore = store.NewSQLCredentialStore(sqlStore.DB(), sqlStore.DriverName())
+		sqlUserStore.SetCredentialStore(credentialStore)
 	}
 
 	// Inisialisasi Push Notification Service (Web Push VAPID & Multi-Platform Gateway)
@@ -79,6 +82,7 @@ func main() {
 	var transferHandler *api.TransferHandler
 	var memoryHandler *api.MemoryHandler
 	var deviceHandler *api.DeviceHandler
+	var credentialHandler *api.CredentialHandler
 	if userStore != nil {
 		authHandler = api.NewAuthHandler(userStore)
 		if tokenStore != nil {
@@ -93,6 +97,9 @@ func main() {
 			if sessionStore != nil {
 				deviceHandler.SetSessionStore(sessionStore)
 			}
+		}
+		if credentialStore != nil {
+			credentialHandler = api.NewCredentialHandler(credentialStore)
 		}
 		chatHandler = api.NewChatHandler(userStore, messageStore)
 		groupHandler = api.NewGroupHandler(groupStore, userStore)
@@ -318,6 +325,11 @@ func main() {
 			}))
 			mux.HandleFunc("/api/auth/devices/", withCORS(func(w http.ResponseWriter, r *http.Request) {
 				auth.RequireJWT()(http.HandlerFunc(deviceHandler.RemoveDevice)).ServeHTTP(w, r)
+			}))
+		}
+		if credentialHandler != nil {
+			mux.HandleFunc("/api/auth/credentials", withCORS(func(w http.ResponseWriter, r *http.Request) {
+				auth.RequireJWT()(http.HandlerFunc(credentialHandler.ListCredentials)).ServeHTTP(w, r)
 			}))
 		}
 		mux.HandleFunc("/api/auth/profile", withCORS(func(w http.ResponseWriter, r *http.Request) {

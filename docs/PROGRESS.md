@@ -2002,5 +2002,42 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Frontend Cache Continuity Test (`npm run test:cache`)**: **PASS 100% (9/9)**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
 
+---
+
+## 2026-09-23: Phase 3 — Credential Separation (Multi-Credential Architecture)
+
+### Problem Description
+1. Kredensial password (`password_hash`) disimpan bercampur di tabel `users`.
+2. Hal ini menyulitkan penambahan metode login baru di masa depan (Passkey / WebAuthn, OAuth/SSO, atau OTP) tanpa menambah kolom kustom di tabel `users`.
+3. Diperlukan tabel terpisah `user_credentials` dan pola transisi Dual-Read/Dual-Write agar transisi berjalan mulus tanpa downtime (zero-downtime & non-destructive).
+
+### Implementation Details
+1. **Auto-Migration DDL (`backend/internal/store/sql.go`)**:
+   - Menambahkan DDL tabel `user_credentials` (`id`, `user_id`, `type`, `identifier`, `secret_data`, `name`, `created_at`, `updated_at`).
+   - Menambahkan indeks `idx_credentials_user(user_id, type)` dan `idx_credentials_ident(identifier)`.
+   - Menjaga kolom `users.password_hash` tetap utuh untuk non-destructive compatibility.
+2. **Credential Store (`backend/internal/store/credential_store.go`)**:
+   - Model `UserCredential` dan interface `CredentialStore`.
+   - Implementasi `SQLCredentialStore` dengan query SQL adaptif untuk Postgres dan SQLite.
+   - Mengikuti DEC-003: `GetPasswordCredential` mengembalikan `(nil, nil)` jika tidak ditemukan (bukan error).
+3. **Dual-Read & Dual-Write (`backend/internal/store/user_store.go`)**:
+   - Menambahkan dependency `credentialStore CredentialStore` pada `SQLUserStore` dan method `SetCredentialStore`.
+   - `Register`: Menyimpan akun ke tabel `users` dan dual-write ke `user_credentials`.
+   - `Authenticate`: Menerapkan strategi Dual-Read: mencoba verifikasi via `user_credentials` terlebih dahulu; jika belum ada, fallback ke `users.password_hash` dan otomatis melakukan auto-backfill ke `user_credentials`.
+   - `ChangePassword`: Melakukan update password ke `users` dan `user_credentials`.
+4. **Credential API Handler (`backend/internal/api/credential_handler.go`)**:
+   - Handler `ListCredentials` untuk endpoint `GET /api/auth/credentials` yang mengembalikan daftar metode login user terautentikasi tanpa membocorkan `secret_data`.
+5. **Main Wire-Up (`backend/main.go`)**:
+   - Inisialisasi `store.NewSQLCredentialStore`, penyuntikan ke `SQLUserStore`, dan registrasi route `GET /api/auth/credentials` dengan middleware `auth.RequireJWT()`.
+6. **Automated Unit Testing (`backend/internal/store/credential_store_test.go`)**:
+   - 4 skenario test: Create & Get, Not Found (nil return), Update Password, dan List Credentials (secret sanitization).
+
+### Test Evidence
+- **Backend Credential Unit Tests (`go test -v -run TestCredentialStore ./internal/store/...`)**: **PASS 100% (4/4 skenario)**.
+- **Backend Store Package Tests (`go test ./internal/store/...`)**: **PASS 100%**.
+- **Backend API Package Tests (`go test ./internal/api/...`)**: **PASS 100%**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+
+
 
 
