@@ -231,7 +231,7 @@ func (c *Client) onMessage(msg Message) {
 	}
 
 	// Fail-Closed Write Gate: Cegah pengiriman pesan ke subgrup yang telah kedaluwarsa
-	if c.hub.userStore != nil && c.hub.userStore.IsConversationExpired(targetRoom) {
+	if c.hub.roomAuth != nil && c.hub.roomAuth.IsConversationExpired(targetRoom) {
 		c.sendError("Subgrup ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.")
 		c.sendAck(msg.RequestID, "error", "Subgrup telah kedaluwarsa")
 		return
@@ -481,10 +481,10 @@ func (c *Client) onCallSignaling(msg Message) {
 
 // isAuthorizedForRoom memeriksa apakah user saat ini merupakan anggota sah dari percakapan roomID.
 func (c *Client) isAuthorizedForRoom(roomID string) bool {
-	if c.hub.userStore == nil || roomID == "" {
+	if c.hub.roomAuth == nil || roomID == "" {
 		return true
 	}
-	allowed, err := c.hub.userStore.IsUserInConversation(roomID, c.ID)
+	allowed, err := c.hub.roomAuth.IsUserInConversation(roomID, c.ID)
 	if err != nil {
 		log.Printf("[Security] Gagal validasi keanggotaan room %s untuk user %s: %v (Fail-Closed: ditolak)", roomID, c.ID, err)
 		return false

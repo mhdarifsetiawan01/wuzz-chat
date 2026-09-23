@@ -36,6 +36,14 @@ type ClusterEvent struct {
 // DefaultMaxActiveDevicesPerUser menentukan batas maksimal perangkat aktif bersamaan per user (default 2: misal HP + Laptop).
 const DefaultMaxActiveDevicesPerUser = 2
 
+// RoomAuthorizationChecker mendefinisikan verifikasi keanggotaan dan resolusi anggota percakapan.
+// Interface ini memutus ketergantungan langsung WebSocket Hub ke implementasi store.UserStore.
+type RoomAuthorizationChecker interface {
+	GetConversationMemberUsernames(conversationID string) ([]string, error)
+	IsUserInConversation(conversationID, userID string) (bool, error)
+	IsConversationExpired(conversationID string) bool
+}
+
 // Hub adalah pusat kendali: menyimpan semua client aktif dan room,
 // serta bertanggung jawab merutingkan pesan dan broadcast ke room.
 type Hub struct {
@@ -52,7 +60,7 @@ type Hub struct {
 	mu               sync.RWMutex
 	clientStore      store.ClientStore
 	messageStore     store.MessageStore
-	userStore        store.UserStore
+	roomAuth         RoomAuthorizationChecker
 	pushService      *push.Service
 	broker           broker.MessageBroker
 }
@@ -108,11 +116,16 @@ func (h *Hub) SetPushService(ps *push.Service) {
 	}
 }
 
-// SetUserStore menyuntikkan UserStore opsional untuk resolusi anggota percakapan.
-func (h *Hub) SetUserStore(us store.UserStore) {
+// SetRoomAuth menyuntikkan RoomAuthorizationChecker untuk resolusi anggota percakapan.
+func (h *Hub) SetRoomAuth(ra RoomAuthorizationChecker) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.userStore = us
+	h.roomAuth = ra
+}
+
+// SetUserStore menyuntikkan UserStore opsional (backward-compatibility wrapper ke SetRoomAuth).
+func (h *Hub) SetUserStore(us store.UserStore) {
+	h.SetRoomAuth(us)
 }
 
 // SetBroker menyuntikkan MessageBroker (Redis / In-Memory) dan mendaftarkan listener cluster.
@@ -503,11 +516,11 @@ func (h *Hub) getRoomMembers(roomID string) []string {
 		return cached
 	}
 
-	if h.userStore == nil {
+	if h.roomAuth == nil {
 		return nil
 	}
 
-	members, err := h.userStore.GetConversationMemberUsernames(roomID)
+	members, err := h.roomAuth.GetConversationMemberUsernames(roomID)
 	if err != nil || len(members) == 0 {
 		return nil
 	}
@@ -620,14 +633,14 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
 // Jika tipe pesan adalah TypeMessage, pesan akan disimpan secara persisten ke Database oleh node pengirim asal.
 func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 	// Validasi mention fail-closed: verifikasi user ID yang di-mention adalah anggota room yang sah (DEC-013)
-	if len(msg.Mentions) > 0 && h.userStore != nil {
+	if len(msg.Mentions) > 0 && h.roomAuth != nil {
 		var validMentions []string
 		for _, mUID := range msg.Mentions {
 			mUID = strings.TrimSpace(mUID)
 			if mUID == "" {
 				continue
 			}
-			if isAuth, err := h.userStore.IsUserInConversation(roomID, mUID); err == nil && isAuth {
+			if isAuth, err := h.roomAuth.IsUserInConversation(roomID, mUID); err == nil && isAuth {
 				validMentions = append(validMentions, mUID)
 			}
 		}

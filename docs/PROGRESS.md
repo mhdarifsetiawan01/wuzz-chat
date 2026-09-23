@@ -2224,4 +2224,37 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Frontend Payload Simulation (Live HTTP against Backend Go port 8080)**: **PASS 100% (8/8 skenario frontend)**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
 
+---
+
+## 2026-09-24: Track B Modular Monolith — Tahap 3 (Messaging Application Service & Hub Decoupling)
+
+### Problem Description
+1. Handler pesan HTTP `api/chat_handler.go` berukuran masif (900+ baris) memuat business logic (edit window 15 menit, kuota forward 5 percakapan, batas 3 sematan pin, validasi kepemilikan dan hak akses pesan) yang bercampur aduk dengan layer transport HTTP.
+2. WebSocket Hub (`ws/hub.go`) dan Client (`ws/client.go`) memiliki dependensi erat ke database melalui injeksi langsung `store.UserStore`, yang menyulitkan pengujian terisolasi dan perancangan clustering.
+
+### Implementation Details
+1. **Domain Messaging (`backend/internal/messaging/`)**:
+   - `entity.go`: Mendefinisikan model domain (`Message`, `PinnedMessage`, `Conversation`) dan input DTOs (`EditMessageInput`, `DeleteMessageInput`, `ForwardMessageInput`, `PinMessageInput`, `UnpinMessageInput`, `UpdateReceiptInput`).
+   - `repository.go`: Kontrak interface murni `MessageRepository`, `ConversationRepository`, dan `UserLookupRepository`.
+   - `infra/sql_repository.go`: Adapter Strangler Fig Pattern yang membungkus `store.MessageStore` & `store.UserStore` tanpa menyentuh struktur tabel SQL atau migrasi database baru.
+2. **Application Service (`backend/internal/messaging/service.go`)**:
+   - Mengorkestrasi use cases pesan: `EditMessage` (dengan broadcast real-time), `DeleteMessage` (delete for me vs everyone), `ForwardMessage` (validasi kuota 1-5 target room), `PinMessage` / `UnpinMessage` (kuota 3 pin per room), `GetPinnedMessages`, `UpdateReceipt` (delivered / read), `SearchMessages`, `GetConversations`, `StartDirectChat`, dan `ClearConversation`.
+   - Menggunakan interface `MessageBroadcaster` untuk menjaga decoupling dari implementasi `ws.Hub`.
+3. **WebSocket Hub Decoupling (`backend/internal/ws/hub.go`, `backend/internal/ws/client.go`)**:
+   - Memperkenalkan interface otorisasi minimal `RoomAuthorizationChecker` (`GetConversationMemberUsernames`, `IsUserInConversation`, `IsConversationExpired`).
+   - Menggantikan field `h.userStore` dengan `h.roomAuth RoomAuthorizationChecker`.
+   - Menyediakan method `SetRoomAuth` dan mempertahankan `SetUserStore` sebagai backward-compatible bridge.
+4. **Transport Layer & Main Wiring (`backend/internal/api/chat_handler.go`, `backend/main.go`)**:
+   - Menjadikan `ChatHandler` sebagai *thin transport layer* yang mendelegasikan use cases ke `MessageService`.
+   - Tetap mempertahankan fallback alur lama jika `service == nil` demi transisi bertahap yang aman.
+   - Menghubungkan `SQLMessagingRepository` dan `MessageService` di `backend/main.go`.
+
+### Test Evidence
+- **Domain & Service Unit Tests (`go test -v ./internal/messaging/...`)**: **PASS 100% (5/5 unit test suites)**.
+- **WebSocket & Hub Tests (`go test -v ./internal/ws/...`)**: **PASS 100% (Semua skenario cluster, mentions, rate limits, push)**.
+- **API Handler Tests (`go test -v ./internal/api/...`)**: **PASS 100%**.
+- **Backend Full Test Suite (`go test -v ./...`)**: **PASS 100% (Seluruh paket backend Go)**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+
+
 
