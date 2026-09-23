@@ -94,7 +94,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// Periksa status perangkat di database
 			targetDev, err := h.deviceStore.GetDeviceByID(deviceID)
 			if err == nil && targetDev != nil {
-				if !targetDev.IsActive {
+				// TOLAK HANYA jika device ini memang milik user INI dan berstatus dinonaktifkan
+				if targetDev.UserID == claims.UserID && !targetDev.IsActive {
 					log.Printf("[Handler] Tolak koneksi WebSocket user %s: device '%s' telah dinonaktifkan", claims.UserID, deviceID)
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusForbidden)
@@ -104,6 +105,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						"message": "Perangkat ini telah dikeluarkan dari akun Anda.",
 					})
 					return
+				}
+				// Jika perangkat sebelumnya terikat ke user lain atau belum aktif untuk user ini, re-bind ke user saat ini
+				if targetDev.UserID != claims.UserID || !targetDev.IsActive {
+					rebindDev := &store.Device{
+						ID:        deviceID,
+						UserID:    claims.UserID,
+						Name:      parseDeviceName(r.UserAgent()),
+						Platform:  "web",
+						UserAgent: r.UserAgent(),
+						IPAddress: getClientIP(r),
+						IsActive:  true,
+						CreatedAt: time.Now().UTC(),
+					}
+					if err := h.deviceStore.RegisterOrUpdateDevice(rebindDev); err != nil {
+						log.Printf("[Handler] Rebind device ke user baru saat WS handshake gagal (user: %s, device: %s): %v", claims.UserID, deviceID, err)
+					}
 				}
 			} else if targetDev == nil {
 				// Perangkat belum terdaftar di tabel devices (misal sesi lama sebelum migrasi)
@@ -131,7 +148,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 						_ = h.userStore.SetActiveDevice(claims.UserID, deviceID)
 					} else if activeDev != deviceID {
 						actDevObj, _ := h.deviceStore.GetDeviceByID(activeDev)
-						if actDevObj == nil || !actDevObj.IsActive {
+						if actDevObj == nil || !actDevObj.IsActive || actDevObj.UserID != claims.UserID {
 							_ = h.userStore.SetActiveDevice(claims.UserID, deviceID)
 						}
 					}
