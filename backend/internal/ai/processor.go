@@ -9,30 +9,101 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bms-del112/wuzz-chat/internal/memory"
 	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/google/uuid"
 )
 
-// MemoryProcessor mengimplementasikan worker.MemoryJobProcessor.
-// Menghubungkan pengambilan riwayat pesan forum, pemanggilan AIService, resolusi snapshot evidence,
-// dan penyimpanan transaksional draft memori ke database.
-type MemoryProcessor struct {
-	memoryStore  store.MemoryStore
-	messageStore store.MessageStore
-	groupStore   store.GroupStore
-	aiService    AIService
-	pushService  *push.Service
+// legacyForumSource adalah fallback ContextSource menggunakan store lama.
+type legacyForumSource struct {
+	groupStore store.GroupStore
+	msgStore   store.MessageStore
 }
 
-// NewMemoryProcessor membuat instance baru MemoryProcessor.
-func NewMemoryProcessor(memStore store.MemoryStore, msgStore store.MessageStore, groupStore store.GroupStore, ai AIService) *MemoryProcessor {
-	return &MemoryProcessor{
-		memoryStore:  memStore,
-		messageStore: msgStore,
-		groupStore:   groupStore,
-		aiService:    ai,
+func (s *legacyForumSource) GetMessages(ctx context.Context, contextID string, limit int) ([]store.StoredMessage, error) {
+	if s.msgStore == nil {
+		return nil, nil
 	}
+	raw, err := s.msgStore.GetRoomHistory(contextID, limit)
+	if err != nil {
+		return nil, err
+	}
+	valid := make([]store.StoredMessage, 0, len(raw))
+	for _, m := range raw {
+		if !m.IsDeleted {
+			valid = append(valid, m)
+		}
+	}
+	return valid, nil
+}
+
+func (s *legacyForumSource) GetContextMeta(ctx context.Context, contextID string) (*memory.MemoryContext, error) {
+	title := "Forum Diskusi"
+	parentID := ""
+	if s.groupStore != nil {
+		if d, err := s.groupStore.GetGroupDetails(contextID, ""); err == nil && d != nil {
+			if d.Title != "" {
+				title = d.Title
+			}
+			parentID = d.ParentID
+		}
+	}
+	return &memory.MemoryContext{
+		ContextID:   contextID,
+		ContextType: memory.ContextTypeForum,
+		ParentID:    parentID,
+		Title:       title,
+	}, nil
+}
+
+func (s *legacyForumSource) GetAuthorizedViewers(ctx context.Context, contextID, viewerID string) (bool, error) {
+	return true, nil
+}
+
+// MemoryProcessor mengimplementasikan worker.MemoryJobProcessor dengan abstraksi ContextSource.
+type MemoryProcessor struct {
+	memoryStore   store.MemoryStore
+	contextSource memory.ContextSource
+	registry      memory.ContextSourceRegistry
+	groupStore    store.GroupStore
+	aiService     AIService
+	pushService   *push.Service
+}
+
+// NewMemoryProcessor membuat instance baru MemoryProcessor (backward-compatible).
+func NewMemoryProcessor(memStore store.MemoryStore, msgStore store.MessageStore, groupStore store.GroupStore, ai AIService) *MemoryProcessor {
+	p := &MemoryProcessor{
+		memoryStore: memStore,
+		groupStore:  groupStore,
+		aiService:   ai,
+	}
+	if groupStore != nil || msgStore != nil {
+		p.contextSource = &legacyForumSource{
+			groupStore: groupStore,
+			msgStore:   msgStore,
+		}
+	}
+	return p
+}
+
+// NewMemoryProcessorWithContextSource membuat instance MemoryProcessor dengan ContextSource eksplisit.
+func NewMemoryProcessorWithContextSource(memStore store.MemoryStore, cs memory.ContextSource, ai AIService) *MemoryProcessor {
+	return &MemoryProcessor{
+		memoryStore:   memStore,
+		contextSource: cs,
+		aiService:     ai,
+	}
+}
+
+// SetContextSource menyetel ContextSource secara langsung.
+func (p *MemoryProcessor) SetContextSource(cs memory.ContextSource) {
+	p.contextSource = cs
+}
+
+// SetRegistry menyetel ContextSourceRegistry dinamis.
+func (p *MemoryProcessor) SetRegistry(reg memory.ContextSourceRegistry) {
+	p.registry = reg
 }
 
 // SetPushService menyetel push service untuk pengiriman Web Push ke admin & member.
@@ -58,14 +129,34 @@ func getEvidenceMaxPreviewLen() int {
 	return 200
 }
 
-// ProcessMemoryJob mengeksekusi pipeline pembuatan draft memori lengkap untuk satu forum kedaluwarsa.
+// ProcessMemoryJob mengeksekusi pipeline pembuatan draft memori lengkap untuk satu percakapan.
 func (p *MemoryProcessor) ProcessMemoryJob(ctx context.Context, job *store.ForumMemoryJob, messageCount int) error {
 	log.Printf("🧠 [MemoryProcessor] Memulai pemrosesan AI untuk forum %s (Grup: %s)...", job.ForumID, job.GroupID)
 
-	// 1. Ambil metadata nama Forum dan nama Grup induk
+	// Tentukan ContextSource (dari registry atau instance langsung)
+	cSource := p.contextSource
+	if p.registry != nil {
+		if src, ok := p.registry.Get(memory.ContextTypeForum); ok && src != nil {
+			cSource = src
+		}
+	}
+
+	// 1. Ambil metadata konteks (judul, parent grup)
 	forumTitle := "Forum Diskusi"
 	groupTitle := "Grup Diskusi"
-	if p.groupStore != nil {
+
+	if cSource != nil {
+		if meta, err := cSource.GetContextMeta(ctx, job.ForumID); err == nil && meta != nil {
+			if meta.Title != "" {
+				forumTitle = meta.Title
+			}
+			if meta.ParentID != "" && p.groupStore != nil {
+				if gDetails, errG := p.groupStore.GetGroupDetails(meta.ParentID, ""); errG == nil && gDetails != nil && gDetails.Title != "" {
+					groupTitle = gDetails.Title
+				}
+			}
+		}
+	} else if p.groupStore != nil {
 		if forumDetails, err := p.groupStore.GetGroupDetails(job.ForumID, ""); err == nil && forumDetails != nil && forumDetails.Title != "" {
 			forumTitle = forumDetails.Title
 		}
@@ -76,21 +167,17 @@ func (p *MemoryProcessor) ProcessMemoryJob(ctx context.Context, job *store.Forum
 
 	maxMessages := getMaxMessagesAnalysis()
 
-	// 2. Ambil riwayat pesan percakapan dari forum (maksimal pesan kronologis terurut sesuai konfigurasi)
-	var rawMessages []store.StoredMessage
-	if p.messageStore != nil {
-		history, err := p.messageStore.GetRoomHistory(job.ForumID, maxMessages)
-		if err != nil {
-			return fmt.Errorf("gagal mengambil riwayat pesan forum: %w", err)
-		}
-		rawMessages = history
-	}
-
-	// Filter pesan yang belum dihapus
+	// 2. Ambil riwayat pesan percakapan via ContextSource
 	var validMessages []store.StoredMessage
-	for _, m := range rawMessages {
-		if !m.IsDeleted {
-			validMessages = append(validMessages, m)
+	if cSource != nil {
+		msgs, err := cSource.GetMessages(ctx, job.ForumID, maxMessages)
+		if err != nil {
+			return fmt.Errorf("gagal mengambil riwayat pesan forum via ContextSource: %w", err)
+		}
+		for _, m := range msgs {
+			if !m.IsDeleted {
+				validMessages = append(validMessages, m)
+			}
 		}
 	}
 

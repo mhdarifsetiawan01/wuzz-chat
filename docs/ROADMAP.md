@@ -439,10 +439,12 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
   - ✅ **Fase 4: Group & Forum Application Service (SELESAI ✅)**:
     - Membuat domain `internal/group/` (`entity.go`, `repository.go`, `infra/sql_repository.go`), `GroupService` & `ForumService` terpadu, memindahkan `SubGroupTTLWorker` ke domain worker grup (`group/worker/ttl_worker.go`).
     - Menjadikan `api/group_handler.go` sebagai *thin transport*, lulus seluruh test suite 100%, serta terverifikasi via client frontend simulation (`test-group-simulation.mjs`).
-  - 🎯 **Fase 5: Memory Engine Generalization (`ContextSource` Abstraction) (FOKUS BERIKUTNYA 🎯)**:
+  - ✅ **Fase 5: Memory Engine Generalization (`ContextSource` Abstraction) (SELESAI ✅)**:
     - Mengabstraksikan sumber memori AI via interface `ContextSource` (mendukung Forum, Group, dan Direct Chat Memory).
+    - Membangun domain `internal/memory/` (`entity.go`, `context_source.go`, `repository.go`, `infra/sql_repository.go`), `MemoryService`, serta integrasi `ForumContextSource` di domain group.
+    - Menjadikan `api/memory_handler.go` sebagai *thin transport*, 100% lulus automated Go tests, Next.js build, dan 14-langkah real frontend client simulation.
 
-  - ⏳ **Fase 6: Cleanup & Slim Entrypoint**:
+  - 🎯 **Fase 6: Cleanup & Slim Entrypoint (FOKUS BERIKUTNYA 🎯)**:
     - Menyederhanakan `main.go` menjadi file bootstrap tipis dan memindahkan wiring dependensi ke `cmd/server/wire.go`.
 
 ---

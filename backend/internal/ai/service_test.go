@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bms-del112/wuzz-chat/internal/memory"
 	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/google/uuid"
@@ -384,6 +385,100 @@ func TestAI_MemoryProcessorWithPushNotification(t *testing.T) {
 	completedJob, _ := memStore.GetJobByID(ctx, job.ID)
 	if completedJob.Status != store.JobStatusCompleted {
 		t.Errorf("expected completed job, got %s", completedJob.Status)
+	}
+}
+
+type mockContextSource struct {
+	messages []store.StoredMessage
+	meta     *memory.MemoryContext
+}
+
+func (m *mockContextSource) GetMessages(ctx context.Context, contextID string, limit int) ([]store.StoredMessage, error) {
+	return m.messages, nil
+}
+
+func (m *mockContextSource) GetContextMeta(ctx context.Context, contextID string) (*memory.MemoryContext, error) {
+	return m.meta, nil
+}
+
+func (m *mockContextSource) GetAuthorizedViewers(ctx context.Context, contextID, viewerID string) (bool, error) {
+	return true, nil
+}
+
+func TestAI_MemoryProcessor_WithContextSourceRegistry(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test_memory_cs.db")
+	sqlStore, err := store.NewSQLMessageStore("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("Init SQLMessageStore failed: %v", err)
+	}
+	defer sqlStore.Close()
+
+	memStore := store.NewSQLMemoryStore(sqlStore.DB(), sqlStore.DriverName())
+	ctx := context.Background()
+
+	forumID := "forum_cs_123"
+	groupID := "grp_cs_456"
+
+	job, err := memStore.CreateJob(ctx, forumID, groupID)
+	if err != nil {
+		t.Fatalf("CreateJob failed: %v", err)
+	}
+
+	cs := &mockContextSource{
+		messages: []store.StoredMessage{
+			{ID: "msg_1", Content: "Keputusan arsitektur A", Nickname: "Alice", Timestamp: time.Now()},
+		},
+		meta: &memory.MemoryContext{
+			ContextID:   forumID,
+			ContextType: memory.ContextTypeForum,
+			ParentID:    groupID,
+			Title:       "Arsitektur Diskusi",
+		},
+	}
+
+	registry := memory.NewRegistry()
+	registry.Register(memory.ContextTypeForum, cs)
+
+	mockAI := &MockAIService{
+		CustomOutput: &MemoryGenerationOutput{
+			Summary: AISummaryOutput{
+				Content:    "Ringkasan arsitektur A.",
+				Confidence: store.ConfidenceHigh,
+			},
+			Decisions: []AIDecisionOutput{
+				{
+					Position:           1,
+					Text:               "Sepakat pakai arsitektur A.",
+					Confidence:         store.ConfidenceHigh,
+					EvidenceMessageIDs: []string{"msg_1"},
+				},
+			},
+		},
+	}
+
+	processor := NewMemoryProcessorWithContextSource(memStore, nil, mockAI)
+	processor.SetRegistry(registry)
+
+	err = processor.ProcessMemoryJob(ctx, job, 1)
+	if err != nil {
+		t.Fatalf("ProcessMemoryJob failed: %v", err)
+	}
+
+	completedJob, err := memStore.GetJobByID(ctx, job.ID)
+	if err != nil {
+		t.Fatalf("GetJobByID failed: %v", err)
+	}
+	if completedJob.Status != store.JobStatusCompleted {
+		t.Errorf("expected COMPLETED, got %s", completedJob.Status)
+	}
+
+	draft, err := memStore.GetDraftByForumID(ctx, forumID)
+	if err != nil {
+		t.Fatalf("GetDraftByForumID failed: %v", err)
+	}
+	if len(draft.Artifacts) != 2 {
+		t.Errorf("expected 2 artifacts, got %d", len(draft.Artifacts))
 	}
 }
 

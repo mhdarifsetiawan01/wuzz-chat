@@ -751,7 +751,28 @@ Dalam rangka evolusi arsitektur menuju sistem modular monolith yang dapat diguna
   - Bertanggung jawab atas siklus hidup obrolan grup dan forum/subgrup: pembuatan grup, manajemen peran (`creator`, `admin`, `member`), approval join request, pencarian grup publik, dan siklus TTL kadaluwarsa forum.
   - Diinstansiasi secara mandiri via `store.NewSQLGroupStore(db, driverName)` dengan berbagi pool koneksi `*sql.DB` yang sama tanpa membuka koneksi database tambahan.
 - **Konsumen Antarmuka (Dependency Inversion)**:
-  - `GroupHandler`, `MemoryHandler`, `SubGroupTTLWorker`, dan `MemoryProcessor` kini bergantung langsung pada interface `store.GroupStore` independen.
+### B. Domain Auth & Application Service (Fase 2)
+- **Auth Application Service (`internal/auth/`)**:
+  - Mengisolasi use cases autentikasi (login, register, session management, multi-device revocation).
+  - `api/auth_handler.go` disederhanakan menjadi *thin transport*.
+
+### C. Domain Messaging & Hub Decoupling (Fase 3)
+- **Messaging Domain (`internal/messaging/`)**:
+  - Memisahkan manajemen pesan (kirim, edit, hapus, forward, pin, tanda terima centang) ke `MessageService` dan `MessageRepository`.
+  - Mengisolasi WebSocket Hub dengan interface minimal `RoomAuthorizationChecker` (menghapus direct DB coupling).
+
+### D. Domain Group & Forum Decoupling (Fase 4)
+- **Group & Forum Services (`internal/group/`)**:
+  - Memisahkan grup persisten (`GroupService`) dan subgrup ephemeral (`ForumService`).
+  - Memindahkan `SubGroupTTLWorker` ke domain worker grup (`group/worker/ttl_worker.go`).
+
+### E. Domain Memory Engine & ContextSource Abstraction (Fase 5)
+- **Memory Domain (`internal/memory/`)**:
+  - `ContextSource`: Abstraksi sumber data percakapan (`GetMessages`, `GetContextMeta`, `GetAuthorizedViewers`) yang memisahkan AI Memory Engine dari tabel forum/grup secara langsung.
+  - `ContextSourceRegistry`: Registry thread-safe untuk pendaftaran berbagai sumber percakapan (`ContextTypeForum`, dll.).
+  - `MemoryService`: Application Service untuk siklus hidup review draf, penyuntingan artefak, approval, audit review action, dan view event.
+  - `ForumContextSource` di `internal/group/infra/`: Adapter implementasi `ContextSource` untuk forum ephemeral.
+  - `api/memory_handler.go`: Disempurnakan menjadi *thin transport layer* murni.
 
 ---
 

@@ -1,3 +1,3 @@
-# Task Checklist — Standby
+# Task Checklist — Standby State
 
-- [x] All tasks completed.
+- [ ] Standby: Menunggu task berikutnya
