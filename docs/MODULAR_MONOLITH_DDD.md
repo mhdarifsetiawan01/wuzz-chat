@@ -655,10 +655,11 @@ InstaQRIS tidak perlu tahu tentang SQL atau Go internals. Ia cukup:
 - [x] Verifikasi test `authz/...`, `shared/...`, dan `api/auth_*_test.go` masih pass (100%) dan deploy ke Fly.io (`174f447`)
 
 ### Fase 3: Extract Application Services untuk Messaging (3-4 hari)
-- [ ] Buat `messaging/service.go` dengan `MessageService`
-- [ ] Pindahkan logic dari `api/chat_handler.go` ke service
-- [ ] Buat `RoomAuthorizationChecker` interface
-- [ ] Update `ws/hub.go` untuk tidak lagi inject `userStore` langsung
+- [x] Buat `messaging/service.go` dengan `MessageService`
+- [x] Pindahkan logic dari `api/chat_handler.go` ke service
+- [x] Buat `RoomAuthorizationChecker` interface
+- [x] Update `ws/hub.go` dan `ws/client.go` untuk tidak lagi inject `userStore` langsung
+- [x] Verifikasi test `messaging/...`, `ws/...`, `api/...`, dan full suite pass 100%
 
 ### Fase 4: Extract Group + Forum Service (2-3 hari)
 - [ ] Buat `group/service.go`

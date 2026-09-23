@@ -432,10 +432,12 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
     - Membuat `AuthService` untuk use case login, register, device limits, dan session revocation.
     - Menjadikan `api/auth_handler.go` sebagai *thin transport* (hanya HTTP parsing & response formatting).
     - Memisahkan domain `Identity` (profil, E2EE key) dari domain `Auth` (kredensial, sesi, token).
-  - 🎯 **Fase 3: Application Service untuk Messaging & Hub Decoupling (FOKUS BERIKUTNYA 🎯)**:
-    - Membuat `MessageService` untuk operasi pesan, reactions, receipts, dan pin.
-    - Mengisolasi WebSocket Hub (`ws/hub.go`) dengan interface minimal `RoomAuthorizationChecker` (menghapus injeksi langsung `UserStore` DB).
-  - ⏳ **Fase 4: Group & Forum Application Service**:
+  - ✅ **Fase 3: Application Service untuk Messaging & Hub Decoupling (SELESAI ✅)**:
+    - Membuat domain `internal/messaging/` (`entity.go`, `repository.go`, `infra/sql_repository.go`) dengan Strangler Fig Pattern.
+    - Membuat `MessageService` untuk use cases pesan (edit, delete, forward, pin, unpin, update receipt, search, direct chat, clear conversation).
+    - Mengisolasi WebSocket Hub (`ws/hub.go` dan `ws/client.go`) dengan interface minimal `RoomAuthorizationChecker` (menghapus injeksi langsung `store.UserStore` DB).
+    - Menjadikan `api/chat_handler.go` sebagai *thin transport* dan menghubungkan `main.go`. Seluruh test suite lulus 100%.
+  - 🎯 **Fase 4: Group & Forum Application Service (FOKUS BERIKUTNYA 🎯)**:
     - Membuat `GroupService` dan `ForumService` terpadu, memindahkan `SubGroupTTLWorker` ke domain worker grup.
   - ⏳ **Fase 5: Memory Engine Generalization (`ContextSource` Abstraction)**:
     - Mengabstraksikan sumber memori AI via interface `ContextSource` (mendukung Forum, Group, dan Direct Chat Memory).

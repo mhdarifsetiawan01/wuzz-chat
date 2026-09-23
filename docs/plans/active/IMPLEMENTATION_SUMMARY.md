@@ -1,5 +1,4 @@
-# Active Implementation Summary
+# Implementation Summary — Standby
 
-- **Status**: 🟢 STANDBY
-- **Milestone**: None (Idle)
-- **Last Archived**: `docs/plans/archived/23-09-2026-modular-monolith-track-b`
+- **Status**: Standby
+- Dokumentasi dan pengarsipan telah disinkronkan.

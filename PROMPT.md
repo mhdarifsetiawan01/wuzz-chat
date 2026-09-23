@@ -115,11 +115,11 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   4. ✅ **Phase 3 (Credential Separation)**: Tabel `user_credentials`, pemisahan password dari tabel `users`, dan dual read/write non-destruktif.
   5. 🔮 **Phase 4 (Passkey / WebAuthn)**: Siap dieksekusi untuk login biometrik tanpa password (W3C WebAuthn).
   6. ✅ **Phase 5 (Multi-Device E2EE Continuity)**: Master key synchronization via transfer QR ephemeral dan multi-device session management.
-- 🏛️ **Track B: Transformasi Modular Monolith & DDD Engine (Status: Fase 1 SELESAI ✅ | Menuju Fase 2 🎯)** —
+- 🏛️ **Track B: Transformasi Modular Monolith & DDD Engine (Status: Fase 1, 2, 3 SELESAI ✅ | Menuju Fase 4 🎯)** —
   1. ✅ **Fase 1: Pemisahan GroupStore dari SQLUserStore (SELESAI & DEPLOYED)**: Ekstraksi `SQLGroupStore` mandiri (`sql_group_store.go`), membersihkan ketergantungan `SQLUserStore` dari domain grup, wiring terpisah di `main.go`, lulus test 100%, dan deployed ke Fly.io (`672eca6`).
-  2. 🎯 **Fase 2: Application Service untuk Auth & Identity (FOKUS BERIKUTNYA)**: Ekstraksi `AuthService` untuk use cases login/register/device limits, menjadikan `auth_handler.go` sebagai *thin transport*.
-  3. ⏳ **Fase 3: Application Service untuk Messaging & Hub Decoupling (`RoomAuthorizationChecker`)**.
-  4. ⏳ **Fase 4: Group & Forum Service**.
+  2. ✅ **Fase 2: Application Service untuk Auth & Identity (SELESAI & DEPLOYED)**: Ekstraksi `AuthService` (`authz/service.go`) untuk use cases login/register/device limits, memisahkan domain `Identity` dan `Auth`, menjadikan `auth_handler.go` sebagai *thin transport*, dan deployed ke Fly.io (`174f447`).
+  3. ✅ **Fase 3: Application Service untuk Messaging & Hub Decoupling (SELESAI)**: Domain `internal/messaging/` (`entity.go`, `repository.go`, `infra/sql_repository.go`), `MessageService` (`service.go`) untuk edit, delete, forward, pin, unpin, receipt, search, get conversations, serta decoupling WebSocket Hub via interface `RoomAuthorizationChecker`.
+  4. 🎯 **Fase 4: Group & Forum Service (FOKUS BERIKUTNYA)**: Ekstraksi `GroupService` & `ForumService`, migrasi `SubGroupTTLWorker`.
   5. ⏳ **Fase 5: Memory Engine Generalization (`ContextSource` Abstraction)**.
   6. ⏳ **Fase 6: Cleanup & Slim `main.go` Wiring (`wire.go`)**.
 

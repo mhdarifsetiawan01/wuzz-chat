@@ -14,6 +14,8 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/authz"
 	"github.com/bms-del112/wuzz-chat/internal/authz/infra"
 	"github.com/bms-del112/wuzz-chat/internal/broker"
+	"github.com/bms-del112/wuzz-chat/internal/messaging"
+	messaginginfra "github.com/bms-del112/wuzz-chat/internal/messaging/infra"
 	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/shared/cors"
 	"github.com/bms-del112/wuzz-chat/internal/shared/ratelimit"
@@ -79,6 +81,7 @@ func main() {
 	pushService := push.NewService(userStore)
 
 	// Inisialisasi REST Handlers
+	var messagingRepo *messaginginfra.SQLMessagingRepository
 	var authHandler *api.AuthHandler
 	var chatHandler *api.ChatHandler
 	var groupHandler *api.GroupHandler
@@ -110,7 +113,9 @@ func main() {
 		if credentialStore != nil {
 			credentialHandler = api.NewCredentialHandler(credentialStore)
 		}
-		chatHandler = api.NewChatHandler(userStore, messageStore)
+		messagingRepo = messaginginfra.NewSQLMessagingRepository(messageStore, userStore)
+		messagingSvc := messaging.NewMessageService(messagingRepo, messagingRepo, messagingRepo, nil)
+		chatHandler = api.NewChatHandlerWithService(messagingSvc, userStore, messageStore)
 		groupHandler = api.NewGroupHandler(groupStore, userStore)
 		notificationHandler = api.NewNotificationHandler(pushService, userStore)
 		if memoryStore != nil {
@@ -223,7 +228,9 @@ func main() {
 
 	// Inisialisasi Hub dengan dependency injection
 	hub := ws.NewHub(clientStore, messageStore)
-	if userStore != nil {
+	if messagingRepo != nil {
+		hub.SetRoomAuth(messagingRepo)
+	} else if userStore != nil {
 		hub.SetUserStore(userStore)
 	}
 	hub.SetPushService(pushService)
