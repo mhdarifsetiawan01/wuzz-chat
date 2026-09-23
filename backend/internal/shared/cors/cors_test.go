@@ -1,4 +1,4 @@
-package auth
+package cors
 
 import (
 	"net/http"

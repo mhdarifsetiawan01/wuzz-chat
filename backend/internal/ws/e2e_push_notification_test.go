@@ -13,6 +13,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/push"
+	"github.com/bms-del112/wuzz-chat/internal/shared/cors"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
 	"github.com/gorilla/websocket"
@@ -85,7 +86,7 @@ func TestE2E_PushNotificationLifecycle(t *testing.T) {
 	}
 
 	// 6. Hubungkan Alice via WebSocket (Bob sengaja offline / tidak connect socket)
-	server := httptest.NewServer(ws.NewHandler(hub, auth.NewCORSValidator([]string{"*"})))
+	server := httptest.NewServer(ws.NewHandler(hub, cors.NewCORSValidator([]string{"*"})))
 	defer server.Close()
 
 	wsURL := "ws" + server.URL[4:] + "/ws?token="

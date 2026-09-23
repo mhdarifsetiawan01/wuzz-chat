@@ -1,4 +1,4 @@
-package auth
+package ratelimit
 
 import (
 	"bytes"
@@ -160,4 +160,3 @@ func TestDualRateLimitMiddleware(t *testing.T) {
 		t.Fatalf("downstream handler failed to read preserved body stream: %v", receivedUsernames)
 	}
 }
-

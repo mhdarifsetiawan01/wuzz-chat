@@ -1,4 +1,5 @@
-package auth
+// Package validator menyediakan fungsi validasi input untuk registrasi user dan operasi lainnya.
+package validator
 
 import (
 	"errors"
@@ -134,4 +135,3 @@ func ValidatePassword(password string) error {
 	}
 	return nil
 }
-

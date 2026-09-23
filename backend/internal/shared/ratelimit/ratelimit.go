@@ -1,4 +1,6 @@
-package auth
+// Package ratelimit menyediakan sliding window rate limiter berbasis IP dan username
+// untuk perlindungan Anti-DDoS dan Anti-Brute-Force.
+package ratelimit
 
 import (
 	"bytes"
@@ -205,4 +207,3 @@ func DualRateLimitMiddleware(limiter *DualTierRateLimiter) func(http.Handler) ht
 		})
 	}
 }
-

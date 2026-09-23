@@ -2184,3 +2184,44 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Backend Full Test Suite (`go test ./...`)**: **PASS 100% (Semua paket internal)**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
 
+---
+
+## 2026-09-23: Track B Modular Monolith — Tahap 1 (Shared Package) & Tahap 2 (Auth Application Service)
+
+### Problem Description
+1. Backend Go sebelumnya memiliki arsitektur 1-layer flat di mana utilitas cross-cutting (CORS, Rate Limiting, Validasi) bercampur di dalam `internal/auth/`, menimbulkan potensi circular dependency saat domain-domain baru ditambahkan.
+2. Handler HTTP `api/auth_handler.go` berukuran masif (860+ baris) memuat business logic (registrasi, login, kuota multi-device, revocations, session kicks) bercampur dengan HTTP transport layer, sehingga sulit diuji tanpa transport HTTP.
+
+### Implementation Details
+1. **Tahap 1: Shared Package Refactoring (`backend/internal/shared/`)**:
+   - Memindahkan utilitas umum ke package mandiri:
+     - `internal/shared/cors`: Validator asal domain (CORS) & HTTP middleware.
+     - `internal/shared/ratelimit`: IP Rate Limiter & Dual-Tier Limiter (IP + Username anti-brute force dengan preservasi body stream).
+     - `internal/shared/validator`: Validasi format akun, username, password, dan filter kata terlarang.
+     - `internal/shared/errors`: Kontrak domain errors terpadu.
+   - Mengalihkan seluruh consumer import di `main.go`, `ws/handler.go`, dan `api/auth_handler.go` ke package `shared/`.
+   - Menghapus file usang di `internal/auth/` (`cors.go`, `ratelimit.go`, `validator.go`, dan unit test terkait).
+2. **Tahap 2: Auth Application Service (`backend/internal/authz/`)**:
+   - **Domain Entities & Repository Contract (`internal/authz/entity.go`, `internal/authz/repository.go`)**:
+     - Menetapkan kontrak `AuthRepository` untuk abstraksi penyimpanan data identitas, kredensial, sesi, perangkat, token revocation, dan transfer kunci.
+   - **Application Service (`internal/authz/service.go`)**:
+     - Mengorkestrasi use case: `Register`, `Login` (dengan aturan multi-device max 2 perangkat), `Logout`, `GetActiveSessions`, `RevokeSession`, `RevokeAllOtherSessions`, `ChangePassword`, dan `CreateTransferToken` / `ConsumeTransferToken`.
+     - Menggunakan interface `SessionKicker` untuk memutus circular dependency antara `authz` dan `ws.Hub`.
+   - **Infrastructure Adapter (`internal/authz/infra/sql_repository.go`)**:
+     - Menerapkan Strangler Fig Pattern: adapter tipis yang mendelegasikan pemanggilan ke store yang sudah ada (`UserStore`, `SessionStore`, `DeviceStore`, `TokenStore`, `TransferStore`) tanpa mengubah store sama sekali.
+   - **Unit Test Suite (`internal/authz/service_test.go`)**:
+     - Menguji use case pendaftaran, validasi duplikat, login sukses/gagal, kuota multi-device 2 perangkat, eviksi perangkat ke-3 via override, pencabutan sesi, dan ganti password.
+3. **Transport Layer & Main Wiring (`backend/internal/api/auth_handler.go`, `backend/main.go`)**:
+   - Menambahkan dukungan injeksi `AuthService` ke `AuthHandler` via `NewAuthHandlerWithService` dan `SetAuthService`.
+   - Handler bertransformasi menjadi *thin transport layer*: parse HTTP request ➔ panggil `AuthService` ➔ kembalikan respons JSON.
+   - Menginjeksi `SQLAuthRepository` dan `AuthService` di `main.go`.
+
+### Test Evidence
+- **Domain & Service Unit Tests (`go test -v ./internal/authz/...`)**: **PASS 100% (3/3 test suite)**.
+- **Shared Packages Tests (`go test -v ./internal/shared/...`)**: **PASS 100% (cors, ratelimit, validator)**.
+- **API & Multi-Device End-to-End Tests (`go test -v -run "TestAuth|TestMultiDevice|TestDevice|TestTransfer" ./internal/api/...`)**: **PASS 100%**.
+- **Backend Full Test Suite (`go test -v ./...`)**: **PASS 100% (Semua paket internal)**.
+- **Frontend Payload Simulation (Live HTTP against Backend Go port 8080)**: **PASS 100% (8/8 skenario frontend)**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+
+
