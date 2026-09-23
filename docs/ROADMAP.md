@@ -15,84 +15,51 @@ Membangun platform chatting modern yang:
 
 ---
 
-## 🗺️ Master Roadmap Tahapan (Phased Evolution)
+## 🗺️ Master Roadmap Tahapan (Dual-Track Evolving Architecture)
+
+> 💡 **Prinsip Evolusi Roadmap (Continuous Alignment)**:  
+> Seiring berjalannya proyek, Wuzz Chat tidak membuang roadmap lama ataupun membatalkan rencana fitur yang sudah ada. Sebaliknya, roadmap disinkronkan menjadi **2 Lintasan Terpadu (Dual-Track)**:
+> 1. **Track A — Product Capabilities & UX (Roadmap Fitur)**: Menjaga kesinambungan fitur chat, rich media, group forum, AI memory, multi-device, hingga monetisasi.
+> 2. **Track B — Modular Monolith & DDD Engine (Roadmap Fondasi)**: Mentransformasi backend Go menjadi *Reusable Messaging Engine* yang terisolasi bersih (3-tier: Transport → Application Service → Domain → Infrastructure) agar siap mendukung produk turunan (misal: InstaQRIS, Personal Chat Memory, Multi-Tenant).
 
 ```text
-┌────────────────────────────────────────────────────────────────────────┐
-│  FASE 1: Real-Time Engine Foundation (SELESAI ✅)                       │
-│  - Go WebSocket Hub, Next.js Proxy, Room Routing, In-Memory Store      │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 2: Cloud Persistence & Group Presence (SELESAI ✅)               │
-│  - Supabase PostgreSQL, SQLite, Room History, Member Presence Drawer  │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 3: User Identity, Auth & Permanent Contacts (SELESAI ✅)          │
-│  - JWT Authentication, User Profiles, Contact List, 1-on-1 Direct DM   │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 4: Modern Chat UX & Interactive Dynamics (SELESAI ✅)            │
-│  - Sent/Delivered/Read Receipts (✓/✓✓), Typing Indicator, Sound FX     │
-│  - Emoji Reactions, Reply/Quote Message, Real-Time Unread Badge Counter│
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 5: Rich Media & Attachments (SELESAI ✅)                         │
-│  - Store-and-Forward Media ($0 Cost), Voice Notes, Audio Player Wave   │
-│  - Document Sharing, Image Lightbox, Client WebP Compression           │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 6: Distributed Scale & Reliability (SELESAI ✅)                  │
-│  - Upstash Redis Pub/Sub, Multi-Instance Hub, Anti-Echo Loop Node ID   │
-│  - Dynamic CORS Whitelist, OpenGraph Safe Link Preview, Dockerfile     │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 7: Security Hardening & WebRTC Calling (SELESAI ✅)              │
-│  - Bagian 1: End-to-End Encryption (E2EE ECDH + AES-GCM) (SELESAI ✅)  │
-│  - Bagian 2 (7.2A): 1-on-1 Voice / Audio Call WebRTC (SELESAI ✅)       │
-│  - (7.2B Video Call di-hold sementara untuk prioritas core parity)     │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 8: Core Parity (Push, Group Chat & Message Suite) (SELESAI ✅)  │
-│  - Milestone 8.1: Universal Push Notification Engine (SELESAI ✅)       │
-│  - Milestone 8.4: IndexedDB Message Cache & E2EE Continuity (SELESAI ✅)│
-│  - Milestone 8.2A: Core Group Chat Engine & Member Mgmt (SELESAI ✅)     │
-│  - Milestone 8.2B: Ephemeral Sub-Groups & TTL Auto-Purge (SELESAI ✅)    │
-│  - Milestone 8.2C: Forum Rebranding & Mobile Header Redesign (SELESAI ✅)│
-│  - Milestone 8.8: Realtime Engine Scalability & High-ROI Opt (SELESAI ✅)│
-│  - Milestone 8.9: Mobile-Ready Reliability (ACK & Idempotency) (SELESAI ✅)│
-│  - Milestone 8.3: Message Management Suite (SELESAI ✅)                 │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 10: Group Memory AI (Forum Intelligence & Knowledge) (✅ SELESAI) │
-│  - M1-M7: Journey Lite, Decision + Evidence, Human Validation (<30s)   │
-│  - PostgreSQL SKIP LOCKED Queue, Read-Model Memory, Group Scoped AI    │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼─────────────────────────────────────┐
-│  FASE 11: Seamless Continuity & Multi-Device (Multi-Device Sync)       │
-│  - Multi-Device Sessions, Cross-Device E2EE Keys, Offline Outbox Queue │
-└────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        WUZZ CHAT EVOLVING MASTER ROADMAP v2.0                          │
+│                      "From Chat App to Reusable Messaging Engine"                      │
+├───────────────────────────────────────────┬────────────────────────────────────────────┤
+│   TRACK A: PRODUCT FEATURES & CAPABILITY  │   TRACK B: MODULAR MONOLITH & DDD ENGINE   │
+├───────────────────────────────────────────┼────────────────────────────────────────────┤
+│ [x] Fase 1: Real-Time Engine (WebSocket)  │ [x] Fase 1: SQLGroupStore Decoupling (✅)   │
+│ [x] Fase 2: Cloud Persistence & Presence  │ [ ] Fase 2: Application Service Auth (🎯)  │
+│ [x] Fase 3: User Identity & DM Contacts   │ [ ] Fase 3: Application Service Messaging  │
+│ [x] Fase 4: Modern Chat UX & Dynamics     │ [ ] Fase 4: Group & Forum Service          │
+│ [x] Fase 5: Store-and-Forward Media & VN  │ [ ] Fase 5: Memory ContextSource Abstr.    │
+│ [x] Fase 6: Distributed Scale & Upstash   │ [ ] Fase 6: Slim Entrypoint & wire.go      │
+│ [x] Fase 7: E2EE & WebRTC Audio Calling   ├────────────────────────────────────────────┤
+│ [x] Fase 8: Core Parity (Groups, Push)    │ Dokumen Spesifikasi Engine:                │
+│ [x] Fase 10: Group Memory AI (M1–M7)      │ 👉 docs/MODULAR_MONOLITH_DDD.md            │
+│ [x] Fase 11: Multi-Device (Ph 0,1,2,3,5)  │                                            │
+│ [ ] Fase 11: Passkey / WebAuthn (Ph 4)    │                                            │
+│ [ ] Fase 9: Monetisasi & Avatar Asset     │                                            │
+│ [ ] Mobile Native Client (Kotlin/Swift)   │                                            │
+└───────────────────────────────────────────┴────────────────────────────────────────────┘
 ```
 
 ---
 
-> 📖 **Spesifikasi Teknis Evolusi Identitas, Autentikasi & Multi-Device**:
-> Seluruh hasil audit arsitektur mendalam, cetak biru skema DDL non-destruktif, dan tahapan migrasi untuk **Fase 11 / Multi-Device & Passkey** didokumentasikan secara terperinci di:
-> 👉 **[`docs/ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md)**
-> - **Phase 0 (Identity & Auth Hardening)**: **SELESAI ✅** (JWT Revocation, Re-Auth Safe Reset Kunci, Ganti Password)
-> - **Phase 1 (Session Foundation)**: **SELESAI ✅** (Tabel `sessions`, Session Inventory API, Remote Logout, Revoke Others)
-> - **Phase 2 (Device Registry)**: *Siap Dieksekusi* (Tabel `devices`, Multi-Device Metadata, Remote Device Revoke)
-> - **Phase 3 (Credential Separation)**: *Siap Dieksekusi* (Tabel `user_credentials`, Abstraksi Multi-Metode Login)
-> - **Phase 4 (Passkey / WebAuthn)**: *Siap Dieksekusi* (FIDO2 Biometric Login)
-> - **Phase 5 (Multi-Device E2EE Continuity)**: *Siap Dieksekusi* (Kriptografi per-perangkat / Signal Protocol Pattern)
+> 📖 **Dokumen Rujukan Spesifikasi Teknis Terkait**:
+> 1. 🔍 **Evolusi Identitas, Autentikasi & Multi-Device (Fase 11)**: [`docs/ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md)
+>    - **Phase 0 (Identity & Auth Hardening)**: **SELESAI ✅** (JWT Revocation, Re-Auth Safe Reset Kunci, Ganti Password)
+>    - **Phase 1 (Session Foundation)**: **SELESAI ✅** (Tabel `sessions`, Session Inventory API, Remote Logout, Revoke Others)
+>    - **Phase 2 (Device Registry)**: **SELESAI ✅** (Tabel `devices`, Multi-Device Metadata, Remote Device Revoke, Reconnect Resilience)
+>    - **Phase 3 (Credential Separation)**: **SELESAI ✅** (Tabel `user_credentials`, Abstraksi Multi-Metode Login, Dual-Read/Write)
+>    - **Phase 4 (Passkey / WebAuthn)**: *Siap Dieksekusi* (FIDO2 Biometric Login)
+>    - **Phase 5 (Multi-Device E2EE Continuity)**: **SELESAI ✅** (Master Key Sync via Secure QR Transfer + Active Device Lifecycle)
+> 2. 🏛️ **Transformasi Modular Monolith & DDD Engine (Track B)**: [`docs/MODULAR_MONOLITH_DDD.md`](MODULAR_MONOLITH_DDD.md)
+>    - **Fase 1 (GroupStore Decoupling)**: **SELESAI ✅ & DEPLOYED** (Pemisahan `SQLGroupStore` mandiri dari `SQLUserStore`)
+>    - **Fase 2 (Auth/Identity Application Service)**: **TAHAP BERIKUTNYA 🎯** (Ekstraksi `AuthService` use cases, thin transport)
+> 3. 🧠 **Group Memory AI Engine (Fase 10)**: [`docs/GROUP_MEMORY_AI_SPEC.md`](GROUP_MEMORY_AI_SPEC.md)
+>    - **Milestone M1–M7**: **SELESAI ✅** (SKIP LOCKED Job Queue, AI Service, Review UI, Knowledge Viewer, E2E Notifications)
 
 ---
 
@@ -405,6 +372,74 @@ Membangun platform chatting modern yang:
     - Tab/Viewer "Memori Forum" di arsip forum dan grup induk untuk seluruh anggota grup, modal linimasa arsip memori, dan modal detail pengetahuan terpublikasi.
   - ✅ **Milestone M7: E2E Integration & Notification Polish (SELESAI ✅)**:
     - Notifikasi push/WebSocket ke Admin saat draft siap dan ke Member saat memori terbit. Provider factory multi-vendor, PWA deep-linking (`sw.js`), audit log & metrics tracking.
+
+---
+
+### Fase 11: Seamless Continuity, Multi-Device & Identity Architecture (Status: Phase 0, 1, 2, 3, 5 SELESAI ✅ | Phase 4 🔮)
+*Tujuan: Memisahkan kopling monolitik identitas pengguna, mendukung banyak sesi dan perangkat fisik aktif (Desktop & Mobile) secara simultan dengan sinkronisasi E2EE dan rekonsiliasi koneksi yang tahan uji.*
+
+*Dokumen Spesifikasi & Audit Utama: [`docs/ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md)*
+
+- ✅ **Phase 0: Identity & Auth Hardening (SELESAI ✅)**:
+  - DDL non-destruktif `revoked_tokens` dan `user_token_revocations` dengan in-memory sync cache.
+  - Penyematan JTI UUID pada seluruh klaim JWT dan validasi instan di middleware `RequireJWT`.
+  - Re-autentikasi password wajib sebelum eksekusi `/api/users/public-key/reset`.
+  - Endpoint `POST /api/auth/change-password` dengan pembatalan seluruh sesi token aktif user (`RevokeAllUserTokens`).
+- ✅ **Phase 1: Session Foundation & Inventory (SELESAI ✅)**:
+  - Tabel `sessions` di PostgreSQL dan SQLite dengan pelacakan JTI, device_id, IP, dan User Agent.
+  - Endpoint `GET /api/auth/sessions` (daftar sesi aktif) dan `DELETE /api/auth/sessions/:id` (remote logout sesi tertentu).
+- ✅ **Phase 2: Device Registry & Reconnect Resilience (SELESAI ✅)**:
+  - Tabel `devices` mandiri memisahkan metadata perangkat fisik dari tabel `users`.
+  - Endpoint `GET /api/auth/devices` dan `DELETE /api/auth/devices/:id`.
+  - Sinkronisasi WebSocket handshake otomatis (*auto-register device*, pengalihan otoritas `active_device_id` tanpa false 403, dan atomic UPSERT rebinding).
+- ✅ **Phase 3: Credential Separation (SELESAI ✅)**:
+  - Tabel `user_credentials` (id, user_id, type, identifier, secret_data, name).
+  - Memisahkan kredensial password dari profil pengguna `users` dengan dual-read/dual-write non-destruktif, membuka jalan login multi-metode.
+- 🔮 **Phase 4: Passkey / WebAuthn / FIDO2 (Siap Dieksekusi 🔮)**:
+  - Standar W3C WebAuthn untuk login biometrik tanpa password (Touch ID / Face ID / Windows Hello).
+  - Skema tabel `passkey_credentials`, endpoint registrasi `start`/`finish`, dan verifikasi autentikasi kriptografi COSE.
+- ✅ **Phase 5: Multi-Device E2EE Continuity (SELESAI ✅)**:
+  - Sinkronisasi kunci identitas E2EE master via transfer QR code ephemeral terenkripsi AES-256-GCM (`device_transfer_sessions`).
+  - Manajemen siklus hidup multi-perangkat terkelola, auto-eviction FIFO, dan pencegahan false conflict loop.
+
+---
+
+## 🏛️ Track B: Transformasi Modular Monolith & DDD Engine
+
+*Tujuan: Menata ulang arsitektur internal backend Go dari model 1-layer flat menjadi **Pragmatic Modular Monolith (3-Tier: Transport → Application Service → Domain → Infrastructure)** untuk mewujudkan Wuzz Chat sebagai **Reusable Messaging Engine** yang siap pakai untuk produk eksternal (misal: InstaQRIS) dan ekspansi fitur lanjutan.*
+
+*Dokumen Spesifikasi Arsitektur: [`docs/MODULAR_MONOLITH_DDD.md`](./MODULAR_MONOLITH_DDD.md)*
+
+```text
+Transport Layer (REST Handler / WebSocket Hub & Client)
+       │
+       ▼
+Application Layer (Use Cases: AuthService, MessageService, GroupService, MemoryService)
+       │
+       ▼
+Domain Layer (Entity & Repository Interfaces: Identity, Auth, Messaging, Group, Memory)
+       ▲
+       │
+Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI Provider)
+```
+
+- **Tahapan Eksekusi Engine**:
+  - ✅ **Fase 1: Pemisahan GroupStore dari SQLUserStore (SELESAI & DEPLOYED ✅)**:
+    - Ekstrak 22 method grup dari `SQLUserStore` ke struct mandiri `store.SQLGroupStore` (`backend/internal/store/sql_group_store.go`).
+    - Inisialisasi mandiri di `main.go`. Seluruh test suite lulus 100% dan telah live di Fly.io.
+  - 🎯 **Fase 2: Application Service untuk Auth & Identity (FOKUS BERIKUTNYA 🎯)**:
+    - Membuat `AuthService` untuk use case login, register, device limits, dan session revocation.
+    - Menjadikan `api/auth_handler.go` sebagai *thin transport* (hanya HTTP parsing & response formatting).
+    - Memisahkan domain `Identity` (profil, E2EE key) dari domain `Auth` (kredensial, sesi, token).
+  - ⏳ **Fase 3: Application Service untuk Messaging & Hub Decoupling**:
+    - Membuat `MessageService` untuk operasi pesan, reactions, receipts, dan pin.
+    - Mengisolasi WebSocket Hub (`ws/hub.go`) dengan interface minimal `RoomAuthorizationChecker` (menghapus injeksi langsung `UserStore` DB).
+  - ⏳ **Fase 4: Group & Forum Application Service**:
+    - Membuat `GroupService` dan `ForumService` terpadu, memindahkan `SubGroupTTLWorker` ke domain worker grup.
+  - ⏳ **Fase 5: Memory Engine Generalization (`ContextSource` Abstraction)**:
+    - Mengabstraksikan sumber memori AI via interface `ContextSource` (mendukung Forum, Group, dan Direct Chat Memory).
+  - ⏳ **Fase 6: Cleanup & Slim Entrypoint**:
+    - Menyederhanakan `main.go` menjadi file bootstrap tipis dan memindahkan wiring dependensi ke `cmd/server/wire.go`.
 
 ---
 

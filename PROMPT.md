@@ -18,12 +18,14 @@
 Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen berikut:
 1. 🔌 **[`docs/BACKEND_API.md`](docs/BACKEND_API.md)**: Panduan integrasi teknis REST API, WebSocket event catalog, E2EE wire format, dan siklus hidup media untuk pengembang frontend baru.
 2. 🛡️ **[`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md)**: Panduan arsitektur keamanan (Anti-BOLA/IDOR, Anti-SSRF, IP Pinning) dan optimasi performa backend ($O(1)$ CTE batching, database indexes, SQLite WAL mode).
-3. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap dari Fase 1 hingga Fase 7.
+3. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap versi 2.0 (Dual-Track: Fitur Produk Fase 1–11 & Track Modular Monolith DDD Engine).
 4. 🏛️ **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi desain database (ERD), skema tabel, dan protokol WebSocket.
-5. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
-6. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
-7. 📜 **[`PRD-websocket-chat-app.md`](PRD-websocket-chat-app.md)**: Spesifikasi awal produk.
-8. 🎨 **[`frontend/DESIGN.md`](frontend/DESIGN.md)**: Standar design system resmi (token-first `:root`, unified z-index scale, modal primitives, utility CSS classes, dan aturan dynamic-only inline styles).
+5. 🏛️ **[`docs/MODULAR_MONOLITH_DDD.md`](docs/MODULAR_MONOLITH_DDD.md)**: Cetak biru arsitektur Modular Monolith & DDD Engine (3-Tier Layering, boundary pemisahan 9 domain, dan roadmap eksekusi engine).
+6. 🔍 **[`docs/ARCHITECTURE_AUDIT.md`](docs/ARCHITECTURE_AUDIT.md)**: Cetak biru evolusi identitas, multi-device, session registry, token revocation, dan passkey readiness.
+7. 🧠 **[`docs/GROUP_MEMORY_AI_SPEC.md`](docs/GROUP_MEMORY_AI_SPEC.md)**: Spesifikasi lengkap engine Group Memory AI (pipeline M1–M7, SKIP LOCKED queue, human validation).
+8. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
+9. 📄 **[`docs/PROGRESS.md`](docs/PROGRESS.md)**: Riwayat kemajuan tugas dan catatan handover setiap fase.
+10. 🎨 **[`frontend/DESIGN.md`](frontend/DESIGN.md)**: Standar design system resmi (token-first `:root`, unified z-index scale, modal primitives, utility CSS classes, dan aturan dynamic-only inline styles).
 
 ---
 
@@ -31,10 +33,11 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
 
 | Layer | Teknologi | Catatan Implementasi |
 |---|---|---|
-| **Backend** | Go (Golang 1.26+) | `gorilla/websocket`, `golang-jwt/jwt/v5`, `golang.org/x/crypto/bcrypt`, `lib/pq` (PostgreSQL), `modernc.org/sqlite` (WAL Mode & Busy Timeout 5s) |
+| **Backend** | Go (Golang 1.26+) | Modular Monolith (Dedicated `SQLGroupStore` & `SQLUserStore`), `gorilla/websocket`, `golang-jwt/jwt/v5`, `bcrypt`, `lib/pq` (PostgreSQL), `modernc.org/sqlite` (WAL Mode & Busy Timeout 5s) |
 | **Frontend** | Next.js 16 (App Router) + React 19 + TypeScript | Vanilla CSS Design System, Auth Context (`useAuth`), WebSocket Client (`ws-client.ts`), 2-Kolom Layout & Mobile Single-Screen Flow |
+| **AI Engine** | Multi-Vendor AI Provider Interface (Gemini, OpenAI, Ollama) | Group Memory AI Worker via PostgreSQL `FOR UPDATE SKIP LOCKED`, prompt synthesizer & evidence extraction |
 | **Proxy Layer** | Custom Node.js Server (`server.js`) | Menangani HTTP upgrade `/ws` dan me-reverse proxy `/api/*` ke Go Backend (`http://localhost:8080`) |
-| **Database** | PostgreSQL (Supabase Pooler) / SQLite | Auto-migration tabel `users`, `conversations`, `conversation_members`, `messages` dengan indeks komposit |
+| **Database** | PostgreSQL (Supabase Pooler) / SQLite | Skema terisolasi: `users`, `user_credentials`, `sessions`, `devices`, `conversations`, `messages`, `forum_memory_*`, dengan auto-migration non-destruktif |
 | **Pub/Sub & Cache**| Redis (Upstash) / In-Memory Fallback | Multi-node WebSocket sync (`wuzz:cluster:events`) & link preview cache |
 | **Live Endpoints** | Fly.io (Backend) & Vercel (Frontend) | Live: `https://wuzz-chat-backend.fly.dev` & `https://chat.wuzzhub.id` |
 
@@ -94,6 +97,30 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   23. ✅ **Milestone 8.12: Anti-Stale History Poisoning & `replaceState` Logout URL Sanitizer (SELESAI)**: Mencegah auto-logout tak sengaja saat pengguna menekan tombol *Back* browser setelah login kembali. Menempatkan auth validation di prioritas pertama `useEffect` `/login` untuk langsung memantulkan (*bounce back*) pengguna aktif ke `/chat`, membersihkan parameter `?logout=1` secara instan dari address bar via `window.history.replaceState`, dan menggunakan `router.replace()` / `window.location.replace()` di seluruh alur login/logout.
   24. ✅ **Milestone 8.13: Direct WebSocket Kick on E2EE Key Transfer & Modal Hierarchy Hardening (SELESAI)**: Menendang koneksi WebSocket perangkat lama seketika saat `POST /api/users/transfer/consume` berhasil (`KickClientByUserID` dengan 500ms grace period & Close Code 4001 `SESSION_REPLACED`), mengikat CustomEvent `wuzz:session_replaced` pada `DeviceTransferModal` dan `ProfileModal`, menampilkan kartu transisi sukses & auto-dismiss 1.2 detik. Dilindungi unit test Go & frontend build (100% PASS).
   25. ✅ **Milestone 8.14: Root-Level React Portal Architecture & Z-Index Modal Stacking Hardening (SELESAI)**: Membungkus seluruh modal (ProfileModal, ContactProfileModal, DeviceConflictModal, DeviceTransferModal, CreateGroupModal, GroupPreviewModal, MemberListModal, confirmDeleteConv) dengan `createPortal(..., document.body)` dari `react-dom` untuk membebaskan modal dari stacking context / containing block jebakan `.chat-sidebar` & `.status-bar` (`backdrop-filter: blur`), mengoreksi bug tombol `✕` profil desktop yang tertutup chat pane, serta menyelaraskan z-index hierarki (`var(--z-modal)` 1000 untuk modal dasar, `var(--z-modal-top)` 1100 untuk modal anak DeviceTransferModal) sehingga tombol *"Pindah Kunci via QR / Kode"* di modal konflik perangkat PWA HP tampil normal di lapisan teratas. Dilindungi build Next.js & test Go (100% PASS).
+- ✅ **Fase 9: Monetisasi & Trust — Avatar Premium & Verified Account System (Core Engine SELESAI ✅ | Marketplace 🔮)** —
+  1. ✅ **Milestone 9.1: User Verified Account System (SELESAI)**: Kolom `is_verified` di tabel `users` (Postgres & SQLite), struct field `IsVerified` & `PeerIsVerified` di backend Go `user_store.go`, komponen frontend `VerifiedBadge.tsx` centang biru terintegrasi live di Sidebar, StatusBar, ContactProfileModal, dan ProfileModal.
+  2. 🔮 **Milestone 9.2: Avatar Premium Asset System & Marketplace (Direncanakan)**: Tabel katalog avatar, inventori user, dan modal seleksi koleksi premium.
+- ✅ **Fase 10: Group Memory AI — Forum Intelligence & Group Knowledge (SELESAI ✅)** —
+  1. ✅ **Milestone M1–M7 Penuh**: Engine memori berbasis prinsip *"AI captures. Humans validate. Wuzz remembers."*.
+  2. Skema 7 tabel relasional (`forum_memory_jobs`, `memory_drafts`, `memory_artifacts`, `artifact_evidences`, `approved_memories`, `memory_review_actions`, `memory_view_events`).
+  3. Worker non-blocking di Go backend dengan pattern queue PostgreSQL `FOR UPDATE SKIP LOCKED`.
+  4. Abstraksi interface `AIService` (Gemini & provider fallback) dengan prompt JSON terstruktur, ekstraksi bukti kutipan (*Evidence*), dan confidence scoring.
+  5. REST API Review Suite & Admin Review Drawer di frontend Next.js (<30s one-click approval / artifact editor).
+  6. Member Knowledge Viewer di arsip forum dan notifikasi push otomatis.
+- ✅ **Fase 11: Seamless Continuity & Multi-Device Identity Architecture (Phase 0, 1, 2, 3, 5 SELESAI ✅ | Phase 4 🔮)** —
+  1. ✅ **Phase 0 (Identity & Auth Hardening)**: Blacklist token JTI (`revoked_tokens`), re-auth password wajib sebelum reset kunci E2EE, dan endpoint ganti password dengan auto-revocation.
+  2. ✅ **Phase 1 (Session Foundation)**: Tabel `sessions`, session inventory API (`GET /api/auth/sessions`), dan remote logout per-sesi.
+  3. ✅ **Phase 2 (Device Registry & Reconnect Resilience)**: Tabel `devices`, endpoint manajemen perangkat, pencegahan false HTTP 403, dan auto-rebind atomic UPSERT.
+  4. ✅ **Phase 3 (Credential Separation)**: Tabel `user_credentials`, pemisahan password dari tabel `users`, dan dual read/write non-destruktif.
+  5. 🔮 **Phase 4 (Passkey / WebAuthn)**: Siap dieksekusi untuk login biometrik tanpa password (W3C WebAuthn).
+  6. ✅ **Phase 5 (Multi-Device E2EE Continuity)**: Master key synchronization via transfer QR ephemeral dan multi-device session management.
+- 🏛️ **Track B: Transformasi Modular Monolith & DDD Engine (Status: Fase 1 SELESAI ✅ | Menuju Fase 2 🎯)** —
+  1. ✅ **Fase 1: Pemisahan GroupStore dari SQLUserStore (SELESAI & DEPLOYED)**: Ekstraksi `SQLGroupStore` mandiri (`sql_group_store.go`), membersihkan ketergantungan `SQLUserStore` dari domain grup, wiring terpisah di `main.go`, lulus test 100%, dan deployed ke Fly.io (`672eca6`).
+  2. 🎯 **Fase 2: Application Service untuk Auth & Identity (FOKUS BERIKUTNYA)**: Ekstraksi `AuthService` untuk use cases login/register/device limits, menjadikan `auth_handler.go` sebagai *thin transport*.
+  3. ⏳ **Fase 3: Application Service untuk Messaging & Hub Decoupling (`RoomAuthorizationChecker`)**.
+  4. ⏳ **Fase 4: Group & Forum Service**.
+  5. ⏳ **Fase 5: Memory Engine Generalization (`ContextSource` Abstraction)**.
+  6. ⏳ **Fase 6: Cleanup & Slim `main.go` Wiring (`wire.go`)**.
 
 ---
 
