@@ -707,10 +707,10 @@ export function DeviceTransferModal({
             ) : (
               <>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '6px' }}>
-                  Pindahkan Sesi ke Perangkat Baru
+                  Sinkronkan Kunci ke Perangkat Lain
                 </h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
-                  Pindai kode QR ini menggunakan kamera di HP atau perangkat baru Anda untuk memindahkan kunci enkripsi tanpa merusak riwayat pesan.
+                  Pindai kode QR ini menggunakan kamera di HP atau laptop Anda untuk menyinkronkan kunci enkripsi sehingga kedua perangkat dapat digunakan bersamaan tanpa merusak riwayat pesan.
                 </p>
 
                 {isLoading ? (
@@ -837,10 +837,10 @@ export function DeviceTransferModal({
         {mode === 'scan' && (
           <div>
             <h3 style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '6px' }}>
-              Pindai QR Code Perangkat Lama
+              Pindai QR Code Perangkat Aktif
             </h3>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)', lineHeight: 1.5 }}>
-              Arahkan kamera perangkat ini ke kode QR yang ditampilkan di perangkat lama Anda untuk memindahkan kunci enkripsi seketika.
+              Arahkan kamera perangkat ini ke kode QR yang ditampilkan di perangkat Anda yang lain untuk menyinkronkan kunci enkripsi seketika.
             </p>
 
             {successMsg ? (

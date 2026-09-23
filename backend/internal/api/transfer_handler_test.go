@@ -194,7 +194,7 @@ func (m *mockWebSocketHub) KickClientByDeviceID(userID, deviceID, reason string)
 	m.kickCalled = true
 }
 
-func TestTransferHandler_DirectWebSocketKick(t *testing.T) {
+func TestTransferHandler_NoKickAfterSuccess(t *testing.T) {
 	_, userStore, transferStore := setupTransferTestDB(t)
 	mockHub := &mockWebSocketHub{}
 	handler := api.NewTransferHandler(transferStore, mockHub)
@@ -219,20 +219,13 @@ func TestTransferHandler_DirectWebSocketKick(t *testing.T) {
 		t.Fatalf("Ekspektasi 200 OK saat consume, dapat: %d, body: %s", w.Code, w.Body.String())
 	}
 
-	if !mockHub.kickCalled {
-		t.Fatalf("Ekspektasi KickClientByUserID dipanggil saat transfer selesai")
-	}
-
-	if mockHub.kickedUserID != user.ID {
-		t.Errorf("Ekspektasi kickedUserID = %s, dapat: %s", user.ID, mockHub.kickedUserID)
-	}
-
-	if mockHub.kickedExcept != "dev_target_new" {
-		t.Errorf("Ekspektasi kickedExcept = dev_target_new, dapat: %s", mockHub.kickedExcept)
+	// Multi-Device Phase 5: Tidak boleh ada kick ke perangkat lama saat transfer selesai
+	if mockHub.kickCalled {
+		t.Fatalf("Ekspektasi KickClientByUserID TIDAK dipanggil saat transfer selesai (kedua perangkat aktif)")
 	}
 }
 
-func TestTransferHandler_SessionRevocationOnConsume(t *testing.T) {
+func TestTransferHandler_SessionsPersistOnConsume(t *testing.T) {
 	msgStore, userStore, transferStore := setupTransferTestDB(t)
 	sessionStore := store.NewSQLSessionStore(msgStore.DB(), "sqlite")
 
@@ -299,13 +292,13 @@ func TestTransferHandler_SessionRevocationOnConsume(t *testing.T) {
 		t.Fatalf("Ekspektasi 200 OK saat consume transfer, dapat: %d (body: %s)", w.Code, w.Body.String())
 	}
 
-	// 5. Verifikasi sesi lama otomatis dicabut (is_revoked = TRUE)
+	// 5. Multi-Device: Verifikasi sesi lama TIDAK dicabut (is_revoked = FALSE)
 	isOldRevoked, err := sessionStore.IsSessionRevoked(sessOld.ID)
 	if err != nil {
 		t.Fatalf("IsSessionRevoked old gagal: %v", err)
 	}
-	if !isOldRevoked {
-		t.Errorf("Ekspektasi sesi perangkat lama otomatis ter-revoke, namun masih aktif!")
+	if isOldRevoked {
+		t.Errorf("Ekspektasi sesi perangkat lama tetap aktif, namun ter-revoke!")
 	}
 
 	// 6. Verifikasi sesi perangkat baru tetap aktif (is_revoked = FALSE)
