@@ -106,8 +106,9 @@ type UserStore interface {
 
 // SQLUserStore adalah implementasi UserStore menggunakan SQL (SQLite & Postgres).
 type SQLUserStore struct {
-	db         *sql.DB
-	driverName string
+	db              *sql.DB
+	driverName      string
+	credentialStore CredentialStore // nil = belum diset, backward-compatible
 }
 
 // NewSQLUserStore membuat instance SQLUserStore.
@@ -116,6 +117,12 @@ func NewSQLUserStore(db *sql.DB, driverName string) *SQLUserStore {
 		db:         db,
 		driverName: driverName,
 	}
+}
+
+// SetCredentialStore menyuntikkan CredentialStore ke SQLUserStore.
+// Dipanggil di main.go setelah kedua store dibuat.
+func (s *SQLUserStore) SetCredentialStore(cs CredentialStore) {
+	s.credentialStore = cs
 }
 
 // Register mendaftarkan akun baru dengan password bcrypt.
@@ -155,18 +162,60 @@ func (s *SQLUserStore) Register(username, displayName, password string) (*User, 
 		return nil, fmt.Errorf("gagal simpan user: %w", err)
 	}
 
+	// [Phase 3] Dual-write: simpan password hash ke user_credentials juga.
+	// Jika credentialStore nil, skip -- tidak ada efek samping.
+	if s.credentialStore != nil {
+		_ = s.credentialStore.CreateCredential(&UserCredential{
+			UserID:     user.ID,
+			Type:       "password",
+			Identifier: user.Username,
+			SecretData: user.PasswordHash,
+			Name:       "Password Akun",
+			CreatedAt:  user.CreatedAt,
+		})
+		// Error CreateCredential diabaikan -- Register tetap berhasil via users.password_hash
+	}
+
 	return user, nil
 }
 
 // Authenticate memverifikasi username & password.
+// Dual-Read Strategy:
+//   [1] Coba baca dari user_credentials (jalur baru)
+//   [2] Fallback ke users.password_hash (jalur lama)
+//   [3] Auto-backfill ke user_credentials jika login via fallback
 func (s *SQLUserStore) Authenticate(username, password string) (*User, error) {
 	user, err := s.GetUserByUsername(username)
 	if err != nil {
 		return nil, ErrUserNotFound
 	}
 
+	// [1] Coba jalur baru: user_credentials
+	if s.credentialStore != nil {
+		cred, _ := s.credentialStore.GetPasswordCredential(user.ID)
+		if cred != nil {
+			if err := bcrypt.CompareHashAndPassword([]byte(cred.SecretData), []byte(password)); err != nil {
+				return nil, ErrInvalidPass
+			}
+			return user, nil
+		}
+		// cred == nil: user lama belum di-backfill, lanjut ke fallback
+	}
+
+	// [2] Fallback: jalur lama via users.password_hash
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return nil, ErrInvalidPass
+	}
+
+	// [3] Auto-backfill: isi user_credentials supaya login berikutnya pakai jalur baru
+	if s.credentialStore != nil {
+		_ = s.credentialStore.CreateCredential(&UserCredential{
+			UserID:     user.ID,
+			Type:       "password",
+			Identifier: user.Username,
+			SecretData: user.PasswordHash,
+			Name:       "Password Akun",
+		})
 	}
 
 	return user, nil
@@ -193,6 +242,12 @@ func (s *SQLUserStore) ChangePassword(userID, newPasswordHash string) error {
 	if rows == 0 {
 		return ErrUserNotFound
 	}
+
+	// [Phase 3] Sync perubahan password ke user_credentials juga.
+	if s.credentialStore != nil {
+		_ = s.credentialStore.UpdatePasswordCredential(userID, newPasswordHash)
+	}
+
 	return nil
 }
 

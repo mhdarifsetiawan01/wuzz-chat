@@ -343,6 +343,26 @@ Mengeluarkan perangkat tertentu dari jarak jauh (*remote logout*). Backend menon
   }
   ```
 
+#### 13. `GET /api/auth/credentials`
+Mengembalikan daftar metode login/kredensial yang terdaftar untuk akun pengguna saat ini (Phase 3: Credential Separation).
+- **Autentikasi**: `Bearer <token>` (Wajib)
+- **Metode HTTP**: `GET`
+- **Catatan Keamanan**: Field `secret_data` (hash password / private secrets) **TIDAK PERNAH** dikembalikan ke respons API.
+- **Success Response (200 OK)**:
+  ```json
+  [
+    {
+      "id": "cred_uuid_12345",
+      "user_id": "usr_uuid_alice",
+      "type": "password",
+      "identifier": "alice",
+      "name": "Password Akun",
+      "created_at": "2026-09-23T02:00:00Z",
+      "updated_at": "2026-09-23T02:00:00Z"
+    }
+  ]
+  ```
+
 ---
 
 ### 3.2 Manajemen Kunci E2EE

@@ -367,9 +367,9 @@ CREATE INDEX IF NOT EXISTS idx_devices_user ON devices(user_id, is_active);
 
 ---
 
-#### 🔑 Phase 3 — Credential Separation (STATUS: SIAP DIEKSEKUSI)
+#### 🔑 Phase 3 — Credential Separation (STATUS: SELESAI ✅)
 
-> **Tujuan:** Memisahkan penyimpanan kredensial dari tabel profil `users`, membuka jalan untuk banyak metode login (Passkey, SSO, OTP).
+> **Tujuan:** Memisahkan penyimpanan kredensial dari tabel profil `users`, membuka jalan untuk banyak metode login (Passkey, SSO, OTP). Telah diimplementasikan dengan tabel `user_credentials`, Dual-Read/Dual-Write di SQLUserStore, auto-backfill on login, dan endpoint `GET /api/auth/credentials`.
 
 **Skema SQL:**
 ```sql
@@ -490,7 +490,7 @@ Saat ini, jika pengguna lupa password, akun tidak dapat dipulihkan. Rencana pemu
 [Phase 2: Device Registry] ─────► [SELESAI ✅] (Devices Table, Multi-Device WS Hub, FIFO Eviction)
         │
         ▼
-[Phase 3: Credential Split] ────► [TERDOKUMENTASI & SIAP DIEKSEKUSI] (Multi-Credential Table)
+[Phase 3: Credential Split] ────► [SELESAI ✅] (Multi-Credential Table, Dual-Read/Write, Auto-Backfill)
         │
         ▼
 [Phase 4: Passkey / WebAuthn] ──► [TERDOKUMENTASI & SIAP DIEKSEKUSI] (FIDO2 Biometric Login)
