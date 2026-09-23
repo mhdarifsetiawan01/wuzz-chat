@@ -1,4 +1,6 @@
-package auth
+// Package cors menyediakan CORSValidator untuk mengelola daftar domain origin yang diizinkan
+// untuk REST API dan WebSocket handshake.
+package cors
 
 import (
 	"net/http"

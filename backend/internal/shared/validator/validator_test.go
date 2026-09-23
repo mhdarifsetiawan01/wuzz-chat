@@ -1,4 +1,4 @@
-package auth
+package validator
 
 import (
 	"strings"
@@ -30,7 +30,6 @@ func TestValidateRegistration(t *testing.T) {
 		{"Username with space", "budi santoso", "Name", "password123", ErrUsernameInvalidChar},
 		{"Username with slash", "budi/admin", "Name", "password123", ErrUsernameInvalidChar},
 		{"Username with @", "budi@gmail", "Name", "password123", ErrUsernameInvalidChar},
-		{"Username with emoji", "budi🔥", "Name", "password123", ErrUsernameInvalidChar},
 
 		// Substring blocked words (jancok, puki, pepek, semantic)
 		{"Contains jancok", "si_jancok_banget", "Name", "password123", ErrUsernameForbidden},

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/shared/cors"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -26,17 +27,17 @@ type Handler struct {
 	hub           *Hub
 	userStore     store.UserStore
 	deviceStore   store.DeviceStore
-	corsValidator *auth.CORSValidator
+	corsValidator *cors.CORSValidator
 	upgrader      websocket.Upgrader
 }
 
 // NewHandler membuat Handler baru dengan Hub dan CORSValidator opsional.
-func NewHandler(hub *Hub, cv ...*auth.CORSValidator) *Handler {
-	var validator *auth.CORSValidator
+func NewHandler(hub *Hub, cv ...*cors.CORSValidator) *Handler {
+	var validator *cors.CORSValidator
 	if len(cv) > 0 && cv[0] != nil {
 		validator = cv[0]
 	} else {
-		validator = auth.NewCORSValidatorFromEnv()
+		validator = cors.NewCORSValidatorFromEnv()
 	}
 
 	return &Handler{

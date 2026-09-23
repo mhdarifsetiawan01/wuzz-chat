@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/authz"
+	"github.com/bms-del112/wuzz-chat/internal/shared/validator"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -19,10 +21,23 @@ type AuthHandler struct {
 	sessionStore store.SessionStore
 	deviceStore  store.DeviceStore
 	hub          WebSocketHub
+	authSvc      *authz.AuthService
 }
 
 func NewAuthHandler(us store.UserStore) *AuthHandler {
 	return &AuthHandler{userStore: us}
+}
+
+// NewAuthHandlerWithService membuat AuthHandler dengan injeksi AuthService (Fase 2 Track B).
+func NewAuthHandlerWithService(authSvc *authz.AuthService, us store.UserStore) *AuthHandler {
+	return &AuthHandler{
+		authSvc:   authSvc,
+		userStore: us,
+	}
+}
+
+func (h *AuthHandler) SetAuthService(authSvc *authz.AuthService) {
+	h.authSvc = authSvc
 }
 
 func (h *AuthHandler) SetTokenStore(ts store.TokenStore) {
@@ -39,6 +54,9 @@ func (h *AuthHandler) SetDeviceStore(ds store.DeviceStore) {
 
 func (h *AuthHandler) SetHub(hub WebSocketHub) {
 	h.hub = hub
+	if h.authSvc != nil {
+		h.authSvc.SetSessionKicker(hub)
+	}
 }
 
 type RegisterRequest struct {
@@ -142,8 +160,40 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	req.Username = strings.TrimSpace(req.Username)
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 
+	if h.authSvc != nil {
+		if req.DeviceID == "" {
+			req.DeviceID = strings.TrimSpace(r.Header.Get("X-Device-ID"))
+		}
+		res, err := h.authSvc.Register(authz.RegisterInput{
+			Username:    req.Username,
+			DisplayName: req.DisplayName,
+			Password:    req.Password,
+			DeviceID:    req.DeviceID,
+			UserAgent:   r.UserAgent(),
+			IP:          getClientIP(r),
+		})
+		if err != nil {
+			if errors.Is(err, store.ErrUserExists) {
+				http.Error(w, `{"error":"Username sudah digunakan, silakan pilih username lain"}`, http.StatusConflict)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
+		user, _ := h.userStore.GetUserByID(res.UserID)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(AuthResponse{
+			Token: res.Token,
+			User:  user,
+		})
+		return
+	}
+
 	// Validasi input pendaftaran (panjang, karakter, dan filter kata terlarang)
-	if err := auth.ValidateRegistration(req.Username, req.DisplayName, req.Password); err != nil {
+	if err := validator.ValidateRegistration(req.Username, req.DisplayName, req.Password); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -230,6 +280,48 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	if req.DeviceID == "" {
 		req.DeviceID = strings.TrimSpace(r.Header.Get("X-Device-ID"))
+	}
+
+	if h.authSvc != nil {
+		res, conflict, err := h.authSvc.Login(authz.LoginInput{
+			Username:        req.Username,
+			Password:        req.Password,
+			DeviceID:        req.DeviceID,
+			ConfirmOverride: req.ConfirmOverride,
+			KickDeviceID:    req.KickDeviceID,
+			UserAgent:       r.UserAgent(),
+			IP:              getClientIP(r),
+		})
+		if conflict != nil {
+			var activeDevices []store.Device
+			if h.deviceStore != nil {
+				user, _ := h.userStore.GetUserByUsername(strings.TrimSpace(req.Username))
+				if user != nil {
+					activeDevices, _ = h.deviceStore.GetUserDevices(user.ID)
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":          "DEVICE_LIMIT_REACHED",
+				"code":           "DEVICE_LIMIT_REACHED",
+				"message":        "Akun Anda saat ini sudah aktif di 2 perangkat lain.",
+				"max_devices":    2,
+				"active_devices": activeDevices,
+			})
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"Username atau password salah"}`, http.StatusUnauthorized)
+			return
+		}
+		user, _ := h.userStore.GetUserByID(res.UserID)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(AuthResponse{
+			Token: res.Token,
+			User:  user,
+		})
+		return
 	}
 
 	user, err := h.userStore.Authenticate(strings.TrimSpace(req.Username), req.Password)
@@ -586,6 +678,25 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		deviceID = strings.TrimSpace(req.DeviceID)
 	}
 
+	if h.authSvc != nil {
+		var exp time.Time
+		if claims.ExpiresAt != nil {
+			exp = claims.ExpiresAt.Time
+		}
+		_ = h.authSvc.Logout(authz.LogoutInput{
+			JTI:      claims.ID,
+			UserID:   claims.UserID,
+			DeviceID: deviceID,
+			TokenExp: exp,
+		})
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"status":  "ok",
+			"message": "Berhasil logout dan melepaskan sesi perangkat aktif",
+		})
+		return
+	}
+
 	if err := h.userStore.ClearActiveDevice(claims.UserID, deviceID); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -687,6 +798,42 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.authSvc != nil {
+		if err := h.authSvc.ChangePassword(authz.ChangePasswordInput{
+			UserID:      claims.UserID,
+			OldPassword: req.OldPassword,
+			NewPassword: req.NewPassword,
+			CurrentJTI:  claims.ID,
+		}); err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			if errors.Is(err, authz.ErrInvalidCredentials) {
+				w.WriteHeader(http.StatusUnauthorized)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"error": "Password lama salah",
+				})
+				return
+			}
+			if errors.Is(err, authz.ErrSamePassword) {
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"error": "Password baru tidak boleh sama dengan password lama",
+				})
+				return
+			}
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error": err.Error(),
+			})
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"status":  "ok",
+			"message": "Password berhasil diubah. Semua sesi aktif telah dicabut. Silakan login kembali.",
+		})
+		return
+	}
+
 	// 1. Verifikasi password lama
 	valid, err := h.userStore.VerifyPassword(claims.UserID, req.OldPassword)
 	if err != nil || !valid {
@@ -699,7 +846,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Validasi kekuatan password baru
-	if err := auth.ValidatePassword(req.NewPassword); err != nil {
+	if err := validator.ValidatePassword(req.NewPassword); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{
@@ -771,6 +918,30 @@ func (h *AuthHandler) GetActiveSessions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if h.authSvc != nil {
+		sessionInfos, err := h.authSvc.GetActiveSessions(claims.UserID, claims.ID)
+		if err != nil {
+			http.Error(w, `{"error":"Gagal mengambil daftar sesi"}`, http.StatusInternalServerError)
+			return
+		}
+		sessions := make([]store.Session, 0, len(sessionInfos))
+		for _, s := range sessionInfos {
+			sessions = append(sessions, store.Session{
+				ID:        s.ID,
+				DeviceID:  s.DeviceID,
+				UserAgent: s.UserAgent,
+				IPAddress: s.IP,
+				CreatedAt: s.CreatedAt,
+				IsCurrent: s.IsCurrent,
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"sessions": sessions,
+		})
+		return
+	}
+
 	sessions := make([]store.Session, 0)
 	if h.sessionStore != nil {
 		var err error
@@ -807,6 +978,19 @@ func (h *AuthHandler) RevokeSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.authSvc != nil {
+		if err := h.authSvc.RevokeSession(sessionID, claims.UserID); err != nil {
+			http.Error(w, `{"error":"Gagal mencabut sesi"}`, http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"status":  "ok",
+			"message": "Sesi berhasil dicabut",
+		})
+		return
+	}
+
 	if h.sessionStore != nil {
 		if err := h.sessionStore.RevokeSession(sessionID, claims.UserID); err != nil {
 			http.Error(w, `{"error":"Gagal mencabut sesi"}`, http.StatusInternalServerError)
@@ -835,6 +1019,20 @@ func (h *AuthHandler) RevokeAllOtherSessions(w http.ResponseWriter, r *http.Requ
 	claims, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
 		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	if h.authSvc != nil {
+		currentDeviceID := strings.TrimSpace(r.Header.Get("X-Device-ID"))
+		if err := h.authSvc.RevokeAllOtherSessions(claims.UserID, claims.ID, currentDeviceID); err != nil {
+			http.Error(w, `{"error":"Gagal mencabut sesi lain"}`, http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"status":  "ok",
+			"message": "Seluruh sesi lain berhasil dicabut",
+		})
 		return
 	}
 

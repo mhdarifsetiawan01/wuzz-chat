@@ -11,8 +11,12 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/ai"
 	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/authz"
+	"github.com/bms-del112/wuzz-chat/internal/authz/infra"
 	"github.com/bms-del112/wuzz-chat/internal/broker"
 	"github.com/bms-del112/wuzz-chat/internal/push"
+	"github.com/bms-del112/wuzz-chat/internal/shared/cors"
+	"github.com/bms-del112/wuzz-chat/internal/shared/ratelimit"
 	"github.com/bms-del112/wuzz-chat/internal/storage"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/worker"
@@ -84,7 +88,9 @@ func main() {
 	var deviceHandler *api.DeviceHandler
 	var credentialHandler *api.CredentialHandler
 	if userStore != nil {
-		authHandler = api.NewAuthHandler(userStore)
+		authRepo := infra.NewSQLAuthRepository(userStore, sessionStore, deviceStore, tokenStore, transferStore)
+		authSvc := authz.NewAuthService(authRepo, nil)
+		authHandler = api.NewAuthHandlerWithService(authSvc, userStore)
 		if tokenStore != nil {
 			authHandler.SetTokenStore(tokenStore)
 		}
@@ -233,7 +239,7 @@ func main() {
 	}
 
 	// Inisialisasi CORS Validator dinamis (mendukung multi-domain, Vercel preview, dan localhost)
-	corsValidator := auth.NewCORSValidatorFromEnv()
+	corsValidator := cors.NewCORSValidatorFromEnv()
 
 	// Inisialisasi handler WebSocket dengan validasi origin dinamis & single device gatekeeper
 	wsHandler := ws.NewHandler(hub, corsValidator)
@@ -260,7 +266,7 @@ func main() {
 			authRateLimitUser = n
 		}
 	}
-	authLimiter := auth.NewDualTierRateLimiter(authRateLimitIP, authRateLimitUser, 1*time.Minute)
+	authLimiter := ratelimit.NewDualTierRateLimiter(authRateLimitIP, authRateLimitUser, 1*time.Minute)
 
 	// Helper CORS Middleware untuk REST API
 	withCORS := func(h http.HandlerFunc) http.HandlerFunc {
@@ -302,10 +308,10 @@ func main() {
 	// REST API Routes (Auth) dengan Dual-Tier Rate Limiting
 	if authHandler != nil {
 		mux.HandleFunc("/api/auth/register", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.DualRateLimitMiddleware(authLimiter)(http.HandlerFunc(authHandler.Register)).ServeHTTP(w, r)
+			ratelimit.DualRateLimitMiddleware(authLimiter)(http.HandlerFunc(authHandler.Register)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/login", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.DualRateLimitMiddleware(authLimiter)(http.HandlerFunc(authHandler.Login)).ServeHTTP(w, r)
+			ratelimit.DualRateLimitMiddleware(authLimiter)(http.HandlerFunc(authHandler.Login)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/me", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(authHandler.Me)).ServeHTTP(w, r)
