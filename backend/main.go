@@ -14,9 +14,13 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/authz"
 	"github.com/bms-del112/wuzz-chat/internal/authz/infra"
 	"github.com/bms-del112/wuzz-chat/internal/broker"
+	"github.com/bms-del112/wuzz-chat/internal/group"
+	groupinfra "github.com/bms-del112/wuzz-chat/internal/group/infra"
+	groupworker "github.com/bms-del112/wuzz-chat/internal/group/worker"
 	"github.com/bms-del112/wuzz-chat/internal/messaging"
 	messaginginfra "github.com/bms-del112/wuzz-chat/internal/messaging/infra"
 	"github.com/bms-del112/wuzz-chat/internal/push"
+
 	"github.com/bms-del112/wuzz-chat/internal/shared/cors"
 	"github.com/bms-del112/wuzz-chat/internal/shared/ratelimit"
 	"github.com/bms-del112/wuzz-chat/internal/storage"
@@ -116,8 +120,12 @@ func main() {
 		messagingRepo = messaginginfra.NewSQLMessagingRepository(messageStore, userStore)
 		messagingSvc := messaging.NewMessageService(messagingRepo, messagingRepo, messagingRepo, nil)
 		chatHandler = api.NewChatHandlerWithService(messagingSvc, userStore, messageStore)
-		groupHandler = api.NewGroupHandler(groupStore, userStore)
+		groupRepo := groupinfra.NewSQLGroupRepository(groupStore, userStore)
+		groupSvc := group.NewGroupService(groupRepo, groupRepo, nil, nil)
+		forumSvc := group.NewForumService(groupRepo, groupRepo, memoryStore, nil, nil)
+		groupHandler = api.NewGroupHandlerWithServices(groupSvc, forumSvc, groupStore, userStore)
 		notificationHandler = api.NewNotificationHandler(pushService, userStore)
+
 		if memoryStore != nil {
 			memoryHandler = api.NewMemoryHandler(memoryStore, groupStore, userStore)
 		}
@@ -193,13 +201,15 @@ func main() {
 
 	// Inisialisasi SubGroup TTL Worker untuk auto-expire topik subgrup (15 menit interval)
 	if groupStore != nil {
-		subGroupWorker := worker.NewSubGroupTTLWorker(groupStore, 15*time.Minute)
+		groupRepo := groupinfra.NewSQLGroupRepository(groupStore, userStore)
+		subGroupWorker := groupworker.NewSubGroupTTLWorker(groupRepo, 15*time.Minute)
 		if memoryStore != nil {
 			subGroupWorker.SetMemoryStore(memoryStore)
 		}
 		subGroupWorker.Start()
 		defer subGroupWorker.Stop()
 	}
+
 
 	// Inisialisasi Group Memory AI Background Job Worker (configurable via env)
 	if memoryStore != nil {

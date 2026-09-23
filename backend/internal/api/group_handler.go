@@ -5,21 +5,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/group"
+	groupinfra "github.com/bms-del112/wuzz-chat/internal/group/infra"
 	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
 )
 
+// GroupHandler adalah thin HTTP transport layer untuk grup persisten dan subgrup/forum ephemeral.
 type GroupHandler struct {
+	groupSvc      *group.GroupService
+	forumSvc      *group.ForumService
 	groupStore    store.GroupStore
 	userStore     store.UserStore
 	hub           *ws.Hub
@@ -27,8 +28,33 @@ type GroupHandler struct {
 	memoryHandler *MemoryHandler
 }
 
+// NewGroupHandler membuat instance baru GroupHandler dengan adapter service internal (backward-compatible).
 func NewGroupHandler(gs store.GroupStore, us store.UserStore) *GroupHandler {
+	repo := groupinfra.NewSQLGroupRepository(gs, us)
+	groupSvc := group.NewGroupService(repo, repo, nil, nil)
+	forumSvc := group.NewForumService(repo, repo, nil, nil, nil)
 	return &GroupHandler{
+		groupSvc:   groupSvc,
+		forumSvc:   forumSvc,
+		groupStore: gs,
+		userStore:  us,
+	}
+}
+
+// NewGroupHandlerWithServices membuat instance GroupHandler dengan Application Services yang diinjeksi dari luar.
+func NewGroupHandlerWithServices(groupSvc *group.GroupService, forumSvc *group.ForumService, gs store.GroupStore, us store.UserStore) *GroupHandler {
+	if groupSvc == nil || forumSvc == nil {
+		repo := groupinfra.NewSQLGroupRepository(gs, us)
+		if groupSvc == nil {
+			groupSvc = group.NewGroupService(repo, repo, nil, nil)
+		}
+		if forumSvc == nil {
+			forumSvc = group.NewForumService(repo, repo, nil, nil, nil)
+		}
+	}
+	return &GroupHandler{
+		groupSvc:   groupSvc,
+		forumSvc:   forumSvc,
 		groupStore: gs,
 		userStore:  us,
 	}
@@ -42,14 +68,29 @@ func writeGroupJSONError(w http.ResponseWriter, code int, message string) {
 
 func (h *GroupHandler) SetHub(hub *ws.Hub) {
 	h.hub = hub
+	if h.groupSvc != nil {
+		h.groupSvc.SetBroadcaster(hub)
+	}
+	if h.forumSvc != nil {
+		h.forumSvc.SetBroadcaster(hub)
+	}
 }
 
 func (h *GroupHandler) SetPushService(ps *push.Service) {
 	h.pushService = ps
+	if h.groupSvc != nil {
+		h.groupSvc.SetNotifier(ps)
+	}
+	if h.forumSvc != nil {
+		h.forumSvc.SetNotifier(ps)
+	}
 }
 
 func (h *GroupHandler) SetMemoryHandler(mh *MemoryHandler) {
 	h.memoryHandler = mh
+	if h.forumSvc != nil && mh != nil {
+		h.forumSvc.SetMemoryStore(mh.memoryStore)
+	}
 }
 
 // CreateGroup menangani POST /api/groups
@@ -74,21 +115,24 @@ func (h *GroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req.Title = strings.TrimSpace(req.Title)
-	if req.Title == "" {
-		http.Error(w, `{"error":"Nama grup wajib diisi"}`, http.StatusBadRequest)
-		return
-	}
-	if len(req.Title) > 128 {
-		http.Error(w, `{"error":"Nama grup maksimal 128 karakter"}`, http.StatusBadRequest)
-		return
-	}
-
-	group, err := h.groupStore.CreateGroup(
-		req.Title, req.Description, req.AvatarURL,
-		claims.UserID, req.GroupUsername, req.IsPublic, req.MemberIDs,
-	)
+	grp, err := h.groupSvc.CreateGroup(r.Context(), group.CreateGroupInput{
+		Title:         req.Title,
+		Description:   req.Description,
+		AvatarURL:     req.AvatarURL,
+		CreatorID:     claims.UserID,
+		GroupUsername: req.GroupUsername,
+		IsPublic:      req.IsPublic,
+		MemberIDs:     req.MemberIDs,
+	})
 	if err != nil {
+		if errors.Is(err, group.ErrEmptyTitle) {
+			http.Error(w, `{"error":"Nama grup wajib diisi"}`, http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, group.ErrTitleTooLong) {
+			http.Error(w, `{"error":"Nama grup maksimal 128 karakter"}`, http.StatusBadRequest)
+			return
+		}
 		if errors.Is(err, store.ErrGroupUsernameTaken) {
 			writeGroupJSONError(w, http.StatusConflict, "Username grup sudah digunakan oleh grup lain")
 			return
@@ -97,16 +141,11 @@ func (h *GroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ambil daftar lengkap anggota untuk di-return
-	if members, err := h.groupStore.GetGroupMembers(group.ID); err == nil {
-		group.Members = members
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"group":   group,
+		"group":   grp,
 	})
 }
 
@@ -119,23 +158,26 @@ func (h *GroupHandler) SearchPublicGroups(w http.ResponseWriter, r *http.Request
 	}
 
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
-	limitStr := r.URL.Query().Get("limit")
 	limit := 20
-	if limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 50 {
-			limit = l
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 50 {
+			limit = parsed
 		}
 	}
 
-	groups, err := h.groupStore.SearchPublicGroups(query, limit)
+	groups, err := h.groupSvc.SearchPublicGroups(r.Context(), query, limit)
 	if err != nil {
-		http.Error(w, `{"error":"Gagal mencari grup publik"}`, http.StatusInternalServerError)
+		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal mencari grup: "+err.Error())
 		return
+	}
+	if groups == nil {
+		groups = []group.GroupDetails{}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(groups)
 }
+
 
 // RouteGroupRequest mendispatch sub-path /api/groups/...
 func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request) {
@@ -286,7 +328,7 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *GroupHandler) handleGetGroup(w http.ResponseWriter, currentUserID, groupID string) {
-	group, err := h.groupStore.GetGroupDetails(groupID, currentUserID)
+	grp, err := h.groupSvc.GetGroupDetails(context.Background(), groupID, currentUserID)
 	if err != nil {
 		if errors.Is(err, store.ErrGroupNotFound) {
 			http.Error(w, `{"error":"Grup tidak ditemukan"}`, http.StatusNotFound)
@@ -300,21 +342,14 @@ func (h *GroupHandler) handleGetGroup(w http.ResponseWriter, currentUserID, grou
 		return
 	}
 
-	// Ambil members jika user adalah anggota atau grup bersifat publik
-	if group.MyRole != "" || group.IsPublic {
-		if members, err := h.groupStore.GetGroupMembers(groupID); err == nil {
-			group.Members = members
-		}
-	}
-
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(group)
+	_ = json.NewEncoder(w).Encode(grp)
 }
 
 func (h *GroupHandler) handleJoinGroup(w http.ResponseWriter, currentUserID, groupID string) {
-	// Jika grup ini adalah subgrup, gunakan JoinSubGroup dengan Parent-Membership Gate
+	// Jika grup ini adalah subgrup, gunakan JoinSubGroup
 	if strings.HasPrefix(groupID, "sub_") {
-		err := h.groupStore.JoinSubGroup(groupID, currentUserID)
+		err := h.forumSvc.JoinSubGroup(context.Background(), groupID, currentUserID)
 		if err != nil {
 			if errors.Is(err, store.ErrGroupNotFound) {
 				http.Error(w, `{"error":"Subgrup tidak ditemukan"}`, http.StatusNotFound)
@@ -332,13 +367,6 @@ func (h *GroupHandler) handleJoinGroup(w http.ResponseWriter, currentUserID, gro
 			return
 		}
 
-		if h.hub != nil {
-			h.hub.BroadcastRoomUsers(groupID)
-			actorName := h.resolveDisplayName(currentUserID)
-			h.hub.BroadcastGroupSystemEvent(groupID, "group_member_joined",
-				fmt.Sprintf("%s telah bergabung ke subgrup", actorName))
-		}
-
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": true,
@@ -347,7 +375,7 @@ func (h *GroupHandler) handleJoinGroup(w http.ResponseWriter, currentUserID, gro
 		return
 	}
 
-	err := h.groupStore.JoinPublicGroup(groupID, currentUserID)
+	err := h.groupSvc.JoinPublicGroup(context.Background(), groupID, currentUserID)
 	if err != nil {
 		if errors.Is(err, store.ErrGroupNotFound) {
 			http.Error(w, `{"error":"Grup tidak ditemukan"}`, http.StatusNotFound)
@@ -365,14 +393,6 @@ func (h *GroupHandler) handleJoinGroup(w http.ResponseWriter, currentUserID, gro
 		return
 	}
 
-	// Broadcast presence update + system event via Hub
-	if h.hub != nil {
-		h.hub.BroadcastRoomUsers(groupID)
-		actorName := h.resolveDisplayName(currentUserID)
-		h.hub.BroadcastGroupSystemEvent(groupID, "group_member_joined",
-			fmt.Sprintf("%s telah bergabung ke grup", actorName))
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
@@ -381,18 +401,12 @@ func (h *GroupHandler) handleJoinGroup(w http.ResponseWriter, currentUserID, gro
 }
 
 func (h *GroupHandler) handleGetMembers(w http.ResponseWriter, currentUserID, groupID string) {
-	// Verifikasi akses
-	role, err := h.groupStore.GetUserRoleInGroup(groupID, currentUserID)
-	if err != nil || role == "" {
-		// Cek apakah grup publik
-		if g, err := h.groupStore.GetGroupDetails(groupID, currentUserID); err != nil || !g.IsPublic {
+	members, err := h.groupSvc.GetGroupMembers(context.Background(), groupID, currentUserID)
+	if err != nil {
+		if errors.Is(err, store.ErrUnauthorizedGroup) {
 			http.Error(w, `{"error":"Anda bukan anggota grup ini"}`, http.StatusForbidden)
 			return
 		}
-	}
-
-	members, err := h.groupStore.GetGroupMembers(groupID)
-	if err != nil {
 		http.Error(w, `{"error":"Gagal mengambil daftar anggota"}`, http.StatusInternalServerError)
 		return
 	}
@@ -410,7 +424,11 @@ func (h *GroupHandler) handleAddMembers(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	err := h.groupStore.AddGroupMembers(groupID, currentUserID, req.MemberIDs)
+	err := h.groupSvc.AddGroupMembers(r.Context(), group.AddMembersInput{
+		ConversationID: groupID,
+		ActorUserID:    currentUserID,
+		UserIDs:        req.MemberIDs,
+	})
 	if err != nil {
 		if errors.Is(err, store.ErrUnauthorizedGroup) {
 			writeGroupJSONError(w, http.StatusForbidden, "Hanya Admin atau Creator yang dapat menambahkan anggota")
@@ -418,16 +436,6 @@ func (h *GroupHandler) handleAddMembers(w http.ResponseWriter, r *http.Request, 
 		}
 		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal menambahkan anggota: "+err.Error())
 		return
-	}
-
-	if h.hub != nil {
-		h.hub.BroadcastRoomUsers(groupID)
-		actorName := h.resolveDisplayName(currentUserID)
-		for _, memberID := range req.MemberIDs {
-			targetName := h.resolveDisplayName(memberID)
-			h.hub.BroadcastGroupSystemEvent(groupID, "group_member_joined",
-				fmt.Sprintf("%s menambahkan %s ke grup", actorName, targetName))
-		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -438,7 +446,11 @@ func (h *GroupHandler) handleAddMembers(w http.ResponseWriter, r *http.Request, 
 }
 
 func (h *GroupHandler) handleRemoveMember(w http.ResponseWriter, currentUserID, groupID, targetUserID string) {
-	err := h.groupStore.RemoveGroupMember(groupID, currentUserID, targetUserID)
+	err := h.groupSvc.RemoveGroupMember(context.Background(), group.RemoveMemberInput{
+		ConversationID: groupID,
+		ActorUserID:    currentUserID,
+		TargetUserID:   targetUserID,
+	})
 	if err != nil {
 		if errors.Is(err, store.ErrUnauthorizedGroup) {
 			writeGroupJSONError(w, http.StatusForbidden, "Hanya Admin atau Creator yang dapat mengeluarkan anggota")
@@ -450,20 +462,6 @@ func (h *GroupHandler) handleRemoveMember(w http.ResponseWriter, currentUserID, 
 		}
 		writeGroupJSONError(w, http.StatusBadRequest, "Gagal mengeluarkan anggota: "+err.Error())
 		return
-	}
-
-	if h.hub != nil {
-		h.hub.BroadcastRoomUsers(groupID)
-		var eventText string
-		if currentUserID == targetUserID {
-			actorName := h.resolveDisplayName(currentUserID)
-			eventText = fmt.Sprintf("%s telah keluar dari grup", actorName)
-		} else {
-			actorName := h.resolveDisplayName(currentUserID)
-			targetName := h.resolveDisplayName(targetUserID)
-			eventText = fmt.Sprintf("%s mengeluarkan %s dari grup", actorName, targetName)
-		}
-		h.hub.BroadcastGroupSystemEvent(groupID, "group_member_removed", eventText)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -482,7 +480,12 @@ func (h *GroupHandler) handleUpdateRole(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	err := h.groupStore.UpdateMemberRole(groupID, currentUserID, targetUserID, req.Role)
+	err := h.groupSvc.UpdateMemberRole(r.Context(), group.UpdateMemberRoleInput{
+		ConversationID: groupID,
+		ActorUserID:    currentUserID,
+		TargetUserID:   targetUserID,
+		NewRole:        req.Role,
+	})
 	if err != nil {
 		if errors.Is(err, store.ErrUnauthorizedGroup) {
 			writeGroupJSONError(w, http.StatusForbidden, "Hanya Admin atau Creator yang dapat mengubah role")
@@ -494,22 +497,6 @@ func (h *GroupHandler) handleUpdateRole(w http.ResponseWriter, r *http.Request, 
 		}
 		writeGroupJSONError(w, http.StatusBadRequest, err.Error())
 		return
-	}
-
-	if h.hub != nil {
-		actorName := h.resolveDisplayName(currentUserID)
-		targetName := h.resolveDisplayName(targetUserID)
-		var roleLabel string
-		switch req.Role {
-		case "admin":
-			roleLabel = "Admin"
-		case "member":
-			roleLabel = "Anggota"
-		default:
-			roleLabel = req.Role
-		}
-		h.hub.BroadcastGroupSystemEvent(groupID, "group_role_updated",
-			fmt.Sprintf("%s mengangkat %s menjadi %s", actorName, targetName, roleLabel))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -532,7 +519,15 @@ func (h *GroupHandler) handleUpdateGroup(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	err := h.groupStore.UpdateGroupInfo(groupID, currentUserID, req.Title, req.Description, req.AvatarURL, req.IsPublic, req.GroupUsername)
+	err := h.groupSvc.UpdateGroupInfo(r.Context(), group.UpdateGroupInput{
+		ConversationID: groupID,
+		ActorUserID:    currentUserID,
+		Title:          req.Title,
+		Description:    req.Description,
+		AvatarURL:      req.AvatarURL,
+		IsPublic:       req.IsPublic,
+		GroupUsername:  req.GroupUsername,
+	})
 	if err != nil {
 		if errors.Is(err, store.ErrUnauthorizedGroup) {
 			writeGroupJSONError(w, http.StatusForbidden, "Hanya Admin atau Creator yang dapat memperbarui info grup")
@@ -544,12 +539,6 @@ func (h *GroupHandler) handleUpdateGroup(w http.ResponseWriter, r *http.Request,
 		}
 		writeGroupJSONError(w, http.StatusBadRequest, err.Error())
 		return
-	}
-
-	if h.hub != nil {
-		actorName := h.resolveDisplayName(currentUserID)
-		h.hub.BroadcastGroupSystemEvent(groupID, "group_info_updated",
-			fmt.Sprintf("%s memperbarui info grup", actorName))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -579,9 +568,9 @@ func (h *GroupHandler) resolveDisplayName(userID string) string {
 
 // handleGetSubGroups memuat daftar subgrup aktif di bawah grup induk.
 func (h *GroupHandler) handleGetSubGroups(w http.ResponseWriter, currentUserID, parentID string) {
-	subgroups, err := h.groupStore.GetActiveSubGroups(parentID, currentUserID)
+	subgroups, err := h.forumSvc.GetActiveSubGroups(context.Background(), parentID, currentUserID)
 	if err != nil {
-		if errors.Is(err, store.ErrUnauthorizedGroup) {
+		if errors.Is(err, store.ErrUnauthorizedGroup) || errors.Is(err, group.ErrParentMemberOnly) {
 			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda harus menjadi anggota grup utama terlebih dahulu")
 			return
 		}
@@ -634,28 +623,21 @@ func (h *GroupHandler) handleCreateSubGroup(w http.ResponseWriter, r *http.Reque
 		isPublic = *req.IsPublic
 	}
 
-	// Validasi bahwa pembuat adalah admin atau pembuat grup induk
-	role, err := h.groupStore.GetUserRoleInGroup(parentID, currentUserID)
-	if err != nil || (role != "creator" && role != "admin") {
-		writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin atau pembuat grup yang dapat membuat topik forum")
-		return
-	}
-
-	subgroup, err := h.groupStore.CreateSubGroup(parentID, req.Title, req.Description, currentUserID, req.Duration, isPublic)
+	subgroup, err := h.forumSvc.CreateSubGroup(r.Context(), group.CreateSubGroupInput{
+		ParentID:    parentID,
+		Title:       req.Title,
+		Description: req.Description,
+		CreatorID:   currentUserID,
+		Duration:    req.Duration,
+		IsPublic:    isPublic,
+	})
 	if err != nil {
-		if errors.Is(err, store.ErrUnauthorizedGroup) {
+		if errors.Is(err, store.ErrUnauthorizedGroup) || errors.Is(err, group.ErrForbidden) || errors.Is(err, group.ErrParentMemberOnly) {
 			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin atau pembuat grup yang dapat membuat topik forum")
 			return
 		}
 		writeGroupJSONError(w, http.StatusBadRequest, "Gagal membuat subgrup: "+err.Error())
 		return
-	}
-
-	// Broadcast notifikasi pembuatan subgrup baru ke grup induk
-	if h.hub != nil {
-		actorName := h.resolveDisplayName(currentUserID)
-		h.hub.BroadcastGroupSystemEvent(parentID, "subgroup_created",
-			fmt.Sprintf("%s telah membuat topik subgrup baru: '%s'", actorName, subgroup.Title))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -673,7 +655,7 @@ func (h *GroupHandler) handleRequestToJoinSubGroup(w http.ResponseWriter, curren
 		return
 	}
 
-	err := h.groupStore.RequestToJoinSubGroup(groupID, currentUserID)
+	err := h.forumSvc.RequestToJoinSubGroup(context.Background(), groupID, currentUserID)
 	if err != nil {
 		if errors.Is(err, store.ErrGroupNotFound) {
 			http.Error(w, `{"error":"Subgrup tidak ditemukan"}`, http.StatusNotFound)
@@ -696,87 +678,19 @@ func (h *GroupHandler) handleRequestToJoinSubGroup(w http.ResponseWriter, curren
 		"success": true,
 		"message": "Permohonan bergabung berhasil diajukan, menunggu persetujuan admin",
 	})
-
-	// Kirim notifikasi real-time (WebSocket & Web Push) khusus ke Creator dan Admin subgrup
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("❌ [JoinRequest] Recovered in notification goroutine: %v", r)
-			}
-		}()
-
-		adminIDs, err := h.groupStore.GetSubGroupAdmins(groupID)
-		if err != nil || len(adminIDs) == 0 {
-			return
-		}
-
-		// Filter keluar pemohon jika ada di daftar admin (edge case)
-		var targetAdminIDs []string
-		for _, aid := range adminIDs {
-			if aid != currentUserID {
-				targetAdminIDs = append(targetAdminIDs, aid)
-			}
-		}
-		if len(targetAdminIDs) == 0 {
-			return
-		}
-
-		// Ambil identitas pemohon
-		applicantName := "Seseorang"
-		if user, err := h.userStore.GetUserByID(currentUserID); err == nil && user != nil {
-			if user.DisplayName != "" {
-				applicantName = user.DisplayName
-			} else if user.Username != "" {
-				applicantName = user.Username
-			}
-		}
-
-		// Ambil nama subgrup
-		subGroupTitle := "subgrup privat"
-		if details, err := h.groupStore.GetGroupDetails(groupID, currentUserID); err == nil && details != nil && details.Title != "" {
-			subGroupTitle = details.Title
-		}
-
-		content := fmt.Sprintf("%s meminta izin bergabung ke topik '%s'", applicantName, subGroupTitle)
-		now := time.Now().UTC()
-		notifyMsg := ws.Message{
-			ID:        uuid.New().String(),
-			Type:      ws.TypeJoinRequest,
-			Room:      groupID,
-			From:      currentUserID,
-			Nickname:  applicantName,
-			Content:   content,
-			Timestamp: now,
-		}
-
-		if h.hub != nil {
-			h.hub.NotifyUsers(targetAdminIDs, notifyMsg)
-		}
-
-		if h.pushService != nil {
-			pushTitle := "Permohonan Izin Subgrup"
-			pushTag := "join-request-" + groupID
-			pushURL := "/chat?room=" + groupID
-			h.pushService.NotifyUsers(targetAdminIDs, pushTitle, content, pushTag, pushURL)
-		}
-	}()
 }
 
 // handleGetJoinRequests mengambil daftar seluruh permohonan bergabung subgrup yang masih pending.
 func (h *GroupHandler) handleGetJoinRequests(w http.ResponseWriter, currentUserID, groupID string) {
 	if !strings.HasPrefix(groupID, "sub_") {
-		writeGroupJSONError(w, http.StatusBadRequest, "Permohonan bergabung hanya berlaku untuk subgrup")
+		writeGroupJSONError(w, http.StatusBadRequest, "Fitur ini hanya untuk subgrup")
 		return
 	}
 
-	requests, err := h.groupStore.GetPendingJoinRequests(groupID, currentUserID)
+	requests, err := h.forumSvc.GetPendingJoinRequests(context.Background(), groupID, currentUserID)
 	if err != nil {
-		if errors.Is(err, store.ErrGroupNotFound) {
-			http.Error(w, `{"error":"Subgrup tidak ditemukan"}`, http.StatusNotFound)
-			return
-		}
 		if errors.Is(err, store.ErrUnauthorizedGroup) {
-			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin/creator yang dapat melihat permohonan")
+			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin subgrup yang dapat melihat permohonan")
 			return
 		}
 		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal memuat permohonan: "+err.Error())
@@ -794,10 +708,10 @@ func (h *GroupHandler) handleGetJoinRequests(w http.ResponseWriter, currentUserI
 	})
 }
 
-// handleRespondJoinRequest memproses persetujuan (approve) atau penolakan (reject) permohonan bergabung subgrup.
+// handleRespondJoinRequest memproses persetujuan atau penolakan permohonan bergabung ke subgrup.
 func (h *GroupHandler) handleRespondJoinRequest(w http.ResponseWriter, r *http.Request, currentUserID, groupID, requestID string) {
 	if !strings.HasPrefix(groupID, "sub_") {
-		writeGroupJSONError(w, http.StatusBadRequest, "Permohonan bergabung hanya berlaku untuk subgrup")
+		writeGroupJSONError(w, http.StatusBadRequest, "Fitur ini hanya untuk subgrup")
 		return
 	}
 
@@ -809,139 +723,48 @@ func (h *GroupHandler) handleRespondJoinRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	targetUserID, err := h.groupStore.RespondJoinRequest(groupID, requestID, currentUserID, req.Approve)
+	_, approved, err := h.forumSvc.RespondJoinRequest(r.Context(), group.RespondJoinRequestInput{
+		SubGroupID:  groupID,
+		RequestID:   requestID,
+		AdminUserID: currentUserID,
+		Approve:     req.Approve,
+	})
 	if err != nil {
-		if errors.Is(err, store.ErrGroupNotFound) {
-			http.Error(w, `{"error":"Subgrup tidak ditemukan"}`, http.StatusNotFound)
-			return
-		}
 		if errors.Is(err, store.ErrUnauthorizedGroup) {
-			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Anda tidak memiliki wewenang untuk meninjau permohonan ini")
+			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin subgrup yang dapat merespon permohonan")
 			return
 		}
-		writeGroupJSONError(w, http.StatusBadRequest, err.Error())
+		writeGroupJSONError(w, http.StatusBadRequest, "Gagal memproses permohonan: "+err.Error())
 		return
 	}
 
-	// Jika disetujui, update kehadiran room users & invalidate cache
-	if req.Approve && h.hub != nil {
-		h.hub.BroadcastRoomUsers(groupID)
-		h.hub.InvalidateRoomMembersCache(groupID)
+	actionText := "disetujui"
+	if !approved {
+		actionText = "ditolak"
 	}
-
-	// Kirim notifikasi balik secara live ke pemohon (targetUserID)
-	go func(targetID string, approved bool) {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Printf("❌ [JoinResponse] Recovered in notification goroutine: %v", r)
-			}
-		}()
-
-		if targetID == "" {
-			return
-		}
-
-		subGroupTitle := "subgrup"
-		if details, err := h.groupStore.GetGroupDetails(groupID, currentUserID); err == nil && details != nil && details.Title != "" {
-			subGroupTitle = details.Title
-		}
-
-		actionText := "disetujui"
-		if !approved {
-			actionText = "ditolak"
-		}
-
-		content := fmt.Sprintf("Permohonan bergabung Anda ke topik '%s' telah %s.", subGroupTitle, actionText)
-		now := time.Now().UTC()
-		respMsg := ws.Message{
-			ID:        uuid.New().String(),
-			Type:      ws.TypeJoinRequest,
-			Room:      groupID,
-			From:      "server",
-			Nickname:  "Sistem",
-			Content:   content,
-			Timestamp: now,
-		}
-
-		if h.hub != nil {
-			h.hub.NotifyUsers([]string{targetID}, respMsg)
-		}
-
-		if h.pushService != nil {
-			pushTitle := "Status Permohonan Subgrup"
-			pushTag := "join-response-" + groupID
-			pushURL := "/chat?room=" + groupID
-			h.pushService.NotifyUsers([]string{targetID}, pushTitle, content, pushTag, pushURL)
-		}
-	}(targetUserID, req.Approve)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": fmt.Sprintf("Permohonan berhasil %s", map[bool]string{true: "disetujui", false: "ditolak"}[req.Approve]),
+		"message": fmt.Sprintf("Permohonan bergabung berhasil %s", actionText),
 	})
 }
 
-// handleInstantExpireSubGroup menangani POST /api/groups/{id}/subgroups/{subId}/expire
-// Mengakhiri masa aktif forum secara instan (bypass TTL) dan langsung memicu pembuatan ForumMemoryJob.
+// handleInstantExpireSubGroup memproses penghentian paksa subgrup sebelum TTL berakhir.
 func (h *GroupHandler) handleInstantExpireSubGroup(w http.ResponseWriter, userID, groupID, subID string) {
-	// Validasi apakah user adalah anggota / admin dari parent group
-	role, err := h.groupStore.GetUserRoleInGroup(groupID, userID)
-	if err != nil || (role != "admin" && role != "creator") {
-		// Periksa apakah user adalah creator dari subgrup
-		subAdmins, _ := h.groupStore.GetSubGroupAdmins(subID)
-		isAdmin := false
-		for _, adminID := range subAdmins {
-			if adminID == userID {
-				isAdmin = true
-				break
-			}
-		}
-		if !isAdmin {
-			writeGroupJSONError(w, http.StatusForbidden, "Hanya admin atau kreator grup yang dapat mengakhiri masa aktif forum")
+	err := h.forumSvc.InstantExpireSubGroup(context.Background(), userID, groupID, subID)
+	if err != nil {
+		if errors.Is(err, group.ErrForbidden) || errors.Is(err, store.ErrUnauthorizedGroup) {
+			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin atau creator grup yang dapat melakukan instant expire")
 			return
 		}
-	}
-
-	// 1. Set expires_at ke masa lalu
-	if err := h.groupStore.ExpireSubGroupNow(subID); err != nil {
-		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal mempercepat waktu kedaluwarsa subgrup: "+err.Error())
+		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal melakukan instant expire: "+err.Error())
 		return
-	}
-
-	// 2. Jalankan batch expire untuk mengubah status menjadi 'expired'
-	expiredList, err := h.groupStore.ExpireSubGroupsBatchDetailed()
-	if err != nil {
-		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal memproses status expired: "+err.Error())
-		return
-	}
-
-	// 3. Jika memoryHandler tersedia, buat ForumMemoryJob
-	var createdJobID string
-	if h.memoryHandler != nil && h.memoryHandler.memoryStore != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		job, err := h.memoryHandler.memoryStore.CreateJob(ctx, subID, groupID)
-		cancel()
-		if err == nil && job != nil {
-			createdJobID = job.ID
-			log.Printf("🧠 [GroupHandler] ForumMemoryJob dibuat seketika untuk forum %s (Job ID: %s)", subID, job.ID)
-		}
-	}
-
-	// 4. Broadcast event WebSocket jika hub tersedia
-	if h.hub != nil {
-		h.hub.BroadcastGroupSystemEvent(groupID, "subgroup_expired", "Topik forum telah berakhir dan memori AI sedang diproses.")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":        "ok",
-		"message":       "Forum berhasil diakhiri masa aktifnya dan antrean AI Memory dipicu.",
-		"subgroup_id":   subID,
-		"expired_count": len(expiredList),
-		"job_id":        createdJobID,
+		"success": true,
+		"message": "Topik forum berhasil di-expire seketika dan antrean memori telah dibuat.",
 	})
 }
-
-
-

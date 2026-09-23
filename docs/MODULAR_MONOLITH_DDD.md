@@ -662,9 +662,10 @@ InstaQRIS tidak perlu tahu tentang SQL atau Go internals. Ia cukup:
 - [x] Verifikasi test `messaging/...`, `ws/...`, `api/...`, dan full suite pass 100%
 
 ### Fase 4: Extract Group + Forum Service (2-3 hari)
-- [ ] Buat `group/service.go`
-- [ ] Pindahkan logic dari `api/group_handler.go` ke service
-- [ ] Pindahkan `SubGroupTTLWorker` ke `group/worker/`
+- [x] Buat `group/service.go`
+- [x] Pindahkan logic dari `api/group_handler.go` ke service
+- [x] Pindahkan `SubGroupTTLWorker` ke `group/worker/`
+
 
 ### Fase 5: Memory Engine Generalization (3-5 hari) ← KERJAKAN SETELAH FASE 1-4 STABIL
 - [ ] Buat `memory/context_source.go` — interface

@@ -2256,5 +2256,38 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Backend Full Test Suite (`go test -v ./...`)**: **PASS 100% (Seluruh paket backend Go)**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
 
+---
+
+## 2026-09-24: Track B Modular Monolith — Tahap 4 (Group & Forum Application Service & Domain Refactor)
+
+### Problem Description
+1. Handler grup `api/group_handler.go` berukuran masif (948 baris) mencampuradukkan parsing HTTP, validasi hak akses role (`creator`, `admin`, `member`), mutasi database `store.GroupStore`, dan pemicu broadcast WebSocket `ws.Hub` serta Web Push `push.Service`.
+2. Domain grup menggabungkan dua konsep dengan karakteristik berbeda: Grup Persisten dan Forum/Subgrup *ephemeral* bertempo waktu (TTL lifecycle) yang terintegrasi dengan ekstraksi memori AI.
+3. Background worker auto-expire (`SubGroupTTLWorker`) masih berada di package umum `internal/worker/`.
+
+### Implementation Details
+1. **Domain Group & Contracts (`backend/internal/group/`)**:
+   - `entity.go`: Mendefinisikan konstanta role (`RoleCreator`, `RoleAdmin`, `RoleMember`), alias entitas domain (`GroupDetails`, `GroupMemberItem`, `SubGroupItem`, `JoinRequestItem`, `ExpiredSubGroupItem`), sentinel error domain (`ErrCannotKickCreator`, `ErrParentMemberOnly`, dll.), dan use case input DTOs.
+   - `repository.go`: Kontrak interface murni `GroupRepository` dan `UserLookupRepository`.
+   - `infra/sql_repository.go`: Strangler Fig Adapter yang mengimplementasikan `GroupRepository` dan `UserLookupRepository` membungkus `store.GroupStore` dan `store.UserStore` (zero schema changes).
+2. **Application Services (`backend/internal/group/service.go`)**:
+   - `GroupBroadcaster` (WebSocket), `GroupNotifier` (Web Push), dan `MemoryJobCreator` (AI Memory Engine) sebagai interface komunikasi decoupled.
+   - `GroupService`: Mengorkestrasi use cases grup persisten (`CreateGroup`, `GetGroupDetails`, `GetGroupMembers`, `JoinPublicGroup`, `AddGroupMembers`, `RemoveGroupMember`, `UpdateMemberRole`, `UpdateGroupInfo`, `SearchPublicGroups`).
+   - `ForumService`: Mengorkestrasi use cases forum/subgrup *ephemeral* (`CreateSubGroup`, `GetActiveSubGroups`, `JoinSubGroup`, `RequestToJoinSubGroup`, `GetPendingJoinRequests`, `RespondJoinRequest`, `InstantExpireSubGroup`, `ExpireSubGroupsBatchDetailed`).
+3. **Domain Background Worker (`backend/internal/group/worker/ttl_worker.go`)**:
+   - Migrasi `SubGroupTTLWorker` ke domain `group/worker` dengan dependensi `GroupRepository` dan `MemoryJobCreator`.
+4. **Thin Transport Handler & Main Wiring (`backend/internal/api/group_handler.go`, `backend/main.go`)**:
+   - `GroupHandler` disederhanakan murni menjadi *thin transport layer* yang mendelegasikan use cases ke `GroupService` dan `ForumService`.
+   - Menyediakan `NewGroupHandlerWithServices` dan tetap mempertahankan backward-compatible constructor `NewGroupHandler`.
+   - Wiring dependency injection di `backend/main.go`.
+
+### Test Evidence
+- **Domain & Service Unit Tests (`go test -v ./internal/group/...`)**: **PASS 100% (7/7 test suites)**.
+- **API Handler Integration Tests (`go test -v ./internal/api -run "TestGroupHandler|TestMemoryHandler"`)**: **PASS 100% (semua subtests)**.
+- **Backend Full Test Suite (`go test ./...`)**: **PASS 100% (seluruh paket internal backend)**.
+- **Real Frontend Client Simulation (`frontend/test-group-simulation.mjs`)**: **PASS 100% (9/9 skenario lifecycle grup, WebSocket live system events diterima lengkap)**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors, 8/8 routes prerendered)**.
+
+
 
 

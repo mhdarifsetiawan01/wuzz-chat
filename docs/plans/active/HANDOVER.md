@@ -1,3 +1,3 @@
 # Handover — Standby
 
-- **Status**: Standby
+- No pending handovers.
