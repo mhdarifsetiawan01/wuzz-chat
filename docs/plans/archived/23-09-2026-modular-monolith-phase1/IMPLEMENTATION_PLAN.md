@@ -1,6 +1,7 @@
 # Active Implementation Plan: Modular Monolith & Pragmatic DDD
 
-> Blueprint arsitektur referensi: [`MODULAR_MONOLITH_DDD.md`](../../MODULAR_MONOLITH_DDD.md)
+> Roadmap referensi lengkap: [`MODULAR_MONOLITH_DDD_ROADMAP.md`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/docs/plans/active/MODULAR_MONOLITH_DDD_ROADMAP.md)  
+> Proposal Audit Awal: `architecture_audit_proposal.md`
 
 ## Status Saat Ini
 - **Fase 1 (Pemisahan GroupStore dari SQLUserStore)**: **SELESAI & DEPLOYED** ✅
