@@ -23,6 +23,7 @@ func setupTestGroupAPI(t *testing.T) (*GroupHandler, *store.SQLUserStore, *store
 	}
 
 	userStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+	groupStore := store.NewSQLGroupStore(sqlStore.DB(), sqlStore.DriverName())
 
 	userA, _ := userStore.Register("alice_api", "Alice API", "pass12345")
 	userB, _ := userStore.Register("bob_api", "Bob API", "pass12345")
@@ -32,7 +33,7 @@ func setupTestGroupAPI(t *testing.T) (*GroupHandler, *store.SQLUserStore, *store
 	hub := ws.NewHub(clientStore, sqlStore)
 	hub.SetUserStore(userStore)
 
-	handler := NewGroupHandler(userStore, userStore)
+	handler := NewGroupHandler(groupStore, userStore)
 	handler.SetHub(hub)
 
 	return handler, userStore, userA, userB, userC

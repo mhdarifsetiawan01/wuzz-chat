@@ -1,4 +1,5 @@
-# Implementation Progress — Standby
+# Implementation Progress (Standby)
 
-- **Status**: Standby
-- Seluruh milestone telah selesai dan diarsipkan.
+## Status: STANDBY
+
+- [ ] Menunggu task baru

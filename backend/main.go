@@ -59,7 +59,7 @@ func main() {
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
 		userStore = sqlUserStore
-		groupStore = sqlUserStore
+		groupStore = store.NewSQLGroupStore(sqlStore.DB(), sqlStore.DriverName())
 		transferStore = store.NewSQLTransferStore(sqlStore.DB(), sqlStore.DriverName())
 		memoryStore = store.NewSQLMemoryStore(sqlStore.DB(), sqlStore.DriverName())
 		sqlTokenStore := store.NewSQLTokenStore(sqlStore.DB(), sqlStore.DriverName())

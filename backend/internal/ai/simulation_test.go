@@ -34,7 +34,7 @@ func TestAI_Groq_FullSimulation_E2E(t *testing.T) {
 	}
 
 	// 1. Setup Environment Database Uji
-	msgStore, userStore, memStore, cleanup := setupTestAIEngineEnv(t)
+	msgStore, userStore, groupStore, memStore, cleanup := setupTestAIEngineEnv(t)
 	defer cleanup()
 	ctx := context.Background()
 
@@ -49,19 +49,19 @@ func TestAI_Groq_FullSimulation_E2E(t *testing.T) {
 		t.Fatalf("Register member gagal: %v", err)
 	}
 
-	group, err := userStore.CreateGroup("Tim Inovasi Produk", "Diskusi peluncuran fitur baru", "", adminUser.ID, "tim_inovasi", true, []string{memberUser.ID})
+	group, err := groupStore.CreateGroup("Tim Inovasi Produk", "Diskusi peluncuran fitur baru", "", adminUser.ID, "tim_inovasi", true, []string{memberUser.ID})
 	if err != nil {
 		t.Fatalf("CreateGroup gagal: %v", err)
 	}
 
 	// 3. Buat Subgrup / Forum (Durasi 7 hari)
-	sub, err := userStore.CreateSubGroup(group.ID, "Rencana Peluncuran Group Memory AI", "Menentukan timeline, metrik keberhasilan, dan dokumentasi", adminUser.ID, "7_days", true)
+	sub, err := groupStore.CreateSubGroup(group.ID, "Rencana Peluncuran Group Memory AI", "Menentukan timeline, metrik keberhasilan, dan dokumentasi", adminUser.ID, "7_days", true)
 	if err != nil {
 		t.Fatalf("CreateSubGroup gagal: %v", err)
 	}
 
 	// Tambahkan member ke subgrup
-	_ = userStore.JoinSubGroup(sub.ID, memberUser.ID)
+	_ = groupStore.JoinSubGroup(sub.ID, memberUser.ID)
 
 	// 4. Simulasi Percakapan Diskusi Nyata
 	simulatedMessages := []struct {
@@ -95,12 +95,12 @@ func TestAI_Groq_FullSimulation_E2E(t *testing.T) {
 
 	// 5. Bypass Expiry (Bypass waktu 7 hari / 30 hari secara instan)
 	t.Log("⏳ [Simulation] Mengaktifkan Instant Expiry Bypass...")
-	err = userStore.ExpireSubGroupNow(sub.ID)
+	err = groupStore.ExpireSubGroupNow(sub.ID)
 	if err != nil {
 		t.Fatalf("ExpireSubGroupNow gagal: %v", err)
 	}
 
-	expiredItems, err := userStore.ExpireSubGroupsBatchDetailed()
+	expiredItems, err := groupStore.ExpireSubGroupsBatchDetailed()
 	if err != nil {
 		t.Fatalf("ExpireSubGroupsBatchDetailed gagal: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestAI_Groq_FullSimulation_E2E(t *testing.T) {
 	// 7. Eksekusi Pemrosesan dengan Groq Real AI Provider
 	groqProvider := NewGroqProvider(apiKey, model)
 	pushSvc := push.NewService(userStore)
-	processor := NewMemoryProcessor(memStore, msgStore, userStore, groqProvider)
+	processor := NewMemoryProcessor(memStore, msgStore, groupStore, groqProvider)
 	processor.SetPushService(pushSvc)
 
 	t.Logf("🧠 [Simulation] Menghubungi Groq LPU API (Model: %s) untuk memproses ringkasan...", model)
@@ -223,9 +223,9 @@ func TestAI_Groq_FullSimulation_E2E(t *testing.T) {
 
 	// 11. Simulasi Penolakan (Reject Flow) pada Forum Lain
 	t.Log("🚫 [Simulation] Menguji Alur Penolakan (Reject Flow) pada Forum Kedua...")
-	sub2, _ := userStore.CreateSubGroup(group.ID, "Ide Outing Kantor", "Diskusi santai outing", adminUser.ID, "7_days", true)
-	_ = userStore.ExpireSubGroupNow(sub2.ID)
-	_, _ = userStore.ExpireSubGroupsBatchDetailed()
+	sub2, _ := groupStore.CreateSubGroup(group.ID, "Ide Outing Kantor", "Diskusi santai outing", adminUser.ID, "7_days", true)
+	_ = groupStore.ExpireSubGroupNow(sub2.ID)
+	_, _ = groupStore.ExpireSubGroupsBatchDetailed()
 
 	job2, _ := memStore.CreateJob(ctx, sub2.ID, group.ID)
 	_ = processor.ProcessMemoryJob(ctx, job2, 0)

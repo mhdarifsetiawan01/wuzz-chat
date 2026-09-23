@@ -27,6 +27,7 @@ func setupTestMemoryAPI(t *testing.T) (*MemoryHandler, *GroupHandler, *store.SQL
 	}
 
 	userStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+	groupStore := store.NewSQLGroupStore(sqlStore.DB(), sqlStore.DriverName())
 	memoryStore := store.NewSQLMemoryStore(sqlStore.DB(), sqlStore.DriverName())
 
 	userAlice, _ := userStore.Register("alice_mem", "Alice Admin", "pass12345")
@@ -37,15 +38,15 @@ func setupTestMemoryAPI(t *testing.T) (*MemoryHandler, *GroupHandler, *store.SQL
 	hub := ws.NewHub(clientStore, sqlStore)
 	hub.SetUserStore(userStore)
 
-	groupHandler := NewGroupHandler(userStore, userStore)
+	groupHandler := NewGroupHandler(groupStore, userStore)
 	groupHandler.SetHub(hub)
 
-	memoryHandler := NewMemoryHandler(memoryStore, userStore, userStore)
+	memoryHandler := NewMemoryHandler(memoryStore, groupStore, userStore)
 	memoryHandler.SetHub(hub)
 	groupHandler.SetMemoryHandler(memoryHandler)
 
 	// Alice membuat grup dengan Bob sebagai anggota
-	parentGroup, err := userStore.CreateGroup(
+	parentGroup, err := groupStore.CreateGroup(
 		"Tech Division", "Diskusi divisi teknologi", "",
 		userAlice.ID, "tech_div", false, []string{userBob.ID},
 	)
@@ -54,7 +55,7 @@ func setupTestMemoryAPI(t *testing.T) (*MemoryHandler, *GroupHandler, *store.SQL
 	}
 
 	// Alice membuat subgrup / forum
-	subGroup, err := userStore.CreateSubGroup(
+	subGroup, err := groupStore.CreateSubGroup(
 		parentGroup.ID, "Arsitektur Database", "Diskusi skema DB",
 		userAlice.ID, "1_week", false,
 	)

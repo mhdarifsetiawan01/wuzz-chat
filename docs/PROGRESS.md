@@ -2070,3 +2070,31 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Backend Unit Tests (`go test -v ./internal/api/ -run TestAuthHandler_DeviceLimitFlow`)**: **PASS 100%**.
 - **Backend Full Test Suite (`go test -v ./...`)**: **PASS 100%**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+
+---
+
+## 2026-09-23: Modular Monolith Refactoring (Fase 1: Pemisahan GroupStore dari SQLUserStore)
+
+### Problem Description
+1. Implementasi `store.GroupStore` (22 method untuk operasi grup & forum) sebelumnya digabungkan di dalam `SQLUserStore` pada `backend/internal/store/group_store.go`.
+2. Hal ini mencampurkan batasan domain antara Identity/Auth (pengguna, sesi, kunci, profil) dengan Group Domain (grup, subgrup/forum, join request, peran keanggotaan).
+3. Untuk evolusi jangka panjang WuzzChat sebagai messaging engine yang reusable (Modular Monolith), domain boundaries perlu dipisahkan secara bersih tanpa merusak database schema dan tanpa mengubah behavior aplikasi.
+
+### Implementation Details
+1. **Dedicated SQL Group Store (`backend/internal/store/sql_group_store.go`)**:
+   - Membuat struct `SQLGroupStore` mandiri dengan konstruktor `NewSQLGroupStore(db *sql.DB, driverName string) *SQLGroupStore`.
+   - Memindahkan seluruh 22 method publik `GroupStore` dan helper internal (`touchConversation`, `groupGroupID`) ke `SQLGroupStore`.
+   - Menggunakan pool koneksi `*sql.DB` bersama dari `SQLMessageStore` sehingga tidak menimbulkan koneksi database tambahan.
+2. **Interface & Entity Extraction (`backend/internal/store/group_store.go`)**:
+   - Membersihkan seluruh implementasi konkret method pada `SQLUserStore`.
+   - File `group_store.go` kini murni berfungsi sebagai kontrak interface `GroupStore`, types, dan error sentinels.
+3. **Application Entrypoint Wiring (`backend/main.go`)**:
+   - Memperbarui inisialisasi `groupStore` agar menggunakan `store.NewSQLGroupStore(sqlStore.DB(), sqlStore.DriverName())` secara terpisah dari `sqlUserStore`.
+4. **Dependency Inversion & Test Suites Alignment**:
+   - Memperbarui test suite (`internal/worker`, `internal/ws`, `internal/api`, `internal/ai`, `internal/store`) agar mengonsumsi `SQLGroupStore` untuk operasi grup/forum dan `SQLUserStore` untuk operasi akun/pengguna.
+
+### Test Evidence
+- **Backend Full Test Suite (`go test -count=1 ./...`)**: **PASS 100% (Semua 9 package lulus tanpa cache)**.
+- **Backend Compilation (`go build ./...`)**: **PASS 100% (0 errors)**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+

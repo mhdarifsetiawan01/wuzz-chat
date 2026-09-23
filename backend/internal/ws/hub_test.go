@@ -523,6 +523,7 @@ func TestHub_BroadcastRoom_MentionsValidation(t *testing.T) {
 	defer msgStore.Close()
 
 	userStore := store.NewSQLUserStore(msgStore.DB(), msgStore.DriverName())
+	groupStore := store.NewSQLGroupStore(msgStore.DB(), msgStore.DriverName())
 	clientStore := store.NewMemoryClientStore()
 	hub := NewHub(clientStore, msgStore)
 	hub.SetUserStore(userStore)
@@ -542,7 +543,7 @@ func TestHub_BroadcastRoom_MentionsValidation(t *testing.T) {
 	}
 
 	// 2. Buat grup dan tambahkan Alice dan Bob saja (Charlie bukan anggota)
-	grp, err := userStore.CreateGroup("Mention Group", "Test Description", "", userAlice.ID, "", false, []string{userBob.ID})
+	grp, err := groupStore.CreateGroup("Mention Group", "Test Description", "", userAlice.ID, "", false, []string{userBob.ID})
 	if err != nil {
 		t.Fatalf("failed to create group: %v", err)
 	}

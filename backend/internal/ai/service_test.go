@@ -151,29 +151,30 @@ func TestAI_ParseStructuredOutput(t *testing.T) {
 	}
 }
 
-func setupTestAIEngineEnv(t *testing.T) (*store.SQLMessageStore, *store.SQLUserStore, store.MemoryStore, func()) {
+func setupTestAIEngineEnv(t *testing.T) (*store.SQLMessageStore, *store.SQLUserStore, *store.SQLGroupStore, store.MemoryStore, func()) {
 	tmpDB := filepath.Join(t.TempDir(), "test_ai_engine.db")
 	sqlStore, err := store.NewSQLMessageStore("sqlite", tmpDB)
 	if err != nil {
 		t.Fatalf("Gagal inisialisasi sqlStore: %v", err)
 	}
 	userStore := store.NewSQLUserStore(sqlStore.DB(), "sqlite")
+	groupStore := store.NewSQLGroupStore(sqlStore.DB(), "sqlite")
 	memStore := store.NewSQLMemoryStore(sqlStore.DB(), "sqlite")
 
-	return sqlStore, userStore, memStore, func() {
+	return sqlStore, userStore, groupStore, memStore, func() {
 		sqlStore.Close()
 	}
 }
 
 func TestAI_MemoryProcessor_FullPipeline(t *testing.T) {
-	msgStore, userStore, memStore, cleanup := setupTestAIEngineEnv(t)
+	msgStore, userStore, groupStore, memStore, cleanup := setupTestAIEngineEnv(t)
 	defer cleanup()
 	ctx := context.Background()
 
 	// 1. Buat grup dan forum
 	creator, _ := userStore.Register("ai_creator", "Creator", "Pass123!")
-	group, _ := userStore.CreateGroup("Product Engineering", "Desc", "", creator.ID, "prod_eng", true, nil)
-	sub, _ := userStore.CreateSubGroup(group.ID, "Topik Forum Memori", "Desc", creator.ID, "7_days", true)
+	group, _ := groupStore.CreateGroup("Product Engineering", "Desc", "", creator.ID, "prod_eng", true, nil)
+	sub, _ := groupStore.CreateSubGroup(group.ID, "Topik Forum Memori", "Desc", creator.ID, "7_days", true)
 
 	// 2. Simpan pesan-pesan ke forum
 	msg1ID := "msg_" + uuid.New().String()
@@ -230,7 +231,7 @@ func TestAI_MemoryProcessor_FullPipeline(t *testing.T) {
 		},
 	}
 
-	processor := NewMemoryProcessor(memStore, msgStore, userStore, mockAI)
+	processor := NewMemoryProcessor(memStore, msgStore, groupStore, mockAI)
 
 	// 5. Eksekusi ProcessMemoryJob
 	err = processor.ProcessMemoryJob(ctx, job, 2)
@@ -290,20 +291,20 @@ func TestAI_MemoryProcessor_FullPipeline(t *testing.T) {
 }
 
 func TestAI_MemoryProcessor_EmptyForum(t *testing.T) {
-	msgStore, userStore, memStore, cleanup := setupTestAIEngineEnv(t)
+	msgStore, userStore, groupStore, memStore, cleanup := setupTestAIEngineEnv(t)
 	defer cleanup()
 	ctx := context.Background()
 
 	creator, _ := userStore.Register("empty_creator", "Creator", "Pass123!")
-	group, _ := userStore.CreateGroup("Empty Group", "Desc", "", creator.ID, "empty_grp", true, nil)
-	sub, _ := userStore.CreateSubGroup(group.ID, "Topik Kosong", "Desc", creator.ID, "7_days", true)
+	group, _ := groupStore.CreateGroup("Empty Group", "Desc", "", creator.ID, "empty_grp", true, nil)
+	sub, _ := groupStore.CreateSubGroup(group.ID, "Topik Kosong", "Desc", creator.ID, "7_days", true)
 
 	job, err := memStore.CreateJob(ctx, sub.ID, group.ID)
 	if err != nil {
 		t.Fatalf("CreateJob gagal: %v", err)
 	}
 
-	processor := NewMemoryProcessor(memStore, msgStore, userStore, &MockAIService{})
+	processor := NewMemoryProcessor(memStore, msgStore, groupStore, &MockAIService{})
 
 	// Proses forum kosong
 	err = processor.ProcessMemoryJob(ctx, job, 0)
@@ -358,13 +359,13 @@ func TestAI_ProviderFactoryAndErrors(t *testing.T) {
 }
 
 func TestAI_MemoryProcessorWithPushNotification(t *testing.T) {
-	msgStore, userStore, memStore, cleanup := setupTestAIEngineEnv(t)
+	msgStore, userStore, groupStore, memStore, cleanup := setupTestAIEngineEnv(t)
 	defer cleanup()
 	ctx := context.Background()
 
 	creator, _ := userStore.Register("notif_creator", "Creator", "Pass123!")
-	group, _ := userStore.CreateGroup("Push Group", "Desc", "", creator.ID, "push_grp", true, nil)
-	sub, _ := userStore.CreateSubGroup(group.ID, "Topik Notif", "Desc", creator.ID, "7_days", true)
+	group, _ := groupStore.CreateGroup("Push Group", "Desc", "", creator.ID, "push_grp", true, nil)
+	sub, _ := groupStore.CreateSubGroup(group.ID, "Topik Notif", "Desc", creator.ID, "7_days", true)
 
 	job, err := memStore.CreateJob(ctx, sub.ID, group.ID)
 	if err != nil {
@@ -372,7 +373,7 @@ func TestAI_MemoryProcessorWithPushNotification(t *testing.T) {
 	}
 
 	pushSvc := push.NewService(userStore)
-	processor := NewMemoryProcessor(memStore, msgStore, userStore, &MockAIService{})
+	processor := NewMemoryProcessor(memStore, msgStore, groupStore, &MockAIService{})
 	processor.SetPushService(pushSvc)
 
 	err = processor.ProcessMemoryJob(ctx, job, 0)

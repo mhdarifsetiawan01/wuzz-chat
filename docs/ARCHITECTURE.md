@@ -738,3 +738,20 @@ Fitur Group Memory AI mewujudkan visi *"AI captures. Humans validate. Wuzz remem
 - **Data Minimization**: UUID internal user dan token sesi tidak pernah dikirim ke LLM; hanya display name, timestamp, dan isi teks percakapan.
 
 ---
+
+## 🏛️ 11. Backend Modular Monolith Domain Boundaries
+
+Dalam rangka evolusi arsitektur menuju sistem modular monolith yang dapat digunakan kembali (*reusable messaging engine*), batas domain (*domain boundaries*) dipisahkan secara bertahap tanpa mengubah skema basis data:
+
+### A. Pemisahan Domain Identity vs Group (Fase 1)
+- **Identity & User Domain (`store.UserStore` / `store.SQLUserStore`)**:
+  - Bertanggung jawab murni atas entitas pengguna: registrasi, login, verifikasi akun, manajemen perangkat aktif, backup kunci E2EE, dan keanggotaan percakapan dasar.
+  - Tidak lagi mengimplementasikan interface `GroupStore`.
+- **Group Domain (`store.GroupStore` / `store.SQLGroupStore`)**:
+  - Bertanggung jawab atas siklus hidup obrolan grup dan forum/subgrup: pembuatan grup, manajemen peran (`creator`, `admin`, `member`), approval join request, pencarian grup publik, dan siklus TTL kadaluwarsa forum.
+  - Diinstansiasi secara mandiri via `store.NewSQLGroupStore(db, driverName)` dengan berbagi pool koneksi `*sql.DB` yang sama tanpa membuka koneksi database tambahan.
+- **Konsumen Antarmuka (Dependency Inversion)**:
+  - `GroupHandler`, `MemoryHandler`, `SubGroupTTLWorker`, dan `MemoryProcessor` kini bergantung langsung pada interface `store.GroupStore` independen.
+
+---
+
