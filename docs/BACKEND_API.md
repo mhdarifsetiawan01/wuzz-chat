@@ -1417,7 +1417,9 @@ Menyetujui (`approve: true`) atau menolak (`approve: false`) permohonan bergabun
 #### 46. `GET /api/memory/drafts?group_id={id}`
 Mengambil daftar draft ringkasan memori AI yang menunggu kurasi/tinjauan admin di grup tertentu.
 - **Autentikasi**: `Bearer <token>` (Wajib Admin atau Creator grup)
-- **Query Parameter**: `group_id` (string, wajib)
+- **Query Parameter**:
+  - `group_id` (string, wajib) — ID grup induk.
+  - `status` (string, opsional) — Filter status draft (`DRAFT`, `APPROVED`, `REJECTED`, atau `all`). **Default: `DRAFT`** (hanya mengambil antrean pending).
 - **Success Response (200 OK)**:
   ```json
   [

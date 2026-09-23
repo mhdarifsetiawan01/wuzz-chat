@@ -226,7 +226,7 @@ export function MemoryDraftReviewModal({
                 }}
               >
                 <span>🧠 Review Memori AI Forum</span>
-                {hasEdits && (
+                {hasEdits && draft?.status === 'DRAFT' && (
                   <span
                     style={{
                       fontSize: '0.68rem',
@@ -238,6 +238,34 @@ export function MemoryDraftReviewModal({
                     }}
                   >
                     Ada Suntingan
+                  </span>
+                )}
+                {draft?.status === 'APPROVED' && (
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                      padding: '2px 7px',
+                      borderRadius: '9999px',
+                      backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                      color: 'var(--color-success)',
+                    }}
+                  >
+                    Sudah Disetujui
+                  </span>
+                )}
+                {draft?.status === 'REJECTED' && (
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                      padding: '2px 7px',
+                      borderRadius: '9999px',
+                      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                      color: 'var(--color-error)',
+                    }}
+                  >
+                    Ditolak
                   </span>
                 )}
               </h2>
@@ -306,25 +334,68 @@ export function MemoryDraftReviewModal({
           ) : draft ? (
             <>
               {/* Context Header Info */}
-              <div
-                className="p-3 rounded-xl text-xs space-y-1"
-                style={{
-                  backgroundColor: 'rgba(59, 130, 246, 0.06)',
-                  border: '1px solid rgba(59, 130, 246, 0.15)',
-                }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold" style={{ color: 'var(--accent-400)' }}>
-                    💬 Data Sumber Forum
-                  </span>
-                  <span style={{ color: 'var(--text-muted)' }}>
-                    {draft.message_count_processed} pesan percakapan dianalisis
-                  </span>
+              {draft.status === 'APPROVED' ? (
+                <div
+                  className="p-3 rounded-xl text-xs space-y-1"
+                  style={{
+                    backgroundColor: 'rgba(34, 197, 94, 0.08)',
+                    border: '1px solid rgba(34, 197, 94, 0.25)',
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold" style={{ color: 'var(--color-success)' }}>
+                      ✅ Draft Telah Disetujui
+                    </span>
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {draft.message_count_processed} pesan percakapan dianalisis
+                    </span>
+                  </div>
+                  <p style={{ color: 'var(--text-secondary)' }}>
+                    Draft memori ini telah divalidasi dan dipublikasikan ke arsip memori forum. Seluruh anggota grup dapat melihat ringkasan keputusan ini.
+                  </p>
                 </div>
-                <p style={{ color: 'var(--text-secondary)' }}>
-                  Periksa kebenaran ringkasan dan bukti keputusan di bawah sebelum disetujui. Keputusan yang disetujui akan diabadikan permanen untuk seluruh anggota grup.
-                </p>
-              </div>
+              ) : draft.status === 'REJECTED' ? (
+                <div
+                  className="p-3 rounded-xl text-xs space-y-1"
+                  style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold" style={{ color: 'var(--color-error)' }}>
+                      ❌ Draft Ditolak
+                    </span>
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {draft.message_count_processed} pesan percakapan dianalisis
+                    </span>
+                  </div>
+                  <p style={{ color: 'var(--text-secondary)' }}>
+                    Draft memori ini tidak dipublikasikan ke memori grup.
+                    {draft.rejection_reason ? ` Alasan: "${draft.rejection_reason}"` : ''}
+                  </p>
+                </div>
+              ) : (
+                <div
+                  className="p-3 rounded-xl text-xs space-y-1"
+                  style={{
+                    backgroundColor: 'rgba(59, 130, 246, 0.06)',
+                    border: '1px solid rgba(59, 130, 246, 0.15)',
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold" style={{ color: 'var(--accent-400)' }}>
+                      💬 Data Sumber Forum
+                    </span>
+                    <span style={{ color: 'var(--text-muted)' }}>
+                      {draft.message_count_processed} pesan percakapan dianalisis
+                    </span>
+                  </div>
+                  <p style={{ color: 'var(--text-secondary)' }}>
+                    Periksa kebenaran ringkasan dan bukti keputusan di bawah sebelum disetujui. Keputusan yang disetujui akan diabadikan permanen untuk seluruh anggota grup.
+                  </p>
+                </div>
+              )}
 
               {/* 1. Summary Card */}
               {summaryArtifact ? (
@@ -388,66 +459,79 @@ export function MemoryDraftReviewModal({
               paddingBottom: 'max(14px, env(safe-area-inset-bottom, 0px))',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              justifyContent: draft.status === 'DRAFT' ? 'space-between' : 'flex-end',
               gap: '10px',
               flexWrap: 'wrap',
             }}
           >
-            <button
-              type="button"
-              onClick={() => setShowRejectModal(true)}
-              disabled={isSubmitting}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.8rem',
-                padding: '8px 14px',
-                color: 'var(--color-error)',
-                borderColor: 'rgba(239, 68, 68, 0.3)',
-              }}
-            >
-              <span>❌ Tolak Draft</span>
-            </button>
+            {draft.status === 'DRAFT' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowRejectModal(true)}
+                  disabled={isSubmitting}
+                  className="btn btn-secondary"
+                  style={{
+                    fontSize: '0.8rem',
+                    padding: '8px 14px',
+                    color: 'var(--color-error)',
+                    borderColor: 'rgba(239, 68, 68, 0.3)',
+                  }}
+                >
+                  <span>❌ Tolak Draft</span>
+                </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={isSubmitting}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.8rem', padding: '8px 14px' }}
+                  >
+                    Nanti Saja
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleApprove}
+                    disabled={isSubmitting}
+                    className="btn btn-primary"
+                    style={{
+                      fontSize: '0.8rem',
+                      padding: '8px 16px',
+                      backgroundColor: 'var(--color-success)',
+                      borderColor: 'var(--color-success)',
+                      opacity: isSubmitting ? 0.6 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <span className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
+                        <span>Mempublikasikan...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>✅</span>
+                        <span>{hasEdits ? 'Setujui dengan Suntingan' : 'Setujui & Publikasikan'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
               <button
                 type="button"
                 onClick={onClose}
-                disabled={isSubmitting}
                 className="btn btn-secondary"
-                style={{ fontSize: '0.8rem', padding: '8px 14px' }}
+                style={{ fontSize: '0.8rem', padding: '8px 20px' }}
               >
-                Nanti Saja
+                Tutup
               </button>
-
-              <button
-                type="button"
-                onClick={handleApprove}
-                disabled={isSubmitting}
-                className="btn btn-primary"
-                style={{
-                  fontSize: '0.8rem',
-                  padding: '8px 16px',
-                  backgroundColor: 'var(--color-success)',
-                  borderColor: 'var(--color-success)',
-                  opacity: isSubmitting ? 0.6 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px' }} />
-                    <span>Mempublikasikan...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>✅</span>
-                    <span>{hasEdits ? 'Setujui dengan Suntingan' : 'Setujui & Publikasikan'}</span>
-                  </>
-                )}
-              </button>
-            </div>
+            )}
           </div>
         )}
       </div>
