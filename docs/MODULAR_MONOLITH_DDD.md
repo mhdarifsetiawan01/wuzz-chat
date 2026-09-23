@@ -646,11 +646,13 @@ InstaQRIS tidak perlu tahu tentang SQL atau Go internals. Ia cukup:
 - [x] Bersihkan `SQLUserStore` agar tidak lagi merangkap domain grup/forum
 - [x] Verifikasi semua test group pass 100% dan deploy ke Fly.io (`672eca6`)
 
-### Fase 2: Extract Application Services untuk Auth (3-5 hari)
-- [ ] Buat `authz/service.go` dengan `AuthService`
-- [ ] Pindahkan business logic dari `api/auth_handler.go` (device limit, session creation, kick logic) ke `AuthService`
-- [ ] Handler menjadi tipis: parse request → call service → return response
-- [ ] Verifikasi test `api/auth_*_test.go` masih pass
+### Fase 2: Extract Application Services untuk Auth (SELESAI & DEPLOYED ✅)
+- [x] Buat `internal/shared/` (cors, ratelimit, validator, errors)
+- [x] Buat `authz/service.go` dengan `AuthService`
+- [x] Pindahkan business logic dari `api/auth_handler.go` (device limit, session creation, kick logic) ke `AuthService`
+- [x] Handler menjadi tipis: parse request → call service → return response
+- [x] Buat `authz/infra/sql_repository.go` adapter ke existing stores
+- [x] Verifikasi test `authz/...`, `shared/...`, dan `api/auth_*_test.go` masih pass (100%) dan deploy ke Fly.io (`174f447`)
 
 ### Fase 3: Extract Application Services untuk Messaging (3-4 hari)
 - [ ] Buat `messaging/service.go` dengan `MessageService`
