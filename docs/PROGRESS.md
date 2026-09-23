@@ -2098,3 +2098,38 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Backend Compilation (`go build ./...`)**: **PASS 100% (0 errors)**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
 
+---
+
+## 2026-09-23: Bug Fix: Multi-Device Remote Logout & WebSocket Reconnect Resilience
+
+### Problem Description
+1. Saat user berada di perangkat aktif (Device 1) dan mengeluarkan perangkat lain (Device 2) via menu Profil ➔ Tab Perangkat (`DELETE /api/auth/devices/{id}`), Device 2 berhasil dikeluarkan.
+2. Namun, Device 1 mengalami kegagalan koneksi: indikator koneksi di bar atas menjadi kuning (`reconnecting`/`connecting`) berulang kali hingga timeout dan tidak dapat terhubung lagi ke WebSocket.
+3. Root cause:
+   - Endpoint `RemoveDevice` hanya menonaktifkan Device 2 di tabel `devices` tanpa memperbarui kolom `users.active_device_id`.
+   - Di WebSocket handshake (`internal/ws/handler.go`), jika Device 1 belum tercatat di tabel `devices` (misal login lama sebelum migrasi), query `GetUserDevices` menghasilkan 0 perangkat aktif karena Device 2 sudah dinonaktifkan.
+   - Sistem jatuh ke fallback *single-device* dan membandingkan ID Device 1 dengan `users.active_device_id` yang masih berisi ID Device 2, menyebabkan penolakan HTTP 403 Forbidden berulang kali.
+
+### Implementation Details
+1. **DeviceStore & UserStore Extension (`backend/internal/store/`)**:
+   - Menambahkan method `GetDeviceByID(deviceID string) (*Device, error)` di `DeviceStore` dan `SQLDeviceStore` untuk membaca status perangkat tanpa terhalang filter `is_active`.
+   - Menambahkan method `SetActiveDevice(userID, deviceID string) error` di `UserStore` dan `SQLUserStore` untuk mengalihkan otoritas perangkat aktif.
+2. **Device Handler Resilience (`backend/internal/api/device_handler.go`)**:
+   - Menyuntikkan `UserStore` ke `DeviceHandler`.
+   - Di `RemoveDevice`: jika perangkat yang dikeluarkan merupakan `active_device_id`, sistem otomatis mengalihkan otoritas `active_device_id` ke perangkat pemanggil (`currentDeviceID`).
+   - Memastikan perangkat pemanggil terdaftar aktif di `deviceStore`.
+   - Mencabut seluruh sesi token JWT perangkat yang dikeluarkan (`RevokeDeviceSessions`).
+3. **WebSocket Handshake Gatekeeper Update (`backend/internal/ws/handler.go`)**:
+   - Memanfaatkan `GetDeviceByID` untuk mengecek apakah perangkat yang terhubung berstatus nonaktif (`is_active == false` ➔ tolak HTTP 403 `DEVICE_DEACTIVATED`).
+   - Otomatis mendaftarkan (*auto-register*) perangkat sah dengan token JWT valid jika belum ada di tabel `devices`.
+   - Otomatis menyinkronkan `active_device_id` ke perangkat yang sedang terhubung jika `active_device_id` lama kosong atau menunjuk ke perangkat yang sudah nonaktif.
+   - Membatasi fallback single-device hanya jika `deviceStore` bernilai `nil`.
+4. **Integration Test Suite (`backend/internal/api/multi_device_lifecycle_test.go`)**:
+   - Menambahkan pengujian integrasi lifecycle lengkap: login Device 1, link Device 2 via QR, remote logout Device 2 dari Device 1, verifikasi WebSocket reconnect Device 1 sukses (101 Switching Protocols / Indikator Hijau), penolakan Device 2 (403 Forbidden), dan sinkronisasi `active_device_id`.
+
+### Test Evidence
+- **Backend Lifecycle Test (`go test -v ./internal/api -run TestMultiDevice_CompleteUserFlow`)**: **PASS 100%**.
+- **Backend Full Test Suite (`go test -count=1 ./...`)**: **PASS 100% (Semua package lulus)**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+
+

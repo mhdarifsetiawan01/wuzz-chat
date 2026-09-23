@@ -97,6 +97,9 @@ func main() {
 			if sessionStore != nil {
 				deviceHandler.SetSessionStore(sessionStore)
 			}
+			if userStore != nil {
+				deviceHandler.SetUserStore(userStore)
+			}
 		}
 		if credentialStore != nil {
 			credentialHandler = api.NewCredentialHandler(credentialStore)

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/store"
@@ -14,12 +15,18 @@ import (
 type DeviceHandler struct {
 	deviceStore  store.DeviceStore
 	sessionStore store.SessionStore
+	userStore    store.UserStore
 	hub          WebSocketHub
 }
 
 // NewDeviceHandler membuat instance DeviceHandler baru.
 func NewDeviceHandler(ds store.DeviceStore) *DeviceHandler {
 	return &DeviceHandler{deviceStore: ds}
+}
+
+// SetUserStore menyuntikkan UserStore untuk sinkronisasi active_device_id.
+func (h *DeviceHandler) SetUserStore(us store.UserStore) {
+	h.userStore = us
 }
 
 // SetSessionStore menyuntikkan SessionStore (opsional, untuk revoke session saat kick).
@@ -97,7 +104,43 @@ func (h *DeviceHandler) RemoveDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. Kick WebSocket koneksi device tersebut (jika sedang online)
+	// 2. Revoke sesi token JWT untuk device yang dikeluarkan jika sessionStore tersedia
+	if h.sessionStore != nil {
+		if err := h.sessionStore.RevokeDeviceSessions(deviceID, claims.UserID); err != nil {
+			log.Printf("⚠️ RemoveDevice revoke sessions gagal (user: %s, device: %s): %v", claims.UserID, deviceID, err)
+		}
+	}
+
+	// 3. Sinkronkan users.active_device_id agar tidak mengarah ke device yang sudah dinonaktifkan
+	if h.userStore != nil {
+		_, _, activeDev, err := h.userStore.GetE2EEInfo(claims.UserID)
+		if err == nil && (activeDev == deviceID || activeDev == "") {
+			if currentDeviceID != "" {
+				_ = h.userStore.SetActiveDevice(claims.UserID, currentDeviceID)
+			} else {
+				_ = h.userStore.ClearActiveDevice(claims.UserID, deviceID)
+			}
+		}
+	}
+
+	// 4. Pastikan device pemanggil (currentDeviceID) terdaftar aktif di deviceStore
+	if h.deviceStore != nil && currentDeviceID != "" {
+		callerDev, _ := h.deviceStore.GetDeviceByID(currentDeviceID)
+		if callerDev == nil {
+			_ = h.deviceStore.RegisterOrUpdateDevice(&store.Device{
+				ID:        currentDeviceID,
+				UserID:    claims.UserID,
+				Name:      parseDeviceName(r.UserAgent()),
+				Platform:  "web",
+				UserAgent: r.UserAgent(),
+				IPAddress: getClientIP(r),
+				IsActive:  true,
+				CreatedAt: time.Now().UTC(),
+			})
+		}
+	}
+
+	// 5. Kick WebSocket koneksi device tersebut (jika sedang online)
 	if h.hub != nil {
 		h.hub.KickClientByDeviceID(claims.UserID, deviceID, "DEVICE_KICKED: Perangkat dikeluarkan dari jarak jauh.")
 	}
