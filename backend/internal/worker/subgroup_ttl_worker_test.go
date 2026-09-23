@@ -18,25 +18,26 @@ func TestSubGroupTTLWorker_ExpireOnce(t *testing.T) {
 	defer sqlStore.Close()
 
 	userStore := store.NewSQLUserStore(sqlStore.DB(), "sqlite")
+	groupStore := store.NewSQLGroupStore(sqlStore.DB(), "sqlite")
 
 	// Register user & create parent group
 	creator, err := userStore.Register("worker_creator", "Creator", "Pass123!")
 	if err != nil {
 		t.Fatalf("Gagal register creator: %v", err)
 	}
-	parentGroup, err := userStore.CreateGroup("Parent Group", "Desc", "", creator.ID, "parent_grp", true, nil)
+	parentGroup, err := groupStore.CreateGroup("Parent Group", "Desc", "", creator.ID, "parent_grp", true, nil)
 	if err != nil {
 		t.Fatalf("Gagal membuat parent group: %v", err)
 	}
 
 	// Create subgrup
-	sub, err := userStore.CreateSubGroup(parentGroup.ID, "Topik Kadaluwarsa", "Desc", creator.ID, "7_days", true)
+	sub, err := groupStore.CreateSubGroup(parentGroup.ID, "Topik Kadaluwarsa", "Desc", creator.ID, "7_days", true)
 	if err != nil {
 		t.Fatalf("Gagal membuat subgrup: %v", err)
 	}
 
 	// Buat worker
-	worker := NewSubGroupTTLWorker(userStore, 1*time.Minute)
+	worker := NewSubGroupTTLWorker(groupStore, 1*time.Minute)
 
 	// Belum ada yang expired
 	if count := worker.ExpireOnce(); count != 0 {
@@ -70,18 +71,19 @@ func TestSubGroupTTLWorker_TriggerMemoryJob(t *testing.T) {
 	defer sqlStore.Close()
 
 	userStore := store.NewSQLUserStore(sqlStore.DB(), "sqlite")
+	groupStore := store.NewSQLGroupStore(sqlStore.DB(), "sqlite")
 	memStore := store.NewSQLMemoryStore(sqlStore.DB(), "sqlite")
 
 	creator, err := userStore.Register("ttl_creator", "Creator", "Pass123!")
 	if err != nil {
 		t.Fatalf("Gagal register creator: %v", err)
 	}
-	parentGroup, err := userStore.CreateGroup("Main Group", "Desc", "", creator.ID, "main_grp", true, nil)
+	parentGroup, err := groupStore.CreateGroup("Main Group", "Desc", "", creator.ID, "main_grp", true, nil)
 	if err != nil {
 		t.Fatalf("Gagal membuat parent group: %v", err)
 	}
 
-	sub, err := userStore.CreateSubGroup(parentGroup.ID, "Forum Diskusi Arsitektur", "Desc", creator.ID, "7_days", true)
+	sub, err := groupStore.CreateSubGroup(parentGroup.ID, "Forum Diskusi Arsitektur", "Desc", creator.ID, "7_days", true)
 	if err != nil {
 		t.Fatalf("Gagal membuat subgrup: %v", err)
 	}
@@ -93,7 +95,7 @@ func TestSubGroupTTLWorker_TriggerMemoryJob(t *testing.T) {
 		t.Fatalf("Gagal update expires_at: %v", err)
 	}
 
-	worker := NewSubGroupTTLWorker(userStore, 1*time.Minute)
+	worker := NewSubGroupTTLWorker(groupStore, 1*time.Minute)
 	worker.SetMemoryStore(memStore)
 
 	affected := worker.ExpireOnce()

@@ -9,16 +9,28 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func setupTestSubGroupDB(t *testing.T) (*SQLMessageStore, *SQLUserStore) {
+// combinedTestStore menggabungkan SQLGroupStore dan SQLUserStore dalam satu tipe
+// agar test body tidak perlu diubah setelah refactoring Fase 1.
+// Kedua store berbagi *sql.DB yang sama sehingga tidak ada koneksi ganda.
+type combinedTestStore struct {
+	*SQLGroupStore
+	*SQLUserStore
+}
+
+func setupTestSubGroupDB(t *testing.T) (*SQLMessageStore, *combinedTestStore) {
+	t.Helper()
 	tmpDB := filepath.Join(t.TempDir(), "test_subgroup.db")
 	sqlStore, err := NewSQLMessageStore("sqlite", tmpDB)
 	if err != nil {
 		t.Fatalf("Gagal membuka sqlite: %v", err)
 	}
-
-	userStore := NewSQLUserStore(sqlStore.DB(), "sqlite")
-	return sqlStore, userStore
+	combined := &combinedTestStore{
+		SQLGroupStore: NewSQLGroupStore(sqlStore.DB(), "sqlite"),
+		SQLUserStore:  NewSQLUserStore(sqlStore.DB(), "sqlite"),
+	}
+	return sqlStore, combined
 }
+
 
 func TestSubGroup_FullLifecycle(t *testing.T) {
 	sqlStore, store := setupTestSubGroupDB(t)

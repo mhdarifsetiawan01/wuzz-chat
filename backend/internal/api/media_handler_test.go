@@ -236,6 +236,7 @@ func TestMediaHandler_AcknowledgeDownload_SharedMediaHub_GroupAndSubGroup(t *tes
 		t.Fatalf("failed to create sql message store: %v", err)
 	}
 	userStore := store.NewSQLUserStore(msgStore.DB(), msgStore.DriverName())
+	groupStore := store.NewSQLGroupStore(msgStore.DB(), msgStore.DriverName())
 
 	tempDir := t.TempDir()
 	ls, _ := storage.NewLocalStorage(tempDir, "/uploads")
@@ -247,17 +248,17 @@ func TestMediaHandler_AcknowledgeDownload_SharedMediaHub_GroupAndSubGroup(t *tes
 	userCharlie, _ := userStore.Register("charlie_hub", "Charlie Hub", "pass123")
 
 	// 1. Buat Parent Group & Subgroup / Forum
-	group, err := userStore.CreateGroup("Komunitas Utama", "Deskripsi", "", userAlice.ID, "", false, []string{userBob.ID, userCharlie.ID})
+	group, err := groupStore.CreateGroup("Komunitas Utama", "Deskripsi", "", userAlice.ID, "", false, []string{userBob.ID, userCharlie.ID})
 	if err != nil {
 		t.Fatalf("gagal membuat group: %v", err)
 	}
 
-	subGroup, err := userStore.CreateSubGroup(group.ID, "Forum Diskusi", "Topik", userAlice.ID, "7_days", true)
+	subGroup, err := groupStore.CreateSubGroup(group.ID, "Forum Diskusi", "Topik", userAlice.ID, "7_days", true)
 	if err != nil {
 		t.Fatalf("gagal membuat subgrup: %v", err)
 	}
 	// Pastikan Bob bergabung ke subgrup
-	_ = userStore.JoinSubGroup(subGroup.ID, userBob.ID)
+	_ = groupStore.JoinSubGroup(subGroup.ID, userBob.ID)
 
 	// Buat file fisik mock untuk Group dan SubGroup
 	groupFileName := "group_photo.jpg"
