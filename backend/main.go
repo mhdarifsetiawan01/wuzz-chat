@@ -17,6 +17,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/group"
 	groupinfra "github.com/bms-del112/wuzz-chat/internal/group/infra"
 	groupworker "github.com/bms-del112/wuzz-chat/internal/group/worker"
+	"github.com/bms-del112/wuzz-chat/internal/memory"
 	"github.com/bms-del112/wuzz-chat/internal/messaging"
 	messaginginfra "github.com/bms-del112/wuzz-chat/internal/messaging/infra"
 	"github.com/bms-del112/wuzz-chat/internal/push"
@@ -92,6 +93,8 @@ func main() {
 	var notificationHandler *api.NotificationHandler
 	var transferHandler *api.TransferHandler
 	var memoryHandler *api.MemoryHandler
+	var forumContextSource *groupinfra.ForumContextSource
+	var memoryRegistry *memory.Registry
 	var deviceHandler *api.DeviceHandler
 	var credentialHandler *api.CredentialHandler
 	if userStore != nil {
@@ -127,6 +130,10 @@ func main() {
 		notificationHandler = api.NewNotificationHandler(pushService, userStore)
 
 		if memoryStore != nil {
+			forumContextSource = groupinfra.NewForumContextSource(groupRepo, messageStore)
+			memoryRegistry = memory.NewRegistry()
+			memoryRegistry.Register(memory.ContextTypeForum, forumContextSource)
+
 			memoryHandler = api.NewMemoryHandler(memoryStore, groupStore, userStore)
 		}
 	}
@@ -222,6 +229,12 @@ func main() {
 
 		aiService := ai.NewAIServiceFromEnv()
 		memoryProcessor := ai.NewMemoryProcessor(memoryStore, messageStore, groupStore, aiService)
+		if memoryRegistry != nil {
+			memoryProcessor.SetRegistry(memoryRegistry)
+		}
+		if forumContextSource != nil {
+			memoryProcessor.SetContextSource(forumContextSource)
+		}
 		if pushService != nil {
 			memoryProcessor.SetPushService(pushService)
 		}

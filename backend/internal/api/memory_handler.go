@@ -3,18 +3,41 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	groupinfra "github.com/bms-del112/wuzz-chat/internal/group/infra"
+	"github.com/bms-del112/wuzz-chat/internal/memory"
+	memoryinfra "github.com/bms-del112/wuzz-chat/internal/memory/infra"
 	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
 )
 
+// memoryNotifierAdapter mengadaptasikan ws.Hub dan push.Service ke interface memory.MemoryNotifier.
+type memoryNotifierAdapter struct {
+	hub         *ws.Hub
+	pushService *push.Service
+}
+
+func (n *memoryNotifierAdapter) BroadcastGroupSystemEvent(groupID, eventType, content string) {
+	if n.hub != nil {
+		n.hub.BroadcastGroupSystemEvent(groupID, eventType, content)
+	}
+}
+
+func (n *memoryNotifierAdapter) NotifyMemoryEvent(userIDs []string, title, body, tag string, data map[string]interface{}) {
+	if n.pushService != nil {
+		n.pushService.NotifyMemoryEvent(userIDs, title, body, tag, data)
+	}
+}
+
+// MemoryHandler adalah Thin HTTP Transport untuk routing endpoint Group Memory AI (/api/memory/...).
 type MemoryHandler struct {
+	svc         *memory.MemoryService
+	notifier    *memoryNotifierAdapter
 	memoryStore store.MemoryStore
 	groupStore  store.GroupStore
 	userStore   store.UserStore
@@ -22,20 +45,50 @@ type MemoryHandler struct {
 	pushService *push.Service
 }
 
+// NewMemoryHandler membuat instance baru MemoryHandler dengan inisialisasi default service (backward-compatible).
 func NewMemoryHandler(ms store.MemoryStore, gs store.GroupStore, us store.UserStore) *MemoryHandler {
+	repo := memoryinfra.NewSQLMemoryRepository(ms)
+	groupRepo := groupinfra.NewSQLGroupRepository(gs, us)
+	forumSource := groupinfra.NewForumContextSource(groupRepo, nil)
+
+	registry := memory.NewRegistry()
+	registry.Register(memory.ContextTypeForum, forumSource)
+
+	notifier := &memoryNotifierAdapter{}
+	svc := memory.NewMemoryService(repo, forumSource, registry, gs, notifier)
+
 	return &MemoryHandler{
+		svc:         svc,
+		notifier:    notifier,
 		memoryStore: ms,
 		groupStore:  gs,
 		userStore:   us,
 	}
 }
 
-func (h *MemoryHandler) SetHub(hub *ws.Hub) {
-	h.hub = hub
+// NewMemoryHandlerWithService membuat instance MemoryHandler dengan MemoryService yang diinjeksi secara eksplisit.
+func NewMemoryHandlerWithService(svc *memory.MemoryService, gs store.GroupStore, us store.UserStore) *MemoryHandler {
+	return &MemoryHandler{
+		svc:        svc,
+		groupStore: gs,
+		userStore:  us,
+	}
 }
 
+// SetHub menyetel WebSocket Hub untuk siaran real-time event.
+func (h *MemoryHandler) SetHub(hub *ws.Hub) {
+	h.hub = hub
+	if h.notifier != nil {
+		h.notifier.hub = hub
+	}
+}
+
+// SetPushService menyetel push service untuk pengiriman notifikasi Web Push.
 func (h *MemoryHandler) SetPushService(ps *push.Service) {
 	h.pushService = ps
+	if h.notifier != nil {
+		h.notifier.pushService = ps
+	}
 }
 
 func writeMemoryJSONError(w http.ResponseWriter, code int, message string) {
@@ -158,7 +211,7 @@ func (h *MemoryHandler) RouteApprovedMemoryRequest(w http.ResponseWriter, r *htt
 }
 
 // -----------------------------------------------------------------------------
-// Admin Review Handlers (Bagian 9 Spec)
+// Admin Review Handlers
 // -----------------------------------------------------------------------------
 
 // handleListDrafts menangani GET /api/memory/drafts?group_id={id}
@@ -169,60 +222,15 @@ func (h *MemoryHandler) handleListDrafts(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	// Otorisasi: User harus admin/creator di group_id
-	isAdmin, err := h.checkAdminRole(groupID, currentUserID)
+	status := strings.TrimSpace(r.URL.Query().Get("status"))
+	items, err := h.svc.ListDrafts(r.Context(), groupID, status, currentUserID)
 	if err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memverifikasi hak akses: "+err.Error())
-		return
-	}
-	if !isAdmin {
-		writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin grup yang memiliki akses ke draft memori")
-		return
-	}
-
-	drafts, err := h.memoryStore.GetDraftsByGroupID(r.Context(), groupID, store.DraftStatusDraft)
-	if err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal mengambil daftar draft: "+err.Error())
-		return
-	}
-
-	type DraftListItem struct {
-		DraftID        string `json:"draft_id"`
-		ForumID        string `json:"forum_id"`
-		ForumTitle     string `json:"forum_title"`
-		GroupID        string `json:"group_id"`
-		Status         string `json:"status"`
-		MessageCount   int    `json:"message_count_processed"`
-		WasTruncated   bool   `json:"was_truncated"`
-		ArtifactCount  int    `json:"artifact_count"`
-		CreatedAt      string `json:"created_at"`
-	}
-
-	items := make([]DraftListItem, 0, len(drafts))
-	for _, d := range drafts {
-		forumTitle := "Forum Diskusi"
-		if details, err := h.groupStore.GetGroupDetails(d.ForumID, ""); err == nil && details != nil && details.Title != "" {
-			forumTitle = details.Title
+		if errors.Is(err, memory.ErrUnauthorizedAccess) {
+			writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin atau creator grup yang dapat melihat antrean review memory")
+			return
 		}
-
-		artCount := len(d.Artifacts)
-		if artCount == 0 {
-			if arts, err := h.memoryStore.GetArtifactsByDraftID(r.Context(), d.ID); err == nil {
-				artCount = len(arts)
-			}
-		}
-
-		items = append(items, DraftListItem{
-			DraftID:       d.ID,
-			ForumID:       d.ForumID,
-			ForumTitle:    forumTitle,
-			GroupID:       d.GroupID,
-			Status:        d.Status,
-			MessageCount:  d.MessageCountProcessed,
-			WasTruncated:  d.WasTruncated,
-			ArtifactCount: artCount,
-			CreatedAt:     d.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		})
+		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal mengambil daftar memory drafts: "+err.Error())
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -231,215 +239,45 @@ func (h *MemoryHandler) handleListDrafts(w http.ResponseWriter, r *http.Request,
 
 // handleGetDraftDetail menangani GET /api/memory/drafts/{draft_id}
 func (h *MemoryHandler) handleGetDraftDetail(w http.ResponseWriter, r *http.Request, currentUserID, draftID string) {
-	draft, err := h.memoryStore.GetDraftByID(r.Context(), draftID)
+	detail, role, err := h.svc.GetDraftDetail(r.Context(), draftID, currentUserID)
 	if err != nil {
-		if errors.Is(err, store.ErrDraftNotFound) {
-			writeMemoryJSONError(w, http.StatusNotFound, "Draft memori tidak ditemukan")
+		if errors.Is(err, memory.ErrDraftNotFound) {
+			writeMemoryJSONError(w, http.StatusNotFound, "Memory draft tidak ditemukan")
 			return
 		}
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal mengambil detail draft: "+err.Error())
+		if errors.Is(err, memory.ErrUnauthorizedAccess) {
+			writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin atau creator grup yang dapat melihat detail draft")
+			return
+		}
+		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal mengambil detail memory draft: "+err.Error())
 		return
-	}
-
-	// Otorisasi: User harus admin/creator di draft.GroupID
-	isAdmin, err := h.checkAdminRole(draft.GroupID, currentUserID)
-	if err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memverifikasi hak akses: "+err.Error())
-		return
-	}
-	if !isAdmin {
-		writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin grup yang memiliki akses ke detail draft memori")
-		return
-	}
-
-	forumTitle := "Forum Diskusi"
-	if details, err := h.groupStore.GetGroupDetails(draft.ForumID, ""); err == nil && details != nil && details.Title != "" {
-		forumTitle = details.Title
-	}
-
-	response := map[string]interface{}{
-		"draft": map[string]interface{}{
-			"id":                      draft.ID,
-			"job_id":                  draft.JobID,
-			"forum_id":                draft.ForumID,
-			"forum_title":             forumTitle,
-			"group_id":                draft.GroupID,
-			"status":                  draft.Status,
-			"message_count_processed": draft.MessageCountProcessed,
-			"was_truncated":           draft.WasTruncated,
-			"truncation_note":         draft.TruncationNote,
-			"reviewed_at":             draft.ReviewedAt,
-			"reviewed_by":             draft.ReviewedBy,
-			"rejection_reason":        draft.RejectionReason,
-			"created_at":              draft.CreatedAt,
-			"artifacts":               draft.Artifacts,
-		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"draft":      detail,
+		"group_role": role,
+	})
 }
 
-// handleApproveDraft menangani POST /api/memory/drafts/{draft_id}/approve & approve-with-changes
+// handleApproveDraft menangani POST /api/memory/drafts/{draft_id}/approve & /approve-with-changes
 func (h *MemoryHandler) handleApproveDraft(w http.ResponseWriter, r *http.Request, currentUserID, draftID string, forceChangesFlag bool) {
-	draft, err := h.memoryStore.GetDraftByID(r.Context(), draftID)
+	approvedMem, err := h.svc.ApproveDraft(r.Context(), draftID, currentUserID, forceChangesFlag)
 	if err != nil {
-		if errors.Is(err, store.ErrDraftNotFound) {
-			writeMemoryJSONError(w, http.StatusNotFound, "Draft memori tidak ditemukan")
+		if errors.Is(err, memory.ErrDraftNotFound) {
+			writeMemoryJSONError(w, http.StatusNotFound, "Memory draft tidak ditemukan")
 			return
 		}
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memuat draft: "+err.Error())
-		return
-	}
-
-	isAdmin, err := h.checkAdminRole(draft.GroupID, currentUserID)
-	if err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memverifikasi hak akses: "+err.Error())
-		return
-	}
-	if !isAdmin {
-		writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin grup yang dapat menyetujui draft memori")
-		return
-	}
-
-	if draft.Status != store.DraftStatusDraft {
-		writeMemoryJSONError(w, http.StatusBadRequest, "Draft sudah diproses sebelumnya (Status: "+draft.Status+")")
-		return
-	}
-
-	artifacts := draft.Artifacts
-	if len(artifacts) == 0 {
-		artifacts, _ = h.memoryStore.GetArtifactsByDraftID(r.Context(), draft.ID)
-	}
-
-	approvedMem := &store.ApprovedMemory{
-		DraftID:       draft.ID,
-		ForumID:       draft.ForumID,
-		GroupID:       draft.GroupID,
-		ApprovedBy:    currentUserID,
-		HasHumanEdits: forceChangesFlag,
-	}
-
-	hasHumanEdits := forceChangesFlag
-	decisions := make([]store.ApprovedDecisionItem, 0)
-
-	for _, art := range artifacts {
-		if art.IsHumanEdited {
-			hasHumanEdits = true
-		}
-
-		switch art.Type {
-		case store.ArtifactTypeSummary:
-			if !art.IsRemoved {
-				approvedMem.SnapshotSummary = art.Content
-				approvedMem.SnapshotSummaryConf = art.Confidence
-			}
-		case store.ArtifactTypeDecision:
-			if !art.IsRemoved {
-				pos := 1
-				if art.Position != nil {
-					pos = *art.Position
-				}
-				evList := make([]store.ApprovedEvidenceItem, 0, len(art.Evidences))
-				for _, ev := range art.Evidences {
-					evList = append(evList, store.ApprovedEvidenceItem{
-						MessageID:  ev.MessageID,
-						Preview:    ev.MessagePreview,
-						SenderName: ev.MessageSenderName,
-						SentAt:     ev.MessageSentAt,
-					})
-				}
-				decisions = append(decisions, store.ApprovedDecisionItem{
-					Position:      pos,
-					Text:          art.Content,
-					Confidence:    art.Confidence,
-					IsHumanEdited: art.IsHumanEdited,
-					Evidences:     evList,
-				})
-			}
-		case store.ArtifactTypeJourneyLite:
-			if art.IsRemoved {
-				approvedMem.IsJourneyLiteRemoved = true
-				hasHumanEdits = true
-			} else {
-				approvedMem.SnapshotJourneyLite = art.Content
-				approvedMem.SnapshotJourneyConf = art.Confidence
-				approvedMem.IsJourneyLiteRemoved = false
-			}
-		}
-	}
-
-	approvedMem.HasHumanEdits = hasHumanEdits
-	approvedMem.DecisionsList = decisions
-
-	decBytes, err := json.Marshal(decisions)
-	if err == nil {
-		approvedMem.SnapshotDecisions = string(decBytes)
-	} else {
-		approvedMem.SnapshotDecisions = "[]"
-	}
-
-	actionType := store.ActionApproved
-	if hasHumanEdits {
-		actionType = store.ActionApprovedWithEdits
-	}
-
-	reviewAction := &store.MemoryReviewAction{
-		DraftID: draft.ID,
-		AdminID: currentUserID,
-		Action:  actionType,
-	}
-
-	if err := h.memoryStore.ApproveDraft(r.Context(), draft.ID, currentUserID, approvedMem, reviewAction); err != nil {
-		if errors.Is(err, store.ErrDraftAlreadyReviewed) {
+		if errors.Is(err, memory.ErrDraftAlreadyReviewed) {
 			writeMemoryJSONError(w, http.StatusConflict, "Draft telah disetujui atau ditolak sebelumnya")
+			return
+		}
+		if errors.Is(err, memory.ErrUnauthorizedAccess) {
+			writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin atau creator grup yang dapat menyetujui draft")
 			return
 		}
 		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal menyetujui draft memori: "+err.Error())
 		return
-	}
-
-	// Real-time notification broadcast ke member jika hub aktif
-	if h.hub != nil {
-		h.hub.BroadcastGroupSystemEvent(draft.GroupID, "memory_approved", "🧠 Memori grup baru telah divalidasi dan ditambahkan ke arsip!")
-	}
-
-	// Kirim Web Push Notification ke seluruh member grup (Section 11 Spec)
-	if h.pushService != nil && h.groupStore != nil {
-		go func(groupID, forumID, memoryID, approvedAdminID string) {
-			members, err := h.groupStore.GetGroupMembers(groupID)
-			if err != nil || len(members) == 0 {
-				return
-			}
-			recipientIDs := make([]string, 0, len(members))
-			for _, m := range members {
-				if m.UserID != approvedAdminID && m.UserID != "" {
-					recipientIDs = append(recipientIDs, m.UserID)
-				}
-			}
-			if len(recipientIDs) == 0 {
-				return
-			}
-
-			forumTitle := "Forum Diskusi"
-			if forumDetails, err := h.groupStore.GetGroupDetails(forumID, ""); err == nil && forumDetails != nil && forumDetails.Title != "" {
-				forumTitle = forumDetails.Title
-			}
-
-			h.pushService.NotifyMemoryEvent(
-				recipientIDs,
-				"✅ Memory Grup Tersedia",
-				fmt.Sprintf("Memory dari forum '%s' kini tersedia. Baca ringkasan, keputusan, dan perjalanan diskusinya.", forumTitle),
-				"memory_published_"+memoryID,
-				map[string]interface{}{
-					"type":               "memory_published",
-					"group_id":           groupID,
-					"forum_id":           forumID,
-					"approved_memory_id": memoryID,
-					"deep_link":          fmt.Sprintf("/chat?roomId=%s&openMemory=%s", groupID, memoryID),
-				},
-			)
-		}(draft.GroupID, draft.ForumID, approvedMem.ID, currentUserID)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -452,42 +290,28 @@ func (h *MemoryHandler) handleApproveDraft(w http.ResponseWriter, r *http.Reques
 
 // handleRejectDraft menangani POST /api/memory/drafts/{draft_id}/reject
 func (h *MemoryHandler) handleRejectDraft(w http.ResponseWriter, r *http.Request, currentUserID, draftID string) {
-	draft, err := h.memoryStore.GetDraftByID(r.Context(), draftID)
-	if err != nil {
-		if errors.Is(err, store.ErrDraftNotFound) {
-			writeMemoryJSONError(w, http.StatusNotFound, "Draft memori tidak ditemukan")
-			return
-		}
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memuat draft: "+err.Error())
-		return
-	}
-
-	isAdmin, err := h.checkAdminRole(draft.GroupID, currentUserID)
-	if err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memverifikasi hak akses: "+err.Error())
-		return
-	}
-	if !isAdmin {
-		writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin grup yang dapat menolak draft memori")
-		return
-	}
-
-	if draft.Status != store.DraftStatusDraft {
-		writeMemoryJSONError(w, http.StatusBadRequest, "Draft sudah diproses sebelumnya (Status: "+draft.Status+")")
-		return
-	}
-
-	var req struct {
+	var reqBody struct {
 		Reason string `json:"reason"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
+	}
 
-	if err := h.memoryStore.RejectDraft(r.Context(), draft.ID, currentUserID, req.Reason); err != nil {
-		if errors.Is(err, store.ErrDraftAlreadyReviewed) {
+	err := h.svc.RejectDraft(r.Context(), draftID, currentUserID, strings.TrimSpace(reqBody.Reason))
+	if err != nil {
+		if errors.Is(err, memory.ErrDraftNotFound) {
+			writeMemoryJSONError(w, http.StatusNotFound, "Memory draft tidak ditemukan")
+			return
+		}
+		if errors.Is(err, memory.ErrDraftAlreadyReviewed) {
 			writeMemoryJSONError(w, http.StatusConflict, "Draft telah disetujui atau ditolak sebelumnya")
 			return
 		}
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal menolak draft: "+err.Error())
+		if errors.Is(err, memory.ErrUnauthorizedAccess) {
+			writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin atau creator grup yang dapat menolak draft")
+			return
+		}
+		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal menolak draft memori: "+err.Error())
 		return
 	}
 
@@ -500,154 +324,65 @@ func (h *MemoryHandler) handleRejectDraft(w http.ResponseWriter, r *http.Request
 
 // handleUpdateArtifact menangani PATCH /api/memory/drafts/{draft_id}/artifacts/{artifact_id}
 func (h *MemoryHandler) handleUpdateArtifact(w http.ResponseWriter, r *http.Request, currentUserID, draftID, artifactID string) {
-	draft, err := h.memoryStore.GetDraftByID(r.Context(), draftID)
-	if err != nil {
-		if errors.Is(err, store.ErrDraftNotFound) {
-			writeMemoryJSONError(w, http.StatusNotFound, "Draft memori tidak ditemukan")
-			return
-		}
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memuat draft: "+err.Error())
-		return
-	}
-
-	isAdmin, err := h.checkAdminRole(draft.GroupID, currentUserID)
-	if err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memverifikasi hak akses: "+err.Error())
-		return
-	}
-	if !isAdmin {
-		writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin grup yang dapat mengedit artefak memori")
-		return
-	}
-
-	if draft.Status != store.DraftStatusDraft {
-		writeMemoryJSONError(w, http.StatusBadRequest, "Draft tidak dapat diedit karena sudah berstatus: "+draft.Status)
-		return
-	}
-
-	var req struct {
+	var reqBody struct {
 		Content string `json:"content"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeMemoryJSONError(w, http.StatusBadRequest, "Format payload JSON tidak valid")
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		writeMemoryJSONError(w, http.StatusBadRequest, "Invalid JSON payload")
 		return
 	}
 
-	req.Content = strings.TrimSpace(req.Content)
-	if req.Content == "" {
-		writeMemoryJSONError(w, http.StatusBadRequest, "Konten artefak tidak boleh kosong")
-		return
-	}
-
-	artifact, err := h.memoryStore.GetArtifactByID(r.Context(), artifactID)
+	art, err := h.svc.UpdateArtifactContent(r.Context(), draftID, artifactID, reqBody.Content, currentUserID)
 	if err != nil {
-		if errors.Is(err, store.ErrArtifactNotFound) {
+		if errors.Is(err, memory.ErrDraftAlreadyReviewed) {
+			writeMemoryJSONError(w, http.StatusConflict, "Draft telah divalidasi dan tidak dapat diedit lagi")
+			return
+		}
+		if errors.Is(err, memory.ErrArtifactNotFound) {
 			writeMemoryJSONError(w, http.StatusNotFound, "Artefak tidak ditemukan")
 			return
 		}
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memuat artefak: "+err.Error())
+		if errors.Is(err, memory.ErrUnauthorizedAccess) {
+			writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin atau creator grup yang dapat mengedit artefak")
+			return
+		}
+		writeMemoryJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	if artifact.DraftID != draftID {
-		writeMemoryJSONError(w, http.StatusBadRequest, "Artefak tidak termasuk dalam draft ini")
-		return
-	}
-
-	oldContent := artifact.Content
-
-	if err := h.memoryStore.UpdateArtifact(r.Context(), artifactID, req.Content, true); err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memperbarui konten artefak: "+err.Error())
-		return
-	}
-
-	actionType := store.ActionEditedSummary
-	if artifact.Type == store.ArtifactTypeDecision {
-		actionType = store.ActionEditedDecision
-	}
-
-	_ = h.memoryStore.RecordReviewAction(r.Context(), &store.MemoryReviewAction{
-		DraftID:    draftID,
-		AdminID:    currentUserID,
-		Action:     actionType,
-		ArtifactID: artifactID,
-		OldContent: oldContent,
-		NewContent: req.Content,
-	})
-
-	artifact.Content = req.Content
-	artifact.IsHumanEdited = true
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success":  true,
-		"message":  "Konten artefak berhasil diperbarui",
-		"artifact": artifact,
+		"message":  "Artefak berhasil diperbarui",
+		"artifact": art,
 	})
 }
 
 // handleRemoveJourney menangani DELETE /api/memory/drafts/{draft_id}/journey
 func (h *MemoryHandler) handleRemoveJourney(w http.ResponseWriter, r *http.Request, currentUserID, draftID string) {
-	draft, err := h.memoryStore.GetDraftByID(r.Context(), draftID)
+	err := h.svc.RemoveJourneyLite(r.Context(), draftID, currentUserID)
 	if err != nil {
-		if errors.Is(err, store.ErrDraftNotFound) {
-			writeMemoryJSONError(w, http.StatusNotFound, "Draft memori tidak ditemukan")
+		if errors.Is(err, memory.ErrDraftAlreadyReviewed) {
+			writeMemoryJSONError(w, http.StatusConflict, "Draft telah divalidasi dan tidak dapat diedit lagi")
 			return
 		}
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memuat draft: "+err.Error())
+		if errors.Is(err, memory.ErrUnauthorizedAccess) {
+			writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin atau creator grup yang dapat menghapus journey lite")
+			return
+		}
+		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal menghapus journey lite: "+err.Error())
 		return
 	}
-
-	isAdmin, err := h.checkAdminRole(draft.GroupID, currentUserID)
-	if err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memverifikasi hak akses: "+err.Error())
-		return
-	}
-	if !isAdmin {
-		writeMemoryJSONError(w, http.StatusForbidden, "Hanya admin grup yang dapat menghapus Journey Lite")
-		return
-	}
-
-	if draft.Status != store.DraftStatusDraft {
-		writeMemoryJSONError(w, http.StatusBadRequest, "Draft sudah tidak dapat diubah (Status: "+draft.Status+")")
-		return
-	}
-
-	if err := h.memoryStore.RemoveJourneyLite(r.Context(), draftID); err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal menghapus Journey Lite: "+err.Error())
-		return
-	}
-
-	_ = h.memoryStore.RecordReviewAction(r.Context(), &store.MemoryReviewAction{
-		DraftID: draftID,
-		AdminID: currentUserID,
-		Action:  store.ActionRemovedJourneyLite,
-	})
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": "Journey Lite berhasil dihapus dari draft memori",
+		"message": "Journey lite berhasil dihapus dari draf publikasi",
 	})
 }
 
-// -----------------------------------------------------------------------------
-// Member Knowledge Handlers (Bagian 11 & 12 Spec)
-// -----------------------------------------------------------------------------
-
-// HandleGetGroupMemories menangani GET /api/groups/{id}/memories
+// HandleGetGroupMemories menangani GET /api/groups/{group_id}/memories
 func (h *MemoryHandler) HandleGetGroupMemories(w http.ResponseWriter, r *http.Request, currentUserID, groupID string) {
-	// Verifikasi keanggotaan: user harus member dari grup induk
-	role, err := h.groupStore.GetUserRoleInGroup(groupID, currentUserID)
-	if err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memeriksa keanggotaan: "+err.Error())
-		return
-	}
-	if role == "" {
-		writeMemoryJSONError(w, http.StatusForbidden, "Anda bukan anggota grup ini")
-		return
-	}
-
 	limit := 20
 	offset := 0
 	if lStr := r.URL.Query().Get("limit"); lStr != "" {
@@ -661,55 +396,14 @@ func (h *MemoryHandler) HandleGetGroupMemories(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	memories, err := h.memoryStore.GetApprovedMemoriesByGroupID(r.Context(), groupID, limit, offset)
+	items, err := h.svc.GetGroupMemories(r.Context(), groupID, currentUserID, limit, offset)
 	if err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memuat memori grup: "+err.Error())
+		if errors.Is(err, memory.ErrUnauthorizedAccess) {
+			writeMemoryJSONError(w, http.StatusForbidden, "Hanya anggota grup yang dapat melihat arsip memori")
+			return
+		}
+		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal mengambil daftar memori grup: "+err.Error())
 		return
-	}
-
-	type MemoryListItem struct {
-		ID                   string                   `json:"id"`
-		ForumID              string                   `json:"forum_id"`
-		ForumTitle           string                   `json:"forum_title"`
-		GroupID              string                   `json:"group_id"`
-		ApprovedBy           string                   `json:"approved_by"`
-		ApprovedByName       string                   `json:"approved_by_name"`
-		ApprovedAt           string                   `json:"approved_at"`
-		HasHumanEdits        bool                     `json:"has_human_edits"`
-		SnapshotSummary      string                   `json:"snapshot_summary"`
-		SnapshotSummaryConf  string                   `json:"snapshot_summary_conf"`
-		DecisionCount        int                      `json:"decision_count"`
-		HasJourneyLite       bool                     `json:"has_journey_lite"`
-		IsJourneyLiteRemoved bool                     `json:"is_journey_lite_removed"`
-	}
-
-	items := make([]MemoryListItem, 0, len(memories))
-	for _, m := range memories {
-		forumTitle := "Forum Diskusi"
-		if details, err := h.groupStore.GetGroupDetails(m.ForumID, ""); err == nil && details != nil && details.Title != "" {
-			forumTitle = details.Title
-		}
-
-		adminName := "Admin"
-		if u, err := h.userStore.GetUserByID(m.ApprovedBy); err == nil && u != nil && u.DisplayName != "" {
-			adminName = u.DisplayName
-		}
-
-		items = append(items, MemoryListItem{
-			ID:                   m.ID,
-			ForumID:              m.ForumID,
-			ForumTitle:           forumTitle,
-			GroupID:              m.GroupID,
-			ApprovedBy:           m.ApprovedBy,
-			ApprovedByName:       adminName,
-			ApprovedAt:           m.ApprovedAt.Format("2006-01-02T15:04:05Z07:00"),
-			HasHumanEdits:        m.HasHumanEdits,
-			SnapshotSummary:      m.SnapshotSummary,
-			SnapshotSummaryConf:  m.SnapshotSummaryConf,
-			DecisionCount:        len(m.DecisionsList),
-			HasJourneyLite:       m.SnapshotJourneyLite != "" && !m.IsJourneyLiteRemoved,
-			IsJourneyLiteRemoved: m.IsJourneyLiteRemoved,
-		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -718,83 +412,20 @@ func (h *MemoryHandler) HandleGetGroupMemories(w http.ResponseWriter, r *http.Re
 
 // handleGetApprovedMemoryDetail menangani GET /api/memories/{memory_id}
 func (h *MemoryHandler) handleGetApprovedMemoryDetail(w http.ResponseWriter, r *http.Request, currentUserID, memoryID string) {
-	mem, err := h.memoryStore.GetApprovedMemoryByID(r.Context(), memoryID)
+	detail, err := h.svc.GetApprovedMemoryDetail(r.Context(), memoryID, currentUserID)
 	if err != nil {
-		if errors.Is(err, store.ErrApprovedMemoryNotFound) {
-			writeMemoryJSONError(w, http.StatusNotFound, "Memori tidak ditemukan")
+		if errors.Is(err, memory.ErrApprovedMemoryNotFound) {
+			writeMemoryJSONError(w, http.StatusNotFound, "Memori grup tidak ditemukan")
 			return
 		}
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memuat memori: "+err.Error())
+		if errors.Is(err, memory.ErrUnauthorizedAccess) {
+			writeMemoryJSONError(w, http.StatusForbidden, "Hanya anggota grup yang berhak membaca memori ini")
+			return
+		}
+		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal mengambil detail memori: "+err.Error())
 		return
-	}
-
-	// Otorisasi: User harus merupakan anggota grup bersangkutan
-	role, err := h.groupStore.GetUserRoleInGroup(mem.GroupID, currentUserID)
-	if err != nil {
-		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal memverifikasi keanggotaan: "+err.Error())
-		return
-	}
-	if role == "" {
-		writeMemoryJSONError(w, http.StatusForbidden, "Anda bukan anggota dari grup memori ini")
-		return
-	}
-
-	// Catat View Event analitik (Non-blocking)
-	viewerRole := store.ViewerRoleMember
-	if role == "admin" || role == "creator" {
-		viewerRole = store.ViewerRoleAdmin
-	}
-	go func() {
-		_ = h.memoryStore.RecordViewEvent(r.Context(), &store.MemoryViewEvent{
-			ApprovedMemoryID: mem.ID,
-			ForumID:          mem.ForumID,
-			GroupID:          mem.GroupID,
-			ViewerID:         currentUserID,
-			ViewerRole:       viewerRole,
-		})
-	}()
-
-	forumTitle := "Forum Diskusi"
-	if details, err := h.groupStore.GetGroupDetails(mem.ForumID, ""); err == nil && details != nil && details.Title != "" {
-		forumTitle = details.Title
-	}
-
-	adminName := "Admin"
-	if u, err := h.userStore.GetUserByID(mem.ApprovedBy); err == nil && u != nil && u.DisplayName != "" {
-		adminName = u.DisplayName
-	}
-
-	response := map[string]interface{}{
-		"id":                      mem.ID,
-		"draft_id":                mem.DraftID,
-		"forum_id":                mem.ForumID,
-		"forum_title":             forumTitle,
-		"group_id":                mem.GroupID,
-		"approved_by":             mem.ApprovedBy,
-		"approved_by_name":        adminName,
-		"approved_at":             mem.ApprovedAt,
-		"has_human_edits":         mem.HasHumanEdits,
-		"snapshot_summary":        mem.SnapshotSummary,
-		"snapshot_summary_conf":   mem.SnapshotSummaryConf,
-		"snapshot_decisions":      mem.DecisionsList,
-		"snapshot_journey_lite":   mem.SnapshotJourneyLite,
-		"snapshot_journey_conf":   mem.SnapshotJourneyConf,
-		"is_journey_lite_removed": mem.IsJourneyLiteRemoved,
-		"created_at":              mem.CreatedAt,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(response)
-}
-
-// -----------------------------------------------------------------------------
-// Helper Authorization
-// -----------------------------------------------------------------------------
-
-func (h *MemoryHandler) checkAdminRole(groupID, userID string) (bool, error) {
-	role, err := h.groupStore.GetUserRoleInGroup(groupID, userID)
-	if err != nil {
-		return false, err
-	}
-	return role == "creator" || role == "admin", nil
+	_ = json.NewEncoder(w).Encode(detail)
 }

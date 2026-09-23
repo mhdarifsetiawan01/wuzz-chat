@@ -1,3 +1,3 @@
-# Implementation Plan — Standby
+# Implementation Plan — Standby State
 
-- Status: Standby for next task.
+Belum ada rencana implementasi aktif. Menunggu arahan pengguna untuk milestone berikutnya.

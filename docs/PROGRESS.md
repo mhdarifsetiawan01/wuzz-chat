@@ -2288,6 +2288,34 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Real Frontend Client Simulation (`frontend/test-group-simulation.mjs`)**: **PASS 100% (9/9 skenario lifecycle grup, WebSocket live system events diterima lengkap)**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors, 8/8 routes prerendered)**.
 
+---
 
+## 2026-09-24: Track B Modular Monolith — Tahap 5 (Memory Engine Generalization & ContextSource Abstraction)
 
+### Problem Description
+1. Domain Memory AI sebelumnya terikat erat (*tightly coupled*) secara langsung ke tabel `conversations` subgrup/forum dan `store.GroupStore` serta `store.MessageStore`, menyulitkan penggunaan kembali engine memori untuk konteks lain (misal percakapan 1-on-1, transkrip call, channel pengumuman, atau thread spesifik).
+2. Handler `api/memory_handler.go` (432 baris) mencampuradukkan parsing HTTP, verifikasi hak akses admin grup, manipulasi artefak memori, dan pembuatan snapshot.
+3. Ketiadaan lapisan domain entity murni dan application service yang mandiri untuk siklus hidup review draft memori.
 
+### Implementation Details
+1. **Domain Memory Core & ContextSource Abstraction (`backend/internal/memory/`)**:
+   - `entity.go`: Mendefinisikan entitas domain murni (`MemoryContext`, `ContextType`, `MemoryJob`, `MemoryDraft`, `MemoryArtifact`, `ApprovedMemory`) beserta helper mapper domain-to-store / store-to-domain.
+   - `context_source.go`: Interface `ContextSource` (`GetMessages`, `GetContextMeta`, `GetAuthorizedViewers`) dan thread-safe `Registry` untuk mendaftarkan dan menyelesaikan sumber konteks berdasarkan tipe (`ContextTypeForum`, dll.).
+   - `repository.go`: Kontrak interface murni `MemoryRepository`.
+   - `infra/sql_repository.go`: Strangler Fig Adapter yang mengimplementasikan `MemoryRepository` membungkus `store.MemoryStore` dengan penerjemahan error domain bersih.
+2. **ContextSource Implementation untuk Forum Ephemeral (`backend/internal/group/infra/`)**:
+   - `forum_context_source.go`: Mengimplementasikan `memory.ContextSource` untuk forum / subgrup ephemeral, menghubungkan ke `group.GroupRepository` dan `store.MessageStore`.
+3. **Refactoring AI Memory Processor (`backend/internal/ai/processor.go`)**:
+   - `MemoryProcessor` dimodifikasi agar menarik pesan riwayat dan metadata percakapan via `ContextSource` yang diselesaikan secara dinamis dari `Registry`, memutus hardcoded coupling ke `store.GroupStore`.
+4. **Application Service (`backend/internal/memory/service.go`)**:
+   - `MemoryService`: Mengorkestrasikan seluruh use cases: listing draft antrean admin, detail draft beserta artefak, penyuntingan artefak, penghapusan journey lite, approval draft dengan denormalisasi snapshot, penolakan draft (reject), pemuatan arsip memori grup, dan pencatatan view event analitik.
+5. **Thin Transport Handler & Main Wiring (`backend/internal/api/memory_handler.go`, `backend/main.go`)**:
+   - `MemoryHandler` disederhanakan murni menjadi *thin transport layer* yang mendelegasikan use cases ke `MemoryService`.
+   - Registrasi dependency injection `ForumContextSource`, `ContextSourceRegistry`, dan `MemoryProcessor` di `backend/main.go`.
+
+### Test Evidence
+- **Memory Domain & Service Unit Tests (`go test -v ./internal/memory/...`)**: **PASS 100% (10/10 use cases)**.
+- **AI ContextSource Registry Unit Tests (`go test -v ./internal/ai -run "TestAI_MemoryProcessor_WithContextSourceRegistry"`)**: **PASS 100%**.
+- **Backend Full Test Suite (`go test ./...`)**: **PASS 100% (seluruh paket internal backend)**.
+- **Real Frontend Client Simulation (`frontend/test-memory-simulation.mjs`)**: **PASS 100% (14 langkah end-to-end lifecycle penuh: expire forum, worker AI draft generation, draft detail, patch artifact, approve draft, read memory archive & detail, RBAC/BOLA validation)**.
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors, 8/8 routes prerendered)**.

@@ -1,3 +1,3 @@
-# Implementation Progress — Standby
+# Implementation Progress — Standby State
 
-- [x] All tasks completed.
+- [ ] Standby: Menunggu tugas berikutnya

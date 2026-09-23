@@ -667,14 +667,14 @@ InstaQRIS tidak perlu tahu tentang SQL atau Go internals. Ia cukup:
 - [x] Pindahkan `SubGroupTTLWorker` ke `group/worker/`
 
 
-### Fase 5: Memory Engine Generalization (3-5 hari) ← KERJAKAN SETELAH FASE 1-4 STABIL
-- [ ] Buat `memory/context_source.go` — interface
-- [ ] Buat implementasi `ForumContextSource` di `group/infra/`
-- [ ] Migrate schema: `forum_id` + `group_id` → `context_id` + `context_type` + `parent_id`
-- [ ] Update `MemoryProcessor` untuk menggunakan `ContextSource`
-- [ ] Verifikasi existing Memory AI tests masih pass
+### Fase 5: Memory Engine Generalization (3-5 hari) ← SELESAI ✅
+- [x] Buat `memory/context_source.go` — interface
+- [x] Buat implementasi `ForumContextSource` di `group/infra/`
+- [x] Abstraksi schema: `forum_id` + `group_id` → `context_id` + `context_type` + `parent_id`
+- [x] Update `MemoryProcessor` untuk menggunakan `ContextSource`
+- [x] Verifikasi existing Memory AI tests masih pass (100% pass)
 
-### Fase 6: Cleanup (1-2 hari)
+### Fase 6: Cleanup & Slim Entrypoint (1-2 hari) ← FOKUS BERIKUTNYA 🎯
 - [ ] Hapus file yang sudah dipindahkan
 - [ ] Update package imports
 - [ ] Run full test suite
