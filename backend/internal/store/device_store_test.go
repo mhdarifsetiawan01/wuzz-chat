@@ -109,4 +109,38 @@ func TestSQLDeviceStore_SQLite(t *testing.T) {
 	if len(devices) != 2 {
 		t.Fatalf("expected 2 active devices after reactivation, got %d", len(devices))
 	}
+
+	// 8. Test Rebind device ID yang sama ke user lain (User B login di browser yang sama)
+	newUserID := "user_bob"
+	dRebound := &Device{
+		ID:        "dev_chrome_win", // ID yang sama dengan milik Alice
+		UserID:    newUserID,        // Pemilik baru: Bob
+		Name:      "Chrome on Windows (Bob)",
+		Platform:  "web",
+		UserAgent: "Mozilla/5.0 Bob",
+		IPAddress: "192.168.1.50",
+		IsActive:  true,
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := deviceStore.RegisterOrUpdateDevice(dRebound); err != nil {
+		t.Fatalf("failed to rebind device to new user: %v", err)
+	}
+
+	// Device dev_chrome_win kini harus terikat ke Bob
+	bobDevices, err := deviceStore.GetUserDevices(newUserID)
+	if err != nil {
+		t.Fatalf("failed to get bob devices: %v", err)
+	}
+	if len(bobDevices) != 1 || bobDevices[0].ID != "dev_chrome_win" {
+		t.Fatalf("expected bob to own dev_chrome_win, got: %v", bobDevices)
+	}
+
+	// Alice kini hanya memiliki 1 device (dev_safari_mac)
+	aliceDevices, err := deviceStore.GetUserDevices(userID)
+	if err != nil {
+		t.Fatalf("failed to get alice devices: %v", err)
+	}
+	if len(aliceDevices) != 1 || aliceDevices[0].ID != "dev_safari_mac" {
+		t.Fatalf("expected alice to only own dev_safari_mac, got: %v", aliceDevices)
+	}
 }

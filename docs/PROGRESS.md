@@ -2127,9 +2127,15 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 4. **Integration Test Suite (`backend/internal/api/multi_device_lifecycle_test.go`)**:
    - Menambahkan pengujian integrasi lifecycle lengkap: login Device 1, link Device 2 via QR, remote logout Device 2 dari Device 1, verifikasi WebSocket reconnect Device 1 sukses (101 Switching Protocols / Indikator Hijau), penolakan Device 2 (403 Forbidden), dan sinkronisasi `active_device_id`.
 
+5. **Atomic UPSERT on Conflict & Cross-User Device Rebinding (`backend/internal/store/device_store.go`, `backend/internal/ws/handler.go`)**:
+   - Memperbaiki `RegisterOrUpdateDevice` agar menggunakan query atomic `INSERT ... ON CONFLICT (id) DO UPDATE SET user_id=EXCLUDED.user_id, is_active=TRUE...` di PostgreSQL dan SQLite. Ini mencegah error `pq: duplicate key value violates unique constraint "devices_pkey" (23505)` ketika satu browser/device ID digunakan bergantian oleh akun yang berbeda.
+   - Memperbaiki WebSocket handshake: jika perangkat sebelumnya tercatat di bawah user lain, sistem otomatis melakukan rebind kepemilikan perangkat ke akun yang sedang login dan mengaktifkannya, alih-alih menolak koneksi secara keliru.
+
 ### Test Evidence
 - **Backend Lifecycle Test (`go test -v ./internal/api -run TestMultiDevice_CompleteUserFlow`)**: **PASS 100%**.
+- **Backend Device Rebind Test (`go test -v ./internal/store -run TestSQLDeviceStore_SQLite`)**: **PASS 100%**.
 - **Backend Full Test Suite (`go test -count=1 ./...`)**: **PASS 100% (Semua package lulus)**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors)**.
+
 
 

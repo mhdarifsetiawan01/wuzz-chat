@@ -76,48 +76,37 @@ func (s *SQLDeviceStore) RegisterOrUpdateDevice(device *Device) error {
 		device.CreatedAt = now
 	}
 
-	// Coba UPDATE terlebih dahulu
-	var updateQuery string
+	var upsertQuery string
 	if s.isPostgres() {
-		updateQuery = `UPDATE devices
-			SET name=$1, platform=$2, user_agent=$3, ip_address=$4, is_active=TRUE, last_seen_at=$5
-			WHERE id=$6 AND user_id=$7`
+		upsertQuery = `INSERT INTO devices (id, user_id, name, platform, user_agent, ip_address, is_active, last_seen_at, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8)
+			ON CONFLICT (id) DO UPDATE SET
+				user_id = EXCLUDED.user_id,
+				name = EXCLUDED.name,
+				platform = EXCLUDED.platform,
+				user_agent = EXCLUDED.user_agent,
+				ip_address = EXCLUDED.ip_address,
+				is_active = TRUE,
+				last_seen_at = EXCLUDED.last_seen_at`
 	} else {
-		updateQuery = `UPDATE devices
-			SET name=?, platform=?, user_agent=?, ip_address=?, is_active=1, last_seen_at=?
-			WHERE id=? AND user_id=?`
+		upsertQuery = `INSERT INTO devices (id, user_id, name, platform, user_agent, ip_address, is_active, last_seen_at, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+			ON CONFLICT (id) DO UPDATE SET
+				user_id = excluded.user_id,
+				name = excluded.name,
+				platform = excluded.platform,
+				user_agent = excluded.user_agent,
+				ip_address = excluded.ip_address,
+				is_active = 1,
+				last_seen_at = excluded.last_seen_at`
 	}
 
-	result, err := s.db.Exec(updateQuery,
-		device.Name, device.Platform, device.UserAgent, device.IPAddress, now,
-		device.ID, device.UserID,
+	_, err := s.db.Exec(upsertQuery,
+		device.ID, device.UserID, device.Name, device.Platform,
+		device.UserAgent, device.IPAddress, now, device.CreatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("RegisterOrUpdateDevice update: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("RegisterOrUpdateDevice rows affected: %w", err)
-	}
-
-	// Jika tidak ada row yang diupdate, berarti device baru → INSERT
-	if rowsAffected == 0 {
-		var insertQuery string
-		if s.isPostgres() {
-			insertQuery = `INSERT INTO devices (id, user_id, name, platform, user_agent, ip_address, is_active, last_seen_at, created_at)
-				VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8)`
-		} else {
-			insertQuery = `INSERT INTO devices (id, user_id, name, platform, user_agent, ip_address, is_active, last_seen_at, created_at)
-				VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`
-		}
-		_, err = s.db.Exec(insertQuery,
-			device.ID, device.UserID, device.Name, device.Platform,
-			device.UserAgent, device.IPAddress, now, device.CreatedAt,
-		)
-		if err != nil {
-			return fmt.Errorf("RegisterOrUpdateDevice insert: %w", err)
-		}
+		return fmt.Errorf("RegisterOrUpdateDevice upsert: %w", err)
 	}
 
 	return nil
