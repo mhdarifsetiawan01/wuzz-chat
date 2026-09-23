@@ -23,11 +23,14 @@ const (
 
 // ClusterEvent adalah amplop event yang dikirimkan melalui Redis Pub/Sub ke instance lain.
 type ClusterEvent struct {
-	NodeID       string  `json:"node_id"`
-	RoomID       string  `json:"room_id"`
-	SenderID     string  `json:"sender_id"`
-	TargetUserID string  `json:"target_user_id,omitempty"`
-	Message      Message `json:"message"`
+	NodeID         string  `json:"node_id"`
+	RoomID         string  `json:"room_id"`
+	SenderID       string  `json:"sender_id"`
+	TargetUserID   string  `json:"target_user_id,omitempty"`
+	Message        Message `json:"message"`
+	EventType      string  `json:"event_type,omitempty"`
+	ExceptDeviceID string  `json:"except_device_id,omitempty"`
+	KickReason     string  `json:"kick_reason,omitempty"`
 }
 
 // DefaultMaxActiveDevicesPerUser menentukan batas maksimal perangkat aktif bersamaan per user (default 2: misal HP + Laptop).
@@ -136,13 +139,27 @@ func (h *Hub) SetBroker(b broker.MessageBroker) {
 			return
 		}
 
-		log.Printf("[Hub %s] menerima cluster event dari node %s room=%s msgID=%s", h.nodeID[:8], event.NodeID[:8], event.RoomID, event.Message.ID)
+		switch event.EventType {
+		case "session_kick":
+			log.Printf("[Hub %s] menerima cluster session_kick dari node %s target=%s except=%s",
+				h.nodeID[:8], event.NodeID[:8], event.TargetUserID, event.ExceptDeviceID)
+			h.kickClientByUserIDLocal(event.TargetUserID, event.ExceptDeviceID, event.KickReason)
 
-		// Teruskan pesan ke client lokal yang terhubung di node ini
-		if event.TargetUserID != "" {
-			h.NotifyUser(event.TargetUserID, event.Message)
-		} else {
-			h.broadcastLocal(event.RoomID, event.Message, event.SenderID)
+		case "device_kick":
+			log.Printf("[Hub %s] menerima cluster device_kick dari node %s target=%s device=%s",
+				h.nodeID[:8], event.NodeID[:8], event.TargetUserID, event.SenderID)
+			h.kickClientByDeviceIDLocal(event.TargetUserID, event.SenderID, event.KickReason)
+
+		default:
+			log.Printf("[Hub %s] menerima cluster event dari node %s room=%s msgID=%s",
+				h.nodeID[:8], event.NodeID[:8], event.RoomID, event.Message.ID)
+
+			// Teruskan pesan ke client lokal yang terhubung di node ini
+			if event.TargetUserID != "" {
+				h.NotifyUser(event.TargetUserID, event.Message)
+			} else {
+				h.broadcastLocal(event.RoomID, event.Message, event.SenderID)
+			}
 		}
 	})
 
@@ -940,7 +957,39 @@ func (h *Hub) IsDuplicateAndRecord(msgID string, ttl time.Duration) bool {
 
 // KickClientByUserID mengirimkan sinyal SESSION_REPLACED / kick dan menutup koneksi WebSocket
 // untuk seluruh koneksi milik userID tertentu. Jika exceptDeviceID diisi, hanya menendang perangkat selain device tersebut.
+// Selain menendang klien lokal, method ini mem-publish event ke Redis Pub/Sub agar instance lain ikut menendang perangkat target.
 func (h *Hub) KickClientByUserID(userID, exceptDeviceID, reason string) {
+	if reason == "" {
+		reason = "SESSION_REPLACED: Akun Anda dibuka dari perangkat lain."
+	}
+
+	// 1. Eksekusi kick pada klien lokal yang terhubung ke instance ini
+	h.kickClientByUserIDLocal(userID, exceptDeviceID, reason)
+
+	// 2. Publish ke Redis Pub/Sub agar node instance lain ikut menendang
+	h.mu.RLock()
+	b := h.broker
+	h.mu.RUnlock()
+
+	if b != nil {
+		kickEvent := ClusterEvent{
+			NodeID:         h.nodeID,
+			EventType:      "session_kick",
+			TargetUserID:   userID,
+			ExceptDeviceID: exceptDeviceID,
+			KickReason:     reason,
+		}
+		if payload, err := json.Marshal(kickEvent); err == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			if pubErr := b.Publish(ctx, ClusterEventsChannel, payload); pubErr != nil {
+				log.Printf("[Hub %s] gagal publish session_kick ke broker cluster: %v", h.nodeID[:8], pubErr)
+			}
+		}
+	}
+}
+
+func (h *Hub) kickClientByUserIDLocal(userID, exceptDeviceID, reason string) {
 	h.mu.RLock()
 	var targets []*Client
 	if devs, ok := h.userClients[userID]; ok {
@@ -991,7 +1040,39 @@ func (h *Hub) KickClientByUserID(userID, exceptDeviceID, reason string) {
 
 // KickClientByDeviceID menendang koneksi WebSocket dari device tertentu milik user tertentu.
 // Dipanggil saat admin/user melakukan remote logout dari satu perangkat spesifik.
+// Selain menendang klien lokal, method ini mem-publish event ke Redis Pub/Sub agar instance lain ikut menendang perangkat target.
 func (h *Hub) KickClientByDeviceID(userID, deviceID, reason string) {
+	if reason == "" {
+		reason = "DEVICE_KICKED: Perangkat ini telah dikeluarkan dari jarak jauh."
+	}
+
+	// 1. Eksekusi kick pada klien lokal jika terhubung ke instance ini
+	h.kickClientByDeviceIDLocal(userID, deviceID, reason)
+
+	// 2. Publish ke Redis Pub/Sub agar node instance lain ikut menendang
+	h.mu.RLock()
+	b := h.broker
+	h.mu.RUnlock()
+
+	if b != nil {
+		kickEvent := ClusterEvent{
+			NodeID:       h.nodeID,
+			EventType:    "device_kick",
+			TargetUserID: userID,
+			SenderID:     deviceID, // reuse SenderID untuk menampung deviceID target
+			KickReason:   reason,
+		}
+		if payload, err := json.Marshal(kickEvent); err == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			if pubErr := b.Publish(ctx, ClusterEventsChannel, payload); pubErr != nil {
+				log.Printf("[Hub %s] gagal publish device_kick ke broker cluster: %v", h.nodeID[:8], pubErr)
+			}
+		}
+	}
+}
+
+func (h *Hub) kickClientByDeviceIDLocal(userID, deviceID, reason string) {
 	h.mu.RLock()
 	var client *Client
 	if devs, ok := h.userClients[userID]; ok {
