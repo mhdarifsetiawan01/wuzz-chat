@@ -110,7 +110,6 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		// Index Users
 		`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`,
-		`CREATE INDEX IF NOT EXISTS idx_users_tenant_ext ON users(tenant_id, external_user_id);`,
 		// Tabel Conversations
 		`CREATE TABLE IF NOT EXISTS conversations (
 			id VARCHAR(128) PRIMARY KEY,
