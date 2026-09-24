@@ -317,7 +317,8 @@ function ChatPageContent() {
   const [directPreviewGroup, setDirectPreviewGroup] = useState<GroupDetails | null>(null)
   const [privateGroupDenied, setPrivateGroupDenied] = useState<{ id: string; error?: string } | null>(null)
   const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([])
-  const [inAppToast, setInAppToast] = useState<{ message: string } | null>(null)
+  const [inAppToast, setInAppToast] = useState<{ message: string; icon?: string } | null>(null)
+  const inAppToastTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<string[]>([])
@@ -349,6 +350,27 @@ function ChatPageContent() {
   useEffect(() => {
     roomIdRef.current = roomId
   }, [roomId])
+
+  // Helper terpusat untuk menampilkan In-App Toast dengan timer auto-dismiss aman
+  const showInAppToast = useCallback((message: string, duration = 4000, icon = '🔔') => {
+    if (inAppToastTimeoutRef.current) {
+      clearTimeout(inAppToastTimeoutRef.current)
+    }
+    setInAppToast({ message, icon })
+    inAppToastTimeoutRef.current = setTimeout(() => {
+      setInAppToast(null)
+      inAppToastTimeoutRef.current = null
+    }, duration)
+  }, [])
+
+  // Bersihkan timer in-app toast saat unmount
+  useEffect(() => {
+    return () => {
+      if (inAppToastTimeoutRef.current) {
+        clearTimeout(inAppToastTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Muat detail grup saat berpindah ke room grup atau saat menerima notifikasi aktivitas grup
   const fetchGroupDetails = useCallback(async (targetRoomId: string, signal?: AbortSignal) => {
@@ -1068,8 +1090,7 @@ function ChatPageContent() {
 
         case 'join_request': {
           if (msg.content) {
-            setInAppToast({ message: msg.content })
-            setTimeout(() => setInAppToast(null), 6000)
+            showInAppToast(msg.content, 6000, '🔔')
 
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
               try {
@@ -2498,15 +2519,18 @@ function ChatPageContent() {
                 onClose={() => setReviewDraftId(null)}
                 onApproved={() => {
                   setReviewDraftId(null)
-                  setInAppToast({ message: '🧠 Memori grup berhasil divalidasi dan dipublikasikan!' })
+                  showInAppToast('Memori grup berhasil divalidasi dan dipublikasikan!', 4000, '🧠')
                 }}
                 onRejected={() => {
                   setReviewDraftId(null)
-                  setInAppToast({ message: 'Draft memori berhasil ditolak.' })
+                  showInAppToast('Draft memori berhasil ditolak.', 3500, 'ℹ️')
                 }}
-                onJumpToMessage={(forumId) => {
+                onJumpToMessage={(forumId, messageId) => {
                   setReviewDraftId(null)
                   handleSelectRoom(forumId)
+                  if (messageId) {
+                    setTimeout(() => handleJumpToMessage(messageId), 300)
+                  }
                 }}
               />
 
@@ -2526,10 +2550,13 @@ function ChatPageContent() {
                 memoryId={selectedApprovedMemoryId || ''}
                 isOpen={!!selectedApprovedMemoryId}
                 onClose={() => setSelectedApprovedMemoryId(null)}
-                onJumpToMessage={(forumId) => {
+                onJumpToMessage={(forumId, messageId) => {
                   setSelectedApprovedMemoryId(null)
                   setIsMemoryListOpen(false)
                   handleSelectRoom(forumId)
+                  if (messageId) {
+                    setTimeout(() => handleJumpToMessage(messageId), 300)
+                  }
                 }}
                 onOpenForumChat={(forumId) => {
                   setSelectedApprovedMemoryId(null)
@@ -2626,31 +2653,38 @@ function ChatPageContent() {
         onForward={handleForwardMessage}
       />
 
-      {/* In-App Toast Alert (Join Requests & System Notices) */}
+      {/* In-App Toast Alert (Join Requests, Memory Notifications & System Notices) */}
       {inAppToast && (
         <div
-          style={{
-            position: 'fixed',
-            top: '16px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 'var(--z-toast)',
-            backgroundColor: 'var(--bg-card)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border-color)',
-            boxShadow: 'var(--shadow-lg)',
-            padding: '10px 18px',
-            borderRadius: 'var(--radius-full)',
-            fontSize: '0.85rem',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            pointerEvents: 'none',
+          className="in-app-toast-banner"
+          onClick={() => {
+            if (inAppToastTimeoutRef.current) {
+              clearTimeout(inAppToastTimeoutRef.current)
+              inAppToastTimeoutRef.current = null
+            }
+            setInAppToast(null)
           }}
+          role="status"
+          aria-live="polite"
+          title="Klik untuk menutup notifikasi"
         >
-          <span>🔔</span>
-          <span>{inAppToast.message}</span>
+          <span className="in-app-toast-icon">{inAppToast.icon || '🔔'}</span>
+          <span className="in-app-toast-message">{inAppToast.message}</span>
+          <button
+            type="button"
+            className="in-app-toast-close"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (inAppToastTimeoutRef.current) {
+                clearTimeout(inAppToastTimeoutRef.current)
+                inAppToastTimeoutRef.current = null
+              }
+              setInAppToast(null)
+            }}
+            aria-label="Tutup notifikasi"
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>

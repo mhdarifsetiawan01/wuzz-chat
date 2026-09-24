@@ -16,6 +16,7 @@
 | `--bg-overlay` | `rgba(15,23,42,0.85)` | Blocking overlay |
 | `--bg-secondary` | `rgba(15,23,42,0.65)` | Secondary surface |
 | `--bg-tertiary` | `rgba(30,41,59,0.6)` | Tertiary surface |
+| `--bg-card` | `rgba(30,41,59,0.95)` | Opaque modal/card/banner surface |
 | `--bg-input` | `rgba(15,23,42,0.6)` | Input field background |
 | `--bg-surface-hover` | `rgba(30,41,59,0.8)` | Surface hover state |
 
