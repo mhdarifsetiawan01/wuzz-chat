@@ -1,6 +1,7 @@
 package authz_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -322,4 +323,94 @@ func TestAuthService_DevicePlatformHandling(t *testing.T) {
 		t.Fatalf("expected platform auto-detected as 'android', got '%s'", uaDevices[0].Platform)
 	}
 }
+
+func TestAuthService_SearchUsersAndProfile(t *testing.T) {
+	svc, cleanup := setupTestAuthService(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	// Register user 1: Alice
+	u1, err := svc.Register(authz.RegisterInput{
+		Username:    "alice_search",
+		DisplayName: "Alice Searcher",
+		Password:    "password123",
+		DeviceID:    "dev-alice-search",
+	})
+	if err != nil {
+		t.Fatalf("Register Alice failed: %v", err)
+	}
+
+	// Register user 2: Bob
+	u2, err := svc.Register(authz.RegisterInput{
+		Username:    "bob_search",
+		DisplayName: "Bob Target",
+		Password:    "password123",
+		DeviceID:    "dev-bob-search",
+	})
+	if err != nil {
+		t.Fatalf("Register Bob failed: %v", err)
+	}
+
+	// 1. SearchUsers with empty query
+	resEmpty, err := svc.SearchUsers(ctx, "", u1.UserID)
+	if err != nil {
+		t.Fatalf("SearchUsers empty query failed: %v", err)
+	}
+	if len(resEmpty) != 0 {
+		t.Errorf("expected 0 results for empty query, got %d", len(resEmpty))
+	}
+
+	// 2. SearchUsers for "bob" excluding u1
+	results, err := svc.SearchUsers(ctx, "bob", u1.UserID)
+	if err != nil {
+		t.Fatalf("SearchUsers failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 search result, got %d", len(results))
+	}
+	if results[0].ID != u2.UserID || results[0].Username != "bob_search" {
+		t.Errorf("unexpected search result: %+v", results[0])
+	}
+
+	// 3. SearchUsers for "alice" excluding u1 (self) -> should be excluded
+	resSelf, err := svc.SearchUsers(ctx, "alice", u1.UserID)
+	if err != nil {
+		t.Fatalf("SearchUsers self query failed: %v", err)
+	}
+	if len(resSelf) != 0 {
+		t.Errorf("expected 0 results when searching self with exclusion, got %d", len(resSelf))
+	}
+
+	// 4. GetUserProfile by ID
+	profileByID, err := svc.GetUserProfile(ctx, u2.UserID, "")
+	if err != nil {
+		t.Fatalf("GetUserProfile by ID failed: %v", err)
+	}
+	if profileByID.ID != u2.UserID || profileByID.Username != "bob_search" {
+		t.Errorf("unexpected profile by ID: %+v", profileByID)
+	}
+
+	// 5. GetUserProfile by username (with @ prefix)
+	profileByUname, err := svc.GetUserProfile(ctx, "", "@bob_search")
+	if err != nil {
+		t.Fatalf("GetUserProfile by username failed: %v", err)
+	}
+	if profileByUname.ID != u2.UserID {
+		t.Errorf("expected user ID %s, got %s", u2.UserID, profileByUname.ID)
+	}
+
+	// 6. GetUserProfile for non-existent user
+	_, errNotFound := svc.GetUserProfile(ctx, "non-existent-uuid", "")
+	if errNotFound == nil {
+		t.Fatalf("expected error for non-existent user, got nil")
+	}
+
+	// 7. GetUserProfile with empty params
+	_, errInvalid := svc.GetUserProfile(ctx, "", "")
+	if errInvalid == nil {
+		t.Fatalf("expected error for empty params, got nil")
+	}
+}
+
 

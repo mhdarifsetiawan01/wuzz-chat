@@ -1,6 +1,9 @@
 package authz
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // AuthRepository mendefinisikan semua operasi data yang dibutuhkan oleh AuthService.
 // Implementasi ada di authz/infra/sql_repository.go (adapter ke store lama).
@@ -30,6 +33,15 @@ type AuthRepository interface {
 
 	// ClearActiveDevice mengosongkan active_device_id jika deviceID cocok (device-aware logout).
 	ClearActiveDevice(userID, deviceID string) error
+
+	// SearchUsers mencari user lain untuk diajak chat (mengecualikan excludeUserID).
+	SearchUsers(ctx context.Context, query, excludeUserID string) ([]UserSummary, error)
+
+	// GetUserByID mengambil profil publik user berdasarkan user ID (UUID).
+	GetUserByID(ctx context.Context, userID string) (*UserProfile, error)
+
+	// GetUserByUsernameOrDisplayName mencari profil user berdasarkan username atau display name.
+	GetUserByUsernameOrDisplayName(ctx context.Context, identifier string) (*UserProfile, error)
 
 	// --- Credential ---
 

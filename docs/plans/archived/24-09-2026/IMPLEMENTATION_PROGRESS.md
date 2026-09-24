@@ -1,32 +1,33 @@
-# Implementation Progress — Track B: Modular Monolith Fase 3
+# Implementation Progress — Milestone 0: Prerequisite Stabilization
 
-## Checklist Eksekusi Bertahap
+## Active Task Checklist
 
-### Milestone 3.1: Messaging Domain (Entities, Repositories & SQL Adapter)
-- [x] Buat `backend/internal/messaging/entity.go`
-- [x] Buat `backend/internal/messaging/repository.go`
-- [x] Buat `backend/internal/messaging/infra/sql_repository.go`
-- [x] Verifikasi build package `backend/internal/messaging/...` (PASS)
+### Task 0.1: Tenant Context Carrier Abstraction
+- [x] Buat package `backend/internal/shared/tenant/context.go`.
+- [x] Implementasikan struct `TenantContext`, `WithTenant(ctx, tenantID)`, `FromContext(ctx)`, `DefaultTenant()`.
+- [x] Buat unit test `backend/internal/shared/tenant/context_test.go` untuk coverage 100%.
 
-### Milestone 3.2: Message Application Service
-- [x] Buat `backend/internal/messaging/service.go`
-- [x] Implementasikan use case: Edit, Delete, Forward, Pin, Unpin, GetHistory, Search, UpdateReceipt
-- [x] Buat unit test `backend/internal/messaging/service_test.go`
-- [x] Verifikasi `go test -v ./internal/messaging/...` (100% PASS)
+### Task 0.2: Hub In-Memory UUID Purification
+- [x] Hapus field `clientsByNick map[string]*Client` dari struct `Hub` di `backend/internal/ws/hub.go`.
+- [x] Hapus inisialisasi, registrasi, dan deregistrasi `clientsByNick` di lifecycle Hub.
+- [x] Perbarui method pencarian klien dan unicast agar murni menggunakan `h.userClients[userID]` (UUID) atau identifier terotentikasi.
+- [x] Jalankan `go test -v ./internal/ws/...` dan perbarui test suite jika ada yang masih mereferensikan nickname mapping.
 
-### Milestone 3.3: WebSocket Hub Decoupling
-- [x] Definisikan `RoomAuthorizationChecker` di `backend/internal/ws/hub.go`
-- [x] Ganti `h.userStore` dengan `h.roomAuth` di `hub.go` dan `client.go`
-- [x] Tambahkan `SetRoomAuth` dan pertahankan `SetUserStore` sebagai backward-compatible bridge
-- [x] Verifikasi `go test -v ./internal/ws/...` (100% PASS)
+### Task 0.3: Identity & User Lookup Encapsulation di Domain `authz`
+- [x] Definisikan struct `UserSummary` dan `UserProfile` di `backend/internal/authz/entity.go`.
+- [x] Tambahkan method `SearchUsers` dan `GetUserProfile` pada interface `AuthRepository` di `backend/internal/authz/repository.go`.
+- [x] Implementasikan method tersebut pada adapter SQL `backend/internal/authz/infra/sql_repository.go`.
+- [x] Tambahkan use case `SearchUsers` dan `GetUserProfile` pada `backend/internal/authz/service.go`.
+- [x] Tambahkan unit test pada `backend/internal/authz/service_test.go`.
 
-### Milestone 3.4: ChatHandler Thin Transport Refactoring
-- [x] Tambahkan injeksi `MessageService` di `backend/internal/api/chat_handler.go`
-- [x] Refactor method handler untuk mendelegasikan use case ke `MessageService`
-- [x] Verifikasi `go test -v ./internal/api/...` (100% PASS)
+### Task 0.4: ChatHandler Refactor & Wire Injection
+- [x] Tambahkan dependensi `authSvc *authz.AuthService` pada `ChatHandler` di `backend/internal/api/chat_handler.go`.
+- [x] Refactor `SearchUsers(w, r)` untuk memanggil `h.authSvc.SearchUsers(r.Context(), query, claims.UserID)`.
+- [x] Refactor `GetUserProfile(w, r)` untuk memanggil `h.authSvc.GetUserProfile(r.Context(), userID, username)`.
+- [x] Update dependency injection di `backend/internal/app/wire.go` (`NewChatHandlerWithService`).
+- [x] Jalankan unit test `backend/internal/api/...`.
 
-### Milestone 3.5: Main Wiring & Quality Audit
-- [x] Wire dependensi di `backend/main.go`
-- [x] Jalankan `go test -v ./...` (100% PASS)
-- [x] Jalankan `npm run build` di frontend (100% PASS)
-- [x] Sinkronkan `PROMPT.md`, `ROADMAP.md`, `MODULAR_MONOLITH_DDD.md`, dan `PROGRESS.md`
+### Task 0.5: Automated Verification & Documentation Synchronization
+- [x] Jalankan `go test -v ./...` di direktori `backend/` (Wajib 100% PASS).
+- [x] Jalankan `npm run build` di direktori `frontend/` (Wajib 0 error Turbopack / TypeScript).
+- [x] Sinkronkan `docs/plans/active/HANDOVER.md` dan `docs/PROGRESS.md`.

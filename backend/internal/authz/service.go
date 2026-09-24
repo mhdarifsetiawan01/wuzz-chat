@@ -6,6 +6,7 @@
 package authz
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	sharederrors "github.com/bms-del112/wuzz-chat/internal/shared/errors"
 	sharedvalidator "github.com/bms-del112/wuzz-chat/internal/shared/validator"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -511,3 +513,45 @@ func generateSecureToken() string {
 	_, _ = rand.Read(b)
 	return base64.URLEncoding.EncodeToString(b)
 }
+
+// --- Identity & User Lookup Use Cases ---
+
+// SearchUsers mencari user lain untuk diajak chat (mengecualikan requesterID).
+func (s *AuthService) SearchUsers(ctx context.Context, query, requesterID string) ([]UserSummary, error) {
+	trimmed := strings.TrimSpace(query)
+	if trimmed == "" {
+		return []UserSummary{}, nil
+	}
+	return s.repo.SearchUsers(ctx, trimmed, requesterID)
+}
+
+// GetUserProfile mengambil profil publik user berdasarkan userID atau username.
+func (s *AuthService) GetUserProfile(ctx context.Context, userID, username string) (*UserProfile, error) {
+	cleanUID := strings.TrimSpace(userID)
+	if cleanUID != "" {
+		profile, err := s.repo.GetUserByID(ctx, cleanUID)
+		if err != nil {
+			return nil, err
+		}
+		if profile == nil {
+			return nil, sharederrors.ErrNotFound
+		}
+		return profile, nil
+	}
+
+	cleanUName := strings.TrimSpace(username)
+	if cleanUName != "" {
+		cleanUName = strings.TrimPrefix(cleanUName, "@")
+		profile, err := s.repo.GetUserByUsernameOrDisplayName(ctx, cleanUName)
+		if err != nil {
+			return nil, err
+		}
+		if profile == nil {
+			return nil, sharederrors.ErrNotFound
+		}
+		return profile, nil
+	}
+
+	return nil, sharederrors.ErrInvalidInput
+}
+

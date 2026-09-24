@@ -7,6 +7,8 @@
 package infra
 
 import (
+	"context"
+	"strings"
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/authz"
@@ -76,6 +78,64 @@ func (r *SQLAuthRepository) UpdateActiveDevice(userID, deviceID string) error {
 
 func (r *SQLAuthRepository) ClearActiveDevice(userID, deviceID string) error {
 	return r.userStore.ClearActiveDevice(userID, deviceID)
+}
+
+func (r *SQLAuthRepository) SearchUsers(ctx context.Context, query, excludeUserID string) ([]authz.UserSummary, error) {
+	users, err := r.userStore.SearchUsers(query, excludeUserID)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]authz.UserSummary, 0, len(users))
+	for _, u := range users {
+		res = append(res, authz.UserSummary{
+			ID:            u.ID,
+			Username:      u.Username,
+			DisplayName:   u.DisplayName,
+			StatusMessage: u.StatusMessage,
+			AvatarURL:     u.AvatarURL,
+			IsVerified:    u.IsVerified,
+			PublicKey:     u.PublicKey,
+		})
+	}
+	return res, nil
+}
+
+func (r *SQLAuthRepository) GetUserByID(ctx context.Context, userID string) (*authz.UserProfile, error) {
+	u, err := r.userStore.GetUserByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, nil
+	}
+	return toUserProfile(u), nil
+}
+
+func (r *SQLAuthRepository) GetUserByUsernameOrDisplayName(ctx context.Context, identifier string) (*authz.UserProfile, error) {
+	clean := strings.TrimPrefix(identifier, "@")
+	u, err := r.userStore.GetUserByUsername(clean)
+	if err != nil || u == nil {
+		u, err = r.userStore.GetUserByUsernameOrDisplayName(clean)
+		if err != nil || u == nil {
+			return nil, err
+		}
+	}
+	return toUserProfile(u), nil
+}
+
+func toUserProfile(u *store.User) *authz.UserProfile {
+	return &authz.UserProfile{
+		ID:             u.ID,
+		Username:       u.Username,
+		DisplayName:    u.DisplayName,
+		StatusMessage:  u.StatusMessage,
+		AvatarURL:      u.AvatarURL,
+		IsVerified:     u.IsVerified,
+		PublicKey:      u.PublicKey,
+		KeyVersion:     u.KeyVersion,
+		ActiveDeviceID: u.ActiveDeviceID,
+		CreatedAt:      u.CreatedAt,
+	}
 }
 
 // --- Credential ---

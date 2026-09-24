@@ -2526,3 +2526,39 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Backend Full Suite (`go test ./...`)**: **PASS 100%** (seluruh internal package lolos).
 - **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
 - **Server Lifecycle Guard**: Seluruh server port 8080 dan 3047 dipastikan mati.
+
+---
+
+## 2026-09-24: WuzzChat Engine Evolution — Milestone 0: Codebase & Hub Prerequisite Stabilization
+
+### Problem Description
+1. In-Memory WebSocket Hub (`ws.Hub`) menyimpan map `clientsByNick` yang memetakan koneksi berdasarkan username. Dalam lingkungan tenant-aware di masa depan, dua tenant dapat memiliki username yang sama (`@admin`, `@budi`) sehingga berisiko tabrakan koneksi real-time.
+2. Handler pencarian kontak (`SearchUsers`) dan pengambilan profil publik (`GetUserProfile`, `GetUserPublicKey`) di `ChatHandler` memotong langsung ke `store.UserStore` tanpa melalui Application Service layer (`AuthService`), sehingga tidak dapat diproteksi isolasi tenant secara tersentralisasi.
+3. Ketiadaan carrier konteks tenant standar pada `context.Context` Go untuk propagasi HTTP request ke database.
+
+### Implementation Details
+1. **Tenant Context Carrier Abstraction (`backend/internal/shared/tenant/`)**:
+   - Dibuat package `tenant` dengan tipe data immutable `TenantContext` (`WithTenant`, `WithTenantContext`, `FromContext`, `DefaultTenant`, `MustFromContext`).
+   - Dilengkapi unit test dengan statement coverage 100%.
+2. **Purifikasi In-Memory UUID Routing di WebSocket Hub (`backend/internal/ws/hub.go`)**:
+   - Dihapus map `clientsByNick` dari struct `Hub`, constructor `NewHub`, alur `registerClient`, `unregisterClient`, dan `findClientsLocked`.
+   - Routing perpesanan unicast dan broadcast murni berbasis User UUID (`userClients[userID]`).
+   - Ditambahkan unit test `TestHub_UUIDPurification_NoNickCollision` yang membuktikan dua pengguna dengan username sama tidak mengalami tabrakan pesan.
+3. **Enkapsulasi Identitas & User Lookup di Domain `authz`**:
+   - Ditambahkan entitas `UserSummary` dan `UserProfile` pada `backend/internal/authz/entity.go`.
+   - Ditambahkan kontrak `SearchUsers`, `GetUserByID`, dan `GetUserByUsernameOrDisplayName` pada `AuthRepository` dan adapter `backend/internal/authz/infra/sql_repository.go`.
+   - Ditambahkan use case `SearchUsers` dan `GetUserProfile` pada `backend/internal/authz/service.go`.
+   - Ditambahkan unit test `TestAuthService_SearchUsersAndProfile` di `backend/internal/authz/service_test.go`.
+4. **Refactor ChatHandler & Wire Injection**:
+   - Injeksi `authSvc *authz.AuthService` ke `ChatHandler` di `backend/internal/api/chat_handler.go`.
+   - `SearchUsers`, `GetUserProfile`, dan `GetUserPublicKey` dialihkan murni ke `AuthService`.
+   - Injeksi dependensi dimutakhirkan di `backend/internal/app/wire.go`.
+   - Ditambahkan unit test komprehensif `backend/internal/api/chat_handler_identity_test.go`.
+
+### Test Evidence
+- **Backend Full Suite (`go test ./...`)**: **PASS 100%** (seluruh unit dan integrasi test internal lolos).
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 error, 8/8 routes prerendered).
+- **Real Frontend Integration E2E (`node test-frontend-real-e2e.mjs`)**: **PASS 100%** (19/19 alur Next.js proxy ⇄ Go Backend lolos sempurna).
+- **Real Multi-Platform Integration (`node test-multiplatform-real-frontend.mjs`)**: **PASS 100%** (Desktop, Android PWA, iOS Safari, realtime chat lolos).
+- **Server Lifecycle Guard**: Seluruh server port 8080 dan 3047 dimatikan bersih (0 lingering open ports).
+
