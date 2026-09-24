@@ -3,8 +3,8 @@ import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
 
 export const metadata: Metadata = {
-  title: 'Wuzz Chat — Real-time Modern Chat Platform',
-  description: 'Chat real-time bertenaga Go WebSocket & Next.js.',
+  title: 'Wuzz Chat — Remember More Than Messages',
+  description: 'Wuzz Chat membantu individu, tim, dan komunitas mengubah percakapan menjadi pengetahuan yang dapat dicari, dipahami, dan diingat kembali.',
   manifest: '/manifest.json',
   icons: {
     icon: [
