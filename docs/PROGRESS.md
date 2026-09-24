@@ -2371,3 +2371,36 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors, 8/8 routes prerendered)**.
 - **Backend Full Suite (`go test -v ./...`)**: **PASS 100%**.
 
+---
+
+## 2026-09-24: Track B Modular Monolith — Tahap 6 (Cleanup & Slim Entrypoint Wiring)
+
+### Problem Description
+1. Entrypoint utama `backend/main.go` sebelumnya berukuran 598 baris dan bertindak sebagai *God Object* yang mencampuradukkan pembacaan variabel lingkungan OS, inisialisasi database dan storage, perakitan puluhan dependensi DDD, 3 goroutine pembersih background tanpa lifecycle terkelola, 50+ registrasi rute HTTP mux, dan loop HTTP server.
+2. Kondisi ini menyulitkan pemahaman dan kolaborasi bagi pengembang junior, serta meningkatkan risiko regresi saat menambahkan fitur baru.
+
+### Implementation Details
+1. **Sentralisasi Konfigurasi Runtime (`backend/internal/shared/config/`)**:
+   - `config.go`: Struct `Config` terpadu memuat konfigurasi Server, Storage, Auth, Rate Limit, dan Background Worker Intervals dengan default fallback yang aman.
+   - `config_test.go`: Unit test parser konfigurasi (100% PASS).
+2. **Sentralisasi Background Cleaner Worker (`backend/internal/authz/worker/`)**:
+   - `cleaner_worker.go`: Struct terkelola `AuthCleanupWorker` yang mengelola siklus hidup pembersihan token revoked, sesi login expired, dan sesi transfer QR via channel selector dan `sync.WaitGroup`.
+   - `cleaner_worker_test.go`: Unit test lifecycle worker `Start()`, `Stop()`, dan `RunOnce()` (100% PASS).
+3. **Application Container & Dependency Injection Wiring (`backend/internal/app/`)**:
+   - `wire.go`: Struct container `Application` yang merakit dependensi secara berurutan dalam 7 tahap terstruktur (Storage, Infrastructure, Repositories, Services, Workers, Handlers, WebSocket Hub) disertai komentar panduan yang jelas bagi programmer junior.
+   - `router.go`: Pemetaan 50+ rute HTTP mux dan WebSocket dikelompokkan secara tematik per domain fungsional.
+   - `app_test.go`: Unit test inisialisasi aplikasi container dan health check `/health` (100% PASS).
+4. **Refactoring Slim Entrypoint (`backend/main.go`)**:
+   - Berhasil memangkas `backend/main.go` dari 598 baris menjadi 55 baris.
+   - Menerapkan Go idiomatic *Graceful Shutdown* menggunakan `signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)` dan `application.Shutdown(ctx)` dengan batas waktu 10 detik.
+   - Kompatibilitas 100% dengan `Dockerfile` (`go build -ldflags="-w -s" -o /app/wuzz-backend main.go`) dan eksekusi lokal `go run main.go`.
+
+### Test Evidence
+- **Backend Full Suite Tests (`go test -count=1 ./...`)**: **PASS 100%** pada seluruh 19 internal package (`ai`, `api`, `app`, `auth`, `authz`, `authz/worker`, `broker`, `group`, `memory`, `messaging`, `push`, `shared/config`, `shared/cors`, `shared/ratelimit`, `shared/validator`, `storage`, `store`, `worker`, `ws`).
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100%** (0 lint/TS errors, 8/8 static routes prerendered).
+- **Frontend Client-Side Test Suites**: `test-message-cache.mjs` (9/9 PASS), `test-multi-device-frontend.mjs` (4/4 PASS), `test-login-device-limit.mjs` (3/3 PASS), `test-phase5-key-transfer.mjs` (3/3 PASS).
+- **Real Client End-to-End Simulation terhadap Server Backend Asli**:
+  - `test-group-simulation.mjs` (100% PASS: auth, group CRUD, WebSocket live system event, RBAC/BOLA).
+  - `test-memory-simulation.mjs` (100% PASS: 14/14 langkah end-to-end lifecycle Memory AI & Groq LLM processing).
+
+
