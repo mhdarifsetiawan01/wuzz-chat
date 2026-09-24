@@ -786,6 +786,17 @@ Dalam rangka evolusi arsitektur menuju sistem modular monolith yang dapat diguna
 - **Milestone 2 (Realtime Message Ingestion Decoupling)**: WebSocket Hub diputus dari direct SQL store melalui interface `RealtimeMessageManager` dan di-wire ke domain repository adapter.
 - **Milestone 3 (Mobile Gateway Readiness & Pluggable Push Provider)**: Resolusi platform perangkat (`web`, `android`, `ios`), multi-device lifecycle use cases pada `authz.AuthService`, serta arsitektur pluggable `PushProvider` (`VAPIDWebPushProvider` & `FCMv1PushProvider`) dengan auto-routing.
 
+### H. Tenant-Ready Transformation & Hub Prerequisite Stabilization (Tenant Engine Milestone 0)
+- **Tenant Context Carrier Abstraction (`backend/internal/shared/tenant`)**:
+  - Menyediakan `TenantContext` yang immutable dan type-safe (`ContextWithTenant`, `FromContext`, `MustFromContext`, `WithTenantContext`) sebagai fondasi carrier konteks tenant di seluruh Go context, HTTP middleware, dan perutean domain.
+- **In-Memory WebSocket Hub UUID Purification (`backend/internal/ws/hub.go`)**:
+  - Mengeliminasi `clientsByNick map[string]*Client` dan seluruh lookup berbasis lowercase username string.
+  - Seluruh perutean real-time dialihkan 100% ke User UUID (`userClients[userID][deviceID]`), mengeliminasi risiko tabrakan koneksi/pesan antar pengguna dengan username yang sama pada lingkungan multi-tenant.
+- **Identity & User Lookup Encapsulation (Penyelesaian TD-03)**:
+  - Domain `authz` diperluas dengan entitas `UserSummary` dan `UserProfile`, serta kontrak repositori `SearchUsers`, `GetUserByID`, dan `GetUserByUsernameOrDisplayName` pada `AuthRepository` & `infra/sql_repository.go`.
+  - Application Service `authz.AuthService` memfasilitasi use case pencarian kontak dan pembacaan profil publik.
+  - `ChatHandler` (`SearchUsers`, `GetUserProfile`, `GetUserPublicKey`) direfaktor untuk mengonsumsi `authz.AuthService` via Dependency Injection, memutus total direct coupling HTTP handler ke `store.UserStore`.
+
 > 📝 **Daftar Utang Teknis & Batasan Arsitektur**:  
 > Seluruh utang teknis yang diketahui dan sengaja ditunda (TD-01 s/d TD-05) dicatat secara kanonikal di:  
 > 👉 **[`docs/PROJECT_STATE.md`](PROJECT_STATE.md) (Bagian 10 — Technical Debt Register)**.

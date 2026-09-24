@@ -318,7 +318,7 @@ Daftar utang teknis aktual yang sengaja ditunda karena tidak menghambat fungsi s
 |---|---|---|---|---|---|---|
 | **TD-01** | **Circular Import Bypass pada WebSocket Message Ingestion** | `backend/internal/ws/hub.go`, `backend/internal/app/wire.go` | Hub terhubung ke `messagingRepo` via `RealtimeMessageManager`, bukan via `MessageService`. Hub menyusun DTO `store.StoredMessage` secara mandiri. | `Medium` | Menghindari circular import antara `messaging` dan `ws`. Sistem saat ini sudah berjalan stabil dan teruji 100%. | Saat dilakukan refactor event-driven messaging atau ekstraksi package WS event types mandiri. |
 | **TD-02** | **Pelanggaran Arah Dependensi (Domain mengimpor Transport)** | `backend/internal/messaging/service.go:10`, `backend/internal/group/service.go:12` | Domain/Application layer mengimpor `internal/ws` hanya untuk menggunakan struct `ws.Message`. | `Medium` | Tidak menimbulkan runtime bug atau memory leak; hanya ketidakmurnian arsitektur Clean Architecture. | Saat memindahkan kontrak event broadcast ke interface domain murni (`DomainEventBroadcaster`). |
-| **TD-03** | **Identity Domain Belum Berdiri Sendiri** | `backend/internal/api/auth_handler.go`, `backend/internal/api/chat_handler.go` | Fitur profil user, pencarian kontak (`SearchUsers`), dan E2EE key management memotong langsung ke `store.UserStore` tanpa lewat Application Service. | `Low` | Fungsionalitas sudah stabil, aman, dan memiliki unit test komprehensif. | Saat penambahan kapabilitas akun baru (Passkey WebAuthn atau multi-profil). |
+| **TD-03** | **Identity Domain Belum Berdiri Sendiri** | `backend/internal/api/chat_handler.go`, `backend/internal/authz` | Fitur profil user, pencarian kontak (`SearchUsers`), dan public key sebelumnya memotong langsung ke `store.UserStore`. | `RESOLVED ✅` | **Tuntas di Milestone 0**: Seluruh pencarian kontak, pengambilan profil, dan public key telah dienkapsulasi ke dalam `authz.AuthService` dan `authz.AuthRepository`. | Selesai di Tenant Engine Milestone 0 (Sep 2026). |
 | **TD-04** | **Terminologi Forum Masih Melekat di Schema & AI Prompt** | `backend/internal/ai/service.go:12`, `backend/internal/memory/service.go:36`, `store/sql.go:198` | Tabel database (`forum_memory_jobs`) dan DTO memori masih menggunakan nama `forum_id` dan `group_id`. Prompt AI mengasumsikan diskusi forum. | `Low` | Mengubah skema database berisiko memicu migrasi destruktif pada data live yang sudah ada. | Saat pengembangan fitur Group Memory On-Demand atau Personal Chat Memory. |
 | **TD-05** | **Single Global Channel & Local Presence pada Cluster Pub/Sub** | `backend/internal/ws/hub.go:21, 805` | Semua event dikirim ke `wuzz:cluster:events`. Status online diperiksa di in-memory node lokal saat pemicuan push notification. | `Low` | Beban server saat ini sangat kecil (< 500 koneksi); overhead CPU dan duplikasi push praktis tidak terasa. | Ketika beban produksi melebihi 10.000 concurrent users atau cluster terdiri dari > 5 node backend. |
 
@@ -333,14 +333,24 @@ Roadmap berbasis milestone terstruktur berdasarkan kapabilitas aktual:
 [Milestone 2] Realtime Ingestion Decoupling via Domain Repo       ==> DONE (Sep 2026) ✅
 [Milestone 3] Mobile Gateway Readiness & Pluggable Push Provider  ==> DONE (Sep 2026) ✅
 [Milestone 4] AI Memory Engine (Forum Memory Production-Ready)   ==> DONE (Sep 2026) ✅
-[Milestone 5] Single Source of Truth Documentation Alignment      ==> IN PROGRESS (Current) 🔄
+[Milestone 5] Single Source of Truth Documentation Alignment      ==> DONE (Sep 2026) ✅
 ──────────────────────────────────────────────────────────────────────────────────────────
-[Milestone 6] Mobile Client App (React Native / Flutter Cross-Plat) ==> NEXT (Recommended) 🎯
+─── Track A: Application & Native Feature Roadmap ────────────────────────────────────────
+[Milestone 6] Mobile Client App (React Native / Flutter Cross-Plat) ==> NEXT (Client App) 🎯
 [Milestone 7] On-Demand Group Chat Memory Summarization           ==> LATER ⏳
 [Milestone 8] Passkey / WebAuthn Biometric Login (FIDO2)          ==> LATER ⏳
 [Milestone 9] Audio Meeting Memory & Speech-to-Text Pipeline      ==> LATER ⏳
 [Milestone 10] Realtime Scaling: Room Partitioned Pub/Sub Channels==> LATER (Scale-Triggered) ⏳
 [Milestone 11] Personal Chat Memory (Client-Side Privacy Export)  ==> BLOCKED (E2EE Constraint) 🛑
+──────────────────────────────────────────────────────────────────────────────────────────
+─── Track B: Tenant-Aware & Integration-Ready Engine (TENANT_ENGINE_MASTER_PLAN.md) ──────
+[Milestone 0] Codebase & Hub Prerequisite Stabilization        ==> DONE & DEPLOYED (Sep 2026) ✅
+[Milestone 1] Additive Schema Migration & Tenant Registry       ==> NEXT (Engine Track) 🎯
+[Milestone 2] Tenant Context Propagation in Services & Repos    ==> LATER ⏳
+[Milestone 3] External Provisioning & B2B Auth Gateway          ==> LATER ⏳
+[Milestone 4] Realtime & Cluster Envelope Tenant Isolation      ==> LATER ⏳
+[Milestone 5] AI Memory Context Tenant Scoping                  ==> LATER ⏳
+[Milestone 6] OpenAPI Contract & Headless Integration Guide     ==> LATER ⏳
 ```
 
 ---
@@ -356,11 +366,11 @@ Roadmap berbasis milestone terstruktur berdasarkan kapabilitas aktual:
 * **Apa yang masih belum selesai?**  
   Aplikasi mobile native (klien React Native / Android / iOS), peringkasan grup on-demand di luar forum expired, dan autentikasi biometrik Passkey.
 * **Apa technical debt yang diketahui?**  
-  Dependensi struct `ws.Message` di domain messaging/group (TD-02), wire `RealtimeMessageManager` langsung ke repo (TD-01), E2EE key dan profile di `auth_handler` (TD-03), nama tabel `forum_memory_jobs` (TD-04), dan single global Redis channel (TD-05).
+  Dependensi struct `ws.Message` di domain messaging/group (TD-02), wire `RealtimeMessageManager` langsung ke repo (TD-01), nama tabel `forum_memory_jobs` (TD-04), dan single global Redis channel (TD-05). *(Catatan: TD-03 Identity Encapsulation telah terselesaikan 100% di Milestone 0)*.
 * **Apa milestone yang sedang dikerjakan?**  
-  Milestone 5: Penyelarasan Dokumentasi Tunggal (Single Source of Truth).
+  Tenant Engine Milestone 0 (Codebase & Hub Prerequisite Stabilization — Selesai & Deployed ✅).
 * **Apa milestone berikutnya?**  
-  Milestone 6: Pengembangan Klien Mobile (React Native / Flutter) untuk Android & iOS memanfaatkan gateway backend yang sudah siap.
+  Tenant Engine Milestone 1 (Additive Schema Migration & Tenant Registry) untuk isolasi data multi-tenant, dan Klien Mobile (Track A Milestone 6).
 
 ---
 

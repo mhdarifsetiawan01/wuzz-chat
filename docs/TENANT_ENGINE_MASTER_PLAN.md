@@ -42,8 +42,8 @@ Berdasarkan audit faktual terhadap basis kode per September 2026:
   - Kolom `username` pada tabel `users` memiliki batasan unik global: `username VARCHAR(64) UNIQUE NOT NULL` (`internal/store/sql.go:98`).
   - Pencarian kontak (`SearchUsers`) dan pengambilan profil (`GetUserProfile`) di `chat_handler.go` memotong langsung ke `store.UserStore` tanpa melewati Application Service dan tanpa filter batas tenant.
   - Endpoint `GetUserPublicKey` (`chat_handler.go:217`) bersifat publik tanpa autentikasi JWT.
-- **Kesimpulan**: **`NEEDS FIX FIRST`**.
-- **Solusi**: Unikitas username harus diubah menjadi komposit `(tenant_id, username)`. Lookup dan pencarian user wajib dienkapsulasi ke dalam `AuthService` yang menerima `TenantContext`.
+- **Kesimpulan & Status**: **`SELESAI DI MILESTONE 0 (Identity encapsulated in AuthService)`**.
+- **Solusi**: Unikitas username akan diubah menjadi komposit `(tenant_id, username)` di Milestone 1. Lookup kontak (`SearchUsers`) dan pengambilan profil publik (`GetUserProfile`, `GetUserPublicKey`) telah berhasil 100% dienkapsulasi ke dalam `authz.AuthService` dan `authz.AuthRepository` pada Milestone 0.
 
 ### B. Dependency Direction
 - **Temuan**:
@@ -58,8 +58,8 @@ Berdasarkan audit faktual terhadap basis kode per September 2026:
 ### D. WebSocket Contract & In-Memory Hub
 - **Temuan**:
   - Handshake WebSocket di `internal/ws/handler.go` memvalidasi JWT token dan status aktif `device_id` di database.
-  - **Temuan Kritis**: `Hub` di `internal/ws/hub.go` memetakan klien menggunakan `clientsByNick map[string]*Client` berbasis lowercase string username.
-- **Kesimpulan**: **`NEEDS FIX FIRST`**. Map `clientsByNick` wajib dihapus dan perutean real-time dialihkan 100% ke User UUID (`userClients[userID][deviceID]`).
+  - **Temuan Kritis**: `Hub` di `internal/ws/hub.go` sebelumnya memetakan klien menggunakan `clientsByNick map[string]*Client` berbasis lowercase string username.
+- **Kesimpulan & Status**: **`SELESAI DI MILESTONE 0 (Pure UUID Routing)`**. Map `clientsByNick` telah tuntas dihapus dari codebase, dan perutean real-time dialihkan 100% ke User UUID (`userClients[userID][deviceID]`), diverifikasi dengan unit test anti-collision.
 
 ---
 
@@ -184,9 +184,9 @@ CREATE INDEX IF NOT EXISTS idx_tenant_keys_app ON tenant_api_keys(app_id, is_act
 ## ⚡ 6. Realtime & Memory Engine Tenant Isolation (Phase 7 & 8)
 
 ### 1. In-Memory WebSocket Hub
-- Hapus map `clientsByNick`.
-- Setiap struct `Client` menyimpan field `TenantID`.
-- Multicast room broadcast memvalidasi keanggotaan dan kecocokan `TenantID`.
+- [x] **Hapus map `clientsByNick`**: Selesai di Milestone 0 (perutean murni berbasis User UUID).
+- [ ] Setiap struct `Client` menyimpan field `TenantID` (Milestone 4).
+- [ ] Multicast room broadcast memvalidasi keanggotaan dan kecocokan `TenantID` (Milestone 4).
 
 ### 2. Redis Pub/Sub Cluster
 - Perbarui struct `ClusterEvent` di [hub.go](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go) dengan field `TenantID string json:"tenant_id"`.
@@ -202,8 +202,8 @@ CREATE INDEX IF NOT EXISTS idx_tenant_keys_app ON tenant_api_keys(app_id, is_act
 ## 🗺️ 7. Milestone Roadmap
 
 ```text
-[Milestone 0] Codebase & Hub Prerequisite Stabilization        ==> NEXT (ACTIVE IN docs/plans/active/) 🎯
-[Milestone 1] Additive Schema Migration & Tenant Registry       ==> LATER ⏳
+[Milestone 0] Codebase & Hub Prerequisite Stabilization        ==> DONE & DEPLOYED (Sep 2026) ✅
+[Milestone 1] Additive Schema Migration & Tenant Registry       ==> NEXT 🎯
 [Milestone 2] Tenant Context Propagation in Services & Repos    ==> LATER ⏳
 [Milestone 3] External Provisioning & B2B Auth Gateway          ==> LATER ⏳
 [Milestone 4] Realtime & Cluster Envelope Tenant Isolation      ==> LATER ⏳
