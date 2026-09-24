@@ -1,6 +1,7 @@
 package messaging
 
 import (
+	"context"
 	"time"
 )
 
@@ -60,8 +61,14 @@ type ConversationRepository interface {
 	// GetOrCreateDirectConversation membuat atau mengembalikan ID percakapan 1-on-1 antar dua user.
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
 
+	// GetOrCreateDirectConversationWithContext membuat atau mengembalikan ID percakapan 1-on-1 dengan context tenant.
+	GetOrCreateDirectConversationWithContext(ctx context.Context, userA, userB string) (string, error)
+
 	// GetUserConversations mengambil daftar obrolan aktif milik seorang user.
 	GetUserConversations(userID string) ([]Conversation, error)
+
+	// GetUserConversationsWithContext mengambil daftar obrolan aktif milik seorang user dengan context tenant.
+	GetUserConversationsWithContext(ctx context.Context, userID string) ([]Conversation, error)
 
 	// PinConversation menandai percakapan sebagai pinned untuk user tertentu.
 	PinConversation(conversationID, userID string) error

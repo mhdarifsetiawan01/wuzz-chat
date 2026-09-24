@@ -43,6 +43,10 @@ func (m *mockGroupRepo) CreateGroup(title, description, avatarURL, creatorID, gr
 	return &GroupDetails{ID: "grp_1", Title: title, CreatedBy: creatorID, IsPublic: isPublic}, nil
 }
 
+func (m *mockGroupRepo) CreateGroupWithContext(ctx context.Context, title, description, avatarURL, creatorID, groupUsername string, isPublic bool, memberIDs []string) (*GroupDetails, error) {
+	return m.CreateGroup(title, description, avatarURL, creatorID, groupUsername, isPublic, memberIDs)
+}
+
 func (m *mockGroupRepo) GetGroupDetails(conversationID, currentUserID string) (*GroupDetails, error) {
 	if m.getGroupDetailsFunc != nil {
 		return m.getGroupDetailsFunc(conversationID, currentUserID)
@@ -99,6 +103,10 @@ func (m *mockGroupRepo) SearchPublicGroups(query string, limit int) ([]GroupDeta
 	return nil, nil
 }
 
+func (m *mockGroupRepo) SearchPublicGroupsWithContext(ctx context.Context, query string, limit int) ([]GroupDetails, error) {
+	return m.SearchPublicGroups(query, limit)
+}
+
 func (m *mockGroupRepo) GetUserRoleInGroup(conversationID, userID string) (string, error) {
 	if m.getUserRoleInGroupFunc != nil {
 		return m.getUserRoleInGroupFunc(conversationID, userID)
@@ -111,6 +119,10 @@ func (m *mockGroupRepo) CreateSubGroup(parentID, title, description, creatorID, 
 		return m.createSubGroupFunc(parentID, title, description, creatorID, duration, isPublic)
 	}
 	return &GroupDetails{ID: "sub_1", ParentID: parentID, Title: title, CreatedBy: creatorID}, nil
+}
+
+func (m *mockGroupRepo) CreateSubGroupWithContext(ctx context.Context, parentID, title, description, creatorID, duration string, isPublic bool) (*GroupDetails, error) {
+	return m.CreateSubGroup(parentID, title, description, creatorID, duration, isPublic)
 }
 
 func (m *mockGroupRepo) GetActiveSubGroups(parentID, currentUserID string) ([]SubGroupItem, error) {

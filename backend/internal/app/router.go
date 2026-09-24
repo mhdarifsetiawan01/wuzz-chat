@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/shared/ratelimit"
 	"github.com/bms-del112/wuzz-chat/internal/storage"
@@ -302,5 +303,11 @@ func (a *Application) setupRouter() http.Handler {
 		mux.Handle("/ws", a.WsHandler)
 	}
 
-	return mux
+	var handler http.Handler = mux
+	if a.TenantService != nil {
+		tenantMw := api.NewTenantMiddleware(a.TenantService)
+		handler = tenantMw.Handler(handler)
+	}
+
+	return handler
 }

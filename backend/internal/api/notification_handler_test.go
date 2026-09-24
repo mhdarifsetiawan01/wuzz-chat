@@ -20,6 +20,9 @@ type mockUserStoreForNotificationAPI struct {
 func (m *mockUserStoreForNotificationAPI) Register(username, displayName, password string) (*store.User, error) {
 	return nil, nil
 }
+func (m *mockUserStoreForNotificationAPI) RegisterWithContext(ctx context.Context, username, displayName, password string) (*store.User, error) {
+	return nil, nil
+}
 func (m *mockUserStoreForNotificationAPI) Authenticate(username, password string) (*store.User, error) {
 	return nil, nil
 }
@@ -29,7 +32,13 @@ func (m *mockUserStoreForNotificationAPI) GetUserByID(id string) (*store.User, e
 func (m *mockUserStoreForNotificationAPI) GetUserByUsername(username string) (*store.User, error) {
 	return nil, nil
 }
+func (m *mockUserStoreForNotificationAPI) GetUserByUsernameWithContext(ctx context.Context, username string) (*store.User, error) {
+	return nil, nil
+}
 func (m *mockUserStoreForNotificationAPI) GetUserByUsernameOrDisplayName(name string) (*store.User, error) {
+	return nil, nil
+}
+func (m *mockUserStoreForNotificationAPI) GetUserByUsernameOrDisplayNameWithContext(ctx context.Context, name string) (*store.User, error) {
 	return nil, nil
 }
 func (m *mockUserStoreForNotificationAPI) UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*store.User, error) {
@@ -56,10 +65,19 @@ func (m *mockUserStoreForNotificationAPI) GetE2EEInfo(userID string) (string, in
 func (m *mockUserStoreForNotificationAPI) SearchUsers(query, excludeUserID string) ([]store.User, error) {
 	return nil, nil
 }
+func (m *mockUserStoreForNotificationAPI) SearchUsersWithContext(ctx context.Context, query, excludeUserID string) ([]store.User, error) {
+	return nil, nil
+}
 func (m *mockUserStoreForNotificationAPI) GetOrCreateDirectConversation(userA, userB string) (string, error) {
 	return "", nil
 }
+func (m *mockUserStoreForNotificationAPI) GetOrCreateDirectConversationWithContext(ctx context.Context, userA, userB string) (string, error) {
+	return "", nil
+}
 func (m *mockUserStoreForNotificationAPI) GetUserConversations(userID string) ([]store.ConversationItem, error) {
+	return nil, nil
+}
+func (m *mockUserStoreForNotificationAPI) GetUserConversationsWithContext(ctx context.Context, userID string) ([]store.ConversationItem, error) {
 	return nil, nil
 }
 func (m *mockUserStoreForNotificationAPI) PinConversation(conversationID, userID string) error {

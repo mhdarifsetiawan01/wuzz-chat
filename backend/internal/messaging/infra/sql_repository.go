@@ -4,6 +4,7 @@
 package infra
 
 import (
+	"context"
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/messaging"
@@ -98,11 +99,19 @@ func (r *SQLMessagingRepository) SearchMessages(roomID, userID, query string, li
 // --- Implementasi ConversationRepository ---
 
 func (r *SQLMessagingRepository) GetOrCreateDirectConversation(userA, userB string) (string, error) {
-	return r.userStore.GetOrCreateDirectConversation(userA, userB)
+	return r.GetOrCreateDirectConversationWithContext(context.Background(), userA, userB)
+}
+
+func (r *SQLMessagingRepository) GetOrCreateDirectConversationWithContext(ctx context.Context, userA, userB string) (string, error) {
+	return r.userStore.GetOrCreateDirectConversationWithContext(ctx, userA, userB)
 }
 
 func (r *SQLMessagingRepository) GetUserConversations(userID string) ([]messaging.Conversation, error) {
-	return r.userStore.GetUserConversations(userID)
+	return r.GetUserConversationsWithContext(context.Background(), userID)
+}
+
+func (r *SQLMessagingRepository) GetUserConversationsWithContext(ctx context.Context, userID string) ([]messaging.Conversation, error) {
+	return r.userStore.GetUserConversationsWithContext(ctx, userID)
 }
 
 func (r *SQLMessagingRepository) PinConversation(conversationID, userID string) error {

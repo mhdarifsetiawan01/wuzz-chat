@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 )
 
 var (
@@ -248,22 +250,36 @@ func (s *SQLMemoryStore) CreateJob(ctx context.Context, forumID, groupID string)
 		CreatedAt:      time.Now().UTC(),
 	}
 
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	if tenantID == "default" && forumID != "" {
+		var convTenant string
+		var checkConvQuery string
+		if s.driverName == "postgres" {
+			checkConvQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = $1`
+		} else {
+			checkConvQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = ?`
+		}
+		if err := s.db.QueryRowContext(ctx, checkConvQuery, forumID).Scan(&convTenant); err == nil && convTenant != "" {
+			tenantID = convTenant
+		}
+	}
+
 	var query string
 	if s.driverName == "postgres" {
 		query = `INSERT INTO forum_memory_jobs (
 			id, forum_id, group_id, status, attempt_count, max_attempts,
-			is_terminal_fail, last_error, message_count, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+			is_terminal_fail, last_error, message_count, created_at, tenant_id
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 	} else {
 		query = `INSERT INTO forum_memory_jobs (
 			id, forum_id, group_id, status, attempt_count, max_attempts,
-			is_terminal_fail, last_error, message_count, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			is_terminal_fail, last_error, message_count, created_at, tenant_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
 	_, err := s.db.ExecContext(ctx, query,
 		job.ID, job.ForumID, job.GroupID, job.Status, job.AttemptCount, job.MaxAttempts,
-		job.IsTerminalFail, job.LastError, job.MessageCount, job.CreatedAt,
+		job.IsTerminalFail, job.LastError, job.MessageCount, job.CreatedAt, tenantID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("gagal membuat memory job: %w", err)
@@ -546,23 +562,37 @@ func (s *SQLMemoryStore) CreateDraftWithArtifacts(ctx context.Context, draft *Me
 	}
 	defer tx.Rollback()
 
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	if tenantID == "default" && draft.ForumID != "" {
+		var convTenant string
+		var checkConvQuery string
+		if s.driverName == "postgres" {
+			checkConvQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = $1`
+		} else {
+			checkConvQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = ?`
+		}
+		if err := s.db.QueryRowContext(ctx, checkConvQuery, draft.ForumID).Scan(&convTenant); err == nil && convTenant != "" {
+			tenantID = convTenant
+		}
+	}
+
 	// 1. Insert memory_drafts
 	var draftQuery string
 	if s.driverName == "postgres" {
 		draftQuery = `INSERT INTO memory_drafts (
 			id, job_id, forum_id, group_id, status, message_count_processed,
-			was_truncated, truncation_note, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+			was_truncated, truncation_note, created_at, tenant_id
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 	} else {
 		draftQuery = `INSERT INTO memory_drafts (
 			id, job_id, forum_id, group_id, status, message_count_processed,
-			was_truncated, truncation_note, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			was_truncated, truncation_note, created_at, tenant_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
 	_, err = tx.ExecContext(ctx, draftQuery,
 		draft.ID, draft.JobID, draft.ForumID, draft.GroupID, draft.Status,
-		draft.MessageCountProcessed, draft.WasTruncated, draft.TruncationNote, draft.CreatedAt,
+		draft.MessageCountProcessed, draft.WasTruncated, draft.TruncationNote, draft.CreatedAt, tenantID,
 	)
 	if err != nil {
 		return fmt.Errorf("gagal insert memory_drafts: %w", err)
@@ -1031,21 +1061,35 @@ func (s *SQLMemoryStore) ApproveDraft(ctx context.Context, draftID, adminID stri
 		approvedMemory.SnapshotDecisions = "[]"
 	}
 
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	if tenantID == "default" && approvedMemory.ForumID != "" {
+		var convTenant string
+		var checkConvQuery string
+		if s.driverName == "postgres" {
+			checkConvQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = $1`
+		} else {
+			checkConvQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = ?`
+		}
+		if err := s.db.QueryRowContext(ctx, checkConvQuery, approvedMemory.ForumID).Scan(&convTenant); err == nil && convTenant != "" {
+			tenantID = convTenant
+		}
+	}
+
 	var insertMemoryQuery string
 	if s.driverName == "postgres" {
 		insertMemoryQuery = `INSERT INTO approved_memories (
 			id, draft_id, forum_id, group_id, approved_by, approved_at,
 			has_human_edits, snapshot_summary, snapshot_summary_conf,
 			snapshot_decisions, snapshot_journey_lite, snapshot_journey_conf,
-			is_journey_lite_removed, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+			is_journey_lite_removed, created_at, tenant_id
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`
 	} else {
 		insertMemoryQuery = `INSERT INTO approved_memories (
 			id, draft_id, forum_id, group_id, approved_by, approved_at,
 			has_human_edits, snapshot_summary, snapshot_summary_conf,
 			snapshot_decisions, snapshot_journey_lite, snapshot_journey_conf,
-			is_journey_lite_removed, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			is_journey_lite_removed, created_at, tenant_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
 	_, err = tx.ExecContext(ctx, insertMemoryQuery,
@@ -1053,7 +1097,7 @@ func (s *SQLMemoryStore) ApproveDraft(ctx context.Context, draftID, adminID stri
 		approvedMemory.ApprovedBy, approvedMemory.ApprovedAt, approvedMemory.HasHumanEdits,
 		approvedMemory.SnapshotSummary, approvedMemory.SnapshotSummaryConf,
 		approvedMemory.SnapshotDecisions, approvedMemory.SnapshotJourneyLite,
-		approvedMemory.SnapshotJourneyConf, approvedMemory.IsJourneyLiteRemoved, approvedMemory.CreatedAt,
+		approvedMemory.SnapshotJourneyConf, approvedMemory.IsJourneyLiteRemoved, approvedMemory.CreatedAt, tenantID,
 	)
 	if err != nil {
 		return fmt.Errorf("gagal insert approved_memories: %w", err)

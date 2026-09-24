@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"time"
 )
@@ -93,6 +94,7 @@ type ExpiredSubGroupItem struct {
 // SQL implementation tersedia via SQLGroupStore (lihat: sql_group_store.go).
 type GroupStore interface {
 	CreateGroup(title, description, avatarURL, creatorID, groupUsername string, isPublic bool, memberIDs []string) (*GroupDetails, error)
+	CreateGroupWithContext(ctx context.Context, title, description, avatarURL, creatorID, groupUsername string, isPublic bool, memberIDs []string) (*GroupDetails, error)
 	GetGroupDetails(conversationID, currentUserID string) (*GroupDetails, error)
 	GetGroupMembers(conversationID string) ([]GroupMemberItem, error)
 	JoinPublicGroup(conversationID, userID string) error
@@ -101,10 +103,13 @@ type GroupStore interface {
 	UpdateMemberRole(conversationID, actorUserID, targetUserID, newRole string) error
 	UpdateGroupInfo(conversationID, actorUserID, title, description, avatarURL string, isPublic *bool, groupUsername *string) error
 	SearchPublicGroups(query string, limit int) ([]GroupDetails, error)
+	SearchPublicGroupsWithContext(ctx context.Context, query string, limit int) ([]GroupDetails, error)
 	GetUserRoleInGroup(conversationID, userID string) (string, error)
 	// Milestone 8.2B: Ephemeral Sub-Groups & TTL Lifecycle
 	CreateSubGroup(parentID, title, description, creatorID, duration string, isPublic bool) (*GroupDetails, error)
+	CreateSubGroupWithContext(ctx context.Context, parentID, title, description, creatorID, duration string, isPublic bool) (*GroupDetails, error)
 	GetActiveSubGroups(parentID, currentUserID string) ([]SubGroupItem, error)
+	GetActiveSubGroupsWithContext(ctx context.Context, parentID, currentUserID string) ([]SubGroupItem, error)
 	IsParentMember(parentID, userID string) (bool, error)
 	JoinSubGroup(subGroupID, userID string) error
 	RequestToJoinSubGroup(subGroupID, userID string) error

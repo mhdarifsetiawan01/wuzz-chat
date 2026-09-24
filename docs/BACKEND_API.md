@@ -59,6 +59,20 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
 ### 1.4 Keamanan BOLA / IDOR
 - Seluruh endpoint percakapan (`/api/conversations/*`), penghapusan pesan, pengunggahan media, dan event WebSocket diproteksi dengan verifikasi keanggotaan room (`IsUserInConversation`). Pengguna dilarang keras mengakses atau mengirim event ke percakapan yang bukan haknya (mengembalikan `403 Forbidden` / error sistem).
 
+### 1.5 Multi-Tenancy & Resolusi Konteks Tenant (Milestone 2)
+Backend WuzzChat Engine mendukung arsitektur multi-tenant dengan isolasi data penuh:
+- **Header `X-Tenant-ID`**: Opsional pada setiap HTTP request. Jika tidak disertakan, sistem melakukan fallback bertingkat:
+  1. Header `X-Tenant-ID` (prioritas pertama).
+  2. Claim `tenant_id` dari JWT Bearer Token (jika terotentikasi).
+  3. Default tenant fallback: `"default"` (menjamin 100% backward compatibility dengan frontend existing tanpa header).
+- **Validasi Keaktifan Tenant**: Setiap tenant yang dikirim via header divalidasi keaktifannya melalui `TenantService.ValidateTenantActive`. Jika tenant berstatus `suspended` atau `inactive`, server langsung mengembalikan HTTP `403 Forbidden` (`{"error": "tenant is suspended or inactive"}`).
+- **JWT Claim `tenant_id`**: Token JWT hasil pendaftaran (`/api/auth/register`) maupun login (`/api/auth/login`) menyertakan claim `tenant_id` untuk memastikan persistensi sesi tenant pengguna.
+- **Isolasi Data Penuh di Database**:
+  - Pengguna: Composite unique constraint pada `(tenant_id, username)`. Dua tenant berbeda dapat memiliki username yang sama secara terisolasi tanpa tabrakan.
+  - Direct Chat (1-on-1): Room ID terisolasi dengan pola deterministik `dm_<tenantID>_<userA>_<userB>`.
+  - Grup & Forum: Komunitas dan percakapan publik/privat terfilter ketat berdasarkan `tenant_id`.
+  - Riwayat Pesan & AI Memory: Pesan dan memori terisolasi penuh per tenant.
+
 ---
 
 ## 2. Matriks Fitur Backend yang Didukung

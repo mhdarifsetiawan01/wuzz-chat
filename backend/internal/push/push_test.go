@@ -15,6 +15,9 @@ type mockUserStoreForPush struct {
 func (m *mockUserStoreForPush) Register(username, displayName, password string) (*store.User, error) {
 	return nil, nil
 }
+func (m *mockUserStoreForPush) RegisterWithContext(ctx context.Context, username, displayName, password string) (*store.User, error) {
+	return nil, nil
+}
 func (m *mockUserStoreForPush) Authenticate(username, password string) (*store.User, error) {
 	return nil, nil
 }
@@ -24,8 +27,14 @@ func (m *mockUserStoreForPush) GetUserByID(id string) (*store.User, error) {
 func (m *mockUserStoreForPush) GetUserByUsername(username string) (*store.User, error) {
 	return &store.User{ID: "uid_" + username, Username: username, DisplayName: username}, nil
 }
+func (m *mockUserStoreForPush) GetUserByUsernameWithContext(ctx context.Context, username string) (*store.User, error) {
+	return m.GetUserByUsername(username)
+}
 func (m *mockUserStoreForPush) GetUserByUsernameOrDisplayName(name string) (*store.User, error) {
 	return &store.User{ID: "uid_" + name, Username: name, DisplayName: name}, nil
+}
+func (m *mockUserStoreForPush) GetUserByUsernameOrDisplayNameWithContext(ctx context.Context, name string) (*store.User, error) {
+	return m.GetUserByUsernameOrDisplayName(name)
 }
 func (m *mockUserStoreForPush) UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*store.User, error) {
 	return nil, nil
@@ -51,10 +60,19 @@ func (m *mockUserStoreForPush) GetE2EEInfo(userID string) (string, int, string, 
 func (m *mockUserStoreForPush) SearchUsers(query, excludeUserID string) ([]store.User, error) {
 	return nil, nil
 }
+func (m *mockUserStoreForPush) SearchUsersWithContext(ctx context.Context, query, excludeUserID string) ([]store.User, error) {
+	return nil, nil
+}
 func (m *mockUserStoreForPush) GetOrCreateDirectConversation(userA, userB string) (string, error) {
 	return "dm_" + userA + "_" + userB, nil
 }
+func (m *mockUserStoreForPush) GetOrCreateDirectConversationWithContext(ctx context.Context, userA, userB string) (string, error) {
+	return m.GetOrCreateDirectConversation(userA, userB)
+}
 func (m *mockUserStoreForPush) GetUserConversations(userID string) ([]store.ConversationItem, error) {
+	return nil, nil
+}
+func (m *mockUserStoreForPush) GetUserConversationsWithContext(ctx context.Context, userID string) ([]store.ConversationItem, error) {
 	return nil, nil
 }
 func (m *mockUserStoreForPush) PinConversation(conversationID, userID string) error {

@@ -164,7 +164,15 @@ func (c *mockConvRepo) GetOrCreateDirectConversation(userA, userB string) (strin
 	return c.directRoomID, nil
 }
 
+func (c *mockConvRepo) GetOrCreateDirectConversationWithContext(ctx context.Context, userA, userB string) (string, error) {
+	return c.directRoomID, nil
+}
+
 func (c *mockConvRepo) GetUserConversations(userID string) ([]messaging.Conversation, error) {
+	return c.conversations, nil
+}
+
+func (c *mockConvRepo) GetUserConversationsWithContext(ctx context.Context, userID string) ([]messaging.Conversation, error) {
 	return c.conversations, nil
 }
 

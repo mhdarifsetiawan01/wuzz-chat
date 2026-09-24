@@ -19,6 +19,7 @@ var (
 // UserClaims adalah struktur data yang disimpan di dalam token JWT.
 type UserClaims struct {
 	UserID      string `json:"user_id"`
+	TenantID    string `json:"tenant_id,omitempty"`
 	Username    string `json:"username"`
 	DisplayName string `json:"display_name"`
 	jwt.RegisteredClaims
@@ -42,10 +43,14 @@ func GenerateToken(userID, username, displayName string) (string, error) {
 	return tokenStr, err
 }
 
-// GenerateTokenDetailed membuat token JWT baru dan mengembalikan string token beserta pointer UserClaims (berisi ID JTI dan ExpiresAt).
-func GenerateTokenDetailed(userID, username, displayName string) (string, *UserClaims, error) {
+// GenerateTokenDetailedWithTenant membuat token JWT baru dengan tenant_id spesifik.
+func GenerateTokenDetailedWithTenant(userID, username, displayName, tenantID string) (string, *UserClaims, error) {
+	if tenantID == "" {
+		tenantID = "default"
+	}
 	claims := &UserClaims{
 		UserID:      userID,
+		TenantID:    tenantID,
 		Username:    username,
 		DisplayName: displayName,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -62,6 +67,11 @@ func GenerateTokenDetailed(userID, username, displayName string) (string, *UserC
 		return "", nil, err
 	}
 	return tokenStr, claims, nil
+}
+
+// GenerateTokenDetailed membuat token JWT baru dan mengembalikan string token beserta pointer UserClaims (berisi ID JTI dan ExpiresAt).
+func GenerateTokenDetailed(userID, username, displayName string) (string, *UserClaims, error) {
+	return GenerateTokenDetailedWithTenant(userID, username, displayName, "default")
 }
 
 // ValidateToken memvalidasi string JWT token dan mengembalikan UserClaims jika sah.

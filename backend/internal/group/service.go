@@ -98,7 +98,8 @@ func (s *GroupService) CreateGroup(ctx context.Context, input CreateGroupInput) 
 		return nil, ErrTitleTooLong
 	}
 
-	group, err := s.repo.CreateGroup(
+	group, err := s.repo.CreateGroupWithContext(
+		ctx,
 		title, input.Description, input.AvatarURL,
 		input.CreatorID, input.GroupUsername, input.IsPublic, input.MemberIDs,
 	)
@@ -264,7 +265,7 @@ func (s *GroupService) SearchPublicGroups(ctx context.Context, query string, lim
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	return s.repo.SearchPublicGroups(query, limit)
+	return s.repo.SearchPublicGroupsWithContext(ctx, query, limit)
 }
 
 // ─── ForumService ─────────────────────────────────────────────────────────────
@@ -375,7 +376,8 @@ func (s *ForumService) CreateSubGroup(ctx context.Context, input CreateSubGroupI
 		return nil, ErrForbidden
 	}
 
-	subGroup, err := s.repo.CreateSubGroup(
+	subGroup, err := s.repo.CreateSubGroupWithContext(
+		ctx,
 		input.ParentID, title, input.Description,
 		input.CreatorID, input.Duration, input.IsPublic,
 	)

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -24,6 +25,7 @@ var (
 // User merepresentasikan entitas akun user terdaftar.
 type User struct {
 	ID             string    `json:"id"`
+	TenantID       string    `json:"tenant_id,omitempty"`
 	Username       string    `json:"username"`
 	DisplayName    string    `json:"display_name"`
 	PasswordHash   string    `json:"-"`
@@ -39,6 +41,7 @@ type User struct {
 // ConversationItem merepresentasikan entitas percakapan di daftar obrolan (Sidebar).
 type ConversationItem struct {
 	ID             string    `json:"id"`
+	TenantID       string    `json:"tenant_id,omitempty"`
 	Type           string    `json:"type"` // "direct" atau "group"
 	Title          string    `json:"title"`
 	AvatarURL      string    `json:"avatar_url,omitempty"`
@@ -76,10 +79,13 @@ type PushSubscription struct {
 // UserStore mendefinisikan kontrak operasi user dan percakapan.
 type UserStore interface {
 	Register(username, displayName, password string) (*User, error)
+	RegisterWithContext(ctx context.Context, username, displayName, password string) (*User, error)
 	Authenticate(username, password string) (*User, error)
 	GetUserByID(id string) (*User, error)
 	GetUserByUsername(username string) (*User, error)
+	GetUserByUsernameWithContext(ctx context.Context, username string) (*User, error)
 	GetUserByUsernameOrDisplayName(name string) (*User, error)
+	GetUserByUsernameOrDisplayNameWithContext(ctx context.Context, name string) (*User, error)
 	UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*User, error)
 	UpdatePublicKey(userID, publicKey string) error
 	UpdatePublicKeyWithDevice(userID, publicKey, deviceID string) (int, error)
@@ -88,8 +94,11 @@ type UserStore interface {
 	SetActiveDevice(userID, deviceID string) error
 	GetE2EEInfo(userID string) (publicKey string, keyVersion int, activeDeviceID string, err error)
 	SearchUsers(query, excludeUserID string) ([]User, error)
+	SearchUsersWithContext(ctx context.Context, query, excludeUserID string) ([]User, error)
 	GetOrCreateDirectConversation(userA, userB string) (string, error)
+	GetOrCreateDirectConversationWithContext(ctx context.Context, userA, userB string) (string, error)
 	GetUserConversations(userID string) ([]ConversationItem, error)
+	GetUserConversationsWithContext(ctx context.Context, userID string) ([]ConversationItem, error)
 	PinConversation(conversationID, userID string) error
 	UnpinConversation(conversationID, userID string) error
 	ClearConversation(conversationID, userID string) error
@@ -126,21 +135,28 @@ func (s *SQLUserStore) SetCredentialStore(cs CredentialStore) {
 	s.credentialStore = cs
 }
 
-// Register mendaftarkan akun baru dengan password bcrypt.
-func (s *SQLUserStore) Register(username, displayName, password string) (*User, error) {
-	// Cek apakah username sudah ada
-	existing, _ := s.GetUserByUsername(username)
+// RegisterWithContext mendaftarkan akun baru dengan password bcrypt dan isolasi tenant_id dari context.
+func (s *SQLUserStore) RegisterWithContext(ctx context.Context, username, displayName, password string) (*User, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+
+	// Cek apakah username sudah ada dalam tenant yang sama
+	existing, _ := s.GetUserByUsernameWithContext(ctx, username)
 	if existing != nil {
 		return nil, ErrUserExists
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, fmt.Errorf("gagal hash password: %w", err)
+	var hash []byte
+	var err error
+	if password != "" {
+		hash, err = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, fmt.Errorf("gagal hash password: %w", err)
+		}
 	}
 
 	user := &User{
 		ID:            uuid.New().String(),
+		TenantID:      tenantID,
 		Username:      username,
 		DisplayName:   displayName,
 		PasswordHash:  string(hash),
@@ -151,21 +167,20 @@ func (s *SQLUserStore) Register(username, displayName, password string) (*User, 
 
 	var query string
 	if s.driverName == "postgres" {
-		query = `INSERT INTO users (id, username, display_name, password_hash, status_message, avatar_url, created_at)
-		         VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		query = `INSERT INTO users (id, tenant_id, username, display_name, password_hash, status_message, avatar_url, created_at)
+		         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	} else {
-		query = `INSERT INTO users (id, username, display_name, password_hash, status_message, avatar_url, created_at)
-		         VALUES (?, ?, ?, ?, ?, ?, ?)`
+		query = `INSERT INTO users (id, tenant_id, username, display_name, password_hash, status_message, avatar_url, created_at)
+		         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
-	_, err = s.db.Exec(query, user.ID, user.Username, user.DisplayName, user.PasswordHash, user.StatusMessage, user.AvatarURL, user.CreatedAt)
+	_, err = s.db.Exec(query, user.ID, user.TenantID, user.Username, user.DisplayName, user.PasswordHash, user.StatusMessage, user.AvatarURL, user.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("gagal simpan user: %w", err)
 	}
 
-	// [Phase 3] Dual-write: simpan password hash ke user_credentials juga.
-	// Jika credentialStore nil, skip -- tidak ada efek samping.
-	if s.credentialStore != nil {
+	// [Phase 3] Dual-write: simpan password hash ke user_credentials juga jika credentialStore diset.
+	if s.credentialStore != nil && user.PasswordHash != "" {
 		_ = s.credentialStore.CreateCredential(&UserCredential{
 			UserID:     user.ID,
 			Type:       "password",
@@ -174,10 +189,14 @@ func (s *SQLUserStore) Register(username, displayName, password string) (*User, 
 			Name:       "Password Akun",
 			CreatedAt:  user.CreatedAt,
 		})
-		// Error CreateCredential diabaikan -- Register tetap berhasil via users.password_hash
 	}
 
 	return user, nil
+}
+
+// Register mendaftarkan akun baru dengan password bcrypt (menggunakan default tenant context).
+func (s *SQLUserStore) Register(username, displayName, password string) (*User, error) {
+	return s.RegisterWithContext(context.Background(), username, displayName, password)
 }
 
 // Authenticate memverifikasi username & password.
@@ -269,14 +288,14 @@ func (s *SQLUserStore) VerifyPassword(userID, plainPassword string) (bool, error
 func (s *SQLUserStore) GetUserByID(id string) (*User, error) {
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE id = $1`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE id = $1`
 	} else {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE id = ?`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE id = ?`
 	}
 
 	row := s.db.QueryRow(query, id)
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
@@ -285,18 +304,55 @@ func (s *SQLUserStore) GetUserByID(id string) (*User, error) {
 	return &u, nil
 }
 
-// GetUserByUsername mengambil user berdasarkan username.
-func (s *SQLUserStore) GetUserByUsername(username string) (*User, error) {
+// GetUserByUsernameWithContext mengambil user berdasarkan username dan tenant_id dari context.
+func (s *SQLUserStore) GetUserByUsernameWithContext(ctx context.Context, username string) (*User, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE LOWER(username) = LOWER($1)`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE tenant_id = $1 AND LOWER(username) = LOWER($2)`
 	} else {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE LOWER(username) = LOWER(?)`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE tenant_id = ? AND LOWER(username) = LOWER(?)`
 	}
 
-	row := s.db.QueryRow(query, username)
+	row := s.db.QueryRow(query, tenantID, username)
 	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &u, nil
+}
+
+// GetUserByUsername mengambil user berdasarkan username (default tenant).
+func (s *SQLUserStore) GetUserByUsername(username string) (*User, error) {
+	return s.GetUserByUsernameWithContext(context.Background(), username)
+}
+
+// GetUserByUsernameOrDisplayNameWithContext mengambil user berdasarkan username ATAU display_name dan tenant_id dari context.
+func (s *SQLUserStore) GetUserByUsernameOrDisplayNameWithContext(ctx context.Context, name string) (*User, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	var query string
+	var row *sql.Row
+	if s.driverName == "postgres" {
+		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at 
+		         FROM users 
+		         WHERE tenant_id = $1 AND (LOWER(username) = LOWER($2) OR LOWER(display_name) = LOWER($2)) 
+		         ORDER BY (CASE WHEN LOWER(username) = LOWER($2) THEN 0 ELSE 1 END), created_at DESC
+		         LIMIT 1`
+		row = s.db.QueryRow(query, tenantID, name)
+	} else {
+		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at 
+		         FROM users 
+		         WHERE tenant_id = ? AND (LOWER(username) = LOWER(?) OR LOWER(display_name) = LOWER(?)) 
+		         ORDER BY (CASE WHEN LOWER(username) = LOWER(?) THEN 0 ELSE 1 END), created_at DESC
+		         LIMIT 1`
+		row = s.db.QueryRow(query, tenantID, name, name, name)
+	}
+
+	var u User
+	if err := row.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
@@ -307,36 +363,7 @@ func (s *SQLUserStore) GetUserByUsername(username string) (*User, error) {
 
 // GetUserByUsernameOrDisplayName mengambil user berdasarkan username ATAU display_name.
 func (s *SQLUserStore) GetUserByUsernameOrDisplayName(name string) (*User, error) {
-	var query string
-	if s.driverName == "postgres" {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at 
-		         FROM users 
-		         WHERE LOWER(username) = LOWER($1) OR LOWER(display_name) = LOWER($1) 
-		         ORDER BY (CASE WHEN LOWER(username) = LOWER($1) THEN 0 ELSE 1 END), created_at DESC
-		         LIMIT 1`
-	} else {
-		query = `SELECT id, username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at 
-		         FROM users 
-		         WHERE LOWER(username) = LOWER(?) OR LOWER(display_name) = LOWER(?) 
-		         ORDER BY (CASE WHEN LOWER(username) = LOWER(?) THEN 0 ELSE 1 END), created_at DESC
-		         LIMIT 1`
-	}
-
-	var row *sql.Row
-	if s.driverName == "postgres" {
-		row = s.db.QueryRow(query, name)
-	} else {
-		row = s.db.QueryRow(query, name, name, name)
-	}
-
-	var u User
-	if err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrUserNotFound
-		}
-		return nil, err
-	}
-	return &u, nil
+	return s.GetUserByUsernameOrDisplayNameWithContext(context.Background(), name)
 }
 
 // UpdateProfile memperbarui display_name, status_message, dan avatar_url milik user.
@@ -522,22 +549,24 @@ func (s *SQLUserStore) UpdatePublicKey(userID, publicKey string) error {
 }
 
 // SearchUsers mencari user berdasarkan username atau display_name.
-func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) {
+// SearchUsersWithContext mencari user lain dalam tenant yang sama (mengecualikan excludeUserID).
+func (s *SQLUserStore) SearchUsersWithContext(ctx context.Context, query, excludeUserID string) ([]User, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	searchPattern := "%" + query + "%"
 	var sqlQuery string
 	var rows *sql.Rows
 	var err error
 
 	if s.driverName == "postgres" {
-		sqlQuery = `SELECT id, username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users 
-		            WHERE id != $1 AND (LOWER(username) LIKE LOWER($2) OR LOWER(display_name) LIKE LOWER($2)) 
+		sqlQuery = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users 
+		            WHERE tenant_id = $1 AND id != $2 AND (LOWER(username) LIKE LOWER($3) OR LOWER(display_name) LIKE LOWER($3)) 
 		            ORDER BY username ASC LIMIT 20`
-		rows, err = s.db.Query(sqlQuery, excludeUserID, searchPattern)
+		rows, err = s.db.Query(sqlQuery, tenantID, excludeUserID, searchPattern)
 	} else {
-		sqlQuery = `SELECT id, username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users 
-		            WHERE id != ? AND (LOWER(username) LIKE LOWER(?) OR LOWER(display_name) LIKE LOWER(?)) 
+		sqlQuery = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users 
+		            WHERE tenant_id = ? AND id != ? AND (LOWER(username) LIKE LOWER(?) OR LOWER(display_name) LIKE LOWER(?)) 
 		            ORDER BY username ASC LIMIT 20`
-		rows, err = s.db.Query(sqlQuery, excludeUserID, searchPattern, searchPattern)
+		rows, err = s.db.Query(sqlQuery, tenantID, excludeUserID, searchPattern, searchPattern)
 	}
 
 	if err != nil {
@@ -548,7 +577,7 @@ func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) 
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
 			continue
 		}
 		users = append(users, u)
@@ -556,16 +585,36 @@ func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) 
 	return users, nil
 }
 
-// GetOrCreateDirectConversation membuat atau mengembalikan ID percakapan 1-on-1 antar dua user.
-func (s *SQLUserStore) GetOrCreateDirectConversation(userA, userB string) (string, error) {
-	// 1. Cek terlebih dahulu apakah sudah ada percakapan direct aktif antara userA dan userB via relational membership
+// SearchUsers mencari user lain untuk diajak chat (mengecualikan excludeUserID).
+func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) {
+	return s.SearchUsersWithContext(context.Background(), query, excludeUserID)
+}
+
+// GetOrCreateDirectConversationWithContext membuat atau mengembalikan ID percakapan 1-on-1 antar dua user terisolasi per tenant.
+func (s *SQLUserStore) GetOrCreateDirectConversationWithContext(ctx context.Context, userA, userB string) (string, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+
+	// Jika tenant default, ambil tenant_id dari userA jika terdaftar di tenant kustom
+	if tenantID == tenantshared.DefaultTenantID {
+		var uTenant string
+		if s.driverName == "postgres" {
+			_ = s.db.QueryRow(`SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`, userA).Scan(&uTenant)
+		} else {
+			_ = s.db.QueryRow(`SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`, userA).Scan(&uTenant)
+		}
+		if uTenant != "" {
+			tenantID = uTenant
+		}
+	}
+
+	// 1. Cek terlebih dahulu apakah sudah ada percakapan direct aktif antara userA dan userB dalam tenant yang sama
 	var existingQuery string
 	if s.driverName == "postgres" {
 		existingQuery = `
 			SELECT c.id FROM conversations c
 			JOIN conversation_members cm1 ON c.id = cm1.conversation_id AND cm1.user_id = $1
 			JOIN conversation_members cm2 ON c.id = cm2.conversation_id AND cm2.user_id = $2
-			WHERE c.type = 'direct'
+			WHERE c.tenant_id = $3 AND c.type = 'direct'
 			LIMIT 1
 		`
 	} else {
@@ -573,18 +622,18 @@ func (s *SQLUserStore) GetOrCreateDirectConversation(userA, userB string) (strin
 			SELECT c.id FROM conversations c
 			JOIN conversation_members cm1 ON c.id = cm1.conversation_id AND cm1.user_id = ?
 			JOIN conversation_members cm2 ON c.id = cm2.conversation_id AND cm2.user_id = ?
-			WHERE c.type = 'direct'
+			WHERE c.tenant_id = ? AND c.type = 'direct'
 			LIMIT 1
 		`
 	}
 
 	var existingID string
-	err := s.db.QueryRow(existingQuery, userA, userB).Scan(&existingID)
+	err := s.db.QueryRow(existingQuery, userA, userB, tenantID).Scan(&existingID)
 	if err == nil && existingID != "" {
 		return existingID, nil
 	}
 
-	// 2. Tentukan ID percakapan deterministik bebas tabrakan (collision-free)
+	// 2. Tentukan ID percakapan deterministik bebas tabrakan (collision-free) dengan scope tenant
 	var firstUser, secondUser string
 	if userA < userB {
 		firstUser, secondUser = userA, userB
@@ -592,27 +641,32 @@ func (s *SQLUserStore) GetOrCreateDirectConversation(userA, userB string) (strin
 		firstUser, secondUser = userB, userA
 	}
 
-	directRoomID := fmt.Sprintf("dm_%s_%s", firstUser, secondUser)
+	directRoomID := fmt.Sprintf("dm_%s_%s_%s", tenantID, firstUser, secondUser)
 	if len(directRoomID) > 128 {
-		h := sha256.Sum256([]byte(firstUser + ":" + secondUser))
+		h := sha256.Sum256([]byte(tenantID + ":" + firstUser + ":" + secondUser))
 		directRoomID = fmt.Sprintf("dm_%x", h)
 	}
 
 	// 3. Simpan percakapan baru dan daftarkan kedua user sebagai anggota
 	now := time.Now().UTC()
 	if s.driverName == "postgres" {
-		_, err = s.db.Exec(`INSERT INTO conversations (id, type, title, created_at, updated_at) VALUES ($1, 'direct', '', $2, $2) ON CONFLICT (id) DO NOTHING`, directRoomID, now)
+		_, err = s.db.Exec(`INSERT INTO conversations (id, tenant_id, type, title, created_at, updated_at) VALUES ($1, $2, 'direct', '', $3, $3) ON CONFLICT (id) DO NOTHING`, directRoomID, tenantID, now)
 		if err == nil {
 			_, _ = s.db.Exec(`INSERT INTO conversation_members (conversation_id, user_id, joined_at) VALUES ($1, $2, $3), ($1, $4, $3) ON CONFLICT DO NOTHING`, directRoomID, userA, now, userB)
 		}
 	} else {
-		_, err = s.db.Exec(`INSERT OR IGNORE INTO conversations (id, type, title, created_at, updated_at) VALUES (?, 'direct', '', ?, ?)`, directRoomID, now, now)
+		_, err = s.db.Exec(`INSERT OR IGNORE INTO conversations (id, tenant_id, type, title, created_at, updated_at) VALUES (?, ?, 'direct', '', ?, ?)`, directRoomID, tenantID, now, now)
 		if err == nil {
 			_, _ = s.db.Exec(`INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, joined_at) VALUES (?, ?, ?), (?, ?, ?)`, directRoomID, userA, now, directRoomID, userB, now)
 		}
 	}
 
 	return directRoomID, nil
+}
+
+// GetOrCreateDirectConversation membuat atau mengembalikan ID percakapan 1-on-1 antar dua user.
+func (s *SQLUserStore) GetOrCreateDirectConversation(userA, userB string) (string, error) {
+	return s.GetOrCreateDirectConversationWithContext(context.Background(), userA, userB)
 }
 
 // ClearConversation mencatat waktu pembersihan percakapan (cleared_at) untuk userID tertentu.
@@ -675,14 +729,30 @@ func (s *SQLUserStore) UnpinConversation(conversationID, userID string) error {
 	return nil
 }
 
-// GetUserConversations mengambil daftar obrolan aktif milik seorang user.
-func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, error) {
+// GetUserConversationsWithContext mengambil daftar obrolan aktif milik seorang user yang terisolasi per tenant.
+func (s *SQLUserStore) GetUserConversationsWithContext(ctx context.Context, userID string) ([]ConversationItem, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+
+	// Jika tenant context bernilai default, cek apakah user terdaftar pada tenant kustom
+	if tenantID == tenantshared.DefaultTenantID {
+		var uTenant string
+		if s.driverName == "postgres" {
+			_ = s.db.QueryRow(`SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`, userID).Scan(&uTenant)
+		} else {
+			_ = s.db.QueryRow(`SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`, userID).Scan(&uTenant)
+		}
+		if uTenant != "" {
+			tenantID = uTenant
+		}
+	}
+
 	// 1. Ambil seluruh percakapan beserta data lawan bicara (peer) jika direct chat dalam 1 query
 	var query string
 	if s.driverName == "postgres" {
 		query = `
 			SELECT 
 				c.id, 
+				COALESCE(c.tenant_id, 'default') AS conv_tenant_id,
 				c.type, 
 				c.title, 
 				c.updated_at, 
@@ -704,13 +774,14 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 			JOIN conversation_members cm ON c.id = cm.conversation_id AND cm.user_id = $1
 			LEFT JOIN conversation_members peer_cm ON c.id = peer_cm.conversation_id AND peer_cm.user_id != $1 AND c.type = 'direct'
 			LEFT JOIN users peer ON peer_cm.user_id = peer.id
-			WHERE (c.parent_id IS NULL OR c.parent_id = '')
+			WHERE c.tenant_id = $2 AND (c.parent_id IS NULL OR c.parent_id = '')
 			ORDER BY c.updated_at DESC
 		`
 	} else {
 		query = `
 			SELECT 
 				c.id, 
+				COALESCE(c.tenant_id, 'default') AS conv_tenant_id,
 				c.type, 
 				c.title, 
 				c.updated_at, 
@@ -732,7 +803,7 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 			JOIN conversation_members cm ON c.id = cm.conversation_id AND cm.user_id = ?
 			LEFT JOIN conversation_members peer_cm ON c.id = peer_cm.conversation_id AND peer_cm.user_id != ? AND c.type = 'direct'
 			LEFT JOIN users peer ON peer_cm.user_id = peer.id
-			WHERE (c.parent_id IS NULL OR c.parent_id = '')
+			WHERE c.tenant_id = ? AND (c.parent_id IS NULL OR c.parent_id = '')
 			ORDER BY c.updated_at DESC
 		`
 	}
@@ -740,9 +811,9 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 	var rows *sql.Rows
 	var err error
 	if s.driverName == "postgres" {
-		rows, err = s.db.Query(query, userID)
+		rows, err = s.db.Query(query, userID, tenantID)
 	} else {
-		rows, err = s.db.Query(query, userID, userID)
+		rows, err = s.db.Query(query, userID, userID, tenantID)
 	}
 	if err != nil {
 		return nil, err
@@ -761,6 +832,7 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 		var convIsPublic bool
 		if err := rows.Scan(
 			&rc.item.ID,
+			&rc.item.TenantID,
 			&rc.item.Type,
 			&rc.item.Title,
 			&rc.item.UpdatedAt,
@@ -962,6 +1034,11 @@ func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, 
 	})
 
 	return items, nil
+}
+
+// GetUserConversations mengambil daftar obrolan aktif milik seorang user (default context).
+func (s *SQLUserStore) GetUserConversations(userID string) ([]ConversationItem, error) {
+	return s.GetUserConversationsWithContext(context.Background(), userID)
 }
 
 // GetConversationMemberUsernames mengambil seluruh username dan display_name anggota dalam suatu percakapan.

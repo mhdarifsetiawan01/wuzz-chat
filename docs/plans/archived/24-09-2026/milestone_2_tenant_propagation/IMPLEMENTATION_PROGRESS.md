@@ -1,0 +1,24 @@
+# Implementation Progress — Milestone 2: Tenant Context Propagation in Services & Repositories
+
+- [x] **Task 1: Tenant HTTP Middleware & Context Resolver**
+  - [x] Implementasi `backend/internal/api/tenant_middleware.go`
+  - [x] Wiring middleware di `backend/internal/app/router.go`
+  - [x] Unit test middleware di `backend/internal/api/tenant_middleware_test.go`
+- [x] **Task 2: JWT Claims Tenant Scoping**
+  - [x] Update `UserClaims` dengan field `TenantID` di `backend/internal/auth/jwt.go`
+  - [x] Sediakan helper `GenerateTokenDetailedWithTenant`
+- [x] **Task 3: Database & SQL Schema Adaptation**
+  - [x] Update composite unique constraint untuk `users(tenant_id, username)` di `backend/internal/store/sql.go`
+  - [x] Tambahkan field `TenantID` pada struct `User` dan `ConversationItem` di `backend/internal/store/user_store.go`
+- [x] **Task 4: Repository Layer Data Isolation (`WHERE tenant_id = ?`)**
+  - [x] UserStore & AuthRepository: Isolasi pendaftaran, lookup username, dan SearchUsers
+  - [x] GroupStore & GroupRepository: Isolasi pembuatan room, search public groups, dan query list conversations
+  - [x] MemoryStore: Isolasi query forum_memory_jobs, memory_drafts, dan approved_memories
+- [x] **Task 5: Service Layer Context Propagation**
+  - [x] Propagasi `ctx` pada `AuthService` dan injeksi `tenant_id` ke JWT
+  - [x] Propagasi `ctx` pada `MessageService`
+  - [x] Propagasi `ctx` pada `GroupService` dan `ForumService`
+- [x] **Task 6: Automated Testing & Anti-Leak Isolation Verification**
+  - [x] Integrasi test isolasi multi-tenant komprehensif (`isolation_test.go`)
+  - [x] Verifikasi full backend test suite (`go test -v ./...`)
+  - [x] Verifikasi frontend build (`npm run build`)

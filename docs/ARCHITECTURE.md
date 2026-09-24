@@ -821,6 +821,26 @@ Dalam rangka evolusi arsitektur menuju sistem modular monolith yang dapat diguna
   - Application Service `authz.AuthService` memfasilitasi use case pencarian kontak dan pembacaan profil publik.
   - `ChatHandler` (`SearchUsers`, `GetUserProfile`, `GetUserPublicKey`) direfaktor untuk mengonsumsi `authz.AuthService` via Dependency Injection, memutus total direct coupling HTTP handler ke `store.UserStore`.
 
+### I. Additive Schema Migration & Tenant Registry (Tenant Engine Milestone 1)
+- **Tabel `tenants` & `tenant_api_keys`**: Entitas master tenant dengan slug unik, status keaktifan (`is_active`), dan autentikasi programmatic via hashed API keys.
+- **Tenant Scoping Column Migration**: Penambahan kolom `tenant_id` pada seluruh tabel relasional (`users`, `conversations`, `groups`, `sub_groups`, `group_categories`, `ai_agent_jobs`, `ai_memory_drafts`, dll.) dengan default value `'default'`.
+
+### J. Tenant Context Propagation in Services & Repositories (Tenant Engine Milestone 2)
+- **HTTP Tenant Middleware (`backend/internal/api/tenant_middleware.go`)**:
+  - Middleware HTTP global di pipeline root router yang mengekstrak dan memvalidasi konteks tenant dari incoming request.
+  - Urutan resolusi prioritas: Header `X-Tenant-ID` ➔ JWT Claim `tenant_id` ➔ Fallback ke `"default"`.
+  - Validasi keaktifan tenant via `TenantService.ValidateTenantActive` (status non-aktif mengembalikan HTTP `403 Forbidden`).
+  - Injeksi immutable `TenantContext` ke `r.Context()` via `internal/shared/tenant`.
+- **JWT Tenant Claims (`backend/internal/auth/jwt.go`)**:
+  - Token JWT menyertakan claim `tenant_id` (`UserClaims.TenantID`), memastikan sesi autentikasi terikat ke tenant pengguna.
+- **Repository Layer Data Isolation (`WHERE tenant_id = ?`)**:
+  - `UserStore` / `authz.SQLAuthRepository`: Composite unique `(tenant_id, username)` dan query user terisolasi per tenant.
+  - `SQLGroupStore` / `group.SQLGroupRepository`: Isolasi komunitas, pencarian grup publik, dan hierarki sub-grup per tenant.
+  - `SQLMessagingRepository` / `messaging.ConversationRepository`: Isolasi percakapan dan deterministik room ID `dm_<tenantID>_<userA>_<userB>`.
+  - `SQLMemoryStore`: Isolasi context AI memory jobs dan drafts per tenant.
+- **Service Layer Context Propagation**:
+  - `AuthService`, `GroupService`, `ForumService`, dan `MessageService` menerima dan mempropagasi `context.Context` ke repository query.
+
 > 📝 **Daftar Utang Teknis & Batasan Arsitektur**:  
 > Seluruh utang teknis yang diketahui dan sengaja ditunda (TD-01 s/d TD-05) dicatat secara kanonikal di:  
 > 👉 **[`docs/PROJECT_STATE.md`](PROJECT_STATE.md) (Bagian 10 — Technical Debt Register)**.

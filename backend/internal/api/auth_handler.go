@@ -193,6 +193,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		platform = strings.TrimSpace(r.Header.Get("X-Device-Platform"))
 	}
 	res, err := h.authSvc.Register(authz.RegisterInput{
+		Ctx:         r.Context(),
 		Username:    req.Username,
 		DisplayName: req.DisplayName,
 		Password:    req.Password,
@@ -241,6 +242,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, conflict, err := h.authSvc.Login(authz.LoginInput{
+		Ctx:             r.Context(),
 		Username:        req.Username,
 		Password:        req.Password,
 		DeviceID:        req.DeviceID,
@@ -253,7 +255,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if conflict != nil {
 		var activeDevices []store.Device
 		if h.deviceStore != nil {
-			user, _ := h.userStore.GetUserByUsername(strings.TrimSpace(req.Username))
+			user, _ := h.userStore.GetUserByUsernameWithContext(r.Context(), strings.TrimSpace(req.Username))
 			if user != nil {
 				activeDevices, _ = h.deviceStore.GetUserDevices(user.ID)
 			}

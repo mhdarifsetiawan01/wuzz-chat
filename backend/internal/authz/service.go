@@ -15,6 +15,7 @@ import (
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	sharederrors "github.com/bms-del112/wuzz-chat/internal/shared/errors"
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	sharedvalidator "github.com/bms-del112/wuzz-chat/internal/shared/validator"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -59,6 +60,7 @@ func (s *AuthService) SetRepository(repo AuthRepository) {
 
 // RegisterInput adalah input untuk use case Register.
 type RegisterInput struct {
+	Ctx         context.Context
 	Username    string
 	DisplayName string
 	Password    string
@@ -72,6 +74,12 @@ type RegisterInput struct {
 // menyimpan sesi, dan mendaftarkan device.
 // Mengembalikan RegisterResult atau error yang sudah ter-type sesuai business rule.
 func (s *AuthService) Register(input RegisterInput) (*RegisterResult, error) {
+	ctx := input.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+
 	username := strings.TrimSpace(input.Username)
 	displayName := strings.TrimSpace(input.DisplayName)
 	if displayName == "" {
@@ -89,8 +97,8 @@ func (s *AuthService) Register(input RegisterInput) (*RegisterResult, error) {
 		return nil, err
 	}
 
-	// Buat user
-	userID, err := s.repo.CreateUser(username, displayName)
+	// Buat user (tenant-aware via context)
+	userID, err := s.repo.CreateUserWithContext(ctx, username, displayName)
 	if err != nil {
 		return nil, err
 	}
@@ -101,8 +109,8 @@ func (s *AuthService) Register(input RegisterInput) (*RegisterResult, error) {
 		return nil, err
 	}
 
-	// Generate JWT
-	tokenStr, claims, err := auth.GenerateTokenDetailed(userID, username, displayName)
+	// Generate JWT dengan tenant ID
+	tokenStr, claims, err := auth.GenerateTokenDetailedWithTenant(userID, username, displayName, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +150,7 @@ func (s *AuthService) Register(input RegisterInput) (*RegisterResult, error) {
 
 // LoginInput adalah input untuk use case Login.
 type LoginInput struct {
+	Ctx             context.Context
 	Username        string
 	Password        string
 	DeviceID        string
@@ -158,11 +167,17 @@ const maxActiveDevices = 2
 // Jika device baru melebihi kuota dan ConfirmOverride=false, mengembalikan *DeviceConflict.
 // Jika ConfirmOverride=true, melakukan kick device tertua sebelum login.
 func (s *AuthService) Login(input LoginInput) (*LoginResult, *DeviceConflict, error) {
+	ctx := input.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+
 	username := strings.TrimSpace(input.Username)
 	reqDeviceID := strings.TrimSpace(input.DeviceID)
 
-	// Lookup user
-	userID, _, err := s.repo.GetUserByUsername(username)
+	// Lookup user (tenant-aware via context)
+	userID, _, err := s.repo.GetUserByUsernameWithContext(ctx, username)
 	if err != nil {
 		return nil, nil, ErrInvalidCredentials
 	}
@@ -211,13 +226,13 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, *DeviceConflict, er
 	}
 
 	// Lookup displayname & username untuk token
-	_, displayName, err := s.repo.GetUserByUsername(username)
+	_, displayName, err := s.repo.GetUserByUsernameWithContext(ctx, username)
 	if err != nil {
 		displayName = username
 	}
 
-	// Generate JWT
-	tokenStr, claims, err := auth.GenerateTokenDetailed(userID, username, displayName)
+	// Generate JWT dengan tenant ID
+	tokenStr, claims, err := auth.GenerateTokenDetailedWithTenant(userID, username, displayName, tenantID)
 	if err != nil {
 		return nil, nil, err
 	}

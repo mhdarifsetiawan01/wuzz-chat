@@ -95,7 +95,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// Tabel Users
 		`CREATE TABLE IF NOT EXISTS users (
 			id VARCHAR(64) PRIMARY KEY,
-			username VARCHAR(64) UNIQUE NOT NULL,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			username VARCHAR(64) NOT NULL,
 			display_name VARCHAR(128) NOT NULL,
 			password_hash VARCHAR(255) NOT NULL,
 			status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol',
@@ -103,13 +104,15 @@ func (s *SQLMessageStore) autoMigrate() error {
 			public_key TEXT DEFAULT '',
 			key_version INTEGER DEFAULT 1,
 			active_device_id TEXT DEFAULT '',
-			created_at TIMESTAMP NOT NULL
+			created_at TIMESTAMP NOT NULL,
+			UNIQUE(tenant_id, username)
 		);`,
 		// Index Users
 		`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`,
 		// Tabel Conversations
 		`CREATE TABLE IF NOT EXISTS conversations (
 			id VARCHAR(128) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
 			type VARCHAR(32) NOT NULL,
 			title VARCHAR(128) DEFAULT '',
 			is_public BOOLEAN NOT NULL DEFAULT false,
@@ -197,6 +200,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// 1. Tabel Forum Memory Jobs
 		`CREATE TABLE IF NOT EXISTS forum_memory_jobs (
 			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
 			forum_id VARCHAR(128) UNIQUE NOT NULL,
 			group_id VARCHAR(128) NOT NULL,
 			status VARCHAR(32) NOT NULL DEFAULT 'QUEUED',
@@ -217,6 +221,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// 2. Tabel Memory Drafts
 		`CREATE TABLE IF NOT EXISTS memory_drafts (
 			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
 			job_id VARCHAR(64) UNIQUE NOT NULL,
 			forum_id VARCHAR(128) NOT NULL,
 			group_id VARCHAR(128) NOT NULL,
@@ -266,6 +271,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// 5. Tabel Approved Memories (Immutable Read-Model Cache)
 		`CREATE TABLE IF NOT EXISTS approved_memories (
 			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
 			draft_id VARCHAR(64) UNIQUE NOT NULL,
 			forum_id VARCHAR(128) UNIQUE NOT NULL,
 			group_id VARCHAR(128) NOT NULL,

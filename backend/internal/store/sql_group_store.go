@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 )
 
 // SQLGroupStore adalah implementasi GroupStore berbasis SQL.
@@ -47,25 +49,47 @@ func (s *SQLGroupStore) touchConversation(ctx context.Context, conversationID st
 
 // CreateGroup membuat entitas grup baru secara atomik di dalam 1 transaksi database.
 func (s *SQLGroupStore) CreateGroup(title, description, avatarURL, creatorID, groupUsername string, isPublic bool, memberIDs []string) (*GroupDetails, error) {
+	return s.CreateGroupWithContext(context.Background(), title, description, avatarURL, creatorID, groupUsername, isPublic, memberIDs)
+}
+
+// CreateGroupWithContext membuat entitas grup baru dengan tenant context propagation.
+func (s *SQLGroupStore) CreateGroupWithContext(ctx context.Context, title, description, avatarURL, creatorID, groupUsername string, isPublic bool, memberIDs []string) (*GroupDetails, error) {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return nil, errors.New("nama grup tidak boleh kosong")
 	}
 	groupUsername = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(groupUsername, "@")))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	// Jika publik dan ada group_username, pastikan unik
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	if tenantID == "default" && creatorID != "" {
+		var userTenant string
+		var checkUserQuery string
+		if s.driverName == "postgres" {
+			checkUserQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`
+		} else {
+			checkUserQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`
+		}
+		if err := s.db.QueryRowContext(ctx, checkUserQuery, creatorID).Scan(&userTenant); err == nil && userTenant != "" {
+			tenantID = userTenant
+		}
+	}
+
+	// Jika publik dan ada group_username, pastikan unik per tenant
 	if isPublic && groupUsername != "" {
 		var checkQuery string
 		if s.driverName == "postgres" {
-			checkQuery = `SELECT COUNT(*) FROM conversations WHERE LOWER(group_username) = $1`
+			checkQuery = `SELECT COUNT(*) FROM conversations WHERE LOWER(group_username) = $1 AND tenant_id = $2`
 		} else {
-			checkQuery = `SELECT COUNT(*) FROM conversations WHERE LOWER(group_username) = ?`
+			checkQuery = `SELECT COUNT(*) FROM conversations WHERE LOWER(group_username) = ? AND tenant_id = ?`
 		}
 		var exists int
-		if err := s.db.QueryRowContext(ctx, checkQuery, groupUsername).Scan(&exists); err == nil && exists > 0 {
+		if err := s.db.QueryRowContext(ctx, checkQuery, groupUsername, tenantID).Scan(&exists); err == nil && exists > 0 {
 			return nil, ErrGroupUsernameTaken
 		}
 	}
@@ -87,20 +111,20 @@ func (s *SQLGroupStore) CreateGroup(title, description, avatarURL, creatorID, gr
 		insertConvQuery = `
 			INSERT INTO conversations (
 				id, type, title, is_public, group_username, parent_id, expires_at,
-				created_by, avatar_url, description, is_e2ee, created_at, updated_at
-			) VALUES ($1, 'group', $2, $3, $4, NULL, NULL, $5, $6, $7, false, $8, $9)
+				created_by, avatar_url, description, is_e2ee, created_at, updated_at, tenant_id
+			) VALUES ($1, 'group', $2, $3, $4, NULL, NULL, $5, $6, $7, false, $8, $9, $10)
 		`
 	} else {
 		insertConvQuery = `
 			INSERT INTO conversations (
 				id, type, title, is_public, group_username, parent_id, expires_at,
-				created_by, avatar_url, description, is_e2ee, created_at, updated_at
-			) VALUES (?, 'group', ?, ?, ?, NULL, NULL, ?, ?, ?, false, ?, ?)
+				created_by, avatar_url, description, is_e2ee, created_at, updated_at, tenant_id
+			) VALUES (?, 'group', ?, ?, ?, NULL, NULL, ?, ?, ?, false, ?, ?, ?)
 		`
 	}
 
 	_, err = tx.ExecContext(ctx, insertConvQuery,
-		groupID, title, isPublic, groupUsername, creatorID, avatarURL, description, now, now,
+		groupID, title, isPublic, groupUsername, creatorID, avatarURL, description, now, now, tenantID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("gagal membuat entitas grup: %w", err)
@@ -576,6 +600,11 @@ func (s *SQLGroupStore) UpdateGroupInfo(conversationID, actorUserID, title, desc
 
 // SearchPublicGroups mencari grup publik yang cocok dengan query nama atau @username.
 func (s *SQLGroupStore) SearchPublicGroups(query string, limit int) ([]GroupDetails, error) {
+	return s.SearchPublicGroupsWithContext(context.Background(), query, limit)
+}
+
+// SearchPublicGroupsWithContext mencari grup publik dengan tenant filtering.
+func (s *SQLGroupStore) SearchPublicGroupsWithContext(ctx context.Context, query string, limit int) ([]GroupDetails, error) {
 	query = strings.ToLower(strings.TrimSpace(strings.TrimPrefix(query, "@")))
 	if query == "" {
 		return []GroupDetails{}, nil
@@ -584,8 +613,13 @@ func (s *SQLGroupStore) SearchPublicGroups(query string, limit int) ([]GroupDeta
 		limit = 20
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 
 	pattern := "%" + query + "%"
 	var sqlQuery string
@@ -596,7 +630,7 @@ func (s *SQLGroupStore) SearchPublicGroups(query string, limit int) ([]GroupDeta
 				COALESCE(c.group_username, ''), c.created_by, c.created_at, c.updated_at,
 				(SELECT COUNT(*) FROM conversation_members cm WHERE cm.conversation_id = c.id) AS member_count
 			FROM conversations c
-			WHERE c.type = 'group' AND c.is_public = true
+			WHERE c.type = 'group' AND c.is_public = true AND c.tenant_id = $3
 			  AND (LOWER(c.title) LIKE $1 OR LOWER(c.group_username) LIKE $1)
 			ORDER BY c.updated_at DESC
 			LIMIT $2
@@ -608,7 +642,7 @@ func (s *SQLGroupStore) SearchPublicGroups(query string, limit int) ([]GroupDeta
 				COALESCE(c.group_username, ''), c.created_by, c.created_at, c.updated_at,
 				(SELECT COUNT(*) FROM conversation_members cm WHERE cm.conversation_id = c.id) AS member_count
 			FROM conversations c
-			WHERE c.type = 'group' AND c.is_public = true
+			WHERE c.type = 'group' AND c.is_public = true AND c.tenant_id = ?
 			  AND (LOWER(c.title) LIKE ? OR LOWER(c.group_username) LIKE ?)
 			ORDER BY c.updated_at DESC
 			LIMIT ?
@@ -618,9 +652,9 @@ func (s *SQLGroupStore) SearchPublicGroups(query string, limit int) ([]GroupDeta
 	var rows *sql.Rows
 	var err error
 	if s.driverName == "postgres" {
-		rows, err = s.db.QueryContext(ctx, sqlQuery, pattern, limit)
+		rows, err = s.db.QueryContext(ctx, sqlQuery, pattern, limit, tenantID)
 	} else {
-		rows, err = s.db.QueryContext(ctx, sqlQuery, pattern, pattern, limit)
+		rows, err = s.db.QueryContext(ctx, sqlQuery, tenantID, pattern, pattern, limit)
 	}
 	if err != nil {
 		return nil, err
@@ -645,6 +679,11 @@ func (s *SQLGroupStore) SearchPublicGroups(query string, limit int) ([]GroupDeta
 
 // CreateSubGroup membuat subgrup topik baru di bawah grup induk secara atomik.
 func (s *SQLGroupStore) CreateSubGroup(parentID, title, description, creatorID, duration string, isPublic bool) (*GroupDetails, error) {
+	return s.CreateSubGroupWithContext(context.Background(), parentID, title, description, creatorID, duration, isPublic)
+}
+
+// CreateSubGroupWithContext membuat subgrup topik baru dengan context tenant.
+func (s *SQLGroupStore) CreateSubGroupWithContext(ctx context.Context, parentID, title, description, creatorID, duration string, isPublic bool) (*GroupDetails, error) {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return nil, errors.New("nama subgrup tidak boleh kosong")
@@ -661,8 +700,25 @@ func (s *SQLGroupStore) CreateSubGroup(parentID, title, description, creatorID, 
 		return nil, errors.New("creator_id tidak valid")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	if tenantID == "default" && parentID != "" {
+		var parentTenant string
+		var checkParentQuery string
+		if s.driverName == "postgres" {
+			checkParentQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = $1`
+		} else {
+			checkParentQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = ?`
+		}
+		if err := s.db.QueryRowContext(ctx, checkParentQuery, parentID).Scan(&parentTenant); err == nil && parentTenant != "" {
+			tenantID = parentTenant
+		}
+	}
 
 	// 1. Verifikasi bahwa parent group ada dan bertipe 'group'
 	var parentType string
@@ -718,20 +774,20 @@ func (s *SQLGroupStore) CreateSubGroup(parentID, title, description, creatorID, 
 		insertConvQuery = `
 			INSERT INTO conversations (
 				id, type, title, is_public, group_username, parent_id, expires_at,
-				created_by, avatar_url, description, is_e2ee, status, ai_summary, created_at, updated_at
-			) VALUES ($1, 'group', $2, $3, '', $4, $5, $6, '', $7, false, 'active', '', $8, $9)
+				created_by, avatar_url, description, is_e2ee, status, ai_summary, created_at, updated_at, tenant_id
+			) VALUES ($1, 'group', $2, $3, '', $4, $5, $6, '', $7, false, 'active', '', $8, $9, $10)
 		`
 	} else {
 		insertConvQuery = `
 			INSERT INTO conversations (
 				id, type, title, is_public, group_username, parent_id, expires_at,
-				created_by, avatar_url, description, is_e2ee, status, ai_summary, created_at, updated_at
-			) VALUES (?, 'group', ?, ?, '', ?, ?, ?, '', ?, false, 'active', '', ?, ?)
+				created_by, avatar_url, description, is_e2ee, status, ai_summary, created_at, updated_at, tenant_id
+			) VALUES (?, 'group', ?, ?, '', ?, ?, ?, '', ?, false, 'active', '', ?, ?, ?)
 		`
 	}
 
 	_, err = tx.ExecContext(ctx, insertConvQuery,
-		subGroupID, title, isPublic, parentID, expiresAt, creatorID, description, now, now,
+		subGroupID, title, isPublic, parentID, expiresAt, creatorID, description, now, now, tenantID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("gagal membuat entitas subgrup: %w", err)
@@ -807,6 +863,11 @@ func (s *SQLGroupStore) IsParentMember(parentID, userID string) (bool, error) {
 
 // GetActiveSubGroups mengambil daftar seluruh subgrup yang masih aktif di bawah grup induk parent_id.
 func (s *SQLGroupStore) GetActiveSubGroups(parentID, currentUserID string) ([]SubGroupItem, error) {
+	return s.GetActiveSubGroupsWithContext(context.Background(), parentID, currentUserID)
+}
+
+// GetActiveSubGroupsWithContext mengambil daftar seluruh subgrup yang masih aktif dengan context.
+func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, parentID, currentUserID string) ([]SubGroupItem, error) {
 	parentID = strings.TrimSpace(parentID)
 	currentUserID = strings.TrimSpace(currentUserID)
 	if parentID == "" {
@@ -822,7 +883,10 @@ func (s *SQLGroupStore) GetActiveSubGroups(parentID, currentUserID string) ([]Su
 		return nil, ErrUnauthorizedGroup
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	now := time.Now().UTC()

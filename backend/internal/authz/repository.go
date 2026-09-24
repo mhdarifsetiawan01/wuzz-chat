@@ -22,8 +22,14 @@ type AuthRepository interface {
 	// Mengembalikan (userID, displayName, error).
 	GetUserByUsername(username string) (userID string, displayName string, err error)
 
+	// GetUserByUsernameWithContext mencari user berdasarkan username dan context (tenant-aware).
+	GetUserByUsernameWithContext(ctx context.Context, username string) (userID string, displayName string, err error)
+
 	// CreateUser membuat user baru dan mengembalikan userID (UUID).
 	CreateUser(username, displayName string) (userID string, err error)
+
+	// CreateUserWithContext membuat user baru dengan context (tenant-aware).
+	CreateUserWithContext(ctx context.Context, username, displayName string) (userID string, err error)
 
 	// GetActiveDeviceID mengembalikan active_device_id dari tabel users.
 	GetActiveDeviceID(userID string) (deviceID string, err error)

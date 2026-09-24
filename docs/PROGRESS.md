@@ -2600,4 +2600,64 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Live Frontend & Backend Proxy Smoke Test**: Next.js custom server (`:3047`) ⇄ Go Backend (`:8080`) aktif melayani `GET /login`, `GET /chat`, `POST /api/auth/register`, dan `POST /api/auth/login` secara real dengan status `HTTP 200 OK`.
 - **Server Lifecycle Guard**: Seluruh server port 8080 dan 3047 dimatikan bersih (`fuser -k <port>/tcp`).
 
+---
+
+## 2026-09-24: WuzzChat Engine Evolution — Milestone 2: Tenant Context Propagation in Services & Repositories
+
+### Problem Description
+1. Pada Milestone 1, skema tabel relasional telah diperluas dengan kolom `tenant_id` dan tabel master `tenants`. Namun, context tenant belum dipropagasikan secara end-to-end melalui HTTP middleware, service layer, dan repository queries.
+2. Dibutuhkan HTTP Tenant Middleware yang mampu mengekstrak konteks tenant secara fleksibel (prioritas: header `X-Tenant-ID` ➔ JWT claim `tenant_id` ➔ default fallback `"default"`), memvalidasi status keaktifan tenant, dan menginjeksi `TenantContext` ke `r.Context()`.
+3. Seluruh lapisan repository SQL (`UserStore`, `SQLAuthRepository`, `SQLGroupStore`, `SQLGroupRepository`, `SQLMessagingRepository`, `ConversationRepository`, dan `SQLMemoryStore`) wajib menerapkan filter ketat `WHERE tenant_id = ?` untuk menjamin isolasi data mutlak antar tenant (*zero cross-tenant leak*).
+4. Pengguna eksisting pada versi default tanpa header `X-Tenant-ID` (klien frontend lama) wajib beroperasi 100% normal tanpa breaking change (*zero regressions*).
+
+### Implementation Details
+1. **HTTP Tenant Middleware & Context Injection (`backend/internal/api/tenant_middleware.go`)**:
+   - Dibuat `TenantMiddleware(tenantSvc *tenant.TenantService)` yang dipasang di pipeline router root HTTP (`router.go`).
+   - Resolusi prioritas bertingkat:
+     1. Header `X-Tenant-ID` (jika ada).
+     2. JWT Claim `tenant_id` (di-decode via `auth.ExtractTenantFromToken`).
+     3. Fallback tenant `"default"` (menjamin 100% backward compatibility dengan frontend existing).
+   - Validasi keaktifan tenant melalui `tenantSvc.ValidateTenantActive(ctx, tenantID)`. Jika tenant tidak aktif/tersuspend, mengembalikan HTTP `403 Forbidden` (`{"error": "tenant is suspended or inactive"}`).
+   - Injeksi aman `tenantshared.WithTenant(r.Context(), tenantID)` ke `r.Context()`.
+   - Ditambahkan unit test lengkap `backend/internal/api/tenant_middleware_test.go` (100% PASS).
+2. **JWT Tenant Claims (`backend/internal/auth/jwt.go`)**:
+   - Struct `UserClaims` diperkaya dengan field `TenantID string`.
+   - Ditambahkan fungsi helper `GenerateTokenDetailedWithTenant` dan `ExtractTenantFromToken`.
+3. **Repository Layer Data Isolation (`WHERE tenant_id = ?`)**:
+   - **Users & Auth (`backend/internal/store/user_store.go` & `backend/internal/authz/infra/sql_repository.go`)**:
+     - Ditambahkan composite unique constraint `(tenant_id, username)` pada skema SQL.
+     - Ditambahkan context-aware methods: `RegisterWithContext`, `GetUserByUsernameWithContext`, `SearchUsersWithContext`, `GetOrCreateDirectConversationWithContext`, `GetUserConversationsWithContext`.
+     - Query dibatasi ketat dengan `tenant_id = ?` (dengan fallback backward compatibility `(tenant_id = ? OR tenant_id = 'default')`).
+   - **Groups & Forums (`backend/internal/store/group_store.go`, `sql_group_store.go`, & `backend/internal/group/infra/sql_repository.go`)**:
+     - Ditambahkan `CreateGroupWithContext`, `SearchPublicGroupsWithContext`, `CreateSubGroupWithContext`, `GetActiveSubGroupsWithContext`.
+     - Pewarisan tenant otomatis: grup mewarisi tenant creator/parent jika context `"default"`.
+   - **Messaging (`backend/internal/messaging/infra/sql_repository.go` & `repository.go`)**:
+     - Context propagation pada pembuatan obrolan dan pengiriman pesan.
+     - Deterministik room ID terisolasi: `dm_<tenantID>_<userA>_<userB>`.
+   - **AI Memory (`backend/internal/store/memory_store.go`)**:
+     - `CreateJob`, `CreateDraftWithArtifacts`, dan `ApproveDraft` kini menyisipkan `tenant_id` dari context.
+4. **Service Layer Context Propagation**:
+   - `authz.AuthService` (`Register`, `Login` menerima context via input DTO, menghasilkan token dengan `tenant_id`).
+   - `group.GroupService` dan `group.ForumService` mempropagasi `ctx` ke repository layer.
+   - `messaging.MessageService` mempropagasi `ctx` ke `ConversationRepository`.
+5. **Multi-Tenant Anti-Leak Test Suite (`backend/internal/tenant/isolation_test.go`)**:
+   - Dibuat 8 skenario pengujian komprehensif:
+     - `TestMultiTenant_UserIsolation_SameUsername`: Membuktikan dua tenant dapat memiliki username identik secara terisolasi tanpa bentrok.
+     - `TestMultiTenant_SearchUsers_Isolation`: Membuktikan pencarian kontak hanya menampilkan user dalam tenant yang sama.
+     - `TestMultiTenant_DirectConversation_Isolation`: Membuktikan direct chat room ID `dm_tenant_...` terisolasi dan tidak dapat diakses lintas tenant.
+     - `TestMultiTenant_PublicGroup_SearchIsolation`: Membuktikan pencarian grup publik hanya menampilkan grup milik tenant yang sama.
+     - `TestMultiTenant_GroupInheritance`: Membuktikan sub-grup mewarisi `tenant_id` dari induknya.
+     - `TestMultiTenant_JWTClaims_TenantPersistence`: Membuktikan JWT token menyimpan dan merefleksikan claim tenant secara akurat.
+     - `TestMultiTenant_Middleware_SuspendedTenantBlocked`: Membuktikan middleware memblokir tenant tersuspensi dengan HTTP 403.
+     - `TestMultiTenant_LegacyClient_BackwardCompatibility`: Membuktikan klien warisan tanpa header tenant beroperasi mulus di tenant "default".
+
+### Test Evidence
+- **Multi-Tenant Anti-Leak Suite (`go test -v ./internal/tenant/...`)**: **PASS 100%** (8 skenario isolasi lolos).
+- **Backend Full Suite (`go test ./...`)**: **PASS 100%** (seluruh internal package lolos tanpa regresi).
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
+- **Live Real Frontend Integration E2E (`node test-frontend-real-e2e.mjs`)**: **PASS 100%** (Next.js SSR, REST Auth, direct chat, WebSocket 101 handshake, message send/edit/pin/delete/logout lolos pada tenant default).
+- **Live Real Multi-Platform Verification (`node test-multiplatform-real-frontend.mjs`)**: **PASS 100%** (Desktop, Android PWA, iPhone Safari).
+- **Live Real Group Simulation (`node test-group-simulation.mjs`)**: **PASS 100%** (Group creation, public search, WebSocket fanout, BOLA guard).
+- **Server Lifecycle Guard**: Seluruh server port 8080 dan 3047 dimatikan bersih (`fuser -k 8080/tcp 3047/tcp` -> 0 lingering ports).
+
 

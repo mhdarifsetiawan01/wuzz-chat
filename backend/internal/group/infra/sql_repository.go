@@ -3,6 +3,7 @@
 package infra
 
 import (
+	"context"
 	"errors"
 
 	"github.com/bms-del112/wuzz-chat/internal/group"
@@ -34,6 +35,13 @@ func (r *SQLGroupRepository) CreateGroup(title, description, avatarURL, creatorI
 		return nil, errors.New("group store belum diinisialisasi")
 	}
 	return r.groupStore.CreateGroup(title, description, avatarURL, creatorID, groupUsername, isPublic, memberIDs)
+}
+
+func (r *SQLGroupRepository) CreateGroupWithContext(ctx context.Context, title, description, avatarURL, creatorID, groupUsername string, isPublic bool, memberIDs []string) (*group.GroupDetails, error) {
+	if r.groupStore == nil {
+		return nil, errors.New("group store belum diinisialisasi")
+	}
+	return r.groupStore.CreateGroupWithContext(ctx, title, description, avatarURL, creatorID, groupUsername, isPublic, memberIDs)
 }
 
 func (r *SQLGroupRepository) GetGroupDetails(conversationID, currentUserID string) (*group.GroupDetails, error) {
@@ -92,6 +100,13 @@ func (r *SQLGroupRepository) SearchPublicGroups(query string, limit int) ([]grou
 	return r.groupStore.SearchPublicGroups(query, limit)
 }
 
+func (r *SQLGroupRepository) SearchPublicGroupsWithContext(ctx context.Context, query string, limit int) ([]group.GroupDetails, error) {
+	if r.groupStore == nil {
+		return nil, errors.New("group store belum diinisialisasi")
+	}
+	return r.groupStore.SearchPublicGroupsWithContext(ctx, query, limit)
+}
+
 func (r *SQLGroupRepository) GetUserRoleInGroup(conversationID, userID string) (string, error) {
 	if r.groupStore == nil {
 		return "", errors.New("group store belum diinisialisasi")
@@ -104,6 +119,13 @@ func (r *SQLGroupRepository) CreateSubGroup(parentID, title, description, creato
 		return nil, errors.New("group store belum diinisialisasi")
 	}
 	return r.groupStore.CreateSubGroup(parentID, title, description, creatorID, duration, isPublic)
+}
+
+func (r *SQLGroupRepository) CreateSubGroupWithContext(ctx context.Context, parentID, title, description, creatorID, duration string, isPublic bool) (*group.GroupDetails, error) {
+	if r.groupStore == nil {
+		return nil, errors.New("group store belum diinisialisasi")
+	}
+	return r.groupStore.CreateSubGroupWithContext(ctx, parentID, title, description, creatorID, duration, isPublic)
 }
 
 func (r *SQLGroupRepository) GetActiveSubGroups(parentID, currentUserID string) ([]group.SubGroupItem, error) {

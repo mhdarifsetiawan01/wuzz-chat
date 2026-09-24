@@ -46,7 +46,11 @@ func NewSQLAuthRepository(
 // --- Identity ---
 
 func (r *SQLAuthRepository) GetUserByUsername(username string) (string, string, error) {
-	user, err := r.userStore.GetUserByUsername(username)
+	return r.GetUserByUsernameWithContext(context.Background(), username)
+}
+
+func (r *SQLAuthRepository) GetUserByUsernameWithContext(ctx context.Context, username string) (string, string, error) {
+	user, err := r.userStore.GetUserByUsernameWithContext(ctx, username)
 	if err != nil {
 		return "", "", err
 	}
@@ -54,10 +58,14 @@ func (r *SQLAuthRepository) GetUserByUsername(username string) (string, string, 
 }
 
 func (r *SQLAuthRepository) CreateUser(username, displayName string) (string, error) {
-	// Gunakan Register dari userStore yang sudah ada, tapi bypass password hashing
+	return r.CreateUserWithContext(context.Background(), username, displayName)
+}
+
+func (r *SQLAuthRepository) CreateUserWithContext(ctx context.Context, username, displayName string) (string, error) {
+	// Gunakan RegisterWithContext dari userStore yang sudah ada, tapi bypass password hashing
 	// karena AuthService sudah hash di level service.
 	// Buat user dengan password kosong — credential disimpan terpisah via CreateCredential.
-	user, err := r.userStore.Register(username, displayName, "")
+	user, err := r.userStore.RegisterWithContext(ctx, username, displayName, "")
 	if err != nil {
 		return "", err
 	}
@@ -81,7 +89,7 @@ func (r *SQLAuthRepository) ClearActiveDevice(userID, deviceID string) error {
 }
 
 func (r *SQLAuthRepository) SearchUsers(ctx context.Context, query, excludeUserID string) ([]authz.UserSummary, error) {
-	users, err := r.userStore.SearchUsers(query, excludeUserID)
+	users, err := r.userStore.SearchUsersWithContext(ctx, query, excludeUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +121,9 @@ func (r *SQLAuthRepository) GetUserByID(ctx context.Context, userID string) (*au
 
 func (r *SQLAuthRepository) GetUserByUsernameOrDisplayName(ctx context.Context, identifier string) (*authz.UserProfile, error) {
 	clean := strings.TrimPrefix(identifier, "@")
-	u, err := r.userStore.GetUserByUsername(clean)
+	u, err := r.userStore.GetUserByUsernameWithContext(ctx, clean)
 	if err != nil || u == nil {
-		u, err = r.userStore.GetUserByUsernameOrDisplayName(clean)
+		u, err = r.userStore.GetUserByUsernameOrDisplayNameWithContext(ctx, clean)
 		if err != nil || u == nil {
 			return nil, err
 		}

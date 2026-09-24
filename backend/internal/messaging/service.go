@@ -330,7 +330,7 @@ func (s *MessageService) UpdateReceipt(ctx context.Context, input UpdateReceiptI
 
 // GetConversations mengembalikan daftar obrolan aktif milik user.
 func (s *MessageService) GetConversations(ctx context.Context, userID string) ([]Conversation, error) {
-	return s.convRepo.GetUserConversations(userID)
+	return s.convRepo.GetUserConversationsWithContext(ctx, userID)
 }
 
 // StartDirectChat membuat atau mengembalikan ID percakapan 1-on-1 antar dua user.
@@ -338,7 +338,7 @@ func (s *MessageService) StartDirectChat(ctx context.Context, user1ID, user2ID s
 	if user2ID == "" {
 		return "", errors.New("target_user_id wajib diisi")
 	}
-	return s.convRepo.GetOrCreateDirectConversation(user1ID, user2ID)
+	return s.convRepo.GetOrCreateDirectConversationWithContext(ctx, user1ID, user2ID)
 }
 
 // ClearConversation membersihkan riwayat obrolan untuk user yang meminta.
