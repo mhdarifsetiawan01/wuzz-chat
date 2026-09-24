@@ -190,7 +190,7 @@ async function loginOrRegister(userObj) {
   return await res.json()
 }
 
-async function registerOrResetPublicKey(token, publicKeyJWK, deviceId, password = 'password123') {
+async function registerOrResetPublicKey(token, publicKeyJWK, deviceId, password = 'K0k0r0k0@123') {
   const res = await fetch(`${BACKEND_URL}/api/users/public-key/reset`, {
     method: 'POST',
     headers: {

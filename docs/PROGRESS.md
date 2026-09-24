@@ -2403,4 +2403,33 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
   - `test-group-simulation.mjs` (100% PASS: auth, group CRUD, WebSocket live system event, RBAC/BOLA).
   - `test-memory-simulation.mjs` (100% PASS: 14/14 langkah end-to-end lifecycle Memory AI & Groq LLM processing).
 
+---
+
+## 2026-09-24: Post-Audit Modular Monolith Hardening — Milestone 1 (Zero-Risk Handler Cleanup)
+
+### Problem Description
+1. Pasca-refactor Track B, beberapa HTTP handler di `backend/internal/api/` (`AuthHandler`, `ChatHandler`, `GroupHandler`, `MemoryHandler`) masih mempertahankan jalur ganda (*dual-path debt*): memeriksa apakah application service bernilai non-nil, dan jika nil mengeksekusi logika fallback warisan langsung ke store.
+2. Pola cabang ganda ini membingungkan pengembang junior, menambah beban pemeliharaan kode (code debt), dan meningkatkan risiko desinkronisasi logika bisnis antara handler dan domain service.
+
+### Implementation Details
+1. **Auto-Wiring Application Services di Konstruktor Handler**:
+   - `AuthHandler` (`backend/internal/api/auth_handler.go`): `NewAuthHandler` otomatis menginisialisasi `authz.AuthService` menggunakan `authzinfra.NewSQLAuthRepository(us, ...)`.
+   - `ChatHandler` (`backend/internal/api/chat_handler.go`): `NewChatHandler` dan `NewChatHandlerWithService` otomatis menginisialisasi `messaging.MessageService` menggunakan `messaginginfra.NewSQLMessagingRepository(ms, us)`.
+2. **Pembersihan Jalur Ganda (Eliminasi Fallback Store)**:
+   - `auth_handler.go`: Menghapus seluruh blok fallback store pada `Register`, `Login`, `Logout`, `ChangePassword`, `GetActiveSessions`, `RevokeSession`, dan `RevokeAllOtherSessions`. Menghapus duplikasi update aktivitas perangkat.
+   - `chat_handler.go`: Menghapus seluruh blok fallback store pada `GetConversations`, `StartDirectChat`, `ClearConversation`, `DeleteMessage`, `EditMessage`, `ForwardMessage`, `PinConversation`, `UnpinConversation`, `PinMessage`, `UnpinMessage`, `GetPinnedMessages`, `SearchMessages`, dan `UpdateReceipt`.
+   - `group_handler.go`: Menghapus field mati `groupStore` dari struct dan konstruktor.
+   - `memory_handler.go`: Menghapus field mati `groupStore` dan `userStore` dari struct dan konstruktor.
+   - `authz/service.go`: Menambahkan helper `SetRepository(repo AuthRepository)`.
+   - Net pengurangan: **-599 baris kode mati/fallback**.
+3. **Penyusunan Script Verifikasi Integrasi Frontend Asli (`frontend/test-frontend-real-e2e.mjs`)**:
+   - Menguji langsung Next.js SSR server (`server.js` port 3047) dan WebSocket proxy terhadap backend Go (port 8080) pada 19 skenario (SSR pages, auth, sessions, devices, conversations, direct chat, WebSocket connect, message send, edit, pin, unpin, receipts, search, delete, clear, logout).
+
+### Test Evidence
+- **Backend Full Suite (`go test ./...`)**: **PASS 100%** (seluruh 19 internal package lolos).
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
+- **Frontend Real Integration E2E (`test-frontend-real-e2e.mjs`)**: **PASS 100%** (seluruh 19 alur fungsi berjalan mulus melalui Next.js proxy).
+- **Simulasi Klien Frontend**: `test-two-user-e2ee-simulation.mjs` (PASS 100%), `test-multi-device-frontend.mjs` (PASS 100%), `test-group-simulation.mjs` (PASS 100%).
+
+
 

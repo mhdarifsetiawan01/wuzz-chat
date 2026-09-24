@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/messaging"
+	messaginginfra "github.com/bms-del112/wuzz-chat/internal/messaging/infra"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
 )
@@ -21,14 +21,21 @@ type ChatHandler struct {
 }
 
 func NewChatHandler(us store.UserStore, ms store.MessageStore) *ChatHandler {
+	repo := messaginginfra.NewSQLMessagingRepository(ms, us)
+	service := messaging.NewMessageService(repo, repo, repo, nil)
 	return &ChatHandler{
 		userStore:    us,
 		messageStore: ms,
+		service:      service,
 	}
 }
 
 // NewChatHandlerWithService membuat ChatHandler dengan injeksi MessageService (Fase 3 Track B).
 func NewChatHandlerWithService(service *messaging.MessageService, us store.UserStore, ms store.MessageStore) *ChatHandler {
+	if service == nil && (us != nil || ms != nil) {
+		repo := messaginginfra.NewSQLMessagingRepository(ms, us)
+		service = messaging.NewMessageService(repo, repo, repo, nil)
+	}
 	return &ChatHandler{
 		service:      service,
 		userStore:    us,
@@ -84,30 +91,14 @@ func (h *ChatHandler) GetConversations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.service != nil {
-		conversations, err := h.service.GetConversations(r.Context(), claims.UserID)
-		if err != nil {
-			http.Error(w, `{"error":"Gagal mengambil daftar percakapan"}`, http.StatusInternalServerError)
-			return
-		}
-		if conversations == nil {
-			conversations = []messaging.Conversation{}
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(conversations)
-		return
-	}
-
-	conversations, err := h.userStore.GetUserConversations(claims.UserID)
+	conversations, err := h.service.GetConversations(r.Context(), claims.UserID)
 	if err != nil {
 		http.Error(w, `{"error":"Gagal mengambil daftar percakapan"}`, http.StatusInternalServerError)
 		return
 	}
-
 	if conversations == nil {
-		conversations = []store.ConversationItem{}
+		conversations = []messaging.Conversation{}
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(conversations)
 }
@@ -128,25 +119,11 @@ func (h *ChatHandler) StartDirectChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.service != nil {
-		roomID, err := h.service.StartDirectChat(r.Context(), claims.UserID, req.TargetUserID)
-		if err != nil {
-			http.Error(w, `{"error":"Gagal membuat direct conversation"}`, http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"room_id": roomID,
-		})
-		return
-	}
-
-	roomID, err := h.userStore.GetOrCreateDirectConversation(claims.UserID, req.TargetUserID)
+	roomID, err := h.service.StartDirectChat(r.Context(), claims.UserID, req.TargetUserID)
 	if err != nil {
 		http.Error(w, `{"error":"Gagal membuat direct conversation"}`, http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"room_id": roomID,
@@ -184,36 +161,14 @@ func (h *ChatHandler) ClearConversation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if h.service != nil {
-		if err := h.service.ClearConversation(r.Context(), conversationID, claims.UserID); err != nil {
-			if strings.Contains(err.Error(), "Akses ditolak") {
-				http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
-				return
-			}
-			http.Error(w, `{"error":"Gagal menghapus percakapan: `+err.Error()+`"}`, http.StatusInternalServerError)
+	if err := h.service.ClearConversation(r.Context(), conversationID, claims.UserID); err != nil {
+		if strings.Contains(err.Error(), "Akses ditolak") {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success": true,
-			"message": "Percakapan berhasil dibersihkan untuk akun Anda",
-			"id":      conversationID,
-		})
-		return
-	}
-
-	// Validasi bahwa user memang anggota percakapan
-	allowed, err := h.userStore.IsUserInConversation(conversationID, claims.UserID)
-	if err != nil || !allowed {
-		http.Error(w, `{"error":"Akses ditolak: Anda bukan anggota percakapan ini"}`, http.StatusForbidden)
-		return
-	}
-
-	if err := h.userStore.ClearConversation(conversationID, claims.UserID); err != nil {
 		http.Error(w, `{"error":"Gagal menghapus percakapan: `+err.Error()+`"}`, http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true,
@@ -338,37 +293,11 @@ func (h *ChatHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.service != nil {
-		_, err := h.service.DeleteMessage(r.Context(), messaging.DeleteMessageInput{
-			MessageID:         msgID,
-			UserID:            claims.UserID,
-			DeleteForEveryone: req.DeleteForEveryone,
-		})
-		if err != nil {
-			errMsg := err.Error()
-			if strings.Contains(errMsg, "lebih dari 1 menit") || strings.Contains(errMsg, "hanya pengirim") {
-				http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusBadRequest)
-				return
-			}
-			if strings.Contains(errMsg, "tidak ditemukan") {
-				http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusNotFound)
-				return
-			}
-			http.Error(w, `{"error":"Gagal menghapus pesan: `+errMsg+`"}`, http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success":             true,
-			"message_id":          msgID,
-			"delete_for_everyone": req.DeleteForEveryone,
-			"message":             "Pesan berhasil dihapus",
-		})
-		return
-	}
-
-	updatedMsg, err := h.messageStore.DeleteMessage(msgID, claims.UserID, req.DeleteForEveryone)
+	_, err := h.service.DeleteMessage(r.Context(), messaging.DeleteMessageInput{
+		MessageID:         msgID,
+		UserID:            claims.UserID,
+		DeleteForEveryone: req.DeleteForEveryone,
+	})
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "lebih dari 1 menit") || strings.Contains(errMsg, "hanya pengirim") {
@@ -381,18 +310,6 @@ func (h *ChatHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Error(w, `{"error":"Gagal menghapus pesan: `+errMsg+`"}`, http.StatusInternalServerError)
 		return
-	}
-
-	// Jika delete for everyone, broadcast real-time event ke seluruh client di room
-	if req.DeleteForEveryone && h.hub != nil && updatedMsg != nil {
-		h.hub.BroadcastRoom(updatedMsg.RoomID, ws.Message{
-			ID:        updatedMsg.ID,
-			Type:      ws.TypeMessageDeleted,
-			Room:      updatedMsg.RoomID,
-			Content:   "🚫 Pesan ini telah dihapus",
-			IsDeleted: true,
-			Timestamp: time.Now().UTC(),
-		}, "")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -448,39 +365,11 @@ func (h *ChatHandler) EditMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.service != nil {
-		updatedMsg, err := h.service.EditMessage(r.Context(), messaging.EditMessageInput{
-			MessageID: msgID,
-			UserID:    claims.UserID,
-			Content:   newContent,
-		})
-		if err != nil {
-			errMsg := err.Error()
-			if strings.Contains(errMsg, "15 menit") || strings.Contains(errMsg, "hanya pengirim") || strings.Contains(errMsg, "tidak dapat diedit") || strings.Contains(errMsg, "tidak boleh kosong") {
-				http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusBadRequest)
-				return
-			}
-			if strings.Contains(errMsg, "tidak ditemukan") {
-				http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusNotFound)
-				return
-			}
-			http.Error(w, `{"error":"Gagal mengedit pesan: `+errMsg+`"}`, http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success":     true,
-			"message_id":  msgID,
-			"new_content": updatedMsg.Content,
-			"is_edited":   true,
-			"edited_at":   updatedMsg.EditedAt,
-			"message":     "Pesan berhasil diedit",
-		})
-		return
-	}
-
-	updatedMsg, err := h.messageStore.EditMessage(msgID, claims.UserID, newContent)
+	updatedMsg, err := h.service.EditMessage(r.Context(), messaging.EditMessageInput{
+		MessageID: msgID,
+		UserID:    claims.UserID,
+		Content:   newContent,
+	})
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "15 menit") || strings.Contains(errMsg, "hanya pengirim") || strings.Contains(errMsg, "tidak dapat diedit") || strings.Contains(errMsg, "tidak boleh kosong") {
@@ -493,21 +382,6 @@ func (h *ChatHandler) EditMessage(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Error(w, `{"error":"Gagal mengedit pesan: `+errMsg+`"}`, http.StatusInternalServerError)
 		return
-	}
-
-	// Broadcast real-time event TypeMessageEdited ke seluruh client di room
-	if h.hub != nil && updatedMsg != nil {
-		h.hub.BroadcastRoom(updatedMsg.RoomID, ws.Message{
-			ID:         updatedMsg.ID,
-			Type:       ws.TypeMessageEdited,
-			Room:       updatedMsg.RoomID,
-			From:       updatedMsg.FromID,
-			Content:    updatedMsg.Content,
-			NewContent: updatedMsg.Content,
-			IsEdited:   true,
-			EditedAt:   updatedMsg.EditedAt,
-			Timestamp:  time.Now().UTC(),
-		}, "")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -558,104 +432,29 @@ func (h *ChatHandler) ForwardMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.service != nil {
-		forwardedMsgs, err := h.service.ForwardMessage(r.Context(), messaging.ForwardMessageInput{
-			SourceMessageID:  msgID,
-			SenderID:         claims.UserID,
-			SenderNickname:   claims.Username,
-			TargetRoomIDs:    req.TargetRoomIDs,
-			PlaintextContent: req.PlaintextContent,
-		})
-		if err != nil {
-			errMsg := err.Error()
-			if strings.Contains(errMsg, "tidak ditemukan") {
-				http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusNotFound)
-				return
-			}
-			if strings.Contains(errMsg, "bukan anggota") {
-				http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusForbidden)
-				return
-			}
-			if strings.Contains(errMsg, "maksimal") || strings.Contains(errMsg, "minimal") || strings.Contains(errMsg, "wajib") || strings.Contains(errMsg, "tidak boleh kosong") {
-				http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusBadRequest)
-				return
-			}
-			http.Error(w, `{"error":"Gagal meneruskan pesan: `+errMsg+`"}`, http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success":  true,
-			"messages": forwardedMsgs,
-			"message":  "Pesan berhasil diteruskan",
-		})
-		return
-	}
-
-	// Validasi bahwa user merupakan anggota dari setiap percakapan target
-	if h.userStore != nil {
-		for _, roomID := range req.TargetRoomIDs {
-			roomID = strings.TrimSpace(roomID)
-			if roomID == "" {
-				continue
-			}
-			isMember, err := h.userStore.IsUserInConversation(roomID, claims.UserID)
-			if err != nil || !isMember {
-				http.Error(w, `{"error":"Anda bukan anggota percakapan target `+roomID+`"}`, http.StatusForbidden)
-				return
-			}
-		}
-	}
-
-	// Ambil username / display name pengirim
-	senderNickname := claims.Username
-	if h.userStore != nil {
-		if u, err := h.userStore.GetUserByID(claims.UserID); err == nil && u != nil {
-			if u.DisplayName != "" {
-				senderNickname = u.DisplayName
-			} else if u.Username != "" {
-				senderNickname = u.Username
-			}
-		}
-	}
-
-	forwardedMsgs, err := h.messageStore.ForwardMessage(msgID, claims.UserID, senderNickname, req.TargetRoomIDs, req.PlaintextContent)
+	forwardedMsgs, err := h.service.ForwardMessage(r.Context(), messaging.ForwardMessageInput{
+		SourceMessageID:  msgID,
+		SenderID:         claims.UserID,
+		SenderNickname:   claims.Username,
+		TargetRoomIDs:    req.TargetRoomIDs,
+		PlaintextContent: req.PlaintextContent,
+	})
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "tidak ditemukan") {
 			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusNotFound)
 			return
 		}
-		if strings.Contains(errMsg, "maksimal") || strings.Contains(errMsg, "tidak dapat meneruskan") || strings.Contains(errMsg, "tidak boleh kosong") {
+		if strings.Contains(errMsg, "bukan anggota") {
+			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusForbidden)
+			return
+		}
+		if strings.Contains(errMsg, "maksimal") || strings.Contains(errMsg, "minimal") || strings.Contains(errMsg, "wajib") || strings.Contains(errMsg, "tidak boleh kosong") || strings.Contains(errMsg, "tidak dapat meneruskan") {
 			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusBadRequest)
 			return
 		}
 		http.Error(w, `{"error":"Gagal meneruskan pesan: `+errMsg+`"}`, http.StatusInternalServerError)
 		return
-	}
-
-	// Broadcast setiap pesan terusan ke room tujuan via WebSocket Hub
-	if h.hub != nil {
-		for _, fm := range forwardedMsgs {
-			wsMsg := ws.Message{
-				ID:          fm.ID,
-				Type:        ws.TypeMessage,
-				From:        fm.FromID,
-				Nickname:    fm.Nickname,
-				Room:        fm.RoomID,
-				Content:     fm.Content,
-				Status:      ws.StatusSent,
-				MediaURL:    fm.MediaURL,
-				MediaType:   fm.MediaType,
-				FileName:    fm.FileName,
-				FileSize:    fm.FileSize,
-				MediaStatus: fm.MediaStatus,
-				IsForwarded: true,
-				Timestamp:   fm.Timestamp,
-			}
-			h.hub.BroadcastRoom(fm.RoomID, wsMsg, claims.UserID)
-		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -698,23 +497,7 @@ func (h *ChatHandler) PinConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.service != nil {
-		if err := h.service.PinConversation(r.Context(), convID, claims.UserID); err != nil {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success":         true,
-			"conversation_id": convID,
-			"is_pinned":       true,
-			"message":         "Percakapan berhasil disematkan",
-		})
-		return
-	}
-
-	if err := h.userStore.PinConversation(convID, claims.UserID); err != nil {
+	if err := h.service.PinConversation(r.Context(), convID, claims.UserID); err != nil {
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
 		return
 	}
@@ -760,23 +543,7 @@ func (h *ChatHandler) UnpinConversation(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if h.service != nil {
-		if err := h.service.UnpinConversation(r.Context(), convID, claims.UserID); err != nil {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success":         true,
-			"conversation_id": convID,
-			"is_pinned":       false,
-			"message":         "Sematkan percakapan berhasil dilepas",
-		})
-		return
-	}
-
-	if err := h.userStore.UnpinConversation(convID, claims.UserID); err != nil {
+	if err := h.service.UnpinConversation(r.Context(), convID, claims.UserID); err != nil {
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
 		return
 	}
@@ -823,55 +590,19 @@ func (h *ChatHandler) PinMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.service != nil {
-		pin, err := h.service.PinMessage(r.Context(), messaging.PinMessageInput{
-			ConversationID: convID,
-			MessageID:      msgID,
-			UserID:         claims.UserID,
-			DurationHours:  req.DurationHours,
-		})
-		if err != nil {
-			if strings.Contains(err.Error(), "bukan anggota") {
-				http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
-				return
-			}
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success": true,
-			"pinned":  pin,
-			"message": "Pesan berhasil disematkan",
-		})
-		return
-	}
-
-	// Validasi bahwa user adalah member room
-	if h.userStore != nil {
-		isMember, err := h.userStore.IsUserInConversation(convID, claims.UserID)
-		if err != nil || !isMember {
-			http.Error(w, `{"error":"Anda bukan anggota dari percakapan ini"}`, http.StatusForbidden)
-			return
-		}
-	}
-
-	pin, err := h.messageStore.PinMessage(convID, msgID, claims.UserID, req.DurationHours)
+	pin, err := h.service.PinMessage(r.Context(), messaging.PinMessageInput{
+		ConversationID: convID,
+		MessageID:      msgID,
+		UserID:         claims.UserID,
+		DurationHours:  req.DurationHours,
+	})
 	if err != nil {
+		if strings.Contains(err.Error(), "bukan anggota") {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			return
+		}
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
 		return
-	}
-
-	// Broadcast WS event TypeMessagePinned ke room
-	if h.hub != nil {
-		h.hub.BroadcastRoom(convID, ws.Message{
-			Type:      ws.TypeMessagePinned,
-			Room:      convID,
-			ID:        msgID,
-			Pinned:    pin,
-			Timestamp: time.Now().UTC(),
-		}, "")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -927,51 +658,18 @@ func (h *ChatHandler) UnpinMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.service != nil {
-		err := h.service.UnpinMessage(r.Context(), messaging.UnpinMessageInput{
-			ConversationID: convID,
-			MessageID:      msgID,
-			UserID:         claims.UserID,
-		})
-		if err != nil {
-			if strings.Contains(err.Error(), "bukan anggota") {
-				http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
-				return
-			}
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+	err := h.service.UnpinMessage(r.Context(), messaging.UnpinMessageInput{
+		ConversationID: convID,
+		MessageID:      msgID,
+		UserID:         claims.UserID,
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "bukan anggota") {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
 			return
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success": true,
-			"message": "Sematan pesan berhasil dilepas",
-		})
-		return
-	}
-
-	// Validasi bahwa user adalah member room
-	if h.userStore != nil {
-		isMember, err := h.userStore.IsUserInConversation(convID, claims.UserID)
-		if err != nil || !isMember {
-			http.Error(w, `{"error":"Anda bukan anggota dari percakapan ini"}`, http.StatusForbidden)
-			return
-		}
-	}
-
-	if err := h.messageStore.UnpinMessage(convID, msgID); err != nil {
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
 		return
-	}
-
-	// Broadcast WS event TypeMessageUnpinned ke room
-	if h.hub != nil {
-		h.hub.BroadcastRoom(convID, ws.Message{
-			Type:      ws.TypeMessageUnpinned,
-			Room:      convID,
-			ID:        msgID,
-			Timestamp: time.Now().UTC(),
-		}, "")
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -998,36 +696,12 @@ func (h *ChatHandler) GetPinnedMessages(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if h.service != nil {
-		pins, err := h.service.GetPinnedMessages(r.Context(), convID, claims.UserID)
-		if err != nil {
-			if strings.Contains(err.Error(), "bukan anggota") {
-				http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
-				return
-			}
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success": true,
-			"pinned":  pins,
-		})
-		return
-	}
-
-	// Validasi bahwa user adalah member room
-	if h.userStore != nil {
-		isMember, err := h.userStore.IsUserInConversation(convID, claims.UserID)
-		if err != nil || !isMember {
-			http.Error(w, `{"error":"Anda bukan anggota dari percakapan ini"}`, http.StatusForbidden)
-			return
-		}
-	}
-
-	pins, err := h.messageStore.GetPinnedMessages(convID)
+	pins, err := h.service.GetPinnedMessages(r.Context(), convID, claims.UserID)
 	if err != nil {
+		if strings.Contains(err.Error(), "bukan anggota") {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			return
+		}
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
 		return
 	}
@@ -1072,37 +746,12 @@ func (h *ChatHandler) SearchMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if h.service != nil {
-		results, err := h.service.SearchMessages(r.Context(), roomID, claims.UserID, query, limit)
-		if err != nil {
-			if strings.Contains(err.Error(), "bukan anggota") {
-				http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
-				return
-			}
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success":  true,
-			"messages": results,
-			"count":    len(results),
-		})
-		return
-	}
-
-	// Validasi bahwa user adalah member room
-	if h.userStore != nil {
-		isMember, err := h.userStore.IsUserInConversation(roomID, claims.UserID)
-		if err != nil || !isMember {
-			http.Error(w, `{"error":"Anda bukan anggota dari percakapan ini"}`, http.StatusForbidden)
-			return
-		}
-	}
-
-	results, err := h.messageStore.SearchMessages(roomID, claims.UserID, query, limit)
+	results, err := h.service.SearchMessages(r.Context(), roomID, claims.UserID, query, limit)
 	if err != nil {
+		if strings.Contains(err.Error(), "bukan anggota") {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			return
+		}
 		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
 		return
 	}
@@ -1143,57 +792,19 @@ func (h *ChatHandler) UpdateReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.service != nil {
-		err := h.service.UpdateReceipt(r.Context(), messaging.UpdateReceiptInput{
-			MessageID: req.MessageID,
-			RoomID:    req.RoomID,
-			UserID:    claims.UserID,
-			Status:    req.Status,
-		})
-		if err != nil {
-			if strings.Contains(err.Error(), "Akses ditolak") {
-				http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
-				return
-			}
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+	err := h.service.UpdateReceipt(r.Context(), messaging.UpdateReceiptInput{
+		MessageID: req.MessageID,
+		RoomID:    req.RoomID,
+		UserID:    claims.UserID,
+		Status:    req.Status,
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "Akses ditolak") {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
 			return
 		}
-
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"success": true,
-			"status":  req.Status,
-		})
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
 		return
-	}
-
-	// Validasi Hak Akses Room (BOLA Prevention)
-	if h.userStore != nil {
-		isAuth, err := h.userStore.IsUserInConversation(req.RoomID, claims.UserID)
-		if err != nil || !isAuth {
-			http.Error(w, `{"error":"Akses ditolak: Anda bukan anggota percakapan ini"}`, http.StatusForbidden)
-			return
-		}
-	}
-
-	// 1. Update status di MessageStore
-	if req.MessageID != "" {
-		_ = h.messageStore.UpdateMessageStatus(req.MessageID, req.Status)
-	} else if req.Status == "read" {
-		_ = h.messageStore.MarkRoomMessagesAsRead(req.RoomID, claims.UserID)
-	} else if req.Status == "delivered" {
-		_, _ = h.messageStore.MarkUserMessagesAsDelivered(claims.UserID)
-	}
-
-	// 2. Broadcast TypeReceipt ke room via Hub jika tersedia
-	if h.hub != nil {
-		h.hub.BroadcastRoom(req.RoomID, ws.Message{
-			ID:        req.MessageID,
-			Type:      ws.TypeReceipt,
-			Room:      req.RoomID,
-			Status:    ws.MessageStatus(req.Status),
-			Timestamp: time.Now().UTC(),
-		}, claims.UserID)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -47,6 +47,12 @@ func (s *AuthService) SetSessionKicker(kicker SessionKicker) {
 	s.kicker = kicker
 }
 
+// SetRepository menyuntikkan atau memperbarui implementasi AuthRepository.
+func (s *AuthService) SetRepository(repo AuthRepository) {
+	s.repo = repo
+}
+
+
 // --- Register Use Case ---
 
 // RegisterInput adalah input untuk use case Register.
