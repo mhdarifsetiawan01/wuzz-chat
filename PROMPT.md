@@ -115,13 +115,13 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   4. ✅ **Phase 3 (Credential Separation)**: Tabel `user_credentials`, pemisahan password dari tabel `users`, dan dual read/write non-destruktif.
   5. 🔮 **Phase 4 (Passkey / WebAuthn)**: Siap dieksekusi untuk login biometrik tanpa password (W3C WebAuthn).
   6. ✅ **Phase 5 (Multi-Device E2EE Continuity)**: Master key synchronization via transfer QR ephemeral dan multi-device session management.
-- 🏛️ **Track B: Transformasi Modular Monolith & DDD Engine (Status: Fase 1, 2, 3, 4, 5 SELESAI ✅ | Menuju Fase 6 🎯)** —
+- 🏛️ **Track B: Transformasi Modular Monolith & DDD Engine (Status: Fase 1 s.d. 6 SELESAI ✅ | Arsitektur Mandiri)** —
   1. ✅ **Fase 1: Pemisahan GroupStore dari SQLUserStore (SELESAI & DEPLOYED)**: Ekstraksi `SQLGroupStore` mandiri (`sql_group_store.go`), membersihkan ketergantungan `SQLUserStore` dari domain grup, wiring terpisah di `main.go`, lulus test 100%, dan deployed ke Fly.io (`672eca6`).
   2. ✅ **Fase 2: Application Service untuk Auth & Identity (SELESAI & DEPLOYED)**: Ekstraksi `AuthService` (`authz/service.go`) untuk use cases login/register/device limits, memisahkan domain `Identity` dan `Auth`, menjadikan `auth_handler.go` sebagai *thin transport*, dan deployed ke Fly.io (`174f447`).
   3. ✅ **Fase 3: Application Service untuk Messaging & Hub Decoupling (SELESAI)**: Domain `internal/messaging/` (`entity.go`, `repository.go`, `infra/sql_repository.go`), `MessageService` (`service.go`) untuk edit, delete, forward, pin, unpin, receipt, search, get conversations, serta decoupling WebSocket Hub via interface `RoomAuthorizationChecker`.
   4. ✅ **Fase 4: Group & Forum Service (SELESAI)**: Domain `internal/group/` (`entity.go`, `repository.go`, `infra/sql_repository.go`), `GroupService` & `ForumService` (`service.go`), migrasi `SubGroupTTLWorker` (`group/worker/ttl_worker.go`), refactor `api/group_handler.go` menjadi thin transport, lulus test 100% dan terverifikasi penuh via simulasi client frontend (`test-group-simulation.mjs`).
   5. ✅ **Fase 5: Memory Engine Generalization (`ContextSource` Abstraction) (SELESAI)**: Abstraksi sumber memori via interface `ContextSource` (`context_source.go`), `ForumContextSource` di domain group, `MemoryService` (`service.go`), `MemoryRepository` & adapter, refactor `api/memory_handler.go` menjadi thin transport, lulus 100% Go tests, Next.js build, dan 14-langkah simulasi client frontend (`test-memory-simulation.mjs`).
-  6. 🎯 **Fase 6: Cleanup & Slim `main.go` Wiring (`wire.go`) (FOKUS BERIKUTNYA)**.
+  6. ✅ **Fase 6: Cleanup & Slim `main.go` Wiring (`wire.go` / `app.go`) (SELESAI)**: Konfigurasi runtime terpusat (`internal/shared/config/`), sentralisasi background worker (`internal/authz/worker/cleaner_worker.go`), orkestrator kontainer & dependency injection (`internal/app/wire.go`), pemisahan router modular (`internal/app/router.go`), slim entrypoint `backend/main.go` (55 baris) dengan Go standard graceful shutdown, 100% lulus seluruh test suite backend dan frontend.
 
 
 ---

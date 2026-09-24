@@ -674,10 +674,13 @@ InstaQRIS tidak perlu tahu tentang SQL atau Go internals. Ia cukup:
 - [x] Update `MemoryProcessor` untuk menggunakan `ContextSource`
 - [x] Verifikasi existing Memory AI tests masih pass (100% pass)
 
-### Fase 6: Cleanup & Slim Entrypoint (1-2 hari) ← FOKUS BERIKUTNYA 🎯
-- [ ] Hapus file yang sudah dipindahkan
-- [ ] Update package imports
-- [ ] Run full test suite
+### Fase 6: Cleanup & Slim Entrypoint (1-2 hari) ← SELESAI ✅
+- [x] Sentralisasi konfigurasi runtime di `internal/shared/config/config.go`
+- [x] Sentralisasi background cleaner worker di `internal/authz/worker/cleaner_worker.go`
+- [x] Application container & perakitan dependency injection di `internal/app/wire.go`
+- [x] Pemisahan pemetaan router modular di `internal/app/router.go`
+- [x] Refactoring `backend/main.go` menjadi slim bootstrap (55 baris) dengan Go standard graceful shutdown
+- [x] Run full test suite (Go backend 100% PASS, Next.js frontend build 100% PASS, E2E simulations 100% PASS)
 
 ---
 

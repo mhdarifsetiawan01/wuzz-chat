@@ -30,11 +30,11 @@ Membangun platform chatting modern yang:
 │   TRACK A: PRODUCT FEATURES & CAPABILITY  │   TRACK B: MODULAR MONOLITH & DDD ENGINE   │
 ├───────────────────────────────────────────┼────────────────────────────────────────────┤
 │ [x] Fase 1: Real-Time Engine (WebSocket)  │ [x] Fase 1: SQLGroupStore Decoupling (✅)   │
-│ [x] Fase 2: Cloud Persistence & Presence  │ [ ] Fase 2: Application Service Auth (🎯)  │
-│ [x] Fase 3: User Identity & DM Contacts   │ [ ] Fase 3: Application Service Messaging  │
-│ [x] Fase 4: Modern Chat UX & Dynamics     │ [ ] Fase 4: Group & Forum Service          │
-│ [x] Fase 5: Store-and-Forward Media & VN  │ [ ] Fase 5: Memory ContextSource Abstr.    │
-│ [x] Fase 6: Distributed Scale & Upstash   │ [ ] Fase 6: Slim Entrypoint & wire.go      │
+│ [x] Fase 2: Cloud Persistence & Presence  │ [x] Fase 2: Application Service Auth (✅)  │
+│ [x] Fase 3: User Identity & DM Contacts   │ [x] Fase 3: App Service Messaging (✅)     │
+│ [x] Fase 4: Modern Chat UX & Dynamics     │ [x] Fase 4: Group & Forum Service (✅)     │
+│ [x] Fase 5: Store-and-Forward Media & VN  │ [x] Fase 5: Memory ContextSource Abstr (✅)│
+│ [x] Fase 6: Distributed Scale & Upstash   │ [x] Fase 6: Slim Entrypoint & wire.go (✅) │
 │ [x] Fase 7: E2EE & WebRTC Audio Calling   ├────────────────────────────────────────────┤
 │ [x] Fase 8: Core Parity (Groups, Push)    │ Dokumen Spesifikasi Engine:                │
 │ [x] Fase 10: Group Memory AI (M1–M7)      │ 👉 docs/MODULAR_MONOLITH_DDD.md            │
@@ -444,8 +444,10 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
     - Membangun domain `internal/memory/` (`entity.go`, `context_source.go`, `repository.go`, `infra/sql_repository.go`), `MemoryService`, serta integrasi `ForumContextSource` di domain group.
     - Menjadikan `api/memory_handler.go` sebagai *thin transport*, 100% lulus automated Go tests, Next.js build, dan 14-langkah real frontend client simulation.
 
-  - 🎯 **Fase 6: Cleanup & Slim Entrypoint (FOKUS BERIKUTNYA 🎯)**:
-    - Menyederhanakan `main.go` menjadi file bootstrap tipis dan memindahkan wiring dependensi ke `cmd/server/wire.go`.
+  - ✅ **Fase 6: Cleanup & Slim Entrypoint Wiring (`wire.go` / `app.go`) (SELESAI ✅)**:
+    - Sentralisasi konfigurasi terpadu di `internal/shared/config/`, pengemasan background cleaner worker di `internal/authz/worker/cleaner_worker.go`.
+    - Orkestrasi dependency injection dan container perakitan di `internal/app/wire.go`, pemisahan router modular di `internal/app/router.go`.
+    - Merampingkan `main.go` menjadi 55 baris dengan Go standard graceful shutdown, 100% lolos full backend & frontend test suite.
 
 ---
 
