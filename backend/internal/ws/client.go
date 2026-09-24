@@ -22,6 +22,7 @@ const (
 // Client merepresentasikan satu koneksi WebSocket yang aktif.
 type Client struct {
 	ID          string
+	TenantID    string // Identitas tenant / namespace isolasi (Milestone 4)
 	Username    string
 	DisplayName string
 	Nickname    string
@@ -43,12 +44,21 @@ type Client struct {
 func NewClient(id, nickname string, conn *websocket.Conn, hub *Hub) *Client {
 	return &Client{
 		ID:       id,
+		TenantID: "default",
 		Nickname: nickname,
 		JoinedAt: time.Now().UTC(),
 		hub:      hub,
 		conn:     conn,
 		send:     make(chan Message, sendBufferSize),
 	}
+}
+
+// getTenantID mengembalikan TenantID klien atau fallback ke "default".
+func (c *Client) getTenantID() string {
+	if c.TenantID != "" {
+		return c.TenantID
+	}
+	return "default"
 }
 
 // getSenderKey mengembalikan sessionKey unik per perangkat klien, atau fallback ke ID.
@@ -89,6 +99,7 @@ func (c *Client) ReadPump() {
 		}
 
 		msg.From = c.ID
+		msg.TenantID = c.getTenantID()
 		msg.Timestamp = time.Now().UTC()
 
 		c.handleMessage(msg)
@@ -187,6 +198,7 @@ func (c *Client) onJoin(msg Message) {
 				Type:      TypeReceipt,
 				Room:      rID,
 				Status:    StatusDelivered,
+				TenantID:  c.getTenantID(),
 				Timestamp: time.Now().UTC(),
 			}, c.ID)
 		}
@@ -200,6 +212,7 @@ func (c *Client) onJoin(msg Message) {
 			Type:      TypeReceipt,
 			Room:      targetRoom,
 			Status:    StatusRead,
+			TenantID:  c.getTenantID(),
 			Timestamp: time.Now().UTC(),
 		}, c.ID)
 
@@ -289,12 +302,12 @@ func (c *Client) onMessage(msg Message) {
 		return
 	}
 
-	// Cek apakah lawan bicara sedang online di Hub
+	// Cek apakah lawan bicara sedang online di Hub (dengan tenant yang cocok)
 	isPeerOnline := false
 	c.hub.mu.RLock()
 	if room, ok := c.hub.rooms[targetRoom]; ok {
-		for id := range room {
-			if id != c.ID {
+		for id, peerC := range room {
+			if id != c.ID && peerC.getTenantID() == c.getTenantID() {
 				isPeerOnline = true
 				break
 			}
@@ -304,7 +317,7 @@ func (c *Client) onMessage(msg Message) {
 		members := c.hub.getRoomMembers(targetRoom)
 		for _, name := range members {
 			if name != "" && !strings.EqualFold(name, c.Nickname) && name != c.ID {
-				if peerClient, found := c.hub.findClientLocked(name); found && peerClient.ID != c.ID {
+				if peerClient, found := c.hub.findClientLocked(name); found && peerClient.ID != c.ID && peerClient.getTenantID() == c.getTenantID() {
 					isPeerOnline = true
 					break
 				}
@@ -321,6 +334,7 @@ func (c *Client) onMessage(msg Message) {
 	msg.Room = targetRoom
 	msg.From = c.ID
 	msg.Nickname = c.Nickname
+	msg.TenantID = c.getTenantID()
 
 	// Broadcast ke semua anggota lain di room (dan perangkat lain milik user) dan simpan ke database
 	c.hub.BroadcastRoom(targetRoom, msg, c.getSenderKey())
@@ -333,6 +347,7 @@ func (c *Client) onMessage(msg Message) {
 		Type:      TypeReceipt,
 		Room:      targetRoom,
 		Status:    initialStatus,
+		TenantID:  c.getTenantID(),
 		Timestamp: time.Now().UTC(),
 	}:
 	default:
@@ -377,6 +392,7 @@ func (c *Client) onReceipt(msg Message) {
 
 	msg.Room = targetRoom
 	msg.Type = TypeReceipt
+	msg.TenantID = c.getTenantID()
 	// Broadcast receipt ke anggota percakapan (terutama sender asli)
 	c.hub.BroadcastRoom(targetRoom, msg, c.getSenderKey())
 }
@@ -403,6 +419,7 @@ func (c *Client) onTyping(msg Message) {
 
 	msg.Room = targetRoom
 	msg.Nickname = c.Nickname
+	msg.TenantID = c.getTenantID()
 	c.hub.BroadcastRoom(targetRoom, msg, c.getSenderKey())
 }
 
@@ -450,6 +467,7 @@ func (c *Client) onReaction(msg Message) {
 	msg.From = c.ID
 	msg.Reactions = reactions
 	msg.ID = msg.Reaction.MessageID
+	msg.TenantID = c.getTenantID()
 	c.hub.BroadcastRoom(targetRoom, msg, "")
 }
 
@@ -473,6 +491,7 @@ func (c *Client) onCallSignaling(msg Message) {
 	msg.Room = targetRoom
 	msg.From = c.ID
 	msg.Nickname = c.Nickname
+	msg.TenantID = c.getTenantID()
 	msg.Timestamp = time.Now().UTC()
 
 	// Broadcast pesan sinyal WebRTC ke seluruh peer di room selain pengirim (termasuk perangkat lain pengirim)

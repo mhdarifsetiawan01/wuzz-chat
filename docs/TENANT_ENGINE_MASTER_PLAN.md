@@ -185,12 +185,12 @@ CREATE INDEX IF NOT EXISTS idx_tenant_keys_app ON tenant_api_keys(app_id, is_act
 
 ### 1. In-Memory WebSocket Hub
 - [x] **Hapus map `clientsByNick`**: Selesai di Milestone 0 (perutean murni berbasis User UUID).
-- [ ] Setiap struct `Client` menyimpan field `TenantID` (Milestone 4).
-- [ ] Multicast room broadcast memvalidasi keanggotaan dan kecocokan `TenantID` (Milestone 4).
+- [x] Setiap struct `Client` menyimpan field `TenantID` (Milestone 4).
+- [x] Multicast room broadcast memvalidasi keanggotaan dan kecocokan `TenantID` (Milestone 4).
 
 ### 2. Redis Pub/Sub Cluster
-- Perbarui struct `ClusterEvent` di [hub.go](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go) dengan field `TenantID string json:"tenant_id"`.
-- Listener pada setiap node memeriksa apakah target room/user aktif di instance lokal untuk tenant terkait sebelum melakukan broadcast.
+- [x] Perbarui struct `ClusterEvent` di [hub.go](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go) dengan field `TenantID string json:"tenant_id"`.
+- [x] Listener pada setiap node memeriksa apakah target room/user aktif di instance lokal untuk tenant terkait sebelum melakukan broadcast (Milestone 4).
 
 ### 3. AI Memory Engine
 - `ContextSource` menerima `ctx` yang memuat `TenantContext`.
@@ -206,8 +206,8 @@ CREATE INDEX IF NOT EXISTS idx_tenant_keys_app ON tenant_api_keys(app_id, is_act
 [Milestone 1] Additive Schema Migration & Tenant Registry       ==> DONE & DEPLOYED (Sep 2026) ✅
 [Milestone 2] Tenant Context Propagation in Services & Repos    ==> DONE & DEPLOYED (Sep 2026) ✅
 [Milestone 3] External Provisioning & B2B Auth Gateway          ==> DONE (Sep 2026) ✅
-[Milestone 4] Realtime & Cluster Envelope Tenant Isolation      ==> NEXT 🎯
-[Milestone 5] AI Memory Context Tenant Scoping                  ==> LATER ⏳
+[Milestone 4] Realtime & Cluster Envelope Tenant Isolation      ==> DONE (Sep 2026) ✅
+[Milestone 5] AI Memory Context Tenant Scoping                  ==> NEXT 🎯
 [Milestone 6] OpenAPI Contract & Headless Integration Guide     ==> LATER ⏳
 ──────────────────────────────────────────────────────────────────────────────
 [Milestone 7] Webhooks & Event Subscription Engine             ==> FUTURE 🔮

@@ -1,3 +1,3 @@
-# Task Checklist — Standby
+# Task Checklist — Standby State
 
-Belum ada task aktif. Standby untuk Milestone 3 (External Provisioning & B2B Auth Gateway).
+Menunggu instruksi baru.

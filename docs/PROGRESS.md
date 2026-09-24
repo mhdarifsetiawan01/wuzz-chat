@@ -2678,9 +2678,37 @@ Membangun gerbang autentikasi B2B Server-to-Server dan alur Client Token Exchang
 
 ### 2. Bukti Pengujian Otomatis
 - **Unit & Integration Suite (`go test -v ./internal/tenant/...`)**: **PASS 100%** (Guard validation, JIT creation/update, exchange single-use, anti-expired, anti double-spend, E2E WebSocket handshake).
-- **Full Backend Suite (`go test ./...`)**: **PASS 100%** di seluruh packages.
-- **Frontend Build (`npm run build`)**: **PASS 100%** (Next.js 16.3.5 Turbopack, 0 TypeScript errors).
-- **Frontend Suites (`npm run test:cache`, `test:multi-device`, `test:phase5`, `test:device-limit`)**: **PASS 100%**.
+---
+
+## ⚡ Milestone 4: Realtime & Cluster Envelope Tenant Isolation (24 September 2026) — SELESAI ✅
+
+### 1. Deskripsi & Arsitektur
+Mengisolasi seluruh alur pengiriman pesan realtime (WebSocket In-Memory Hub) dan sinkronisasi multi-instance (Redis Pub/Sub Cluster) agar strictly tenant-scoped, mencegah segala potensi kebocoran pesan (*cross-tenant message leak*) antar tenant:
+- **In-Memory WebSocket Client Scoping (`backend/internal/ws/client.go` & `handler.go`)**:
+  - Struct `Client` diperkaya dengan field `TenantID string` (fallback default `"default"`).
+  - Pada saat handshake HTTP Upgrade WebSocket (`ServeHTTP`), `tenant_id` diekstrak dari Session JWT Claims dan diikatkan ke struct `Client`.
+  - Pada `ReadPump`, server secara paksa menimpa `msg.TenantID = c.getTenantID()` dan `msg.From = c.ID` untuk mencegah manipulasi/spoofing tenant dari payload JSON mentah klien.
+  - Seluruh event handler internal (`onJoin`, `onMessage`, `onReceipt`, `onTyping`, `onReaction`, `onCallSignaling`) menyertakan `msg.TenantID = c.getTenantID()`.
+- **Multicast Room & Direct Message Tenant Isolation (`backend/internal/ws/hub.go`)**:
+  - `broadcastLocal`: Menambahkan filter ketat pada `targetMap` loop sehingga klien dari tenant berbeda dilarang menerima pesan room, meskipun room ID-nya identik.
+  - `BroadcastRoomUsers`: Mengelompokkan klien aktif per tenant sehingga event `room_users` (presence) terisolasi dan tidak membocorkan daftar pengguna ke tenant lain.
+  - `NotifyUser` & `NotifyUsers`: Memfilter pengiriman pesan langsung dan notifikasi hanya ke klien lokal yang memiliki `TenantID` yang cocok.
+  - `KickClientByUserID` & `KickClientByDeviceID`: Didukung varian `WithTenant` untuk menendang perangkat dengan isolasi tenant yang aman tanpa memutus koneksi pengguna ber-ID sama di tenant lain.
+- **Cluster Event Envelope Tenant Scoping (`backend/internal/ws/hub.go`)**:
+  - Struct `ClusterEvent` diperkaya dengan field `TenantID string json:"tenant_id,omitempty"`.
+  - Seluruh publikasi ke channel Redis `ClusterEventsChannel` (`wuzz:cluster:events`) menyertakan `TenantID`.
+  - Listener Redis Pub/Sub pada node penerima memeriksa `event.TenantID` dan menyuntikkannya ke `event.Message.TenantID` sebelum mendistribusikan ke klien lokal, memastikan sinkronisasi multi-instance terisolasi penuh per tenant.
+
+### 2. Bukti Pengujian Otomatis
+- **Dedicated Suite (`hub_tenant_isolation_test.go`)**: **PASS 100%**
+  - `TestHub_LocalRoom_TenantIsolation`: Klien `tenant-alpha` dan `tenant-beta` di room `"shared-lobby"` yang sama terisolasi sempurna.
+  - `TestHub_BroadcastRoomUsers_TenantIsolation`: Daftar kehadiran pengguna (*room presence*) terpisah per tenant.
+  - `TestHub_ClusterSync_TenantIsolation`: Event cluster Redis dari Node 1 tidak bocor ke klien di Node 2 yang berbeda tenant.
+  - `TestHub_DirectMessage_TenantIsolation`: Panggilan langsung dan WebRTC signaling terisolasi per tenant.
+  - `TestHub_ClusterKick_TenantIsolation`: Sinyal session kick cluster hanya menendang koneksi tenant target.
+- **Full Backend Test Suite (`go test -v ./...`)**: **PASS 100%** di seluruh packages internal (`api`, `auth`, `authz`, `group`, `messaging`, `push`, `store`, `tenant`, `ws`).
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
+
 
 
 

@@ -205,6 +205,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	client.Username = claims.Username
 	client.DisplayName = claims.DisplayName
 	client.DeviceID = deviceID
+	if claims.TenantID != "" {
+		client.TenantID = claims.TenantID
+	} else {
+		client.TenantID = "default"
+	}
 	if deviceID != "" {
 		client.SessionKey = fmt.Sprintf("%s:%s", clientID, deviceID)
 	} else {

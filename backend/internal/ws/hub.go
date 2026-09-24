@@ -24,6 +24,7 @@ const (
 // ClusterEvent adalah amplop event yang dikirimkan melalui Redis Pub/Sub ke instance lain.
 type ClusterEvent struct {
 	NodeID         string  `json:"node_id"`
+	TenantID       string  `json:"tenant_id,omitempty"` // Identitas tenant untuk isolasi multi-instance (Milestone 4)
 	RoomID         string  `json:"room_id"`
 	SenderID       string  `json:"sender_id"`
 	TargetUserID   string  `json:"target_user_id,omitempty"`
@@ -253,20 +254,27 @@ func (h *Hub) SetBroker(b broker.MessageBroker) {
 			return
 		}
 
+		if event.TenantID == "" {
+			event.TenantID = "default"
+		}
+		if event.Message.TenantID == "" {
+			event.Message.TenantID = event.TenantID
+		}
+
 		switch event.EventType {
 		case "session_kick":
-			log.Printf("[Hub %s] menerima cluster session_kick dari node %s target=%s except=%s",
-				h.nodeID[:8], event.NodeID[:8], event.TargetUserID, event.ExceptDeviceID)
-			h.kickClientByUserIDLocal(event.TargetUserID, event.ExceptDeviceID, event.KickReason)
+			log.Printf("[Hub %s] menerima cluster session_kick dari node %s tenant=%s target=%s except=%s",
+				h.nodeID[:8], event.NodeID[:8], event.TenantID, event.TargetUserID, event.ExceptDeviceID)
+			h.kickClientByUserIDLocal(event.TargetUserID, event.ExceptDeviceID, event.KickReason, event.TenantID)
 
 		case "device_kick":
-			log.Printf("[Hub %s] menerima cluster device_kick dari node %s target=%s device=%s",
-				h.nodeID[:8], event.NodeID[:8], event.TargetUserID, event.SenderID)
-			h.kickClientByDeviceIDLocal(event.TargetUserID, event.SenderID, event.KickReason)
+			log.Printf("[Hub %s] menerima cluster device_kick dari node %s tenant=%s target=%s device=%s",
+				h.nodeID[:8], event.NodeID[:8], event.TenantID, event.TargetUserID, event.SenderID)
+			h.kickClientByDeviceIDLocal(event.TargetUserID, event.SenderID, event.KickReason, event.TenantID)
 
 		default:
-			log.Printf("[Hub %s] menerima cluster event dari node %s room=%s msgID=%s",
-				h.nodeID[:8], event.NodeID[:8], event.RoomID, event.Message.ID)
+			log.Printf("[Hub %s] menerima cluster event dari node %s tenant=%s room=%s msgID=%s",
+				h.nodeID[:8], event.NodeID[:8], event.TenantID, event.RoomID, event.Message.ID)
 
 			// Teruskan pesan ke client lokal yang terhubung di node ini
 			if event.TargetUserID != "" {
@@ -482,7 +490,7 @@ func (h *Hub) Unregister(c *Client) {
 	}
 }
 
-// BroadcastRoomUsers mengumpulkan seluruh klien aktif di sebuah room dan mem-broadcast pesan TypeRoomUsers.
+// BroadcastRoomUsers mengumpulkan seluruh klien aktif di sebuah room dan mem-broadcast pesan TypeRoomUsers yang terisolasi per tenant.
 func (h *Hub) BroadcastRoomUsers(roomID string) {
 	if roomID == "" {
 		return
@@ -490,11 +498,24 @@ func (h *Hub) BroadcastRoomUsers(roomID string) {
 
 	h.mu.RLock()
 	room, exists := h.rooms[roomID]
-	var users []RoomUser
-	var targets []*Client
-	if exists {
+	if !exists || len(room) == 0 {
+		h.mu.RUnlock()
+		return
+	}
+
+	// Kelompokkan client aktif berdasarkan TenantID
+	tenantClients := make(map[string][]*Client)
+	for _, client := range room {
+		tID := client.getTenantID()
+		tenantClients[tID] = append(tenantClients[tID], client)
+	}
+	h.mu.RUnlock()
+
+	// Kirim user list spesifik hanya untuk anggota masing-masing tenant
+	for tID, clients := range tenantClients {
+		var users []RoomUser
 		seenUsers := make(map[string]bool)
-		for _, client := range room {
+		for _, client := range clients {
 			if !seenUsers[client.ID] {
 				seenUsers[client.ID] = true
 				users = append(users, RoomUser{
@@ -504,27 +525,22 @@ func (h *Hub) BroadcastRoomUsers(roomID string) {
 					Nickname:    client.Nickname,
 				})
 			}
-			targets = append(targets, client)
 		}
-	}
-	h.mu.RUnlock()
 
-	if len(targets) == 0 {
-		return
-	}
+		msg := Message{
+			Type:      TypeRoomUsers,
+			Room:      roomID,
+			Users:     users,
+			TenantID:  tID,
+			Timestamp: time.Now().UTC(),
+		}
 
-	msg := Message{
-		Type:      TypeRoomUsers,
-		Room:      roomID,
-		Users:     users,
-		Timestamp: time.Now().UTC(),
-	}
-
-	for _, target := range targets {
-		select {
-		case target.send <- msg:
-		default:
-			log.Printf("[Hub %s] buffer penuh saat broadcast room_users ke client %s", h.nodeID[:8], target.ID)
+		for _, target := range clients {
+			select {
+			case target.send <- msg:
+			default:
+				log.Printf("[Hub %s] buffer penuh saat broadcast room_users ke client %s", h.nodeID[:8], target.ID)
+			}
 		}
 	}
 }
@@ -533,9 +549,19 @@ func (h *Hub) BroadcastRoomUsers(roomID string) {
 // Digunakan untuk event seperti "member bergabung", "member dikeluarkan", "role diubah", "info grup diperbarui".
 // Content berisi teks notifikasi yang akan ditampilkan di timeline chat sebagai system bubble.
 func (h *Hub) BroadcastGroupSystemEvent(roomID, eventType, content string) {
+	h.BroadcastGroupSystemEventWithTenant(roomID, eventType, content, "default")
+}
+
+// BroadcastGroupSystemEventWithTenant mengirimkan notifikasi sistem grup dengan scope tenant eksplisit (Milestone 4).
+func (h *Hub) BroadcastGroupSystemEventWithTenant(roomID, eventType, content, tenantID string) {
 	if roomID == "" || content == "" {
 		return
 	}
+	tID := tenantID
+	if tID == "" {
+		tID = "default"
+	}
+
 	// Invalidasikan cache anggota room karena keanggotaan atau status grup berubah
 	h.InvalidateRoomMembersCache(roomID)
 
@@ -545,6 +571,7 @@ func (h *Hub) BroadcastGroupSystemEvent(roomID, eventType, content string) {
 		From:      "server",
 		Room:      roomID,
 		Content:   content,
+		TenantID:  tID,
 		Timestamp: time.Now().UTC(),
 	}
 	_ = h.SaveMessage(store.StoredMessage{
@@ -565,6 +592,7 @@ func (h *Hub) BroadcastGroupSystemEvent(roomID, eventType, content string) {
 	if b != nil {
 		event := ClusterEvent{
 			NodeID:   h.nodeID,
+			TenantID: tID,
 			RoomID:   roomID,
 			SenderID: "server",
 			Message:  msg,
@@ -577,7 +605,7 @@ func (h *Hub) BroadcastGroupSystemEvent(roomID, eventType, content string) {
 			}
 		}
 	}
-	log.Printf("[Hub %s] group_system_event room=%s type=%s", h.nodeID[:8], roomID, eventType)
+	log.Printf("[Hub %s] group_system_event room=%s type=%s tenant=%s", h.nodeID[:8], roomID, eventType, tID)
 }
 
 // getRoomMembers mengambil daftar anggota room dari cache in-memory, atau memuat dari userStore jika cache miss.
@@ -651,6 +679,11 @@ func (h *Hub) findClientLocked(identifier string) (*Client, bool) {
 // broadcastLocal mengirimkan pesan hanya ke klien yang terhubung secara fisik di instance Hub ini.
 // senderKey dapat berupa SessionKey pengirim (spesifik perangkat) atau ID pengirim.
 func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
+	msgTenant := msg.TenantID
+	if msgTenant == "" {
+		msgTenant = "default"
+	}
+
 	h.mu.RLock()
 	targetMap := make(map[*Client]bool)
 
@@ -661,6 +694,9 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
 				continue
 			}
 			if senderKey == client.ID && len(h.userClients[client.ID]) <= 1 {
+				continue
+			}
+			if client.getTenantID() != msgTenant {
 				continue
 			}
 			targetMap[client] = true
@@ -674,6 +710,9 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
 			clients := h.findClientsLocked(mID)
 			for _, client := range clients {
 				if client.SessionKey == senderKey || (senderKey == client.ID && len(clients) <= 1) {
+					continue
+				}
+				if client.getTenantID() != msgTenant {
 					continue
 				}
 				targetMap[client] = true
@@ -695,6 +734,18 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
 // BroadcastRoom mengirimkan pesan ke seluruh anggota room lokal dan mem-publish ke Redis cluster broker.
 // Jika tipe pesan adalah TypeMessage, pesan akan disimpan secara persisten ke Database oleh node pengirim asal.
 func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
+	if msg.TenantID == "" {
+		if senderID != "" && senderID != "server" {
+			h.mu.RLock()
+			if c, ok := h.findClientLocked(senderID); ok && c != nil && c.TenantID != "" {
+				msg.TenantID = c.TenantID
+			}
+			h.mu.RUnlock()
+		}
+		if msg.TenantID == "" {
+			msg.TenantID = "default"
+		}
+	}
 	// Validasi mention fail-closed: verifikasi user ID yang di-mention adalah anggota room yang sah (DEC-013)
 	if len(msg.Mentions) > 0 && h.roomAuth != nil {
 		var validMentions []string
@@ -784,6 +835,7 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 	if b != nil {
 		event := ClusterEvent{
 			NodeID:   h.nodeID,
+			TenantID: msg.TenantID,
 			RoomID:   roomID,
 			SenderID: senderID,
 			Message:  msg,
@@ -939,10 +991,18 @@ func (h *Hub) notifyClient(clientID string, msg Message) {
 
 // NotifyUser mengirimkan pesan WebSocket langsung ke satu user (seluruh perangkat aktifnya).
 func (h *Hub) NotifyUser(userID string, msg Message) {
+	msgTenant := msg.TenantID
+	if msgTenant == "" {
+		msgTenant = "default"
+	}
+
 	h.mu.RLock()
 	targets := h.findClientsLocked(userID)
 	h.mu.RUnlock()
 	for _, c := range targets {
+		if c.getTenantID() != msgTenant {
+			continue
+		}
 		select {
 		case c.send <- msg:
 		default:
@@ -958,10 +1018,20 @@ func (h *Hub) NotifyUsers(userIDs []string, msg Message) {
 		return
 	}
 
+	msgTenant := msg.TenantID
+	if msgTenant == "" {
+		msgTenant = "default"
+	}
+	msg.TenantID = msgTenant
+
 	h.mu.RLock()
 	var targets []*Client
 	for _, uid := range userIDs {
-		targets = append(targets, h.findClientsLocked(uid)...)
+		for _, c := range h.findClientsLocked(uid) {
+			if c.getTenantID() == msgTenant {
+				targets = append(targets, c)
+			}
+		}
 	}
 	b := h.broker
 	h.mu.RUnlock()
@@ -980,6 +1050,7 @@ func (h *Hub) NotifyUsers(userIDs []string, msg Message) {
 		for _, uid := range userIDs {
 			event := ClusterEvent{
 				NodeID:       h.nodeID,
+				TenantID:     msgTenant,
 				RoomID:       msg.Room,
 				TargetUserID: uid,
 				Message:      msg,
@@ -1035,12 +1106,22 @@ func (h *Hub) IsDuplicateAndRecord(msgID string, ttl time.Duration) bool {
 // untuk seluruh koneksi milik userID tertentu. Jika exceptDeviceID diisi, hanya menendang perangkat selain device tersebut.
 // Selain menendang klien lokal, method ini mem-publish event ke Redis Pub/Sub agar instance lain ikut menendang perangkat target.
 func (h *Hub) KickClientByUserID(userID, exceptDeviceID, reason string) {
+	h.KickClientByUserIDWithTenant(userID, exceptDeviceID, reason, "default")
+}
+
+// KickClientByUserIDWithTenant mengirimkan sinyal kick dengan scope tenant eksplisit (Milestone 4).
+func (h *Hub) KickClientByUserIDWithTenant(userID, exceptDeviceID, reason, tenantID string) {
+	tID := tenantID
+	if tID == "" {
+		tID = "default"
+	}
+
 	if reason == "" {
 		reason = "SESSION_REPLACED: Akun Anda dibuka dari perangkat lain."
 	}
 
 	// 1. Eksekusi kick pada klien lokal yang terhubung ke instance ini
-	h.kickClientByUserIDLocal(userID, exceptDeviceID, reason)
+	h.kickClientByUserIDLocal(userID, exceptDeviceID, reason, tID)
 
 	// 2. Publish ke Redis Pub/Sub agar node instance lain ikut menendang
 	h.mu.RLock()
@@ -1050,6 +1131,7 @@ func (h *Hub) KickClientByUserID(userID, exceptDeviceID, reason string) {
 	if b != nil {
 		kickEvent := ClusterEvent{
 			NodeID:         h.nodeID,
+			TenantID:       tID,
 			EventType:      "session_kick",
 			TargetUserID:   userID,
 			ExceptDeviceID: exceptDeviceID,
@@ -1065,7 +1147,12 @@ func (h *Hub) KickClientByUserID(userID, exceptDeviceID, reason string) {
 	}
 }
 
-func (h *Hub) kickClientByUserIDLocal(userID, exceptDeviceID, reason string) {
+func (h *Hub) kickClientByUserIDLocal(userID, exceptDeviceID, reason string, tenantID ...string) {
+	tID := ""
+	if len(tenantID) > 0 {
+		tID = tenantID[0]
+	}
+
 	h.mu.RLock()
 	var targets []*Client
 	if devs, ok := h.userClients[userID]; ok {
@@ -1073,10 +1160,13 @@ func (h *Hub) kickClientByUserIDLocal(userID, exceptDeviceID, reason string) {
 			if exceptDeviceID != "" && devID == exceptDeviceID {
 				continue
 			}
+			if tID != "" && c.getTenantID() != tID {
+				continue
+			}
 			targets = append(targets, c)
 		}
 	} else if c, ok := h.clients[userID]; ok {
-		if exceptDeviceID == "" || c.DeviceID != exceptDeviceID {
+		if (exceptDeviceID == "" || c.DeviceID != exceptDeviceID) && (tID == "" || c.getTenantID() == tID) {
 			targets = append(targets, c)
 		}
 	}
@@ -1091,12 +1181,13 @@ func (h *Hub) kickClientByUserIDLocal(userID, exceptDeviceID, reason string) {
 	}
 
 	for _, client := range targets {
-		log.Printf("[Hub %s] kick client %s (deviceID=%s | exceptDevice=%s | reason=%s)", h.nodeID[:8], userID, client.DeviceID, exceptDeviceID, reason)
+		log.Printf("[Hub %s] kick client %s (deviceID=%s | exceptDevice=%s | reason=%s | tenant=%s)", h.nodeID[:8], userID, client.DeviceID, exceptDeviceID, reason, client.getTenantID())
 		go func(c *Client) {
 			kickMsg := Message{
 				ID:        uuid.New().String(),
 				Type:      TypeSystem,
 				Content:   reason,
+				TenantID:  c.getTenantID(),
 				Timestamp: time.Now().UTC(),
 			}
 			select {
@@ -1118,12 +1209,22 @@ func (h *Hub) kickClientByUserIDLocal(userID, exceptDeviceID, reason string) {
 // Dipanggil saat admin/user melakukan remote logout dari satu perangkat spesifik.
 // Selain menendang klien lokal, method ini mem-publish event ke Redis Pub/Sub agar instance lain ikut menendang perangkat target.
 func (h *Hub) KickClientByDeviceID(userID, deviceID, reason string) {
+	h.KickClientByDeviceIDWithTenant(userID, deviceID, reason, "default")
+}
+
+// KickClientByDeviceIDWithTenant menendang koneksi WebSocket device tertentu dengan scope tenant eksplisit (Milestone 4).
+func (h *Hub) KickClientByDeviceIDWithTenant(userID, deviceID, reason, tenantID string) {
+	tID := tenantID
+	if tID == "" {
+		tID = "default"
+	}
+
 	if reason == "" {
 		reason = "DEVICE_KICKED: Perangkat ini telah dikeluarkan dari jarak jauh."
 	}
 
 	// 1. Eksekusi kick pada klien lokal jika terhubung ke instance ini
-	h.kickClientByDeviceIDLocal(userID, deviceID, reason)
+	h.kickClientByDeviceIDLocal(userID, deviceID, reason, tID)
 
 	// 2. Publish ke Redis Pub/Sub agar node instance lain ikut menendang
 	h.mu.RLock()
@@ -1133,6 +1234,7 @@ func (h *Hub) KickClientByDeviceID(userID, deviceID, reason string) {
 	if b != nil {
 		kickEvent := ClusterEvent{
 			NodeID:       h.nodeID,
+			TenantID:     tID,
 			EventType:    "device_kick",
 			TargetUserID: userID,
 			SenderID:     deviceID, // reuse SenderID untuk menampung deviceID target
@@ -1148,15 +1250,26 @@ func (h *Hub) KickClientByDeviceID(userID, deviceID, reason string) {
 	}
 }
 
-func (h *Hub) kickClientByDeviceIDLocal(userID, deviceID, reason string) {
+func (h *Hub) kickClientByDeviceIDLocal(userID, deviceID, reason string, tenantID ...string) {
+	tID := ""
+	if len(tenantID) > 0 {
+		tID = tenantID[0]
+	}
+
 	h.mu.RLock()
 	var client *Client
 	if devs, ok := h.userClients[userID]; ok {
-		client = devs[deviceID]
+		if c, found := devs[deviceID]; found {
+			if tID == "" || c.getTenantID() == tID {
+				client = c
+			}
+		}
 	}
 	if client == nil {
 		if c, ok := h.clients[userID]; ok && c.DeviceID == deviceID {
-			client = c
+			if tID == "" || c.getTenantID() == tID {
+				client = c
+			}
 		}
 	}
 	h.mu.RUnlock()
@@ -1169,13 +1282,13 @@ func (h *Hub) kickClientByDeviceIDLocal(userID, deviceID, reason string) {
 		reason = "DEVICE_KICKED: Perangkat ini telah dikeluarkan dari jarak jauh."
 	}
 
-	log.Printf("[Hub %s] kick by device: user=%s device=%s reason=%s", h.nodeID[:8], userID, deviceID, reason)
-
+	log.Printf("[Hub %s] kick device %s milik user %s (reason=%s | tenant=%s)", h.nodeID[:8], deviceID, userID, reason, client.getTenantID())
 	go func(c *Client) {
 		kickMsg := Message{
 			ID:        uuid.New().String(),
 			Type:      TypeSystem,
 			Content:   reason,
+			TenantID:  c.getTenantID(),
 			Timestamp: time.Now().UTC(),
 		}
 		select {

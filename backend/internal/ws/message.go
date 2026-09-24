@@ -79,6 +79,7 @@ type Message struct {
 	Room      string           `json:"room,omitempty"`      // Room ID / Conversation ID (persisten)
 	Nickname  string           `json:"nickname,omitempty"`  // Nickname pengirim
 	Content   string           `json:"content,omitempty"`   // Isi pesan
+	TenantID  string           `json:"tenant_id,omitempty"` // Tenant ID pengirim / scope percakapan (Milestone 4)
 	Timestamp time.Time        `json:"timestamp,omitempty"` // Timestamp server
 	Status    MessageStatus    `json:"status,omitempty"`    // "pending", "sent", "delivered", "read"
 	ReplyTo   *ReplyTarget     `json:"reply_to,omitempty"`  // Konteks pesan yang dikutip (opsional)

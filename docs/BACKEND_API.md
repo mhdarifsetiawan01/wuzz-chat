@@ -1773,6 +1773,7 @@ Setiap frame WebSocket dipertukarkan dalam format JSON tunggal (`Message` struct
 | `messages` | `array` | Array pesan riwayat (khusus event `history`) |
 | `users` | `array` | Array anggota aktif di room (khusus event `room_users`) |
 | `since` | `string` | ISO 8601 timestamp checkpoint untuk delta offline sync pada event `join` |
+| `tenant_id` | `string` | Identitas tenant namespace percakapan (di-*enforce* dari JWT session server, Milestone 4) |
 | `request_id` | `string` | ID korelasi transport request-response untuk ACK deterministik (Milestone 8.9) |
 
 ---
