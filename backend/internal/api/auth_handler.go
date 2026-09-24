@@ -87,12 +87,14 @@ type RegisterRequest struct {
 	DisplayName string `json:"display_name"`
 	Password    string `json:"password"`
 	DeviceID    string `json:"device_id"`
+	Platform    string `json:"platform,omitempty"`
 }
 
 type LoginRequest struct {
 	Username        string `json:"username"`
 	Password        string `json:"password"`
 	DeviceID        string `json:"device_id"`
+	Platform        string `json:"platform,omitempty"`
 	ConfirmOverride bool   `json:"confirm_override,omitempty"`
 	KickDeviceID    string `json:"kick_device_id,omitempty"`
 }
@@ -186,11 +188,16 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if req.DeviceID == "" {
 		req.DeviceID = strings.TrimSpace(r.Header.Get("X-Device-ID"))
 	}
+	platform := strings.TrimSpace(req.Platform)
+	if platform == "" {
+		platform = strings.TrimSpace(r.Header.Get("X-Device-Platform"))
+	}
 	res, err := h.authSvc.Register(authz.RegisterInput{
 		Username:    req.Username,
 		DisplayName: req.DisplayName,
 		Password:    req.Password,
 		DeviceID:    req.DeviceID,
+		Platform:    platform,
 		UserAgent:   r.UserAgent(),
 		IP:          getClientIP(r),
 	})
@@ -228,11 +235,16 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if req.DeviceID == "" {
 		req.DeviceID = strings.TrimSpace(r.Header.Get("X-Device-ID"))
 	}
+	platform := strings.TrimSpace(req.Platform)
+	if platform == "" {
+		platform = strings.TrimSpace(r.Header.Get("X-Device-Platform"))
+	}
 
 	res, conflict, err := h.authSvc.Login(authz.LoginInput{
 		Username:        req.Username,
 		Password:        req.Password,
 		DeviceID:        req.DeviceID,
+		Platform:        platform,
 		ConfirmOverride: req.ConfirmOverride,
 		KickDeviceID:    req.KickDeviceID,
 		UserAgent:       r.UserAgent(),

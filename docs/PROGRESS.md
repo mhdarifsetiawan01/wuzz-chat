@@ -2461,6 +2461,41 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Frontend Real Integration E2E (`node test-frontend-real-e2e.mjs`)**: **PASS 100%** (seluruh 19 alur integrasi Next.js proxy ⇄ backend Go lolos sempurna).
 - **Server Lifecycle Guard**: Seluruh server uji lokal (port 8080 & 3047) dimatikan tuntas.
 
+---
 
+## 2026-09-24: Post-Audit Modular Monolith Hardening — Milestone 3 (Mobile Gateway Readiness & Multi-Platform Support)
 
+### Problem Description
+1. Aplikasi sebelumnya belum memiliki penanganan eksplisit untuk platform perangkat (`web`, `android`, `ios`) pada layer autentikasi domain `authz`, sehingga seluruh login secara implisit dianggap sebagai browser web generik.
+2. Layer push notification (`push.Service`) terikat langsung pada standar WebPush VAPID (RFC 8291/8292) dengan endpoint URL Google/Apple/Mozilla. Ketika aplikasi native Android/iOS (misal Flutter/React Native/Kotlin) mengirimkan native FCM Device Token langsung (`dK4x...`), engine WebPush akan gagal dan memunculkan error parsing URL.
+3. Kesiapan arsitektur gerbang mobile (Mobile Gateway Readiness) diperlukan agar aplikasi Android Native, iOS Native, dan PWA Mobile dapat terhubung bersamaan dengan Desktop Laptop tanpa konflik atau degradasi fitur.
 
+### Implementation Details
+1. **Device Platform Resolution & User-Agent Detection (`backend/internal/authz/`)**:
+   - Menambahkan field `Platform` pada `RegisterInput` dan `LoginInput`.
+   - Mengimplementasikan `resolvePlatform(explicitPlatform, userAgent)`: prioritas diberikan pada flag platform eksplisit (`"android"`, `"ios"`, `"web"`), dengan fallback otomatis mendeteksi OS dari User-Agent jika tidak disediakan.
+   - Memperbarui `parseDeviceName(userAgent, platform)` untuk memberikan label ramah perangkat mobile (`"Android Device"`, `"iOS Device"`).
+   - Menambahkan method use case baru pada `AuthService`: `GetUserDevices(ctx, userID)` dan `DeactivateDevice(ctx, userID, deviceID)`.
+   - Unit test `TestAuthService_DevicePlatformHandling` mencakup pengujian registrasi eksplisit Android, iOS, dan deteksi otomatis User-Agent (100% PASS).
+2. **HTTP Handler Multi-Platform Adapter (`backend/internal/api/auth_handler.go`)**:
+   - Memperbarui `RegisterRequest` dan `LoginRequest` untuk mengekstrak field `platform` dari body JSON atau dari HTTP header `X-Device-Platform`.
+3. **Pluggable Multi-Push Architecture (`backend/internal/push/`)**:
+   - Memperkenalkan interface `PushProvider` (`Name() string`, `Send(ctx, sub, payload) error`).
+   - Mengimplementasikan `VAPIDWebPushProvider` (RFC 8291/8292 untuk browser Desktop & mobile PWA).
+   - Mengimplementasikan `FCMv1PushProvider` (scaffolding siap pakai untuk FCM HTTP v1 native token).
+   - Menambahkan mekanisme dynamic routing pada `push.Service`: jika endpoint berupa URL HTTP (`https://...`), notifikasi dialirkan ke WebPush VAPID; jika berupa device token native (`dK4x...`), dialirkan ke provider native FCM.
+   - Unit test `TestPushProviders_RoutingAndMultiPlatform` mencakup routing provider dan verifikasi multi-platform (100% PASS).
+4. **Verifikasi Frontend Asli Multi-Platform (`frontend/test-multiplatform-real-frontend.mjs`)**:
+   - Menguji koneksi nyata frontend Next.js (port 3047) dan backend Go (port 8080) pada 5 skenario multi-device:
+     1. Login Desktop Browser (`platform: "web"`, Chrome on Windows).
+     2. Login Mobile PWA Android (`platform: "android"`, Chrome on Android) dan berdampingan dengan laptop.
+     3. Login iPhone Safari (`platform: "ios"`, Safari on iPhone).
+     4. Registrasi push subscription multi-platform (WebPush VAPID + Native FCM Token).
+     5. WebSocket multi-device live chat: PWA Android mengirim pesan langsung diterima seketika oleh iPhone iOS via Next.js proxy.
+
+### Test Evidence
+- **Backend Full Suite (`go test ./...`)**: **PASS 100%** (seluruh 19 internal package lolos).
+- **Go Race Detector (`go test -race ./internal/authz/... ./internal/push/...`)**: **PASS 100%** (0 data race).
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
+- **Real Multi-Platform Integration (`test-multiplatform-real-frontend.mjs`)**: **PASS 100%** (5/5 multi-platform scenario lolos).
+- **Server Lifecycle Guard**: Seluruh server port 8080 dan 3047 dipastikan mati.

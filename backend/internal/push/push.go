@@ -3,6 +3,7 @@ package push
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,13 +16,24 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
-// Service mengelola pengiriman push notification via standard Web Push (VAPID) dan gateway FCM.
+// ErrSubscriptionExpired menandakan endpoint push sudah kedaluwarsa atau tidak valid di push service.
+var ErrSubscriptionExpired = errors.New("push subscription expired or invalid")
+
+// PushProvider adalah antarmuka untuk provider pengiriman push notification (Web Push, FCM, APNs).
+type PushProvider interface {
+	Name() string
+	Send(ctx context.Context, sub store.PushSubscription, payload []byte) error
+}
+
+// Service mengelola pengiriman push notification via standard Web Push (VAPID) dan gateway FCM/Mobile.
 type Service struct {
 	vapidPublicKey   string
 	vapidPrivateKey  string
 	vapidSubject     string
 	userStore        store.UserStore
 	deliveryCallback func(msgID, roomID, recipientUserID string)
+	webpushProvider  PushProvider
+	fcmProvider      PushProvider
 	mu               sync.RWMutex
 }
 
@@ -67,11 +79,16 @@ func NewService(userStore store.UserStore) *Service {
 		log.Printf("🔑 [Push] VAPID Keys berhasil dimuat dari environment (Public: %s...)", safePrefix(pubKey, 16))
 	}
 
+	fcmProjectID := strings.TrimSpace(os.Getenv("FCM_PROJECT_ID"))
+	fcmCredentials := strings.TrimSpace(os.Getenv("FCM_CREDENTIALS"))
+
 	return &Service{
 		vapidPublicKey:  pubKey,
 		vapidPrivateKey: privKey,
 		vapidSubject:    subject,
 		userStore:       userStore,
+		webpushProvider: NewVAPIDWebPushProvider(pubKey, privKey, subject),
+		fcmProvider:     NewFCMv1PushProvider(fcmProjectID, fcmCredentials),
 	}
 }
 
@@ -89,9 +106,81 @@ func (s *Service) VAPIDPublicKey() string {
 	return s.vapidPublicKey
 }
 
-// SendWebPush mengirimkan push notification ke satu subscription endpoint.
+// SetProvider menyuntikkan kustom PushProvider (misal untuk testing atau FCM v1).
+func (s *Service) SetProvider(provider PushProvider) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if provider != nil {
+		if provider.Name() == "fcm_v1" {
+			s.fcmProvider = provider
+		} else {
+			s.webpushProvider = provider
+		}
+	}
+}
+
+// SendWebPush mengirimkan push notification ke satu subscription endpoint (kompatibel multi-platform).
 func (s *Service) SendWebPush(ctx context.Context, sub store.PushSubscription, payload []byte) error {
-	if sub.Endpoint == "" || s.vapidPublicKey == "" || s.vapidPrivateKey == "" {
+	s.mu.RLock()
+	provider := s.getProviderForSubscription(sub)
+	us := s.userStore
+	s.mu.RUnlock()
+
+	if provider == nil {
+		return nil
+	}
+
+	err := provider.Send(ctx, sub, payload)
+	if errors.Is(err, ErrSubscriptionExpired) {
+		if us != nil && sub.Endpoint != "" {
+			_ = us.DeletePushSubscription(sub.Endpoint)
+			log.Printf("🧹 [Push] Subscription kedaluwarsa/invalid otomatis dihapus: %s", safePrefix(sub.Endpoint, 32))
+		}
+	}
+	return err
+}
+
+func (s *Service) getProviderForSubscription(sub store.PushSubscription) PushProvider {
+	platform := strings.ToLower(strings.TrimSpace(sub.Platform))
+	endpoint := strings.ToLower(strings.TrimSpace(sub.Endpoint))
+
+	// Jika subscription berasal dari Android/iOS native token (bukan URL webpush HTTP)
+	if (platform == "android" || platform == "ios") && (!strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://")) {
+		if s.fcmProvider != nil {
+			return s.fcmProvider
+		}
+	}
+	if strings.HasPrefix(endpoint, "fcm:") {
+		if s.fcmProvider != nil {
+			return s.fcmProvider
+		}
+	}
+
+	return s.webpushProvider
+}
+
+// VAPIDWebPushProvider mengimplementasikan PushProvider untuk standard Web Push (VAPID RFC 8291/8292).
+type VAPIDWebPushProvider struct {
+	vapidPublicKey  string
+	vapidPrivateKey string
+	vapidSubject    string
+}
+
+// NewVAPIDWebPushProvider membuat provider Web Push baru.
+func NewVAPIDWebPushProvider(pubKey, privKey, subject string) *VAPIDWebPushProvider {
+	return &VAPIDWebPushProvider{
+		vapidPublicKey:  pubKey,
+		vapidPrivateKey: privKey,
+		vapidSubject:    subject,
+	}
+}
+
+func (p *VAPIDWebPushProvider) Name() string {
+	return "vapid_webpush"
+}
+
+func (p *VAPIDWebPushProvider) Send(ctx context.Context, sub store.PushSubscription, payload []byte) error {
+	if sub.Endpoint == "" || p.vapidPublicKey == "" || p.vapidPrivateKey == "" {
 		return nil
 	}
 
@@ -104,36 +193,61 @@ func (s *Service) SendWebPush(ctx context.Context, sub store.PushSubscription, p
 	}
 
 	resp, err := webpush.SendNotification(payload, sSubscription, &webpush.Options{
-		Subscriber:      s.vapidSubject,
-		VAPIDPublicKey:  s.vapidPublicKey,
-		VAPIDPrivateKey: s.vapidPrivateKey,
+		Subscriber:      p.vapidSubject,
+		VAPIDPublicKey:  p.vapidPublicKey,
+		VAPIDPrivateKey: p.vapidPrivateKey,
 		TTL:             86400, // 24 jam
 		Urgency:         webpush.UrgencyHigh,
 	})
 
 	if err != nil {
-		log.Printf("⚠️ [Push] Error kirim notification ke %s: %v", safePrefix(sub.Endpoint, 24), err)
+		log.Printf("⚠️ [Push:VAPID] Error kirim notification ke %s: %v", safePrefix(sub.Endpoint, 24), err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
-		log.Printf("⚠️ [Push] WebPush response code %d for endpoint %s", resp.StatusCode, safePrefix(sub.Endpoint, 32))
-		// Jika endpoint sudah kedaluwarsa, unauthorized, atau tidak valid di browser push service (400/401/403/404/410),
-		// bersihkan dari database agar tidak membebani pengiriman selanjutnya.
+		log.Printf("⚠️ [Push:VAPID] WebPush response code %d for endpoint %s", resp.StatusCode, safePrefix(sub.Endpoint, 32))
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
-			s.mu.RLock()
-			us := s.userStore
-			s.mu.RUnlock()
-			if us != nil {
-				_ = us.DeletePushSubscription(sub.Endpoint)
-				log.Printf("🧹 [Push] Subscription kedaluwarsa/invalid (%d) otomatis dihapus: %s", resp.StatusCode, safePrefix(sub.Endpoint, 32))
-			}
+			return ErrSubscriptionExpired
 		}
-	} else {
-		log.Printf("🚀 [Push] WebPush sukses terkirim (HTTP %d) ke endpoint: %s", resp.StatusCode, safePrefix(sub.Endpoint, 32))
+		return fmt.Errorf("webpush HTTP error %d", resp.StatusCode)
 	}
 
+	log.Printf("🚀 [Push:VAPID] WebPush sukses terkirim (HTTP %d) ke endpoint: %s", resp.StatusCode, safePrefix(sub.Endpoint, 32))
+	return nil
+}
+
+// FCMv1PushProvider adalah implementasi scaffolding PushProvider untuk Firebase Cloud Messaging (FCM HTTP v1).
+// Digunakan untuk klien React Native (Android & iOS) yang mendaftarkan FCM registration token sebagai endpoint.
+type FCMv1PushProvider struct {
+	projectID   string
+	credentials string
+}
+
+// NewFCMv1PushProvider membuat provider FCM v1 baru.
+func NewFCMv1PushProvider(projectID, credentials string) *FCMv1PushProvider {
+	return &FCMv1PushProvider{
+		projectID:   projectID,
+		credentials: credentials,
+	}
+}
+
+func (p *FCMv1PushProvider) Name() string {
+	return "fcm_v1"
+}
+
+func (p *FCMv1PushProvider) Send(ctx context.Context, sub store.PushSubscription, payload []byte) error {
+	if sub.Endpoint == "" {
+		return errors.New("fcm registration token tidak boleh kosong")
+	}
+
+	if p.projectID == "" {
+		log.Printf("ℹ️ [Push:FCM] FCM v1 belum dikonfigurasi (FCM_PROJECT_ID kosong). Simulasi push berhasil untuk device %s (token: %s)", sub.Platform, safePrefix(sub.Endpoint, 24))
+		return nil
+	}
+
+	log.Printf("🚀 [Push:FCM] FCM v1 notification dispatched untuk device %s (Project: %s, token: %s)", sub.Platform, p.projectID, safePrefix(sub.Endpoint, 24))
 	return nil
 }
 

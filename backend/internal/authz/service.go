@@ -61,6 +61,7 @@ type RegisterInput struct {
 	DisplayName string
 	Password    string
 	DeviceID    string
+	Platform    string // "web" | "android" | "ios"
 	UserAgent   string
 	IP          string
 }
@@ -118,9 +119,11 @@ func (s *AuthService) Register(input RegisterInput) (*RegisterResult, error) {
 
 	// Daftarkan device
 	if strings.TrimSpace(input.DeviceID) != "" {
+		platform := resolvePlatform(input.Platform, input.UserAgent)
+		deviceName := parseDeviceName(input.UserAgent, platform)
 		if err := s.repo.UpsertDevice(
 			strings.TrimSpace(input.DeviceID), userID,
-			parseDeviceName(input.UserAgent), "web",
+			deviceName, platform,
 		); err != nil {
 			log.Printf("⚠️ [AuthService.Register] Gagal mendaftarkan device (user: %s, device: %s): %v", userID, input.DeviceID, err)
 		}
@@ -140,6 +143,7 @@ type LoginInput struct {
 	Username        string
 	Password        string
 	DeviceID        string
+	Platform        string // "web" | "android" | "ios"
 	ConfirmOverride bool
 	KickDeviceID    string
 	UserAgent       string
@@ -229,9 +233,11 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, *DeviceConflict, er
 
 	// Daftarkan/perbarui device
 	if reqDeviceID != "" {
+		platform := resolvePlatform(input.Platform, input.UserAgent)
+		deviceName := parseDeviceName(input.UserAgent, platform)
 		if err := s.repo.UpsertDevice(
 			reqDeviceID, userID,
-			parseDeviceName(input.UserAgent), "web",
+			deviceName, platform,
 		); err != nil {
 			log.Printf("⚠️ [AuthService.Login] Gagal mendaftarkan device (user: %s, device: %s): %v", userID, reqDeviceID, err)
 		}
@@ -375,6 +381,24 @@ func (s *AuthService) ChangePassword(input ChangePasswordInput) error {
 	return nil
 }
 
+// --- Device Use Cases ---
+
+// GetUserDevices mengambil semua perangkat aktif milik user.
+func (s *AuthService) GetUserDevices(userID string) ([]DeviceRecord, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, domainError("unauthorized")
+	}
+	return s.repo.GetUserDevices(userID)
+}
+
+// DeactivateDevice menonaktifkan perangkat milik user.
+func (s *AuthService) DeactivateDevice(deviceID, userID string) error {
+	if strings.TrimSpace(deviceID) == "" || strings.TrimSpace(userID) == "" {
+		return domainError("invalid device or user id")
+	}
+	return s.repo.DeactivateDevice(deviceID, userID)
+}
+
 // --- Transfer Use Case ---
 
 // CreateTransferToken membuat token transfer E2EE ephemeral untuk migrasi kunci antar perangkat.
@@ -414,9 +438,39 @@ func (e domainError) Error() string { return string(e) }
 
 // --- Helpers ---
 
-// parseDeviceName membaca User-Agent string dan mengembalikan nama ramah untuk perangkat.
-func parseDeviceName(userAgent string) string {
+// resolvePlatform menentukan platform perangkat ("web", "android", "ios").
+// Mengutamakan parameter eksplisit, dengan fallback auto-detection dari User-Agent.
+func resolvePlatform(platform, userAgent string) string {
+	p := strings.ToLower(strings.TrimSpace(platform))
+	switch p {
+	case "android", "ios", "web":
+		return p
+	}
+
 	ua := strings.ToLower(userAgent)
+	switch {
+	case strings.Contains(ua, "android"):
+		return "android"
+	case strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") || strings.Contains(ua, "ios"):
+		return "ios"
+	default:
+		return "web"
+	}
+}
+
+// parseDeviceName membaca User-Agent string dan mengembalikan nama ramah untuk perangkat.
+func parseDeviceName(userAgent, platform string) string {
+	ua := strings.ToLower(userAgent)
+	if strings.TrimSpace(ua) == "" {
+		switch platform {
+		case "android":
+			return "Android Device"
+		case "ios":
+			return "iOS Device"
+		default:
+			return "Web Client"
+		}
+	}
 
 	osName := "Unknown OS"
 	switch {
