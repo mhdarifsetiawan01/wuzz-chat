@@ -16,11 +16,11 @@
 ## 🗺️ 2. Dokumen Sumber Kebenaran (Single Source of Truth)
 
 Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen berikut:
-1. 🔌 **[`docs/BACKEND_API.md`](docs/BACKEND_API.md)**: Panduan integrasi teknis REST API, WebSocket event catalog, E2EE wire format, dan siklus hidup media untuk pengembang frontend baru.
-2. 🛡️ **[`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md)**: Panduan arsitektur keamanan (Anti-BOLA/IDOR, Anti-SSRF, IP Pinning) dan optimasi performa backend ($O(1)$ CTE batching, database indexes, SQLite WAL mode).
-3. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap versi 2.0 (Dual-Track: Fitur Produk Fase 1–11 & Track Modular Monolith DDD Engine).
-4. 🏛️ **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi desain database (ERD), skema tabel, dan protokol WebSocket.
-5. 🏛️ **[`docs/MODULAR_MONOLITH_DDD.md`](docs/MODULAR_MONOLITH_DDD.md)**: Cetak biru arsitektur Modular Monolith & DDD Engine (3-Tier Layering, boundary pemisahan 9 domain, dan roadmap eksekusi engine).
+1. 📌 **[`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)**: **CANONICAL SINGLE SOURCE OF TRUTH (SSOT)**: Ringkasan menyeluruh kondisi produk, kapabilitas aktual, arsitektur modular monolit, domain map, utang teknis, dan konteks pengembang AI.
+2. 🔌 **[`docs/BACKEND_API.md`](docs/BACKEND_API.md)**: Panduan integrasi teknis REST API, WebSocket event catalog, E2EE wire format, dan siklus hidup media untuk pengembang frontend baru.
+3. 🛡️ **[`docs/SECURITY_AND_PERFORMANCE.md`](docs/SECURITY_AND_PERFORMANCE.md)**: Panduan arsitektur keamanan (Anti-BOLA/IDOR, Anti-SSRF, IP Pinning) dan optimasi performa backend ($O(1)$ CTE batching, database indexes, SQLite WAL mode).
+4. 🗺️ **[`docs/ROADMAP.md`](docs/ROADMAP.md)**: Master roadmap versi 2.0 (Dual-Track: Fitur Produk Fase 1–11 & Track Modular Monolith DDD Engine).
+5. 🏛️ **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**: Spesifikasi desain database (ERD), skema tabel, dan protokol WebSocket.
 6. 🔍 **[`docs/ARCHITECTURE_AUDIT.md`](docs/ARCHITECTURE_AUDIT.md)**: Cetak biru evolusi identitas, multi-device, session registry, token revocation, dan passkey readiness.
 7. 🧠 **[`docs/GROUP_MEMORY_AI_SPEC.md`](docs/GROUP_MEMORY_AI_SPEC.md)**: Spesifikasi lengkap engine Group Memory AI (pipeline M1–M7, SKIP LOCKED queue, human validation).
 8. 📱 **[`docs/MOBILE_INTEGRATION_GUIDE.md`](docs/MOBILE_INTEGRATION_GUIDE.md)**: Panduan integrasi teknis klien mobile native (Kotlin, Swift) & cross-platform (Flutter, React Native).
@@ -122,7 +122,10 @@ Sebelum melakukan perubahan besar atau refactoring, AI harus merujuk ke dokumen 
   4. ✅ **Fase 4: Group & Forum Service (SELESAI)**: Domain `internal/group/` (`entity.go`, `repository.go`, `infra/sql_repository.go`), `GroupService` & `ForumService` (`service.go`), migrasi `SubGroupTTLWorker` (`group/worker/ttl_worker.go`), refactor `api/group_handler.go` menjadi thin transport, lulus test 100% dan terverifikasi penuh via simulasi client frontend (`test-group-simulation.mjs`).
   5. ✅ **Fase 5: Memory Engine Generalization (`ContextSource` Abstraction) (SELESAI)**: Abstraksi sumber memori via interface `ContextSource` (`context_source.go`), `ForumContextSource` di domain group, `MemoryService` (`service.go`), `MemoryRepository` & adapter, refactor `api/memory_handler.go` menjadi thin transport, lulus 100% Go tests, Next.js build, dan 14-langkah simulasi client frontend (`test-memory-simulation.mjs`).
   6. ✅ **Fase 6: Cleanup & Slim `main.go` Wiring (`wire.go` / `app.go`) (SELESAI)**: Konfigurasi runtime terpusat (`internal/shared/config/`), sentralisasi background worker (`internal/authz/worker/cleaner_worker.go`), orkestrator kontainer & dependency injection (`internal/app/wire.go`), pemisahan router modular (`internal/app/router.go`), slim entrypoint `backend/main.go` (55 baris) dengan Go standard graceful shutdown, 100% lulus seluruh test suite backend dan frontend.
-
+- 🔧 **Post-Audit Architecture Hardening (Status: Milestones 1–3 SELESAI ✅ | Deployed)** —
+  1. ✅ **Milestone 1: Zero-Risk Handler Cleanup (SELESAI)**: Penghapusan sisa fallback store lama (`if h.service != nil { ... return } // fallback`) di seluruh handler API (net -599 baris), memastikan handler 100% tipis.
+  2. ✅ **Milestone 2: Realtime Ingestion Decoupling (SELESAI)**: WebSocket Hub diputus dari akses langsung ke store SQL via interface `RealtimeMessageManager` dan di-wire ke domain repository adapter.
+  3. ✅ **Milestone 3: Mobile Gateway Readiness & Pluggable Push Provider (SELESAI)**: Resolusi platform perangkat (`web`, `android`, `ios`), header `X-Device-Platform`, multi-device lifecycle use cases di `AuthService`, dan arsitektur `PushProvider` dengan dynamic auto-routing token FCM native dan URL VAPID Web Push.
 
 ---
 

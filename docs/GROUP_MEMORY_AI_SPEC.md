@@ -1,7 +1,10 @@
 # Technical Specification: Group Memory AI MVP
 > WuzzChat — Blueprint Implementasi
-> Status: Specification Only. No code. No migration. No endpoints. No UI.
+> Status: **100% IMPLEMENTED & DEPLOYED ✅ (Milestones M1–M7 Selesai)**
 > Approved Decisions: Journey Lite ✓ | Evidence wajib M3 ✓ | 1.000 pesan ✓ | Group Scoped ✓
+
+> 📌 **Single Source of Truth (SSOT)**: Untuk ringkasan status arsitektur memori aktual dan batasan kontekstual, lihat:  
+> 👉 **[`docs/PROJECT_STATE.md`](PROJECT_STATE.md)**
 
 ---
 

@@ -2,25 +2,15 @@
 
 Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, dan tahapan evolusi aplikasi **Wuzz Chat** dari *proof-of-concept WebSocket* menjadi aplikasi chatting modern berskala industri dengan kapabilitas sekelas WhatsApp / Telegram.
 
----
-
-## 🎯 Visi & Grand Goal Proyek
-
-Membangun platform chatting modern yang:
-1. **Real-Time & Ultra-Low Latency**: Pengiriman pesan instan dengan WebSocket dan Redis Pub/Sub.
-2. **Reliable & Resilient**: Jaminan pesan terkirim (*At-least-once delivery*), status pengiriman (Sent `✓`, Delivered `✓✓`, Read `✓✓` biru), dan sinkronisasi offline.
-3. **Rich Multimedia & Communication**: Mendukung teks berformat, emoji picker, attachment gambar/video/dokumen, voice note, dan audio/video call (WebRTC).
-4. **Security & Privacy**: Autentikasi aman (JWT / OAuth), proteksi data, dan opsi End-to-End Encryption (E2EE).
-5. **Multi-Platform Ready**: Arsitektur backend API yang bersih sehingga siap dikonsumsi oleh Web (Next.js), Mobile (React Native / Flutter), maupun Desktop (Tauri).
-
----
-
-## 🗺️ Master Roadmap Tahapan (Dual-Track Evolving Architecture)
-
+> 📌 **Single Source of Truth (SSOT)**: Untuk ringkasan status implementasi terkini, kapabilitas aktual, dan utang teknis yang diketahui, lihat:  
+> 👉 **[`docs/PROJECT_STATE.md`](PROJECT_STATE.md)**  
+> 
 > 💡 **Prinsip Evolusi Roadmap (Continuous Alignment)**:  
-> Seiring berjalannya proyek, Wuzz Chat tidak membuang roadmap lama ataupun membatalkan rencana fitur yang sudah ada. Sebaliknya, roadmap disinkronkan menjadi **2 Lintasan Terpadu (Dual-Track)**:
-> 1. **Track A — Product Capabilities & UX (Roadmap Fitur)**: Menjaga kesinambungan fitur chat, rich media, group forum, AI memory, multi-device, hingga monetisasi.
-> 2. **Track B — Modular Monolith & DDD Engine (Roadmap Fondasi)**: Mentransformasi backend Go menjadi *Reusable Messaging Engine* yang terisolasi bersih (3-tier: Transport → Application Service → Domain → Infrastructure) agar siap mendukung produk turunan (misal: InstaQRIS, Personal Chat Memory, Multi-Tenant).
+> Seiring berjalannya proyek, Wuzz Chat menyinkronkan roadmap menjadi **2 Lintasan Terpadu (Dual-Track)**:  
+> 1. **Track A — Product Capabilities & UX (Roadmap Fitur)**: Chat, rich media, group forum, AI memory, multi-device, mobile.  
+> 2. **Track B — Modular Monolith & DDD Engine (Roadmap Fondasi)**: Transformasi backend Go menjadi 3-tier modular monolit yang bersih dan terisolasi (**100% Selesai & Deployed ✅**).
+
+---
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -56,11 +46,11 @@ Membangun platform chatting modern yang:
 >    - **Phase 4 (Passkey / WebAuthn)**: *Siap Dieksekusi* (FIDO2 Biometric Login)
 >    - **Phase 5 (Multi-Device E2EE Continuity)**: **SELESAI ✅** (Master Key Sync via Secure QR Transfer + Active Device Lifecycle)
 > 2. 🏛️ **Transformasi Modular Monolith & DDD Engine (Track B)**: [`docs/MODULAR_MONOLITH_DDD.md`](MODULAR_MONOLITH_DDD.md)
->    - **Fase 1 (GroupStore Decoupling)**: **SELESAI ✅ & DEPLOYED** (Pemisahan `SQLGroupStore` mandiri dari `SQLUserStore`)
->    - **Fase 2 (Auth/Identity Application Service)**: **SELESAI ✅ & DEPLOYED** (Ekstraksi `AuthService` use cases, thin transport, shared packages)
->    - **Fase 3 (Messaging & Hub Decoupling)**: **TAHAP BERIKUTNYA 🎯** (Ekstraksi `MessageService`, decoupling WebSocket Hub)
+>    - **Fase 1–6 & Post-Audit Hardening (M1–M3)**: **100% SELESAI ✅ & DEPLOYED** (Pemisahan GroupStore, AuthService, MessageService, ForumService, Memory ContextSource, Slim Bootstrap main.go, Zero-risk handler cleanup, dan Mobile Gateway readiness).
 > 3. 🧠 **Group Memory AI Engine (Fase 10)**: [`docs/GROUP_MEMORY_AI_SPEC.md`](GROUP_MEMORY_AI_SPEC.md)
 >    - **Milestone M1–M7**: **SELESAI ✅** (SKIP LOCKED Job Queue, AI Service, Review UI, Knowledge Viewer, E2E Notifications)
+> 4. 📱 **Mobile Client Roadmap (Track Berikutnya 🎯)**:
+>    - **Milestone 6**: Pengembangan aplikasi mobile cross-platform (React Native / Flutter) untuk Android & iOS memanfaatkan Mobile Gateway yang sudah siap di backend.
 
 ---
 

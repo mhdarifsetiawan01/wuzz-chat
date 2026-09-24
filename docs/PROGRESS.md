@@ -2499,3 +2499,30 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
 - **Real Multi-Platform Integration (`test-multiplatform-real-frontend.mjs`)**: **PASS 100%** (5/5 multi-platform scenario lolos).
 - **Server Lifecycle Guard**: Seluruh server port 8080 dan 3047 dipastikan mati.
+
+---
+
+## 2026-09-24: Single Source of Truth (SSOT) Documentation Alignment & Canonical Architecture Setup (Milestone 5)
+
+### Problem Description
+1. Pasca-penyelesaian Track B (Modular Monolith Fase 1–6) dan Post-Audit Hardening (Milestones 1–3), dokumentasi repositori mengalami desinkronisasi (*stale context*).
+2. `README.md` masih menyebutkan aplikasi chat 1-on-1 dengan 5 package backend internal lama, `ROADMAP.md` memiliki kontradiksi internal (Track B ditandai selesai di tabel namun narasi bawah masih menyebutkan "Fase 3: TAHAP BERIKUTNYA"), dan `GROUP_MEMORY_AI_SPEC.md` masih berstatus "Specification Only" padahal sudah 100% diimplementasikan.
+3. Diperlukan dokumen kanonikal tunggal (*Single Source of Truth*) yang merangkum kondisi produk aktual, arsitektur modular monolit, domain map, kesiapan mobile, utang teknis (TD-01 s/d TD-05), dan panduan AI developer agar sesi kerja berikutnya tidak perlu melakukan audit ulang dari nol.
+
+### Implementation Details
+1. **Penyusunan Dokumen Kanonikal Utama (`docs/PROJECT_STATE.md`)**:
+   - Merangkum 14 bagian esensial: Product Context & Philosophy (*"AI captures. Humans validate. Wuzz remembers."*), Matriks Kapabilitas Produk Aktual (status eksplisit `IMPLEMENTED`, `PARTIAL`, `NOT IMPLEMENTED`, `BLOCKED`), Batas Domain Modular Monolith, Peta Domain, Arsitektur Memori AI, Model Identitas & Perangkat, Batasan Kluster Real-Time, Matriks Kesiapan Mobile (`BACKEND READY` vs `CLIENT NOT YET IMPLEMENTED`), Model Keamanan Zero-Trust, Register Utang Teknis (TD-01 s/d TD-05), Roadmap Milestone, Snapshot 2 Menit, Aturan Main AI Developer, dan Tata Kelola Dokumentasi.
+2. **Penyelarasan Seluruh Dokumentasi Proyek**:
+   - `README.md`: Diperbarui dengan positioning baru (*Actionable Knowledge Messaging Engine*), pohon direktori monorepo aktual (15 internal packages Go), dan tautan SSOT.
+   - `docs/ARCHITECTURE.md`: Ditambahkan banner SSOT dan Bagian 11 dilengkapi dengan dokumentasi kontainer aplikasi (`app/wire.go`), *slim bootstrap* (`main.go`), serta Milestones 1–3.
+   - `docs/ROADMAP.md`: Menghapus kontradiksi internal, menetapkan Track B selesai 100%, dan menetapkan **Milestone 6 (Mobile Client App)** sebagai fokus berikutnya (*NEXT*).
+   - `docs/MOBILE_INTEGRATION_GUIDE.md`: Menegaskan status `BACKEND READY` vs `CLIENT NOT YET IMPLEMENTED`, serta memperbarui payload registrasi push token FCM native via `PushProvider`.
+   - `docs/SECURITY_AND_PERFORMANCE.md`: Menambahkan banner SSOT yang merujuk pada analisis batasan arsitektur realtime kluster.
+   - `docs/GROUP_MEMORY_AI_SPEC.md`: Status diperbarui menjadi **100% IMPLEMENTED & DEPLOYED ✅**.
+   - `docs/MODULAR_MONOLITH_DDD.md`: Ditandai secara resmi sebagai **HISTORICAL ARCHITECTURAL PROPOSAL — 100% IMPLEMENTED & DEPLOYED ✅**.
+   - `PROMPT.md`: Memposisikan `docs/PROJECT_STATE.md` sebagai rujukan #1 Single Source of Truth, dan memperbarui ringkasan fase dengan penyelesaian Post-Audit Hardening (Milestones 1–3).
+
+### Test Evidence
+- **Backend Full Suite (`go test ./...`)**: **PASS 100%** (seluruh internal package lolos).
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
+- **Server Lifecycle Guard**: Seluruh server port 8080 dan 3047 dipastikan mati.
