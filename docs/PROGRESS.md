@@ -2345,3 +2345,29 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Memory Unit Tests (`go test -v ./internal/memory/...`)**: **PASS 100%**.
 - **Backend Full Suite (`go test ./...`)**: **PASS 100%**.
 - **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors, 8/8 routes prerendered)**.
+
+---
+
+## 2026-09-24: Bug Fix — AI Memory Review Toast Sticking & Header Collision (Mobile & Desktop)
+
+### Problem Description
+1. Setelah admin/creator menyetujui atau menolak draf memori AI, muncul notifikasi floating toast `🔔 🧠 Memori grup berhasil divalidasi dan dipublikasikan!`.
+2. **Bug 1 (Stuck Permanen)**: Toast tidak pernah hilang karena dipanggil tanpa timer `setTimeout`.
+3. **Bug 2 (Tabrakan Header di Mobile)**: Menggunakan `top: 16px; left: 50%`, toast bertumpuk tepat di atas sticky header chat (menutupi tombol back, avatar, nama grup, dan tombol forum).
+4. **Bug 3 (Teks Transparan & Bertumpuk)**: Properti background memakai `var(--bg-card)` yang belum terdaftar di `:root` CSS variables sehingga bernilai transparan, menyebabkan teks toast bertabrakan dengan elemen di belakangnya.
+5. **Bug 4 (Posisi Canggung di Laptop)**: Pada layar desktop, `top: 16px` menaruh toast tepat di bilah header obrolan di antara judul grup dan deretan tombol aksi.
+
+### Implementation Details
+1. **Design System & CSS Tokens (`frontend/app/globals.css`, `frontend/DESIGN.md`)**:
+   - Mendaftarkan token `--bg-card: rgba(30, 41, 59, 0.95);` di `:root`.
+   - Menambahkan utility class `.in-app-toast-banner` dengan latar *opaque frosted glass* (`rgba(15, 23, 42, 0.94)` + `backdrop-filter: blur(16px)`), specular border token, shadow lembut, animasi `@keyframes inAppToastSlideDown`, dan *safe header offset* (`top: calc(56px + env(safe-area-inset-top, 0px) + 12px)` pada desktop dan `+ 8px` pada mobile).
+2. **Centralized Toast Lifecycle & Handlers (`frontend/app/chat/page.tsx`)**:
+   - Mengimplementasikan helper terpusat `showInAppToast(message, duration, icon)` dengan `inAppToastTimeoutRef` dan cleanup saat unmount.
+   - Mengintegrasikan auto-dismiss 4 detik serta interaksi tap/click dan tombol tutup `✕` untuk dismiss seketika.
+   - Merapikan callback `onApproved` (ikon `🧠`), `onRejected` (ikon `ℹ️`), dan `join_request` (ikon `🔔`).
+   - Menyempurnakan callback `onJumpToMessage` di modal review dan detail memori dengan navigasi `messageId`.
+
+### Test Evidence
+- **Frontend Turbopack Compilation (`npm run build`)**: **PASS 100% (0 errors, 8/8 routes prerendered)**.
+- **Backend Full Suite (`go test -v ./...`)**: **PASS 100%**.
+
