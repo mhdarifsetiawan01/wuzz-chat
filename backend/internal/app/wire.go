@@ -175,7 +175,7 @@ func New(cfg *config.Config) (*Application, error) {
 
 		messagingRepo = messaginginfra.NewSQLMessagingRepository(messageStore, userStore)
 		messagingSvc := messaging.NewMessageService(messagingRepo, messagingRepo, messagingRepo, nil)
-		app.ChatHandler = api.NewChatHandlerWithService(messagingSvc, userStore, messageStore)
+		app.ChatHandler = api.NewChatHandlerWithService(messagingSvc, userStore, messageStore, authSvc)
 
 		groupRepo := groupinfra.NewSQLGroupRepository(groupStore, userStore)
 		groupSvc := group.NewGroupService(groupRepo, groupRepo, nil, nil)

@@ -1,7 +1,3 @@
-# Implementation Progress — Standby State
+# Implementation Progress — Standby
 
-- [x] Milestone 1: Zero-Risk Handler Cleanup & Legacy Store Fallback Removal (COMPLETED)
-- [x] Milestone 2: Realtime Message Ingestion Decoupling via Domain Messaging Repository (COMPLETED)
-- [x] Milestone 3: Mobile Gateway Readiness & Multi-Platform Pluggable Push Architecture (COMPLETED)
-
-*Status: Seluruh milestone selesai. Menunggu tugas baru.*
+Belum ada task aktif. Semua task Milestone 0 telah selesai 100% dan diarsipkan di `docs/plans/archived/24-09-2026/`.

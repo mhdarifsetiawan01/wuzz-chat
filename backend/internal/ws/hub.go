@@ -62,7 +62,6 @@ type Hub struct {
 	nodeID           string
 	clients          map[string]*Client            // sessionKey -> *Client
 	userClients      map[string]map[string]*Client // userID -> (deviceID -> *Client)
-	clientsByNick    map[string]*Client            // lowercase (username/nickname) -> *Client
 	rooms            map[string]map[string]*Client // roomID -> (sessionKey -> *Client)
 	roomMembersCache map[string][]string           // roomID -> []memberIdentifiers (in-memory cache)
 	roomMembersMu    sync.RWMutex                  // Mutex terisolasi untuk membership cache
@@ -83,7 +82,6 @@ func NewHub(cs store.ClientStore, ms RealtimeMessageManager) *Hub {
 		nodeID:           uuid.New().String(),
 		clients:          make(map[string]*Client),
 		userClients:      make(map[string]map[string]*Client),
-		clientsByNick:    make(map[string]*Client),
 		rooms:            make(map[string]map[string]*Client),
 		roomMembersCache: make(map[string][]string),
 		dedupHistory:     make(map[string]int64),
@@ -342,12 +340,6 @@ func (h *Hub) Register(c *Client) {
 
 	devs[devKey] = c
 	h.clients[c.SessionKey] = c
-	if c.Username != "" {
-		h.clientsByNick[strings.ToLower(c.Username)] = c
-	}
-	if c.Nickname != "" {
-		h.clientsByNick[strings.ToLower(c.Nickname)] = c
-	}
 	h.mu.Unlock()
 
 	if kickClient != nil {
@@ -457,23 +449,6 @@ func (h *Hub) Unregister(c *Client) {
 		remainingDevsCount = len(devs)
 		if remainingDevsCount == 0 {
 			delete(h.userClients, c.ID)
-			if c.Username != "" {
-				delete(h.clientsByNick, strings.ToLower(c.Username))
-			}
-			if c.Nickname != "" {
-				delete(h.clientsByNick, strings.ToLower(c.Nickname))
-			}
-		} else {
-			// Masih ada perangkat lain milik user ini yang aktif, arahkan nick ke salah satu client yang tersisa
-			for _, rem := range devs {
-				if c.Username != "" {
-					h.clientsByNick[strings.ToLower(c.Username)] = rem
-				}
-				if c.Nickname != "" {
-					h.clientsByNick[strings.ToLower(c.Nickname)] = rem
-				}
-				break
-			}
 		}
 	}
 
@@ -643,7 +618,7 @@ func (h *Hub) InvalidateRoomMembersCache(roomID string) {
 	h.roomMembersMu.Unlock()
 }
 
-// findClientsLocked mencari semua client berdasarkan ID, sessionKey, atau username/nickname (wajib dipanggil saat h.mu terkunci).
+// findClientsLocked mencari semua client berdasarkan ID (UUID) atau sessionKey (wajib dipanggil saat h.mu terkunci).
 func (h *Hub) findClientsLocked(identifier string) []*Client {
 	var res []*Client
 	// 1. Cek apakah identifier adalah userID di userClients
@@ -658,19 +633,6 @@ func (h *Hub) findClientsLocked(identifier string) []*Client {
 
 	// 2. Cek apakah identifier adalah sessionKey spesifik di clients
 	if c, ok := h.clients[identifier]; ok {
-		return []*Client{c}
-	}
-
-	// 3. Cek via clientsByNick (username / nickname)
-	if c, ok := h.clientsByNick[strings.ToLower(identifier)]; ok {
-		if devs, ok := h.userClients[c.ID]; ok {
-			for _, devClient := range devs {
-				res = append(res, devClient)
-			}
-			if len(res) > 0 {
-				return res
-			}
-		}
 		return []*Client{c}
 	}
 

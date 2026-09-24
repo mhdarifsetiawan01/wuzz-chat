@@ -1,21 +1,13 @@
-# Implementation Summary — Track B: Modular Monolith Fase 3
+# Implementation Summary — Milestone 0: Prerequisite Stabilization for Tenant-Aware Engine
 
-- **Status**: 🏁 COMPLETED (Awaiting User Confirmation)
-- **Mulai**: 2026-09-24
-- **Branch**: `dev`
-- **Scope**: Backend Go refactoring — Messaging Application Service & Hub Decoupling (Zero Behavior Change)
-
-## Active Milestones
-
-| Milestone | Status | Estimasi |
-|---|---|---|
-| Milestone 3.1: Messaging Domain (Entities, Repositories & SQL Adapter) | ✅ Completed | PASS |
-| Milestone 3.2: Message Application Service (`messaging/service.go`) | ✅ Completed | PASS |
-| Milestone 3.3: WebSocket Hub Decoupling (`RoomAuthorizationChecker`) | ✅ Completed | PASS |
-| Milestone 3.4: ChatHandler Thin Transport Refactoring | ✅ Completed | PASS |
-| Milestone 3.5: Main Wiring, Unit Tests & Docs Synchronization | ✅ Completed | PASS |
-
-## Core Decisions
-- **DEC-001**: Strangler Fig Pattern untuk `internal/messaging/infra/sql_repository.go` membungkus `store.MessageStore` & `store.UserStore`.
-- **DEC-002**: `RoomAuthorizationChecker` interface di `internal/ws/` menggantikan injeksi `store.UserStore` langsung pada `Hub` dan `Client`.
-- **DEC-003**: Injeksi opsional `MessageBroadcaster` pada `MessageService` untuk menjaga decoupling dari transport WebSocket.
+- **Current Status**: IMPLEMENTED & VERIFIED (Menunggu Konfirmasi User)
+- **Initiative**: WuzzChat Engine Evolution (Headless Messaging & AI Memory Engine ➔ Tenant-Aware & Integration-Ready Platform)
+- **Active Milestone**: **Milestone 0: Codebase & Hub Prerequisite Stabilization**
+- **Active Branch**: `dev`
+- **Tujuan Utama**:
+  Menghilangkan sisa teknis single-tenant pada arsitektur in-memory WebSocket Hub dan mengenkapsulasi fungsi identitas/pencarian pengguna ke dalam Application Service layer. Menyiapkan fondasi bersih agar penambahan `tenant_id` pada Milestone 1 berjalan mulus tanpa risiko benturan username atau kebocoran data.
+- **Key Target Areas**:
+  1. **Purifikasi WebSocket Hub**: Menghapus `clientsByNick map[string]*Client` dari `backend/internal/ws/hub.go`, memastikan routing 100% menggunakan User UUID (`userClients[userID]`).
+  2. **Enkapsulasi Identity & Contact Search**: Menghapus akses langsung transport layer ke `store.UserStore` pada `SearchUsers` dan `GetUserProfile` di `backend/internal/api/chat_handler.go`, mengalirkannya via `AuthService` dan `AuthRepository`.
+  3. **Context Carrier Abstraction**: Membuat tipe data immutable `TenantContext` di `backend/internal/shared/tenant/context.go` untuk propagasi konteks tenant di pipeline HTTP dan Go `context.Context`.
+- **Next Step Pasca Milestone 0**: Milestone 1 (Additive Schema Migration & Tenant Registry).

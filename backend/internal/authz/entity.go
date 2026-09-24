@@ -51,3 +51,31 @@ type SessionInfo struct {
 	CreatedAt time.Time
 	IsCurrent bool
 }
+
+// --- Identity & User Lookup Entities ---
+
+// UserSummary merepresentasikan ringkasan profil user untuk hasil pencarian kontak.
+type UserSummary struct {
+	ID            string `json:"id"`
+	Username      string `json:"username"`
+	DisplayName   string `json:"display_name"`
+	StatusMessage string `json:"status_message"`
+	AvatarURL     string `json:"avatar_url"`
+	IsVerified    bool   `json:"is_verified"`
+	PublicKey     string `json:"public_key,omitempty"`
+}
+
+// UserProfile merepresentasikan profil publik lengkap dari seorang pengguna.
+type UserProfile struct {
+	ID             string    `json:"id"`
+	Username       string    `json:"username"`
+	DisplayName    string    `json:"display_name"`
+	StatusMessage  string    `json:"status_message"`
+	AvatarURL      string    `json:"avatar_url"`
+	IsVerified     bool      `json:"is_verified"`
+	PublicKey      string    `json:"public_key,omitempty"`
+	KeyVersion     int       `json:"key_version,omitempty"`
+	ActiveDeviceID string    `json:"active_device_id,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+

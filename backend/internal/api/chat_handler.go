@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/authz"
+	authzinfra "github.com/bms-del112/wuzz-chat/internal/authz/infra"
 	"github.com/bms-del112/wuzz-chat/internal/messaging"
 	messaginginfra "github.com/bms-del112/wuzz-chat/internal/messaging/infra"
 	"github.com/bms-del112/wuzz-chat/internal/store"
@@ -17,30 +19,50 @@ type ChatHandler struct {
 	userStore    store.UserStore
 	messageStore store.MessageStore
 	service      *messaging.MessageService
+	authSvc      *authz.AuthService
 	hub          *ws.Hub
 }
 
 func NewChatHandler(us store.UserStore, ms store.MessageStore) *ChatHandler {
 	repo := messaginginfra.NewSQLMessagingRepository(ms, us)
 	service := messaging.NewMessageService(repo, repo, repo, nil)
+	var authSvc *authz.AuthService
+	if us != nil {
+		authRepo := authzinfra.NewSQLAuthRepository(us, nil, nil, nil, nil)
+		authSvc = authz.NewAuthService(authRepo, nil)
+	}
 	return &ChatHandler{
 		userStore:    us,
 		messageStore: ms,
 		service:      service,
+		authSvc:      authSvc,
 	}
 }
 
-// NewChatHandlerWithService membuat ChatHandler dengan injeksi MessageService (Fase 3 Track B).
-func NewChatHandlerWithService(service *messaging.MessageService, us store.UserStore, ms store.MessageStore) *ChatHandler {
+// NewChatHandlerWithService membuat ChatHandler dengan injeksi MessageService dan AuthService.
+func NewChatHandlerWithService(service *messaging.MessageService, us store.UserStore, ms store.MessageStore, authSvc ...*authz.AuthService) *ChatHandler {
 	if service == nil && (us != nil || ms != nil) {
 		repo := messaginginfra.NewSQLMessagingRepository(ms, us)
 		service = messaging.NewMessageService(repo, repo, repo, nil)
 	}
+	var aSvc *authz.AuthService
+	if len(authSvc) > 0 && authSvc[0] != nil {
+		aSvc = authSvc[0]
+	} else if us != nil {
+		authRepo := authzinfra.NewSQLAuthRepository(us, nil, nil, nil, nil)
+		aSvc = authz.NewAuthService(authRepo, nil)
+	}
 	return &ChatHandler{
 		service:      service,
 		userStore:    us,
 		messageStore: ms,
+		authSvc:      aSvc,
 	}
+}
+
+// SetAuthService menyuntikkan AuthService ke ChatHandler.
+func (h *ChatHandler) SetAuthService(authSvc *authz.AuthService) {
+	h.authSvc = authSvc
 }
 
 // SetMessageService menyuntikkan MessageService ke ChatHandler.
@@ -69,7 +91,18 @@ func (h *ChatHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	if query == "" {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode([]store.User{})
+		_ = json.NewEncoder(w).Encode([]authz.UserSummary{})
+		return
+	}
+
+	if h.authSvc != nil {
+		users, err := h.authSvc.SearchUsers(r.Context(), query, claims.UserID)
+		if err != nil {
+			http.Error(w, `{"error":"Gagal mencari user"}`, http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(users)
 		return
 	}
 
@@ -188,6 +221,22 @@ func (h *ChatHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 	userID := strings.TrimSpace(r.URL.Query().Get("id"))
 	username := strings.TrimSpace(r.URL.Query().Get("username"))
 
+	if userID == "" && username == "" {
+		http.Error(w, `{"error":"parameter id atau username wajib disertakan"}`, http.StatusBadRequest)
+		return
+	}
+
+	if h.authSvc != nil {
+		profile, err := h.authSvc.GetUserProfile(r.Context(), userID, username)
+		if err != nil || profile == nil {
+			http.Error(w, `{"error":"User tidak ditemukan"}`, http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(profile)
+		return
+	}
+
 	var user *store.User
 	var err error
 
@@ -199,9 +248,6 @@ func (h *ChatHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			user, err = h.userStore.GetUserByUsernameOrDisplayName(cleanUsername)
 		}
-	} else {
-		http.Error(w, `{"error":"parameter id atau username wajib disertakan"}`, http.StatusBadRequest)
-		return
 	}
 
 	if err != nil || user == nil {
@@ -225,6 +271,20 @@ func (h *ChatHandler) GetUserPublicKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cleanID := strings.TrimPrefix(id, "@")
+	if h.authSvc != nil {
+		profile, err := h.authSvc.GetUserProfile(r.Context(), cleanID, cleanID)
+		if err != nil || profile == nil {
+			http.Error(w, `{"error":"User tidak ditemukan"}`, http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"user_id":    profile.ID,
+			"public_key": profile.PublicKey,
+		})
+		return
+	}
+
 	user, err := h.userStore.GetUserByID(cleanID)
 	if err != nil || user == nil {
 		user, err = h.userStore.GetUserByUsername(cleanID)

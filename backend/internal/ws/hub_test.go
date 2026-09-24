@@ -611,3 +611,63 @@ func TestHub_BroadcastRoom_MentionsValidation(t *testing.T) {
 		t.Errorf("stored mentions mismatch: got %s, want [\"%s\"]", stored.Mentions, userBob.ID)
 	}
 }
+
+func TestHub_UUIDPurification_NoNickCollision(t *testing.T) {
+	hub := NewHub(store.NewMemoryClientStore(), store.NewMemoryMessageStore())
+
+	// Simulate two clients with the EXACT SAME username/nickname ("admin") but different User UUIDs
+	userA := "uuid-user-a-1111"
+	userB := "uuid-user-b-2222"
+
+	chanA := make(chan Message, 10)
+	clientA := &Client{
+		ID:         userA,
+		DeviceID:   "dev-a",
+		SessionKey: userA + ":dev-a",
+		Username:   "admin",
+		Nickname:   "admin",
+		send:       chanA,
+		hub:        hub,
+	}
+
+	chanB := make(chan Message, 10)
+	clientB := &Client{
+		ID:         userB,
+		DeviceID:   "dev-b",
+		SessionKey: userB + ":dev-b",
+		Username:   "admin",
+		Nickname:   "admin",
+		send:       chanB,
+		hub:        hub,
+	}
+
+	hub.Register(clientA)
+	hub.Register(clientB)
+
+	// Send direct notification to userA using userA UUID
+	testMsg := Message{
+		ID:      "msg-notify-a",
+		Type:    TypeSystem,
+		Content: "Secret for A only",
+	}
+	hub.NotifyUser(userA, testMsg)
+
+	// User A must receive it
+	select {
+	case m := <-chanA:
+		if m.ID != "msg-notify-a" {
+			t.Errorf("expected msg-notify-a, got %s", m.ID)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("timeout waiting for notification on client A")
+	}
+
+	// User B must NOT receive it
+	select {
+	case m := <-chanB:
+		t.Fatalf("unexpected message received by client B with same username: %v", m)
+	case <-time.After(100 * time.Millisecond):
+		// Expected: client B received nothing
+	}
+}
+
