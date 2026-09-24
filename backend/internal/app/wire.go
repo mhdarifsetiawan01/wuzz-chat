@@ -265,6 +265,7 @@ func New(cfg *config.Config) (*Application, error) {
 	hub := ws.NewHub(clientStore, messageStore)
 	if messagingRepo != nil {
 		hub.SetRoomAuth(messagingRepo)
+		hub.SetMessageManager(messagingRepo)
 	} else if userStore != nil {
 		hub.SetUserStore(userStore)
 	}

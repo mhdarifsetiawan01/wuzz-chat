@@ -9,11 +9,11 @@
 - [x] Task 1.6: Verifikasi full Go test suite & frontend compilation (100% PASS).
 
 ## Milestone 2: Realtime Message Ingestion Decoupling (Route WS via MessageService)
-- [ ] Task 2.1: Definisikan use cases `SaveIncomingMessage`, `HandleReceiptUpdate`, `HandleReactionToggle` di `messaging.MessageService`.
-- [ ] Task 2.2: Suntikkan `MessageService` ke dalam `ws.Hub` di `internal/app/wire.go`.
-- [ ] Task 2.3: Refactor `internal/ws/client.go` untuk mendelegasikan persistensi ke `MessageService`.
-- [ ] Task 2.4: Refactor `internal/ws/hub.go` untuk mendelegasikan kueri pesan ke `MessageService`.
-- [ ] Task 2.5: Verifikasi full suite test WebSocket dan perpesanan.
+- [x] Task 2.1: Definisikan use cases `SaveIncomingMessage`, `HandleReceiptUpdate`, `HandleReactionToggle` di `messaging.MessageService`.
+- [x] Task 2.2: Suntikkan domain message manager (`messagingRepo`) ke dalam `ws.Hub` di `internal/app/wire.go`.
+- [x] Task 2.3: Refactor `internal/ws/client.go` untuk mendelegasikan persistensi & receipts ke `Hub` message manager.
+- [x] Task 2.4: Refactor `internal/ws/hub.go` untuk mengekapsulasi kueri pesan ke thread-safe message manager.
+- [x] Task 2.5: Verifikasi full suite test WebSocket, backend unit/integration, dan real frontend proxy (100% PASS).
 
 ## Milestone 3: Mobile Gateway Readiness (Device Platform & Multi-Push Architecture)
 - [ ] Task 3.1: Tambahkan field `Platform` (`web`, `android`, `ios`) pada `authz.RegisterInput`, `authz.LoginInput`, dan HTTP parsing.

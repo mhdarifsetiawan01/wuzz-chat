@@ -44,6 +44,18 @@ type RoomAuthorizationChecker interface {
 	IsConversationExpired(conversationID string) bool
 }
 
+// RealtimeMessageManager mendefinisikan operasi persistensi dan query pesan untuk WebSocket Hub.
+// Interface ini memutus ketergantungan langsung WebSocket Hub ke implementasi store.MessageStore (Milestone 2 Decoupling).
+type RealtimeMessageManager interface {
+	Save(msg store.StoredMessage) error
+	UpdateMessageStatus(msgID string, status string) error
+	MarkRoomMessagesAsRead(roomID, excludeUserID string) error
+	MarkUserMessagesAsDelivered(userID string) ([]string, error)
+	ToggleReaction(msgID, emoji, userID string) (string, error)
+	GetRoomHistoryForUser(roomID, userID string, limit int) ([]store.StoredMessage, error)
+	GetRoomHistorySince(roomID, userID string, since time.Time, limit int) ([]store.StoredMessage, error)
+}
+
 // Hub adalah pusat kendali: menyimpan semua client aktif dan room,
 // serta bertanggung jawab merutingkan pesan dan broadcast ke room.
 type Hub struct {
@@ -59,14 +71,14 @@ type Hub struct {
 	maxActiveDevices int                           // batas perangkat aktif bersamaan per user
 	mu               sync.RWMutex
 	clientStore      store.ClientStore
-	messageStore     store.MessageStore
+	messageStore     RealtimeMessageManager
 	roomAuth         RoomAuthorizationChecker
 	pushService      *push.Service
 	broker           broker.MessageBroker
 }
 
 // NewHub membuat Hub baru dengan dependency yang disuntikkan.
-func NewHub(cs store.ClientStore, ms store.MessageStore) *Hub {
+func NewHub(cs store.ClientStore, ms RealtimeMessageManager) *Hub {
 	return &Hub{
 		nodeID:           uuid.New().String(),
 		clients:          make(map[string]*Client),
@@ -79,6 +91,97 @@ func NewHub(cs store.ClientStore, ms store.MessageStore) *Hub {
 		clientStore:      cs,
 		messageStore:     ms,
 	}
+}
+
+// SetMessageManager menyuntikkan RealtimeMessageManager (misal adapter repository domain messaging).
+func (h *Hub) SetMessageManager(mm RealtimeMessageManager) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.messageStore = mm
+}
+
+// SetMessageStore menyuntikkan store.MessageStore (backward-compatible).
+func (h *Hub) SetMessageStore(ms store.MessageStore) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.messageStore = ms
+}
+
+// SaveMessage menyimpan pesan ke message manager.
+func (h *Hub) SaveMessage(msg store.StoredMessage) error {
+	h.mu.RLock()
+	ms := h.messageStore
+	h.mu.RUnlock()
+	if ms == nil {
+		return nil
+	}
+	return ms.Save(msg)
+}
+
+// UpdateMessageStatus memperbarui status tanda terima pesan.
+func (h *Hub) UpdateMessageStatus(msgID, status string) error {
+	h.mu.RLock()
+	ms := h.messageStore
+	h.mu.RUnlock()
+	if ms == nil {
+		return nil
+	}
+	return ms.UpdateMessageStatus(msgID, status)
+}
+
+// MarkRoomMessagesAsRead menandai pesan di room sebagai read.
+func (h *Hub) MarkRoomMessagesAsRead(roomID, excludeUserID string) error {
+	h.mu.RLock()
+	ms := h.messageStore
+	h.mu.RUnlock()
+	if ms == nil {
+		return nil
+	}
+	return ms.MarkRoomMessagesAsRead(roomID, excludeUserID)
+}
+
+// MarkUserMessagesAsDelivered menandai pesan user sebagai delivered.
+func (h *Hub) MarkUserMessagesAsDelivered(userID string) ([]string, error) {
+	h.mu.RLock()
+	ms := h.messageStore
+	h.mu.RUnlock()
+	if ms == nil {
+		return nil, nil
+	}
+	return ms.MarkUserMessagesAsDelivered(userID)
+}
+
+// ToggleReaction menambah atau menghapus emoji reaksi pada pesan.
+func (h *Hub) ToggleReaction(msgID, emoji, userID string) (string, error) {
+	h.mu.RLock()
+	ms := h.messageStore
+	h.mu.RUnlock()
+	if ms == nil {
+		return "", nil
+	}
+	return ms.ToggleReaction(msgID, emoji, userID)
+}
+
+// GetRoomHistoryForUser mengambil riwayat pesan untuk user.
+func (h *Hub) GetRoomHistoryForUser(roomID, userID string, limit int) ([]store.StoredMessage, error) {
+	h.mu.RLock()
+	ms := h.messageStore
+	h.mu.RUnlock()
+	if ms == nil {
+		return nil, nil
+	}
+	return ms.GetRoomHistoryForUser(roomID, userID, limit)
+}
+
+// GetRoomHistorySince mengambil riwayat pesan sejak timestamp tertentu.
+func (h *Hub) GetRoomHistorySince(roomID, userID string, since time.Time, limit int) ([]store.StoredMessage, error) {
+	h.mu.RLock()
+	ms := h.messageStore
+	h.mu.RUnlock()
+	if ms == nil {
+		return nil, nil
+	}
+	return ms.GetRoomHistorySince(roomID, userID, since, limit)
 }
 
 // SetMaxActiveDevices mengatur batas maksimal perangkat aktif bersamaan per user.
@@ -102,7 +205,7 @@ func (h *Hub) SetPushService(ps *push.Service) {
 				return
 			}
 			// Update status pesan menjadi 'delivered' di DB jika belum 'read'
-			if err := h.messageStore.UpdateMessageStatus(msgID, string(StatusDelivered)); err == nil {
+			if err := h.UpdateMessageStatus(msgID, string(StatusDelivered)); err == nil {
 				// Broadcast status delivered ke room agar pengirim menerima centang 2 abu-abu
 				h.BroadcastRoom(roomID, Message{
 					ID:        msgID,
@@ -469,18 +572,16 @@ func (h *Hub) BroadcastGroupSystemEvent(roomID, eventType, content string) {
 		Content:   content,
 		Timestamp: time.Now().UTC(),
 	}
-	if h.messageStore != nil {
-		_ = h.messageStore.Save(store.StoredMessage{
-			ID:        msg.ID,
-			RoomID:    roomID,
-			FromID:    "server",
-			Nickname:  "Sistem",
-			Content:   content,
-			Status:    string(StatusDelivered),
-			Reactions: "[]",
-			Timestamp: msg.Timestamp,
-		})
-	}
+	_ = h.SaveMessage(store.StoredMessage{
+		ID:        msg.ID,
+		RoomID:    roomID,
+		FromID:    "server",
+		Nickname:  "Sistem",
+		Content:   content,
+		Status:    string(StatusDelivered),
+		Reactions: "[]",
+		Timestamp: msg.Timestamp,
+	})
 	// Gunakan broadcastLocal; juga publish ke cluster agar semua node meneruskan ke anggota offline
 	h.broadcastLocal(roomID, msg, "server")
 	h.mu.RLock()
@@ -673,7 +774,7 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 			}
 		}
 
-		err := h.messageStore.Save(store.StoredMessage{
+		err := h.SaveMessage(store.StoredMessage{
 			ID:              msg.ID,
 			RoomID:          roomID,
 			FromID:          msg.From,
@@ -753,9 +854,9 @@ func (h *Hub) sendRoomHistory(clientID, roomID string, sinceStr ...string) {
 	var err error
 
 	if !sinceTime.IsZero() {
-		history, err = h.messageStore.GetRoomHistorySince(roomID, clientID, sinceTime, 100)
+		history, err = h.GetRoomHistorySince(roomID, clientID, sinceTime, 100)
 	} else {
-		history, err = h.messageStore.GetRoomHistoryForUser(roomID, clientID, 50)
+		history, err = h.GetRoomHistoryForUser(roomID, clientID, 50)
 	}
 	if err != nil {
 		log.Printf("[Hub %s] gagal mengambil history untuk room %s: %v", h.nodeID[:8], roomID, err)

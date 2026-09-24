@@ -180,7 +180,7 @@ func (c *Client) onJoin(msg Message) {
 	// 1. Tandai seluruh pesan tertunda untuk user ini sebagai 'delivered' (centang 2 abu-abu)
 	// Selalu gunakan c.ID (UUID) — tidak pernah fallback ke Nickname
 	userIdent := c.ID
-	deliveredRooms, _ := c.hub.messageStore.MarkUserMessagesAsDelivered(userIdent)
+	deliveredRooms, _ := c.hub.MarkUserMessagesAsDelivered(userIdent)
 	for _, rID := range deliveredRooms {
 		if rID != targetRoom && c.isAuthorizedForRoom(rID) {
 			c.hub.BroadcastRoom(rID, Message{
@@ -194,7 +194,7 @@ func (c *Client) onJoin(msg Message) {
 
 	// 2. Jika user membuka room percakapan tertentu, tandai pesan di room tersebut sebagai 'read' (centang 2 biru)
 	if targetRoom != "" {
-		_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, userIdent)
+		_ = c.hub.MarkRoomMessagesAsRead(targetRoom, userIdent)
 
 		c.hub.BroadcastRoom(targetRoom, Message{
 			Type:      TypeReceipt,
@@ -365,14 +365,14 @@ func (c *Client) onReceipt(msg Message) {
 
 	if msg.ID != "" {
 		// Update status single message di database / memory store
-		if err := c.hub.messageStore.UpdateMessageStatus(msg.ID, string(msg.Status)); err != nil {
+		if err := c.hub.UpdateMessageStatus(msg.ID, string(msg.Status)); err != nil {
 			log.Printf("[Client %s] gagal update status message %s ke %s: %v", c.ID, msg.ID, msg.Status, err)
 		}
 	} else if msg.Status == StatusRead {
 		// Bulk update status read untuk seluruh pesan di room ini
 		// Selalu gunakan c.ID (UUID) — tidak pernah fallback ke Nickname
 		userIdent := c.ID
-		_ = c.hub.messageStore.MarkRoomMessagesAsRead(targetRoom, userIdent)
+		_ = c.hub.MarkRoomMessagesAsRead(targetRoom, userIdent)
 	}
 
 	msg.Room = targetRoom
@@ -434,7 +434,7 @@ func (c *Client) onReaction(msg Message) {
 
 	// Toggle reaksi di database / memory store
 	// Gunakan c.ID (UUID) agar reaksi tetap valid meskipun user mengganti display_name
-	reactionsJSON, err := c.hub.messageStore.ToggleReaction(msg.Reaction.MessageID, msg.Reaction.Emoji, c.ID)
+	reactionsJSON, err := c.hub.ToggleReaction(msg.Reaction.MessageID, msg.Reaction.Emoji, c.ID)
 	if err != nil {
 		log.Printf("[Client %s] gagal toggle reaction: %v", c.ID, err)
 		return

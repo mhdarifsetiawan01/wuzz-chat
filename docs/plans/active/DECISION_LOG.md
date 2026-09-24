@@ -12,3 +12,9 @@
   2. Milestone 2: Decoupling Realtime Message Ingestion (WebSocket Layer)
   3. Milestone 3: Mobile Gateway Readiness (Platform & Push Layer)
   Setiap milestone harus lulus tes mandiri dan mendapat persetujuan sebelum lanjut ke milestone berikutnya.
+
+## DEC-018: Realtime Message Ingestion Decoupling & Go Circular Dependency Prevention
+- **Konteks:** `internal/messaging/service.go` sudah mengimpor `internal/ws` untuk `MessageBroadcaster`. Jika `internal/ws` mengimpor `internal/messaging` secara langsung, Go compiler akan menolak kompilasi dengan error `import cycle not allowed`.
+- **Keputusan:** Di `internal/ws/hub.go`, didefinisikan interface decoupling `RealtimeMessageManager` menggunakan tipe `store.StoredMessage` (yang dialiaskan oleh `messaging.Message`). Adapter `SQLMessagingRepository` dari `internal/messaging/infra` secara implisit memenuhi interface ini dan disuntikkan ke `Hub` via `hub.SetMessageManager(messagingRepo)` di `internal/app/wire.go`.
+- **Dampak:** Zero circular dependency, arsitektur realtime WebSocket ter-decouple rapi, dan seluruh akses database pesan di `client.go` serta `hub.go` terpusat melalui domain interface yang thread-safe.
+

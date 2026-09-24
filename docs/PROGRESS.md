@@ -2431,5 +2431,36 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Frontend Real Integration E2E (`test-frontend-real-e2e.mjs`)**: **PASS 100%** (seluruh 19 alur fungsi berjalan mulus melalui Next.js proxy).
 - **Simulasi Klien Frontend**: `test-two-user-e2ee-simulation.mjs` (PASS 100%), `test-multi-device-frontend.mjs` (PASS 100%), `test-group-simulation.mjs` (PASS 100%).
 
+---
+
+## 2026-09-24: Post-Audit Modular Monolith Hardening — Milestone 2 (Realtime Message Ingestion Decoupling)
+
+### Problem Description
+1. Pada layer WebSocket real-time, `ws.Hub` dan `ws.Client` masih mengonsumsi persistensi pesan langsung melalui `store.MessageStore` alih-alih melalui domain repository `messaging`.
+2. Paket `messaging` sudah mengimpor `ws` untuk broadcasting pesan, sehingga jika `ws` mengimpor `messaging`, Go compiler akan menolak kompilasi dengan error `import cycle not allowed`. Diperlukan decoupling yang elegan tanpa circular dependency.
+
+### Implementation Details
+1. **Interface Decoupling di WebSocket Hub (`backend/internal/ws/hub.go`)**:
+   - Mendefinisikan interface `RealtimeMessageManager` di dalam package `ws` yang mencakup method: `Save`, `UpdateMessageStatus`, `MarkRoomMessagesAsRead`, `MarkUserMessagesAsDelivered`, `ToggleReaction`, `GetRoomHistoryForUser`, `GetRoomHistorySince`.
+   - Menambahkan method setter `SetMessageManager(mm RealtimeMessageManager)` serta helper methods aman secara thread-safe (`SaveMessage`, `UpdateMessageStatus`, `MarkRoomMessagesAsRead`, `MarkUserMessagesAsDelivered`, `ToggleReaction`, `GetRoomHistoryForUser`, `GetRoomHistorySince`).
+   - Menerapkan isolasi mutex: `h.mu.RLock()` hanya ditahan saat meng-copy pointer manager ke local variable dan langsung dilepas sebelum pemanggilan I/O database, mencegah lock contention dan deadlock.
+2. **Refactor Pemrosesan Pesan Client (`backend/internal/ws/client.go`)**:
+   - Menghapus akses langsung `c.hub.messageStore.*` pada event receipt (`read`/`delivered`) dan reaction toggle (`onReaction`), menggantikannya dengan delegasi aman ke `c.hub.*`.
+3. **Ekspansi Domain Messaging (`backend/internal/messaging/`)**:
+   - Menambahkan method `SaveMessage(msg Message) error` pada `MessageRepository`.
+   - Mengimplementasikan `SaveMessage` dan `Save` pada adapter `messaginginfra.SQLMessagingRepository`.
+   - Menambahkan use cases pada `messaging.MessageService`: `SaveIncomingMessage`, `ToggleReaction`, `GetRoomHistory`, `GetRoomHistorySince`, `MarkUserMessagesAsDelivered`, `MarkRoomMessagesAsRead`.
+   - Menambahkan unit test baru di `service_test.go` (100% pass).
+4. **Wiring Domain Repository ke WebSocket Hub (`backend/internal/app/wire.go`)**:
+   - Menyuntikkan `messagingRepo` ke WebSocket Hub via `hub.SetMessageManager(messagingRepo)`.
+
+### Test Evidence
+- **Backend Full Suite (`go test ./...`)**: **PASS 100%** (seluruh internal package lolos).
+- **Go Race Detector (`go test -race ./internal/ws ./internal/messaging ./internal/app`)**: **PASS 100%** (0 data races detected).
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
+- **Frontend Real Integration E2E (`node test-frontend-real-e2e.mjs`)**: **PASS 100%** (seluruh 19 alur integrasi Next.js proxy ⇄ backend Go lolos sempurna).
+- **Server Lifecycle Guard**: Seluruh server uji lokal (port 8080 & 3047) dimatikan tuntas.
+
+
 
 
