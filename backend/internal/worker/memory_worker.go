@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/store"
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 )
 
 // MemoryJobProcessor mendefinisikan interface pemrosesan AI untuk memproses konten forum menjadi memori terstruktur.
@@ -25,6 +26,7 @@ type MemoryJobWorker struct {
 	processor    MemoryJobProcessor
 	interval     time.Duration
 	batchSize    int
+	tenantID     string
 	stopCh       chan struct{}
 	wg           sync.WaitGroup
 }
@@ -50,6 +52,11 @@ func (w *MemoryJobWorker) SetBatchSize(batchSize int) {
 	}
 }
 
+// SetTenantID mengatur tenant_id khusus untuk worker ini (opsional).
+func (w *MemoryJobWorker) SetTenantID(tenantID string) {
+	w.tenantID = tenantID
+}
+
 // SetProcessor menginjeksi engine pemrosesan AI (M3).
 func (w *MemoryJobWorker) SetProcessor(p MemoryJobProcessor) {
 	w.processor = p
@@ -57,7 +64,7 @@ func (w *MemoryJobWorker) SetProcessor(p MemoryJobProcessor) {
 
 // Start menjalankan goroutine daemon background untuk polling antrean job.
 func (w *MemoryJobWorker) Start() {
-	log.Printf("⏳ [MemoryJobWorker] Group Memory AI Job Worker aktif (Interval: %v, Batch: %d)", w.interval, w.batchSize)
+	log.Printf("⏳ [MemoryJobWorker] Group Memory AI Job Worker aktif (Interval: %v, Batch: %d, Tenant: '%s')", w.interval, w.batchSize, w.tenantID)
 
 	w.wg.Add(1)
 	go func() {
@@ -94,6 +101,10 @@ func (w *MemoryJobWorker) ProcessOnce() int {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
+	if w.tenantID != "" {
+		ctx = tenantshared.WithTenant(ctx, w.tenantID)
+	}
+
 	pendingJobs, err := w.memoryStore.GetPendingJobs(ctx, w.batchSize)
 	if err != nil {
 		log.Printf("⚠️ [MemoryJobWorker] Gagal mengambil pending memory jobs: %v", err)
@@ -107,15 +118,19 @@ func (w *MemoryJobWorker) ProcessOnce() int {
 	for i := range pendingJobs {
 		pj := pendingJobs[i]
 
-		// Claim job secara atomik (status QUEUED -> PROCESSING)
-		job, err := w.memoryStore.ClaimJob(ctx, pj.ID)
+		// Claim job secara atomik (status QUEUED -> PROCESSING) dengan context tenant job
+		jobCtx := ctx
+		if pj.TenantID != "" {
+			jobCtx = tenantshared.WithTenant(ctx, pj.TenantID)
+		}
+		job, err := w.memoryStore.ClaimJob(jobCtx, pj.ID)
 		if err != nil {
 			// Job mungkin sudah diambil oleh worker instance lain (multi-node cluster)
 			continue
 		}
 
 		processedCount++
-		w.processSingleJob(ctx, job)
+		w.processSingleJob(jobCtx, job)
 	}
 
 	return processedCount
@@ -123,8 +138,14 @@ func (w *MemoryJobWorker) ProcessOnce() int {
 
 // processSingleJob mengeksekusi pipeline pekerjaan untuk satu ForumMemoryJob.
 func (w *MemoryJobWorker) processSingleJob(ctx context.Context, job *store.ForumMemoryJob) {
-	log.Printf("🔄 [MemoryJobWorker] Memproses job %s untuk forum %s (Percobaan %d/%d)...",
-		job.ID, job.ForumID, job.AttemptCount, job.MaxAttempts)
+	jobTenant := job.TenantID
+	if jobTenant == "" {
+		jobTenant = "default"
+	}
+	jobCtx := tenantshared.WithTenant(ctx, jobTenant)
+
+	log.Printf("🔄 [MemoryJobWorker] Memproses job %s (Tenant: %s) untuk forum %s (Percobaan %d/%d)...",
+		job.ID, jobTenant, job.ForumID, job.AttemptCount, job.MaxAttempts)
 
 	// 1. Ambil jumlah pesan percakapan di forum
 	messageCount := 0
@@ -137,16 +158,16 @@ func (w *MemoryJobWorker) processSingleJob(ctx context.Context, job *store.Forum
 
 	// 2. Eksekusi prosesor AI jika tersedia
 	if w.processor != nil {
-		err := w.processor.ProcessMemoryJob(ctx, job, messageCount)
+		err := w.processor.ProcessMemoryJob(jobCtx, job, messageCount)
 		if err != nil {
-			w.handleJobFailure(ctx, job, err)
+			w.handleJobFailure(jobCtx, job, err)
 			return
 		}
 	} else {
 		// M2 Baseline (sebelum M3 AI processor dihubungkan):
 		// Menandai job selesai dengan mencatat messageCount
 		log.Printf("ℹ️ [MemoryJobWorker] M2 Baseline (No AI Processor): Menyelesaikan job %s dengan %d pesan", job.ID, messageCount)
-		if err := w.memoryStore.CompleteJob(ctx, job.ID, messageCount); err != nil {
+		if err := w.memoryStore.CompleteJob(jobCtx, job.ID, messageCount); err != nil {
 			log.Printf("⚠️ [MemoryJobWorker] Gagal menyelesaikan baseline job %s: %v", job.ID, err)
 			return
 		}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/google/uuid"
 )
@@ -130,10 +131,20 @@ func NewMemoryService(
 	}
 }
 
-// checkAdminRole memverifikasi apakah userID adalah admin/creator di grup tertentu.
-func (s *MemoryService) checkAdminRole(groupID, userID string) (bool, error) {
+// checkAdminRole memverifikasi apakah userID adalah admin/creator di grup tertentu dan tenant sesuai.
+func (s *MemoryService) checkAdminRole(ctx context.Context, groupID, userID string) (bool, error) {
 	if s.accessCheck == nil {
 		return false, errors.New("access checker belum diinisialisasi")
+	}
+	callerTenant := tenantshared.MustFromContext(ctx).TenantID()
+	if dtl, err := s.accessCheck.GetGroupDetails(groupID, userID); err == nil && dtl != nil {
+		groupTenant := dtl.TenantID
+		if groupTenant == "" {
+			groupTenant = "default"
+		}
+		if callerTenant != groupTenant {
+			return false, ErrUnauthorizedAccess
+		}
 	}
 	role, err := s.accessCheck.GetUserRoleInGroup(groupID, userID)
 	if err != nil {
@@ -158,8 +169,11 @@ func (s *MemoryService) ListDrafts(ctx context.Context, groupID, status, current
 		return nil, errors.New("group_id wajib disertakan")
 	}
 
-	isAdmin, err := s.checkAdminRole(groupID, currentUserID)
+	isAdmin, err := s.checkAdminRole(ctx, groupID, currentUserID)
 	if err != nil {
+		if errors.Is(err, ErrUnauthorizedAccess) {
+			return nil, ErrUnauthorizedAccess
+		}
 		return nil, fmt.Errorf("gagal verifikasi peran: %w", err)
 	}
 	if !isAdmin {
@@ -224,8 +238,20 @@ func (s *MemoryService) GetDraftDetail(ctx context.Context, draftID, currentUser
 		return nil, "", err
 	}
 
-	isAdmin, err := s.checkAdminRole(draft.ParentID, currentUserID)
+	callerTenant := tenantshared.MustFromContext(ctx).TenantID()
+	draftTenant := draft.TenantID
+	if draftTenant == "" {
+		draftTenant = "default"
+	}
+	if callerTenant != draftTenant {
+		return nil, "", ErrUnauthorizedAccess
+	}
+
+	isAdmin, err := s.checkAdminRole(ctx, draft.ParentID, currentUserID)
 	if err != nil {
+		if errors.Is(err, ErrUnauthorizedAccess) {
+			return nil, "", ErrUnauthorizedAccess
+		}
 		return nil, "", fmt.Errorf("gagal verifikasi peran: %w", err)
 	}
 	if !isAdmin {
@@ -278,12 +304,24 @@ func (s *MemoryService) UpdateArtifactContent(ctx context.Context, draftID, arti
 		return nil, err
 	}
 
+	callerTenant := tenantshared.MustFromContext(ctx).TenantID()
+	draftTenant := draft.TenantID
+	if draftTenant == "" {
+		draftTenant = "default"
+	}
+	if callerTenant != draftTenant {
+		return nil, ErrUnauthorizedAccess
+	}
+
 	if draft.Status != DraftStatusDraft {
 		return nil, ErrDraftAlreadyReviewed
 	}
 
-	isAdmin, err := s.checkAdminRole(draft.ParentID, currentUserID)
+	isAdmin, err := s.checkAdminRole(ctx, draft.ParentID, currentUserID)
 	if err != nil {
+		if errors.Is(err, ErrUnauthorizedAccess) {
+			return nil, ErrUnauthorizedAccess
+		}
 		return nil, fmt.Errorf("gagal verifikasi peran: %w", err)
 	}
 	if !isAdmin {
@@ -340,12 +378,24 @@ func (s *MemoryService) RemoveJourneyLite(ctx context.Context, draftID, currentU
 		return err
 	}
 
+	callerTenant := tenantshared.MustFromContext(ctx).TenantID()
+	draftTenant := draft.TenantID
+	if draftTenant == "" {
+		draftTenant = "default"
+	}
+	if callerTenant != draftTenant {
+		return ErrUnauthorizedAccess
+	}
+
 	if draft.Status != DraftStatusDraft {
 		return ErrDraftAlreadyReviewed
 	}
 
-	isAdmin, err := s.checkAdminRole(draft.ParentID, currentUserID)
+	isAdmin, err := s.checkAdminRole(ctx, draft.ParentID, currentUserID)
 	if err != nil {
+		if errors.Is(err, ErrUnauthorizedAccess) {
+			return ErrUnauthorizedAccess
+		}
 		return fmt.Errorf("gagal verifikasi peran: %w", err)
 	}
 	if !isAdmin {
@@ -375,12 +425,24 @@ func (s *MemoryService) ApproveDraft(ctx context.Context, draftID, adminID strin
 		return nil, err
 	}
 
+	callerTenant := tenantshared.MustFromContext(ctx).TenantID()
+	draftTenant := draft.TenantID
+	if draftTenant == "" {
+		draftTenant = "default"
+	}
+	if callerTenant != draftTenant {
+		return nil, ErrUnauthorizedAccess
+	}
+
 	if draft.Status != DraftStatusDraft {
 		return nil, ErrDraftAlreadyReviewed
 	}
 
-	isAdmin, err := s.checkAdminRole(draft.ParentID, adminID)
+	isAdmin, err := s.checkAdminRole(ctx, draft.ParentID, adminID)
 	if err != nil {
+		if errors.Is(err, ErrUnauthorizedAccess) {
+			return nil, ErrUnauthorizedAccess
+		}
 		return nil, fmt.Errorf("gagal verifikasi peran: %w", err)
 	}
 	if !isAdmin {
@@ -399,6 +461,7 @@ func (s *MemoryService) ApproveDraft(ctx context.Context, draftID, adminID strin
 		ContextID:            draft.ContextID,
 		ContextType:          draft.ContextType,
 		ParentID:             draft.ParentID,
+		TenantID:             draftTenant,
 		ApprovedBy:           adminID,
 		ApprovedAt:           time.Now().UTC(),
 		CreatedAt:            time.Now().UTC(),
@@ -486,7 +549,8 @@ func (s *MemoryService) ApproveDraft(ctx context.Context, draftID, adminID strin
 		s.notifier.BroadcastGroupSystemEvent(draft.ParentID, "memory_approved", "🧠 Memori grup baru telah divalidasi dan ditambahkan ke arsip!")
 
 		if s.accessCheck != nil {
-			go func(parentID, contextID, memoryID, approvedAdminID string) {
+			go func(parentID, contextID, memoryID, approvedAdminID, tenantID string) {
+				bgCtx := tenantshared.WithTenant(context.Background(), tenantID)
 				members, errM := s.accessCheck.GetGroupMembers(parentID)
 				if errM != nil || len(members) == 0 {
 					return
@@ -504,7 +568,7 @@ func (s *MemoryService) ApproveDraft(ctx context.Context, draftID, adminID strin
 				forumTitle := "Forum Diskusi"
 				cSource := s.resolveContextSource(ContextTypeForum)
 				if cSource != nil {
-					if meta, errC := cSource.GetContextMeta(context.Background(), contextID); errC == nil && meta != nil && meta.Title != "" {
+					if meta, errC := cSource.GetContextMeta(bgCtx, contextID); errC == nil && meta != nil && meta.Title != "" {
 						forumTitle = meta.Title
 					}
 				}
@@ -522,7 +586,7 @@ func (s *MemoryService) ApproveDraft(ctx context.Context, draftID, adminID strin
 						"deep_link":          fmt.Sprintf("/chat?roomId=%s&openMemory=%s", parentID, memoryID),
 					},
 				)
-			}(draft.ParentID, draft.ContextID, approvedMem.ID, adminID)
+			}(draft.ParentID, draft.ContextID, approvedMem.ID, adminID, draftTenant)
 		}
 	}
 
@@ -536,12 +600,24 @@ func (s *MemoryService) RejectDraft(ctx context.Context, draftID, adminID, reaso
 		return err
 	}
 
+	callerTenant := tenantshared.MustFromContext(ctx).TenantID()
+	draftTenant := draft.TenantID
+	if draftTenant == "" {
+		draftTenant = "default"
+	}
+	if callerTenant != draftTenant {
+		return ErrUnauthorizedAccess
+	}
+
 	if draft.Status != DraftStatusDraft {
 		return ErrDraftAlreadyReviewed
 	}
 
-	isAdmin, err := s.checkAdminRole(draft.ParentID, adminID)
+	isAdmin, err := s.checkAdminRole(ctx, draft.ParentID, adminID)
 	if err != nil {
+		if errors.Is(err, ErrUnauthorizedAccess) {
+			return ErrUnauthorizedAccess
+		}
 		return fmt.Errorf("gagal verifikasi peran: %w", err)
 	}
 	if !isAdmin {
@@ -557,7 +633,17 @@ func (s *MemoryService) GetGroupMemories(ctx context.Context, groupID, currentUs
 		return nil, errors.New("group_id wajib disertakan")
 	}
 
+	callerTenant := tenantshared.MustFromContext(ctx).TenantID()
 	if s.accessCheck != nil {
+		if dtl, err := s.accessCheck.GetGroupDetails(groupID, currentUserID); err == nil && dtl != nil {
+			groupTenant := dtl.TenantID
+			if groupTenant == "" {
+				groupTenant = "default"
+			}
+			if callerTenant != groupTenant {
+				return nil, ErrUnauthorizedAccess
+			}
+		}
 		role, err := s.accessCheck.GetUserRoleInGroup(groupID, currentUserID)
 		if err != nil || role == "" {
 			return nil, ErrUnauthorizedAccess
@@ -623,6 +709,15 @@ func (s *MemoryService) GetApprovedMemoryDetail(ctx context.Context, memoryID, c
 		return nil, err
 	}
 
+	callerTenant := tenantshared.MustFromContext(ctx).TenantID()
+	memTenant := mem.TenantID
+	if memTenant == "" {
+		memTenant = "default"
+	}
+	if callerTenant != memTenant {
+		return nil, ErrUnauthorizedAccess
+	}
+
 	// Verifikasi hak akses via ContextSource atau parent group access
 	authorized := false
 	cSource := s.resolveContextSource(mem.ContextType)
@@ -635,6 +730,15 @@ func (s *MemoryService) GetApprovedMemoryDetail(ctx context.Context, memoryID, c
 
 	var viewerRole = ViewerRoleMember
 	if !authorized && s.accessCheck != nil {
+		if dtl, err := s.accessCheck.GetGroupDetails(mem.ParentID, currentUserID); err == nil && dtl != nil {
+			groupTenant := dtl.TenantID
+			if groupTenant == "" {
+				groupTenant = "default"
+			}
+			if callerTenant != groupTenant {
+				return nil, ErrUnauthorizedAccess
+			}
+		}
 		role, errR := s.accessCheck.GetUserRoleInGroup(mem.ParentID, currentUserID)
 		if errR == nil && role != "" {
 			authorized = true

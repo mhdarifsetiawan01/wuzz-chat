@@ -1,5 +1,4 @@
-# AI Context — Standby State
+# AI Context & Active Workspace
 
-- **Workspace**: WuzzChat Monorepo
-- **Active Branch**: `dev`
-- **Status**: Standby. Siap untuk instruksi atau milestone berikutnya.
+- Status: Standby
+- Active Branch: `dev`

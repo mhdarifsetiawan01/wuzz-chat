@@ -210,7 +210,7 @@ func (s *SQLGroupStore) GetGroupDetails(conversationID, currentUserID string) (*
 	if s.driverName == "postgres" {
 		convQuery = `
 			SELECT 
-				id, title, description, avatar_url, is_public, 
+				id, COALESCE(tenant_id, 'default'), title, description, avatar_url, is_public, 
 				COALESCE(group_username, ''), COALESCE(parent_id, ''),
 				created_by, created_at, updated_at,
 				COALESCE(status, 'active'), expires_at, COALESCE(ai_summary, '')
@@ -220,7 +220,7 @@ func (s *SQLGroupStore) GetGroupDetails(conversationID, currentUserID string) (*
 	} else {
 		convQuery = `
 			SELECT 
-				id, title, description, avatar_url, is_public, 
+				id, COALESCE(tenant_id, 'default'), title, description, avatar_url, is_public, 
 				COALESCE(group_username, ''), COALESCE(parent_id, ''),
 				created_by, created_at, updated_at,
 				COALESCE(status, 'active'), expires_at, COALESCE(ai_summary, '')
@@ -231,7 +231,7 @@ func (s *SQLGroupStore) GetGroupDetails(conversationID, currentUserID string) (*
 
 	var g GroupDetails
 	err := s.db.QueryRowContext(ctx, convQuery, conversationID).Scan(
-		&g.ID, &g.Title, &g.Description, &g.AvatarURL, &g.IsPublic,
+		&g.ID, &g.TenantID, &g.Title, &g.Description, &g.AvatarURL, &g.IsPublic,
 		&g.GroupUsername, &g.ParentID, &g.CreatedBy, &g.CreatedAt, &g.UpdatedAt,
 		&g.Status, &g.ExpiresAt, &g.AISummary,
 	)

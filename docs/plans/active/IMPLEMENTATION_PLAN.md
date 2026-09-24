@@ -1,3 +1,4 @@
-# Implementation Plan — Standby State
+# Active Implementation Plan
 
-Menunggu instruksi baru.
+- Status: Standby
+- Plan: None

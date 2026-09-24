@@ -2709,6 +2709,44 @@ Mengisolasi seluruh alur pengiriman pesan realtime (WebSocket In-Memory Hub) dan
 - **Full Backend Test Suite (`go test -v ./...`)**: **PASS 100%** di seluruh packages internal (`api`, `auth`, `authz`, `group`, `messaging`, `push`, `store`, `tenant`, `ws`).
 - **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
 
+---
+
+## 🧠 Milestone 5: AI Memory Context Tenant Scoping (24 September 2026) — SELESAI ✅
+
+### 1. Deskripsi & Arsitektur
+Mengisolasi seluruh siklus hidup AI Memory Engine (antrean job worker, ekstraksi konteks percakapan, review/validasi draft memori, penyimpanan artefak, hingga retrieval memory) agar strictly tenant-scoped untuk mencegah kebocoran konteks data AI (*cross-tenant memory leak*):
+- **Domain Entity & DTO Isolation (`backend/internal/memory/entity.go` & `backend/internal/store/memory_store.go`)**:
+  - Menyematkan `TenantID string` pada entity domain `MemoryJob`, `MemoryDraft`, dan `ApprovedMemory`.
+  - Menyematkan `TenantID string` pada store entities `ForumMemoryJob`, `MemoryDraft`, dan `ApprovedMemory`.
+  - Menyematkan `TenantID string` pada `GroupDetails` (`group_store.go`) dan membaca `COALESCE(tenant_id, 'default')` pada `sql_group_store.go`.
+- **Storage & Queue Layer Isolation (`backend/internal/store/memory_store.go`)**:
+  - `GetPendingJobs`: Memfilter `AND tenant_id = $X` dan menerapkan PostgreSQL row-level locking `FOR UPDATE SKIP LOCKED` untuk konkurensi cluster bebas race condition.
+  - `ClaimJob`: Memfilter `WHERE id = $2 AND tenant_id = $3 AND status = 'QUEUED'`.
+  - `CompleteJob` & `FailJob`: Memfilter berdasarkan `id` dan `tenant_id`.
+  - `GetDraftByID`, `GetDraftByForumID`, `GetDraftsByGroupID`: Memfilter `AND tenant_id = $X` dan membaca `draft.TenantID`.
+  - `GetArtifactByID` & `GetArtifactsByDraftID`: Menggunakan `INNER JOIN memory_drafts md ON a.draft_id = md.id WHERE md.tenant_id = $X`.
+  - `UpdateArtifact` & `RemoveJourneyLite`: Menggunakan subquery filter `draft_id IN (SELECT id FROM memory_drafts WHERE tenant_id = $X)`.
+  - `ApproveDraft` & `RejectDraft`: Memvalidasi `tenant_id` dan menyematkan `approvedMemory.TenantID`.
+  - `GetApprovedMemoryByID`, `GetApprovedMemoryByForumID`, `GetApprovedMemoriesByGroupID`: Memfilter `AND tenant_id = $X`.
+- **ContextSource & Service Scoping (`backend/internal/group/infra/` & `backend/internal/memory/service.go`)**:
+  - `ForumContextSource`: Memvalidasi kecocokan tenant pada `GetMessages`, `GetContextMeta`, dan `GetAuthorizedViewers`, menolak akses cross-tenant dengan `ErrUnauthorizedAccess`.
+  - `MemoryService`: Menerapkan Two-Tier Defense di mana seluruh aksi review (`ListDrafts`, `GetDraftDetail`, `UpdateArtifactContent`, `RemoveJourneyLite`, `ApproveDraft`, `RejectDraft`, `GetGroupMemories`, `GetApprovedMemoryDetail`) memvalidasi kecocokan tenant pemanggil dengan entitas draft, grup, dan memori.
+  - Background notification goroutine pada `ApproveDraft` didekorasi dengan tenant context (`bgCtx := tenantshared.WithTenant(context.Background(), draftTenant)`) agar panggilan metadata forum tetap membawa boundary tenant yang valid.
+- **Worker Scoping (`backend/internal/worker/memory_worker.go`)**:
+  - Menambahkan dukungan `SetTenantID(tenantID string)` pada `MemoryJobWorker`.
+  - `ProcessOnce` dan `processSingleJob` secara otomatis mendekorasi context eksekusi dengan `job.TenantID` untuk processor AI dan operasi complete/fail job.
+
+### 2. Bukti Pengujian Otomatis
+- **Dedicated Suite (`memory_tenant_isolation_test.go`)**: **PASS 100%**
+  - `TestMemoryTenantIsolation_JobQueue`: Pemisahan antrean pending jobs dan proteksi cross-tenant claim.
+  - `TestMemoryTenantIsolation_DraftReviewSecurityGate`: Penolakan review, penyuntingan artefak, persetujuan, dan penolakan draf lintas tenant.
+  - `TestMemoryTenantIsolation_MemoryRetrievalScoping`: Penolakan pembacaan linimasa memori dan detail memori terpublikasi lintas tenant.
+  - `TestMemoryTenantIsolation_ServiceDefenseInDepth`: Pembuktian bahwa sekalipun repository mengembalikan data, service layer tetap menolak dengan `ErrUnauthorizedAccess`.
+  - `TestMemoryTenantIsolation_ContextSource`: Penolakan ekstraksi riwayat pesan dan metadata forum lintas tenant.
+- **Full Backend Test Suite (`go test ./...`)**: **PASS 100%** di seluruh packages internal (`ai`, `api`, `app`, `auth`, `authz`, `broker`, `group`, `memory`, `messaging`, `push`, `shared`, `storage`, `store`, `tenant`, `worker`, `ws`).
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
+
+
 
 
 

@@ -34,6 +34,7 @@ type GroupMemberItem struct {
 // GroupDetails merepresentasikan informasi detail sebuah grup.
 type GroupDetails struct {
 	ID            string            `json:"id"`
+	TenantID      string            `json:"tenant_id,omitempty"`
 	Title         string            `json:"title"`
 	Description   string            `json:"description"`
 	AvatarURL     string            `json:"avatar_url"`

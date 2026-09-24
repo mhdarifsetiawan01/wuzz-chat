@@ -328,6 +328,10 @@ func (h *MemoryHandler) handleUpdateArtifact(w http.ResponseWriter, r *http.Requ
 
 	art, err := h.svc.UpdateArtifactContent(r.Context(), draftID, artifactID, reqBody.Content, currentUserID)
 	if err != nil {
+		if errors.Is(err, memory.ErrDraftNotFound) {
+			writeMemoryJSONError(w, http.StatusNotFound, "Draft memory tidak ditemukan")
+			return
+		}
 		if errors.Is(err, memory.ErrDraftAlreadyReviewed) {
 			writeMemoryJSONError(w, http.StatusConflict, "Draft telah divalidasi dan tidak dapat diedit lagi")
 			return
@@ -356,6 +360,10 @@ func (h *MemoryHandler) handleUpdateArtifact(w http.ResponseWriter, r *http.Requ
 func (h *MemoryHandler) handleRemoveJourney(w http.ResponseWriter, r *http.Request, currentUserID, draftID string) {
 	err := h.svc.RemoveJourneyLite(r.Context(), draftID, currentUserID)
 	if err != nil {
+		if errors.Is(err, memory.ErrDraftNotFound) {
+			writeMemoryJSONError(w, http.StatusNotFound, "Draft memory tidak ditemukan")
+			return
+		}
 		if errors.Is(err, memory.ErrDraftAlreadyReviewed) {
 			writeMemoryJSONError(w, http.StatusConflict, "Draft telah divalidasi dan tidak dapat diedit lagi")
 			return

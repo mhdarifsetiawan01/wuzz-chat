@@ -59,6 +59,7 @@ type MemoryContext struct {
 // MemoryJob merepresentasikan antrean pemrosesan AI untuk sebuah percakapan.
 type MemoryJob struct {
 	ID             string      `json:"id"`
+	TenantID       string      `json:"tenant_id"`
 	ContextID      string      `json:"context_id"` // Menggantikan/alias forum_id
 	ContextType    ContextType `json:"context_type"`
 	ParentID       string      `json:"parent_id,omitempty"` // Menggantikan/alias group_id
@@ -77,6 +78,7 @@ type MemoryJob struct {
 // MemoryDraft merepresentasikan kontainer draf keluaran AI yang menunggu tinjauan admin.
 type MemoryDraft struct {
 	ID                    string           `json:"id"`
+	TenantID              string           `json:"tenant_id"`
 	JobID                 string           `json:"job_id"`
 	ContextID             string           `json:"context_id"` // forum_id / conversation_id
 	ContextType           ContextType      `json:"context_type"`
@@ -139,6 +141,7 @@ type ApprovedDecisionItem struct {
 // ApprovedMemory adalah model baca denormalisasi yang siap dikonsumsi langsung oleh anggota.
 type ApprovedMemory struct {
 	ID                   string                 `json:"id"`
+	TenantID             string                 `json:"tenant_id"`
 	DraftID              string                 `json:"draft_id"`
 	ContextID            string                 `json:"context_id"` // forum_id / conversation_id
 	ContextType          ContextType            `json:"context_type"`
@@ -191,6 +194,7 @@ func ToDomainJob(sj *store.ForumMemoryJob) *MemoryJob {
 	}
 	return &MemoryJob{
 		ID:             sj.ID,
+		TenantID:       sj.TenantID,
 		ContextID:      sj.ForumID,
 		ContextType:    ContextTypeForum,
 		ParentID:       sj.GroupID,
@@ -214,6 +218,7 @@ func ToStoreJob(dj *MemoryJob) *store.ForumMemoryJob {
 	}
 	return &store.ForumMemoryJob{
 		ID:             dj.ID,
+		TenantID:       dj.TenantID,
 		ForumID:        dj.ContextID,
 		GroupID:        dj.ParentID,
 		Status:         dj.Status,
@@ -306,6 +311,7 @@ func ToDomainDraft(sd *store.MemoryDraft) *MemoryDraft {
 	}
 	return &MemoryDraft{
 		ID:                    sd.ID,
+		TenantID:              sd.TenantID,
 		JobID:                 sd.JobID,
 		ContextID:             sd.ForumID,
 		ContextType:           ContextTypeForum,
@@ -333,6 +339,7 @@ func ToStoreDraft(dd *MemoryDraft) *store.MemoryDraft {
 	}
 	return &store.MemoryDraft{
 		ID:                    dd.ID,
+		TenantID:              dd.TenantID,
 		JobID:                 dd.JobID,
 		ForumID:               dd.ContextID,
 		GroupID:               dd.ParentID,
@@ -374,6 +381,7 @@ func ToDomainApprovedMemory(sm *store.ApprovedMemory) *ApprovedMemory {
 	}
 	return &ApprovedMemory{
 		ID:                   sm.ID,
+		TenantID:             sm.TenantID,
 		DraftID:              sm.DraftID,
 		ContextID:            sm.ForumID,
 		ContextType:          ContextTypeForum,
@@ -418,6 +426,7 @@ func ToStoreApprovedMemory(dm *ApprovedMemory) *store.ApprovedMemory {
 	}
 	return &store.ApprovedMemory{
 		ID:                   dm.ID,
+		TenantID:             dm.TenantID,
 		DraftID:              dm.DraftID,
 		ForumID:              dm.ContextID,
 		GroupID:              dm.ParentID,

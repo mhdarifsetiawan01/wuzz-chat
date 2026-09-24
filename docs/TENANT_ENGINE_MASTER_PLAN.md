@@ -207,8 +207,8 @@ CREATE INDEX IF NOT EXISTS idx_tenant_keys_app ON tenant_api_keys(app_id, is_act
 [Milestone 2] Tenant Context Propagation in Services & Repos    ==> DONE & DEPLOYED (Sep 2026) ✅
 [Milestone 3] External Provisioning & B2B Auth Gateway          ==> DONE (Sep 2026) ✅
 [Milestone 4] Realtime & Cluster Envelope Tenant Isolation      ==> DONE (Sep 2026) ✅
-[Milestone 5] AI Memory Context Tenant Scoping                  ==> NEXT 🎯
-[Milestone 6] OpenAPI Contract & Headless Integration Guide     ==> LATER ⏳
+[Milestone 5] AI Memory Context Tenant Scoping                  ==> DONE (Sep 2026) ✅
+[Milestone 6] OpenAPI Contract & Headless Integration Guide     ==> NEXT 🎯
 ──────────────────────────────────────────────────────────────────────────────
 [Milestone 7] Webhooks & Event Subscription Engine             ==> FUTURE 🔮
 [Milestone 8] Developer Portal, API Keys Self-Serve & Quotas   ==> FUTURE 🔮

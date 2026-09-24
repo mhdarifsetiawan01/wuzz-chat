@@ -58,6 +58,7 @@ const (
 // ForumMemoryJob merepresentasikan antrean pemrosesan AI untuk sebuah forum yang kedaluwarsa.
 type ForumMemoryJob struct {
 	ID             string     `json:"id"`
+	TenantID       string     `json:"tenant_id"`
 	ForumID        string     `json:"forum_id"`
 	GroupID        string     `json:"group_id"`
 	Status         string     `json:"status"` // QUEUED, PROCESSING, COMPLETED, FAILED
@@ -75,6 +76,7 @@ type ForumMemoryJob struct {
 // MemoryDraft merepresentasikan kontainer draft keluaran AI yang menunggu tinjauan admin.
 type MemoryDraft struct {
 	ID                    string           `json:"id"`
+	TenantID              string           `json:"tenant_id"`
 	JobID                 string           `json:"job_id"`
 	ForumID               string           `json:"forum_id"`
 	GroupID               string           `json:"group_id"`
@@ -136,6 +138,7 @@ type ApprovedDecisionItem struct {
 // ApprovedMemory adalah read-model terdenormalisasi yang siap dikonsumsi langsung oleh anggota grup.
 type ApprovedMemory struct {
 	ID                   string                 `json:"id"`
+	TenantID             string                 `json:"tenant_id"`
 	DraftID              string                 `json:"draft_id"`
 	ForumID              string                 `json:"forum_id"`
 	GroupID              string                 `json:"group_id"`
@@ -285,27 +288,29 @@ func (s *SQLMemoryStore) CreateJob(ctx context.Context, forumID, groupID string)
 		return nil, fmt.Errorf("gagal membuat memory job: %w", err)
 	}
 
+	job.TenantID = tenantID
 	return job, nil
 }
 
 func (s *SQLMemoryStore) GetJobByID(ctx context.Context, id string) (*ForumMemoryJob, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, forum_id, group_id, status, attempt_count, max_attempts,
+		query = `SELECT id, tenant_id, forum_id, group_id, status, attempt_count, max_attempts,
 			is_terminal_fail, last_error, message_count, created_at, started_at, completed_at, next_retry_at
-			FROM forum_memory_jobs WHERE id = $1`
+			FROM forum_memory_jobs WHERE id = $1 AND tenant_id = $2`
 	} else {
-		query = `SELECT id, forum_id, group_id, status, attempt_count, max_attempts,
+		query = `SELECT id, tenant_id, forum_id, group_id, status, attempt_count, max_attempts,
 			is_terminal_fail, last_error, message_count, created_at, started_at, completed_at, next_retry_at
-			FROM forum_memory_jobs WHERE id = ?`
+			FROM forum_memory_jobs WHERE id = ? AND tenant_id = ?`
 	}
 
 	job := &ForumMemoryJob{}
 	var lastErr sql.NullString
 	var startedAt, completedAt, nextRetryAt sql.NullTime
 
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&job.ID, &job.ForumID, &job.GroupID, &job.Status, &job.AttemptCount, &job.MaxAttempts,
+	err := s.db.QueryRowContext(ctx, query, id, tenantID).Scan(
+		&job.ID, &job.TenantID, &job.ForumID, &job.GroupID, &job.Status, &job.AttemptCount, &job.MaxAttempts,
 		&job.IsTerminalFail, &lastErr, &job.MessageCount, &job.CreatedAt,
 		&startedAt, &completedAt, &nextRetryAt,
 	)
@@ -336,23 +341,24 @@ func (s *SQLMemoryStore) GetJobByID(ctx context.Context, id string) (*ForumMemor
 }
 
 func (s *SQLMemoryStore) GetJobByForumID(ctx context.Context, forumID string) (*ForumMemoryJob, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, forum_id, group_id, status, attempt_count, max_attempts,
+		query = `SELECT id, tenant_id, forum_id, group_id, status, attempt_count, max_attempts,
 			is_terminal_fail, last_error, message_count, created_at, started_at, completed_at, next_retry_at
-			FROM forum_memory_jobs WHERE forum_id = $1`
+			FROM forum_memory_jobs WHERE forum_id = $1 AND tenant_id = $2`
 	} else {
-		query = `SELECT id, forum_id, group_id, status, attempt_count, max_attempts,
+		query = `SELECT id, tenant_id, forum_id, group_id, status, attempt_count, max_attempts,
 			is_terminal_fail, last_error, message_count, created_at, started_at, completed_at, next_retry_at
-			FROM forum_memory_jobs WHERE forum_id = ?`
+			FROM forum_memory_jobs WHERE forum_id = ? AND tenant_id = ?`
 	}
 
 	job := &ForumMemoryJob{}
 	var lastErr sql.NullString
 	var startedAt, completedAt, nextRetryAt sql.NullTime
 
-	err := s.db.QueryRowContext(ctx, query, forumID).Scan(
-		&job.ID, &job.ForumID, &job.GroupID, &job.Status, &job.AttemptCount, &job.MaxAttempts,
+	err := s.db.QueryRowContext(ctx, query, forumID, tenantID).Scan(
+		&job.ID, &job.TenantID, &job.ForumID, &job.GroupID, &job.Status, &job.AttemptCount, &job.MaxAttempts,
 		&job.IsTerminalFail, &lastErr, &job.MessageCount, &job.CreatedAt,
 		&startedAt, &completedAt, &nextRetryAt,
 	)
@@ -387,25 +393,30 @@ func (s *SQLMemoryStore) GetPendingJobs(ctx context.Context, limit int) ([]Forum
 		limit = 10
 	}
 
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	now := time.Now().UTC()
 	var query string
+	var rows *sql.Rows
+	var err error
+
 	if s.driverName == "postgres" {
-		query = `SELECT id, forum_id, group_id, status, attempt_count, max_attempts,
+		query = `SELECT id, tenant_id, forum_id, group_id, status, attempt_count, max_attempts,
 			is_terminal_fail, last_error, message_count, created_at, started_at, completed_at, next_retry_at
 			FROM forum_memory_jobs
-			WHERE status = 'QUEUED' AND (next_retry_at IS NULL OR next_retry_at <= $1)
+			WHERE status = 'QUEUED' AND tenant_id = $1 AND (next_retry_at IS NULL OR next_retry_at <= $2)
 			ORDER BY created_at ASC
-			LIMIT $2`
+			LIMIT $3
+			FOR UPDATE SKIP LOCKED`
+		rows, err = s.db.QueryContext(ctx, query, tenantID, now, limit)
 	} else {
-		query = `SELECT id, forum_id, group_id, status, attempt_count, max_attempts,
+		query = `SELECT id, tenant_id, forum_id, group_id, status, attempt_count, max_attempts,
 			is_terminal_fail, last_error, message_count, created_at, started_at, completed_at, next_retry_at
 			FROM forum_memory_jobs
-			WHERE status = 'QUEUED' AND (next_retry_at IS NULL OR next_retry_at <= ?)
+			WHERE status = 'QUEUED' AND tenant_id = ? AND (next_retry_at IS NULL OR next_retry_at <= ?)
 			ORDER BY created_at ASC
 			LIMIT ?`
+		rows, err = s.db.QueryContext(ctx, query, tenantID, now, limit)
 	}
-
-	rows, err := s.db.QueryContext(ctx, query, now, limit)
 	if err != nil {
 		return nil, fmt.Errorf("gagal mengambil pending memory jobs: %w", err)
 	}
@@ -418,7 +429,7 @@ func (s *SQLMemoryStore) GetPendingJobs(ctx context.Context, limit int) ([]Forum
 		var startedAt, completedAt, nextRetryAt sql.NullTime
 
 		if err := rows.Scan(
-			&job.ID, &job.ForumID, &job.GroupID, &job.Status, &job.AttemptCount, &job.MaxAttempts,
+			&job.ID, &job.TenantID, &job.ForumID, &job.GroupID, &job.Status, &job.AttemptCount, &job.MaxAttempts,
 			&job.IsTerminalFail, &lastErr, &job.MessageCount, &job.CreatedAt,
 			&startedAt, &completedAt, &nextRetryAt,
 		); err != nil {
@@ -448,20 +459,21 @@ func (s *SQLMemoryStore) GetPendingJobs(ctx context.Context, limit int) ([]Forum
 }
 
 func (s *SQLMemoryStore) ClaimJob(ctx context.Context, jobID string) (*ForumMemoryJob, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	now := time.Now().UTC()
 	var query string
 	if s.driverName == "postgres" {
 		query = `UPDATE forum_memory_jobs
 			SET status = 'PROCESSING', started_at = $1, attempt_count = attempt_count + 1
-			WHERE id = $2 AND status = 'QUEUED'
-			RETURNING id, forum_id, group_id, status, attempt_count, max_attempts,
+			WHERE id = $2 AND tenant_id = $3 AND status = 'QUEUED'
+			RETURNING id, tenant_id, forum_id, group_id, status, attempt_count, max_attempts,
 				is_terminal_fail, last_error, message_count, created_at, started_at, completed_at, next_retry_at`
 		job := &ForumMemoryJob{}
 		var lastErr sql.NullString
 		var startedAt, completedAt, nextRetryAt sql.NullTime
 
-		err := s.db.QueryRowContext(ctx, query, now, jobID).Scan(
-			&job.ID, &job.ForumID, &job.GroupID, &job.Status, &job.AttemptCount, &job.MaxAttempts,
+		err := s.db.QueryRowContext(ctx, query, now, jobID, tenantID).Scan(
+			&job.ID, &job.TenantID, &job.ForumID, &job.GroupID, &job.Status, &job.AttemptCount, &job.MaxAttempts,
 			&job.IsTerminalFail, &lastErr, &job.MessageCount, &job.CreatedAt,
 			&startedAt, &completedAt, &nextRetryAt,
 		)
@@ -484,8 +496,8 @@ func (s *SQLMemoryStore) ClaimJob(ctx context.Context, jobID string) (*ForumMemo
 	// SQLite fallback update + get
 	query = `UPDATE forum_memory_jobs
 		SET status = 'PROCESSING', started_at = ?, attempt_count = attempt_count + 1
-		WHERE id = ? AND status = 'QUEUED'`
-	res, err := s.db.ExecContext(ctx, query, now, jobID)
+		WHERE id = ? AND tenant_id = ? AND status = 'QUEUED'`
+	res, err := s.db.ExecContext(ctx, query, now, jobID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("gagal klaim job sqlite: %w", err)
 	}
@@ -497,26 +509,32 @@ func (s *SQLMemoryStore) ClaimJob(ctx context.Context, jobID string) (*ForumMemo
 }
 
 func (s *SQLMemoryStore) CompleteJob(ctx context.Context, jobID string, msgCount int) error {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	now := time.Now().UTC()
 	var query string
 	if s.driverName == "postgres" {
 		query = `UPDATE forum_memory_jobs
 			SET status = 'COMPLETED', completed_at = $1, message_count = $2, last_error = ''
-			WHERE id = $3`
+			WHERE id = $3 AND tenant_id = $4`
 	} else {
 		query = `UPDATE forum_memory_jobs
 			SET status = 'COMPLETED', completed_at = ?, message_count = ?, last_error = ''
-			WHERE id = ?`
+			WHERE id = ? AND tenant_id = ?`
 	}
 
-	_, err := s.db.ExecContext(ctx, query, now, msgCount, jobID)
+	res, err := s.db.ExecContext(ctx, query, now, msgCount, jobID, tenantID)
 	if err != nil {
 		return fmt.Errorf("gagal update complete job: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return ErrJobNotFound
 	}
 	return nil
 }
 
 func (s *SQLMemoryStore) FailJob(ctx context.Context, jobID, lastError string, isTerminal bool, nextRetry *time.Time) error {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	status := JobStatusFailed
 	if !isTerminal {
 		// Jika masih bisa di-retry, kembalikan ke antrean dengan jadwal next_retry_at
@@ -527,16 +545,20 @@ func (s *SQLMemoryStore) FailJob(ctx context.Context, jobID, lastError string, i
 	if s.driverName == "postgres" {
 		query = `UPDATE forum_memory_jobs
 			SET status = $1, last_error = $2, is_terminal_fail = $3, next_retry_at = $4
-			WHERE id = $5`
+			WHERE id = $5 AND tenant_id = $6`
 	} else {
 		query = `UPDATE forum_memory_jobs
 			SET status = ?, last_error = ?, is_terminal_fail = ?, next_retry_at = ?
-			WHERE id = ?`
+			WHERE id = ? AND tenant_id = ?`
 	}
 
-	_, err := s.db.ExecContext(ctx, query, status, lastError, isTerminal, nextRetry, jobID)
+	res, err := s.db.ExecContext(ctx, query, status, lastError, isTerminal, nextRetry, jobID, tenantID)
 	if err != nil {
 		return fmt.Errorf("gagal update fail job: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return ErrJobNotFound
 	}
 	return nil
 }
@@ -668,27 +690,29 @@ func (s *SQLMemoryStore) CreateDraftWithArtifacts(ctx context.Context, draft *Me
 		}
 	}
 
+	draft.TenantID = tenantID
 	return tx.Commit()
 }
 
 func (s *SQLMemoryStore) GetDraftByID(ctx context.Context, id string) (*MemoryDraft, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, job_id, forum_id, group_id, status, message_count_processed,
+		query = `SELECT id, tenant_id, job_id, forum_id, group_id, status, message_count_processed,
 			was_truncated, truncation_note, reviewed_at, reviewed_by, rejection_reason, created_at
-			FROM memory_drafts WHERE id = $1`
+			FROM memory_drafts WHERE id = $1 AND tenant_id = $2`
 	} else {
-		query = `SELECT id, job_id, forum_id, group_id, status, message_count_processed,
+		query = `SELECT id, tenant_id, job_id, forum_id, group_id, status, message_count_processed,
 			was_truncated, truncation_note, reviewed_at, reviewed_by, rejection_reason, created_at
-			FROM memory_drafts WHERE id = ?`
+			FROM memory_drafts WHERE id = ? AND tenant_id = ?`
 	}
 
 	draft := &MemoryDraft{}
 	var truncNote, reviewedBy, rejReason sql.NullString
 	var reviewedAt sql.NullTime
 
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&draft.ID, &draft.JobID, &draft.ForumID, &draft.GroupID, &draft.Status,
+	err := s.db.QueryRowContext(ctx, query, id, tenantID).Scan(
+		&draft.ID, &draft.TenantID, &draft.JobID, &draft.ForumID, &draft.GroupID, &draft.Status,
 		&draft.MessageCountProcessed, &draft.WasTruncated, &truncNote,
 		&reviewedAt, &reviewedBy, &rejReason, &draft.CreatedAt,
 	)
@@ -724,23 +748,24 @@ func (s *SQLMemoryStore) GetDraftByID(ctx context.Context, id string) (*MemoryDr
 }
 
 func (s *SQLMemoryStore) GetDraftByForumID(ctx context.Context, forumID string) (*MemoryDraft, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, job_id, forum_id, group_id, status, message_count_processed,
+		query = `SELECT id, tenant_id, job_id, forum_id, group_id, status, message_count_processed,
 			was_truncated, truncation_note, reviewed_at, reviewed_by, rejection_reason, created_at
-			FROM memory_drafts WHERE forum_id = $1`
+			FROM memory_drafts WHERE forum_id = $1 AND tenant_id = $2`
 	} else {
-		query = `SELECT id, job_id, forum_id, group_id, status, message_count_processed,
+		query = `SELECT id, tenant_id, job_id, forum_id, group_id, status, message_count_processed,
 			was_truncated, truncation_note, reviewed_at, reviewed_by, rejection_reason, created_at
-			FROM memory_drafts WHERE forum_id = ?`
+			FROM memory_drafts WHERE forum_id = ? AND tenant_id = ?`
 	}
 
 	draft := &MemoryDraft{}
 	var truncNote, reviewedBy, rejReason sql.NullString
 	var reviewedAt sql.NullTime
 
-	err := s.db.QueryRowContext(ctx, query, forumID).Scan(
-		&draft.ID, &draft.JobID, &draft.ForumID, &draft.GroupID, &draft.Status,
+	err := s.db.QueryRowContext(ctx, query, forumID, tenantID).Scan(
+		&draft.ID, &draft.TenantID, &draft.JobID, &draft.ForumID, &draft.GroupID, &draft.Status,
 		&draft.MessageCountProcessed, &draft.WasTruncated, &truncNote,
 		&reviewedAt, &reviewedBy, &rejReason, &draft.CreatedAt,
 	)
@@ -775,32 +800,33 @@ func (s *SQLMemoryStore) GetDraftByForumID(ctx context.Context, forumID string) 
 }
 
 func (s *SQLMemoryStore) GetDraftsByGroupID(ctx context.Context, groupID string, status string) ([]MemoryDraft, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	var rows *sql.Rows
 	var err error
 
 	if status != "" {
 		if s.driverName == "postgres" {
-			query = `SELECT id, job_id, forum_id, group_id, status, message_count_processed,
+			query = `SELECT id, tenant_id, job_id, forum_id, group_id, status, message_count_processed,
 				was_truncated, truncation_note, reviewed_at, reviewed_by, rejection_reason, created_at
-				FROM memory_drafts WHERE group_id = $1 AND status = $2 ORDER BY created_at DESC`
+				FROM memory_drafts WHERE group_id = $1 AND tenant_id = $2 AND status = $3 ORDER BY created_at DESC`
 		} else {
-			query = `SELECT id, job_id, forum_id, group_id, status, message_count_processed,
+			query = `SELECT id, tenant_id, job_id, forum_id, group_id, status, message_count_processed,
 				was_truncated, truncation_note, reviewed_at, reviewed_by, rejection_reason, created_at
-				FROM memory_drafts WHERE group_id = ? AND status = ? ORDER BY created_at DESC`
+				FROM memory_drafts WHERE group_id = ? AND tenant_id = ? AND status = ? ORDER BY created_at DESC`
 		}
-		rows, err = s.db.QueryContext(ctx, query, groupID, status)
+		rows, err = s.db.QueryContext(ctx, query, groupID, tenantID, status)
 	} else {
 		if s.driverName == "postgres" {
-			query = `SELECT id, job_id, forum_id, group_id, status, message_count_processed,
+			query = `SELECT id, tenant_id, job_id, forum_id, group_id, status, message_count_processed,
 				was_truncated, truncation_note, reviewed_at, reviewed_by, rejection_reason, created_at
-				FROM memory_drafts WHERE group_id = $1 ORDER BY created_at DESC`
+				FROM memory_drafts WHERE group_id = $1 AND tenant_id = $2 ORDER BY created_at DESC`
 		} else {
-			query = `SELECT id, job_id, forum_id, group_id, status, message_count_processed,
+			query = `SELECT id, tenant_id, job_id, forum_id, group_id, status, message_count_processed,
 				was_truncated, truncation_note, reviewed_at, reviewed_by, rejection_reason, created_at
-				FROM memory_drafts WHERE group_id = ? ORDER BY created_at DESC`
+				FROM memory_drafts WHERE group_id = ? AND tenant_id = ? ORDER BY created_at DESC`
 		}
-		rows, err = s.db.QueryContext(ctx, query, groupID)
+		rows, err = s.db.QueryContext(ctx, query, groupID, tenantID)
 	}
 
 	if err != nil {
@@ -815,7 +841,7 @@ func (s *SQLMemoryStore) GetDraftsByGroupID(ctx context.Context, groupID string,
 		var reviewedAt sql.NullTime
 
 		if err := rows.Scan(
-			&draft.ID, &draft.JobID, &draft.ForumID, &draft.GroupID, &draft.Status,
+			&draft.ID, &draft.TenantID, &draft.JobID, &draft.ForumID, &draft.GroupID, &draft.Status,
 			&draft.MessageCountProcessed, &draft.WasTruncated, &truncNote,
 			&reviewedAt, &reviewedBy, &rejReason, &draft.CreatedAt,
 		); err != nil {
@@ -843,18 +869,25 @@ func (s *SQLMemoryStore) GetDraftsByGroupID(ctx context.Context, groupID string,
 }
 
 func (s *SQLMemoryStore) GetArtifactsByDraftID(ctx context.Context, draftID string) ([]MemoryArtifact, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, draft_id, type, content, ai_original_content, confidence,
-			is_human_edited, is_removed, position, created_at, updated_at
-			FROM memory_artifacts WHERE draft_id = $1 ORDER BY type ASC, position ASC NULLS LAST, created_at ASC`
+		query = `SELECT a.id, a.draft_id, a.type, a.content, a.ai_original_content, a.confidence,
+			a.is_human_edited, a.is_removed, a.position, a.created_at, a.updated_at
+			FROM memory_artifacts a
+			INNER JOIN memory_drafts md ON a.draft_id = md.id
+			WHERE a.draft_id = $1 AND md.tenant_id = $2
+			ORDER BY a.type ASC, a.position ASC NULLS LAST, a.created_at ASC`
 	} else {
-		query = `SELECT id, draft_id, type, content, ai_original_content, confidence,
-			is_human_edited, is_removed, position, created_at, updated_at
-			FROM memory_artifacts WHERE draft_id = ? ORDER BY type ASC, position ASC, created_at ASC`
+		query = `SELECT a.id, a.draft_id, a.type, a.content, a.ai_original_content, a.confidence,
+			a.is_human_edited, a.is_removed, a.position, a.created_at, a.updated_at
+			FROM memory_artifacts a
+			INNER JOIN memory_drafts md ON a.draft_id = md.id
+			WHERE a.draft_id = ? AND md.tenant_id = ?
+			ORDER BY a.type ASC, a.position ASC, a.created_at ASC`
 	}
 
-	rows, err := s.db.QueryContext(ctx, query, draftID)
+	rows, err := s.db.QueryContext(ctx, query, draftID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("gagal query artifacts by draft id: %w", err)
 	}
@@ -893,21 +926,26 @@ func (s *SQLMemoryStore) GetArtifactsByDraftID(ctx context.Context, draftID stri
 }
 
 func (s *SQLMemoryStore) GetArtifactByID(ctx context.Context, id string) (*MemoryArtifact, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, draft_id, type, content, ai_original_content, confidence,
-			is_human_edited, is_removed, position, created_at, updated_at
-			FROM memory_artifacts WHERE id = $1`
+		query = `SELECT a.id, a.draft_id, a.type, a.content, a.ai_original_content, a.confidence,
+			a.is_human_edited, a.is_removed, a.position, a.created_at, a.updated_at
+			FROM memory_artifacts a
+			INNER JOIN memory_drafts md ON a.draft_id = md.id
+			WHERE a.id = $1 AND md.tenant_id = $2`
 	} else {
-		query = `SELECT id, draft_id, type, content, ai_original_content, confidence,
-			is_human_edited, is_removed, position, created_at, updated_at
-			FROM memory_artifacts WHERE id = ?`
+		query = `SELECT a.id, a.draft_id, a.type, a.content, a.ai_original_content, a.confidence,
+			a.is_human_edited, a.is_removed, a.position, a.created_at, a.updated_at
+			FROM memory_artifacts a
+			INNER JOIN memory_drafts md ON a.draft_id = md.id
+			WHERE a.id = ? AND md.tenant_id = ?`
 	}
 
 	art := &MemoryArtifact{}
 	var pos sql.NullInt64
 
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
+	err := s.db.QueryRowContext(ctx, query, id, tenantID).Scan(
 		&art.ID, &art.DraftID, &art.Type, &art.Content, &art.AIOriginalContent, &art.Confidence,
 		&art.IsHumanEdited, &art.IsRemoved, &pos, &art.CreatedAt, &art.UpdatedAt,
 	)
@@ -966,19 +1004,20 @@ func (s *SQLMemoryStore) getEvidencesByArtifactID(ctx context.Context, artifactI
 }
 
 func (s *SQLMemoryStore) UpdateArtifact(ctx context.Context, artifactID string, content string, isHumanEdited bool) error {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	now := time.Now().UTC()
 	var query string
 	if s.driverName == "postgres" {
 		query = `UPDATE memory_artifacts
 			SET content = $1, is_human_edited = $2, updated_at = $3
-			WHERE id = $4`
+			WHERE id = $4 AND draft_id IN (SELECT id FROM memory_drafts WHERE tenant_id = $5)`
 	} else {
 		query = `UPDATE memory_artifacts
 			SET content = ?, is_human_edited = ?, updated_at = ?
-			WHERE id = ?`
+			WHERE id = ? AND draft_id IN (SELECT id FROM memory_drafts WHERE tenant_id = ?)`
 	}
 
-	res, err := s.db.ExecContext(ctx, query, content, isHumanEdited, now, artifactID)
+	res, err := s.db.ExecContext(ctx, query, content, isHumanEdited, now, artifactID, tenantID)
 	if err != nil {
 		return fmt.Errorf("gagal update artifact: %w", err)
 	}
@@ -990,21 +1029,26 @@ func (s *SQLMemoryStore) UpdateArtifact(ctx context.Context, artifactID string, 
 }
 
 func (s *SQLMemoryStore) RemoveJourneyLite(ctx context.Context, draftID string) error {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	now := time.Now().UTC()
 	var query string
 	if s.driverName == "postgres" {
 		query = `UPDATE memory_artifacts
 			SET is_removed = true, updated_at = $1
-			WHERE draft_id = $2 AND type = 'JOURNEY_LITE'`
+			WHERE draft_id = $2 AND type = 'JOURNEY_LITE' AND draft_id IN (SELECT id FROM memory_drafts WHERE tenant_id = $3)`
 	} else {
 		query = `UPDATE memory_artifacts
 			SET is_removed = true, updated_at = ?
-			WHERE draft_id = ? AND type = 'JOURNEY_LITE'`
+			WHERE draft_id = ? AND type = 'JOURNEY_LITE' AND draft_id IN (SELECT id FROM memory_drafts WHERE tenant_id = ?)`
 	}
 
-	_, err := s.db.ExecContext(ctx, query, now, draftID)
+	res, err := s.db.ExecContext(ctx, query, now, draftID, tenantID)
 	if err != nil {
 		return fmt.Errorf("gagal remove journey lite: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return ErrArtifactNotFound
 	}
 	return nil
 }
@@ -1023,18 +1067,32 @@ func (s *SQLMemoryStore) ApproveDraft(ctx context.Context, draftID, adminID stri
 	defer tx.Rollback()
 
 	// 1. Update memory_drafts status to APPROVED
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	if tenantID == "default" && approvedMemory.ForumID != "" {
+		var convTenant string
+		var checkConvQuery string
+		if s.driverName == "postgres" {
+			checkConvQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = $1`
+		} else {
+			checkConvQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = ?`
+		}
+		if err := s.db.QueryRowContext(ctx, checkConvQuery, approvedMemory.ForumID).Scan(&convTenant); err == nil && convTenant != "" {
+			tenantID = convTenant
+		}
+	}
+
 	var updateDraftQuery string
 	if s.driverName == "postgres" {
 		updateDraftQuery = `UPDATE memory_drafts
 			SET status = 'APPROVED', reviewed_at = $1, reviewed_by = $2
-			WHERE id = $3 AND status = 'DRAFT'`
+			WHERE id = $3 AND tenant_id = $4 AND status = 'DRAFT'`
 	} else {
 		updateDraftQuery = `UPDATE memory_drafts
 			SET status = 'APPROVED', reviewed_at = ?, reviewed_by = ?
-			WHERE id = ? AND status = 'DRAFT'`
+			WHERE id = ? AND tenant_id = ? AND status = 'DRAFT'`
 	}
 
-	res, err := tx.ExecContext(ctx, updateDraftQuery, now, adminID, draftID)
+	res, err := tx.ExecContext(ctx, updateDraftQuery, now, adminID, draftID, tenantID)
 	if err != nil {
 		return fmt.Errorf("gagal update status draft: %w", err)
 	}
@@ -1051,6 +1109,7 @@ func (s *SQLMemoryStore) ApproveDraft(ctx context.Context, draftID, adminID stri
 	approvedMemory.ApprovedBy = adminID
 	approvedMemory.ApprovedAt = now
 	approvedMemory.CreatedAt = now
+	approvedMemory.TenantID = tenantID
 
 	// Ensure snapshot_decisions JSON valid
 	if approvedMemory.SnapshotDecisions == "" && len(approvedMemory.DecisionsList) > 0 {
@@ -1059,20 +1118,6 @@ func (s *SQLMemoryStore) ApproveDraft(ctx context.Context, draftID, adminID stri
 	}
 	if approvedMemory.SnapshotDecisions == "" {
 		approvedMemory.SnapshotDecisions = "[]"
-	}
-
-	tenantID := tenantshared.MustFromContext(ctx).TenantID()
-	if tenantID == "default" && approvedMemory.ForumID != "" {
-		var convTenant string
-		var checkConvQuery string
-		if s.driverName == "postgres" {
-			checkConvQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = $1`
-		} else {
-			checkConvQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = ?`
-		}
-		if err := s.db.QueryRowContext(ctx, checkConvQuery, approvedMemory.ForumID).Scan(&convTenant); err == nil && convTenant != "" {
-			tenantID = convTenant
-		}
 	}
 
 	var insertMemoryQuery string
@@ -1137,6 +1182,7 @@ func (s *SQLMemoryStore) ApproveDraft(ctx context.Context, draftID, adminID stri
 }
 
 func (s *SQLMemoryStore) RejectDraft(ctx context.Context, draftID, adminID, reason string) error {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	now := time.Now().UTC()
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -1149,14 +1195,14 @@ func (s *SQLMemoryStore) RejectDraft(ctx context.Context, draftID, adminID, reas
 	if s.driverName == "postgres" {
 		query = `UPDATE memory_drafts
 			SET status = 'REJECTED', reviewed_at = $1, reviewed_by = $2, rejection_reason = $3
-			WHERE id = $4 AND status = 'DRAFT'`
+			WHERE id = $4 AND tenant_id = $5 AND status = 'DRAFT'`
 	} else {
 		query = `UPDATE memory_drafts
 			SET status = 'REJECTED', reviewed_at = ?, reviewed_by = ?, rejection_reason = ?
-			WHERE id = ? AND status = 'DRAFT'`
+			WHERE id = ? AND tenant_id = ? AND status = 'DRAFT'`
 	}
 
-	res, err := tx.ExecContext(ctx, query, now, adminID, reason, draftID)
+	res, err := tx.ExecContext(ctx, query, now, adminID, reason, draftID, tenantID)
 	if err != nil {
 		return fmt.Errorf("gagal reject draft: %w", err)
 	}
@@ -1216,16 +1262,21 @@ func (s *SQLMemoryStore) RecordReviewAction(ctx context.Context, action *MemoryR
 }
 
 func (s *SQLMemoryStore) GetReviewActions(ctx context.Context, draftID string) ([]MemoryReviewAction, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, draft_id, admin_id, action, artifact_id, old_content, new_content, rejection_reason, created_at
-			FROM memory_review_actions WHERE draft_id = $1 ORDER BY created_at ASC`
+		query = `SELECT ra.id, ra.draft_id, ra.admin_id, ra.action, ra.artifact_id, ra.old_content, ra.new_content, ra.rejection_reason, ra.created_at
+			FROM memory_review_actions ra
+			INNER JOIN memory_drafts md ON ra.draft_id = md.id
+			WHERE ra.draft_id = $1 AND md.tenant_id = $2 ORDER BY ra.created_at ASC`
 	} else {
-		query = `SELECT id, draft_id, admin_id, action, artifact_id, old_content, new_content, rejection_reason, created_at
-			FROM memory_review_actions WHERE draft_id = ? ORDER BY created_at ASC`
+		query = `SELECT ra.id, ra.draft_id, ra.admin_id, ra.action, ra.artifact_id, ra.old_content, ra.new_content, ra.rejection_reason, ra.created_at
+			FROM memory_review_actions ra
+			INNER JOIN memory_drafts md ON ra.draft_id = md.id
+			WHERE ra.draft_id = ? AND md.tenant_id = ? ORDER BY ra.created_at ASC`
 	}
 
-	rows, err := s.db.QueryContext(ctx, query, draftID)
+	rows, err := s.db.QueryContext(ctx, query, draftID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("gagal query review actions: %w", err)
 	}
@@ -1267,24 +1318,25 @@ func (s *SQLMemoryStore) GetReviewActions(ctx context.Context, draftID string) (
 // -----------------------------------------------------------------------------
 
 func (s *SQLMemoryStore) GetApprovedMemoryByID(ctx context.Context, id string) (*ApprovedMemory, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, draft_id, forum_id, group_id, approved_by, approved_at,
+		query = `SELECT id, tenant_id, draft_id, forum_id, group_id, approved_by, approved_at,
 			has_human_edits, snapshot_summary, snapshot_summary_conf, snapshot_decisions,
 			snapshot_journey_lite, snapshot_journey_conf, is_journey_lite_removed, created_at
-			FROM approved_memories WHERE id = $1`
+			FROM approved_memories WHERE id = $1 AND tenant_id = $2`
 	} else {
-		query = `SELECT id, draft_id, forum_id, group_id, approved_by, approved_at,
+		query = `SELECT id, tenant_id, draft_id, forum_id, group_id, approved_by, approved_at,
 			has_human_edits, snapshot_summary, snapshot_summary_conf, snapshot_decisions,
 			snapshot_journey_lite, snapshot_journey_conf, is_journey_lite_removed, created_at
-			FROM approved_memories WHERE id = ?`
+			FROM approved_memories WHERE id = ? AND tenant_id = ?`
 	}
 
 	mem := &ApprovedMemory{}
 	var jLite, jConf sql.NullString
 
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&mem.ID, &mem.DraftID, &mem.ForumID, &mem.GroupID, &mem.ApprovedBy, &mem.ApprovedAt,
+	err := s.db.QueryRowContext(ctx, query, id, tenantID).Scan(
+		&mem.ID, &mem.TenantID, &mem.DraftID, &mem.ForumID, &mem.GroupID, &mem.ApprovedBy, &mem.ApprovedAt,
 		&mem.HasHumanEdits, &mem.SnapshotSummary, &mem.SnapshotSummaryConf, &mem.SnapshotDecisions,
 		&jLite, &jConf, &mem.IsJourneyLiteRemoved, &mem.CreatedAt,
 	)
@@ -1310,24 +1362,25 @@ func (s *SQLMemoryStore) GetApprovedMemoryByID(ctx context.Context, id string) (
 }
 
 func (s *SQLMemoryStore) GetApprovedMemoryByForumID(ctx context.Context, forumID string) (*ApprovedMemory, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, draft_id, forum_id, group_id, approved_by, approved_at,
+		query = `SELECT id, tenant_id, draft_id, forum_id, group_id, approved_by, approved_at,
 			has_human_edits, snapshot_summary, snapshot_summary_conf, snapshot_decisions,
 			snapshot_journey_lite, snapshot_journey_conf, is_journey_lite_removed, created_at
-			FROM approved_memories WHERE forum_id = $1`
+			FROM approved_memories WHERE forum_id = $1 AND tenant_id = $2`
 	} else {
-		query = `SELECT id, draft_id, forum_id, group_id, approved_by, approved_at,
+		query = `SELECT id, tenant_id, draft_id, forum_id, group_id, approved_by, approved_at,
 			has_human_edits, snapshot_summary, snapshot_summary_conf, snapshot_decisions,
 			snapshot_journey_lite, snapshot_journey_conf, is_journey_lite_removed, created_at
-			FROM approved_memories WHERE forum_id = ?`
+			FROM approved_memories WHERE forum_id = ? AND tenant_id = ?`
 	}
 
 	mem := &ApprovedMemory{}
 	var jLite, jConf sql.NullString
 
-	err := s.db.QueryRowContext(ctx, query, forumID).Scan(
-		&mem.ID, &mem.DraftID, &mem.ForumID, &mem.GroupID, &mem.ApprovedBy, &mem.ApprovedAt,
+	err := s.db.QueryRowContext(ctx, query, forumID, tenantID).Scan(
+		&mem.ID, &mem.TenantID, &mem.DraftID, &mem.ForumID, &mem.GroupID, &mem.ApprovedBy, &mem.ApprovedAt,
 		&mem.HasHumanEdits, &mem.SnapshotSummary, &mem.SnapshotSummaryConf, &mem.SnapshotDecisions,
 		&jLite, &jConf, &mem.IsJourneyLiteRemoved, &mem.CreatedAt,
 	)
@@ -1361,24 +1414,25 @@ func (s *SQLMemoryStore) GetApprovedMemoriesByGroupID(ctx context.Context, group
 		offset = 0
 	}
 
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, draft_id, forum_id, group_id, approved_by, approved_at,
+		query = `SELECT id, tenant_id, draft_id, forum_id, group_id, approved_by, approved_at,
 			has_human_edits, snapshot_summary, snapshot_summary_conf, snapshot_decisions,
 			snapshot_journey_lite, snapshot_journey_conf, is_journey_lite_removed, created_at
-			FROM approved_memories WHERE group_id = $1
+			FROM approved_memories WHERE group_id = $1 AND tenant_id = $2
 			ORDER BY approved_at DESC
-			LIMIT $2 OFFSET $3`
+			LIMIT $3 OFFSET $4`
 	} else {
-		query = `SELECT id, draft_id, forum_id, group_id, approved_by, approved_at,
+		query = `SELECT id, tenant_id, draft_id, forum_id, group_id, approved_by, approved_at,
 			has_human_edits, snapshot_summary, snapshot_summary_conf, snapshot_decisions,
 			snapshot_journey_lite, snapshot_journey_conf, is_journey_lite_removed, created_at
-			FROM approved_memories WHERE group_id = ?
+			FROM approved_memories WHERE group_id = ? AND tenant_id = ?
 			ORDER BY approved_at DESC
 			LIMIT ? OFFSET ?`
 	}
 
-	rows, err := s.db.QueryContext(ctx, query, groupID, limit, offset)
+	rows, err := s.db.QueryContext(ctx, query, groupID, tenantID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("gagal query approved memories by group: %w", err)
 	}
@@ -1390,7 +1444,7 @@ func (s *SQLMemoryStore) GetApprovedMemoriesByGroupID(ctx context.Context, group
 		var jLite, jConf sql.NullString
 
 		if err := rows.Scan(
-			&mem.ID, &mem.DraftID, &mem.ForumID, &mem.GroupID, &mem.ApprovedBy, &mem.ApprovedAt,
+			&mem.ID, &mem.TenantID, &mem.DraftID, &mem.ForumID, &mem.GroupID, &mem.ApprovedBy, &mem.ApprovedAt,
 			&mem.HasHumanEdits, &mem.SnapshotSummary, &mem.SnapshotSummaryConf, &mem.SnapshotDecisions,
 			&jLite, &jConf, &mem.IsJourneyLiteRemoved, &mem.CreatedAt,
 		); err != nil {

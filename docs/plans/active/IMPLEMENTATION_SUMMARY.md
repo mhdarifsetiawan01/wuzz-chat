@@ -1,3 +1,7 @@
-# Implementation Summary — Standby State
+# Active Implementation Summary
 
-Menunggu instruksi baru atau inisialisasi milestone berikutnya.
+- **Status**: Standby / Idle
+- **Current Milestone**: Milestone 5 completed & archived
+- **Next Milestone**: Milestone 6 (OpenAPI Contract & Headless Integration Guide)
+- **Active Branch**: `dev`
+- **Updated At**: 2026-09-24

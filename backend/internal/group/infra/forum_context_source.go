@@ -8,6 +8,7 @@ import (
 
 	"github.com/bms-del112/wuzz-chat/internal/group"
 	"github.com/bms-del112/wuzz-chat/internal/memory"
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
@@ -33,6 +34,16 @@ func (s *ForumContextSource) GetMessages(ctx context.Context, contextID string, 
 	if s.msgStore == nil {
 		return nil, errors.New("message store belum diinisialisasi pada ForumContextSource")
 	}
+
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	// Verifikasi kepemilikan tenant konteks percakapan jika groupRepo tersedia
+	if s.groupRepo != nil && tenantID != "" {
+		details, err := s.groupRepo.GetGroupDetails(contextID, "")
+		if err == nil && details != nil && details.TenantID != "" && details.TenantID != tenantID {
+			return nil, memory.ErrUnauthorizedAccess
+		}
+	}
+
 	rawMsgs, err := s.msgStore.GetRoomHistory(contextID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("gagal mengambil pesan riwayat forum: %w", err)
@@ -67,6 +78,12 @@ func (s *ForumContextSource) GetContextMeta(ctx context.Context, contextID strin
 		}, nil
 	}
 
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	// Validasi isolasi tenant
+	if tenantID != "" && details.TenantID != "" && details.TenantID != tenantID {
+		return nil, memory.ErrUnauthorizedAccess
+	}
+
 	parentID := details.ParentID
 	title := details.Title
 	if title == "" {
@@ -94,6 +111,13 @@ func (s *ForumContextSource) GetAuthorizedViewers(ctx context.Context, contextID
 		return false, errors.New("group repository belum diinisialisasi")
 	}
 
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	// 0. Validasi kepemilikan tenant forum/subgrup
+	details, err := s.groupRepo.GetGroupDetails(contextID, "")
+	if err == nil && details != nil && details.TenantID != "" && details.TenantID != tenantID {
+		return false, nil
+	}
+
 	// 1. Cek apakah user adalah anggota langsung dari forum/subgrup
 	role, err := s.groupRepo.GetUserRoleInGroup(contextID, viewerID)
 	if err == nil && role != "" {
@@ -101,8 +125,7 @@ func (s *ForumContextSource) GetAuthorizedViewers(ctx context.Context, contextID
 	}
 
 	// 2. Jika bukan anggota langsung, cek apakah user anggota dari parent group
-	details, err := s.groupRepo.GetGroupDetails(contextID, "")
-	if err == nil && details != nil && details.ParentID != "" {
+	if details != nil && details.ParentID != "" {
 		isParentMember, errParent := s.groupRepo.IsParentMember(details.ParentID, viewerID)
 		if errParent == nil && isParentMember {
 			return true, nil

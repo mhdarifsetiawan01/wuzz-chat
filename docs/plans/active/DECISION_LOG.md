@@ -1,3 +1,4 @@
-# Decision Log — Standby State
+# Decision Log
 
-Tidak ada keputusan aktif saat ini.
+- Status: Standby
+- Previous decisions archived in `docs/plans/archived/24-09-2026-milestone-5-ai-memory-tenant-scoping/DECISION_LOG.md`.
