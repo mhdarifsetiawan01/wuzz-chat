@@ -9,6 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/authz"
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
+	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -22,10 +26,18 @@ type TenantService interface {
 	ValidateTenantActive(ctx context.Context, id string) (*Tenant, error)
 	CreateAPIKey(ctx context.Context, tenantID, name string) (key *TenantAPIKey, rawSecret string, err error)
 	ValidateAPIKey(ctx context.Context, appID, rawSecret string) (*Tenant, error)
+
+	// Milestone 3: External Provisioning & Token Exchange
+	SetUserStore(userStore store.UserStore)
+	SetAuthzRepo(authzRepo authz.AuthRepository)
+	ProvisionUserAndToken(ctx context.Context, externalUserID, displayName, avatarURL string) (token string, expiresIn int, user *store.User, err error)
+	ExchangeToken(ctx context.Context, tokenStr, deviceID, platform, userAgent, ip string) (jwtToken string, user *store.User, jti string, err error)
 }
 
 type tenantService struct {
-	repo TenantRepository
+	repo       TenantRepository
+	userStore  store.UserStore
+	authzRepo  authz.AuthRepository
 }
 
 // NewTenantService membuat instance baru TenantService.
@@ -33,6 +45,16 @@ func NewTenantService(repo TenantRepository) TenantService {
 	return &tenantService{
 		repo: repo,
 	}
+}
+
+// SetUserStore menyuntikkan store.UserStore ke TenantService.
+func (s *tenantService) SetUserStore(userStore store.UserStore) {
+	s.userStore = userStore
+}
+
+// SetAuthzRepo menyuntikkan authz.AuthRepository ke TenantService.
+func (s *tenantService) SetAuthzRepo(authzRepo authz.AuthRepository) {
+	s.authzRepo = authzRepo
 }
 
 // GetTenant mengambil tenant berdasarkan ID.
@@ -158,3 +180,106 @@ func (s *tenantService) ValidateAPIKey(ctx context.Context, appID, rawSecret str
 	// Pastikan tenant pemilik juga berstatus aktif
 	return s.ValidateTenantActive(ctx, key.TenantID)
 }
+
+// ProvisionUserAndToken melakukan atomic upsert pengguna eksternal pada tenant yang aktif
+// dan menerbitkan Exchange Token sementara (TTL 60 detik).
+func (s *tenantService) ProvisionUserAndToken(ctx context.Context, externalUserID, displayName, avatarURL string) (string, int, *store.User, error) {
+	if s.userStore == nil {
+		return "", 0, nil, errors.New("user store belum disuntikkan ke tenant service")
+	}
+
+	externalUserID = strings.TrimSpace(externalUserID)
+	if externalUserID == "" {
+		return "", 0, nil, errors.New("external_user_id tidak boleh kosong")
+	}
+
+	// 1. Dapatkan tenant ID dari context dan pastikan tenant berstatus aktif
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	if _, err := s.ValidateTenantActive(ctx, tenantID); err != nil {
+		return "", 0, nil, err
+	}
+
+	// 2. Lakukan atomic upsert user eksternal pada tenant yang aktif
+	u, err := s.userStore.UpsertExternalUserWithContext(ctx, externalUserID, displayName, avatarURL)
+	if err != nil {
+		return "", 0, nil, fmt.Errorf("gagal upsert external user: %w", err)
+	}
+
+	// 3. Generate Exchange Token yang aman (prefix: ext_)
+	randBytes := make([]byte, 24)
+	if _, err := rand.Read(randBytes); err != nil {
+		return "", 0, nil, fmt.Errorf("gagal menghasilkan exchange token: %w", err)
+	}
+	tokenStr := "ext_" + hex.EncodeToString(randBytes)
+	expiresIn := 60
+	expiresAt := time.Now().UTC().Add(time.Duration(expiresIn) * time.Second)
+
+	exToken := &ExchangeToken{
+		Token:     tokenStr,
+		TenantID:  tenantID,
+		UserID:    u.ID,
+		ExpiresAt: expiresAt,
+		CreatedAt: time.Now().UTC(),
+	}
+
+	if err := s.repo.CreateExchangeToken(ctx, exToken); err != nil {
+		return "", 0, nil, fmt.Errorf("gagal menyimpan exchange token: %w", err)
+	}
+
+	return tokenStr, expiresIn, u, nil
+}
+
+// ExchangeToken menukarkan token penukaran sementara dengan Session JWT penuh,
+// dan mendaftarkan perangkat serta sesi pada Level 2 Multi-Device registry.
+func (s *tenantService) ExchangeToken(ctx context.Context, tokenStr, deviceID, platform, userAgent, ip string) (string, *store.User, string, error) {
+	tokenStr = strings.TrimSpace(tokenStr)
+	if tokenStr == "" {
+		return "", nil, "", errors.New("exchange_token tidak boleh kosong")
+	}
+	deviceID = strings.TrimSpace(deviceID)
+	if deviceID == "" {
+		return "", nil, "", errors.New("device_id tidak boleh kosong")
+	}
+
+	// 1. Atomic consume exchange token (single-use)
+	consumed, err := s.repo.ConsumeExchangeToken(ctx, tokenStr)
+	if err != nil {
+		return "", nil, "", err
+	}
+
+	// 2. Ambil data user
+	if s.userStore == nil {
+		return "", nil, "", errors.New("user store belum disuntikkan ke tenant service")
+	}
+	u, err := s.userStore.GetUserByID(consumed.UserID)
+	if err != nil {
+		return "", nil, "", fmt.Errorf("user terkait token tidak ditemukan: %w", err)
+	}
+
+	// 3. Pastikan tenant pemilik user berstatus aktif
+	if _, err := s.ValidateTenantActive(ctx, consumed.TenantID); err != nil {
+		return "", nil, "", fmt.Errorf("tenant tidak aktif: %w", err)
+	}
+
+	// 4. Terbitkan JWT Session Token penuh yang memuat claim: user_id, tenant_id, device_id, dan jti
+	jwtToken, claims, err := auth.GenerateSessionToken(u.ID, u.Username, u.DisplayName, consumed.TenantID, deviceID)
+	if err != nil {
+		return "", nil, "", fmt.Errorf("gagal membuat session token: %w", err)
+	}
+
+	// 5. Daftarkan perangkat & catat sesi pada Level 2 Multi-Device registry (jika authzRepo tersedia)
+	if s.authzRepo != nil {
+		if platform == "" {
+			platform = "web"
+		}
+		deviceName := fmt.Sprintf("%s (%s)", platform, deviceID)
+		if len(deviceName) > 64 {
+			deviceName = deviceName[:64]
+		}
+		_ = s.authzRepo.UpsertDevice(deviceID, u.ID, deviceName, platform)
+		_ = s.authzRepo.CreateSession(claims.ID, u.ID, deviceID, userAgent, ip, claims.ExpiresAt.Time)
+	}
+
+	return jwtToken, u, claims.ID, nil
+}
+

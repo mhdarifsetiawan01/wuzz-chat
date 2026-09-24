@@ -9,7 +9,9 @@ import (
 
 	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/authz"
 	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
+	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/tenant"
 )
 
@@ -88,6 +90,15 @@ func (m *mockTenantService) CreateAPIKey(ctx context.Context, tenantID, name str
 
 func (m *mockTenantService) ValidateAPIKey(ctx context.Context, appID, rawSecret string) (*tenant.Tenant, error) {
 	return nil, errors.New("not implemented")
+}
+
+func (m *mockTenantService) SetUserStore(userStore store.UserStore) {}
+func (m *mockTenantService) SetAuthzRepo(authzRepo authz.AuthRepository) {}
+func (m *mockTenantService) ProvisionUserAndToken(ctx context.Context, externalUserID, displayName, avatarURL string) (string, int, *store.User, error) {
+	return "", 0, nil, errors.New("not implemented")
+}
+func (m *mockTenantService) ExchangeToken(ctx context.Context, tokenStr, deviceID, platform, userAgent, ip string) (string, *store.User, string, error) {
+	return "", nil, "", errors.New("not implemented")
 }
 
 func TestTenantMiddleware_Resolution(t *testing.T) {

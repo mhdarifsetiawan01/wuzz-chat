@@ -71,6 +71,7 @@ type Application struct {
 	MediaHandler       *api.MediaHandler
 	LinkPreviewHandler *api.LinkPreviewHandler
 	TransferHandler    *api.TransferHandler
+	ProvisioningHandler *api.ProvisioningHandler
 	WsHandler          *ws.Handler
 }
 
@@ -167,6 +168,11 @@ func New(cfg *config.Config) (*Application, error) {
 		app.AuthHandler = api.NewAuthHandlerWithService(authSvc, userStore)
 		if tokenStore != nil {
 			app.AuthHandler.SetTokenStore(tokenStore)
+		}
+		if tenantSvc != nil {
+			tenantSvc.SetUserStore(userStore)
+			tenantSvc.SetAuthzRepo(authRepo)
+			app.ProvisioningHandler = api.NewProvisioningHandler(tenantSvc)
 		}
 		if sessionStore != nil {
 			app.AuthHandler.SetSessionStore(sessionStore)

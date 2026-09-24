@@ -29,6 +29,12 @@ func (m *mockUserStoreForNotificationAPI) Authenticate(username, password string
 func (m *mockUserStoreForNotificationAPI) GetUserByID(id string) (*store.User, error) {
 	return nil, nil
 }
+func (m *mockUserStoreForNotificationAPI) GetByExternalIDWithContext(ctx context.Context, externalUserID string) (*store.User, error) {
+	return nil, nil
+}
+func (m *mockUserStoreForNotificationAPI) UpsertExternalUserWithContext(ctx context.Context, externalUserID, displayName, avatarURL string) (*store.User, error) {
+	return nil, nil
+}
 func (m *mockUserStoreForNotificationAPI) GetUserByUsername(username string) (*store.User, error) {
 	return nil, nil
 }

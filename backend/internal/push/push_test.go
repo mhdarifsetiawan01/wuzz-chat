@@ -24,6 +24,12 @@ func (m *mockUserStoreForPush) Authenticate(username, password string) (*store.U
 func (m *mockUserStoreForPush) GetUserByID(id string) (*store.User, error) {
 	return &store.User{ID: id, Username: "user_" + id, DisplayName: "User " + id}, nil
 }
+func (m *mockUserStoreForPush) GetByExternalIDWithContext(ctx context.Context, externalUserID string) (*store.User, error) {
+	return nil, nil
+}
+func (m *mockUserStoreForPush) UpsertExternalUserWithContext(ctx context.Context, externalUserID, displayName, avatarURL string) (*store.User, error) {
+	return nil, nil
+}
 func (m *mockUserStoreForPush) GetUserByUsername(username string) (*store.User, error) {
 	return &store.User{ID: "uid_" + username, Username: username, DisplayName: username}, nil
 }

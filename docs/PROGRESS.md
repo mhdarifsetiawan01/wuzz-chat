@@ -2660,4 +2660,27 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Live Real Group Simulation (`node test-group-simulation.mjs`)**: **PASS 100%** (Group creation, public search, WebSocket fanout, BOLA guard).
 - **Server Lifecycle Guard**: Seluruh server port 8080 dan 3047 dimatikan bersih (`fuser -k 8080/tcp 3047/tcp` -> 0 lingering ports).
 
+---
+
+## 🚀 Milestone 3: External Provisioning & B2B Auth Gateway (24 September 2026) — SELESAI ✅
+
+### 1. Deskripsi & Arsitektur
+Membangun gerbang autentikasi B2B Server-to-Server dan alur Client Token Exchange untuk integrasi headless chat tanpa mengharuskan pendaftaran manual pengguna:
+- **B2B API Key Authentication Guard (`backend/internal/api/b2b_middleware.go`)**: Memvalidasi kredensial `X-App-ID` & `X-App-Secret` menggunakan `TenantService.ValidateAPIKey` dan menginjeksi `TenantContext` ke request context.
+- **JIT User Provisioning Endpoint (`POST /api/v1/auth/provision-token`)**: Atomic upsert user pada tenant (`UpsertExternalUserWithContext`), penerbitan one-time exchange token (`ext_...`, TTL 60 detik).
+- **Client Token Exchange Endpoint (`POST /api/v1/auth/exchange`)**: Penukaran atomic single-use exchange token, pendaftaran perangkat ke Level 2 Multi-Device registry, penerbitan Session JWT ber-claim lengkap (`user_id`, `tenant_id`, `device_id`, `jti`).
+- **Skema Database Additive (`backend/internal/store/sql.go`)**:
+  - Kolom `external_user_id VARCHAR(128)` dan indeks `idx_users_tenant_ext` pada tabel `users`.
+  - Tabel baru `exchange_tokens` dengan indeks pencarian cepat.
+- **Backward Compatibility & WebSocket Ingestion**:
+  - Token JWT exchange dapat langsung digunakan untuk koneksi `/ws?token=<JWT>&device_id=<device_id>`.
+  - Alur registrasi/login eksisting (`/api/auth/register`, `/api/auth/login`) tetap berjalan 100% tanpa regresi.
+
+### 2. Bukti Pengujian Otomatis
+- **Unit & Integration Suite (`go test -v ./internal/tenant/...`)**: **PASS 100%** (Guard validation, JIT creation/update, exchange single-use, anti-expired, anti double-spend, E2E WebSocket handshake).
+- **Full Backend Suite (`go test ./...`)**: **PASS 100%** di seluruh packages.
+- **Frontend Build (`npm run build`)**: **PASS 100%** (Next.js 16.3.5 Turbopack, 0 TypeScript errors).
+- **Frontend Suites (`npm run test:cache`, `test:multi-device`, `test:phase5`, `test:device-limit`)**: **PASS 100%**.
+
+
 

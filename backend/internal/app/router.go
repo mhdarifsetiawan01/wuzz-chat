@@ -142,6 +142,18 @@ func (a *Application) setupRouter() http.Handler {
 	}
 
 	// =========================================================================
+	// 4B. EXTERNAL B2B & JIT PROVISIONING GATEWAY (Milestone 3)
+	// =========================================================================
+	if a.ProvisioningHandler != nil {
+		mux.HandleFunc("/api/v1/auth/provision-token", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			api.B2BAuthGuard(a.TenantService)(http.HandlerFunc(a.ProvisioningHandler.ProvisionToken)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/v1/auth/exchange", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			a.ProvisioningHandler.ExchangeToken(w, r)
+		}))
+	}
+
+	// =========================================================================
 	// 5. E2EE DEVICE KEY TRANSFER (QR CODE)
 	// =========================================================================
 	if a.TransferHandler != nil {

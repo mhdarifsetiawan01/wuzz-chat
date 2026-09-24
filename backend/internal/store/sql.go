@@ -96,6 +96,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		`CREATE TABLE IF NOT EXISTS users (
 			id VARCHAR(64) PRIMARY KEY,
 			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			external_user_id VARCHAR(128) DEFAULT '',
 			username VARCHAR(64) NOT NULL,
 			display_name VARCHAR(128) NOT NULL,
 			password_hash VARCHAR(255) NOT NULL,
@@ -109,6 +110,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		// Index Users
 		`CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);`,
+		`CREATE INDEX IF NOT EXISTS idx_users_tenant_ext ON users(tenant_id, external_user_id);`,
 		// Tabel Conversations
 		`CREATE TABLE IF NOT EXISTS conversations (
 			id VARCHAR(128) PRIMARY KEY,
@@ -401,6 +403,18 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_tenant_keys_app ON tenant_api_keys(app_id, is_active);`,
 		`CREATE INDEX IF NOT EXISTS idx_tenant_keys_tenant ON tenant_api_keys(tenant_id);`,
+
+		// Tabel Exchange Tokens (Milestone 3: JIT Provisioning & Short-Lived Token Exchange)
+		`CREATE TABLE IF NOT EXISTS exchange_tokens (
+			token VARCHAR(128) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL,
+			user_id VARCHAR(64) NOT NULL,
+			expires_at TIMESTAMP NOT NULL,
+			used_at TIMESTAMP DEFAULT NULL,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_exchange_tokens_lookup ON exchange_tokens(token, expires_at);`,
+		`CREATE INDEX IF NOT EXISTS idx_exchange_tokens_tenant_user ON exchange_tokens(tenant_id, user_id);`,
 	}
 
 	for _, query := range migrations {
@@ -468,6 +482,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_md_tenant ON memory_drafts(tenant_id);`)
 		_, _ = s.db.Exec(`ALTER TABLE approved_memories ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_am_tenant ON approved_memories(tenant_id);`)
+
+		// Auto-migration Milestone 3: External Provisioning (PostgreSQL)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS external_user_id VARCHAR(128) DEFAULT '';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_tenant_ext ON users(tenant_id, external_user_id);`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -526,6 +544,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_md_tenant ON memory_drafts(tenant_id);`)
 		_, _ = s.db.Exec(`ALTER TABLE approved_memories ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_am_tenant ON approved_memories(tenant_id);`)
+
+		// Auto-migration Milestone 3: External Provisioning (SQLite)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN external_user_id VARCHAR(128) DEFAULT '';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_tenant_ext ON users(tenant_id, external_user_id);`)
 	}
 
 	// Auto-seeder tenant default (Milestone 1)

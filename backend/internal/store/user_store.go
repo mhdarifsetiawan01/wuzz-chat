@@ -2,8 +2,10 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -26,6 +28,7 @@ var (
 type User struct {
 	ID             string    `json:"id"`
 	TenantID       string    `json:"tenant_id,omitempty"`
+	ExternalUserID string    `json:"external_user_id,omitempty"`
 	Username       string    `json:"username"`
 	DisplayName    string    `json:"display_name"`
 	PasswordHash   string    `json:"-"`
@@ -82,6 +85,8 @@ type UserStore interface {
 	RegisterWithContext(ctx context.Context, username, displayName, password string) (*User, error)
 	Authenticate(username, password string) (*User, error)
 	GetUserByID(id string) (*User, error)
+	GetByExternalIDWithContext(ctx context.Context, externalUserID string) (*User, error)
+	UpsertExternalUserWithContext(ctx context.Context, externalUserID, displayName, avatarURL string) (*User, error)
 	GetUserByUsername(username string) (*User, error)
 	GetUserByUsernameWithContext(ctx context.Context, username string) (*User, error)
 	GetUserByUsernameOrDisplayName(name string) (*User, error)
@@ -288,20 +293,161 @@ func (s *SQLUserStore) VerifyPassword(userID, plainPassword string) (bool, error
 func (s *SQLUserStore) GetUserByID(id string) (*User, error) {
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE id = $1`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE id = $1`
 	} else {
-		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE id = ?`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE id = ?`
 	}
 
 	row := s.db.QueryRow(query, id)
 	var u User
-	if err := row.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.TenantID, &u.ExternalUserID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
 		return nil, err
 	}
 	return &u, nil
+}
+
+// GetByExternalIDWithContext mengambil user berdasarkan external_user_id dan tenant_id dari context.
+func (s *SQLUserStore) GetByExternalIDWithContext(ctx context.Context, externalUserID string) (*User, error) {
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	var query string
+	if s.driverName == "postgres" {
+		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE tenant_id = $1 AND external_user_id = $2`
+	} else {
+		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), created_at FROM users WHERE tenant_id = ? AND external_user_id = ?`
+	}
+
+	row := s.db.QueryRowContext(ctx, query, tenantID, externalUserID)
+	var u User
+	if err := row.Scan(&u.ID, &u.TenantID, &u.ExternalUserID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.CreatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &u, nil
+}
+
+func sanitizeExternalUsername(input string) string {
+	input = strings.TrimSpace(strings.ToLower(input))
+	var sb strings.Builder
+	for _, r := range input {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
+			sb.WriteRune(r)
+		}
+	}
+	s := sb.String()
+	if s == "" {
+		return "user"
+	}
+	if len(s) > 40 {
+		return s[:40]
+	}
+	return s
+}
+
+// UpsertExternalUserWithContext melakukan atomic upsert user eksternal pada tenant yang aktif di context.
+// Jika user belum ada, dibuat baru (JIT). Jika sudah ada, display_name dan avatar_url diperbarui jika diberikan.
+func (s *SQLUserStore) UpsertExternalUserWithContext(ctx context.Context, externalUserID, displayName, avatarURL string) (*User, error) {
+	externalUserID = strings.TrimSpace(externalUserID)
+	if externalUserID == "" {
+		return nil, errors.New("external_user_id tidak boleh kosong")
+	}
+
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+
+	// 1. Cek apakah user sudah ada
+	existing, err := s.GetByExternalIDWithContext(ctx, externalUserID)
+	if err == nil && existing != nil {
+		updateDisp := strings.TrimSpace(displayName)
+		updateAvatar := strings.TrimSpace(avatarURL)
+
+		if updateDisp != "" || updateAvatar != "" {
+			var updateQuery string
+			var args []interface{}
+			if s.driverName == "postgres" {
+				updateQuery = `UPDATE users 
+				               SET display_name = CASE WHEN $1 != '' THEN $1 ELSE display_name END,
+				                   avatar_url = CASE WHEN $2 != '' THEN $2 ELSE avatar_url END
+				               WHERE id = $3 AND tenant_id = $4`
+				args = []interface{}{updateDisp, updateAvatar, existing.ID, tenantID}
+			} else {
+				updateQuery = `UPDATE users 
+				               SET display_name = CASE WHEN ? != '' THEN ? ELSE display_name END,
+				                   avatar_url = CASE WHEN ? != '' THEN ? ELSE avatar_url END
+				               WHERE id = ? AND tenant_id = ?`
+				args = []interface{}{updateDisp, updateDisp, updateAvatar, updateAvatar, existing.ID, tenantID}
+			}
+			if _, err := s.db.ExecContext(ctx, updateQuery, args...); err != nil {
+				return nil, fmt.Errorf("gagal update external user: %w", err)
+			}
+
+			if updateDisp != "" {
+				existing.DisplayName = updateDisp
+			}
+			if updateAvatar != "" {
+				existing.AvatarURL = updateAvatar
+			}
+		}
+		return existing, nil
+	}
+
+	// 2. Buat user baru (JIT Provisioning)
+	cleanName := strings.TrimSpace(displayName)
+	if cleanName == "" {
+		cleanName = externalUserID
+	}
+
+	baseUser := sanitizeExternalUsername(externalUserID)
+	candidateUsername := "ext_" + baseUser
+	if len(candidateUsername) > 60 {
+		candidateUsername = candidateUsername[:60]
+	}
+
+	// Pastikan username unik di tenant
+	checkUser, _ := s.GetUserByUsernameWithContext(ctx, candidateUsername)
+	if checkUser != nil {
+		randHex := make([]byte, 3)
+		_, _ = rand.Read(randHex)
+		candidateUsername = fmt.Sprintf("ext_%s_%s", baseUser, hex.EncodeToString(randHex))
+		if len(candidateUsername) > 64 {
+			candidateUsername = candidateUsername[:64]
+		}
+	}
+
+	newUser := &User{
+		ID:             uuid.New().String(),
+		TenantID:       tenantID,
+		ExternalUserID: externalUserID,
+		Username:       candidateUsername,
+		DisplayName:    cleanName,
+		PasswordHash:   "JIT_EXTERNAL_PROVISIONED",
+		StatusMessage:  "Tersedia untuk mengobrol",
+		AvatarURL:      strings.TrimSpace(avatarURL),
+		CreatedAt:      time.Now().UTC(),
+	}
+
+	var insertQuery string
+	if s.driverName == "postgres" {
+		insertQuery = `INSERT INTO users (id, tenant_id, external_user_id, username, display_name, password_hash, status_message, avatar_url, created_at)
+		               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	} else {
+		insertQuery = `INSERT INTO users (id, tenant_id, external_user_id, username, display_name, password_hash, status_message, avatar_url, created_at)
+		               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	}
+
+	_, err = s.db.ExecContext(ctx, insertQuery,
+		newUser.ID, newUser.TenantID, newUser.ExternalUserID,
+		newUser.Username, newUser.DisplayName, newUser.PasswordHash,
+		newUser.StatusMessage, newUser.AvatarURL, newUser.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("gagal insert external user: %w", err)
+	}
+
+	return newUser, nil
 }
 
 // GetUserByUsernameWithContext mengambil user berdasarkan username dan tenant_id dari context.

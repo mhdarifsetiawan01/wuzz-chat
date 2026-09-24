@@ -403,6 +403,55 @@ Mengembalikan daftar metode login/kredensial yang terdaftar untuk akun pengguna 
   ]
   ```
 
+#### 14. `POST /api/v1/auth/provision-token` (B2B JIT User Provisioning)
+Digunakan oleh backend aplikasi pihak ketiga (Server-to-Server) untuk mendaftarkan pengguna secara Just-In-Time (JIT) dan menerbitkan Exchange Token sementara (TTL 60 detik).
+- **Autentikasi**: Server-to-Server Header `X-App-ID` & `X-App-Secret` (Wajib)
+- **Metode HTTP**: `POST`
+- **Request Body**:
+  ```json
+  {
+    "external_user_id": "cust_12345",
+    "display_name": "Budi Santoso",
+    "avatar_url": "https://example.com/avatar.jpg"
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "exchange_token": "ext_0123456789abcdef...",
+    "expires_in": 60,
+    "user_id": "usr_uuid_..."
+  }
+  ```
+- **Error Response**:
+  - `401 Unauthorized`: Kredensial `X-App-ID` / `X-App-Secret` tidak lengkap atau tidak valid.
+  - `400 Bad Request`: `external_user_id` kosong atau payload JSON tidak valid.
+
+#### 15. `POST /api/v1/auth/exchange` (Client Token Exchange)
+Digunakan oleh aplikasi klien pihak ketiga (Mobile / Web SDK) untuk menukarkan `exchange_token` menjadi Session JWT penuh dan mendaftarkan perangkat pada registry.
+- **Autentikasi**: Terbuka (Menggunakan One-Time Exchange Token)
+- **Metode HTTP**: `POST`
+- **Request Body**:
+  ```json
+  {
+    "exchange_token": "ext_0123456789abcdef...",
+    "device_id": "dev_android_abc123",
+    "platform": "android"
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "user": {
+      "id": "usr_uuid_...",
+      "username": "ext_cust_12345",
+      "display_name": "Budi Santoso"
+    }
+  }
+  ```
+- **Catatan**: Token bersifat single-use (otomatis hangus seketika setelah digunakan) dan memiliki batas kadaluarsa 60 detik. Session JWT yang diterbitkan memuat claim `user_id`, `tenant_id`, `device_id`, dan `jti`.
+
 ---
 
 ### 3.2 Manajemen Kunci E2EE

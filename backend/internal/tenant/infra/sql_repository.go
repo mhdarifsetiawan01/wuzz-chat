@@ -3,6 +3,7 @@ package infra
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -249,3 +250,84 @@ func (r *SQLTenantRepository) ListAPIKeysByTenantID(ctx context.Context, tenantI
 	}
 	return result, nil
 }
+
+// CreateExchangeToken menyimpan record exchange token baru.
+func (r *SQLTenantRepository) CreateExchangeToken(ctx context.Context, token *tenant.ExchangeToken) error {
+	if token.CreatedAt.IsZero() {
+		token.CreatedAt = time.Now().UTC()
+	}
+	if err := token.Validate(); err != nil {
+		return err
+	}
+
+	var query string
+	if r.isPostgres() {
+		query = `INSERT INTO exchange_tokens (token, tenant_id, user_id, expires_at, used_at, created_at) VALUES ($1, $2, $3, $4, $5, $6)`
+	} else {
+		query = `INSERT INTO exchange_tokens (token, tenant_id, user_id, expires_at, used_at, created_at) VALUES (?, ?, ?, ?, ?, ?)`
+	}
+
+	_, err := r.db.ExecContext(ctx, query, token.Token, token.TenantID, token.UserID, token.ExpiresAt, token.UsedAt, token.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("gagal insert exchange token: %w", err)
+	}
+	return nil
+}
+
+// ConsumeExchangeToken mengambil dan menandai token sebagai digunakan secara atomic (single-use).
+// Jika token tidak ada, sudah kadaluarsa, atau sudah digunakan, mengembalikan error spesifik.
+func (r *SQLTenantRepository) ConsumeExchangeToken(ctx context.Context, tokenStr string) (*tenant.ExchangeToken, error) {
+	now := time.Now().UTC()
+
+	// 1. Query token terlebih dahulu untuk memberikan klasifikasi error yang jelas
+	var t tenant.ExchangeToken
+	var usedAt sql.NullTime
+	var selectQuery string
+	if r.isPostgres() {
+		selectQuery = `SELECT token, tenant_id, user_id, expires_at, used_at, created_at FROM exchange_tokens WHERE token = $1`
+	} else {
+		selectQuery = `SELECT token, tenant_id, user_id, expires_at, used_at, created_at FROM exchange_tokens WHERE token = ?`
+	}
+
+	err := r.db.QueryRowContext(ctx, selectQuery, tokenStr).Scan(
+		&t.Token, &t.TenantID, &t.UserID, &t.ExpiresAt, &usedAt, &t.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, tenant.ErrExchangeTokenNotFound
+		}
+		return nil, fmt.Errorf("gagal query exchange token: %w", err)
+	}
+
+	if usedAt.Valid {
+		return nil, tenant.ErrExchangeTokenAlreadyUsed
+	}
+	if now.After(t.ExpiresAt) {
+		return nil, tenant.ErrExchangeTokenExpired
+	}
+
+	// 2. Tandai token sebagai used secara atomic untuk mencegah race condition (double-spend)
+	var res sql.Result
+	if r.isPostgres() {
+		updateQuery := `UPDATE exchange_tokens SET used_at = $1 WHERE token = $2 AND used_at IS NULL AND expires_at > $1`
+		res, err = r.db.ExecContext(ctx, updateQuery, now, tokenStr)
+	} else {
+		updateQuery := `UPDATE exchange_tokens SET used_at = ? WHERE token = ? AND used_at IS NULL AND expires_at > ?`
+		res, err = r.db.ExecContext(ctx, updateQuery, now, tokenStr, now)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("gagal atomic consume exchange token: %w", err)
+	}
+
+	rowsAff, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("gagal cek rows affected: %w", err)
+	}
+	if rowsAff == 0 {
+		return nil, tenant.ErrExchangeTokenAlreadyUsed
+	}
+
+	t.UsedAt = &now
+	return &t, nil
+}
+

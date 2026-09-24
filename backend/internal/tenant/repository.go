@@ -23,6 +23,15 @@ var (
 
 	// ErrAPIKeyInactive menandakan API key dalam status nonaktif.
 	ErrAPIKeyInactive = errors.New("api key dalam status nonaktif")
+
+	// ErrExchangeTokenNotFound menandakan exchange token tidak ditemukan.
+	ErrExchangeTokenNotFound = errors.New("exchange token tidak ditemukan")
+
+	// ErrExchangeTokenExpired menandakan exchange token telah kadaluarsa.
+	ErrExchangeTokenExpired = errors.New("exchange token telah kadaluarsa")
+
+	// ErrExchangeTokenAlreadyUsed menandakan exchange token sudah pernah digunakan.
+	ErrExchangeTokenAlreadyUsed = errors.New("exchange token sudah pernah digunakan")
 )
 
 // TenantRepository mendefinisikan kontrak interface persistensi data untuk Tenant dan API Key.
@@ -50,4 +59,11 @@ type TenantRepository interface {
 
 	// ListAPIKeysByTenantID mengambil seluruh API key milik suatu tenant.
 	ListAPIKeysByTenantID(ctx context.Context, tenantID string) ([]*TenantAPIKey, error)
+
+	// CreateExchangeToken menyimpan exchange token baru dengan masa berlaku singkat.
+	CreateExchangeToken(ctx context.Context, token *ExchangeToken) error
+
+	// ConsumeExchangeToken mengambil dan menandai token sebagai digunakan secara atomic (single-use).
+	ConsumeExchangeToken(ctx context.Context, tokenStr string) (*ExchangeToken, error)
 }
+

@@ -65,3 +65,42 @@ func (k *TenantAPIKey) Validate() error {
 	}
 	return nil
 }
+
+// ExchangeToken merepresentasikan token penukaran sementara (One-Time Token, TTL 60s)
+// untuk alur JIT Provisioning klien pihak ketiga.
+type ExchangeToken struct {
+	Token     string     `json:"token"`
+	TenantID  string     `json:"tenant_id"`
+	UserID    string     `json:"user_id"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	UsedAt    *time.Time `json:"used_at,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+// Validate memeriksa kelayakan data ExchangeToken sebelum disimpan.
+func (e *ExchangeToken) Validate() error {
+	if strings.TrimSpace(e.Token) == "" {
+		return errors.New("exchange token tidak boleh kosong")
+	}
+	if strings.TrimSpace(e.TenantID) == "" {
+		return errors.New("tenant id tidak boleh kosong")
+	}
+	if strings.TrimSpace(e.UserID) == "" {
+		return errors.New("user id tidak boleh kosong")
+	}
+	if e.ExpiresAt.IsZero() {
+		return errors.New("expires at tidak boleh kosong")
+	}
+	return nil
+}
+
+// IsExpired memeriksa apakah token sudah melewati batas waktu kadaluarsa.
+func (e *ExchangeToken) IsExpired() bool {
+	return time.Now().UTC().After(e.ExpiresAt)
+}
+
+// IsUsed memeriksa apakah token sudah pernah digunakan.
+func (e *ExchangeToken) IsUsed() bool {
+	return e.UsedAt != nil
+}
+
