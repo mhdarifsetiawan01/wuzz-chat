@@ -375,3 +375,67 @@ func (s *MessageService) UnpinConversation(ctx context.Context, conversationID, 
 	}
 	return s.convRepo.UnpinConversation(convID, userID)
 }
+
+// SaveIncomingMessage memvalidasi dan menyimpan pesan yang masuk (dari WebSocket / gateway).
+func (s *MessageService) SaveIncomingMessage(ctx context.Context, msg Message) error {
+	if strings.TrimSpace(msg.ID) == "" {
+		return errors.New("message id tidak boleh kosong")
+	}
+	if strings.TrimSpace(msg.RoomID) == "" {
+		return errors.New("room id tidak boleh kosong")
+	}
+	if strings.TrimSpace(msg.FromID) == "" {
+		return errors.New("pengirim (from id) tidak boleh kosong")
+	}
+	if strings.TrimSpace(msg.Content) == "" && strings.TrimSpace(msg.MediaURL) == "" {
+		return errors.New("konten pesan atau lampiran media tidak boleh kosong")
+	}
+	return s.msgRepo.SaveMessage(msg)
+}
+
+// ToggleReaction menambah atau menghapus reaksi emoji user terhadap pesan tertentu.
+func (s *MessageService) ToggleReaction(ctx context.Context, msgID, emoji, userID string) (string, error) {
+	if strings.TrimSpace(msgID) == "" {
+		return "", ErrMissingMessageID
+	}
+	if strings.TrimSpace(emoji) == "" {
+		return "", errors.New("emoji tidak boleh kosong")
+	}
+	if strings.TrimSpace(userID) == "" {
+		return "", ErrUnauthorized
+	}
+	return s.msgRepo.ToggleReaction(msgID, emoji, userID)
+}
+
+// GetRoomHistory mengambil riwayat pesan dalam percakapan yang difilter sesuai batas waktu cleared_at milik user.
+func (s *MessageService) GetRoomHistory(ctx context.Context, roomID, userID string, limit int) ([]Message, error) {
+	if strings.TrimSpace(roomID) == "" {
+		return nil, ErrMissingRoomID
+	}
+	return s.msgRepo.GetRoomHistoryForUser(roomID, userID, limit)
+}
+
+// GetRoomHistorySince mengambil riwayat pesan baru sejak timestamp tertentu (delta offline sync).
+func (s *MessageService) GetRoomHistorySince(ctx context.Context, roomID, userID string, since time.Time, limit int) ([]Message, error) {
+	if strings.TrimSpace(roomID) == "" {
+		return nil, ErrMissingRoomID
+	}
+	return s.msgRepo.GetRoomHistorySince(roomID, userID, since, limit)
+}
+
+// MarkUserMessagesAsDelivered menandai semua pesan 'sent' yang ditujukan ke user menjadi 'delivered'.
+func (s *MessageService) MarkUserMessagesAsDelivered(ctx context.Context, userID string) ([]string, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, ErrUnauthorized
+	}
+	return s.msgRepo.MarkUserMessagesAsDelivered(userID)
+}
+
+// MarkRoomMessagesAsRead menandai semua pesan lawan bicara di room menjadi 'read'.
+func (s *MessageService) MarkRoomMessagesAsRead(ctx context.Context, roomID, excludeUserID string) error {
+	if strings.TrimSpace(roomID) == "" {
+		return ErrMissingRoomID
+	}
+	return s.msgRepo.MarkRoomMessagesAsRead(roomID, excludeUserID)
+}
+

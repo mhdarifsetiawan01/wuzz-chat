@@ -242,3 +242,84 @@ func TestAuthService_ChangePassword(t *testing.T) {
 		t.Fatalf("Login with new password failed: %v", err)
 	}
 }
+
+func TestAuthService_DevicePlatformHandling(t *testing.T) {
+	svc, cleanup := setupTestAuthService(t)
+	defer cleanup()
+
+	// 1. Register dengan platform eksplisit "android"
+	regRes, err := svc.Register(authz.RegisterInput{
+		Username:    "android_user",
+		DisplayName: "Android Tester",
+		Password:    "password123",
+		DeviceID:    "dev-android-01",
+		Platform:    "android",
+	})
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	devices, err := svc.GetUserDevices(regRes.UserID)
+	if err != nil || len(devices) == 0 {
+		t.Fatalf("GetUserDevices failed: %v", err)
+	}
+	if devices[0].Platform != "android" {
+		t.Fatalf("expected platform 'android', got '%s'", devices[0].Platform)
+	}
+	if devices[0].Name != "Android Device" {
+		t.Fatalf("expected device name 'Android Device', got '%s'", devices[0].Name)
+	}
+
+	// 2. Login dengan platform eksplisit "ios"
+	_, _, err = svc.Login(authz.LoginInput{
+		Username: "android_user",
+		Password: "password123",
+		DeviceID: "dev-ios-01",
+		Platform: "ios",
+	})
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+
+	devices, err = svc.GetUserDevices(regRes.UserID)
+	if err != nil || len(devices) < 2 {
+		t.Fatalf("expected 2 devices, got: %v", devices)
+	}
+
+	var foundIOS bool
+	for _, d := range devices {
+		if d.ID == "dev-ios-01" {
+			foundIOS = true
+			if d.Platform != "ios" {
+				t.Fatalf("expected device dev-ios-01 platform 'ios', got '%s'", d.Platform)
+			}
+			if d.Name != "iOS Device" {
+				t.Fatalf("expected device name 'iOS Device', got '%s'", d.Name)
+			}
+		}
+	}
+	if !foundIOS {
+		t.Fatalf("dev-ios-01 not found in user devices")
+	}
+
+	// 3. Fallback auto-detection dari User-Agent Android
+	regUA, err := svc.Register(authz.RegisterInput{
+		Username:    "ua_user",
+		DisplayName: "UA Tester",
+		Password:    "password123",
+		DeviceID:    "dev-ua-01",
+		UserAgent:   "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+	})
+	if err != nil {
+		t.Fatalf("Register with UA failed: %v", err)
+	}
+
+	uaDevices, err := svc.GetUserDevices(regUA.UserID)
+	if err != nil || len(uaDevices) == 0 {
+		t.Fatalf("GetUserDevices failed: %v", err)
+	}
+	if uaDevices[0].Platform != "android" {
+		t.Fatalf("expected platform auto-detected as 'android', got '%s'", uaDevices[0].Platform)
+	}
+}
+

@@ -152,11 +152,13 @@ Masuk dengan kredensial akun yang sudah ada.
     "username": "budi123",
     "password": "passwordAman123",
     "device_id": "dev_web_12345",
+    "platform": "android",
     "confirm_override": false,
     "kick_device_id": "dev_old_67890"
   }
   ```
   * `device_id` (string, opsional): ID perangkat klien unik (`dev_<uuid>`).
+  * `platform` (string, opsional): Platform perangkat (`"web"`, `"android"`, atau `"ios"`). Dapat juga dikirimkan melalui HTTP header `X-Device-Platform: android`. Default terdeteksi otomatis dari `User-Agent`.
   * `confirm_override` (boolean, opsional): Jika `true`, mengeluarkan perangkat lama saat kuota maksimal 2 perangkat tercapai.
   * `kick_device_id` (string, opsional): ID perangkat spesifik yang dipilih untuk dikeluarkan (default: perangkat paling lama aktif / FIFO).
 - **Success Response (200 OK)**:
@@ -923,9 +925,9 @@ Mengambil kunci publik VAPID untuk inisialisasi `PushManager.subscribe()` di bro
 ---
 
 #### 27. `POST /api/notifications/subscribe`
-Mendaftarkan push subscription milik browser / mobile device user yang sedang login.
+Mendaftarkan push subscription milik browser / mobile device user yang sedang login (mendukung WebPush VAPID untuk Web/PWA dan Native FCM Device Token untuk Android/iOS).
 - **Autentikasi**: `Bearer <token>`
-- **Request Body**:
+- **Request Body (Web / PWA)**:
   ```json
   {
     "platform": "web",
@@ -936,6 +938,14 @@ Mendaftarkan push subscription milik browser / mobile device user yang sedang lo
     }
   }
   ```
+- **Request Body (Native Android / iOS Token)**:
+  ```json
+  {
+    "platform": "android",
+    "endpoint": "dK4x-example-native-fcm-device-registration-token..."
+  }
+  ```
+  * Sistem secara otomatis merutekan notifikasi: URL HTTP dioperasikan oleh VAPID Web Push Provider, sedangkan raw device token dioperasikan oleh Native FCM Provider.
 - **Success Response (200 OK)**:
   ```json
   {

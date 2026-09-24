@@ -21,7 +21,6 @@ import (
 type GroupHandler struct {
 	groupSvc      *group.GroupService
 	forumSvc      *group.ForumService
-	groupStore    store.GroupStore
 	userStore     store.UserStore
 	hub           *ws.Hub
 	pushService   *push.Service
@@ -34,10 +33,9 @@ func NewGroupHandler(gs store.GroupStore, us store.UserStore) *GroupHandler {
 	groupSvc := group.NewGroupService(repo, repo, nil, nil)
 	forumSvc := group.NewForumService(repo, repo, nil, nil, nil)
 	return &GroupHandler{
-		groupSvc:   groupSvc,
-		forumSvc:   forumSvc,
-		groupStore: gs,
-		userStore:  us,
+		groupSvc:  groupSvc,
+		forumSvc:  forumSvc,
+		userStore: us,
 	}
 }
 
@@ -53,10 +51,9 @@ func NewGroupHandlerWithServices(groupSvc *group.GroupService, forumSvc *group.F
 		}
 	}
 	return &GroupHandler{
-		groupSvc:   groupSvc,
-		forumSvc:   forumSvc,
-		groupStore: gs,
-		userStore:  us,
+		groupSvc:  groupSvc,
+		forumSvc:  forumSvc,
+		userStore: us,
 	}
 }
 

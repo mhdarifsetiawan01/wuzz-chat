@@ -6,6 +6,9 @@ import (
 
 // MessageRepository mendefinisikan operasi data untuk riwayat pesan, reaksi, dan sematan pesan.
 type MessageRepository interface {
+	// SaveMessage menyimpan pesan yang sudah terkirim ke database.
+	SaveMessage(msg Message) error
+
 	// GetMessageByID mengambil satu pesan berdasarkan ID.
 	GetMessageByID(msgID string) (*Message, error)
 

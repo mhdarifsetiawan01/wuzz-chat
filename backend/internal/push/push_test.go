@@ -194,3 +194,68 @@ func TestNotifyOfflineRecipients_WithMentions(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 }
 
+func TestPushProviders_RoutingAndMultiPlatform(t *testing.T) {
+	ctx := context.Background()
+
+	// 1. Test VAPIDWebPushProvider
+	vapid := NewVAPIDWebPushProvider("fake_pub", "fake_priv", "mailto:test@wuzz.id")
+	if vapid.Name() != "vapid_webpush" {
+		t.Fatalf("expected provider name 'vapid_webpush', got '%s'", vapid.Name())
+	}
+	// Empty endpoint should return nil gracefully
+	if err := vapid.Send(ctx, store.PushSubscription{Endpoint: ""}, []byte(`{}`)); err != nil {
+		t.Fatalf("expected nil for empty endpoint, got %v", err)
+	}
+
+	// 2. Test FCMv1PushProvider
+	fcm := NewFCMv1PushProvider("wuzz-chat-firebase", "")
+	if fcm.Name() != "fcm_v1" {
+		t.Fatalf("expected provider name 'fcm_v1', got '%s'", fcm.Name())
+	}
+	// Empty endpoint should return error
+	if err := fcm.Send(ctx, store.PushSubscription{Endpoint: ""}, []byte(`{}`)); err == nil {
+		t.Fatalf("expected error for empty endpoint in FCM")
+	}
+	// Valid token should simulate successfully without error
+	if err := fcm.Send(ctx, store.PushSubscription{Platform: "android", Endpoint: "fcm_device_token_xyz123"}, []byte(`{}`)); err != nil {
+		t.Fatalf("expected nil for simulated FCM send, got %v", err)
+	}
+
+	// 3. Test Service routing
+	svc := NewService(&mockUserStoreForPush{})
+
+	// Web push URL endpoint -> VAPID provider
+	subWeb := store.PushSubscription{Platform: "web", Endpoint: "https://fcm.googleapis.com/fcm/send/abc"}
+	pWeb := svc.getProviderForSubscription(subWeb)
+	if pWeb.Name() != "vapid_webpush" {
+		t.Fatalf("expected web endpoint to route to vapid_webpush, got %s", pWeb.Name())
+	}
+
+	// Android native token -> FCM provider
+	subAndroid := store.PushSubscription{Platform: "android", Endpoint: "native_fcm_token_123"}
+	pAndroid := svc.getProviderForSubscription(subAndroid)
+	if pAndroid.Name() != "fcm_v1" {
+		t.Fatalf("expected android native token to route to fcm_v1, got %s", pAndroid.Name())
+	}
+
+	// iOS native token -> FCM provider
+	subIOS := store.PushSubscription{Platform: "ios", Endpoint: "apns_fcm_token_456"}
+	pIOS := svc.getProviderForSubscription(subIOS)
+	if pIOS.Name() != "fcm_v1" {
+		t.Fatalf("expected ios native token to route to fcm_v1, got %s", pIOS.Name())
+	}
+
+	// fcm: prefixed token -> FCM provider
+	subPrefixed := store.PushSubscription{Platform: "web", Endpoint: "fcm:custom_prefixed_token"}
+	pPrefixed := svc.getProviderForSubscription(subPrefixed)
+	if pPrefixed.Name() != "fcm_v1" {
+		t.Fatalf("expected fcm: prefixed endpoint to route to fcm_v1, got %s", pPrefixed.Name())
+	}
+
+	// Test SendWebPush multi-platform routing execution
+	if err := svc.SendWebPush(ctx, subAndroid, []byte(`{}`)); err != nil {
+		t.Fatalf("expected SendWebPush to succeed for android fcm, got %v", err)
+	}
+}
+
+

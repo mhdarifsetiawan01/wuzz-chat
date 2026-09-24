@@ -39,8 +39,6 @@ type MemoryHandler struct {
 	svc         *memory.MemoryService
 	notifier    *memoryNotifierAdapter
 	memoryStore store.MemoryStore
-	groupStore  store.GroupStore
-	userStore   store.UserStore
 	hub         *ws.Hub
 	pushService *push.Service
 }
@@ -61,17 +59,13 @@ func NewMemoryHandler(ms store.MemoryStore, gs store.GroupStore, us store.UserSt
 		svc:         svc,
 		notifier:    notifier,
 		memoryStore: ms,
-		groupStore:  gs,
-		userStore:   us,
 	}
 }
 
 // NewMemoryHandlerWithService membuat instance MemoryHandler dengan MemoryService yang diinjeksi secara eksplisit.
 func NewMemoryHandlerWithService(svc *memory.MemoryService, gs store.GroupStore, us store.UserStore) *MemoryHandler {
 	return &MemoryHandler{
-		svc:        svc,
-		groupStore: gs,
-		userStore:  us,
+		svc: svc,
 	}
 }
 

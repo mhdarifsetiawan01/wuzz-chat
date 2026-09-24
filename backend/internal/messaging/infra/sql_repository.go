@@ -27,6 +27,14 @@ func NewSQLMessagingRepository(ms store.MessageStore, us store.UserStore) *SQLMe
 
 // --- Implementasi MessageRepository ---
 
+func (r *SQLMessagingRepository) SaveMessage(msg messaging.Message) error {
+	return r.msgStore.Save(msg)
+}
+
+func (r *SQLMessagingRepository) Save(msg messaging.Message) error {
+	return r.msgStore.Save(msg)
+}
+
 func (r *SQLMessagingRepository) GetMessageByID(msgID string) (*messaging.Message, error) {
 	return r.msgStore.GetMessageByID(msgID)
 }

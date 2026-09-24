@@ -29,6 +29,11 @@ func newMockMessageRepo() *mockMessageRepo {
 	}
 }
 
+func (m *mockMessageRepo) SaveMessage(msg messaging.Message) error {
+	m.messages[msg.ID] = &msg
+	return nil
+}
+
 func (m *mockMessageRepo) GetMessageByID(msgID string) (*messaging.Message, error) {
 	msg, ok := m.messages[msgID]
 	if !ok {
@@ -412,3 +417,91 @@ func TestMessageService_UpdateReceipt(t *testing.T) {
 		t.Fatal("expected TypeReceipt event")
 	}
 }
+
+func TestMessageService_SaveIncomingMessage(t *testing.T) {
+	ctx := context.Background()
+	msgRepo := newMockMessageRepo()
+	svc := messaging.NewMessageService(msgRepo, nil, nil, nil)
+
+	// Validasi ID kosong
+	err := svc.SaveIncomingMessage(ctx, messaging.Message{
+		RoomID:  "room-1",
+		FromID:  "user-1",
+		Content: "Hello",
+	})
+	if err == nil {
+		t.Fatal("expected error for empty ID")
+	}
+
+	// Validasi Room kosong
+	err = svc.SaveIncomingMessage(ctx, messaging.Message{
+		ID:      "msg-1",
+		FromID:  "user-1",
+		Content: "Hello",
+	})
+	if err == nil {
+		t.Fatal("expected error for empty RoomID")
+	}
+
+	// Validasi Konten kosong
+	err = svc.SaveIncomingMessage(ctx, messaging.Message{
+		ID:     "msg-1",
+		RoomID: "room-1",
+		FromID: "user-1",
+	})
+	if err == nil {
+		t.Fatal("expected error for empty Content and MediaURL")
+	}
+
+	// Simpan sukses
+	err = svc.SaveIncomingMessage(ctx, messaging.Message{
+		ID:      "msg-1",
+		RoomID:  "room-1",
+		FromID:  "user-1",
+		Content: "Hello World",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	saved, err := msgRepo.GetMessageByID("msg-1")
+	if err != nil || saved.Content != "Hello World" {
+		t.Fatalf("expected message saved in repository")
+	}
+}
+
+func TestMessageService_ToggleReactionAndHistory(t *testing.T) {
+	ctx := context.Background()
+	msgRepo := newMockMessageRepo()
+	svc := messaging.NewMessageService(msgRepo, nil, nil, nil)
+
+	// Toggle reaction valid
+	action, err := svc.ToggleReaction(ctx, "msg-1", "👍", "user-1")
+	if err != nil || action != "added" {
+		t.Fatalf("unexpected toggle reaction error: %v", err)
+	}
+
+	// GetRoomHistory
+	hist, err := svc.GetRoomHistory(ctx, "room-1", "user-1", 50)
+	if err != nil || hist == nil {
+		t.Fatalf("unexpected get room history error: %v", err)
+	}
+
+	// GetRoomHistorySince
+	histSince, err := svc.GetRoomHistorySince(ctx, "room-1", "user-1", time.Now().Add(-1*time.Hour), 50)
+	if err != nil || histSince == nil {
+		t.Fatalf("unexpected get room history since error: %v", err)
+	}
+
+	// MarkUserMessagesAsDelivered & Read
+	_, err = svc.MarkUserMessagesAsDelivered(ctx, "user-1")
+	if err != nil {
+		t.Fatalf("unexpected mark delivered error: %v", err)
+	}
+
+	err = svc.MarkRoomMessagesAsRead(ctx, "room-1", "user-1")
+	if err != nil {
+		t.Fatalf("unexpected mark read error: %v", err)
+	}
+}
+
