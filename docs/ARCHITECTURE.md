@@ -2,8 +2,10 @@
 
 Dokumen ini mendefinisikan desain skema data, alur komunikasi WebSocket, dan standar API untuk evolusi platform **Wuzz Chat** menuju aplikasi chatting modern kelas WhatsApp/Telegram.
 
-> 📖 **Arsitektur Identitas & Multi-Device**: Untuk peta jalan pemisahan sesi (`sessions`), registrasi perangkat (`devices`), multi-credential (`user_credentials`), Passkey WebAuthn, dan E2EE multi-device, lihat dokumen:
-> 👉 **[`docs/ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md)** (Status: Phase 0 SELESAI ✅, Phase 1 s/d 5 Siap Dieksekusi).
+> 📌 **Single Source of Truth (SSOT)**: Untuk ringkasan eksekutif arsitektur aktual, pemetaan domain modular monolit, kesiapan mobile, dan daftar utang teknis yang diketahui, lihat:  
+> 👉 **[`docs/PROJECT_STATE.md`](PROJECT_STATE.md)**  
+> 📖 **Arsitektur Identitas & Multi-Device**: Untuk peta jalan pemisahan sesi (`sessions`), registrasi perangkat (`devices`), multi-credential (`user_credentials`), Passkey WebAuthn, dan E2EE multi-device, lihat dokumen:  
+> 👉 **[`docs/ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md)** (Status: Phase 0, 1, 2, 3, 5 SELESAI ✅).
 
 ---
 
@@ -774,5 +776,18 @@ Dalam rangka evolusi arsitektur menuju sistem modular monolith yang dapat diguna
   - `ForumContextSource` di `internal/group/infra/`: Adapter implementasi `ContextSource` untuk forum ephemeral.
   - `api/memory_handler.go`: Disempurnakan menjadi *thin transport layer* murni.
 
----
+### F. Application Container & Slim Bootstrap Entrypoint (Fase 6)
+- **Container & Wiring (`internal/app/`)**:
+  - `container.go` & `wire.go`: Orkestrasi dependency injection terpusat yang merakit seluruh konfigurasi, basis data, broker Redis, service domain, dan HTTP router.
+  - `main.go`: Disusutkan menjadi bootstrap ramping (56 baris) dengan *graceful shutdown* berbasis sinyal OS.
 
+### G. Post-Audit Architecture Hardening (Milestones 1–3)
+- **Milestone 1 (Zero-Risk Handler Cleanup)**: Seluruh sisa fallback store ganda (`if h.service != nil { ... return } // fallback lama`) dihapus tuntas dari `auth_handler.go`, `chat_handler.go`, `group_handler.go`, dan `memory_handler.go` (net -599 baris).
+- **Milestone 2 (Realtime Message Ingestion Decoupling)**: WebSocket Hub diputus dari direct SQL store melalui interface `RealtimeMessageManager` dan di-wire ke domain repository adapter.
+- **Milestone 3 (Mobile Gateway Readiness & Pluggable Push Provider)**: Resolusi platform perangkat (`web`, `android`, `ios`), multi-device lifecycle use cases pada `authz.AuthService`, serta arsitektur pluggable `PushProvider` (`VAPIDWebPushProvider` & `FCMv1PushProvider`) dengan auto-routing.
+
+> 📝 **Daftar Utang Teknis & Batasan Arsitektur**:  
+> Seluruh utang teknis yang diketahui dan sengaja ditunda (TD-01 s/d TD-05) dicatat secara kanonikal di:  
+> 👉 **[`docs/PROJECT_STATE.md`](PROJECT_STATE.md) (Bagian 10 — Technical Debt Register)**.
+
+---

@@ -2,6 +2,11 @@
 
 Dokumen ini adalah panduan teknis komprehensif (*Mobile Client Integration Guide & Architecture Blueprint*) bagi engineer yang akan membangun aplikasi mobile native (**Android Kotlin**, **iOS Swift**) maupun cross-platform (**Flutter**, **React Native**) untuk ekosistem **Wuzz Chat**.
 
+> 📌 **Status Kesiapan**:  
+> - **Backend Gateway**: **READY ✅** (REST API, WebSocket RFC 6455, `X-Device-Platform` header, multi-device gating HTTP 409, dan perutean token FCM).  
+> - **Aplikasi Klien Mobile**: **CLIENT NOT YET IMPLEMENTED ⏳** (Target Milestone 6).  
+> - **Single Source of Truth (SSOT)**: Lihat [`docs/PROJECT_STATE.md`](PROJECT_STATE.md) untuk matriks kapabilitas dan utang teknis aktual.
+
 ---
 
 ## 📱 1. Filosofi & Desain Platform-Agnostik
@@ -49,9 +54,9 @@ sequenceDiagram
 
 1. **Login & Token Storage**:
    - Simpan token JWT di secure storage perangkat (**EncryptedSharedPreferences** di Android, **Keychain** di iOS).
-2. **Push Notification Registration (FCM / APNs)**:
-   - Setelah login, ambil token perangkat via `FirebaseMessaging.getInstance().getToken()` (Android) atau APNs (iOS).
-   - Daftarkan token ke backend Go:
+2. **Push Notification Registration (FCM / APNs via FCM Bridging)**:
+   - Setelah login, ambil token perangkat via `FirebaseMessaging.getInstance().getToken()` (Android) atau via Firebase Messaging di iOS.
+   - Daftarkan token ke backend Go (mendukung raw device token FCM atau WebPush URL):
      ```http
      POST /api/notifications/subscribe
      Authorization: Bearer <JWT>
@@ -59,9 +64,10 @@ sequenceDiagram
 
      {
        "platform": "android",
-       "endpoint": "https://fcm.googleapis.com/fcm/send/<FCM_REGISTRATION_TOKEN>"
+       "endpoint": "<FCM_DEVICE_REGISTRATION_TOKEN>"
      }
      ```
+     *Catatan*: Backend secara cerdas merutekan token: jika berupa URL HTTP (`https://...`), dikirim via VAPID Web Push; jika berupa raw token string (`dK4x...`), dikirim via Native FCM Provider.
    - Saat logout resmi/sukarela, panggil `POST /api/auth/logout` dengan menyertakan header `X-Device-ID: <device_id>` atau body `{"device_id": "<device_id>"}` untuk melepaskan `active_device_id` di database server secara aman, serta panggil `POST /api/notifications/unsubscribe` dengan body `{ "endpoint": "..." }`.
    - *Rekomendasi Klien Mobile*: Terapkan pola **Local-First Purge** (hapus token dari Secure Storage/Keychain seketika) dan gunakan network timeout **30 detik** saat memanggil logout server. Jika server lambat atau timeout, biarkan klien tetap kembali ke layar login dengan aman tanpa membekukan antarmuka.
 3. **Koneksi WebSocket**:

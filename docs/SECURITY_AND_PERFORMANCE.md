@@ -2,6 +2,9 @@
 
 Dokumen ini menyajikan panduan arsitektur komprehensif mengenai seluruh lapisan **Keamanan (*Security*)**, **Performa (*Performance*)**, dan **Keandalan Skalabilitas (*Scalability & Concurrency*)** yang telah diterapkan pada sistem backend Wuzz Chat (Golang 1.26).
 
+> 📌 **Single Source of Truth (SSOT)**: Untuk ringkasan eksekutif kapabilitas keamanan, batasan realtime cluster, dan daftar utang teknis, lihat:  
+> 👉 **[`docs/PROJECT_STATE.md`](PROJECT_STATE.md)**
+
 ---
 
 ## 📑 Daftar Isi

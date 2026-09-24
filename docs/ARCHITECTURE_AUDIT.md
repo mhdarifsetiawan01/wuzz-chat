@@ -1,7 +1,10 @@
 # 🔍 WuzzChat — Architecture Audit & Identity Evolution Roadmap
 **Fokus:** Identity · Authentication · Device Management · Session Management · Multi-Device & Passkey Readiness  
 **Tanggal:** 21–22 September 2026  
-**Status:** **Phase 0, Phase 1, Phase 2, & Phase 5 SELESAI ✅** | Roadmap Identitas & Multi-Device WuzzChat  
+**Status:** **Phase 0, 1, 2, 3, 5 SELESAI ✅** | Roadmap Identitas & Multi-Device WuzzChat  
+
+> 📌 **Single Source of Truth (SSOT)**: Untuk ringkasan status implementasi terkini dan kapabilitas aktual, lihat:  
+> 👉 **[`docs/PROJECT_STATE.md`](PROJECT_STATE.md)**
 
 ---
 

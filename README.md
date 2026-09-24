@@ -1,6 +1,6 @@
-# 💬 Wuzz Chat — Real-Time WebSocket Chat Monorepo
+# 💬 Wuzz Chat — Actionable Knowledge Messaging Engine
 
-Wuzz Chat adalah aplikasi chat real-time 1-on-1 berbasis WebSocket dengan arsitektur monorepo yang dirancang untuk kemudahan skalabilitas dan deployment terpisah.
+Wuzz Chat adalah platform perpesanan real-time modern yang menggabungkan komunikasi instan 1-on-1 terenkripsi ujung-ke-ujung (E2EE P-256), obrolan grup terstruktur, forum topik efemeral, serta **AI Memory Engine** terkurasi dengan filosofi *"AI captures. Humans validate. Wuzz remembers."*
 
 ---
 
@@ -8,33 +8,42 @@ Wuzz Chat adalah aplikasi chat real-time 1-on-1 berbasis WebSocket dengan arsite
 
 ```text
 wuzz-chat/
-├── backend/                  # WebSocket & REST Backend Service (Golang 1.26)
+├── backend/                  # Modular Monolith Golang Backend (Go 1.26)
+│   ├── cmd/                  # E2E simulation & load test entrypoints
 │   ├── internal/
-│   │   ├── api/              # REST Handlers (auth, chat, media upload & ack, config)
-│   │   ├── auth/             # JWT helper, claims validation & RequireJWT middleware
-│   │   ├── storage/          # Media Storage driver (Supabase, Local disk) & TTL PurgeWorker
-│   │   ├── store/            # Data Layer (PostgreSQL Supabase, SQLite, In-Memory)
-│   │   └── ws/               # WebSocket Hub, Client Pump, Message Router & Presence
+│   │   ├── ai/               # LLM Provider (Gemini 2.5 Flash, Groq), Processor & Prompts
+│   │   ├── api/              # Thin HTTP REST Handlers (auth, chat, group, memory, media)
+│   │   ├── app/              # Dependency injection container & bootstrap wire (wire.go)
+│   │   ├── auth/             # JWT token utilities, CORS, & RequireJWT middleware
+│   │   ├── authz/            # Identity & Auth domain service, sessions, devices, & repo
+│   │   ├── broker/           # Pub/Sub broker (Upstash Redis & In-Memory fallback)
+│   │   ├── group/            # Persistent group & ephemeral forum topic domain services
+│   │   ├── memory/           # AI Memory Engine (ContextSource, jobs, drafts, review approval)
+│   │   ├── messaging/        # Core chat messaging, search, edit, delete, pin, & receipts
+│   │   ├── push/             # Multi-Platform Push Gateway (VAPID RFC 8292 & FCM v1 provider)
+│   │   ├── shared/           # Shared cross-domain config, errors, validator, rate limiter
+│   │   ├── storage/          # Media store-and-forward driver (Supabase, local) & purge worker
+│   │   ├── store/            # Data layer (PostgreSQL Supabase, SQLite, In-Memory)
+│   │   ├── worker/           # Background workers (memory job queue worker)
+│   │   └── ws/               # WebSocket Hub, Client read/write pump, & message routing
 │   ├── go.mod
 │   ├── go.sum
-│   └── main.go
+│   └── main.go               # Slim bootstrap entrypoint & graceful shutdown
 │
-├── frontend/                 # Web Interface (Next.js 16 + React 19 + TypeScript)
+├── frontend/                 # Web Interface (Next.js 16 Turbopack + React 19 + TypeScript)
 │   ├── app/
-│   │   ├── chat/             # Chat UI container, Message bubbles, ReceiptIcon, AudioPlayer, VoiceRecorder, Lightbox
+│   │   ├── chat/             # Dual-platform chat UI (desktop split 2-col & mobile single-screen)
 │   │   ├── login/            # Halaman Login
 │   │   ├── register/         # Halaman Registrasi
-│   │   ├── globals.css       # Dark-mode design system, dynamic waveforms & responsive CSS
-│   │   ├── layout.tsx
-│   │   └── page.tsx          # Landing page & anonymous nickname entry
-│   ├── lib/                  # WebSocket client, API helper, MediaCache (IndexedDB), emojis (Modular), avatarColor, ImageCompressor
-│   ├── server.js             # Custom server dengan WebSocket proxy & /uploads/ stream proxy
+│   │   ├── transfer/         # Halaman deep link pemindahan kunci E2EE via QR code
+│   │   ├── globals.css       # Soft tri-color glassmorphism design system & CSS tokens
+│   │   └── layout.tsx
+│   ├── lib/                  # WebSocket client, API helper, IndexedDB caches, Web Crypto E2EE
+│   ├── server.js             # Custom server proxy untuk WebSocket upgrade & /api/ isolation
 │   └── package.json
 │
-├── .agents/                  # Workspace configuration & lifecycle rules
-├── docs/                     # Dokumentasi Arsitektur, Roadmap, dan Progress
-├── PRD-websocket-chat-app.md # Dokumen spesifikasi teknis
-├── PROMPT.md                 # Context primer sesi AI
+├── docs/                     # Dokumentasi Resmi & Source of Truth
+├── .agents/                  # Workspace configuration & AI lifecycle rules
 └── README.md
 ```
 
@@ -42,15 +51,15 @@ wuzz-chat/
 
 ## 📚 Dokumentasi Proyek
 
-Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi berikut:
+Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi kanonikal:
 
-- 🔌 **[BACKEND_API.md](docs/BACKEND_API.md)** — Panduan integrasi teknis REST API, WebSocket event catalog, E2EE wire format, dan siklus hidup media untuk pengembang frontend baru.
-- 🛡️ **[SECURITY_AND_PERFORMANCE.md](docs/SECURITY_AND_PERFORMANCE.md)** — Panduan komprehensif arsitektur keamanan (Anti-BOLA/IDOR, Anti-SSRF, IP Pinning) dan optimasi performa backend ($O(1)$ batch CTE query, indexing, SQLite WAL mode).
-- 🗺️ **[ROADMAP.md](docs/ROADMAP.md)** — Rencana jangka panjang, milestone tahapan dari Fase 1 hingga Fase 7 (Auth, Group Chat, Rich Media, Receipts, WebRTC, Scaling).
-- 🏛️ **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Spesifikasi desain database relasional (ERD), protokol WebSocket, REST API endpoints, dan Store-and-Forward media lifecycle.
-- 📱 **[MOBILE_INTEGRATION_GUIDE.md](docs/MOBILE_INTEGRATION_GUIDE.md)** — Panduan teknis arsitektur & implementasi klien mobile (Kotlin Android, Swift iOS, Flutter, React Native).
-- 📄 **[PROGRESS.md](docs/PROGRESS.md)** — Laporan status pengerjaan detail per fase & milestone.
-- 📄 **[PRD-websocket-chat-app.md](PRD-websocket-chat-app.md)** — Dokumen spesifikasi kebutuhan produk awal.
+- 📌 **[PROJECT_STATE.md](docs/PROJECT_STATE.md)** — **CANONICAL SINGLE SOURCE OF TRUTH (SSOT)**: Ringkasan menyeluruh kondisi produk, kapabilitas aktual, arsitektur modular monolit, domain map, utang teknis, dan konteks pengembang AI.
+- 🔌 **[BACKEND_API.md](docs/BACKEND_API.md)** — Panduan integrasi teknis REST API, katalog event WebSocket, wire format E2EE, dan siklus hidup media.
+- 🛡️ **[SECURITY_AND_PERFORMANCE.md](docs/SECURITY_AND_PERFORMANCE.md)** — Panduan komprehensif arsitektur keamanan (BOLA/IDOR, Anti-SSRF, E2EE fail-closed) dan optimasi performa.
+- 🗺️ **[ROADMAP.md](docs/ROADMAP.md)** — Peta jalan jangka panjang dan tahapan milestone fitur produk.
+- 🏛️ **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Spesifikasi desain database relasional (ERD) dan batas domain modular monolit.
+- 📱 **[MOBILE_INTEGRATION_GUIDE.md](docs/MOBILE_INTEGRATION_GUIDE.md)** — Panduan arsitektur & implementasi klien mobile (Android & iOS).
+- 📄 **[PROGRESS.md](docs/PROGRESS.md)** — Laporan kronologis pengerjaan per tanggal/sesi.
 
 ---
 
