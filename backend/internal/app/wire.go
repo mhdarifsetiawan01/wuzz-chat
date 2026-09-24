@@ -26,6 +26,8 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/shared/ratelimit"
 	"github.com/bms-del112/wuzz-chat/internal/storage"
 	"github.com/bms-del112/wuzz-chat/internal/store"
+	"github.com/bms-del112/wuzz-chat/internal/tenant"
+	tenantinfra "github.com/bms-del112/wuzz-chat/internal/tenant/infra"
 	"github.com/bms-del112/wuzz-chat/internal/worker"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
 )
@@ -38,12 +40,14 @@ type Application struct {
 	Server *http.Server
 
 	// Infrastructure & Stores
-	Broker       broker.MessageBroker
-	MessageStore store.MessageStore
-	UserStore    store.UserStore
-	GroupStore   store.GroupStore
-	MemoryStore  store.MemoryStore
-	Storage      storage.MediaStorage
+	Broker        broker.MessageBroker
+	MessageStore  store.MessageStore
+	UserStore     store.UserStore
+	GroupStore    store.GroupStore
+	MemoryStore   store.MemoryStore
+	Storage       storage.MediaStorage
+	TenantRepo    tenant.TenantRepository
+	TenantService tenant.TenantService
 
 	// Realtime Hub
 	Hub *ws.Hub
@@ -102,6 +106,8 @@ func New(cfg *config.Config) (*Application, error) {
 	var sessionStore store.SessionStore
 	var deviceStore store.DeviceStore
 	var credentialStore store.CredentialStore
+	var tenantRepo tenant.TenantRepository
+	var tenantSvc tenant.TenantService
 
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
@@ -116,11 +122,17 @@ func New(cfg *config.Config) (*Application, error) {
 		deviceStore = store.NewSQLDeviceStore(sqlStore.DB(), sqlStore.DriverName())
 		credentialStore = store.NewSQLCredentialStore(sqlStore.DB(), sqlStore.DriverName())
 		sqlUserStore.SetCredentialStore(credentialStore)
+
+		sqlTenantRepo := tenantinfra.NewSQLTenantRepository(sqlStore.DB(), sqlStore.DriverName())
+		tenantRepo = sqlTenantRepo
+		tenantSvc = tenant.NewTenantService(sqlTenantRepo)
 	}
 
 	app.UserStore = userStore
 	app.GroupStore = groupStore
 	app.MemoryStore = memoryStore
+	app.TenantRepo = tenantRepo
+	app.TenantService = tenantSvc
 
 	// -------------------------------------------------------------------------
 	// TAHAP 2: Infrastructure Layer (Broker, CORS, Push, Storage)

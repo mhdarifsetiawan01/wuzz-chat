@@ -1,3 +1,3 @@
-# Task Checklist — Standby State
+# Task Checklist — Standby
 
-Menunggu instruksi baru.
+Belum ada task aktif. Standby untuk Milestone 2.

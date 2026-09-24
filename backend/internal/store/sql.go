@@ -371,6 +371,30 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_credentials_user ON user_credentials(user_id, type);`,
 		`CREATE INDEX IF NOT EXISTS idx_credentials_ident ON user_credentials(identifier);`,
+
+		// Tabel Tenants (Milestone 1: Multi-Tenant Architecture)
+		`CREATE TABLE IF NOT EXISTS tenants (
+			id VARCHAR(64) PRIMARY KEY,
+			name VARCHAR(128) NOT NULL,
+			slug VARCHAR(64) UNIQUE NOT NULL,
+			is_active BOOLEAN NOT NULL DEFAULT TRUE,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);`,
+
+		// Tabel Tenant API Keys (Milestone 1: External Auth & Provisioning)
+		`CREATE TABLE IF NOT EXISTS tenant_api_keys (
+			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL,
+			app_id VARCHAR(64) UNIQUE NOT NULL,
+			secret_hash VARCHAR(255) NOT NULL,
+			name VARCHAR(128) DEFAULT '',
+			is_active BOOLEAN NOT NULL DEFAULT TRUE,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_tenant_keys_app ON tenant_api_keys(app_id, is_active);`,
+		`CREATE INDEX IF NOT EXISTS idx_tenant_keys_tenant ON tenant_api_keys(tenant_id);`,
 	}
 
 	for _, query := range migrations {
@@ -426,6 +450,18 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_members_role ON conversation_members(conversation_id, role);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_public ON conversations(is_public, group_username);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_subgroups_active ON conversations(parent_id, expires_at);`)
+
+		// Auto-migration Milestone 1: Multi-Tenancy Scoping (PostgreSQL)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_tenant_username ON users(tenant_id, username);`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conversations_tenant ON conversations(tenant_id);`)
+		_, _ = s.db.Exec(`ALTER TABLE forum_memory_jobs ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_fmj_tenant ON forum_memory_jobs(tenant_id);`)
+		_, _ = s.db.Exec(`ALTER TABLE memory_drafts ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_md_tenant ON memory_drafts(tenant_id);`)
+		_, _ = s.db.Exec(`ALTER TABLE approved_memories ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_am_tenant ON approved_memories(tenant_id);`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -472,9 +508,52 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_members_role ON conversation_members(conversation_id, role);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_public ON conversations(is_public, group_username);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_subgroups_active ON conversations(parent_id, expires_at);`)
+
+		// Auto-migration Milestone 1: Multi-Tenancy Scoping (SQLite)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_tenant_username ON users(tenant_id, username);`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conversations_tenant ON conversations(tenant_id);`)
+		_, _ = s.db.Exec(`ALTER TABLE forum_memory_jobs ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_fmj_tenant ON forum_memory_jobs(tenant_id);`)
+		_, _ = s.db.Exec(`ALTER TABLE memory_drafts ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_md_tenant ON memory_drafts(tenant_id);`)
+		_, _ = s.db.Exec(`ALTER TABLE approved_memories ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_am_tenant ON approved_memories(tenant_id);`)
 	}
 
-	log.Printf("🛠️ [Auto-Migration] Tabel 'users' (dengan is_verified), 'conversations', 'conversation_members', dan 'messages' berhasil dipastikan ada!")
+	// Auto-seeder tenant default (Milestone 1)
+	if err := s.seedDefaultTenant(); err != nil {
+		return fmt.Errorf("seeder default tenant gagal: %w", err)
+	}
+
+	log.Printf("🛠️ [Auto-Migration] Tabel 'users' (dengan tenant_id & is_verified), 'tenants', 'tenant_api_keys', 'conversations', 'conversation_members', dan 'messages' berhasil dipastikan ada!")
+	return nil
+}
+
+// seedDefaultTenant memastikan record tenant 'default' otomatis tersedia di database.
+func (s *SQLMessageStore) seedDefaultTenant() error {
+	now := time.Now().UTC()
+	if s.driverName == "postgres" {
+		_, err := s.db.Exec(`
+			INSERT INTO tenants (id, name, slug, is_active, created_at, updated_at)
+			VALUES ('default', 'Default Tenant', 'default', true, $1, $2)
+			ON CONFLICT (id) DO NOTHING;
+		`, now, now)
+		if err != nil {
+			return fmt.Errorf("gagal seeding default tenant (postgres): %w", err)
+		}
+		return nil
+	}
+
+	// SQLite
+	_, err := s.db.Exec(`
+		INSERT OR IGNORE INTO tenants (id, name, slug, is_active, created_at, updated_at)
+		VALUES ('default', 'Default Tenant', 'default', 1, ?, ?);
+	`, now, now)
+	if err != nil {
+		return fmt.Errorf("gagal seeding default tenant (sqlite): %w", err)
+	}
 	return nil
 }
 

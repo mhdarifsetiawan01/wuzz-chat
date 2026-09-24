@@ -2562,3 +2562,42 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 - **Real Multi-Platform Integration (`node test-multiplatform-real-frontend.mjs`)**: **PASS 100%** (Desktop, Android PWA, iOS Safari, realtime chat lolos).
 - **Server Lifecycle Guard**: Seluruh server port 8080 dan 3047 dimatikan bersih (0 lingering open ports).
 
+---
+
+## 2026-09-24: WuzzChat Engine Evolution — Milestone 1: Additive Schema Migration & Tenant Registry
+
+### Problem Description
+1. Evolusi WuzzChat Engine menuju Multi-Tenancy B2B menuntut pemisahan data per organisasi/klien mandiri tanpa menimbulkan risiko *data loss* atau *downtime* pada basis data produksi eksisting.
+2. Dibutuhkan registri tenant master (`tenants`), entitas kredensial otentikasi API pihak ketiga (`tenant_api_keys`), serta penyisipan kolom batas logis `tenant_id` pada seluruh entitas relasional utama (`users`, `conversations`, `forum_memory_jobs`, `memory_drafts`, `approved_memories`).
+3. Seluruh pengguna dan obrolan lama wajib tetap beroperasi normal tanpa intervensi manual dengan mengasosiasikannya ke tenant bawaan (`default`).
+
+### Implementation Details
+1. **Additive Schema Migration & Zero-Downtime Seeder (`backend/internal/store/sql.go`)**:
+   - DDL tabel master `tenants` (`id`, `name`, `slug` UNIQUE, `is_active`, timestamps).
+   - DDL tabel `tenant_api_keys` (`id`, `tenant_id`, `app_id` UNIQUE, `secret_hash`, `name`, `is_active`, `created_at`) beserta indeks komposit.
+   - Kolom aditif non-destruktif `tenant_id VARCHAR(64) DEFAULT 'default'` pada 5 tabel relasional (`users`, `conversations`, `forum_memory_jobs`, `memory_drafts`, `approved_memories`) untuk PostgreSQL dan SQLite.
+   - Indeks komposit `idx_users_tenant_username (tenant_id, username)` dan indeks relasi `idx_*_tenant`.
+   - Seeder otomatis startup (`seedDefaultTenant`): jika record tenant `default` belum ada, sistem langsung membuatnya secara otomatis (`id: "default"`, `name: "Default Tenant"`, `slug: "default"`).
+2. **Domain Package Tenant DDD (`backend/internal/tenant/`)**:
+   - `entity.go`: Model `Tenant` dan `TenantAPIKey` beserta metode validasi internal.
+   - `repository.go`: Kontrak interface `TenantRepository` dan sentinel error domain.
+   - `infra/sql_repository.go`: Implementasi adapter SQL yang mendukung PostgreSQL (`$1`) dan SQLite (`?`).
+   - `service.go`: Use-case service `TenantService` untuk registrasi tenant, validasi keaktifan, pembuatan pasangan kredensial API (`app_*` & `sec_*` dengan bcrypt hashing), serta validasi API Key.
+3. **Container Dependency Injection (`backend/internal/app/wire.go`)**:
+   - Injeksi `TenantRepo` dan `TenantService` ke struct `Application`.
+4. **Automated Verification Suites**:
+   - Dibuat unit & integration test komprehensif di `backend/internal/tenant/tenant_test.go` (4 skenario test: seeder otomatis, repository CRUD, API key repository, tenant service flow).
+
+### Test Evidence
+- **Tenant Test Suite (`go test -v ./internal/tenant/...`)**: **PASS 100%** (4/4 tests passed).
+- **Backend Full Suite (`go test ./...`)**: **PASS 100%** (seluruh internal package lolos).
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
+- **Frontend Functional Test Suites**:
+  - `npm run test:cache`: **PASS 100%** (9/9 skenario IndexedDB cache & E2EE).
+  - `npm run test:multi-device`: **PASS 100%** (4/4 skenario multi-device level 2).
+  - `npm run test:phase5`: **PASS 100%** (3/3 skenario QR key transfer).
+  - `npm run test:device-limit`: **PASS 100%** (3/3 skenario HTTP 409 & modal limit).
+- **Live Frontend & Backend Proxy Smoke Test**: Next.js custom server (`:3047`) ⇄ Go Backend (`:8080`) aktif melayani `GET /login`, `GET /chat`, `POST /api/auth/register`, dan `POST /api/auth/login` secara real dengan status `HTTP 200 OK`.
+- **Server Lifecycle Guard**: Seluruh server port 8080 dan 3047 dimatikan bersih (`fuser -k <port>/tcp`).
+
+

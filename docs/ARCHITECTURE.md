@@ -17,6 +17,9 @@ Untuk mendukung percakapan berkelanjutan (*Direct Message & Group*), daftar kont
 erDiagram
     USERS ||--o{ CONVERSATION_MEMBERS : joins
     USERS ||--o{ CONVERSATION_JOIN_REQUESTS : requests
+    TENANTS ||--o{ TENANT_API_KEYS : has_api_keys
+    TENANTS ||--o{ USERS : scopes
+    TENANTS ||--o{ CONVERSATIONS : scopes
     USERS ||--o{ MESSAGES : sends
     USERS ||--o{ MESSAGE_RECEIPTS : reads
     USERS ||--o{ PUSH_SUBSCRIPTIONS : registers
@@ -28,8 +31,28 @@ erDiagram
     MESSAGES ||--o{ MESSAGE_RECEIPTS : tracked_by
     MESSAGES ||--o{ ATTACHMENTS : includes
 
+    TENANTS {
+        varchar id PK "default atau UUID"
+        varchar name "Nama tenant / organisasi"
+        varchar slug UK "Slug unik tenant"
+        boolean is_active "Status aktif tenant"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    TENANT_API_KEYS {
+        varchar id PK "Key ID"
+        varchar tenant_id FK "Tenant ID"
+        varchar app_id UK "Public app ID app_*"
+        varchar secret_hash "Bcrypt hash dari secret sec_*"
+        varchar name "Label nama API key"
+        boolean is_active "Status keaktifan key"
+        timestamp created_at
+    }
+
     USERS {
         uuid id PK
+        varchar tenant_id FK "Tenant scoping (default: 'default')"
         varchar username UK
         varchar display_name
         varchar email UK
@@ -83,6 +106,7 @@ erDiagram
 
     CONVERSATIONS {
         varchar id PK "uuid format for DM, grp_<UUIDv4> for groups"
+        varchar tenant_id FK "Tenant scoping (default: 'default')"
         varchar type "direct / group"
         varchar title "null if direct, group name if group"
         text description "Group bio / description"

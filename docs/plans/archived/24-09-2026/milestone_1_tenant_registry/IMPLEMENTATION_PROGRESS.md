@@ -1,0 +1,22 @@
+# Implementation Progress — Milestone 1: Additive Schema Migration & Tenant Registry
+
+- [x] **Task 1: Additive Schema Migration & Seeder**
+  - [x] Tambahkan DDL tabel `tenants` & `tenant_api_keys` pada `backend/internal/store/sql.go`
+  - [x] Tambahkan DDL kolom aditif `tenant_id` dan indeks pada `users`, `conversations`, `forum_memory_jobs`, `memory_drafts`, `approved_memories` untuk PostgreSQL & SQLite
+  - [x] Tambahkan automatic seeder tenant `default` di `backend/internal/store/sql.go`
+- [x] **Task 2: Tenant Domain Layer (`backend/internal/tenant/`)**
+  - [x] Buat `entity.go` (struct `Tenant`, `TenantAPIKey`)
+  - [x] Buat `repository.go` (interface `TenantRepository` & custom errors)
+  - [x] Buat `service.go` (interface & struct `TenantService`)
+  - [x] Buat `infra/sql_repository.go` (implementasi PostgreSQL & SQLite)
+- [x] **Task 3: Container Wiring (`backend/internal/app/wire.go`)**
+  - [x] Hubungkan `TenantRepo` dan `TenantService` ke struct `Application` dan inisialisasi di `New()`
+- [x] **Task 4: Automated Testing & Verification**
+  - [x] Buat unit & integration test di `backend/internal/tenant/tenant_test.go`
+  - [x] Eksekusi `go test -v ./internal/tenant/...` (4/4 tests PASSED)
+  - [x] Eksekusi `go test ./...` seluruh backend (100% PASSED)
+  - [x] Eksekusi `npm run build` di `frontend/` (Next.js 16.3.5 Turbopack PASSED)
+- [x] **Task 5: Self-Review & User Verification Report**
+  - [x] Audit Clean Code & SOP Checklist
+  - [x] Matikan port jika ada server berjalan (`fuser -k <port>/tcp`)
+  - [x] Presentasikan hasil dan tunggu konfirmasi pengguna ("selesai")
