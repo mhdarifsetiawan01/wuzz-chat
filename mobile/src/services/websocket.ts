@@ -23,6 +23,8 @@ export interface SendReplyOptions {
   id: string;
   nickname?: string;
   content?: string;
+  media_url?: string;
+  media_type?: string;
 }
 
 class WebSocketClient {
@@ -253,6 +255,8 @@ class WebSocketClient {
         id: replyTo.id,
         nickname: replyTo.nickname || '',
         content: replyTo.content || '',
+        media_url: replyTo.media_url,
+        media_type: replyTo.media_type,
       };
     }
 

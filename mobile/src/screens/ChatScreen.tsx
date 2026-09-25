@@ -545,7 +545,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         ? {
             id: replyingTo.id,
             nickname: replyingTo.nickname || replyingTo.from || (replyingTo.sender_id === currentUserId ? 'Anda' : title),
-            content: replyingTo.media_url ? '📷 Foto' : replyingTo.content,
+            content: replyingTo.media_type === 'audio'
+              ? '🎙️ Pesan Suara'
+              : replyingTo.media_url
+              ? '📷 Foto'
+              : replyingTo.content,
+            media_url: replyingTo.media_url,
+            media_type: replyingTo.media_type,
           }
         : undefined;
 
@@ -597,6 +603,106 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
       }
     },
     [roomId, currentUserId, isDirect, replyingTo, title]
+  );
+
+  // 4b. Handle Send Audio Voice Note (WhatsApp Store-and-Forward + Optimistic UI)
+  const handleSendAudio = useCallback(
+    async (uri: string, durationSeconds: number, fileSize?: number) => {
+      if (!uri) return;
+
+      const tempId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const nowIso = new Date().toISOString();
+      const fileName = `voice_note_${Date.now()}.m4a`;
+
+      // Quoted Reply Context (if active)
+      const replyPayload = replyingTo
+        ? {
+            id: replyingTo.id,
+            nickname: replyingTo.nickname || replyingTo.from || (replyingTo.sender_id === currentUserId ? 'Anda' : title),
+            content: replyingTo.media_type === 'audio'
+              ? '🎙️ Pesan Suara'
+              : replyingTo.media_url
+              ? '📷 Foto'
+              : replyingTo.content,
+            media_url: replyingTo.media_url,
+            media_type: replyingTo.media_type,
+          }
+        : undefined;
+
+      // A. Render optimistic audio bubble in timeline immediately (0ms)
+      const optimisticMsg: Message = {
+        id: tempId,
+        room_id: roomId,
+        sender_id: currentUserId,
+        content: '',
+        is_encrypted: false,
+        created_at: nowIso,
+        timestamp: nowIso,
+        status: 'sending',
+        reply_to: replyPayload,
+        media_url: uri, // local uri so user can play their own voice note immediately
+        media_type: 'audio',
+        file_name: fileName,
+        file_size: fileSize,
+      };
+
+      setMessages((prev) => [...prev, optimisticMsg]);
+      setReplyingTo(null);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+
+      // B. Upload audio file to storage in background
+      try {
+        const uploadRes = await mediaApi.uploadMedia(uri, fileName, 'audio/m4a');
+
+        // C. Send WebSocket message with uploaded remote URL
+        const mediaOptions = {
+          media_url: uploadRes.url,
+          media_type: 'audio',
+          file_name: uploadRes.file_name,
+          file_size: uploadRes.file_size,
+        };
+
+        const sent = websocketClient.sendMessage(
+          roomId,
+          '',
+          tempId,
+          mediaOptions,
+          replyPayload
+        );
+
+        if (sent) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempId
+                ? {
+                    ...m,
+                    media_url: uploadRes.url,
+                    file_name: uploadRes.file_name,
+                    file_size: uploadRes.file_size,
+                    status: 'sent',
+                  }
+                : m
+            )
+          );
+        } else {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
+          );
+        }
+      } catch (err: any) {
+        console.error('[ChatScreen] Audio upload failed:', err);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
+        );
+        Alert.alert(
+          'Gagal Mengunggah Pesan Suara',
+          err.detail || err.message || 'Terjadi kesalahan saat mengunggah rekaman suara ke server.'
+        );
+      }
+    },
+    [roomId, currentUserId, replyingTo, title]
   );
 
   // 5. Handle Reaction on Message
@@ -739,6 +845,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         {/* Chat Input Bar */}
         <ChatInputBar
           onSend={handleSendMessage}
+          onSendAudio={handleSendAudio}
           disabled={isSending || isUploadingMedia}
           stagedMedia={stagedMedia}
           isUploading={isUploadingMedia}

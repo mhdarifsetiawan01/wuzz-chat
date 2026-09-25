@@ -58,6 +58,8 @@ export interface Message {
     id: string;
     nickname?: string;
     content?: string;
+    media_url?: string;
+    media_type?: string;
   };
   is_encrypted?: boolean;
   media_url?: string;

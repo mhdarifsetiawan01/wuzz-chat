@@ -7,3 +7,4 @@ export * from './MessageBubble';
 export * from './ChatInputBar';
 export * from './EmojiPicker';
 export * from './MessageActionSheet';
+export * from './AudioPlayerBubble';

@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
+import { AudioPlayerBubble } from './AudioPlayerBubble';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -112,6 +113,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         message.type === 'image' ||
         /\.(jpg|jpeg|png|webp|gif)$/i.test(message.media_url))
   );
+  const isAudio = Boolean(
+    message.media_url &&
+      (message.media_type === 'audio' ||
+        message.type === 'audio' ||
+        /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(message.media_url) ||
+        (message.file_name && /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(message.file_name)))
+  );
   const isExpired = message.media_status === 'expired';
 
   // Format timestamp (HH:mm)
@@ -181,6 +189,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             styles.bubble,
             isSelf ? styles.selfBubble : styles.otherBubble,
             isImage ? styles.imageBubblePadding : null,
+            isAudio ? styles.audioBubblePadding : null,
             isHighlighted ? styles.highlightedBubble : null,
           ]}
         >
@@ -209,7 +218,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       {message.reply_to.nickname || 'Pengguna'}
                     </Text>
                     <Text style={styles.quoteText} numberOfLines={2}>
-                      {message.reply_to.content || 'Pesan'}
+                      {message.reply_to.media_type === 'audio'
+                        ? '🎙️ Pesan Suara'
+                        : message.reply_to.content || 'Pesan'}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -254,6 +265,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     ) : null}
                   </TouchableOpacity>
                 </View>
+              ) : null}
+
+              {/* Voice Note Audio Player */}
+              {isAudio && !isExpired && message.media_url ? (
+                <AudioPlayerBubble
+                  audioUrl={message.media_url}
+                  fileName={message.file_name}
+                  isSelf={isSelf}
+                  onLoaded={() => {
+                    if (!isSelf) {
+                      onMediaLoaded?.(message);
+                    }
+                  }}
+                />
               ) : null}
 
               {/* Text Content / Caption */}
@@ -492,6 +517,11 @@ const styles = StyleSheet.create({
     paddingTop: 5,
     paddingBottom: 6,
   },
+  audioBubblePadding: {
+    paddingHorizontal: 4,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
   selfBubble: {
     backgroundColor: '#1d4ed8', // Dark Royal Blue
     borderBottomRightRadius: 3,
@@ -575,6 +605,7 @@ const styles = StyleSheet.create({
     padding: 8,
     gap: 8,
     marginBottom: 4,
+    minWidth: 180,
   },
   expiredIcon: {
     fontSize: 18,

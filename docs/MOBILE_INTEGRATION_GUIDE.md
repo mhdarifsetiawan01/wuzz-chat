@@ -436,8 +436,8 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
 - [ ] Keypair E2EE tersimpan di Android Keystore / iOS Keychain.
 - [ ] Pesan teks terkirim dalam format `e2ee:v1:...` dan dapat didekripsi oleh Web & Mobile lain.
 - [ ] Indikator status centang 3 tahap (`🕒` ➔ `✓` ➔ `✓✓` ➔ `✓✓` biru) 100% sinkron.
-- [ ] Perekaman voice note & pemutaran audio lancar tanpa patah-patah.
-- [ ] Auto-ACK media download (`/api/media/ack`) dan penyimpanan berkas lokal.
+- [x] Perekaman voice note & pemutaran audio lancar tanpa patah-patah (expo-audio, expo-file-system, waveform scrubber, speed 1x/1.5x/2x).
+- [x] Auto-ACK media download (`/api/media/ack`) dan penyimpanan berkas lokal.
 - [ ] Safety Number 30-digit cocok dengan tampilan Web.
 - [ ] **Hapus Pesan (*For Me* dan *For Everyone*)** berjalan real-time:
   - Untuk *Delete for Everyone*, kirim payload **dua field sekaligus** ke `DELETE /api/messages` atau `POST /api/messages/delete`:

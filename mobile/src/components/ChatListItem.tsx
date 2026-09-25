@@ -65,6 +65,14 @@ function getMessagePreview(conversation: Conversation): string {
     ? conversation.last_message
     : '';
 
+  if (
+    mediaType === 'audio' ||
+    (mediaUrl && /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(mediaUrl)) ||
+    (lastMsg?.file_name && /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(lastMsg.file_name))
+  ) {
+    return '🎙️ Pesan Suara';
+  }
+
   if (mediaUrl || mediaType === 'image') {
     if (raw && !raw.startsWith('e2ee:')) {
       return `📷 Foto: ${raw}`;

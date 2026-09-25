@@ -18,10 +18,18 @@ import {
   Pressable,
   ActivityIndicator,
   Keyboard,
+  Animated,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  useAudioRecorder,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+} from 'expo-audio';
 import { Message } from '../api/types';
 import { EmojiPicker } from './EmojiPicker';
+import { audioManager } from '../services';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -37,6 +45,7 @@ export interface StagedMedia {
 
 export interface ChatInputBarProps {
   onSend: (text: string, media?: StagedMedia | null) => void;
+  onSendAudio?: (uri: string, durationSeconds: number, fileSize?: number) => void;
   disabled?: boolean;
   stagedMedia?: StagedMedia | null;
   isUploading?: boolean;
@@ -54,8 +63,15 @@ function formatFileSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatRecordingTimer(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
 export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onSend,
+  onSendAudio,
   disabled,
   stagedMedia,
   isUploading,
@@ -68,8 +84,50 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   const [text, setText] = useState('');
   const [showAttachModal, setShowAttachModal] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+
   const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
+  const recordTimerRef = useRef<any>(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Pulsing animation for red recording indicator
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+    if (isRecording) {
+      loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 0.25,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      loop.start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+    return () => {
+      if (loop) loop.stop();
+    };
+  }, [isRecording, pulseAnim]);
+
+  // Clean up recording timer on unmount
+  useEffect(() => {
+    return () => {
+      if (recordTimerRef.current) {
+        clearInterval(recordTimerRef.current);
+      }
+    };
+  }, []);
 
   // Focus text input immediately when a reply is initiated
   useEffect(() => {
@@ -122,6 +180,88 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     onPickGallery?.();
   };
 
+  const startRecording = async () => {
+    if (disabled || isUploading) return;
+    try {
+      const perm = await requestRecordingPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          'Izin Mikrofon Dibutuhkan',
+          'WuzzChat membutuhkan akses ke mikrofon untuk merekam dan mengirim pesan suara.'
+        );
+        return;
+      }
+
+      await audioManager.configureAudioMode(true);
+      // Stop any background playback before starting recording
+      audioManager.stopActivePlayer();
+
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+
+      setIsRecording(true);
+      setRecordingDuration(0);
+
+      recordTimerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+    } catch (err: any) {
+      console.error('[ChatInputBar] Error starting recording:', err);
+      Alert.alert('Gagal Memulai Rekaman', err.message || 'Tidak dapat mengakses mikrofon.');
+    }
+  };
+
+  const cancelRecording = async () => {
+    if (recordTimerRef.current) {
+      clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+    setIsRecording(false);
+    setRecordingDuration(0);
+
+    try {
+      if (recorder.isRecording) {
+        await recorder.stop();
+      }
+    } catch (err) {
+      console.warn('[ChatInputBar] Error stopping recording on cancel:', err);
+    }
+    await audioManager.configureAudioMode(false);
+  };
+
+  const stopAndSendRecording = async () => {
+    if (recordTimerRef.current) {
+      clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+    const finalDuration = recordingDuration;
+    setIsRecording(false);
+    setRecordingDuration(0);
+
+    try {
+      if (recorder.isRecording) {
+        await recorder.stop();
+      }
+      const uri = recorder.uri;
+      await audioManager.configureAudioMode(false);
+
+      if (!uri) {
+        Alert.alert('Gagal Mengambil Rekaman', 'Berkas rekaman audio tidak ditemukan.');
+        return;
+      }
+
+      // Ignore recordings under 1 second to prevent accidental mic tap sends
+      if (finalDuration < 1) {
+        return;
+      }
+
+      onSendAudio?.(uri, finalDuration);
+    } catch (err: any) {
+      console.error('[ChatInputBar] Error stopping and sending recording:', err);
+      Alert.alert('Gagal Mengirim Rekaman', err.message || 'Terjadi kesalahan saat memproses audio.');
+    }
+  };
+
   const isSendActive = (text.trim().length > 0 || Boolean(stagedMedia)) && !disabled && !isUploading;
 
   return (
@@ -140,7 +280,11 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               Membalas ke {replyTo.from || replyTo.nickname || 'Pengguna'}
             </Text>
             <Text style={styles.replySnippet} numberOfLines={1}>
-              {replyTo.media_url ? '📷 Foto' : replyTo.content || 'Pesan'}
+              {replyTo.media_type === 'audio'
+                ? '🎙️ Pesan Suara'
+                : replyTo.media_url
+                ? '📷 Foto'
+                : replyTo.content || 'Pesan'}
             </Text>
           </View>
           <TouchableOpacity
@@ -184,60 +328,101 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
         </View>
       ) : null}
 
-      <View style={styles.container}>
-        {/* Emoji Picker Toggle Button */}
-        <TouchableOpacity
-          style={styles.emojiToggleBtn}
-          onPress={handleToggleEmoji}
-          disabled={disabled || isUploading}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.emojiToggleIcon}>{showEmojiPicker ? '⌨️' : '😊'}</Text>
-        </TouchableOpacity>
+      {isRecording ? (
+        /* WhatsApp-Style Recording Bar with Pulsing Indicator & Timer */
+        <View style={styles.recordingRow}>
+          <TouchableOpacity
+            style={styles.cancelRecordButton}
+            onPress={cancelRecording}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.cancelRecordIcon}>🗑️</Text>
+            <Text style={styles.cancelRecordText}>Batal</Text>
+          </TouchableOpacity>
 
-        {/* Attachment Picker Trigger Button */}
-        <TouchableOpacity
-          style={styles.attachButton}
-          onPress={() => {
-            if (showEmojiPicker) setShowEmojiPicker(false);
-            setShowAttachModal(true);
-          }}
-          disabled={disabled || isUploading}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.attachIcon}>📎</Text>
-        </TouchableOpacity>
+          <View style={styles.recordingCenter}>
+            <Animated.View style={[styles.redDot, { opacity: pulseAnim }]} />
+            <Text style={styles.recordingTimerText}>{formatRecordingTimer(recordingDuration)}</Text>
+          </View>
 
-        {/* Text Input / Caption */}
-        <TextInput
-          ref={inputRef}
-          style={styles.input}
-          placeholder={stagedMedia ? 'Tambah keterangan...' : 'Ketik pesan...'}
-          placeholderTextColor={colors.textMuted}
-          value={text}
-          onChangeText={setText}
-          onFocus={() => setShowEmojiPicker(false)}
-          multiline
-          maxLength={4000}
-          editable={!disabled && !isUploading}
-        />
+          <TouchableOpacity
+            style={styles.sendRecordButton}
+            onPress={stopAndSendRecording}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.sendRecordIcon}>➤</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        /* Standard Message Input Bar */
+        <View style={styles.container}>
+          {/* Emoji Picker Toggle Button */}
+          <TouchableOpacity
+            style={styles.emojiToggleBtn}
+            onPress={handleToggleEmoji}
+            disabled={disabled || isUploading}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.emojiToggleIcon}>{showEmojiPicker ? '⌨️' : '😊'}</Text>
+          </TouchableOpacity>
 
-        {/* Send Button */}
-        <TouchableOpacity
-          style={[styles.sendButton, isSendActive ? styles.sendButtonActive : styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={!isSendActive}
-          activeOpacity={0.7}
-        >
-          {isUploading ? (
-            <ActivityIndicator size="small" color="#ffffff" />
+          {/* Attachment Picker Trigger Button */}
+          <TouchableOpacity
+            style={styles.attachButton}
+            onPress={() => {
+              if (showEmojiPicker) setShowEmojiPicker(false);
+              setShowAttachModal(true);
+            }}
+            disabled={disabled || isUploading}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.attachIcon}>📎</Text>
+          </TouchableOpacity>
+
+          {/* Text Input / Caption */}
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            placeholder={stagedMedia ? 'Tambah keterangan...' : 'Ketik pesan...'}
+            placeholderTextColor={colors.textMuted}
+            value={text}
+            onChangeText={setText}
+            onFocus={() => setShowEmojiPicker(false)}
+            multiline
+            maxLength={4000}
+            editable={!disabled && !isUploading}
+          />
+
+          {/* Send Button or Microphone Button (WhatsApp Dynamic Switch) */}
+          {isSendActive ? (
+            <TouchableOpacity
+              style={[styles.sendButton, styles.sendButtonActive]}
+              onPress={handleSend}
+              disabled={disabled || isUploading}
+              activeOpacity={0.7}
+            >
+              {isUploading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={[styles.sendIcon, styles.sendIconActive]}>
+                  ➤
+                </Text>
+              )}
+            </TouchableOpacity>
           ) : (
-            <Text style={[styles.sendIcon, isSendActive ? styles.sendIconActive : styles.sendIconDisabled]}>
-              ➤
-            </Text>
+            <TouchableOpacity
+              style={[styles.micButton, (disabled || isUploading) ? styles.micButtonDisabled : null]}
+              onPress={startRecording}
+              disabled={disabled || isUploading}
+              activeOpacity={0.7}
+              accessibilityLabel="Rekam pesan suara"
+            >
+              <Text style={styles.micIcon}>🎙️</Text>
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
-      </View>
+        </View>
+      )}
 
       {/* Docked Emoji Picker Tray (Replacing soft keyboard at ~280dp) */}
       {showEmojiPicker ? (
@@ -548,5 +733,78 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  micButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.accentPrimary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 1,
+  },
+  micButtonDisabled: {
+    opacity: 0.5,
+  },
+  micIcon: {
+    fontSize: 18,
+  },
+  recordingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.bgCardSolid,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  cancelRecordButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: colors.tintError10,
+  },
+  cancelRecordIcon: {
+    fontSize: 13,
+    marginRight: 4,
+  },
+  cancelRecordText: {
+    fontSize: 13,
+    color: colors.colorDanger,
+    fontWeight: '600',
+  },
+  recordingCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  redDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.colorDanger,
+  },
+  recordingTimerText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    fontVariant: ['tabular-nums'],
+  },
+  sendRecordButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.accentPrimary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendRecordIcon: {
+    fontSize: 15,
+    color: '#ffffff',
+    marginLeft: 2,
   },
 });

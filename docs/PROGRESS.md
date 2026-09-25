@@ -2923,7 +2923,39 @@ Mengimplementasikan interaksi chat tingkat lanjut sekelas WhatsApp & Telegram pa
 ### 2. Bukti Pengujian Otomatis
 - **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
 - **Frontend Turbopack Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
-- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (Seluruh 30 package lulus).
 
+---
 
+## 📱 Milestone M-Mobile-7: Voice Notes & Audio Messaging (25 September 2026) — SELESAI ✅
 
+### 1. Deskripsi & Arsitektur Implementasi
+Mengimplementasikan fitur Voice Notes & Audio Messaging sekelas WhatsApp pada aplikasi mobile resmi WuzzChat (`mobile/`):
+- **WhatsApp-Style Perekaman Suara (`ChatInputBar.tsx`)**:
+  - Tombol mikrofon dinamis (🎙️) muncul saat kolom teks kosong (menggantikan tombol kirim teks ➤).
+  - Integrasi modul resmi Expo SDK 57 terbaru `expo-audio` (`~57.0.5`) dengan hook `useAudioRecorder(RecordingPresets.HIGH_QUALITY)` untuk rekaman AAC (.m4a) berkualitas tinggi.
+  - Penanganan elegan izin mikrofon perangkat via `requestRecordingPermissionsAsync()`.
+  - Mode rekam visual: indikator titik merah berkedip 🔴, timer durasi berjalan, tombol batal (🗑️), dan tombol kirim (➤).
+- **WhatsApp-Grade Audio Player Bubble (`AudioPlayerBubble.tsx`)**:
+  - Visualisasi waveform 24 baris dinamis dengan scrubber penunjuk progress realtime.
+  - Tombol Play / Pause interaktif dengan feedback visual langsung.
+  - Durasi audio realtime saat pemutaran dan total durasi ("mm:ss").
+  - Pengatur kecepatan playback terpadu (pill toggle: `1x` ➔ `1.5x` ➔ `2x` ➔ `1x`) via `player.setPlaybackRate(...)`.
+- **Manajer Pemutaran Tunggal (`audioManager.ts`)**:
+  - Singleton `audioManager` yang mengoordinasikan konfigurasi audio perangkat (`setAudioModeAsync`) dan mencegah pemutaran bertumpuk (*auto-pause sound lain saat salah satu diputar*).
+- **Bypass Android Scoped Storage 404 (`media.ts` & `expo-file-system`)**:
+  - Mengintegrasikan `expo-file-system` untuk membaca byte rekaman lokal (`file:///...`) via `new File(uri).bytes()`, kemudian merakit FormData streaming part (`entry.bytes()`) yang didukung penuh oleh Expo WinterCG `fetch`.
+- **Store-and-Forward Cloud Lifecycle & Linimasa (`ChatScreen.tsx` & `MessageBubble.tsx`)**:
+  - Pengiriman pesan suara menerapkan Optimistic UI (balon pesan muncul instan 0ms dengan URI lokal agar pengirim dapat langsung memutar suara sendiri).
+  - Berkas audio diunggah di background ke `/api/media/upload` (60s timeout guard), kemudian disiarkan via WebSocket dengan `media_type: 'audio'`.
+  - Dukungan balasan kutipan (quoted reply) yang menampilkan snippet `"🎙️ Pesan Suara"`.
+  - Cuplikan obrolan terakhir pada daftar chat (`ChatListItem.tsx`) terformat otomatis menjadi `"🎙️ Pesan Suara"`.
+
+### 2. Bukti Pengujian Otomatis & Verifikasi Perangkat
+- **Pengujian Perangkat Fisik (scrcpy / adb)**:
+  - Perekaman suara berjalan sempurna (timer aktif berkedip).
+  - Pengunggahan berkas audio berhasil tanpa dialog error.
+  - Balon pesan audio tampil dan dapat dimainkan (tombol jeda ⏸️ muncul, durasi berjalan).
+  - Kecepatan pemutaran berhasil berganti ke 1.5x.
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Frontend Turbopack Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (Seluruh unit/integration test lulus).
