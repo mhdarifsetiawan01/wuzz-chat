@@ -49,8 +49,12 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Fase 1–6 & Post-Audit Hardening (M1–M3)**: **100% SELESAI ✅ & DEPLOYED** (Pemisahan GroupStore, AuthService, MessageService, ForumService, Memory ContextSource, Slim Bootstrap main.go, Zero-risk handler cleanup, dan Mobile Gateway readiness).
 > 3. 🧠 **Group Memory AI Engine (Fase 10)**: [`docs/GROUP_MEMORY_AI_SPEC.md`](GROUP_MEMORY_AI_SPEC.md)
 >    - **Milestone M1–M7**: **SELESAI ✅** (SKIP LOCKED Job Queue, AI Service, Review UI, Knowledge Viewer, E2E Notifications)
-> 4. 📱 **Mobile Client Roadmap (Track Berikutnya 🎯)**:
->    - **Milestone 6**: Pengembangan aplikasi mobile cross-platform (React Native / Flutter) untuk Android & iOS memanfaatkan Mobile Gateway yang sudah siap di backend.
+> 4. 📱 **Mobile Client Roadmap (Track Mobile Resmi)**:
+>    - **Milestone M-Mobile-1: Auth Layer & Mobile Shell**: **SELESAI ✅** (Login/Register, SecureStore, Dark Mode WhatsApp Aurora)
+>    - **Milestone M-Mobile-2: Chat Room & Realtime Messaging**: **SELESAI ✅** (Sticky Header, WebSocket Timeline, Single-Screen Flow, Delivery Receipts)
+>    - **Milestone M-Mobile-3: Contact Search & Start New Conversation**: **SELESAI ✅** (Debounced Search, NewChatScreen, FAB, Direct Chat Creation)
+>    - **Milestone M-Mobile-4: End-to-End Encryption (E2EE) Mobile Integration**: **SELESAI ✅** (NIST P-256 ECDH, HKDF-SHA256, AES-256-GCM, Auto-Decrypt Snippet Chat List, 100% Interop Web Crypto)
+>    - **Milestone M-Mobile-5: Media Attachments & Image/File Sharing**: *Siap Dieksekusi* (Kamera, galeri foto, preview bubble, download)
 
 ---
 
