@@ -25,7 +25,7 @@ const AVATAR_PALETTE = [
   '#6366f1', // indigo
 ];
 
-function getAvatarColor(name: string): string {
+export function getAvatarColor(name: string): string {
   if (!name) return AVATAR_PALETTE[0];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -49,9 +49,10 @@ export const Avatar: React.FC<AvatarProps> = ({
   avatarUrl,
   size = 48,
   isOnline = false,
+  isGroup = false,
 }) => {
   const [hasImageError, setHasImageError] = React.useState(false);
-  const bgColor = getAvatarColor(name);
+  const bgColor = isGroup ? colors.accentPrimary : getAvatarColor(name);
   const initials = getInitials(name);
   const fontSize = Math.floor(size * 0.4);
 
@@ -73,7 +74,14 @@ export const Avatar: React.FC<AvatarProps> = ({
         <View
           style={[
             styles.fallback,
-            { width: size, height: size, borderRadius: size / 2, backgroundColor: bgColor },
+            {
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              backgroundColor: bgColor,
+              borderWidth: isGroup ? 1.5 : 0,
+              borderColor: isGroup ? colors.colorCyanNeon : 'transparent',
+            },
           ]}
         >
           <Text style={[styles.initialsText, { fontSize }]}>{initials}</Text>
@@ -91,6 +99,21 @@ export const Avatar: React.FC<AvatarProps> = ({
             },
           ]}
         />
+      )}
+
+      {isGroup && !isOnline && (
+        <View
+          style={[
+            styles.groupBadge,
+            {
+              width: Math.max(14, size * 0.32),
+              height: Math.max(14, size * 0.32),
+              borderRadius: radius.full,
+            },
+          ]}
+        >
+          <Text style={[styles.groupBadgeIcon, { fontSize: Math.max(8, size * 0.18) }]}>👥</Text>
+        </View>
       )}
     </View>
   );
@@ -121,4 +144,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.bgBase,
   },
+  groupBadge: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    backgroundColor: colors.bgCardSolid,
+    borderWidth: 1.5,
+    borderColor: colors.accentPrimary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  groupBadgeIcon: {
+    lineHeight: 12,
+  },
 });
+

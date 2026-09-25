@@ -2959,3 +2959,38 @@ Mengimplementasikan fitur Voice Notes & Audio Messaging sekelas WhatsApp pada ap
 - **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
 - **Frontend Turbopack Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 - **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (Seluruh unit/integration test lulus).
+
+---
+
+## 📱 Milestone M-Mobile-8: Core Group Chat Engine & Member Management (25 September 2026) — SELESAI ✅
+
+### 1. Deskripsi & Arsitektur Implementasi
+Mengimplementasikan dukungan penuh obrolan grup (*Core Group Chat Engine*) dan manajemen anggota hierarkis (RBAC) pada aplikasi mobile resmi WuzzChat (`mobile/`):
+- **Pembuatan Grup Baru (New Group Wizard / Screen)**:
+  - Opsi tetap `"👥 Grup Baru"` disematkan di baris teratas daftar kontak pada `NewChatScreen.tsx`.
+  - Komponen layar `NewGroupScreen.tsx` dengan form input nama grup (max 128 karakter, auto-counter), deskripsi grup, chip kontak terpilih (horizontal scroll dengan tombol hapus ✕), dan daftar kontak interaktif dengan checkbox multi-select.
+  - Integrasi dengan `POST /api/groups` dan proteksi anti-double-click, langsung mengarahkan pengguna ke ruang chat baru (`grp_<UUID>`).
+- **Integrasi Daftar Obrolan (`RecentChatsScreen.tsx` & `ChatListItem.tsx`)**:
+  - Dukungan rendering room berawalan `grp_...` (`is_group: true`).
+  - Avatar grup unik (`Avatar.tsx`) dengan lencana ikon grup mini (👥) dan bingkai neon Aurora pembeda dari avatar 1-on-1.
+  - Format snippet pesan terakhir grup menyertakan nama pengirim (contoh: `"Budi: Halo semua"` atau `"Anda: 📷 Foto"`).
+- **Linimasa Obrolan Grup & E2EE Fail-Closed Bypass (`ChatScreen.tsx` & `MessageBubble.tsx`)**:
+  - Header sticky menampilkan nama grup, subtitle jumlah anggota (`${memberCount} anggota • Info`), tombol info (`ℹ️`), serta area touchable untuk navigasi ke info grup.
+  - Balon pesan lawan bicara (`isSelf = false`) menampilkan nama pengirim dengan warna deterministik unik per user (`getAvatarColor`).
+  - Sesuai arsitektur sistem, room grup beroperasi menggunakan transmisi secure TLS server-relayed tanpa melempar error fail-closed pairwise ECDH.
+- **Layar Info & Manajemen Anggota Grup (`GroupInfoScreen.tsx`)**:
+  - Detail profil grup: Avatar besar, nama grup, `@group_username`, deskripsi, tanggal dibuat, total anggota.
+  - Daftar anggota lengkap dengan lencana peran (👑 Pembuat, 🛡️ Admin, Anggota) dan verifikasi centang biru (`✓`).
+  - Tindakan RBAC lengkap:
+    - Admin & Pembuat dapat menambahkan anggota baru (`POST /api/groups/{id}/members`).
+    - Pembuat dapat mempromosikan anggota ke Admin atau menurunkan Admin ke anggota biasa (`PATCH /api/groups/{id}/members/{userId}/role`).
+    - Admin & Pembuat dapat mengeluarkan anggota (Kick) (`DELETE /api/groups/{id}/members/{userId}`).
+    - Anggota biasa dapat keluar dari grup (Leave Group) dengan konfirmasi aman dan proteksi transfer peran bagi Pembuat.
+- **Pencegahan Infinite Render Loop (DEC-031)**:
+  - Menstabilkan callback `onGroupUpdated` menggunakan `useRef` di `GroupInfoScreen.tsx` dan memoizing seluruh handler di `App.tsx` via `useCallback` dengan shallow equality check, mengeliminasi masalah flickering/kedipan pada perangkat Android.
+
+### 2. Bukti Pengujian Otomatis
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Frontend Turbopack Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (Seluruh unit/integration test lulus).
+

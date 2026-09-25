@@ -8,6 +8,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Conversation, Message } from '../api/types';
 import { colors, radius, spacing, typography } from '../theme';
 import { Avatar } from './Avatar';
+import { useAuth } from '../context';
 
 interface ChatListItemProps {
   conversation: Conversation;
@@ -49,7 +50,7 @@ function getConversationName(conv: Conversation): string {
   return conv.title || conv.peer_nickname || conv.name || conv.id || 'Obrolan';
 }
 
-function getMessagePreview(conversation: Conversation): string {
+function getMessagePreview(conversation: Conversation, currentUserId?: string): string {
   if (!conversation.last_message) {
     return 'Belum ada pesan';
   }
@@ -65,31 +66,52 @@ function getMessagePreview(conversation: Conversation): string {
     ? conversation.last_message
     : '';
 
+  let body = '';
   if (
     mediaType === 'audio' ||
     (mediaUrl && /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(mediaUrl)) ||
     (lastMsg?.file_name && /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(lastMsg.file_name))
   ) {
-    return '🎙️ Pesan Suara';
+    body = '🎙️ Pesan Suara';
+  } else if (mediaUrl || mediaType === 'image') {
+    body = raw && !raw.startsWith('e2ee:') ? `📷 Foto: ${raw}` : '📷 Foto';
+  } else if (!raw) {
+    body = 'Belum ada pesan';
+  } else if (raw.startsWith('e2ee:')) {
+    body = '🔒 Pesan terenkripsi';
+  } else {
+    body = raw;
   }
 
-  if (mediaUrl || mediaType === 'image') {
-    if (raw && !raw.startsWith('e2ee:')) {
-      return `📷 Foto: ${raw}`;
+  const isGroup =
+    conversation.is_group === true ||
+    conversation.type === 'group' ||
+    conversation.type === 'subgroup' ||
+    (typeof conversation.id === 'string' && (conversation.id.startsWith('grp_') || conversation.id.startsWith('sub_')));
+
+  if (isGroup && body !== 'Belum ada pesan') {
+    const senderId = lastMsg?.sender_id || conversation.last_sender_id;
+    const isSelf = Boolean(senderId && currentUserId && senderId === currentUserId);
+    let senderName = '';
+    if (isSelf) {
+      senderName = 'Anda';
+    } else {
+      senderName =
+        lastMsg?.nickname ||
+        lastMsg?.from ||
+        conversation.last_sender ||
+        '';
     }
-    return '📷 Foto';
+    if (senderName) {
+      return `${senderName}: ${body}`;
+    }
   }
 
-  if (!raw) {
-    return 'Belum ada pesan';
-  }
-  if (raw.startsWith('e2ee:')) {
-    return '🔒 Pesan terenkripsi';
-  }
-  return raw;
+  return body;
 }
 
 export const ChatListItem: React.FC<ChatListItemProps> = ({ conversation, onPress }) => {
+  const { user } = useAuth();
   const unreadCount = conversation.unread_count || 0;
   const hasUnread = unreadCount > 0;
   const timeFormatted = formatChatTime(
@@ -97,9 +119,14 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ conversation, onPres
       ? conversation.last_message.created_at
       : conversation.updated_at
   );
-  const previewText = getMessagePreview(conversation);
+  const previewText = getMessagePreview(conversation, user?.id);
   const displayName = getConversationName(conversation);
   const avatarUrl = conversation.avatar_url || conversation.peer_avatar_url;
+  const isGroup =
+    conversation.is_group === true ||
+    conversation.type === 'group' ||
+    conversation.type === 'subgroup' ||
+    (typeof conversation.id === 'string' && (conversation.id.startsWith('grp_') || conversation.id.startsWith('sub_')));
 
   return (
     <TouchableOpacity
@@ -107,7 +134,8 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ conversation, onPres
       style={styles.container}
       onPress={() => onPress(conversation)}
     >
-      <Avatar name={displayName} avatarUrl={avatarUrl} size={52} />
+      <Avatar name={displayName} avatarUrl={avatarUrl} size={52} isGroup={isGroup} />
+
 
       <View style={styles.content}>
         <View style={styles.topRow}>

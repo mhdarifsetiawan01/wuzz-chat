@@ -19,8 +19,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { ConversationItem, Message } from '../api/types';
+import { ConversationItem, GroupDetails, Message } from '../api/types';
 import { getUserPublicKey } from '../api/users';
+import { groupsApi } from '../api/groups';
 import { mediaApi } from '../api/media';
 import { messagesApi } from '../api/messages';
 import { websocketClient } from '../services/websocket';
@@ -44,9 +45,11 @@ import { spacing } from '../theme/spacing';
 export interface ChatScreenProps {
   conversation: ConversationItem;
   onBack: () => void;
+  onOpenGroupInfo?: (group: GroupDetails | ConversationItem) => void;
 }
 
-export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) => {
+export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack, onOpenGroupInfo }) => {
+
   const insets = useSafeAreaInsets();
   const { user, e2eeKeyPair } = useAuth();
 
@@ -59,6 +62,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [actionSheetMessage, setActionSheetMessage] = useState<Message | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [memberCount, setMemberCount] = useState<number>(conversation.member_count || 0);
+  const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
   const lastHandledMsgIdRef = useRef<string | null>(null);
@@ -67,14 +72,43 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
   const roomId = conversation.id;
   const currentUserId = user?.id || '';
 
-  const title = conversation.title || conversation.peer_nickname || 'Obrolan';
-  const avatarUrl = conversation.avatar_url || conversation.peer_avatar_url;
-  const isDirect =
-    conversation.type === 'direct' ||
-    conversation.is_group === false ||
-    (typeof conversation.id === 'string' && conversation.id.startsWith('dm_')) ||
-    (!conversation.type && !conversation.is_group);
-  const isGroup = !isDirect && (conversation.type === 'group' || conversation.type === 'subgroup' || conversation.is_group === true);
+  const isGroup =
+    conversation.is_group === true ||
+    conversation.type === 'group' ||
+    conversation.type === 'subgroup' ||
+    (typeof conversation.id === 'string' &&
+      (conversation.id.startsWith('grp_') || conversation.id.startsWith('sub_')));
+  const isDirect = !isGroup;
+
+  const title =
+    groupDetails?.title || conversation.title || conversation.peer_nickname || 'Obrolan';
+  const avatarUrl =
+    groupDetails?.avatar_url || conversation.avatar_url || conversation.peer_avatar_url;
+
+  // Load group details if group room
+  useEffect(() => {
+    if (!isGroup) return;
+    let mounted = true;
+
+    groupsApi
+      .getGroupDetails(roomId)
+      .then((details) => {
+        if (mounted && details) {
+          setGroupDetails(details);
+          if (details.member_count) {
+            setMemberCount(details.member_count);
+          }
+        }
+      })
+      .catch((err) => {
+        console.log('[ChatScreen] Could not fetch group details:', err);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [isGroup, roomId]);
+
 
   // 0. Resolve Peer Public Key & Derive Room AES Key (ECDH + HKDF)
   useEffect(() => {
@@ -775,28 +809,50 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
 
-          <View style={styles.headerAvatarContainer}>
-            <Avatar
-              name={title}
-              avatarUrl={avatarUrl}
-              size={38}
-              isGroup={isGroup}
-            />
-          </View>
-
-          <View style={styles.headerInfo}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {title}
-            </Text>
-            <View style={styles.headerStatusRow}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.headerSubtitle}>
-                {isDirect
-                  ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
-                  : `${conversation.type === 'subgroup' ? 'Topik Forum' : 'Grup'}`}
-              </Text>
+          <TouchableOpacity
+            style={styles.headerInfoTouchable}
+            onPress={() => {
+              if (isGroup && onOpenGroupInfo) {
+                onOpenGroupInfo(groupDetails || conversation);
+              }
+            }}
+            disabled={!isGroup || !onOpenGroupInfo}
+            activeOpacity={isGroup ? 0.7 : 1}
+          >
+            <View style={styles.headerAvatarContainer}>
+              <Avatar
+                name={title}
+                avatarUrl={avatarUrl}
+                size={38}
+                isGroup={isGroup}
+              />
             </View>
-          </View>
+
+            <View style={styles.headerInfo}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {title}
+              </Text>
+              <View style={styles.headerStatusRow}>
+                {isDirect && <View style={styles.onlineDot} />}
+                <Text style={styles.headerSubtitle} numberOfLines={1}>
+                  {isDirect
+                    ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
+                    : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'} • Info`}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {isGroup && onOpenGroupInfo && (
+            <TouchableOpacity
+              style={styles.groupInfoButton}
+              onPress={() => onOpenGroupInfo(groupDetails || conversation)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.groupInfoIcon}>ℹ️</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Message Timeline */}
@@ -819,6 +875,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
             renderItem={({ item }) => {
               const isSelf =
                 item.sender_id === currentUserId ||
+                item.from === currentUserId ||
                 (Boolean(user?.username) && item.from === user?.username);
 
               return (
@@ -826,9 +883,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
                   message={item}
                   isSelf={isSelf}
                   showSenderName={!isDirect && !isSelf}
-                  senderName={item.from || item.nickname}
+                  senderName={item.nickname || item.from}
                   currentUserId={currentUserId}
                   isHighlighted={item.id === highlightedMessageId}
+
                   onMediaLoaded={handleMediaLoaded}
                   onReply={(msg) => setReplyingTo(msg)}
                   onLongPress={(msg) => setActionSheetMessage(msg)}
@@ -904,13 +962,28 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '600',
   },
+  headerInfoTouchable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   headerAvatarContainer: {
     marginRight: 10,
   },
   headerInfo: {
     flex: 1,
   },
+  groupInfoButton: {
+    padding: 8,
+    marginLeft: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  groupInfoIcon: {
+    fontSize: 20,
+  },
   headerTitle: {
+
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,

@@ -21,6 +21,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
 import { AudioPlayerBubble } from './AudioPlayerBubble';
+import { getAvatarColor } from './Avatar';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -194,8 +195,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           ]}
         >
           {showSenderName && !isSelf && senderName ? (
-            <Text style={styles.senderName}>{senderName}</Text>
+            <Text
+              style={[
+                styles.senderName,
+                { color: getAvatarColor(senderName || message.from || 'User') },
+              ]}
+            >
+              {senderName}
+            </Text>
           ) : null}
+
 
           {/* Deleted Message State */}
           {message.is_deleted ? (

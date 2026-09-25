@@ -457,11 +457,12 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
 - [ ] **Local Decrypted Message Cache (Room / CoreData / SQLite)**: Simpan pesan terdekripsi secara persisten di database lokal perangkat (Room di Android, SwiftData/CoreData di iOS) dengan pola Cache-First Load (0ms instant open) dan write-through cache agar riwayat obrolan tetap terbaca saat lawan bicara me-reset perangkat/kunci E2EE.
 - [ ] **Verified Account & Custom Avatar UI**: Render avatar lawan bicara (`peer_avatar_url`) dan tampilkan lencana centang biru terverifikasi di samping nama kontak jika `peer_is_verified` bernilai `true` (dari respons `GET /api/conversations` atau `GET /api/users/profile`).
 - [ ] **UUID-First Identity Rule**: Seluruh logika identifikasi pengirim, pengecekan kepemilikan pesan (*isSelf*), filter receipt, dan pengecekan reaksi emoji **wajib menggunakan field `from` (UUID immutable)** dari payload — **bukan** `nickname` atau `display_name` yang bersifat mutable. Bandingkan: `message.from == currentUser.id` (UUID) — bukan `message.nickname == currentUser.username`.
-- [ ] **Core Group Chat Engine (Milestone 8.2A)**:
+- [x] **Core Group Chat Engine (Milestone 8.2A & M-Mobile-8)**:
   - Mendukung penanganan room berawalan `grp_` (`grp_<UUIDv4>`).
   - **Bypass E2EE Fail-Closed**: Pada room grup, pesan dikirim dan diterima dalam format teks langsung (*server-relayed TLS in-transit*). Klien mobile DILARANG melempar error enkripsi/fail-closed jika tidak ada pairwise ECDH AES key untuk room grup.
   - Tampilkan warna nama pengirim (*sender nickname color*) yang unik dan deterministik per user di linimasa pesan grup.
   - Integrasi endpoint REST `/api/groups` (buat grup), `/api/groups/search` (cari grup publik), `/api/groups/{id}` (detail grup), `/api/groups/{id}/members` (daftar anggota, tambah, kick, dan ubah role admin/member).
+
 - [ ] **Ephemeral Sub-Groups, Forum Topics & Access Control (Milestone 8.2B & 8.2C)**:
   - Mendukung penanganan room topik forum berawalan `sub_` (`sub_<UUIDv4>`).
   - **Rebranding Forum & Mobile Header UX (Milestone 8.2C)**:

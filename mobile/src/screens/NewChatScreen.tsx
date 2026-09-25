@@ -26,10 +26,16 @@ import { colors, radius, spacing, typography } from '../theme';
 export interface NewChatScreenProps {
   onBack: () => void;
   onSelectChat: (conversation: Conversation) => void;
+  onNavigateToNewGroup?: () => void;
 }
 
-export const NewChatScreen: React.FC<NewChatScreenProps> = ({ onBack, onSelectChat }) => {
+export const NewChatScreen: React.FC<NewChatScreenProps> = ({
+  onBack,
+  onSelectChat,
+  onNavigateToNewGroup,
+}) => {
   const { user: currentUser } = useAuth();
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
@@ -228,6 +234,24 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({ onBack, onSelectCh
         renderItem={renderUserItem}
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="always"
+        ListHeaderComponent={
+          onNavigateToNewGroup && searchQuery.trim().length === 0 ? (
+            <TouchableOpacity
+              style={styles.newGroupItem}
+              onPress={onNavigateToNewGroup}
+              activeOpacity={0.7}
+            >
+              <View style={styles.newGroupIconWrapper}>
+                <Text style={styles.newGroupIcon}>👥</Text>
+              </View>
+              <View style={styles.newGroupInfo}>
+                <Text style={styles.newGroupTitle}>Grup Baru</Text>
+                <Text style={styles.newGroupSubtitle}>Buat obrolan grup bersama rekan</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          ) : null
+        }
         ListEmptyComponent={
           !isSearching ? (
             <View style={styles.emptyContainer}>
@@ -248,6 +272,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({ onBack, onSelectCh
           ) : null
         }
       />
+
     </SafeAreaView>
   );
 };
@@ -412,5 +437,41 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  newGroupItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+    backgroundColor: colors.bgBase,
+    marginBottom: spacing.xs,
+  },
+  newGroupIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.full,
+    backgroundColor: colors.accentPrimary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  newGroupIcon: {
+    fontSize: 22,
+  },
+  newGroupInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  newGroupTitle: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  newGroupSubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
 });
+
 

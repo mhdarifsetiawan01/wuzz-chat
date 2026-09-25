@@ -112,6 +112,7 @@ export interface Conversation {
   room_id?: string;
   title?: string;
   name?: string;
+  description?: string;
   type?: 'direct' | 'group' | 'subgroup';
   is_group?: boolean;
   is_subgroup?: boolean;
@@ -126,10 +127,55 @@ export interface Conversation {
   last_sender_id?: string;
   last_status?: string;
   unread_count?: number;
+  member_count?: number;
+  my_role?: GroupRole;
   is_pinned?: boolean;
   pinned?: boolean;
   participants?: User[];
   updated_at?: string;
+}
+
+export type GroupRole = 'creator' | 'admin' | 'member';
+
+export interface GroupMember {
+  user_id: string;
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  role: GroupRole;
+  is_verified?: boolean;
+  joined_at: string;
+}
+
+export interface GroupDetails {
+  id: string;
+  title: string;
+  description?: string;
+  avatar_url?: string;
+  is_public: boolean;
+  group_username?: string;
+  parent_id?: string;
+  created_by: string;
+  created_at: string;
+  updated_at?: string;
+  member_count: number;
+  my_role?: GroupRole;
+  members?: GroupMember[];
+}
+
+export interface CreateGroupRequest {
+  title: string;
+  description?: string;
+  avatar_url?: string;
+  is_public?: boolean;
+  group_username?: string;
+  member_ids?: string[];
+}
+
+export interface CreateGroupResponse {
+  success: boolean;
+  group: GroupDetails;
+  message?: string;
 }
 
 export interface ApiError {
@@ -138,3 +184,4 @@ export interface ApiError {
   detail: string;
   code?: string;
 }
+
