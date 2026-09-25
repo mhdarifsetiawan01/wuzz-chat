@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -120,7 +121,26 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
         })
       );
 
-      setConversations(decryptedData);
+      // Prioritize pinned chats at the top, then sort by latest activity
+      const sorted = [...decryptedData].sort((a, b) => {
+        const aPinned = a.is_pinned || a.pinned ? 1 : 0;
+        const bPinned = b.is_pinned || b.pinned ? 1 : 0;
+        if (aPinned !== bPinned) return bPinned - aPinned;
+
+        const aTime = new Date(
+          a.updated_at ||
+            (typeof a.last_message === 'object' ? a.last_message?.timestamp || a.last_message?.created_at : undefined) ||
+            0
+        ).getTime();
+        const bTime = new Date(
+          b.updated_at ||
+            (typeof b.last_message === 'object' ? b.last_message?.timestamp || b.last_message?.created_at : undefined) ||
+            0
+        ).getTime();
+        return bTime - aTime;
+      });
+
+      setConversations(sorted);
     } catch (err) {
       console.warn('[RecentChatsScreen] Failed to load conversations:', err);
     } finally {
@@ -128,6 +148,54 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
       setIsRefreshing(false);
     }
   }, [user?.id, e2eeKeyPair?.privateKeyHex]);
+
+  const handleChatLongPress = useCallback((chat: Conversation) => {
+    const roomId = chat.id || chat.room_id || '';
+    if (!roomId) return;
+    const isPinned = Boolean(chat.is_pinned || chat.pinned);
+    const title = chat.title || chat.peer_nickname || chat.name || 'Obrolan';
+
+    Alert.alert(
+      title,
+      isPinned ? 'Lepas sematan obrolan ini dari daftar teratas?' : 'Sematkan obrolan ini di daftar teratas?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: isPinned ? 'Lepas Sematan' : 'Sematkan 📌',
+          onPress: async () => {
+            // Optimistic local update
+            setConversations((prev) => {
+              const updated = prev.map((c) =>
+                (c.id === roomId || c.room_id === roomId)
+                  ? { ...c, is_pinned: !isPinned, pinned: !isPinned }
+                  : c
+              );
+              return [...updated].sort((a, b) => {
+                const aPinned = a.is_pinned || a.pinned ? 1 : 0;
+                const bPinned = b.is_pinned || b.pinned ? 1 : 0;
+                if (aPinned !== bPinned) return bPinned - aPinned;
+                const aTime = new Date(a.updated_at || 0).getTime();
+                const bTime = new Date(b.updated_at || 0).getTime();
+                return bTime - aTime;
+              });
+            });
+
+            try {
+              if (isPinned) {
+                await conversationsApi.unpinConversation(roomId);
+              } else {
+                await conversationsApi.pinConversation(roomId);
+              }
+            } catch (err: any) {
+              console.error('[RecentChatsScreen] Failed to toggle pin:', err);
+              Alert.alert('Gagal', err?.message || 'Gagal mengubah status sematan obrolan.');
+              fetchConversations(true);
+            }
+          },
+        },
+      ]
+    );
+  }, [fetchConversations]);
 
   useEffect(() => {
     fetchConversations();
@@ -223,7 +291,11 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
           data={conversations}
           keyExtractor={(item, index) => item.id || item.room_id || String(index)}
           renderItem={({ item }) => (
-            <ChatListItem conversation={item} onPress={handleChatPress} />
+            <ChatListItem
+              conversation={item}
+              onPress={handleChatPress}
+              onLongPress={handleChatLongPress}
+            />
           )}
           refreshControl={
             <RefreshControl

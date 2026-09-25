@@ -27,4 +27,34 @@ export const conversationsApi = {
       body: JSON.stringify({ recipient_id: recipientId }),
     });
   },
+
+  /**
+   * POST /api/conversations/pin
+   * Pins a conversation to the top of the chat list for the user.
+   */
+  async pinConversation(roomId: string): Promise<{ success: boolean; conversation_id: string; is_pinned: boolean }> {
+    return apiClient<{ success: boolean; conversation_id: string; is_pinned: boolean }>('/api/conversations/pin', {
+      method: 'POST',
+      body: JSON.stringify({
+        conversation_id: roomId,
+        room_id: roomId,
+        id: roomId,
+      }),
+    });
+  },
+
+  /**
+   * POST /api/conversations/unpin
+   * Unpins a conversation from the top of the chat list for the user.
+   */
+  async unpinConversation(roomId: string): Promise<{ success: boolean; conversation_id: string; is_pinned: boolean }> {
+    return apiClient<{ success: boolean; conversation_id: string; is_pinned: boolean }>('/api/conversations/unpin', {
+      method: 'POST',
+      body: JSON.stringify({
+        conversation_id: roomId,
+        room_id: roomId,
+        id: roomId,
+      }),
+    });
+  },
 };

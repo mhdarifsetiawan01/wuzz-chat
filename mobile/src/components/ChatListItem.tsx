@@ -13,6 +13,7 @@ import { useAuth } from '../context';
 interface ChatListItemProps {
   conversation: Conversation;
   onPress: (conversation: Conversation) => void;
+  onLongPress?: (conversation: Conversation) => void;
 }
 
 function formatChatTime(dateString?: string): string {
@@ -110,7 +111,11 @@ function getMessagePreview(conversation: Conversation, currentUserId?: string): 
   return body;
 }
 
-export const ChatListItem: React.FC<ChatListItemProps> = ({ conversation, onPress }) => {
+export const ChatListItem: React.FC<ChatListItemProps> = ({
+  conversation,
+  onPress,
+  onLongPress,
+}) => {
   const { user } = useAuth();
   const unreadCount = conversation.unread_count || 0;
   const hasUnread = unreadCount > 0;
@@ -128,14 +133,17 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ conversation, onPres
     conversation.type === 'subgroup' ||
     (typeof conversation.id === 'string' && (conversation.id.startsWith('grp_') || conversation.id.startsWith('sub_')));
 
+  const isPinned = Boolean(conversation.is_pinned || conversation.pinned);
+
   return (
     <TouchableOpacity
       activeOpacity={0.7}
       style={styles.container}
       onPress={() => onPress(conversation)}
+      onLongPress={onLongPress ? () => onLongPress(conversation) : undefined}
+      delayLongPress={300}
     >
       <Avatar name={displayName} avatarUrl={avatarUrl} size={52} isGroup={isGroup} />
-
 
       <View style={styles.content}>
         <View style={styles.topRow}>
@@ -158,13 +166,16 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({ conversation, onPres
             {previewText}
           </Text>
 
-          {hasUnread && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Text>
-            </View>
-          )}
+          <View style={styles.rightBadges}>
+            {isPinned && <Text style={styles.pinIcon}>📌</Text>}
+            {hasUnread && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -224,6 +235,14 @@ const styles = StyleSheet.create({
   previewUnread: {
     color: colors.textPrimary,
     fontWeight: '500',
+  },
+  rightBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pinIcon: {
+    fontSize: 13,
   },
   unreadBadge: {
     backgroundColor: colors.unreadBadgeBg,

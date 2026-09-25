@@ -73,6 +73,11 @@ export interface Message {
     count: number;
   }[];
   is_deleted?: boolean;
+  is_edited?: boolean;
+  edited_at?: string;
+  is_forwarded?: boolean;
+  is_pinned?: boolean;
+  pinned_at?: string;
 }
 
 export interface MediaUploadResponse {
@@ -250,5 +255,75 @@ export interface JoinRequest {
   avatar_url?: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
+}
+
+/** Milestone 8.3: Edit Message Request/Response */
+export interface EditMessageRequest {
+  message_id: string;
+  content: string;
+}
+
+export interface EditMessageResponse {
+  success: boolean;
+  message_id: string;
+  room_id: string;
+  content: string;
+  is_edited: boolean;
+  edited_at: string;
+}
+
+/** Milestone 8.3: Forward Message Request/Response */
+export interface ForwardMessageRequest {
+  message_id: string;
+  target_room_ids: string[];
+  plaintext_content?: string;
+}
+
+export interface ForwardMessageResponse {
+  success: boolean;
+  forwarded_count: number;
+  messages: Array<{
+    id: string;
+    room: string;
+    from: string;
+    content: string;
+    is_forwarded: boolean;
+    timestamp: string;
+  }>;
+}
+
+/** Milestone 8.3: Pin Message Request/Response */
+export interface PinMessageRequest {
+  message_id: string;
+  room_id: string;
+}
+
+export interface PinMessageResponse {
+  success: boolean;
+  message_id: string;
+  room_id: string;
+  is_pinned: boolean;
+}
+
+/** Milestone 8.3: Pinned Message Entity */
+export interface PinnedMessage {
+  id: string;
+  conversation_id: string;
+  message_id: string;
+  pinned_by: string;
+  pinned_at: string;
+  expires_at?: string;
+  message?: Message;
+}
+
+/** Milestone 8.3: Pin Conversation Request/Response */
+export interface PinConversationRequest {
+  room_id: string;
+}
+
+export interface PinConversationResponse {
+  success: boolean;
+  room_id: string;
+  is_pinned: boolean;
 }
 

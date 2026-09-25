@@ -29,6 +29,9 @@ export interface MessageActionSheetProps {
   onClose: () => void;
   onReact: (messageId: string, emoji: string) => void;
   onReply: (message: Message) => void;
+  onEdit?: (message: Message) => void;
+  onForward?: (message: Message) => void;
+  onTogglePin?: (message: Message) => void;
   onDelete: (messageId: string, type: 'for_me' | 'for_everyone') => void;
 }
 
@@ -39,6 +42,9 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   onClose,
   onReact,
   onReply,
+  onEdit,
+  onForward,
+  onTogglePin,
   onDelete,
 }) => {
   const insets = useSafeAreaInsets();
@@ -73,7 +79,22 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
     return diffSec <= 60;
   };
 
+  // Check 15 minutes window for "Edit Message"
+  const isWithinEditWindow = () => {
+    if (!isSelf) return false;
+    const msgTime = new Date(message.timestamp || message.created_at || 0).getTime();
+    if (isNaN(msgTime) || msgTime === 0) return true;
+    const diffMs = Date.now() - msgTime;
+    return diffMs <= 15 * 60 * 1000;
+  };
+
   const canDeleteForEveryone = isSelf && isWithinDeleteWindow();
+  const canEdit =
+    isSelf &&
+    !message.is_deleted &&
+    isWithinEditWindow() &&
+    !message.media_url &&
+    message.type !== 'audio';
 
   const handleTriggerDelete = (type: 'for_me' | 'for_everyone') => {
     setShowDeleteConfirm(false);
@@ -163,7 +184,54 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                   <Text style={styles.actionMenuLabel}>Balas Pesan</Text>
                 </TouchableOpacity>
 
-                {/* 2. Copy Text */}
+                {/* 2. Edit Message (15-min window, own text message) */}
+                {canEdit && onEdit ? (
+                  <TouchableOpacity
+                    style={styles.actionMenuItem}
+                    onPress={() => {
+                      onEdit(message);
+                      onClose();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.actionMenuIcon}>✏️</Text>
+                    <Text style={styles.actionMenuLabel}>Edit Pesan</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {/* 3. Forward Message */}
+                {!message.is_deleted && onForward ? (
+                  <TouchableOpacity
+                    style={styles.actionMenuItem}
+                    onPress={() => {
+                      onForward(message);
+                      onClose();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.actionMenuIcon}>↪️</Text>
+                    <Text style={styles.actionMenuLabel}>Teruskan Pesan</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {/* 4. Pin / Unpin Message */}
+                {!message.is_deleted && onTogglePin ? (
+                  <TouchableOpacity
+                    style={styles.actionMenuItem}
+                    onPress={() => {
+                      onTogglePin(message);
+                      onClose();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.actionMenuIcon}>📌</Text>
+                    <Text style={styles.actionMenuLabel}>
+                      {message.is_pinned ? 'Lepas Sematan' : 'Sematkan Pesan'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {/* 5. Copy Text */}
                 {message.content && !message.is_deleted ? (
                   <TouchableOpacity
                     style={styles.actionMenuItem}
@@ -175,7 +243,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                   </TouchableOpacity>
                 ) : null}
 
-                {/* 3. Delete Message */}
+                {/* 6. Delete Message */}
                 {!message.is_deleted ? (
                   <TouchableOpacity
                     style={[styles.actionMenuItem, styles.deleteMenuItem]}
@@ -193,6 +261,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
           )}
         </Pressable>
       </Pressable>
+
     </Modal>
   );
 };

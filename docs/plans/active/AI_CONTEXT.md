@@ -1,5 +1,4 @@
-# AI Context
+# AI Context — Active Workspace
 
-- **Current Status**: Standby
-- **Active Milestone**: None
-- **Constraints**: Follow AGENTS.md guidelines.
+## Status
+- Workspace dalam kondisi standby. Tidak ada konteks aktif yang sedang dieksekusi.

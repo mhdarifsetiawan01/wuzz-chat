@@ -19,10 +19,11 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { Conversation, ConversationItem, GroupDetails, Message } from '../api/types';
+import { Conversation, ConversationItem, GroupDetails, Message, PinnedMessage } from '../api/types';
 import { getUserPublicKey } from '../api/users';
 import { groupsApi } from '../api/groups';
 import { mediaApi } from '../api/media';
@@ -46,6 +47,8 @@ import { MessageActionSheet } from '../components/MessageActionSheet';
 import { SubGroupListModal } from '../components/SubGroupListModal';
 import { GroupPreviewModal } from '../components/GroupPreviewModal';
 import { AuthorizationShield } from '../components/AuthorizationShield';
+import { ForwardMessageModal } from '../components/ForwardMessageModal';
+import { PinnedMessagesBanner } from '../components/PinnedMessagesBanner';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -90,6 +93,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [memberCount, setMemberCount] = useState<number>(conversation.member_count || 0);
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
+
+  // Milestone 8.3: Message Management Suite States
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
+  const [isForwardModalVisible, setIsForwardModalVisible] = useState<boolean>(false);
+  const [pinnedMessages, setPinnedMessages] = useState<Array<Message | PinnedMessage>>([]);
+
+  // In-Chat Search States
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<Message[]>([]);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState<number>(0);
+  const [isSearchLoading, setIsSearchLoading] = useState<boolean>(false);
+  const searchTimerRef = useRef<any>(null);
 
   // DEC-013: Authorization Shield State (403 Forbidden interceptor)
   const [isAccessDenied, setIsAccessDenied] = useState<boolean>(false);
@@ -311,6 +328,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       })
     );
   }, [roomAESKey]);
+
+  // 0C. Fetch initial pinned messages for this room
+  useEffect(() => {
+    if (isVerifyingGroup || isAccessDenied || directPreviewGroup) return;
+
+    let mounted = true;
+    messagesApi
+      .getPinnedMessages(roomId)
+      .then((pins) => {
+        if (!mounted || !pins) return;
+        setPinnedMessages(pins);
+      })
+      .catch((err) => {
+        console.warn('[ChatScreen] Could not fetch pinned messages:', err);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [roomId, isVerifyingGroup, isAccessDenied, directPreviewGroup]);
 
   // 1. Load History & Join Room on Mount (Clean History State Sync via WebSocket)
   useEffect(() => {
@@ -560,12 +597,80 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
     });
 
+    // F. Message Edited Listener
+    const unsubscribeEdited = websocketClient.on('message_edited', (data: any) => {
+      const targetRoom = data.room || data.room_id;
+      if (targetRoom && targetRoom !== roomId) return;
+
+      const targetId = data.id || data.message_id;
+      if (targetId) {
+        let content = data.content || '';
+        if (isEncryptedMessage(content) && roomAESKeyRef.current) {
+          try {
+            content = decryptText(roomAESKeyRef.current, content);
+          } catch {}
+        }
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === targetId
+              ? {
+                  ...m,
+                  content,
+                  is_edited: true,
+                  edited_at: data.edited_at || new Date().toISOString(),
+                }
+              : m
+          )
+        );
+      }
+    });
+
+    // G. Message Pinned Listener
+    const unsubscribePinned = websocketClient.on('message_pinned', (data: any) => {
+      const targetRoom = data.room || data.room_id;
+      if (targetRoom && targetRoom !== roomId) return;
+
+      const targetId = data.id || data.message_id;
+      if (targetId) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === targetId ? { ...m, is_pinned: true } : m))
+        );
+        messagesApi
+          .getPinnedMessages(roomId)
+          .then((pins) => {
+            if (pins) {
+              setPinnedMessages(pins);
+            }
+          })
+          .catch(() => {});
+      }
+    });
+
+    // H. Message Unpinned Listener
+    const unsubscribeUnpinned = websocketClient.on('message_unpinned', (data: any) => {
+      const targetRoom = data.room || data.room_id;
+      if (targetRoom && targetRoom !== roomId) return;
+
+      const targetId = data.id || data.message_id;
+      if (targetId) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === targetId ? { ...m, is_pinned: false } : m))
+        );
+        setPinnedMessages((prev) =>
+          prev.filter((p: any) => (p.message_id || p.id) !== targetId)
+        );
+      }
+    });
+
     return () => {
       unsubscribeMessage();
       unsubscribeAck();
       unsubscribeReceipt();
       unsubscribeReaction();
       unsubscribeDeleted();
+      unsubscribeEdited();
+      unsubscribePinned();
+      unsubscribeUnpinned();
     };
   }, [roomId, currentUserId]);
 
@@ -943,6 +1048,247 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     [messages]
   );
 
+  // 8. Milestone 8.3: Edit Message Handlers
+  const handleStartEdit = useCallback((message: Message) => {
+    setReplyingTo(null);
+    setEditingMessage(message);
+  }, []);
+
+  const handleSaveEdit = useCallback(
+    async (messageId: string, newContent: string) => {
+      setEditingMessage(null);
+
+      // Optimistic update
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? {
+                ...m,
+                content: newContent,
+                is_edited: true,
+                edited_at: new Date().toISOString(),
+              }
+            : m
+        )
+      );
+
+      try {
+        let payloadContent = newContent;
+        if (roomAESKeyRef.current && isDirect) {
+          payloadContent = encryptText(roomAESKeyRef.current, newContent);
+        }
+        await messagesApi.editMessage(messageId, payloadContent, roomId);
+      } catch (err: any) {
+        console.error('[ChatScreen] Edit message failed:', err);
+        Alert.alert(
+          'Gagal Mengedit Pesan',
+          err?.message || 'Batas waktu edit (15 menit) telah lewat atau server bermasalah.'
+        );
+      }
+    },
+    [roomId, isDirect]
+  );
+
+  // 9. Milestone 8.3: Forward Message Handlers
+  const handleStartForward = useCallback((message: Message) => {
+    setForwardingMessage(message);
+    setIsForwardModalVisible(true);
+  }, []);
+
+  const handleSendForward = useCallback(
+    async (targetRoomIds: string[], msg: Message) => {
+      // Pass decrypted plaintext so cross-room recipients can read it without key mismatch
+      const plaintextContent = msg.content;
+      await messagesApi.forwardMessage(msg.id, targetRoomIds, plaintextContent);
+      Alert.alert('Terkirim', `Pesan berhasil diteruskan ke ${targetRoomIds.length} obrolan.`);
+    },
+    []
+  );
+
+  // 10. Milestone 8.3: Pin Message Handlers
+  const handleTogglePin = useCallback(
+    async (message: Message) => {
+      const isPinned = Boolean(message.is_pinned);
+      const targetId = message.id;
+
+      // Optimistic update in messages
+      setMessages((prev) =>
+        prev.map((m) => (m.id === targetId ? { ...m, is_pinned: !isPinned } : m))
+      );
+
+      try {
+        if (isPinned) {
+          setPinnedMessages((prev) =>
+            prev.filter((p: any) => (p.message_id || p.id) !== targetId)
+          );
+          await messagesApi.unpinMessage(targetId, roomId);
+        } else {
+          await messagesApi.pinMessage(targetId, roomId);
+          const updatedPins = await messagesApi.getPinnedMessages(roomId);
+          if (updatedPins) {
+            setPinnedMessages(updatedPins);
+          }
+        }
+      } catch (err: any) {
+        console.error('[ChatScreen] Pin toggle failed:', err);
+        // Rollback optimistic update
+        setMessages((prev) =>
+          prev.map((m) => (m.id === targetId ? { ...m, is_pinned: isPinned } : m))
+        );
+        Alert.alert('Gagal', err?.detail || err?.message || 'Gagal mengubah status sematan pesan.');
+      }
+    },
+    [roomId]
+  );
+
+  const handleUnpinMessage = useCallback(
+    async (item: Message | PinnedMessage) => {
+      const targetId = (item as PinnedMessage).message_id || (item as Message).id;
+      if (!targetId) return;
+
+      setPinnedMessages((prev) =>
+        prev.filter((p: any) => (p.message_id || p.id) !== targetId)
+      );
+      setMessages((prev) =>
+        prev.map((m) => (m.id === targetId ? { ...m, is_pinned: false } : m))
+      );
+
+      try {
+        await messagesApi.unpinMessage(targetId, roomId);
+      } catch (err: any) {
+        console.error('[ChatScreen] Unpin message failed:', err);
+        Alert.alert('Gagal', err?.detail || err?.message || 'Gagal melepas sematan pesan.');
+      }
+    },
+    [roomId]
+  );
+
+  // Milestone 8.3: Enriched Pinned Messages for preview and jump-to
+  const enrichedPinnedMessages = useMemo(() => {
+    return pinnedMessages.map((pin: any) => {
+      const msgId = pin.message_id || pin.id;
+      const matchedMsg = messages.find((m) => m.id === msgId);
+      if (matchedMsg) {
+        return {
+          ...pin,
+          message: matchedMsg,
+          nickname: matchedMsg.nickname || matchedMsg.from,
+          content: matchedMsg.content,
+          media_type: matchedMsg.media_type,
+          media_url: matchedMsg.media_url,
+        };
+      }
+      return pin;
+    });
+  }, [pinnedMessages, messages]);
+
+  const handleJumpToMessage = useCallback(
+    (messageId: string) => {
+      const index = messages.findIndex((m) => m.id === messageId);
+      if (index !== -1 && flatListRef.current) {
+        try {
+          flatListRef.current.scrollToIndex({
+            index,
+            animated: true,
+            viewPosition: 0.5,
+          });
+        } catch {
+          flatListRef.current.scrollToOffset({
+            offset: Math.max(0, index * 75),
+            animated: true,
+          });
+        }
+        setHighlightedMessageId(messageId);
+        setTimeout(() => {
+          setHighlightedMessageId(null);
+        }, 2000);
+      } else {
+        Alert.alert('Pesan Tidak Ditemukan', 'Pesan mungkin berada di riwayat sebelumnya.');
+      }
+    },
+    [messages]
+  );
+
+  // 11. Milestone 8.3: In-Chat Search Handlers
+  const handleStartSearch = useCallback(() => {
+    setIsSearching(true);
+    setSearchQuery('');
+    setSearchResults([]);
+    setCurrentSearchIndex(0);
+  }, []);
+
+  const handleCloseSearch = useCallback(() => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+    setIsSearching(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    setCurrentSearchIndex(0);
+    setHighlightedMessageId(null);
+  }, []);
+
+  const handleSearchQueryChange = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+
+      if (!query.trim()) {
+        setSearchResults([]);
+        setCurrentSearchIndex(0);
+        return;
+      }
+
+      searchTimerRef.current = setTimeout(async () => {
+        setIsSearchLoading(true);
+        try {
+          const results = await messagesApi.searchMessages(roomId, query.trim());
+          const decResults = (results || []).map((r) => {
+            if (isEncryptedMessage(r.content) && roomAESKeyRef.current) {
+              try {
+                return {
+                  ...r,
+                  content: decryptText(roomAESKeyRef.current, r.content),
+                  is_encrypted: true,
+                };
+              } catch {
+                return r;
+              }
+            }
+            return r;
+          });
+          setSearchResults(decResults);
+          setCurrentSearchIndex(0);
+          if (decResults.length > 0) {
+            handleJumpToMessage(decResults[0].id);
+          }
+        } catch (err) {
+          console.warn('[ChatScreen] Search failed:', err);
+        } finally {
+          setIsSearchLoading(false);
+        }
+      }, 300);
+    },
+    [roomId, handleJumpToMessage]
+  );
+
+  const handleSearchPrev = useCallback(() => {
+    if (searchResults.length === 0) return;
+    const newIndex =
+      (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
+    setCurrentSearchIndex(newIndex);
+    handleJumpToMessage(searchResults[newIndex].id);
+  }, [searchResults, currentSearchIndex, handleJumpToMessage]);
+
+  const handleSearchNext = useCallback(() => {
+    if (searchResults.length === 0) return;
+    const newIndex = (currentSearchIndex + 1) % searchResults.length;
+    setCurrentSearchIndex(newIndex);
+    handleJumpToMessage(searchResults[newIndex].id);
+  }, [searchResults, currentSearchIndex, handleJumpToMessage]);
+
   // DEC-013: Render Authorization Shield if access is denied (403 Forbidden)
   if (isAccessDenied) {
     return (
@@ -969,107 +1315,188 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Sticky Header — M-Mobile-8.2B/8.2C: adaptive for sub-group breadcrumb */}
-        <View style={[styles.header, isSubGroup && styles.headerTall]}>
-          {/* Back button: sub-group → navigate to parent group first */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => {
-              if (isSubGroup && onNavigateToParent) {
-                const parentId =
-                  (groupDetails as any)?.parent_id ||
-                  conversation.parent_id ||
-                  parentGroupConversation?.id;
-                if (parentId) {
-                  onNavigateToParent(parentId);
-                  return;
-                }
-              }
-              onBack();
-            }}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.backIcon}>←</Text>
-          </TouchableOpacity>
-
-          {/* Center: avatar + title + subtitle/breadcrumb */}
-          <TouchableOpacity
-            style={styles.headerInfoTouchable}
-            onPress={() => {
-              if (isSubGroup) {
-                // Tap header in sub-group → navigate to parent (breadcrumb)
-                const parentId =
-                  (groupDetails as any)?.parent_id ||
-                  conversation.parent_id ||
-                  parentGroupConversation?.id;
-                if (parentId && onNavigateToParent) onNavigateToParent(parentId);
-              } else if (isGroup && onOpenGroupInfo) {
-                onOpenGroupInfo(groupDetails || conversation);
-              }
-            }}
-            disabled={!isGroup}
-            activeOpacity={isGroup ? 0.75 : 1}
-          >
-            <View style={styles.headerAvatarContainer}>
-              <Avatar
-                name={title}
-                avatarUrl={avatarUrl}
-                size={38}
-                isGroup={isGroup}
-              />
-            </View>
-
-            <View style={styles.headerInfo}>
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {title}
-              </Text>
-              <View style={styles.headerStatusRow}>
-                {isDirect && <View style={styles.onlineDot} />}
-
-                {/* M-Mobile-8.2C: Interactive breadcrumb for sub-group rooms */}
-                {isSubGroup ? (
-                  <Text style={styles.headerBreadcrumb} numberOfLines={1}>
-                    {'↖ '}
-                    {parentGroupName ? `${parentGroupName} • ` : ''}
-                    {'Forum'}
-                    {memberCount > 0 ? ` • ${memberCount} anggota` : ''}
-                  </Text>
-                ) : (
-                  <Text style={styles.headerSubtitle} numberOfLines={1}>
-                    {isDirect
-                      ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
-                      : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'}`}
-                  </Text>
-                )}
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Right-side buttons */}
-          {isParentGroup && (
-            // 🏛️ Forum button — only on parent groups, not sub-groups
+        {/* Sticky Header — with In-Chat Search mode toggle and Sub-Group breadcrumb */}
+        {isSearching ? (
+          <View style={styles.searchHeaderBar}>
             <TouchableOpacity
-              style={styles.forumButton}
-              onPress={() => setShowForumModal(true)}
-              hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.forumButtonText}>🏛️</Text>
-            </TouchableOpacity>
-          )}
-
-          {isGroup && !isSubGroup && onOpenGroupInfo && (
-            <TouchableOpacity
-              style={styles.groupInfoButton}
-              onPress={() => onOpenGroupInfo(groupDetails || conversation)}
-              hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
+              style={styles.searchHeaderBackBtn}
+              onPress={handleCloseSearch}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               activeOpacity={0.7}
             >
-              <Text style={styles.groupInfoIcon}>ℹ️</Text>
+              <Text style={styles.searchHeaderBackIcon}>←</Text>
             </TouchableOpacity>
-          )}
-        </View>
+
+            <View style={styles.searchHeaderInputContainer}>
+              <TextInput
+                style={styles.searchHeaderInput}
+                placeholder="Cari pesan dalam obrolan..."
+                placeholderTextColor={colors.textMuted}
+                value={searchQuery}
+                onChangeText={handleSearchQueryChange}
+                autoFocus
+                autoCorrect={false}
+              />
+              {isSearchLoading ? (
+                <ActivityIndicator size="small" color={colors.accentPrimary} style={{ marginRight: 6 }} />
+              ) : searchQuery.length > 0 ? (
+                <TouchableOpacity
+                  onPress={() => handleSearchQueryChange('')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.searchClearIcon}>✕</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {searchResults.length > 0 && (
+              <View style={styles.searchNavCol}>
+                <Text style={styles.searchCounterText}>
+                  {currentSearchIndex + 1}/{searchResults.length}
+                </Text>
+                <View style={styles.searchNavButtons}>
+                  <TouchableOpacity
+                    style={styles.searchNavBtn}
+                    onPress={handleSearchPrev}
+                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.searchNavIcon}>▲</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.searchNavBtn}
+                    onPress={handleSearchNext}
+                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.searchNavIcon}>▼</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={[styles.header, isSubGroup && styles.headerTall]}>
+            {/* Back button: sub-group → navigate to parent group first */}
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                if (isSubGroup && onNavigateToParent) {
+                  const parentId =
+                    (groupDetails as any)?.parent_id ||
+                    conversation.parent_id ||
+                    parentGroupConversation?.id;
+                  if (parentId) {
+                    onNavigateToParent(parentId);
+                    return;
+                  }
+                }
+                onBack();
+              }}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.backIcon}>←</Text>
+            </TouchableOpacity>
+
+            {/* Center: avatar + title + subtitle/breadcrumb */}
+            <TouchableOpacity
+              style={styles.headerInfoTouchable}
+              onPress={() => {
+                if (isSubGroup) {
+                  // Tap header in sub-group → navigate to parent (breadcrumb)
+                  const parentId =
+                    (groupDetails as any)?.parent_id ||
+                    conversation.parent_id ||
+                    parentGroupConversation?.id;
+                  if (parentId && onNavigateToParent) onNavigateToParent(parentId);
+                } else if (isGroup && onOpenGroupInfo) {
+                  onOpenGroupInfo(groupDetails || conversation);
+                }
+              }}
+              disabled={!isGroup}
+              activeOpacity={isGroup ? 0.75 : 1}
+            >
+              <View style={styles.headerAvatarContainer}>
+                <Avatar
+                  name={title}
+                  avatarUrl={avatarUrl}
+                  size={38}
+                  isGroup={isGroup}
+                />
+              </View>
+
+              <View style={styles.headerInfo}>
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                  {title}
+                </Text>
+                <View style={styles.headerStatusRow}>
+                  {isDirect && <View style={styles.onlineDot} />}
+
+                  {/* M-Mobile-8.2C: Interactive breadcrumb for sub-group rooms */}
+                  {isSubGroup ? (
+                    <Text style={styles.headerBreadcrumb} numberOfLines={1}>
+                      {'↖ '}
+                      {parentGroupName ? `${parentGroupName} • ` : ''}
+                      {'Forum'}
+                      {memberCount > 0 ? ` • ${memberCount} anggota` : ''}
+                    </Text>
+                  ) : (
+                    <Text style={styles.headerSubtitle} numberOfLines={1}>
+                      {isDirect
+                        ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
+                        : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'}`}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* Right-side buttons */}
+            <View style={styles.headerRightActions}>
+              {/* In-Chat Search Button */}
+              <TouchableOpacity
+                style={styles.headerIconButton}
+                onPress={handleStartSearch}
+                hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.headerIconText}>🔍</Text>
+              </TouchableOpacity>
+
+              {isParentGroup && (
+                // 🏛️ Forum button — only on parent groups, not sub-groups
+                <TouchableOpacity
+                  style={styles.forumButton}
+                  onPress={() => setShowForumModal(true)}
+                  hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.forumButtonText}>🏛️</Text>
+                </TouchableOpacity>
+              )}
+
+              {isGroup && !isSubGroup && onOpenGroupInfo && (
+                <TouchableOpacity
+                  style={styles.groupInfoButton}
+                  onPress={() => onOpenGroupInfo(groupDetails || conversation)}
+                  hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.groupInfoIcon}>ℹ️</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Milestone 8.3: Pinned Messages Banner */}
+        <PinnedMessagesBanner
+          pinnedMessages={enrichedPinnedMessages}
+          onJumpToMessage={handleJumpToMessage}
+          onUnpinMessage={handleUnpinMessage}
+          canUnpin={true}
+        />
 
         {/* M-Mobile-8.2B: Fail-Closed Read-Only Banner for expired forum topics */}
         {isForumExpired && (
@@ -1137,22 +1564,41 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onCancelStagedMedia={handleCancelStagedMedia}
           replyTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
+          editingMessage={editingMessage}
+          onSaveEdit={handleSaveEdit}
+          onCancelEdit={() => setEditingMessage(null)}
         />
       </KeyboardAvoidingView>
 
-      {/* Contextual Message Action Sheet (Reactions, Reply, Copy, Delete) */}
+      {/* Contextual Message Action Sheet (Reactions, Reply, Edit, Forward, Pin, Copy, Delete) */}
       <MessageActionSheet
         visible={Boolean(actionSheetMessage)}
         message={actionSheetMessage}
         isSelf={Boolean(
           actionSheetMessage &&
             (actionSheetMessage.sender_id === currentUserId ||
+              actionSheetMessage.from === currentUserId ||
               (Boolean(user?.username) && actionSheetMessage.from === user?.username))
         )}
         onClose={() => setActionSheetMessage(null)}
         onReact={handleReact}
         onReply={(msg) => setReplyingTo(msg)}
+        onEdit={handleStartEdit}
+        onForward={handleStartForward}
+        onTogglePin={handleTogglePin}
         onDelete={handleDeleteMessage}
+      />
+
+      {/* Milestone 8.3: Forward Message Modal */}
+      <ForwardMessageModal
+        visible={isForwardModalVisible}
+        message={forwardingMessage}
+        currentRoomId={roomId}
+        onClose={() => {
+          setIsForwardModalVisible(false);
+          setForwardingMessage(null);
+        }}
+        onForward={handleSendForward}
       />
 
       {/* M-Mobile-8.2B: Forum Topics Drawer (parent group only) */}
@@ -1281,6 +1727,90 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.accentPrimary,
     fontWeight: '500',
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  headerIconButton: {
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerIconText: {
+    fontSize: 18,
+  },
+  searchHeaderBar: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.bgCardSolid,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+    zIndex: 50,
+  },
+  searchHeaderBackBtn: {
+    padding: 8,
+    marginRight: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchHeaderBackIcon: {
+    fontSize: 20,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  searchHeaderInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgBase,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    height: 38,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  searchHeaderInput: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  searchClearIcon: {
+    fontSize: 14,
+    color: colors.textMuted,
+    paddingHorizontal: 4,
+  },
+  searchNavCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+    gap: 6,
+  },
+  searchCounterText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.accentPrimary,
+  },
+  searchNavButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  searchNavBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchNavIcon: {
+    fontSize: 11,
+    color: colors.textPrimary,
   },
   // M-Mobile-8.2B: Fail-Closed expired banner
   expiredBanner: {

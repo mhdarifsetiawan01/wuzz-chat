@@ -54,6 +54,9 @@ export interface ChatInputBarProps {
   onCancelStagedMedia?: () => void;
   replyTo?: Message | null;
   onCancelReply?: () => void;
+  editingMessage?: Message | null;
+  onSaveEdit?: (messageId: string, newContent: string) => void;
+  onCancelEdit?: () => void;
 }
 
 function formatFileSize(bytes?: number): string {
@@ -80,6 +83,9 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onCancelStagedMedia,
   replyTo,
   onCancelReply,
+  editingMessage,
+  onSaveEdit,
+  onCancelEdit,
 }) => {
   const [text, setText] = useState('');
   const [showAttachModal, setShowAttachModal] = useState(false);
@@ -92,6 +98,17 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   const insets = useSafeAreaInsets();
   const recordTimerRef = useRef<any>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Set text and focus when editing a message
+  useEffect(() => {
+    if (editingMessage) {
+      setText(editingMessage.content || '');
+      setShowEmojiPicker(false);
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
+    }
+  }, [editingMessage]);
 
   // Pulsing animation for red recording indicator
   useEffect(() => {
@@ -140,6 +157,15 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   const handleSend = () => {
     if (disabled || isUploading) return;
     const trimmed = text.trim();
+
+    if (editingMessage && onSaveEdit) {
+      if (!trimmed) return;
+      onSaveEdit(editingMessage.id, trimmed);
+      setText('');
+      setShowEmojiPicker(false);
+      return;
+    }
+
     if (!trimmed && !stagedMedia) return;
 
     onSend(trimmed, stagedMedia);
@@ -271,6 +297,32 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
         { paddingBottom: showEmojiPicker ? 0 : Math.max(insets.bottom, 8) },
       ]}
     >
+      {/* Edit Mode Preview Banner */}
+      {editingMessage ? (
+        <View style={styles.editBanner}>
+          <View style={styles.editAccentBar} />
+          <View style={styles.editInfo}>
+            <Text style={styles.editSender} numberOfLines={1}>
+              ✏️ Edit Pesan
+            </Text>
+            <Text style={styles.editSnippet} numberOfLines={1}>
+              {editingMessage.content}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.replyCancelBtn}
+            onPress={() => {
+              setText('');
+              onCancelEdit?.();
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.replyCancelText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {/* Quoted Reply Preview Banner (WhatsApp Style) */}
       {replyTo ? (
         <View style={styles.replyBanner}>
@@ -384,7 +436,13 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
           <TextInput
             ref={inputRef}
             style={styles.input}
-            placeholder={stagedMedia ? 'Tambah keterangan...' : 'Ketik pesan...'}
+            placeholder={
+              editingMessage
+                ? 'Edit pesan...'
+                : stagedMedia
+                ? 'Tambah keterangan...'
+                : 'Ketik pesan...'
+            }
             placeholderTextColor={colors.textMuted}
             value={text}
             onChangeText={setText}
@@ -406,7 +464,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <Text style={[styles.sendIcon, styles.sendIconActive]}>
-                  ➤
+                  {editingMessage ? '✓' : '➤'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -499,6 +557,44 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
+  },
+  editBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgCardSolid,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#38bdf8',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  editAccentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: '#38bdf8',
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+  },
+  editInfo: {
+    flex: 1,
+    marginLeft: 6,
+    justifyContent: 'center',
+  },
+  editSender: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#38bdf8',
+    marginBottom: 2,
+  },
+  editSnippet: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   replyBanner: {
     flexDirection: 'row',

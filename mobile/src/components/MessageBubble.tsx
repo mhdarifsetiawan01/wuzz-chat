@@ -245,6 +245,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           ) : null}
 
 
+          {/* Forwarded Message Header */}
+          {message.is_forwarded ? (
+            <View style={styles.forwardedRow}>
+              <Text style={styles.forwardedIcon}>↪</Text>
+              <Text style={styles.forwardedText}>Diteruskan</Text>
+            </View>
+          ) : null}
+
           {/* Deleted Message State */}
           {message.is_deleted ? (
             <View style={styles.deletedRow}>
@@ -348,6 +356,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Bubble Footer: Timestamp & Receipt Checkmarks */}
           <View style={[styles.footerRow, isImage && !hasCaption && !message.is_deleted ? styles.footerOverImage : null]}>
+            {message.is_pinned ? <Text style={styles.pinnedBadgeIcon}>📌</Text> : null}
+            {message.is_edited ? <Text style={styles.editedLabel}>(diedit)</Text> : null}
             {message.is_encrypted ? <Text style={styles.e2eeLockBadge}>🔒</Text> : null}
             <Text style={styles.timeText}>{timeString}</Text>
             {isSelf ? (
@@ -706,6 +716,30 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 10,
     color: 'rgba(255, 255, 255, 0.65)',
+  },
+  forwardedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+    opacity: 0.85,
+  },
+  forwardedIcon: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.65)',
+  },
+  forwardedText: {
+    fontSize: 11,
+    fontStyle: 'italic',
+    color: 'rgba(255, 255, 255, 0.65)',
+  },
+  editedLabel: {
+    fontSize: 10,
+    fontStyle: 'italic',
+    color: 'rgba(255, 255, 255, 0.65)',
+  },
+  pinnedBadgeIcon: {
+    fontSize: 10,
   },
   receiptIcon: {
     fontSize: 11,

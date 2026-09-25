@@ -13,3 +13,5 @@ export * from './CreateSubGroupModal';
 export * from './JoinRequestsModal';
 export * from './GroupPreviewModal';
 export * from './AuthorizationShield';
+export * from './ForwardMessageModal';
+export * from './PinnedMessagesBanner';

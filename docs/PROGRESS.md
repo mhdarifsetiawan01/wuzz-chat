@@ -3090,4 +3090,40 @@ Pada arsitektur *Store-and-Forward* WhatsApp di WuzzChat, berkas media pesan 1-o
 - **Frontend Production Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 - **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (100% lulus).
 
+---
+
+## ✅ Milestone M-Mobile-8.3: Message Management Suite (Mobile) — SELESAI
+
+**Tanggal Selesai:** 26 September 2026 | **Branch:** `dev`
+
+### 1. Ringkasan Fitur & Implementasi Mobile
+Mengimplementasikan kesetaraan fitur pengelolaan pesan (*Message Management Suite*) pada klien React Native Mobile (`mobile/`):
+1. **✏️ Edit Pesan (15-Minute Window)**:
+   - Integrasi `PUT /api/messages/edit` dengan batasan 15 menit dari pengiriman.
+   - Opsi edit di `MessageActionSheet.tsx` (khusus pesan sendiri).
+   - Mode edit inline di `ChatInputBar.tsx` (banner pratinjau, tombol batal `✕` & simpan `✓`, auto-focus).
+   - Listener WebSocket `message_edited` dan lencana `(diedit)` pada `MessageBubble.tsx`.
+2. **↪️ Teruskan Pesan (Forward Message Multi-Target 1–5 Room)**:
+   - Komponen modal `ForwardMessageModal.tsx` dengan pencarian dan multiselect 1–5 room.
+   - Integrasi `POST /api/messages/forward` dengan resolusi E2EE plaintext lokal (`plaintext_content`).
+   - Lencana visual `↪ Diteruskan` pada `MessageBubble.tsx`.
+3. **📌 Pin Chat & Pin Message**:
+   - Pin Chat di `RecentChatsScreen.tsx`: pengurutan prioritas pin di atas dan aksi long-press `pinConversation` / `unpinConversation`.
+   - Indikator pin `📌` pada `ChatListItem.tsx`.
+   - Pin Message di `ChatScreen.tsx`: `pinMessage`, `unpinMessage`, `getPinnedMessages` (unwrapping response envelope).
+   - Komponen `PinnedMessagesBanner.tsx` bertema *Aurora Glassmorphism* dengan carousel multi-pin (hingga 3 pesan), tombol unpin `✕`, dan aksi lompat ke pesan (*jump-to-message*) dengan auto-scroll dan pendaran highlight.
+   - Listener WebSocket real-time `message_pinned` dan `message_unpinned`.
+4. **🔍 In-Chat Text Search**:
+   - Header pencarian teks di `ChatScreen.tsx` dengan debounce input 300ms via `GET /api/messages/search`.
+   - Counter hasil pencarian `(X/Y)` dan navigasi Atas/Bawah (`▲`/`▼`) dengan auto-scroll ke posisi pesan dan highlight glow.
+
+### 2. File Dimodifikasi / Dibuat
+- **Baru**: `mobile/src/components/ForwardMessageModal.tsx`, `mobile/src/components/PinnedMessagesBanner.tsx`.
+- **Dimodifikasi**: `mobile/src/api/types.ts`, `mobile/src/api/messages.ts`, `mobile/src/api/conversations.ts`, `mobile/src/components/MessageActionSheet.tsx`, `mobile/src/components/MessageBubble.tsx`, `mobile/src/components/ChatInputBar.tsx`, `mobile/src/components/ChatListItem.tsx`, `mobile/src/components/index.ts`, `mobile/src/screens/ChatScreen.tsx`, `mobile/src/screens/RecentChatsScreen.tsx`, `docs/MOBILE_INTEGRATION_GUIDE.md`, `docs/PROGRESS.md`.
+
+### 3. Bukti Pengujian Otomatis
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Frontend Production Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (100% lulus).
+
 

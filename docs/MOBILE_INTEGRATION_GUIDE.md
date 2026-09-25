@@ -488,7 +488,7 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - Saat pengguna membuka tautan langsung grup privat (`/chat?room=grp_...` atau deep link mobile `wuzzchat://chat?room=grp_...`) di mana pengguna bukan anggota: API `GET /api/groups/{id}` mengembalikan `HTTP 403 Forbidden`.
   - Klien mobile **DILARANG** memasukkan pengguna ke ruang obrolan kosong, **DILARANG** mengirim frame WebSocket `{ type: "join" }`, dan **DILARANG** memicu timer connection timeout palsu (*"Koneksi Sedang Terhambat"*).
   - Klien mobile **WAJIB** merender layar/modal proteksi otorisasi bertema *Aurora Glassmorphism* ("🔒 Grup Ini Bersifat Privat") yang menginformasikan bahwa pengguna bukan anggota grup, serta menyediakan tombol aksi kembali ke beranda obrolan utama (`router.replace('/chat')`).
-- [ ] **Message Management Suite (Milestone 8.3)**:
+- [x] **Message Management Suite (Milestone 8.3)**:
   - **Edit Pesan**: Mendukung pengeditan pesan dalam window 15 menit via `PUT /api/messages/edit`, memperbarui konten di penyimpanan lokal, dan menampilkan label visual `(diedit)` pada bubble pesan saat menerima event `message_edited`.
   - **Forward Pesan**: Mendukung penerusan pesan ke 1–5 ruang obrolan sekaligus via `POST /api/messages/forward` (sertakan `plaintext_content` hasil dekripsi lokal untuk cross-room E2EE agar penerima tidak mengalami pesan terenkripsi), menampilkan lencana visual `↪ Diteruskan` jika `is_forwarded: true`.
   - **Pin Chat (Sidebar)**: Mendukung penyematan obrolan di bagian atas sidebar via `POST /api/conversations/pin` dan `POST /api/conversations/unpin`, mengurutkan daftar obrolan dengan prioritas chat yang disematkan (`is_pinned == true`).
