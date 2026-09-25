@@ -141,17 +141,40 @@ export const messagesApi = {
    */
   async deleteMessage(
     messageId: string,
-    roomId: string,
+    roomId?: string,
     type: 'for_me' | 'for_everyone' = 'for_everyone'
-  ): Promise<{ status: string }> {
-    return apiClient<{ status: string }>('/api/messages', {
+  ): Promise<{ status?: string; message?: string }> {
+    return apiClient<{ status?: string; message?: string }>('/api/messages', {
       method: 'DELETE',
       body: JSON.stringify({
         message_id: messageId,
-        room_id: roomId,
+        id: messageId,
+        ...(roomId ? { room_id: roomId } : {}),
         type,
         delete_for_everyone: type === 'for_everyone',
       }),
     });
   },
 };
+
+/**
+ * Standalone helper function for deleting messages
+ * Conforms to Milestone M-Mobile-8.7 specifications.
+ */
+export async function deleteMessage(
+  messageId: string,
+  forEveryone: boolean,
+  roomId?: string
+): Promise<void> {
+  const type = forEveryone ? 'for_everyone' : 'for_me';
+  await apiClient<{ status?: string; message?: string }>('/api/messages', {
+    method: 'DELETE',
+    body: JSON.stringify({
+      message_id: messageId,
+      id: messageId,
+      ...(roomId ? { room_id: roomId } : {}),
+      type,
+      delete_for_everyone: forEveryone,
+    }),
+  });
+}

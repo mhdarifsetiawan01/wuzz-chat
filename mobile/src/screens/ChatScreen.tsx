@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as Crypto from 'expo-crypto';
 import { Conversation, ConversationItem, GroupDetails, Message, PinnedMessage } from '../api/types';
 import { getUserPublicKey } from '../api/users';
 import { groupsApi } from '../api/groups';
@@ -562,10 +563,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     // B. Server ACK Listener
     const unsubscribeAck = websocketClient.on('ack', (ack: any) => {
-      if (ack.request_id) {
+      const reqId = ack.request_id || ack.id;
+      if (reqId) {
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id === ack.request_id ? { ...msg, status: 'sent' } : msg
+            msg.id === reqId || (msg as any).request_id === reqId
+              ? { ...msg, status: 'sent', id: ack.id || msg.id }
+              : msg
           )
         );
       }
@@ -576,18 +580,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const targetRoom = receipt.room || receipt.room_id;
       if (targetRoom !== roomId) return;
 
-      const newStatus = receipt.status as 'delivered' | 'read';
-      if (newStatus === 'read' || newStatus === 'delivered') {
-        setMessages((prev) =>
-          prev.map((msg) => {
-            // Update outgoing messages that haven't reached this status yet
+      const newStatus = receipt.status as 'delivered' | 'read' | 'sent';
+      const realMsgId = receipt.id;
+      const reqId = receipt.request_id;
+
+      setMessages((prev) =>
+        prev.map((msg) => {
+          // Reconcile message ID if this is an ACK / receipt of an outgoing message
+          if (reqId && (msg.id === reqId || (msg as any).request_id === reqId)) {
+            return {
+              ...msg,
+              id: realMsgId || msg.id,
+              status: newStatus || 'sent',
+            };
+          }
+          // Update outgoing messages that haven't reached this status yet
+          if (newStatus === 'read' || newStatus === 'delivered') {
             if (msg.sender_id === currentUserId || msg.status === 'sent') {
               return { ...msg, status: newStatus };
             }
-            return msg;
-          })
-        );
-      }
+          }
+          return msg;
+        })
+      );
     });
 
     // D. Reaction Listener
@@ -604,22 +619,33 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
     });
 
-    // E. Message Deleted Listener
-    const unsubscribeDeleted = websocketClient.on('message_deleted', (data: any) => {
+    // E. Message Deleted Listener (Supports both message_deleted & delete_message events)
+    const handleWsMessageDeleted = (data: any) => {
       const targetRoom = data.room || data.room_id;
       if (targetRoom && targetRoom !== roomId) return;
 
       const targetId = data.id || data.message_id;
-      if (targetId) {
+      if (!targetId) return;
+
+      const deleteType = data.delete_type || data.type || (data.is_deleted ? 'for_everyone' : 'for_everyone');
+      const isForMe = deleteType === 'for_me' || data.delete_for_me === true;
+
+      if (isForMe) {
+        setMessages((prev) => prev.filter((m) => m.id !== targetId));
+      } else {
+        const placeholder = data.content || '🚫 Pesan ini telah dihapus';
         setMessages((prev) =>
           prev.map((m) =>
             m.id === targetId
-              ? { ...m, is_deleted: true, content: 'Pesan ini telah dihapus' }
+              ? { ...m, is_deleted: true, content: placeholder }
               : m
           )
         );
       }
-    });
+    };
+
+    const unsubscribeDeleted = websocketClient.on('message_deleted', handleWsMessageDeleted);
+    const unsubscribeDeleteMsg = websocketClient.on('delete_message', handleWsMessageDeleted);
 
     // F. Message Edited Listener
     const unsubscribeEdited = websocketClient.on('message_edited', (data: any) => {
@@ -692,6 +718,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       unsubscribeReceipt();
       unsubscribeReaction();
       unsubscribeDeleted();
+      unsubscribeDeleteMsg();
       unsubscribeEdited();
       unsubscribePinned();
       unsubscribeUnpinned();
@@ -798,7 +825,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const trimmedText = text.trim();
       if (!trimmedText && !media) return;
 
-      const tempId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const msgId = Crypto.randomUUID();
       const nowIso = new Date().toISOString();
 
       let uploadedMediaUrl: string | undefined;
@@ -820,7 +847,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           uploadedFileSize = uploadRes.file_size;
 
           // DEC-034: Persist local copy of uploaded media to cache so sender never loses it
-          mediaCache.saveLocalFileToCache(media.uri, tempId, uploadedMediaUrl, uploadedFileName).catch((cacheErr) => {
+          mediaCache.saveLocalFileToCache(media.uri, msgId, uploadedMediaUrl, uploadedFileName).catch((cacheErr) => {
             console.warn('[ChatScreen] Failed to cache sent media:', cacheErr);
           });
         } catch (err: any) {
@@ -866,7 +893,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       // C. Render optimistic di timeline
       const optimisticMsg: Message = {
-        id: tempId,
+        id: msgId,
         room_id: roomId,
         sender_id: currentUserId,
         content: trimmedText,
@@ -901,13 +928,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const sent = websocketClient.sendMessage(
         roomId,
         payloadToSend,
-        tempId,
+        msgId,
         mediaOptions,
-        replyPayload
+        replyPayload,
+        msgId
       );
       if (!sent) {
         setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
+          prev.map((m) => (m.id === msgId ? { ...m, status: 'failed' } : m))
         );
       }
     },
@@ -917,9 +945,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // 4b. Handle Send Audio Voice Note (WhatsApp Store-and-Forward + Optimistic UI)
   const handleSendAudio = useCallback(
     async (uri: string, durationSeconds: number, fileSize?: number) => {
-      if (!uri) return;
-
-      const tempId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+         const msgId = Crypto.randomUUID();
       const nowIso = new Date().toISOString();
       const fileName = `voice_note_${Date.now()}.m4a`;
 
@@ -940,7 +966,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       // A. Render optimistic audio bubble in timeline immediately (0ms)
       const optimisticMsg: Message = {
-        id: tempId,
+        id: msgId,
         room_id: roomId,
         sender_id: currentUserId,
         content: '',
@@ -966,7 +992,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         const uploadRes = await mediaApi.uploadMedia(uri, fileName, 'audio/m4a');
 
         // DEC-034: Persist local copy of sent voice note to cache
-        mediaCache.saveLocalFileToCache(uri, tempId, uploadRes.url, uploadRes.file_name).catch((cacheErr) => {
+        mediaCache.saveLocalFileToCache(uri, msgId, uploadRes.url, uploadRes.file_name).catch((cacheErr) => {
           console.warn('[ChatScreen] Failed to cache sent voice note:', cacheErr);
         });
 
@@ -981,15 +1007,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         const sent = websocketClient.sendMessage(
           roomId,
           '',
-          tempId,
+          msgId,
           mediaOptions,
-          replyPayload
+          replyPayload,
+          msgId
         );
 
         if (sent) {
           setMessages((prev) =>
             prev.map((m) =>
-              m.id === tempId
+              m.id === msgId
                 ? {
                     ...m,
                     media_url: uploadRes.url,
@@ -1002,13 +1029,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           );
         } else {
           setMessages((prev) =>
-            prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
+            prev.map((m) => (m.id === msgId ? { ...m, status: 'failed' } : m))
           );
         }
       } catch (err: any) {
         console.error('[ChatScreen] Audio upload failed:', err);
         setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
+          prev.map((m) => (m.id === msgId ? { ...m, status: 'failed' } : m))
         );
         Alert.alert(
           'Gagal Mengunggah Pesan Suara',
@@ -1027,28 +1054,42 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     [roomId]
   );
 
-  // 6. Handle Delete Message (Delete for me vs Delete for everyone)
+  // 6. Handle Delete Message with Optimistic UI Update (Delete for me vs Delete for everyone)
   const handleDeleteMessage = useCallback(
     async (messageId: string, type: 'for_me' | 'for_everyone') => {
+      // Snapshot current messages for rollback on network failure
+      const previousMessages = messages;
+
+      // Optimistic state mutation
+      if (type === 'for_everyone') {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId
+              ? { ...m, is_deleted: true, content: '🚫 Pesan ini telah dihapus' }
+              : m
+          )
+        );
+      } else {
+        setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      }
+
+      if (replyingTo?.id === messageId) {
+        setReplyingTo(null);
+      }
+      if (editingMessage?.id === messageId) {
+        setEditingMessage(null);
+      }
+
       try {
         await messagesApi.deleteMessage(messageId, roomId, type);
-        if (type === 'for_everyone') {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === messageId
-                ? { ...m, is_deleted: true, content: 'Pesan ini telah dihapus' }
-                : m
-            )
-          );
-        } else {
-          setMessages((prev) => prev.filter((m) => m.id !== messageId));
-        }
       } catch (err: any) {
-        console.warn('[ChatScreen] Delete message failed:', err);
+        console.warn('[ChatScreen] Delete message failed, rolling back:', err);
+        // Rollback state on error
+        setMessages(previousMessages);
         Alert.alert('Gagal Menghapus', err.detail || err.message || 'Tidak dapat menghapus pesan.');
       }
     },
-    [roomId]
+    [roomId, messages, replyingTo?.id, editingMessage?.id]
   );
 
   // 7. Handle Press Quote (Scroll to target message with highlight pulse)
@@ -1612,6 +1653,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               actionSheetMessage.from === currentUserId ||
               (Boolean(user?.username) && actionSheetMessage.from === user?.username))
         )}
+        currentUserId={currentUserId}
         onClose={() => setActionSheetMessage(null)}
         onReact={handleReact}
         onReply={(msg) => setReplyingTo(msg)}

@@ -76,22 +76,31 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     };
   }, [message.media_url, message.id, message.file_name]);
 
+  const isDeleted = Boolean(
+    message.is_deleted ||
+      message.content === '🚫 Pesan ini telah dihapus' ||
+      (typeof message.content === 'string' && message.content.startsWith('🚫 Pesan ini telah dihapus'))
+  );
+
   // PanResponder for smooth Swipe-to-Reply
   const panX = useRef(new Animated.Value(0)).current;
 
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (isDeleted) return false;
         // Only capture horizontal swipes to the right
         return gestureState.dx > 15 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy * 1.5);
       },
       onPanResponderMove: (_, gestureState) => {
+        if (isDeleted) return;
         if (gestureState.dx > 0) {
           const clamped = Math.min(gestureState.dx, 75);
           panX.setValue(clamped);
         }
       },
       onPanResponderRelease: (_, gestureState) => {
+        if (isDeleted) return;
         if (gestureState.dx >= 50) {
           onReply?.(message);
         }
@@ -223,7 +232,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {...panResponder.panHandlers}
       >
         <Pressable
-          onLongPress={() => onLongPress?.(message)}
+          onLongPress={() => {
+            if (!isDeleted) {
+              onLongPress?.(message);
+            }
+          }}
           delayLongPress={280}
           style={[
             styles.bubble,
@@ -231,9 +244,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             isImage ? styles.imageBubblePadding : null,
             isAudio ? styles.audioBubblePadding : null,
             isHighlighted ? styles.highlightedBubble : null,
+            isDeleted ? styles.deletedBubble : null,
           ]}
         >
-          {showSenderName && !isSelf && senderName ? (
+          {showSenderName && !isSelf && senderName && !isDeleted ? (
             <Text
               style={[
                 styles.senderName,
@@ -244,9 +258,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </Text>
           ) : null}
 
-
           {/* Forwarded Message Header */}
-          {message.is_forwarded ? (
+          {message.is_forwarded && !isDeleted ? (
             <View style={styles.forwardedRow}>
               <Text style={styles.forwardedIcon}>↪</Text>
               <Text style={styles.forwardedText}>Diteruskan</Text>
@@ -254,7 +267,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           ) : null}
 
           {/* Deleted Message State */}
-          {message.is_deleted ? (
+          {isDeleted ? (
             <View style={styles.deletedRow}>
               <Text style={styles.deletedIcon}>🚫</Text>
               <Text style={styles.deletedText}>Pesan ini telah dihapus</Text>
@@ -355,12 +368,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
 
           {/* Bubble Footer: Timestamp & Receipt Checkmarks */}
-          <View style={[styles.footerRow, isImage && !hasCaption && !message.is_deleted ? styles.footerOverImage : null]}>
-            {message.is_pinned ? <Text style={styles.pinnedBadgeIcon}>📌</Text> : null}
-            {message.is_edited ? <Text style={styles.editedLabel}>(diedit)</Text> : null}
-            {message.is_encrypted ? <Text style={styles.e2eeLockBadge}>🔒</Text> : null}
-            <Text style={styles.timeText}>{timeString}</Text>
-            {isSelf ? (
+          <View style={[styles.footerRow, isImage && !hasCaption && !isDeleted ? styles.footerOverImage : null]}>
+            {message.is_pinned && !isDeleted ? <Text style={styles.pinnedBadgeIcon}>📌</Text> : null}
+            {message.is_edited && !isDeleted ? <Text style={styles.editedLabel}>(diedit)</Text> : null}
+            {message.is_encrypted && !isDeleted ? <Text style={styles.e2eeLockBadge}>🔒</Text> : null}
+            <Text style={[styles.timeText, isDeleted && styles.timeTextDeleted]}>{timeString}</Text>
+            {isSelf && !isDeleted ? (
               <Text
                 style={[
                   styles.receiptIcon,
@@ -378,7 +391,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </Pressable>
 
         {/* Reaction Pills Row */}
-        {message.reactions && message.reactions.length > 0 && !message.is_deleted ? (
+        {message.reactions && message.reactions.length > 0 && !isDeleted ? (
           <View style={[styles.reactionsRow, isSelf ? styles.selfReactions : styles.otherReactions]}>
             {message.reactions.map((r, i) => {
               const hasUserReacted = currentUserId && r.users?.includes(currentUserId);
@@ -518,6 +531,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 16,
   },
+  deletedBubble: {
+    backgroundColor: 'rgba(30, 41, 59, 0.45)',
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
   deletedRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -532,6 +550,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
     color: colors.textMuted,
+  },
+  timeTextDeleted: {
+    color: colors.textMuted,
+    opacity: 0.7,
   },
   reactionsRow: {
     flexDirection: 'row',

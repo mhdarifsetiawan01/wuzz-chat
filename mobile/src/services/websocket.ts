@@ -234,13 +234,17 @@ class WebSocketClient {
     content: string,
     requestId?: string,
     media?: SendMediaOptions,
-    replyTo?: SendReplyOptions
+    replyTo?: SendReplyOptions,
+    messageId?: string
   ): boolean {
+    const reqId = requestId || messageId || `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const msgId = messageId || requestId;
     const payload: Record<string, any> = {
       type: 'message',
       room: roomId,
       content,
-      request_id: requestId || `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      request_id: reqId,
+      ...(msgId ? { id: msgId } : {}),
     };
 
     if (media?.media_url) {

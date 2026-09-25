@@ -1,34 +1,19 @@
-# Implementation Progress — Milestone M-Mobile-8.5
+# Implementation Progress — Milestone M-Mobile-8.7
 
-- [x] Task 1: API & Type updates (`mobile/src/api/types.ts` & `mobile/src/api/users.ts`)
-  - [x] Add `last_seen?: string` to `User` interface.
-  - [x] Add `getUserProfile(userId: string): Promise<User>` with 15s timeout `AbortController`.
-- [x] Task 2: E2EE Safety Number Service (`mobile/src/services/e2eeService.ts`)
-  - [x] Implement `generateSafetyNumber(pubKeyJWKA, pubKeyJWKB): Promise<string>`.
-  - [x] Implement `getOrFetchPeerPublicKey(userId: string): Promise<string | null>`.
-  - [x] Implement `setContactSafetyVerified` & `isContactSafetyVerified` via `secureStorage`.
-  - [x] Export in `mobile/src/services/index.ts`.
-- [x] Task 3: QR Code Generator & Visualizer (`mobile/src/services/qrCodeService.ts` & `mobile/src/components/QRCodeView.tsx`)
-  - [x] Pure TS QR Matrix algorithm with Reed-Solomon error correction.
-  - [x] Component `QRCodeView.tsx` rendering high-contrast native `<View>` pixel grid.
-- [x] Task 4: Verified Account Badge Component (`mobile/src/components/VerifiedBadge.tsx`)
-  - [x] Electric cyan & azure rounded badge with crisp checkmark `✓`.
-  - [x] Export in `mobile/src/components/index.ts`.
-- [x] Task 5: Safety Number Verification Modal (`mobile/src/components/SafetyNumberModal.tsx`)
-  - [x] 30-digit key fingerprint organized in 2-column monospace grid.
-  - [x] Embedded QR Code display for direct peer scanning.
-  - [x] "Salin Nomor Keamanan" via `expo-clipboard` with feedback.
-  - [x] "Tandai Terverifikasi" toggle button saving to `secureStorage`.
-- [x] Task 6: Contact Profile & Info Screen / Modal (`mobile/src/components/ContactInfoModal.tsx`)
-  - [x] Aurora Glassmorphism modal layout with back/close button.
-  - [x] Big Avatar, display name, VerifiedBadge, @username, online status/last seen.
-  - [x] Quick Action Buttons: Voice Call, Share Contact, Mute Notifications.
-  - [x] Bio card & join date.
-  - [x] E2EE Security Card with verification status badge and "Pindai / Cocokkan Kode" trigger.
-- [x] Task 7: Integration with `ChatScreen.tsx` & `ChatListItem.tsx`
-  - [x] Enable header tap on 1-on-1 direct chats to open `ContactInfoModal`.
-  - [x] Render `VerifiedBadge` in chat header and conversation list items.
-- [x] Task 8: Verification & Automated Quality Gate
-  - [x] Run `npx tsc --noEmit` in `mobile/` (PASSED, 0 errors).
-  - [x] Run `go test -v ./...` in `backend/` (PASSED, 100%).
-  - [x] Run `npm run build` in `frontend/` (PASSED, 0 errors).
+- [x] Task 1: API Client Helper (`mobile/src/api/messages.ts`)
+  - [x] Implementasikan `deleteMessage(messageId: string, forEveryone: boolean, roomId?: string): Promise<void>`
+  - [x] Pastikan payload memuat `message_id`, `id`, `delete_for_everyone`, `type: "for_everyone" | "for_me"`
+- [x] Task 2: Confirmation Dialog WhatsApp-Style (`mobile/src/components/MessageActionSheet.tsx`)
+  - [x] Cek `isSelf` berdasarkan `message.from === currentUserId || isSelf` (UUID-First Identity)
+  - [x] Tambahkan countdown timer 60s untuk "Hapus untuk Semua Orang" dengan badge dinamis
+  - [x] Tampilkan opsi kondisional (hanya "Hapus untuk Saya" jika pesan orang lain)
+- [x] Task 3: MessageBubble Placeholder & Interaction Guard (`mobile/src/components/MessageBubble.tsx`)
+  - [x] Deteksi `isDeleted` dari flag `is_deleted` dan placeholder `🚫 Pesan ini telah dihapus`
+  - [x] Nonaktifkan swipe-to-reply dan onLongPress jika `isDeleted`
+  - [x] Sembunyikan checklist delivery receipt dan tampilkan teks miring abu-abu dengan icon `🚫`
+- [x] Task 4: WebSocket Handling & Optimistic State (`mobile/src/screens/ChatScreen.tsx`)
+  - [x] Optimistic update seketika di `handleDeleteMessage` dengan rollback jika terjadi kegagalan jaringan
+  - [x] Sinkronisasi event WebSocket `message_deleted` & `delete_message`
+- [x] Task 5: Automated Verification & Quality Gate
+  - [x] Jalankan `npx tsc --noEmit` di `mobile/` (Lolos 0 error)
+  - [x] Jalankan `go test ./...` di `backend/` (Lolos 100%)

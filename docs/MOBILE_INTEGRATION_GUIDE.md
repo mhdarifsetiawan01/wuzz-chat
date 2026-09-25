@@ -441,7 +441,7 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
 - [x] Safety Number 30-digit cocok dengan tampilan Web.
 - [x] Verified Account & Custom Avatar UI: Render avatar lawan bicara (`peer_avatar_url`) dan tampilkan lencana centang biru terverifikasi di samping nama kontak jika `peer_is_verified` bernilai `true` (dari respons `GET /api/conversations` atau `GET /api/users/profile`).
 - [ ] In-App Live Camera QR Scanner (Planning): Implementasi pemindai kamera langsung via `expo-camera` (`CameraView`) / MLKit Barcode Scanner untuk pemindaian instan Safety Number & Device Transfer QR.
-- [ ] **Hapus Pesan (*For Me* dan *For Everyone*)** berjalan real-time:
+- [x] **Hapus Pesan (*For Me* dan *For Everyone*)** berjalan real-time:
   - Untuk *Delete for Everyone*, kirim payload **dua field sekaligus** ke `DELETE /api/messages` atau `POST /api/messages/delete`:
     ```json
     {

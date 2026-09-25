@@ -3183,5 +3183,40 @@ Mengembangkan profil kontak, lencana identitas terverifikasi (*centang biru rose
 - **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (100% lulus).
 - **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 
+## ✅ Milestone M-Mobile-8.7: Real-time Message Deletion ("Hapus untuk Semua Orang" & "Hapus untuk Saya") — SELESAI
+
+**Tanggal Selesai:** 26 September 2026 | **Branch:** `dev`
+
+### 1. Ringkasan Fitur & Implementasi Mobile
+Mengembangkan sistem penghapusan pesan real-time berkelas WhatsApp pada WuzzChat Mobile yang mendukung penarikan pesan untuk semua orang (*Delete for Everyone*) dan penghapusan salinan lokal (*Delete for Me*):
+1. **🗑️ WhatsApp-Style Contextual Delete Modal (`mobile/src/components/MessageActionSheet.tsx`)**:
+   - Menerapkan aturan *UUID-First Identity* (`message.from === currentUserId || isSelf`).
+   - Penarikan pesan untuk semua orang (*Delete for Everyone*) dibatasi 60 detik (*1 menit*) sejak pengiriman dengan indikator countdown badge dinamis.
+   - Pilihan kondisional: pengirim asli mendapatkan opsi "Hapus untuk Semua Orang" dan "Hapus untuk Saya", sedangkan penerima hanya mendapatkan opsi "Hapus untuk Saya".
+2. **🔌 API Client Helper (`mobile/src/api/messages.ts`)**:
+   - Menambahkan helper `deleteMessage(messageId, forEveryone, roomId)` dengan payload dual-key kompatibel backend Go (`message_id`, `id`, `delete_for_everyone`, `type: "for_everyone" | "for_me"`).
+   - Memanfaatkan timeout 15 detik `AbortController` pada `apiClient`.
+3. **🎨 Styling & Interaction Guard (`mobile/src/components/MessageBubble.tsx`)**:
+   - Isolasi status `isDeleted` dari flag pesan dan string placeholder `🚫 Pesan ini telah dihapus`.
+   - Menonaktifkan gesture swipe-to-reply pada `PanResponder`, mengabaikan *onLongPress*, serta menyembunyikan status receipt checklist, reaksi emoji, dan media preview.
+   - Merender teks miring abu-abu (*italic*) dengan ikon `🚫`.
+4. **⚡ WebSocket Real-time Timeline Update & Instant UUIDv4 ID Consistency (`mobile/src/screens/ChatScreen.tsx` & `websocket.ts`)**:
+   - **Optimistic UI Update**: Mutasi linimasa lokal instan (0ms) dengan auto-rollback saat terjadi kegagalan jaringan.
+   - **Dual WS Event Dispatch**: Menangani event incoming `message_deleted` dan `delete_message` dari server.
+   - **Deterministic UUIDv4 Instant Consistency**: Mengganti prefix sementara `req_...` dengan `Crypto.randomUUID()` pada pengiriman pesan teks & audio, serta rekonsiliasi ID pada event `ack` & `receipt` sehingga mengeliminasi error 404 "pesan tidak ditemukan".
+
+### 2. File Dimodifikasi
+- `mobile/src/api/messages.ts`
+- `mobile/src/components/MessageActionSheet.tsx`
+- `mobile/src/components/MessageBubble.tsx`
+- `mobile/src/screens/ChatScreen.tsx`
+- `mobile/src/services/websocket.ts`
+- `docs/MOBILE_INTEGRATION_GUIDE.md`
+- `docs/PROGRESS.md`
+
+### 3. Bukti Pengujian Otomatis
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (100% lulus).
+
 
 

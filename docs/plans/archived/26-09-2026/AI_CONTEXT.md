@@ -1,13 +1,17 @@
-# Active AI Context
+# AI Context — Milestone M-Mobile-8.7
 
-**Status**: Planning Phase (Awaiting User Approval)
-**Milestone**: Milestone M-Mobile-8.5: Contact Profile, Verified Identity & E2EE Safety Number Verification (30-Digit Key Fingerprint)
-**Target Directory**: `mobile/`
-**Active Branch**: `dev` (Strict Dev-Only Work, No `main` branch usage)
-**Protocol Compliance**:
-- Implementation Protocol & Workspace Lifecycle (`docs/plans/active/`)
-- Token Efficiency & Optimization Guard
-- Frontend UI Engineering & Token Compliance (Aurora Glassmorphism)
-- Dual-Platform Frontend Architecture Rule (Mobile & Desktop)
-- Slow & Flaky Server Resilience Rule (AbortController 15s, anti-double-action)
-- Server Lifecycle Rule (Kill ports upon completion of quick tests)
+- **Milestone**: M-Mobile-8.7 (Real-time Message Deletion: "Hapus untuk Semua Orang" & "Hapus untuk Saya")
+- **Active Branch**: `dev`
+- **Target Directories**:
+  - `mobile/src/api/` (API client & helpers)
+  - `mobile/src/components/` (`MessageActionSheet.tsx`, `MessageBubble.tsx`)
+  - `mobile/src/screens/` (`ChatScreen.tsx`)
+- **Key Reference Implementations**:
+  - `docs/MOBILE_INTEGRATION_GUIDE.md` (Bagian 7: Checklist & UUID-First Identity)
+  - `docs/BACKEND_API.md` (`DELETE /api/messages`, `POST /api/messages/delete`, `message_deleted` WS event)
+  - `frontend/app/chat/page.tsx` & `frontend/app/chat/MessageBubble.tsx` (WhatsApp-style delete UX, countdown, optimistic update, placeholder `🚫 Pesan ini telah dihapus`)
+- **Constraints**:
+  - Strict Dev-Only Branch (`dev`), dilarang bekerja di `main`.
+  - Slow & Flaky Server Resilience: AbortController 15s timeout, optimistic local state update.
+  - UUID-First Identity Rule: Pemilik pesan diidentifikasi via `message.from === currentUser.id`.
+  - Anti-Magic Numbers & Token Compliance (`colors.ts`, `spacing.ts`, aurora theme).
