@@ -242,6 +242,22 @@ func (s *SQLGroupStore) GetGroupDetails(conversationID, currentUserID string) (*
 		return nil, err
 	}
 
+	// Strict Tenant Isolation Gate: Pemanggil (jika user ada) WAJIB berasal dari tenant yang sama dengan grup
+	if currentUserID != "" {
+		var callerTenantID string
+		var userQuery string
+		if s.driverName == "postgres" {
+			userQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`
+		} else {
+			userQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`
+		}
+		if err := s.db.QueryRowContext(ctx, userQuery, currentUserID).Scan(&callerTenantID); err == nil {
+			if g.TenantID != callerTenantID {
+				return nil, ErrGroupNotFound
+			}
+		}
+	}
+
 	// Strict Parent-Membership Gate: Jika ini subgrup, pemanggil WAJIB anggota aktif grup induk
 	if g.ParentID != "" {
 		isParentMember, err := s.IsParentMember(g.ParentID, currentUserID)
@@ -347,16 +363,17 @@ func (s *SQLGroupStore) JoinPublicGroup(conversationID, userID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// 1. Pastikan grup ada dan bersifat publik
+	// 1. Pastikan grup ada dan bersifat publik, sekaligus ambil tenant_id grup
 	var isPublic bool
+	var groupTenantID string
 	var checkQuery string
 	if s.driverName == "postgres" {
-		checkQuery = `SELECT is_public FROM conversations WHERE id = $1 AND type = 'group'`
+		checkQuery = `SELECT is_public, COALESCE(tenant_id, 'default') FROM conversations WHERE id = $1 AND type = 'group'`
 	} else {
-		checkQuery = `SELECT is_public FROM conversations WHERE id = ? AND type = 'group'`
+		checkQuery = `SELECT is_public, COALESCE(tenant_id, 'default') FROM conversations WHERE id = ? AND type = 'group'`
 	}
 
-	err := s.db.QueryRowContext(ctx, checkQuery, conversationID).Scan(&isPublic)
+	err := s.db.QueryRowContext(ctx, checkQuery, conversationID).Scan(&isPublic, &groupTenantID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrGroupNotFound
 	}
@@ -365,6 +382,24 @@ func (s *SQLGroupStore) JoinPublicGroup(conversationID, userID string) error {
 	}
 	if !isPublic {
 		return ErrNotPublicGroup
+	}
+
+	// 1b. Strict Tenant Gate: Pastikan user berasal dari tenant yang sama dengan grup publik
+	var userTenantID string
+	var userQuery string
+	if s.driverName == "postgres" {
+		userQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`
+	} else {
+		userQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`
+	}
+	if err := s.db.QueryRowContext(ctx, userQuery, userID).Scan(&userTenantID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrUserNotFound
+		}
+		return err
+	}
+	if groupTenantID != userTenantID {
+		return ErrGroupNotFound // jangan bocorkan grup milik tenant lain
 	}
 
 	// 2. Periksa apakah sudah menjadi anggota
@@ -408,19 +443,34 @@ func (s *SQLGroupStore) AddGroupMembers(conversationID, actorUserID string, user
 		return ErrUnauthorizedGroup
 	}
 
+	// Ambil tenant_id grup untuk mencegah injeksi anggota dari tenant lain
+	var groupTenantID string
+	var convQuery string
+	if s.driverName == "postgres" {
+		convQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = $1`
+	} else {
+		convQuery = `SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = ?`
+	}
+	if err := s.db.QueryRowContext(ctx, convQuery, conversationID).Scan(&groupTenantID); err != nil {
+		return ErrGroupNotFound
+	}
+
 	now := time.Now().UTC()
 	var insertQuery string
+	var userTenantQuery string
 	if s.driverName == "postgres" {
 		insertQuery = `
 			INSERT INTO conversation_members (conversation_id, user_id, role, joined_at)
 			VALUES ($1, $2, 'member', $3)
 			ON CONFLICT (conversation_id, user_id) DO NOTHING
 		`
+		userTenantQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`
 	} else {
 		insertQuery = `
 			INSERT OR IGNORE INTO conversation_members (conversation_id, user_id, role, joined_at)
 			VALUES (?, ?, 'member', ?)
 		`
+		userTenantQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`
 	}
 
 	for _, uID := range userIDs {
@@ -428,6 +478,16 @@ func (s *SQLGroupStore) AddGroupMembers(conversationID, actorUserID string, user
 		if uID == "" {
 			continue
 		}
+
+		// Validasi tenant anggota
+		var memberTenantID string
+		if err := s.db.QueryRowContext(ctx, userTenantQuery, uID).Scan(&memberTenantID); err != nil {
+			continue // user tidak ditemukan
+		}
+		if memberTenantID != groupTenantID {
+			continue // abaikan user lintas tenant untuk mencegah cross-tenant data leakage
+		}
+
 		_, _ = s.db.ExecContext(ctx, insertQuery, conversationID, uID, now)
 	}
 

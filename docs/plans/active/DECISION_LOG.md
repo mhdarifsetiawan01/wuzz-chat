@@ -1,4 +1,4 @@
 # Decision Log — Standby
 
 - **Status**: Standby
-- **Milestone 6 Decisions Archived**: See `docs/plans/archived/25-09-2026/DECISION_LOG.md`
+- **Previous Decisions**: Logged in `docs/plans/archived/25-09-2026-b2b-blockers-patch/DECISION_LOG.md`

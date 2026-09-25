@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	"github.com/google/uuid"
 )
 
@@ -45,7 +46,16 @@ func (s *SupabaseStorage) Upload(ctx context.Context, file io.Reader, filename s
 	}
 
 	uniqueName := fmt.Sprintf("%s%s", uuid.New().String(), ext)
-	uploadURL := fmt.Sprintf("%s/storage/v1/object/%s/%s", s.supabaseURL, s.bucket, uniqueName)
+
+	// Cek apakah ada tenant non-default
+	var objectKey string
+	if t, ok := tenantshared.FromContext(ctx); ok && t.TenantID() != "" && t.TenantID() != "default" {
+		objectKey = fmt.Sprintf("%s/%s", t.TenantID(), uniqueName)
+	} else {
+		objectKey = uniqueName
+	}
+
+	uploadURL := fmt.Sprintf("%s/storage/v1/object/%s/%s", s.supabaseURL, s.bucket, objectKey)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadURL, file)
 	if err != nil {
@@ -72,19 +82,25 @@ func (s *SupabaseStorage) Upload(ctx context.Context, file io.Reader, filename s
 	}
 
 	// Bentuk Public CDN URL standar Supabase Storage
-	publicURL := fmt.Sprintf("%s/storage/v1/object/public/%s/%s", s.supabaseURL, s.bucket, uniqueName)
+	publicURL := fmt.Sprintf("%s/storage/v1/object/public/%s/%s", s.supabaseURL, s.bucket, objectKey)
 	return publicURL, nil
 }
 
 // Delete menghapus file dari Supabase bucket.
 func (s *SupabaseStorage) Delete(ctx context.Context, fileKey string) error {
-	safeFilename := filepath.Base(fileKey)
-	if idx := strings.Index(safeFilename, "?"); idx != -1 {
-		safeFilename = safeFilename[:idx]
+	prefix := fmt.Sprintf("/storage/v1/object/public/%s/", s.bucket)
+	var key string
+	if idx := strings.Index(fileKey, prefix); idx != -1 {
+		key = fileKey[idx+len(prefix):]
+	} else {
+		key = filepath.Base(fileKey)
+	}
+	if idx := strings.Index(key, "?"); idx != -1 {
+		key = key[:idx]
 	}
 
 	// 1. Coba endpoint delete file langsung: DELETE /storage/v1/object/{bucket}/{filename}
-	deleteURL := fmt.Sprintf("%s/storage/v1/object/%s/%s", s.supabaseURL, s.bucket, safeFilename)
+	deleteURL := fmt.Sprintf("%s/storage/v1/object/%s/%s", s.supabaseURL, s.bucket, key)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, deleteURL, nil)
 	if err == nil {
@@ -102,7 +118,7 @@ func (s *SupabaseStorage) Delete(ctx context.Context, fileKey string) error {
 
 	// 2. Fallback ke endpoint bulk delete resmi Supabase: DELETE /storage/v1/object/{bucket} dengan body {"prefixes": ["filename"]}
 	bulkURL := fmt.Sprintf("%s/storage/v1/object/%s", s.supabaseURL, s.bucket)
-	bodyData := fmt.Sprintf(`{"prefixes":["%s"]}`, safeFilename)
+	bodyData := fmt.Sprintf(`{"prefixes":["%s"]}`, key)
 	bulkReq, errBulk := http.NewRequestWithContext(ctx, http.MethodDelete, bulkURL, strings.NewReader(bodyData))
 	if errBulk != nil {
 		return fmt.Errorf("gagal membuat request bulk delete supabase: %w", errBulk)

@@ -154,6 +154,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// Tabel Push Subscriptions (Multi-Platform: Web, Android, iOS)
 		`CREATE TABLE IF NOT EXISTS push_subscriptions (
 			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
 			user_id VARCHAR(64) NOT NULL,
 			platform VARCHAR(32) NOT NULL DEFAULT 'web',
 			endpoint TEXT NOT NULL,
@@ -162,6 +163,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 			created_at TIMESTAMP NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_push_subs_user_id ON push_subscriptions(user_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_push_subs_tenant_user ON push_subscriptions(tenant_id, user_id);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subs_endpoint ON push_subscriptions(endpoint);`,
 		// Tabel Device Transfer Sessions (E2EE Key Transfer via QR Code / One-Time Token)
 		`CREATE TABLE IF NOT EXISTS device_transfer_sessions (
@@ -485,6 +487,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// Auto-migration Milestone 3: External Provisioning (PostgreSQL)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS external_user_id VARCHAR(128) DEFAULT '';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_tenant_ext ON users(tenant_id, external_user_id);`)
+		_, _ = s.db.Exec(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_push_subs_tenant_user ON push_subscriptions(tenant_id, user_id);`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -547,6 +551,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// Auto-migration Milestone 3: External Provisioning (SQLite)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN external_user_id VARCHAR(128) DEFAULT '';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_tenant_ext ON users(tenant_id, external_user_id);`)
+		_, _ = s.db.Exec(`ALTER TABLE push_subscriptions ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_push_subs_tenant_user ON push_subscriptions(tenant_id, user_id);`)
 	}
 
 	// Auto-seeder tenant default (Milestone 1)

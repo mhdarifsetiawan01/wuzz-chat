@@ -89,8 +89,14 @@ func (h *NotificationHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 		platform = "web"
 	}
 
+	tenantID := "default"
+	if claims.TenantID != "" {
+		tenantID = claims.TenantID
+	}
+
 	sub := &store.PushSubscription{
 		ID:        uuid.New().String(),
+		TenantID:  tenantID,
 		UserID:    claims.UserID,
 		Platform:  platform,
 		Endpoint:  endpoint,

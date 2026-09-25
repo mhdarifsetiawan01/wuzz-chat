@@ -2775,6 +2775,44 @@ Menyediakan spesifikasi kontrak mesin terstandarisasi, panduan integrasi headles
 - **Full Backend Test Suite (`go test ./...`)**: **PASS 100%** di seluruh package backend.
 - **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 lint/typecheck error, 8/8 static routes).
 
+---
+
+## 🛡️ Opsi A: Quick-Patch 4 Blocker Isolasi Multi-Tenant B2B & Transisi Mobile (25 September 2026) — SELESAI ✅
+
+### 1. Deskripsi Pekerjaan
+Menutup tuntas 4 celah teknis isolasi data multi-tenant di backend Go agar platform siap 100% untuk B2B, membekukan roadmap engine di Milestone 6, dan menyiapkan landasan untuk pengembangan klien mobile resmi (React Native):
+1. **Blocker 1 (Group Isolation & Member Injection)**:
+   - `backend/internal/store/sql_group_store.go`:
+     - `GetGroupDetails`: Menolak akses jika grup bukan milik tenant pemanggil.
+     - `JoinPublicGroup`: Memverifikasi tenant pengguna sesuai dengan tenant grup publik.
+     - `AddGroupMembers`: Memverifikasi setiap anggota baru agar tidak ada injeksi user lintas tenant ke dalam grup.
+2. **Blocker 2 (User ID Profile Lookup Isolation)**:
+   - `backend/internal/authz/infra/sql_repository.go` & `backend/internal/api/chat_handler.go`:
+     - Menolak akses `GET /api/users/{id}` jika pengguna yang dicari bukan milik tenant yang sama dengan pemanggil.
+3. **Blocker 3 (Media Storage Directory Partitioning)**:
+   - `backend/internal/storage/local_storage.go`:
+     - Berkas tenant non-default disimpan di sub-direktori `./uploads/{tenant_id}/{uuid}.{ext}`.
+     - Berkas `tenant_default` tetap di `./uploads/{uuid}.{ext}` menjaga kompatibilitas penuh.
+   - `backend/internal/storage/supabase_storage.go`:
+     - Object key dipartisi berpola `{tenant_id}/{uuid}.{ext}`.
+4. **Blocker 4 (Push Subscription Schema Scoping)**:
+   - `backend/internal/store/sql.go` & `user_store.go`:
+     - Menambahkan kolom `tenant_id VARCHAR(64) NOT NULL DEFAULT 'default'` dan indeks `idx_push_subs_tenant_user(tenant_id, user_id)` pada tabel `push_subscriptions`.
+     - Menyisipkan dan memfilter `tenant_id` pada seluruh kueri push subscription.
+
+### 2. Bukti Pengujian Otomatis
+- **Multi-Tenant Isolation Tests (`backend/internal/tenant/isolation_test.go`)**: **PASS 100%**
+  - `TestTenant_CrossTenantGroupIsolationAndMemberInjection`: Memvalidasi penolakan group detail, join, dan injeksi member antar tenant.
+  - `TestTenant_PushSubscriptionAndStoragePartition`: Memvalidasi partisi direktori storage dan skema push subscription per tenant.
+- **Full Backend Test Suite (`go test ./...`)**: **PASS 100%** di seluruh package backend.
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 lint/typecheck error).
+
+### 3. Sinkronisasi Dokumen & Status Roadmap
+- `docs/DUAL_MODE_READINESS_AUDIT.md`: Kesiapan B2B dinaikkan ke 100% (Enterprise Ready & Fully Isolated).
+- `docs/TENANT_ENGINE_MASTER_PLAN.md`: Milestone 0–6 dan 4 Blocker ditandai DONE; Milestone 7–9 dibekukan (*Frozen*).
+- Roadmap berikutnya: Memulai inisiasi codebase Mobile App (React Native) untuk produk mandiri.
+
+
 
 
 

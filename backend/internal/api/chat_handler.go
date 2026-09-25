@@ -11,6 +11,7 @@ import (
 	authzinfra "github.com/bms-del112/wuzz-chat/internal/authz/infra"
 	"github.com/bms-del112/wuzz-chat/internal/messaging"
 	messaginginfra "github.com/bms-del112/wuzz-chat/internal/messaging/infra"
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
 )
@@ -240,13 +241,19 @@ func (h *ChatHandler) GetUserProfile(w http.ResponseWriter, r *http.Request) {
 	var user *store.User
 	var err error
 
+	callerTenant := tenantshared.MustFromContext(r.Context()).TenantID()
+
 	if userID != "" {
 		user, err = h.userStore.GetUserByID(userID)
+		if err == nil && user != nil && user.TenantID != callerTenant {
+			user = nil
+			err = store.ErrUserNotFound
+		}
 	} else if username != "" {
 		cleanUsername := strings.TrimPrefix(username, "@")
-		user, err = h.userStore.GetUserByUsername(cleanUsername)
+		user, err = h.userStore.GetUserByUsernameWithContext(r.Context(), cleanUsername)
 		if err != nil {
-			user, err = h.userStore.GetUserByUsernameOrDisplayName(cleanUsername)
+			user, err = h.userStore.GetUserByUsernameOrDisplayNameWithContext(r.Context(), cleanUsername)
 		}
 	}
 

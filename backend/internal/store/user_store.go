@@ -71,6 +71,7 @@ type ConversationItem struct {
 // PushSubscription merepresentasikan entitas token/kunci push notification per perangkat.
 type PushSubscription struct {
 	ID        string    `json:"id"`
+	TenantID  string    `json:"tenant_id,omitempty"`
 	UserID    string    `json:"user_id"`
 	Platform  string    `json:"platform"` // "web", "android", "ios"
 	Endpoint  string    `json:"endpoint"`
@@ -1352,6 +1353,9 @@ func (s *SQLUserStore) SavePushSubscription(sub *PushSubscription) error {
 	if sub.ID == "" {
 		sub.ID = uuid.New().String()
 	}
+	if sub.TenantID == "" {
+		sub.TenantID = "default"
+	}
 	if sub.Platform == "" {
 		sub.Platform = "web"
 	}
@@ -1370,14 +1374,14 @@ func (s *SQLUserStore) SavePushSubscription(sub *PushSubscription) error {
 
 	var insertQuery string
 	if s.driverName == "postgres" {
-		insertQuery = `INSERT INTO push_subscriptions (id, user_id, platform, endpoint, p256dh_key, auth_key, created_at)
-		               VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		insertQuery = `INSERT INTO push_subscriptions (id, tenant_id, user_id, platform, endpoint, p256dh_key, auth_key, created_at)
+		               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 	} else {
-		insertQuery = `INSERT INTO push_subscriptions (id, user_id, platform, endpoint, p256dh_key, auth_key, created_at)
-		               VALUES (?, ?, ?, ?, ?, ?, ?)`
+		insertQuery = `INSERT INTO push_subscriptions (id, tenant_id, user_id, platform, endpoint, p256dh_key, auth_key, created_at)
+		               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 	}
 
-	_, err := s.db.Exec(insertQuery, sub.ID, sub.UserID, sub.Platform, sub.Endpoint, sub.P256dhKey, sub.AuthKey, sub.CreatedAt)
+	_, err := s.db.Exec(insertQuery, sub.ID, sub.TenantID, sub.UserID, sub.Platform, sub.Endpoint, sub.P256dhKey, sub.AuthKey, sub.CreatedAt)
 	return err
 }
 
@@ -1423,10 +1427,10 @@ func (s *SQLUserStore) GetPushSubscriptionsByUserID(userID string) ([]PushSubscr
 
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, user_id, platform, endpoint, p256dh_key, auth_key, created_at
+		query = `SELECT id, COALESCE(tenant_id, 'default'), user_id, platform, endpoint, p256dh_key, auth_key, created_at
 		         FROM push_subscriptions WHERE user_id = $1`
 	} else {
-		query = `SELECT id, user_id, platform, endpoint, p256dh_key, auth_key, created_at
+		query = `SELECT id, COALESCE(tenant_id, 'default'), user_id, platform, endpoint, p256dh_key, auth_key, created_at
 		         FROM push_subscriptions WHERE user_id = ?`
 	}
 
@@ -1439,7 +1443,7 @@ func (s *SQLUserStore) GetPushSubscriptionsByUserID(userID string) ([]PushSubscr
 	var subs []PushSubscription
 	for rows.Next() {
 		var sub PushSubscription
-		if err := rows.Scan(&sub.ID, &sub.UserID, &sub.Platform, &sub.Endpoint, &sub.P256dhKey, &sub.AuthKey, &sub.CreatedAt); err != nil {
+		if err := rows.Scan(&sub.ID, &sub.TenantID, &sub.UserID, &sub.Platform, &sub.Endpoint, &sub.P256dhKey, &sub.AuthKey, &sub.CreatedAt); err != nil {
 			return nil, err
 		}
 		subs = append(subs, sub)
@@ -1478,7 +1482,7 @@ func (s *SQLUserStore) GetPushSubscriptionsForRecipients(recipientUserIDs []stri
 		args = append(args, id)
 	}
 
-	query := fmt.Sprintf(`SELECT id, user_id, platform, endpoint, p256dh_key, auth_key, created_at
+	query := fmt.Sprintf(`SELECT id, COALESCE(tenant_id, 'default'), user_id, platform, endpoint, p256dh_key, auth_key, created_at
 	                      FROM push_subscriptions WHERE user_id IN (%s)`, strings.Join(placeholders, ", "))
 
 	rows, err := s.db.Query(query, args...)
@@ -1490,7 +1494,7 @@ func (s *SQLUserStore) GetPushSubscriptionsForRecipients(recipientUserIDs []stri
 	var subs []PushSubscription
 	for rows.Next() {
 		var sub PushSubscription
-		if err := rows.Scan(&sub.ID, &sub.UserID, &sub.Platform, &sub.Endpoint, &sub.P256dhKey, &sub.AuthKey, &sub.CreatedAt); err != nil {
+		if err := rows.Scan(&sub.ID, &sub.TenantID, &sub.UserID, &sub.Platform, &sub.Endpoint, &sub.P256dhKey, &sub.AuthKey, &sub.CreatedAt); err != nil {
 			return nil, err
 		}
 		subs = append(subs, sub)

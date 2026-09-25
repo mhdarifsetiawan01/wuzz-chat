@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/authz"
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
@@ -115,6 +116,12 @@ func (r *SQLAuthRepository) GetUserByID(ctx context.Context, userID string) (*au
 	}
 	if u == nil {
 		return nil, nil
+	}
+	// Validasi isolasi tenant jika context membawa informasi tenant
+	if t, ok := tenantshared.FromContext(ctx); ok && t.TenantID() != "" {
+		if u.TenantID != t.TenantID() {
+			return nil, nil // Perlakukan seolah-olah user tidak ditemukan untuk mencegah data leakage lintas tenant
+		}
 	}
 	return toUserProfile(u), nil
 }

@@ -3,6 +3,10 @@ package tenant_test
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +15,7 @@ import (
 	authzinfra "github.com/bms-del112/wuzz-chat/internal/authz/infra"
 	groupinfra "github.com/bms-del112/wuzz-chat/internal/group/infra"
 	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
+	"github.com/bms-del112/wuzz-chat/internal/storage"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/tenant"
 	tenantinfra "github.com/bms-del112/wuzz-chat/internal/tenant/infra"
@@ -327,3 +332,172 @@ func TestTenant_AIMemoryIsolation(t *testing.T) {
 		t.Errorf("tenant_id pada forum_memory_jobs salah: dapat %q, ingin %q", storedJobTenant, tAlpha.ID)
 	}
 }
+
+func TestTenant_CrossTenantGroupIsolationAndMemberInjection(t *testing.T) {
+	tenantSvc, authSvc, userStore, groupStore, _, db, cleanup := setupIsolationEnvironment(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// 1. Buat Tenant Alpha dan Tenant Beta
+	tAlpha, _ := tenantSvc.CreateTenant(ctx, "Tenant Alpha", "grp-alpha")
+	ctxAlpha := tenantshared.WithTenant(ctx, tAlpha.ID)
+
+	tBeta, _ := tenantSvc.CreateTenant(ctx, "Tenant Beta", "grp-beta")
+	ctxBeta := tenantshared.WithTenant(ctx, tBeta.ID)
+
+	// 2. Buat User di masing-masing tenant
+	userAlpha, err := authSvc.Register(authz.RegisterInput{Ctx: ctxAlpha, Username: "alice_a", Password: "Pass123!Safe"})
+	if err != nil {
+		t.Fatalf("Gagal register user alpha: %v", err)
+	}
+	userBeta, err := authSvc.Register(authz.RegisterInput{Ctx: ctxBeta, Username: "bob_b", Password: "Pass123!Safe"})
+	if err != nil {
+		t.Fatalf("Gagal register user beta: %v", err)
+	}
+
+	// 3. User Alpha membuat grup publik di Tenant Alpha
+	grpAlpha, err := groupStore.CreateGroupWithContext(ctxAlpha, "Alpha Public Space", "Deskripsi Alpha", "", userAlpha.UserID, "alphapublic", true, nil)
+	if err != nil {
+		t.Fatalf("Gagal membuat public group di alpha: %v", err)
+	}
+
+	// 4. Test Blocker 1A: User Beta mencoba JoinPublicGroup ke grup milik Tenant Alpha -> HARUS GAGAL
+	errJoin := groupStore.JoinPublicGroup(grpAlpha.ID, userBeta.UserID)
+	if errJoin == nil {
+		t.Errorf("LEAK! User Beta berhasil bergabung ke grup publik Tenant Alpha via JoinPublicGroup!")
+	} else if !errors.Is(errJoin, store.ErrGroupNotFound) {
+		t.Logf("Join ditolak dengan error: %v (OK)", errJoin)
+	}
+
+	// 5. Test Blocker 1B: User Beta mencoba membaca GetGroupDetails milik Tenant Alpha -> HARUS GAGAL
+	dtl, errDtl := groupStore.GetGroupDetails(grpAlpha.ID, userBeta.UserID)
+	if errDtl == nil && dtl != nil {
+		t.Errorf("LEAK! User Beta berhasil membaca detail grup Tenant Alpha via GetGroupDetails!")
+	}
+
+	// 6. Test Blocker 1C: Admin Alpha mencoba menambahkan User Beta ke grup Alpha -> User Beta HARUS DITOLAK
+	errAdd := groupStore.AddGroupMembers(grpAlpha.ID, userAlpha.UserID, []string{userBeta.UserID})
+	if errAdd != nil {
+		t.Logf("AddGroupMembers mengembalikan error: %v", errAdd)
+	}
+
+	// Pastikan User Beta TIDAK ada di conversation_members untuk grpAlpha
+	var memberCount int
+	_ = db.QueryRowContext(ctx, "SELECT COUNT(*) FROM conversation_members WHERE conversation_id = ? AND user_id = ?", grpAlpha.ID, userBeta.UserID).Scan(&memberCount)
+	if memberCount > 0 {
+		t.Errorf("LEAK! User Beta berhasil disuntikkan ke conversation_members grup Tenant Alpha!")
+	}
+
+	// 7. Test Blocker 2: User Profile Lookup Isolation via UserStore & AuthRepo
+	sessionStore := store.NewSQLSessionStore(db, "sqlite")
+	deviceStore := store.NewSQLDeviceStore(db, "sqlite")
+	tokenStore := store.NewSQLTokenStore(db, "sqlite")
+	transferStore := store.NewSQLTransferStore(db, "sqlite")
+	authRepo := authzinfra.NewSQLAuthRepository(userStore, sessionStore, deviceStore, tokenStore, transferStore)
+
+	// User Beta mencoba mencari profile User Alpha dengan ctxBeta -> HARUS NIL
+	profile, errProf := authRepo.GetUserByID(ctxBeta, userAlpha.UserID)
+	if errProf != nil {
+		t.Logf("GetUserByID mengembalikan error: %v", errProf)
+	}
+	if profile != nil {
+		t.Errorf("LEAK! User Beta berhasil mengintip profil publik User Alpha lintas tenant!")
+	}
+
+	// Sebaliknya, jika dicari dengan ctxAlpha -> HARUS DITEMUKAN
+	profileAlpha, errProfAlpha := authRepo.GetUserByID(ctxAlpha, userAlpha.UserID)
+	if errProfAlpha != nil || profileAlpha == nil {
+		t.Errorf("Gagal membaca profil User Alpha di tenant Alpha sendiri: %v", errProfAlpha)
+	}
+}
+
+func TestTenant_PushSubscriptionAndStoragePartition(t *testing.T) {
+	tenantSvc, authSvc, userStore, _, _, db, cleanup := setupIsolationEnvironment(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tAlpha, _ := tenantSvc.CreateTenant(ctx, "Tenant Alpha", "store-alpha")
+	ctxAlpha := tenantshared.WithTenant(ctx, tAlpha.ID)
+
+	userAlpha, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxAlpha, Username: "push_alice", Password: "Pass123!Safe"})
+
+	// 1. Test Blocker 4: Push Subscription dengan tenant_id
+	subAlpha := &store.PushSubscription{
+		ID:        "sub-alpha-123",
+		TenantID:  tAlpha.ID,
+		UserID:    userAlpha.UserID,
+		Platform:  "web",
+		Endpoint:  "https://push.example.com/alpha",
+		P256dhKey: "dummy_p256dh",
+		AuthKey:   "dummy_auth",
+	}
+	if err := userStore.SavePushSubscription(subAlpha); err != nil {
+		t.Fatalf("Gagal menyimpan push subscription alpha: %v", err)
+	}
+
+	// Verifikasi tenant_id tersimpan di database
+	var storedTenantID string
+	err := db.QueryRowContext(ctx, "SELECT COALESCE(tenant_id, 'default') FROM push_subscriptions WHERE id = ?", subAlpha.ID).Scan(&storedTenantID)
+	if err != nil {
+		t.Fatalf("Gagal membaca tenant_id dari push_subscriptions: %v", err)
+	}
+	if storedTenantID != tAlpha.ID {
+		t.Errorf("tenant_id push subscription salah: dapat %q, ingin %q", storedTenantID, tAlpha.ID)
+	}
+
+	// 2. Test Blocker 3: Media Storage Directory Partitioning
+	tempDir, err := os.MkdirTemp("", "wuzz_storage_tenant_test_*")
+	if err != nil {
+		t.Fatalf("Gagal membuat temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	ls, err := storage.NewLocalStorage(tempDir, "/uploads")
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi LocalStorage: %v", err)
+	}
+
+	// Upload dengan ctxAlpha (Tenant non-default) -> Wajib ke subfolder /uploads/store-alpha/
+	urlAlpha, err := ls.Upload(ctxAlpha, strings.NewReader("dummy data alpha"), "doc_alpha.pdf", "application/pdf")
+	if err != nil {
+		t.Fatalf("Upload tenant alpha gagal: %v", err)
+	}
+	expectedPrefix := "/uploads/" + tAlpha.ID + "/"
+	if !strings.HasPrefix(urlAlpha, expectedPrefix) {
+		t.Errorf("URL tenant alpha tidak memiliki subfolder tenant: %s (ekspektasi prefix %s)", urlAlpha, expectedPrefix)
+	}
+
+	// Pastikan file fisik berada di dalam subfolder direktori
+	filenameAlpha := filepath.Base(urlAlpha)
+	diskPathAlpha := filepath.Join(tempDir, tAlpha.ID, filenameAlpha)
+	if _, err := os.Stat(diskPathAlpha); os.IsNotExist(err) {
+		t.Errorf("File fisik tenant alpha tidak berada di subfolder tenant: %s", diskPathAlpha)
+	}
+
+	// Test Delete file bertingkat
+	if err := ls.Delete(ctx, urlAlpha); err != nil {
+		t.Fatalf("Gagal menghapus file tenant: %v", err)
+	}
+	if _, err := os.Stat(diskPathAlpha); !os.IsNotExist(err) {
+		t.Errorf("File seharusnya sudah terhapus: %s", diskPathAlpha)
+	}
+
+	// Upload dengan ctx default (produk sendiri) -> Wajib ke root /uploads/
+	urlDefault, err := ls.Upload(context.Background(), strings.NewReader("dummy default data"), "image.png", "image/png")
+	if err != nil {
+		t.Fatalf("Upload default gagal: %v", err)
+	}
+	if strings.Contains(urlDefault, "/default/") {
+		t.Errorf("URL default tidak boleh mengandung /default/: %s", urlDefault)
+	}
+	filenameDefault := filepath.Base(urlDefault)
+	diskPathDefault := filepath.Join(tempDir, filenameDefault)
+	if _, err := os.Stat(diskPathDefault); os.IsNotExist(err) {
+		t.Errorf("File fisik default tidak ditemukan di root storage: %s", diskPathDefault)
+	}
+}
+
