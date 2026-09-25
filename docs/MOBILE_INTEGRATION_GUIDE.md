@@ -4,7 +4,7 @@ Dokumen ini adalah panduan teknis komprehensif (*Mobile Client Integration Guide
 
 > 📌 **Status Kesiapan**:  
 > - **Backend Gateway**: **READY & LIVE ✅** (REST API OpenAPI 3.1, WebSocket RFC 6455, Multi-Tenant Aware `tenant_default`, `X-Device-Platform` header, multi-device gating HTTP 409, dan perutean token FCM).  
-> - **Aplikasi Klien Mobile**: **READY FOR INITIATION 🚀** (Target: First-Party React Native Mobile App).  
+> - **Aplikasi Klien Mobile**: **LIVE & OPERATIONAL IN DEV ✅** (`mobile/` React Native + TypeScript + Expo Managed Workflow: Auth Layer, Realtime Messaging, Contact Search & New Chat, Hardware BackHandler, Live Verified on Android).  
 > - **Canonical API Specification**: Lihat [`docs/openapi.yaml`](openapi.yaml) atau endpoint `/api/docs` untuk kontrak REST 3.1.0 lengkap.
 
 ---

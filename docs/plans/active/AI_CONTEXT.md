@@ -1,7 +1,21 @@
-# AI Context & Active Workspace — Standby
+# AI Context & Active Workspace — Mobile App Initiation
 
-- **Repository**: `wuzz-chat` (Monorepo Go Backend + Next.js Frontend)
-- **Active Branch**: `dev`
-- **Engine Status**: B2B Core 100% Isolated & Frozen at Milestone 6
-- **Last Completed**: Opsi A (Quick-Patch 4 Blocker Isolasi Multi-Tenant B2B & Transisi Mobile)
-- **Archived Plan**: `docs/plans/archived/25-09-2026-b2b-blockers-patch/`
+- **Repository**: `wuzz-chat` (Monorepo: Go Backend + Next.js Frontend + Expo React Native Mobile)
+- **Active Branch**: `dev` (strictly enforced, no work on `main`)
+- **Target Workspace Directory**: `mobile/`
+- **Tech Stack**: Expo Managed Workflow (SDK latest) + React Native + TypeScript
+- **Target Platforms**: Android & iOS
+- **Active Tenant Context**: `tenant_default` (`"default"`)
+- **Backend SSOT Reference Documents**:
+  - `docs/MOBILE_INTEGRATION_GUIDE.md` (Integration architecture, session lifecycle, WebSocket events)
+  - `docs/openapi.yaml` (REST API 3.1.0 specifications)
+  - `frontend/DESIGN.md` (Aurora dark mode color palette and design tokens)
+  - `docs/DUAL_MODE_READINESS_AUDIT.md` (B2C first-party mobile context)
+- **Core Constraints**:
+  - Device ID: UUIDv4 generated once per install and persisted in `expo-secure-store`.
+  - Auth Token: JWT persisted in `expo-secure-store`.
+  - REST Client: Dynamic base URL, `AbortController` 15s timeout, standard headers (`Authorization`, `X-Device-Platform`, `X-Tenant-ID: default`).
+  - WebSocket: Singleton connecting to `wss://wuzz-chat-backend.fly.dev/ws?token=<JWT>&device_id=<DEVICE_ID>`.
+  - Session Replacement Terminal Guard: Close Code `4001: SESSION_REPLACED` halts reconnect, purges local session, and prompts user.
+  - UI/UX: WhatsApp-Grade Dark Mode matching `frontend/DESIGN.md` tokens.
+  - Git Commit Gate: No commit until user explicitly confirms "selesai".

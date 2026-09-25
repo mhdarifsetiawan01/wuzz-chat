@@ -1,6 +1,14 @@
 # Implementation Plan — Standby
 
-- **Status**: Standby
-- **Active Task**: None (Ready for Next Task)
-- **Last Completed**: Opsi A (Quick-Patch 4 Blocker Isolasi Multi-Tenant B2B & Transisi Mobile)
-- **Archived Plan**: `docs/plans/archived/25-09-2026-b2b-blockers-patch/`
+## 1. Overview & Objectives
+Workspace is in standby mode. Awaiting next user request and specifications.
+
+---
+
+## 2. Key Architecture & Endpoints
+None currently active.
+
+---
+
+## 3. Tasks Breakdown
+- [ ] Awaiting next task definition.

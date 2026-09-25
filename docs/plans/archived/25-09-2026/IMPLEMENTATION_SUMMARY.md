@@ -1,22 +1,14 @@
-# Implementation Summary — Milestone 6: OpenAPI Contract & Headless Integration Guide
+# Implementation Summary — Milestone M-Mobile-3: Contact Search & Start New Conversation
 
-- **Milestone**: Milestone 6 (OpenAPI Contract & Headless Integration Guide)
-- **Status**: Implementation Complete & Verified (Awaiting User "selesai" Confirmation) 🎯
-- **Current Branch**: `dev`
-- **Goal**: Menyediakan spesifikasi kontrak mesin OpenAPI 3.1.0 terstandarisasi, panduan integrasi headless developer B2B yang komprehensif, serta endpoint dokumentasi API interaktif pada backend Go.
+- **Milestone**: `M-Mobile-3` (Contact Search & Start New Conversation)
+- **Status**: Ready for Implementation
+- **Target Subsystem**: `mobile/`
+- **Objective**: Implement contact/user search (`GET /api/users/search`) and direct conversation initiation (`POST /api/conversations`) on WuzzChat Mobile, featuring a WhatsApp-style Floating Action Button (FAB) on `RecentChatsScreen`, a dedicated search and contact screen (`NewChatScreen.tsx`), debounced live querying, anti-double-action safeguards, and seamless room transition.
 
-## Key Deliverables
-1. **Canonical OpenAPI 3.1 Contract (`docs/openapi.yaml`)**:
-   - Menstandarkan seluruh skema request, response, error envelope (RFC 7807 Problem Details), dan mekanisme otorisasi (Bearer JWT & App ID/Secret).
-   - Melingkupi seluruh modul: Auth, Identity, B2B Token Provisioning & Exchange, Messaging Core, Group & Subgroup Ephemeral, AI Memory Engine, dan Push Notifications.
-2. **Headless B2B Integration Guide (`docs/HEADLESS_INTEGRATION_GUIDE.md`)**:
-   - Arsitektur JIT User Provisioning & 60s Token Exchange.
-   - Realtime WebSocket RFC 6455 Event Catalog & Wire Format.
-   - Standar Enkripsi End-to-End (E2EE) untuk klien mobile & web eksternal.
-   - Retry backoff, error handling, dan multi-device session replacement rules.
-3. **Self-Hosted Documentation Endpoints (Go Backend)**:
-   - `GET /api/openapi.yaml`: Menyajikan file spesifikasi OpenAPI mentah.
-   - `GET /api/docs`: Tampilan Swagger UI / Scalar UI mandiri tanpa dependensi cloud eksternal.
-4. **Automated Verification & Contract Linter Suite**:
-   - Unit test di Go untuk memastikan file OpenAPI valid, dapat di-parse, dan seluruh route yang terdaftar di `backend/internal/app/app.go` tercakup dalam spesifikasi.
-   - Build checks `go test ./...` dan `npm run build` lulus 100%.
+### Key Deliverables:
+1. **User Search & Conversation API (`mobile/src/api/users.ts`)**: `searchUsers` and `startDirectChat` wrappers with standard 15s timeout via `AbortController`.
+2. **New Chat Screen (`mobile/src/screens/NewChatScreen.tsx`)**: WhatsApp-style header, debounced search bar, contact list rendering with avatars and status messages, empty states, and loading indicators.
+3. **Floating Action Button (FAB) in `RecentChatsScreen.tsx`**: Elegant bottom-right floating action button to initiate new conversations.
+4. **Navigation Integration (`App.tsx`)**: Multi-screen flow (`RecentChats` ⇄ `NewChat` ⇄ `ChatRoom`) with Android hardware `BackHandler` integration.
+5. **Quality Gate**: 0 TypeScript errors (`npx tsc --noEmit`) and live verification on Android device.
+

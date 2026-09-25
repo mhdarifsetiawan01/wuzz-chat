@@ -2812,9 +2812,34 @@ Menutup tuntas 4 celah teknis isolasi data multi-tenant di backend Go agar platf
 - `docs/TENANT_ENGINE_MASTER_PLAN.md`: Milestone 0–6 dan 4 Blocker ditandai DONE; Milestone 7–9 dibekukan (*Frozen*).
 - Roadmap berikutnya: Memulai inisiasi codebase Mobile App (React Native) untuk produk mandiri.
 
+---
 
+## 📱 Milestone M-Mobile: Official First-Party Mobile App Initiation & Realtime Core (25 September 2026) — SELESAI ✅
 
+### 1. Deskripsi & Arsitektur Implementasi
+Membangun aplikasi mobile resmi WuzzChat (`mobile/`) berbasis **Expo Managed Workflow (React Native) + TypeScript**:
+- **Milestone M-Mobile-1: Mobile App Initiation & Auth Layer**:
+  - Inisialisasi struktur modular (`src/api/`, `src/services/`, `src/context/`, `src/screens/`, `src/components/`, `src/theme/`).
+  - Identitas perangkat persisten & aman: wrapper `expo-secure-store` untuk persistensi JWT dan UUIDv4 `device_id` unik per instalasi.
+  - REST API Client terpadu dengan standard headers (`X-Device-Platform: android`, `X-Tenant-ID: default`, `Authorization`), dynamic base URL, dan *AbortController* 15 detik.
+  - WebSocket Client Singleton dengan auto-reconnect bertingkat (*exponential backoff* 1s–30s) dan *Terminal Guard* untuk WebSocket Close Code `4001: SESSION_REPLACED`.
+  - Layar autentikasi (`LoginScreen.tsx`, `RegisterScreen.tsx`) dan daftar obrolan (`RecentChatsScreen.tsx`) bertema Dark Mode WhatsApp Aurora (`frontend/DESIGN.md`).
+- **Milestone M-Mobile-2: Chat Room Screen & Realtime Messaging**:
+  - Layar ruang obrolan (`ChatScreen.tsx`) dengan sticky header WhatsApp, indikator status online, timeline pesan, dan input bar auto-expanding (`ChatInputBar.tsx`).
+  - Sinkronisasi riwayat pesan bersih melalui event WebSocket `join` dan `history` (menghindari HTTP 405 REST).
+  - *Message Bubble* modern (`MessageBubble.tsx`) dengan status tanda terima pengiriman (`✓` / `✓✓` / 🕒), pesan terenkripsi E2EE, dan pewarnaan dinamis.
+  - Alur navigasi WhatsApp Single-Screen Flow (`Home ⇄ Chat Room`) dengan Android hardware `BackHandler` dan *Anti-Stale Reprocessing Guard* (`lastHandledMsgIdRef`).
+  - Perbaikan WebSocket Handshake CSWSH CORS via custom `Origin: https://chat.wuzzhub.id` pada constructor socket Android OkHttp.
+- **Milestone M-Mobile-3: Contact Search & Start New Conversation**:
+  - Endpoint REST pencarian pengguna `searchUsers` (`GET /api/users/search?q=...`) dan inisiasi obrolan langsung `startDirectChat` (`POST /api/conversations`).
+  - Layar pencarian kontak (`NewChatScreen.tsx`) dengan pencarian *live debounced* (300ms), daftar hasil kontak terdaftar, avatar dinamis, centang verified, dan proteksi *anti-double-action*.
+  - *Floating Action Button* (FAB) biru (`💬`) di pojok kanan bawah dan ikon pensil (`✏️`) di header kanan `RecentChatsScreen`.
+  - Deteksi jenis obrolan otomatis (`isDirect` vs `isGroup`) pada header chat room (`dm_*` ID matching & fallback handling) sehingga langsung menampilkan status `🟢 Terhubung (Online)`.
 
-
-
-
+### 2. Bukti Pengujian Otomatis & Live Smoke Test
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** di seluruh package backend.
+- **Live Physical Smoke Test on Android Device (Realme RMX3506 Android 11 via ADB & Expo Tunnel)**:
+  - Login & Session: Berhasil masuk ke akun pengguna via API backend Fly.io dan terkoneksi ke WebSocket hub (`🟢 Terhubung`).
+  - Messaging: Mengirim dan menerima pesan realtime dua arah, tanda terima centang biru (`✓✓`), dan scrolling otomatis.
+  - New Chat & Search: FAB dan ikon pensil membuka `NewChatScreen`, pencarian debounced mengembalikan user live, memilih kontak membuka room, dan tombol Back hardware Android mengembalikan ke Home secara mulus.

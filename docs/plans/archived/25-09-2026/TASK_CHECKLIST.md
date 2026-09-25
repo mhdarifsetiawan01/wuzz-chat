@@ -1,33 +1,7 @@
-# Quick Task Checklist — Milestone 6: OpenAPI Contract & Headless Integration Guide
+# Task Checklist — Milestone M-Mobile-3: Contact Search & Start New Conversation
 
-- [ ] **Phase 1: Inventory & Schema Preparation**
-  - [ ] Audit rute `backend/internal/app/router.go`
-  - [ ] Definisikan shared schemas & error model RFC 7807
-- [ ] **Phase 2: Canonical OpenAPI 3.1.0 Contract (`docs/openapi.yaml`)**
-  - [ ] Root metadata & SecuritySchemes (Bearer, X-App-ID, X-App-Secret)
-  - [ ] B2B Auth Gateway endpoints (`/api/v1/auth/*`)
-  - [ ] Identity & Auth endpoints (`/api/auth/*`)
-  - [ ] Messaging & Conversation endpoints (`/api/conversations`, `/api/messages`)
-  - [ ] Groups & Ephemeral Fora endpoints (`/api/groups/*`)
-  - [ ] AI Memory Context Scoped endpoints (`/api/memory/*`, `/api/memories/*`)
-  - [ ] Push & Utility endpoints (`/api/notifications/*`, `/health`, dll)
-  - [ ] Validasi sintaks OpenAPI tanpa error
-- [ ] **Phase 3: Headless B2B Integration Guide (`docs/HEADLESS_INTEGRATION_GUIDE.md`)**
-  - [ ] Arsitektur headless & isolasi multi-tenant
-  - [ ] Alur JIT Provisioning & 60s Token Exchange (diagram & kode)
-  - [ ] Katalog event WebSocket RFC 6455 wire format & keep-alive
-  - [ ] Panduan enkripsi E2EE untuk mobile & web klien eksternal
-  - [ ] Penanganan error & rate limiting
-- [ ] **Phase 4: Self-Hosted API Documentation Endpoints (Go Backend)**
-  - [ ] `GET /api/openapi.yaml`
-  - [ ] `GET /api/docs` (Swagger UI / Scalar UI embedded)
-  - [ ] Registrasi router & CORS di `router.go`
-- [ ] **Phase 5: Automated Verification & Testing Gate**
-  - [ ] Automated unit test `backend/internal/api/openapi_test.go`
-  - [ ] `cd backend && go test -v ./...` (100% PASS)
-  - [ ] `cd frontend && npm run build` (100% PASS)
-- [ ] **Phase 6: User Approval & Promotion Gate**
-  - [ ] Presentasi hasil ke pengguna & tunggu konfirmasi "selesai"
-  - [ ] Tier 1 documentation sync
-  - [ ] Arsip active plan & git commit di `dev`
-  - [ ] Penawaran promosi merge/push ke `main`
+- [x] Task 1: Add user search & conversation creation API functions in `mobile/src/api/users.ts` and update `mobile/src/api/types.ts`
+- [x] Task 2: Build `mobile/src/screens/NewChatScreen.tsx` with search input, debounce (300ms), user list, and anti-double-click guard
+- [x] Task 3: Add Floating Action Button (FAB) in `mobile/src/screens/RecentChatsScreen.tsx` to launch `NewChatScreen`
+- [x] Task 4: Wire `NewChatScreen` navigation in `mobile/App.tsx` and integrate Android hardware `BackHandler`
+- [x] Task 5: Verify TypeScript compliance (`npx tsc --noEmit`) and conduct live smoke test on connected Android device via ADB
