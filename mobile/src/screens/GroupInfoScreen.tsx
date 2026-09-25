@@ -24,6 +24,7 @@ import { groupsApi } from '../api/groups';
 import { searchUsers } from '../api/users';
 import { GroupDetails, GroupMember, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
+import { SubGroupListModal } from '../components/SubGroupListModal';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -32,6 +33,8 @@ export interface GroupInfoScreenProps {
   onBack: () => void;
   onLeaveSuccess?: () => void;
   onGroupUpdated?: (updated: GroupDetails) => void;
+  /** M-Mobile-8.2B: Opens SubGroupListModal for this group. */
+  onOpenForum?: (groupId: string) => void;
 }
 
 function formatDate(dateStr?: string): string {
@@ -49,12 +52,15 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   onBack,
   onLeaveSuccess,
   onGroupUpdated,
+  onOpenForum,
 }) => {
   const { user: currentUser } = useAuth();
   const [group, setGroup] = useState<GroupDetails | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // M-Mobile-8.2B: Forum modal state (inline fallback if no onOpenForum prop)
+  const [showForumModal, setShowForumModal] = useState(false);
 
   const onGroupUpdatedRef = useRef(onGroupUpdated);
   useEffect(() => {
@@ -439,8 +445,24 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
           </View>
         </View>
 
-        {/* Action Buttons (Add Members & Leave) */}
+        {/* Action Buttons (Forum, Add Members & Leave) */}
         <View style={styles.actionButtonsSection}>
+          {/* 🏛️ Forum button — M-Mobile-8.2B */}
+          <TouchableOpacity
+            style={[styles.actionCardButton, styles.forumCardButton]}
+            onPress={() => {
+              if (onOpenForum) {
+                onOpenForum(groupId);
+              } else {
+                setShowForumModal(true);
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.actionCardIcon}>🏛️</Text>
+            <Text style={styles.forumCardText}>Forum</Text>
+          </TouchableOpacity>
+
           {isAdmin && (
             <TouchableOpacity
               style={styles.actionCardButton}
@@ -480,6 +502,23 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
 
         <View style={styles.footerSpacing} />
       </ScrollView>
+
+      {/* M-Mobile-8.2B: Forum Topics Drawer (inline fallback when no onOpenForum prop) */}
+      {showForumModal && group && (
+        <SubGroupListModal
+          visible={showForumModal}
+          parentGroupId={groupId}
+          parentGroupTitle={group.title}
+          currentUserRole={group.my_role}
+          currentUserId={currentUser?.id || ''}
+          onClose={() => setShowForumModal(false)}
+          onEnterSubGroup={() => {
+            setShowForumModal(false);
+            // In GroupInfoScreen context, entering sub-group triggers back to chat
+            onBack();
+          }}
+        />
+      )}
 
       {/* Modal: Tambah Anggota */}
       <Modal
@@ -791,6 +830,15 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.colorDanger,
+  },
+  // M-Mobile-8.2B: Forum action card
+  forumCardButton: {
+    borderColor: colors.borderStrong,
+  },
+  forumCardText: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.accentPrimary,
   },
   membersSectionHeader: {
     paddingHorizontal: spacing.lg,

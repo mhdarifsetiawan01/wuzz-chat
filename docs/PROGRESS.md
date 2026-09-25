@@ -2994,3 +2994,42 @@ Mengimplementasikan dukungan penuh obrolan grup (*Core Group Chat Engine*) dan m
 - **Frontend Turbopack Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 - **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (Seluruh unit/integration test lulus).
 
+---
+
+## ✅ Milestone M-Mobile-8.2B: Ephemeral Sub-Groups, Forum Topics & Access Control (Mobile) — SELESAI
+
+**Tanggal Selesai:** 25 September 2026 | **Branch:** `dev`
+
+### 1. Perubahan Kode
+
+**Files Baru:**
+- `mobile/src/api/subgroups.ts`: REST API layer — 6 endpoint (`listSubGroups`, `createSubGroup`, `joinPublicSubGroup`, `requestJoinPrivateSubGroup`, `listJoinRequests`, `reviewJoinRequest`) dengan AbortController 15s timeout.
+- `mobile/src/components/SubGroupListModal.tsx`: Bottom-sheet drawer daftar topik forum aktif dengan TTL countdown badge real-time, access control matrix (Gabung/Minta Izin/Menunggu/Admin Review), sortasi active-first, pull-to-refresh.
+- `mobile/src/components/CreateSubGroupModal.tsx`: Form wizard pembuatan topik (judul, deskripsi, durasi TTL 7/30 hari, toggle Publik/Privat) dengan double-action protection.
+- `mobile/src/components/JoinRequestsModal.tsx`: Panel review approve/reject join request (admin/creator only) dengan per-row loading state.
+
+**Files Dimodifikasi:**
+- `mobile/src/api/types.ts`: +`SubGroup`, `SubGroupTTL`, `SubGroupStatus`, `JoinRequest`, `CreateSubGroupRequest`, `CreateSubGroupResponse`, `Conversation.parent_id`.
+- `mobile/src/api/groups.ts`: —
+- `mobile/src/api/index.ts`: +export `subgroupsApi`.
+- `mobile/src/components/index.ts`: +export 3 modal baru.
+- `mobile/src/screens/ChatScreen.tsx`: +`isSubGroup`/`isParentGroup` flags, +fetch parent group for breadcrumb, +breadcrumb subtitle (`↖ Grup Induk • Forum • X anggota`), +Forum button 🏛️ (parent group only), +fail-closed banner+lock (expired), +`SubGroupListModal` integration, smart back button navigation.
+- `mobile/src/screens/GroupInfoScreen.tsx`: +prop `onOpenForum`, +state `showForumModal`, +tombol 🏛️ Forum di action cards, +`SubGroupListModal` inline fallback.
+- `mobile/App.tsx`: +state `forumParentConversation`, +`handleNavigateToParent`, modified `handleOpenGroupInfo` (sub-group detection), modified `handleBackFromChat` & `BackHandler` (parent-first navigation), +pass new props ke `ChatScreen`.
+
+### 2. Fitur yang Diimplementasikan
+
+- ✅ **Sub-Group Room Support** — Deteksi `sub_<UUID>` via immutable ID-based flags (DEC-008).
+- ✅ **SubGroupListModal** — Daftar topik aktif + TTL countdown + access control (Publik/Privat/Pending/Expired).
+- ✅ **CreateSubGroupModal** — Wizard buat topik (durasi 7/30 hari, toggle akses).
+- ✅ **JoinRequestsModal** — Panel review izin admin (approve/reject).
+- ✅ **Fail-Closed Read-Only Lock** — Input disabled + banner merah saat topik expired.
+- ✅ **🏛️ Forum Button** — Tampil di header ChatScreen (grp_) dan GroupInfoScreen.
+- ✅ **Breadcrumb Header** (`↖ NamaGrup • Forum • X anggota`) interaktif di sub-group.
+- ✅ **Smart Back Navigation** — Sub-group → parent group → RecentChats (parent-first hierarchy), Android Back button & UI ← button.
+
+### 3. Bukti Pengujian Otomatis
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (tidak ada perubahan backend).
+

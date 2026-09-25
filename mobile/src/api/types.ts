@@ -133,6 +133,8 @@ export interface Conversation {
   pinned?: boolean;
   participants?: User[];
   updated_at?: string;
+  /** M-Mobile-8.2B: Parent group ID for sub-group (forum topic) rooms */
+  parent_id?: string;
 }
 
 export type GroupRole = 'creator' | 'admin' | 'member';
@@ -183,5 +185,70 @@ export interface ApiError {
   title: string;
   detail: string;
   code?: string;
+}
+
+// ─── Sub-Groups / Forum Topics (Milestone 8.2B) ────────────────────────────
+
+/** Duration options for ephemeral forum topics. */
+export type SubGroupTTL = '7_days' | '30_days';
+
+/** Lifecycle status for a forum topic. */
+export type SubGroupStatus = 'active' | 'expired';
+
+/**
+ * A forum topic (ephemeral sub-group) nested under a parent group.
+ * ID format: `sub_<UUIDv4>`; parent format: `grp_<UUIDv4>`.
+ */
+export interface SubGroup {
+  /** Immutable ID: "sub_<UUIDv4>" */
+  id: string;
+  /** Immutable parent group ID: "grp_<UUIDv4>" */
+  parent_id: string;
+  title: string;
+  description?: string;
+  /** true = 🌐 Terbuka (anyone in parent can join directly) */
+  is_public: boolean;
+  status: SubGroupStatus;
+  /** ISO 8601 expiry timestamp */
+  expires_at: string;
+  /** UUID of creator — immutable, never mutable display_name */
+  created_by: string;
+  created_at: string;
+  member_count: number;
+  my_role?: GroupRole;
+  /** Whether the current user is already a member */
+  is_member?: boolean;
+  /** Whether the current user has a pending join-request */
+  has_pending_request?: boolean;
+}
+
+/** Payload for creating a new forum topic. */
+export interface CreateSubGroupRequest {
+  title: string;
+  description?: string;
+  /** Expiry duration. Default: '7_days'. */
+  ttl: SubGroupTTL;
+  /** Access control: true = public, false = private (requires join-request). */
+  is_public: boolean;
+}
+
+/** Response envelope for creating a sub-group. */
+export interface CreateSubGroupResponse {
+  success: boolean;
+  group: SubGroup;
+  message?: string;
+}
+
+/** A pending join-request for a private forum topic. */
+export interface JoinRequest {
+  id: string;
+  conversation_id: string;
+  /** UUID of requester — immutable */
+  user_id: string;
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
 }
 

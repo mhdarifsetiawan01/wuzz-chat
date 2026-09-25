@@ -1,5 +1,3 @@
-# Task Checklist — Standby
+# Task Checklist
 
-- **Status**: Standby
-- **Active Task**: None
-- **Previous Completed**: Milestone M-Mobile-8: Core Group Chat Engine & Member Management
+All tasks completed and archived.

@@ -463,7 +463,7 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - Tampilkan warna nama pengirim (*sender nickname color*) yang unik dan deterministik per user di linimasa pesan grup.
   - Integrasi endpoint REST `/api/groups` (buat grup), `/api/groups/search` (cari grup publik), `/api/groups/{id}` (detail grup), `/api/groups/{id}/members` (daftar anggota, tambah, kick, dan ubah role admin/member).
 
-- [ ] **Ephemeral Sub-Groups, Forum Topics & Access Control (Milestone 8.2B & 8.2C)**:
+- [x] **Ephemeral Sub-Groups, Forum Topics & Access Control (Milestone 8.2B & 8.2C)**:
   - Mendukung penanganan room topik forum berawalan `sub_` (`sub_<UUIDv4>`).
   - **Rebranding Forum & Mobile Header UX (Milestone 8.2C)**:
     - Di layar mobile, implementasikan header yang lapang: Nama topik di baris utama, dan baris subtitle berupa breadcrumb interaktif `↖ [Nama Grup Induk] • Forum • X anggota` (tap untuk kembali ke grup utama).

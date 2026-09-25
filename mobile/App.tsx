@@ -29,6 +29,9 @@ function AppNavigator() {
   const [isNewChatOpen, setIsNewChatOpen] = useState<boolean>(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState<boolean>(false);
   const [activeGroupInfo, setActiveGroupInfo] = useState<GroupDetails | ConversationItem | null>(null);
+  // M-Mobile-8.2C: Tracks the parent group conversation when inside a sub-group
+  // (used for smart back navigation & breadcrumb info)
+  const [forumParentConversation, setForumParentConversation] = useState<Conversation | null>(null);
 
   // Hardware back button support for Android
   React.useEffect(() => {
@@ -41,8 +44,18 @@ function AppNavigator() {
         setIsNewGroupOpen(false);
         return true;
       }
+      // M-Mobile-8.2C: Smart back — sub-group → navigate to parent group first
+      if (activeConversation && forumParentConversation &&
+          typeof activeConversation.id === 'string' &&
+          activeConversation.id.startsWith('sub_')) {
+        // Pop sub-group → go back to parent group
+        setActiveConversation(forumParentConversation);
+        setForumParentConversation(null);
+        return true;
+      }
       if (activeConversation) {
         setActiveConversation(null);
+        setForumParentConversation(null);
         return true;
       }
       if (isNewChatOpen) {
@@ -54,7 +67,7 @@ function AppNavigator() {
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [activeGroupInfo, isNewGroupOpen, activeConversation, isNewChatOpen]);
+  }, [activeGroupInfo, isNewGroupOpen, activeConversation, isNewChatOpen, forumParentConversation]);
 
   // Memoized screen event handlers to eliminate infinite re-render cycles
   const handleBackFromGroupInfo = useCallback(() => {
@@ -88,12 +101,55 @@ function AppNavigator() {
   }, []);
 
   const handleBackFromChat = useCallback(() => {
+    // M-Mobile-8.2C: When backing out of a sub-group, go to parent group first
+    if (
+      activeConversation &&
+      forumParentConversation &&
+      typeof activeConversation.id === 'string' &&
+      activeConversation.id.startsWith('sub_')
+    ) {
+      setActiveConversation(forumParentConversation);
+      setForumParentConversation(null);
+      return;
+    }
     setActiveConversation(null);
-  }, []);
+    setForumParentConversation(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConversation, forumParentConversation]);
 
   const handleOpenGroupInfo = useCallback((grp: GroupDetails | ConversationItem) => {
     setActiveGroupInfo(grp);
   }, []);
+
+  /**
+   * M-Mobile-8.2B: Directly enter a sub-group conversation from the forum modal.
+   * Saves the current parent conversation for breadcrumbs & back navigation.
+   */
+  const handleEnterSubGroup = useCallback((subConv: Conversation) => {
+    setForumParentConversation(activeConversation);
+    setActiveConversation(subConv);
+  }, [activeConversation]);
+
+  /**
+   * M-Mobile-8.2C: Smart back from sub-group breadcrumb / back button.
+   * Finds and navigates to the parent group conversation.
+   */
+  const handleNavigateToParent = useCallback((parentGroupId: string) => {
+    // Try to use the saved parent conversation if IDs match
+    if (forumParentConversation && forumParentConversation.id === parentGroupId) {
+      setActiveConversation(forumParentConversation);
+      setForumParentConversation(null);
+      return;
+    }
+    // Fallback: build minimal conversation object for the parent group
+    const parentConv: Conversation = {
+      id: parentGroupId,
+      type: 'group',
+      is_group: true,
+    };
+    setActiveConversation(parentConv);
+    setForumParentConversation(null);
+  }, [forumParentConversation]);
 
   const handleBackFromNewGroup = useCallback(() => {
     setIsNewGroupOpen(false);
@@ -150,6 +206,9 @@ function AppNavigator() {
           conversation={activeConversation as unknown as ConversationItem}
           onBack={handleBackFromChat}
           onOpenGroupInfo={handleOpenGroupInfo}
+          onNavigateToParent={handleNavigateToParent}
+          parentGroupConversation={forumParentConversation as unknown as ConversationItem}
+          onEnterSubGroup={handleEnterSubGroup}
         />
       );
     }

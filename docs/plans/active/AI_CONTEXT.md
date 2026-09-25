@@ -1,5 +1,5 @@
-# AI Context — Standby
+# AI Context
 
-- **Status**: Standby
-- **Active Task**: None
-- **Previous Completed**: Milestone M-Mobile-8: Core Group Chat Engine & Member Management
+- **Current Status**: Standby
+- **Active Milestone**: None
+- **Constraints**: Follow AGENTS.md guidelines.

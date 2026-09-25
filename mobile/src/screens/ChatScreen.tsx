@@ -3,9 +3,12 @@
  * WhatsApp-grade chat timeline with sticky header, realtime WebSocket messaging,
  * optimistic updates, and Anti-Stale Reprocessing Guards.
  * Conforms to Mandatory Dual-Platform Frontend Architecture Rule.
+ *
+ * M-Mobile-8.2B: Ephemeral Sub-Group room support (fail-closed lock, breadcrumb)
+ * M-Mobile-8.2C: Smart breadcrumb header UX & Forum button
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -19,7 +22,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { ConversationItem, GroupDetails, Message } from '../api/types';
+import { Conversation, ConversationItem, GroupDetails, Message } from '../api/types';
 import { getUserPublicKey } from '../api/users';
 import { groupsApi } from '../api/groups';
 import { mediaApi } from '../api/media';
@@ -39,6 +42,7 @@ import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInputBar, StagedMedia } from '../components/ChatInputBar';
 import { MessageActionSheet } from '../components/MessageActionSheet';
+import { SubGroupListModal } from '../components/SubGroupListModal';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -46,9 +50,28 @@ export interface ChatScreenProps {
   conversation: ConversationItem;
   onBack: () => void;
   onOpenGroupInfo?: (group: GroupDetails | ConversationItem) => void;
+  /**
+   * M-Mobile-8.2C: Called when user taps the breadcrumb or back from a sub-group
+   * to navigate to the parent group conversation.
+   */
+  onNavigateToParent?: (parentGroupId: string) => void;
+  /**
+   * M-Mobile-8.2B: Parent group conversation (provided when entering a sub-group).
+   * Used to fetch parent info for breadcrumb display.
+   */
+  parentGroupConversation?: ConversationItem | null;
+  /** M-Mobile-8.2B: Directly enter a sub-group conversation from the forum modal */
+  onEnterSubGroup?: (subConv: Conversation) => void;
 }
 
-export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack, onOpenGroupInfo }) => {
+export const ChatScreen: React.FC<ChatScreenProps> = ({
+  conversation,
+  onBack,
+  onOpenGroupInfo,
+  onNavigateToParent,
+  parentGroupConversation,
+  onEnterSubGroup,
+}) => {
 
   const insets = useSafeAreaInsets();
   const { user, e2eeKeyPair } = useAuth();
@@ -65,6 +88,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack, on
   const [memberCount, setMemberCount] = useState<number>(conversation.member_count || 0);
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
 
+  // M-Mobile-8.2B: Sub-group / forum topic state
+  const [parentGroupDetails, setParentGroupDetails] = useState<GroupDetails | null>(null);
+  const [showForumModal, setShowForumModal] = useState(false);
+
   const flatListRef = useRef<FlatList>(null);
   const lastHandledMsgIdRef = useRef<string | null>(null);
   const roomAESKeyRef = useRef<Uint8Array | null>(null);
@@ -72,18 +99,45 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack, on
   const roomId = conversation.id;
   const currentUserId = user?.id || '';
 
+  // Derived: room type flags (immutable ID-based checks — DEC-008)
+  const isSubGroup =
+    typeof conversation.id === 'string' && conversation.id.startsWith('sub_');
+  const isParentGroup =
+    typeof conversation.id === 'string' && conversation.id.startsWith('grp_');
   const isGroup =
     conversation.is_group === true ||
     conversation.type === 'group' ||
     conversation.type === 'subgroup' ||
-    (typeof conversation.id === 'string' &&
-      (conversation.id.startsWith('grp_') || conversation.id.startsWith('sub_')));
+    isParentGroup ||
+    isSubGroup;
   const isDirect = !isGroup;
+
+  // Fail-Closed: a forum topic is locked if expired
+  const isForumExpired = useMemo(() => {
+    if (!isSubGroup) return false;
+    const details = groupDetails as any;
+    if (details?.status === 'expired') return true;
+    if (details?.expires_at) {
+      return new Date(details.expires_at).getTime() <= Date.now();
+    }
+    return false;
+  }, [isSubGroup, groupDetails]);
 
   const title =
     groupDetails?.title || conversation.title || conversation.peer_nickname || 'Obrolan';
   const avatarUrl =
     groupDetails?.avatar_url || conversation.avatar_url || conversation.peer_avatar_url;
+
+  // Breadcrumb parent name (M-Mobile-8.2C)
+  const parentGroupName = useMemo(() => {
+    if (!isSubGroup) return null;
+    return (
+      parentGroupDetails?.title ||
+      parentGroupConversation?.title ||
+      parentGroupConversation?.name ||
+      null
+    );
+  }, [isSubGroup, parentGroupDetails, parentGroupConversation]);
 
   // Load group details if group room
   useEffect(() => {
@@ -108,6 +162,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack, on
       mounted = false;
     };
   }, [isGroup, roomId]);
+
+  // M-Mobile-8.2C: Fetch parent group info for breadcrumb when in a sub-group
+  useEffect(() => {
+    if (!isSubGroup) return;
+
+    // Try from groupDetails.parent_id (populated after group detail fetch)
+    const parentId =
+      (groupDetails as any)?.parent_id ||
+      conversation.parent_id ||
+      parentGroupConversation?.id;
+
+    if (!parentId) return;
+    let mounted = true;
+
+    groupsApi
+      .getGroupDetails(parentId)
+      .then((details) => {
+        if (mounted && details) setParentGroupDetails(details);
+      })
+      .catch((err) => {
+        console.log('[ChatScreen] Could not fetch parent group details:', err);
+      });
+
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSubGroup, (groupDetails as any)?.parent_id, parentGroupConversation?.id]);
 
 
   // 0. Resolve Peer Public Key & Derive Room AES Key (ECDH + HKDF)
@@ -798,26 +878,47 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack, on
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Sticky Header */}
-        <View style={styles.header}>
+        {/* Sticky Header — M-Mobile-8.2B/8.2C: adaptive for sub-group breadcrumb */}
+        <View style={[styles.header, isSubGroup && styles.headerTall]}>
+          {/* Back button: sub-group → navigate to parent group first */}
           <TouchableOpacity
             style={styles.backButton}
-            onPress={onBack}
+            onPress={() => {
+              if (isSubGroup && onNavigateToParent) {
+                const parentId =
+                  (groupDetails as any)?.parent_id ||
+                  conversation.parent_id ||
+                  parentGroupConversation?.id;
+                if (parentId) {
+                  onNavigateToParent(parentId);
+                  return;
+                }
+              }
+              onBack();
+            }}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             activeOpacity={0.7}
           >
             <Text style={styles.backIcon}>←</Text>
           </TouchableOpacity>
 
+          {/* Center: avatar + title + subtitle/breadcrumb */}
           <TouchableOpacity
             style={styles.headerInfoTouchable}
             onPress={() => {
-              if (isGroup && onOpenGroupInfo) {
+              if (isSubGroup) {
+                // Tap header in sub-group → navigate to parent (breadcrumb)
+                const parentId =
+                  (groupDetails as any)?.parent_id ||
+                  conversation.parent_id ||
+                  parentGroupConversation?.id;
+                if (parentId && onNavigateToParent) onNavigateToParent(parentId);
+              } else if (isGroup && onOpenGroupInfo) {
                 onOpenGroupInfo(groupDetails || conversation);
               }
             }}
-            disabled={!isGroup || !onOpenGroupInfo}
-            activeOpacity={isGroup ? 0.7 : 1}
+            disabled={!isGroup}
+            activeOpacity={isGroup ? 0.75 : 1}
           >
             <View style={styles.headerAvatarContainer}>
               <Avatar
@@ -834,26 +935,59 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack, on
               </Text>
               <View style={styles.headerStatusRow}>
                 {isDirect && <View style={styles.onlineDot} />}
-                <Text style={styles.headerSubtitle} numberOfLines={1}>
-                  {isDirect
-                    ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
-                    : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'} • Info`}
-                </Text>
+
+                {/* M-Mobile-8.2C: Interactive breadcrumb for sub-group rooms */}
+                {isSubGroup ? (
+                  <Text style={styles.headerBreadcrumb} numberOfLines={1}>
+                    {'↖ '}
+                    {parentGroupName ? `${parentGroupName} • ` : ''}
+                    {'Forum'}
+                    {memberCount > 0 ? ` • ${memberCount} anggota` : ''}
+                  </Text>
+                ) : (
+                  <Text style={styles.headerSubtitle} numberOfLines={1}>
+                    {isDirect
+                      ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
+                      : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'}`}
+                  </Text>
+                )}
               </View>
             </View>
           </TouchableOpacity>
 
-          {isGroup && onOpenGroupInfo && (
+          {/* Right-side buttons */}
+          {isParentGroup && (
+            // 🏛️ Forum button — only on parent groups, not sub-groups
+            <TouchableOpacity
+              style={styles.forumButton}
+              onPress={() => setShowForumModal(true)}
+              hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.forumButtonText}>🏛️</Text>
+            </TouchableOpacity>
+          )}
+
+          {isGroup && !isSubGroup && onOpenGroupInfo && (
             <TouchableOpacity
               style={styles.groupInfoButton}
               onPress={() => onOpenGroupInfo(groupDetails || conversation)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
               activeOpacity={0.7}
             >
               <Text style={styles.groupInfoIcon}>ℹ️</Text>
             </TouchableOpacity>
           )}
         </View>
+
+        {/* M-Mobile-8.2B: Fail-Closed Read-Only Banner for expired forum topics */}
+        {isForumExpired && (
+          <View style={styles.expiredBanner}>
+            <Text style={styles.expiredBannerText}>
+              🔒 Topik forum ini telah kedaluwarsa dan terkunci. Riwayat pesan tetap dapat dibaca.
+            </Text>
+          </View>
+        )}
 
         {/* Message Timeline */}
         {isLoading ? (
@@ -900,15 +1034,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack, on
           />
         )}
 
-        {/* Chat Input Bar */}
+        {/* Chat Input Bar — disabled when forum topic is expired (Fail-Closed Lock) */}
         <ChatInputBar
           onSend={handleSendMessage}
           onSendAudio={handleSendAudio}
-          disabled={isSending || isUploadingMedia}
+          disabled={isSending || isUploadingMedia || isForumExpired}
           stagedMedia={stagedMedia}
           isUploading={isUploadingMedia}
-          onPickCamera={handlePickCamera}
-          onPickGallery={handlePickGallery}
+          onPickCamera={isForumExpired ? undefined : handlePickCamera}
+          onPickGallery={isForumExpired ? undefined : handlePickGallery}
           onCancelStagedMedia={handleCancelStagedMedia}
           replyTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
@@ -929,6 +1063,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack, on
         onReply={(msg) => setReplyingTo(msg)}
         onDelete={handleDeleteMessage}
       />
+
+      {/* M-Mobile-8.2B: Forum Topics Drawer (parent group only) */}
+      {isParentGroup && showForumModal && (
+        <SubGroupListModal
+          visible={showForumModal}
+          parentGroupId={roomId}
+          parentGroupTitle={title}
+          currentUserRole={groupDetails?.my_role}
+          currentUserId={currentUserId}
+          onClose={() => setShowForumModal(false)}
+          onEnterSubGroup={(subConv) => {
+            setShowForumModal(false);
+            if (onEnterSubGroup) {
+              onEnterSubGroup(subConv);
+            } else if (onOpenGroupInfo) {
+              onOpenGroupInfo(subConv as unknown as ConversationItem);
+            }
+          }}
+        />
+      )}
     </View>
   );
 };
@@ -950,6 +1104,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
     zIndex: 50,
+  },
+  // M-Mobile-8.2C: taller header to accommodate 2-line breadcrumb
+  headerTall: {
+    height: 64,
   },
   backButton: {
     padding: 8,
@@ -975,11 +1133,21 @@ const styles = StyleSheet.create({
   },
   groupInfoButton: {
     padding: 8,
-    marginLeft: 6,
+    marginLeft: 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
   groupInfoIcon: {
+    fontSize: 20,
+  },
+  // M-Mobile-8.2C: 🏛️ Forum quick-access button in parent group header
+  forumButton: {
+    padding: 8,
+    marginLeft: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  forumButtonText: {
     fontSize: 20,
   },
   headerTitle: {
@@ -1003,6 +1171,26 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 12,
     color: colors.colorOnline,
+  },
+  // M-Mobile-8.2C: Interactive breadcrumb line in sub-group header
+  headerBreadcrumb: {
+    fontSize: 12,
+    color: colors.accentPrimary,
+    fontWeight: '500',
+  },
+  // M-Mobile-8.2B: Fail-Closed expired banner
+  expiredBanner: {
+    backgroundColor: colors.tintError10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.colorError,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  expiredBannerText: {
+    fontSize: 12,
+    color: colors.colorError,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   listContent: {
     paddingVertical: spacing.md,
