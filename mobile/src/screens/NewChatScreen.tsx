@@ -1,6 +1,7 @@
 /**
  * WuzzChat Mobile UI - NewChatScreen
  * Contact Search & Direct Conversation Initiation Screen
+ * With Public Group Discovery & Preview Confirmation (DEC-012).
  * WhatsApp Single-Screen Flow, Debounced Querying, & Anti-Double-Action Guard.
  */
 
@@ -8,8 +9,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
-  FlatList,
   Keyboard,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -18,8 +19,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { searchUsers, startDirectChat } from '../api/users';
-import { Conversation, User } from '../api/types';
+import { groupsApi } from '../api/groups';
+import { Conversation, GroupDetails, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
+import { GroupPreviewModal } from '../components/GroupPreviewModal';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -29,6 +32,20 @@ export interface NewChatScreenProps {
   onNavigateToNewGroup?: () => void;
 }
 
+interface UserSection {
+  title: string;
+  type: 'users';
+  data: User[];
+}
+
+interface GroupSection {
+  title: string;
+  type: 'groups';
+  data: GroupDetails[];
+}
+
+type SearchSection = UserSection | GroupSection;
+
 export const NewChatScreen: React.FC<NewChatScreenProps> = ({
   onBack,
   onSelectChat,
@@ -37,7 +54,9 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
   const { user: currentUser } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [userResults, setUserResults] = useState<User[]>([]);
+  const [publicGroupResults, setPublicGroupResults] = useState<GroupDetails[]>([]);
+  const [selectedPublicGroup, setSelectedPublicGroup] = useState<GroupDetails | null>(null);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [startingUserId, setStartingUserId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -46,15 +65,19 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
   // Handle hardware Android Back button
   useEffect(() => {
     const backAction = () => {
+      if (selectedPublicGroup) {
+        setSelectedPublicGroup(null);
+        return true;
+      }
       onBack();
       return true;
     };
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [onBack]);
+  }, [onBack, selectedPublicGroup]);
 
-  // Debounced user search
+  // Debounced search for both users and public groups
   const performSearch = useCallback((query: string) => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -62,7 +85,8 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
 
     const trimmed = query.trim();
     if (!trimmed) {
-      setSearchResults([]);
+      setUserResults([]);
+      setPublicGroupResults([]);
       setIsSearching(false);
       setErrorMessage(null);
       return;
@@ -73,12 +97,21 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
 
     debounceTimerRef.current = setTimeout(async () => {
       try {
-        const users = await searchUsers(trimmed);
-        setSearchResults(users || []);
+        const [usersRes, groupsRes] = await Promise.allSettled([
+          searchUsers(trimmed),
+          groupsApi.searchPublicGroups(trimmed),
+        ]);
+
+        const users = usersRes.status === 'fulfilled' ? usersRes.value || [] : [];
+        const groups = groupsRes.status === 'fulfilled' ? groupsRes.value || [] : [];
+
+        setUserResults(users);
+        setPublicGroupResults(groups);
       } catch (err: any) {
         console.warn('[NewChatScreen] Search failed:', err);
-        setErrorMessage(err?.message || 'Gagal mencari kontak');
-        setSearchResults([]);
+        setErrorMessage(err?.message || 'Gagal mencari kontak atau grup');
+        setUserResults([]);
+        setPublicGroupResults([]);
       } finally {
         setIsSearching(false);
       }
@@ -92,7 +125,8 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
 
   const handleClearQuery = () => {
     setSearchQuery('');
-    setSearchResults([]);
+    setUserResults([]);
+    setPublicGroupResults([]);
     setIsSearching(false);
     setErrorMessage(null);
   };
@@ -129,13 +163,35 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
     }
   };
 
-  const renderUserItem = ({ item }: { item: User }) => {
+  // Select public group -> Trigger DEC-012 Preview Confirmation (Anti-Accidental Auto-Join)
+  const handleSelectPublicGroup = (group: GroupDetails) => {
+    Keyboard.dismiss();
+    console.log('[NewChatScreen] Opening public group preview:', group.title, group.id);
+    setSelectedPublicGroup(group);
+  };
+
+  // Callback when user confirms join / opens group from modal
+  const handleGroupJoined = (joinedGroup: GroupDetails) => {
+    setSelectedPublicGroup(null);
+    onSelectChat({
+      id: joinedGroup.id,
+      room_id: joinedGroup.id,
+      title: joinedGroup.title || (joinedGroup as any).name || 'Grup Publik',
+      peer_nickname: joinedGroup.title || (joinedGroup as any).name || 'Grup Publik',
+      avatar_url: joinedGroup.avatar_url,
+      is_group: true,
+      type: 'group',
+    });
+  };
+
+  const renderUserItem = (item: User) => {
     const isMe = currentUser?.id === item.id;
     const isPending = startingUserId === item.id;
 
     return (
       <TouchableOpacity
-        style={[styles.userItem, isPending && styles.userItemDisabled]}
+        key={item.id}
+        style={[styles.itemContainer, isPending && styles.itemDisabled]}
         onPress={() => handleSelectUser(item)}
         disabled={isPending || isMe}
         activeOpacity={0.7}
@@ -145,8 +201,8 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
           avatarUrl={item.avatar_url}
           size={48}
         />
-        <View style={styles.userInfo}>
-          <View style={styles.userNameRow}>
+        <View style={styles.itemInfo}>
+          <View style={styles.nameRow}>
             <Text style={styles.displayName} numberOfLines={1}>
               {item.display_name || item.username}
             </Text>
@@ -157,7 +213,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
               <Text style={styles.meBadge}> (Anda)</Text>
             )}
           </View>
-          <Text style={styles.usernameText} numberOfLines={1}>
+          <Text style={styles.subText} numberOfLines={1}>
             @{item.username}
           </Text>
           {item.status_message ? (
@@ -176,6 +232,75 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
     );
   };
 
+  const renderGroupItem = (item: GroupDetails) => {
+    const title = item.title || (item as any).name || 'Grup Publik';
+    const memberCount = item.member_count ?? 1;
+
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.itemContainer}
+        onPress={() => handleSelectPublicGroup(item)}
+        activeOpacity={0.7}
+      >
+        <Avatar
+          name={title}
+          avatarUrl={item.avatar_url}
+          size={48}
+        />
+        <View style={styles.itemInfo}>
+          <View style={styles.nameRow}>
+            <Text style={styles.displayName} numberOfLines={1}>
+              {title}
+            </Text>
+            <View style={styles.publicBadgeSmall}>
+              <Text style={styles.publicBadgeSmallText}>🌐 Publik</Text>
+            </View>
+          </View>
+
+          <View style={styles.groupMetaRow}>
+            {item.group_username ? (
+              <Text style={styles.subText} numberOfLines={1}>
+                @{item.group_username} •{' '}
+              </Text>
+            ) : null}
+            <Text style={styles.membersCountText}>
+              {memberCount} anggota
+            </Text>
+          </View>
+
+          {item.description ? (
+            <Text style={styles.statusMessage} numberOfLines={1}>
+              {item.description}
+            </Text>
+          ) : null}
+        </View>
+
+        <Text style={styles.chevron}>›</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // Build section list data
+  const sections: SearchSection[] = [];
+  if (publicGroupResults.length > 0) {
+    sections.push({
+      title: 'Grup Publik',
+      type: 'groups',
+      data: publicGroupResults,
+    });
+  }
+  if (userResults.length > 0) {
+    sections.push({
+      title: 'Kontak & Pengguna',
+      type: 'users',
+      data: userResults,
+    });
+  }
+
+  const hasResults = sections.length > 0;
+  const isSearchActive = searchQuery.trim().length > 0;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {/* Header */}
@@ -191,7 +316,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
 
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Mulai Chat Baru</Text>
-          <Text style={styles.headerSubtitle}>Cari pengguna terdaftar</Text>
+          <Text style={styles.headerSubtitle}>Cari kontak atau jelajahi grup publik</Text>
         </View>
       </View>
 
@@ -201,7 +326,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari nama atau username..."
+            placeholder="Cari nama, @username, atau grup..."
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={handleQueryChange}
@@ -212,7 +337,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
           {isSearching && (
             <ActivityIndicator size="small" color={colors.accentPrimary} style={styles.searchSpinner} />
           )}
-          {searchQuery.length > 0 && !isSearching && (
+          {isSearchActive && !isSearching && (
             <TouchableOpacity onPress={handleClearQuery} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={styles.clearIcon}>✕</Text>
             </TouchableOpacity>
@@ -227,15 +352,31 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
         </View>
       ) : null}
 
-      {/* Results List */}
-      <FlatList
-        data={searchResults}
+      {/* Categorized Results or Default Actions */}
+      <SectionList<User | GroupDetails, SearchSection>
+        sections={sections}
         keyExtractor={(item) => item.id}
-        renderItem={renderUserItem}
+        renderItem={({ item, section }) => {
+          if (section.type === 'groups') {
+            return renderGroupItem(item as GroupDetails);
+          }
+          return renderUserItem(item as User);
+        }}
+        renderSectionHeader={({ section }) => (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeaderTitle}>
+              {section.type === 'groups' ? '🌐 ' : '👤 '}
+              {section.title}
+            </Text>
+            <View style={styles.sectionHeaderBadge}>
+              <Text style={styles.sectionHeaderCount}>{section.data.length}</Text>
+            </View>
+          </View>
+        )}
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="always"
         ListHeaderComponent={
-          onNavigateToNewGroup && searchQuery.trim().length === 0 ? (
+          onNavigateToNewGroup && !isSearchActive ? (
             <TouchableOpacity
               style={styles.newGroupItem}
               onPress={onNavigateToNewGroup}
@@ -256,23 +397,30 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
           !isSearching ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>
-                {searchQuery.trim().length > 0 ? '👤❓' : '💬'}
+                {isSearchActive ? '🔍❓' : '💬'}
               </Text>
               <Text style={styles.emptyTitle}>
-                {searchQuery.trim().length > 0
-                  ? 'Pengguna Tidak Ditemukan'
-                  : 'Cari Pengguna'}
+                {isSearchActive
+                  ? 'Tidak Ditemukan'
+                  : 'Cari Kontak atau Grup Publik'}
               </Text>
               <Text style={styles.emptySubtitle}>
-                {searchQuery.trim().length > 0
-                  ? `Tidak ada kontak yang cocok dengan "${searchQuery}".`
-                  : 'Ketik username atau nama tampilan untuk mulai mengobrol.'}
+                {isSearchActive
+                  ? `Tidak ada kontak atau grup yang cocok dengan "${searchQuery}".`
+                  : 'Ketik username, nama kontak, atau nama grup publik untuk mulai mengobrol.'}
               </Text>
             </View>
           ) : null
         }
       />
 
+      {/* DEC-012: Public Group Discovery & Preview Confirmation Modal */}
+      <GroupPreviewModal
+        visible={Boolean(selectedPublicGroup)}
+        group={selectedPublicGroup}
+        onClose={() => setSelectedPublicGroup(null)}
+        onJoined={handleGroupJoined}
+      />
     </SafeAreaView>
   );
 };
@@ -363,7 +511,37 @@ const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
   },
-  userItem: {
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.bgBase,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+  },
+  sectionHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionHeaderBadge: {
+    backgroundColor: colors.bgElevated,
+    paddingHorizontal: spacing.xs + 4,
+    paddingVertical: 1,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+  },
+  sectionHeaderCount: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  itemContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
@@ -371,14 +549,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
   },
-  userItemDisabled: {
+  itemDisabled: {
     opacity: 0.6,
   },
-  userInfo: {
+  itemInfo: {
     flex: 1,
     marginLeft: spacing.md,
   },
-  userNameRow: {
+  nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -386,6 +564,20 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  publicBadgeSmall: {
+    backgroundColor: colors.tintAccent10,
+    borderWidth: 1,
+    borderColor: colors.accentPrimary,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radius.full,
+    marginLeft: spacing.xs,
+  },
+  publicBadgeSmallText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.accentPrimary,
   },
   verifiedBadge: {
     fontSize: 12,
@@ -398,10 +590,19 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontStyle: 'italic',
   },
-  usernameText: {
+  subText: {
     ...typography.caption,
     color: colors.accentPrimary,
     marginTop: 2,
+  },
+  groupMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  membersCountText: {
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   statusMessage: {
     ...typography.caption,
@@ -473,5 +674,3 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
-
-

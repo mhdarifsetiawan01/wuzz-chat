@@ -3033,3 +3033,29 @@ Mengimplementasikan dukungan penuh obrolan grup (*Core Group Chat Engine*) dan m
 - **Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 - **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (tidak ada perubahan backend).
 
+---
+
+## ✅ Milestone M-Mobile-8.2A: Public Group Discovery & Preview Confirmation (DEC-012) & Private Group Shield (DEC-013) — SELESAI
+
+**Tanggal Selesai:** 26 September 2026 | **Branch:** `dev`
+
+### 1. Perubahan Kode
+
+**Files Baru:**
+- `mobile/src/components/GroupPreviewModal.tsx`: Modal pratinjau konfirmasi grup publik bertema Aurora Glassmorphism dengan avatar, status badge 🌐 Publik, member count, handle `@group_username`, deskripsi, notice, dan aksi dual-mode ("Buka Obrolan" untuk member vs "Gabung ke Grup" untuk non-member dengan AbortController 15 detik + anti-double-action).
+- `mobile/src/components/AuthorizationShield.tsx`: Layar/kartu proteksi otorisasi bertema Aurora Glassmorphism dengan ikon gembok merah (`🔒`), lencana 403 Forbidden, pesan edukatif, dan tombol *"← Kembali ke Beranda Obrolan"*.
+
+**Files Dimodifikasi:**
+- `mobile/src/components/index.ts`: +export `GroupPreviewModal` & `AuthorizationShield`.
+- `mobile/src/screens/NewChatScreen.tsx`: Pencarian paralel debounced untuk kontak (`searchUsers`) dan grup publik (`groupsApi.searchPublicGroups`), render `SectionList` terpisah, dan integrasi tap grup publik ke `GroupPreviewModal` (anti-accidental auto-join).
+- `mobile/src/screens/ChatScreen.tsx`: Pre-flight group details check sebelum koneksi WebSocket:
+  - Intersep status 403 Forbidden ➔ Tampilkan `AuthorizationShield`, suppress WebSocket `{ type: "join" }`, dan suppress false connection timeout.
+  - Deteksi tautan langsung ke grup publik yang belum diikuti (`is_public && !my_role`) ➔ Tahan WebSocket join dan tampilkan `GroupPreviewModal`.
+- `mobile/App.tsx`: Integrasi listener `Linking` untuk menangani deep link direct group room (`wuzzchat://chat?room=grp_...` atau URL web).
+- `docs/MOBILE_INTEGRATION_GUIDE.md`: Check-off DEC-012 & DEC-013 pada checklist Bagian 7.
+
+### 2. Bukti Pengujian Otomatis
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Frontend Production Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (100% lulus).
+

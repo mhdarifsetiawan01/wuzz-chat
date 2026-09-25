@@ -11,3 +11,5 @@ export * from './AudioPlayerBubble';
 export * from './SubGroupListModal';
 export * from './CreateSubGroupModal';
 export * from './JoinRequestsModal';
+export * from './GroupPreviewModal';
+export * from './AuthorizationShield';

@@ -479,12 +479,12 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - **Fail-Closed Read-Only Lock**: Jika `status === "expired"` atau `expires_at <= NOW()`, nonaktifkan input bar pesan dan tampilkan banner *"Topik forum ini telah kedaluwarsa dan terkunci"*. Jangan hapus riwayat chat dari lokal (Cache-First persisten).
   - **Integrasi Endpoint**: `GET /api/groups/{id}/subgroups`, `POST /api/groups/{id}/subgroups` (dengan boolean `is_public`), `POST /api/groups/{sub_id}/join`, `POST /api/groups/{sub_id}/join-request`, `GET /api/groups/{sub_id}/join-requests`, dan `POST /api/groups/{sub_id}/join-requests/{requestId}/action`.
   - **Immutable-Only Checking**: Semua perbandingan dan relasi wajib mengacu pada UUID/ID immutable (`user.id`, `sub.id`, `sub.parent_id`).
-- [ ] **Public Group Discovery & Preview Confirmation (Milestone 8.2A / DEC-012)**:
+- [x] **Public Group Discovery & Preview Confirmation (Milestone 8.2A / DEC-012)**:
   - Saat pengguna mencari atau mengetuk grup publik di hasil pencarian kontak/grup (`GET /api/groups/search?q=...` atau membuka tautan langsung `/chat?room=grp_...`), klien mobile DILARANG langsung memanggil `POST /api/groups/{id}/join` secara otomatis (*anti-accidental auto-join*).
   - Tampilkan modal/bottom sheet pratinjau konfirmasi terlebih dahulu yang memuat: avatar, nama grup, badge publik, handle `@group_username`, jumlah anggota, dan deskripsi grup.
   - Sediakan tombol eksplisit "Batal" dan "Gabung ke Grup" (dengan loading spinner + proteksi anti double-click + timeout 15 detik).
   - Panggilan `POST /api/groups/{id}/join` hanya dieksekusi saat pengguna secara sadar menekan tombol konfirmasi "Gabung ke Grup".
-- [ ] **Private Group Direct Link Gate & Authorization Shield (Milestone 8.2A / DEC-013)**:
+- [x] **Private Group Direct Link Gate & Authorization Shield (Milestone 8.2A / DEC-013)**:
   - Saat pengguna membuka tautan langsung grup privat (`/chat?room=grp_...` atau deep link mobile `wuzzchat://chat?room=grp_...`) di mana pengguna bukan anggota: API `GET /api/groups/{id}` mengembalikan `HTTP 403 Forbidden`.
   - Klien mobile **DILARANG** memasukkan pengguna ke ruang obrolan kosong, **DILARANG** mengirim frame WebSocket `{ type: "join" }`, dan **DILARANG** memicu timer connection timeout palsu (*"Koneksi Sedang Terhambat"*).
   - Klien mobile **WAJIB** merender layar/modal proteksi otorisasi bertema *Aurora Glassmorphism* ("🔒 Grup Ini Bersifat Privat") yang menginformasikan bahwa pengguna bukan anggota grup, serta menyediakan tombol aksi kembali ke beranda obrolan utama (`router.replace('/chat')`).

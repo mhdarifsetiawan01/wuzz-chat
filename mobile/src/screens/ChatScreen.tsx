@@ -43,6 +43,8 @@ import { MessageBubble } from '../components/MessageBubble';
 import { ChatInputBar, StagedMedia } from '../components/ChatInputBar';
 import { MessageActionSheet } from '../components/MessageActionSheet';
 import { SubGroupListModal } from '../components/SubGroupListModal';
+import { GroupPreviewModal } from '../components/GroupPreviewModal';
+import { AuthorizationShield } from '../components/AuthorizationShield';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -88,13 +90,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [memberCount, setMemberCount] = useState<number>(conversation.member_count || 0);
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
 
-  // M-Mobile-8.2B: Sub-group / forum topic state
-  const [parentGroupDetails, setParentGroupDetails] = useState<GroupDetails | null>(null);
-  const [showForumModal, setShowForumModal] = useState(false);
+  // DEC-013: Authorization Shield State (403 Forbidden interceptor)
+  const [isAccessDenied, setIsAccessDenied] = useState<boolean>(false);
+  const [accessDeniedError, setAccessDeniedError] = useState<string | null>(null);
 
-  const flatListRef = useRef<FlatList>(null);
-  const lastHandledMsgIdRef = useRef<string | null>(null);
-  const roomAESKeyRef = useRef<Uint8Array | null>(null);
+  // DEC-012: Direct Link Public Group Preview State
+  const [directPreviewGroup, setDirectPreviewGroup] = useState<GroupDetails | null>(null);
 
   const roomId = conversation.id;
   const currentUserId = user?.id || '';
@@ -111,6 +112,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     isParentGroup ||
     isSubGroup;
   const isDirect = !isGroup;
+
+  // Pre-flight check state for groups (suppress premature websocket join & timers)
+  const [isVerifyingGroup, setIsVerifyingGroup] = useState<boolean>(isGroup);
+
+  // M-Mobile-8.2B: Sub-group / forum topic state
+  const [parentGroupDetails, setParentGroupDetails] = useState<GroupDetails | null>(null);
+  const [showForumModal, setShowForumModal] = useState(false);
+
+  const flatListRef = useRef<FlatList>(null);
+  const lastHandledMsgIdRef = useRef<string | null>(null);
+  const roomAESKeyRef = useRef<Uint8Array | null>(null);
 
   // Fail-Closed: a forum topic is locked if expired
   const isForumExpired = useMemo(() => {
@@ -139,29 +151,61 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     );
   }, [isSubGroup, parentGroupDetails, parentGroupConversation]);
 
-  // Load group details if group room
+  // Load & verify group details if group room
   useEffect(() => {
-    if (!isGroup) return;
+    if (!isGroup) {
+      setIsVerifyingGroup(false);
+      return;
+    }
     let mounted = true;
+    setIsVerifyingGroup(true);
 
     groupsApi
       .getGroupDetails(roomId)
       .then((details) => {
-        if (mounted && details) {
+        if (!mounted) return;
+        if (details) {
           setGroupDetails(details);
           if (details.member_count) {
             setMemberCount(details.member_count);
           }
+
+          // DEC-012: If group is public and current user is not a member yet, show preview modal
+          const isUserMember = Boolean(details.my_role || (details as any).is_member);
+          if (details.is_public && !isUserMember) {
+            console.log('[ChatScreen] Direct link to unjoined public group -> show preview modal');
+            setDirectPreviewGroup(details);
+          }
         }
+        setIsVerifyingGroup(false);
       })
-      .catch((err) => {
-        console.log('[ChatScreen] Could not fetch group details:', err);
+      .catch((err: any) => {
+        if (!mounted) return;
+        console.warn('[ChatScreen] Could not fetch group details:', err);
+
+        // DEC-013: 403 Forbidden Gatekeeper & Authorization Shield
+        const isForbidden =
+          err?.status === 403 ||
+          (err?.detail && err.detail.toLowerCase().includes('akses ditolak')) ||
+          (err?.detail && err.detail.toLowerCase().includes('bukan anggota')) ||
+          (err?.message && err.message.toLowerCase().includes('akses ditolak')) ||
+          (err?.message && err.message.toLowerCase().includes('bukan anggota'));
+
+        if (isForbidden) {
+          setIsAccessDenied(true);
+          setAccessDeniedError(err?.detail || err?.message || 'Akses ditolak: Anda bukan anggota grup ini');
+        } else {
+          Alert.alert('Gagal Memuat Grup', err?.detail || err?.message || 'Grup tidak dapat diakses.');
+          onBack();
+        }
+        setIsVerifyingGroup(false);
+        setIsLoading(false);
       });
 
     return () => {
       mounted = false;
     };
-  }, [isGroup, roomId]);
+  }, [isGroup, roomId, onBack]);
 
   // M-Mobile-8.2C: Fetch parent group info for breadcrumb when in a sub-group
   useEffect(() => {
@@ -269,6 +313,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // 1. Load History & Join Room on Mount (Clean History State Sync via WebSocket)
   useEffect(() => {
+    // DEC-013 / DEC-012: Suppress WebSocket join & false timeout if:
+    // 1. Still verifying group pre-flight
+    // 2. Access is denied (HTTP 403 Forbidden)
+    // 3. Waiting for public group preview confirmation
+    if (isVerifyingGroup || isAccessDenied || directPreviewGroup) {
+      return;
+    }
+
     setIsLoading(true);
 
     // Timeout safety in case history event is empty or room is newly created
@@ -351,10 +403,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       clearTimeout(timeout);
       unsubscribeHistory();
     };
-  }, [roomId]);
+  }, [roomId, isVerifyingGroup, isAccessDenied, directPreviewGroup]);
 
   // 2. Realtime WebSocket Listeners (Anti-Stale Reprocessing Guard)
   useEffect(() => {
+    if (isAccessDenied) return;
+
     // A. Incoming Message Listener
     const unsubscribeMessage = websocketClient.on('message', (incoming: any) => {
       const targetRoom = incoming.room || incoming.room_id;
@@ -872,6 +926,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     [messages]
   );
 
+  // DEC-013: Render Authorization Shield if access is denied (403 Forbidden)
+  if (isAccessDenied) {
+    return (
+      <AuthorizationShield
+        onBack={onBack}
+        errorDetail={accessDeniedError || undefined}
+        groupId={roomId}
+      />
+    );
+  }
+
+  // Pre-flight group verification indicator
+  if (isGroup && isVerifyingGroup) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.accentPrimary} />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <KeyboardAvoidingView
@@ -1083,6 +1157,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           }}
         />
       )}
+
+      {/* DEC-012: Direct Link Public Group Preview Confirmation Modal */}
+      {directPreviewGroup ? (
+        <GroupPreviewModal
+          visible={Boolean(directPreviewGroup)}
+          group={directPreviewGroup}
+          onClose={onBack}
+          onJoined={(joinedGroup) => {
+            setGroupDetails(joinedGroup);
+            setDirectPreviewGroup(null);
+          }}
+        />
+      ) : null}
     </View>
   );
 };

@@ -5,7 +5,7 @@
 
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, BackHandler, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Linking, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, DeviceProvider, useAuth } from './src/context';
 import {
@@ -68,6 +68,48 @@ function AppNavigator() {
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
   }, [activeGroupInfo, isNewGroupOpen, activeConversation, isNewChatOpen, forumParentConversation]);
+
+  // Deep link listener for direct group links (DEC-012 & DEC-013)
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleDeepLink = (url: string | null) => {
+      if (!url) return;
+      try {
+        console.log('[App] Received deep link URL:', url);
+        // Match room parameter: room=grp_... or room=sub_... or room=dm_...
+        const match = url.match(/[?&]room=([^&#]+)/);
+        if (match && match[1]) {
+          const roomId = decodeURIComponent(match[1]);
+          const isGroupRoom = roomId.startsWith('grp_') || roomId.startsWith('sub_');
+          setActiveGroupInfo(null);
+          setIsNewGroupOpen(false);
+          setIsNewChatOpen(false);
+          setActiveConversation({
+            id: roomId,
+            room_id: roomId,
+            title: isGroupRoom ? 'Grup' : 'Obrolan',
+            is_group: isGroupRoom,
+            type: roomId.startsWith('sub_') ? 'subgroup' : isGroupRoom ? 'group' : 'direct',
+          });
+        }
+      } catch (err) {
+        console.warn('[App] Failed to parse deep link URL:', err);
+      }
+    };
+
+    // Check initial URL
+    Linking.getInitialURL().then(handleDeepLink);
+
+    // Listen to URL events
+    const subscription = Linking.addEventListener('url', (event) => {
+      handleDeepLink(event.url);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isAuthenticated]);
 
   // Memoized screen event handlers to eliminate infinite re-render cycles
   const handleBackFromGroupInfo = useCallback(() => {
