@@ -3,9 +3,9 @@
 Dokumen ini adalah panduan teknis komprehensif (*Mobile Client Integration Guide & Architecture Blueprint*) bagi engineer yang akan membangun aplikasi mobile native (**Android Kotlin**, **iOS Swift**) maupun cross-platform (**Flutter**, **React Native**) untuk ekosistem **Wuzz Chat**.
 
 > 📌 **Status Kesiapan**:  
-> - **Backend Gateway**: **READY ✅** (REST API, WebSocket RFC 6455, `X-Device-Platform` header, multi-device gating HTTP 409, dan perutean token FCM).  
-> - **Aplikasi Klien Mobile**: **CLIENT NOT YET IMPLEMENTED ⏳** (Target Milestone 6).  
-> - **Single Source of Truth (SSOT)**: Lihat [`docs/PROJECT_STATE.md`](PROJECT_STATE.md) untuk matriks kapabilitas dan utang teknis aktual.
+> - **Backend Gateway**: **READY & LIVE ✅** (REST API OpenAPI 3.1, WebSocket RFC 6455, Multi-Tenant Aware `tenant_default`, `X-Device-Platform` header, multi-device gating HTTP 409, dan perutean token FCM).  
+> - **Aplikasi Klien Mobile**: **READY FOR INITIATION 🚀** (Target: First-Party React Native Mobile App).  
+> - **Canonical API Specification**: Lihat [`docs/openapi.yaml`](openapi.yaml) atau endpoint `/api/docs` untuk kontrak REST 3.1.0 lengkap.
 
 ---
 
@@ -15,6 +15,7 @@ Backend **Wuzz Chat** (Golang) dan Database (Supabase PostgreSQL) dibangun denga
 - Tidak terikat pada teknologi frontend tertentu (Next.js hanya salah satu implementasi klien web).
 - Menggunakan standar industri terbuka: **JSON over REST API**, **WebSocket (RFC 6455)**, dan **Web Crypto / NIST RFC Cryptography**.
 - Pesan yang dikirim dari Android Native (Kotlin) dapat langsung didekripsi dan dibaca oleh iOS Native (Swift) maupun Web (Next.js) secara transparan.
+- **Multi-Tenant Context**: Klien mobile resmi WuzzChat beroperasi di dalam `tenant_default` (`"default"`). Backend memiliki *graceful fallback*: jika header `X-Tenant-ID` tidak disertakan, request otomatis diarahkan ke `tenant_default`. Untuk skenario whitelabel di masa depan, klien mobile cukup mengonfigurasi header `X-Tenant-ID: <slug_tenant>`.
 
 ---
 
@@ -25,6 +26,11 @@ Backend **Wuzz Chat** (Golang) dan Database (Supabase PostgreSQL) dibangun denga
 |---|---|---|
 | **Production (Live)** | `https://wuzz-chat-backend.fly.dev` | `wss://wuzz-chat-backend.fly.dev/ws?token=<JWT>&device_id=<DEVICE_ID>` |
 | **Local Development** | `http://10.0.2.2:8080` (Android Emulator) / `http://localhost:8080` (iOS Sim) | `ws://10.0.2.2:8080/ws?token=<JWT>&device_id=<DEVICE_ID>` |
+
+> 💡 **Header Standar Request Mobile**:
+> - `Authorization`: `Bearer <JWT_TOKEN>` (untuk seluruh endpoint terproteksi)
+> - `X-Device-Platform`: `android` atau `ios` (wajib untuk pelacakan multi-device & push routing)
+> - `X-Tenant-ID`: `default` (opsional, otomatis fallback ke `tenant_default` jika diabaikan)
 
 ---
 
