@@ -49,6 +49,8 @@ import { GroupPreviewModal } from '../components/GroupPreviewModal';
 import { AuthorizationShield } from '../components/AuthorizationShield';
 import { ForwardMessageModal } from '../components/ForwardMessageModal';
 import { PinnedMessagesBanner } from '../components/PinnedMessagesBanner';
+import { ContactInfoModal } from '../components/ContactInfoModal';
+import { VerifiedBadge } from '../components/VerifiedBadge';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -138,6 +140,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [parentGroupDetails, setParentGroupDetails] = useState<GroupDetails | null>(null);
   const [showForumModal, setShowForumModal] = useState(false);
 
+  // Milestone M-Mobile-8.5: Contact Profile & Verified Identity modal
+  const [showContactInfoModal, setShowContactInfoModal] = useState(false);
+  const [peerPublicKey, setPeerPublicKey] = useState<string | undefined>(conversation.peer_public_key);
+
   const flatListRef = useRef<FlatList>(null);
   const lastHandledMsgIdRef = useRef<string | null>(null);
   const roomAESKeyRef = useRef<Uint8Array | null>(null);
@@ -157,6 +163,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     groupDetails?.title || conversation.title || conversation.peer_nickname || 'Obrolan';
   const avatarUrl =
     groupDetails?.avatar_url || conversation.avatar_url || conversation.peer_avatar_url;
+
+  // Milestone M-Mobile-8.5: Deterministic peer resolution for 1-on-1 direct chat
+  const resolvedPeerId = useMemo(() => {
+    if (conversation.peer_id) return conversation.peer_id;
+    if (roomId.startsWith('dm_')) {
+      const parts = roomId.replace(/^dm_/, '').split('_');
+      return parts[0] === currentUserId ? parts[1] : parts[0];
+    }
+    if (conversation.participants?.length) {
+      const other = conversation.participants.find((p) => p.id !== currentUserId);
+      return other?.id || '';
+    }
+    return '';
+  }, [conversation.peer_id, conversation.participants, roomId, currentUserId]);
 
   // Breadcrumb parent name (M-Mobile-8.2C)
   const parentGroupName = useMemo(() => {
@@ -281,6 +301,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         }
       } else if (peerPubKey && peerId) {
         cachePeerPublicKey(peerId, peerPubKey);
+      }
+
+      if (peerPubKey && mounted) {
+        setPeerPublicKey(peerPubKey);
       }
 
       if (!peerPubKey) {
@@ -1412,10 +1436,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   if (parentId && onNavigateToParent) onNavigateToParent(parentId);
                 } else if (isGroup && onOpenGroupInfo) {
                   onOpenGroupInfo(groupDetails || conversation);
+                } else if (isDirect && resolvedPeerId) {
+                  setShowContactInfoModal(true);
                 }
               }}
-              disabled={!isGroup}
-              activeOpacity={isGroup ? 0.75 : 1}
+              disabled={!isGroup && !isDirect}
+              activeOpacity={isGroup || isDirect ? 0.75 : 1}
             >
               <View style={styles.headerAvatarContainer}>
                 <Avatar
@@ -1423,13 +1449,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   avatarUrl={avatarUrl}
                   size={38}
                   isGroup={isGroup}
+                  isOnline={isDirect}
                 />
               </View>
 
               <View style={styles.headerInfo}>
-                <Text style={styles.headerTitle} numberOfLines={1}>
-                  {title}
-                </Text>
+                <View style={styles.headerTitleContainer}>
+                  <Text style={styles.headerTitle} numberOfLines={1}>
+                    {title}
+                  </Text>
+                  {isDirect && conversation.peer_is_verified && (
+                    <VerifiedBadge size={14} />
+                  )}
+                </View>
                 <View style={styles.headerStatusRow}>
                   {isDirect && <View style={styles.onlineDot} />}
 
@@ -1633,6 +1665,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           }}
         />
       ) : null}
+
+      {/* Milestone M-Mobile-8.5: Contact Profile & E2EE Safety Number Verification Modal */}
+      {isDirect && (
+        <ContactInfoModal
+          visible={showContactInfoModal}
+          onClose={() => setShowContactInfoModal(false)}
+          userId={resolvedPeerId}
+          currentUserId={currentUserId}
+          initialDisplayName={conversation.peer_nickname || title}
+          initialAvatarUrl={avatarUrl}
+          initialUsername={conversation.peer_nickname}
+          initialIsVerified={conversation.peer_is_verified}
+          peerPublicKeyJWK={peerPublicKey || conversation.peer_public_key}
+          myPublicKeyJWK={e2eeKeyPair?.publicKeyJWK}
+          isOnline={true}
+        />
+      )}
     </View>
   );
 };
@@ -1700,8 +1749,12 @@ const styles = StyleSheet.create({
   forumButtonText: {
     fontSize: 20,
   },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   headerTitle: {
-
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,

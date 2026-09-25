@@ -1,38 +1,77 @@
-# Implementation Plan: DEC-012 & DEC-013 Mobile
+# Implementation Plan — Milestone M-Mobile-8.5
 
-## 1. Objectives & Context
-Implement two critical group discovery and access protection specifications from `docs/MOBILE_INTEGRATION_GUIDE.md`:
-- **DEC-012**: Public Group Discovery & Preview Confirmation (anti-accidental auto-join).
-- **DEC-013**: Private Group Direct Link Gate & Authorization Shield (403 Forbidden interceptor, WebSocket join guard, false-timeout prevention).
+## Objectives
+Implement WhatsApp-grade Contact Profile, Verified Identity (centang biru), and 30-Digit E2EE Safety Number verification for WuzzChat Mobile, guaranteeing 100% interoperability with Web frontend.
 
-## 2. Target Modified & Created Files
-- `mobile/src/components/GroupPreviewModal.tsx` *(New)*: Aurora Glassmorphism confirmation modal for public groups.
-- `mobile/src/components/AuthorizationShield.tsx` *(New)*: Aurora Glassmorphism access protection screen/card for private groups.
-- `mobile/src/components/index.ts` *(Modified)*: Export new components.
-- `mobile/src/screens/NewChatScreen.tsx` *(Modified)*: Support parallel search for contacts and public groups (`groupsApi.searchPublicGroups`), render categorized results, and wire tap to `GroupPreviewModal`.
-- `mobile/src/screens/ChatScreen.tsx` *(Modified)*: Pre-flight group details check before WebSocket connect. Intercept 403 Forbidden to show `AuthorizationShield` (suppress WebSocket join & false timeout). If public group without membership, trigger `GroupPreviewModal` before joining.
-- `mobile/App.tsx` *(Modified)*: Deep link URL listener (`Linking.addEventListener('url', ...)` and `Linking.getInitialURL()`) to support direct group links (`wuzzchat://chat?room=grp_...`).
+---
 
-## 3. Technical Architecture & Constraints
-1. **Aurora Glassmorphism UI**:
-   - Card background: `rgba(15, 23, 42, 0.94)` / `colors.bgCardSolid`.
-   - Borders: `colors.borderSubtle`, `colors.borderStrong`, or `colors.borderError`.
-   - Glow effects and status tints: `colors.tintAccent10`, `colors.tintError10`.
-   - Typography and radius from `mobile/src/theme/`.
-2. **Anti-Accidental Auto-Join (DEC-012)**:
-   - Selecting a public group never executes `POST /api/groups/{id}/join` immediately.
-   - Shows modal with avatar, status badge 🌐 Publik, title, @group_username, member_count, and description.
-   - Button states:
-     - Member (`my_role` defined / `is_member === true`): "Buka Obrolan" (navigates without API join call).
-     - Non-member: "Gabung ke Grup" with loading spinner, disabled state during flight, and 15s timeout via `apiClient`.
-3. **Authorization Shield & Invariants (DEC-013)**:
-   - When entering a private group (`grp_...`) without membership (`GET /api/groups/{id}` returns 403):
-     - Invariant 1: Suppress WebSocket `{ type: "join" }` frame.
-     - Invariant 2: Suppress empty chat timeline rendering.
-     - Invariant 3: Suppress false connection timeout ("Koneksi Sedang Terhambat").
-     - Render `AuthorizationShield` with "🔒 Grup Ini Bersifat Privat" and navigation back to home (`onBack()`).
+## Technical Architecture & Components
 
-## 4. Verification & Testing Strategy
-- Run `npx tsc --noEmit` in `mobile/` to ensure zero compilation or typing errors.
-- Validate component interfaces and exports.
-- Verify safe lifecycle cleanup (timers, AbortController, back-handlers).
+### 1. E2EE 30-Digit Safety Number Engine & Services (`mobile/src/services/e2eeService.ts`)
+- **Deterministic 30-Digit Fingerprint Algorithm**:
+  - `[pubKeyA, pubKeyB].sort().join('::')`
+  - SHA-256 hash using `@noble/hashes/sha2.js`
+  - 6 blocks of 5-digit numbers (`val = bytes[i*4..i*4+3]`, `unsigned = Math.abs(val) % 100000`, `padStart(5, '0')`)
+  - Identical to `frontend/lib/crypto/e2ee.ts:generateSafetyNumber`.
+- **Peer Public Key Resolution & Caching**:
+  - `getOrFetchPeerPublicKey(userId: string): Promise<string | null>` with memory caching and fallback to `getUserPublicKey(userId)`.
+- **Local Verification State Persistence**:
+  - Store manual safety verification in `secureStorage` (`wuzz_e2ee_verified_<peerId>`).
+  - Functions: `setContactSafetyVerified(peerId, safetyNumber, verified)` & `isContactSafetyVerified(peerId, safetyNumber)`.
+
+### 2. QR Code Matrix Generator (`mobile/src/services/qrCodeService.ts` & `mobile/src/components/QRCodeView.tsx`)
+- Pure TypeScript QR matrix generator or bit matrix module (100% pure JS, zero native modules).
+- Clean visual `<View>` grid renderer with custom size, high contrast background, and inner quiet zone padding.
+
+### 3. Verified Account Badge Component (`mobile/src/components/VerifiedBadge.tsx`)
+- Rosette / Starburst circle badge with electric cyan & soft azure gradient (`#00f2fe` to `#3b82f6`) and crisp white checkmark `✓`.
+- Reusable across `ChatScreen` header, `ChatListItem`, and `ContactInfoModal`.
+
+### 4. Contact Profile & Info Modal (`mobile/src/components/ContactInfoModal.tsx`)
+- **Theme**: WhatsApp Aurora Glassmorphism.
+- **Components**:
+  - Hero Header with large avatar, display name, `@username`, and `VerifiedBadge` (if `is_verified` or `peer_is_verified`).
+  - Online presence dot / last seen indicator.
+  - Quick Action Buttons: Voice Call (placeholder feedback), Share Contact (native `Share.share`), Mute Notifications (local toggle).
+  - Status Message / Bio card with join date.
+  - 🔒 E2EE Security Card: displays verified status badge, 30-digit snippet, and "Pindai / Cocokkan Kode" action button.
+
+### 5. Dedicated Safety Number Verification Modal (`mobile/src/components/SafetyNumberModal.tsx`)
+- Full 30-digit fingerprint organized in a 2-column monospace grid.
+- QR Code display for in-person visual scanning.
+- One-tap clipboard copy (`expo-clipboard`) with "✅ Disalin" visual feedback.
+- "Tandai Terverifikasi" toggle button that persists state locally.
+
+### 6. Integration Points
+- `mobile/src/screens/ChatScreen.tsx`:
+  - Enable header tap on 1-on-1 direct chats (`isDirect === true`) to trigger `ContactInfoModal`.
+  - Add `VerifiedBadge` beside contact name in chat header.
+- `mobile/src/components/ChatListItem.tsx`:
+  - Add `VerifiedBadge` in conversation row if `peer_is_verified === true`.
+- `mobile/src/api/users.ts` & `mobile/src/api/types.ts`:
+  - Export `getUserProfile(userId: string): Promise<User>` with 15s `AbortController`.
+  - Add `last_seen?: string` to `User` type.
+
+---
+
+## Target Files
+1. `mobile/src/services/e2eeService.ts` *(New file)*
+2. `mobile/src/services/qrCodeService.ts` *(New file)*
+3. `mobile/src/services/index.ts` *(Export updates)*
+4. `mobile/src/api/types.ts` *(Type enhancement)*
+5. `mobile/src/api/users.ts` *(API helper addition)*
+6. `mobile/src/components/VerifiedBadge.tsx` *(New component)*
+7. `mobile/src/components/QRCodeView.tsx` *(New component)*
+8. `mobile/src/components/SafetyNumberModal.tsx` *(New modal)*
+9. `mobile/src/components/ContactInfoModal.tsx` *(New modal)*
+10. `mobile/src/components/index.ts` *(Export updates)*
+11. `mobile/src/screens/ChatScreen.tsx` *(Header click & modal integration)*
+12. `mobile/src/components/ChatListItem.tsx` *(Verified badge integration)*
+
+---
+
+## Verification Strategy
+- Typecheck: `npx tsc --noEmit` in `mobile/` (0 errors).
+- Backend tests: `go test -v ./...` in `backend/` (100% pass).
+- Deterministic 30-digit test: verify exact matching between mobile `generateSafetyNumber` and web formula.
+- Zero server leak rule: verify all temporary servers killed.

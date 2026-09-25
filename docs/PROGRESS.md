@@ -3152,12 +3152,36 @@ Membangun arsitektur push notification yang andal, aman, hemat baterai, dan rama
 
 ### 2. File Dimodifikasi / Dibuat
 - **Baru**: `mobile/src/api/notifications.ts`, `mobile/src/services/notificationService.ts`, `mobile/src/components/NotificationSettingsModal.tsx`.
-- **Dimodifikasi**: `mobile/package.json`, `mobile/app.json`, `mobile/src/api/index.ts`, `mobile/src/services/index.ts`, `mobile/src/services/secureStorage.ts`, `mobile/src/components/index.ts`, `mobile/src/context/AuthContext.tsx`, `mobile/src/screens/RecentChatsScreen.tsx`, `mobile/App.tsx`, `docs/MOBILE_INTEGRATION_GUIDE.md`, `docs/PROGRESS.md`.
+
+## ✅ Milestone M-Mobile-8.5: Contact Profile, Verified Identity & E2EE Safety Number Verification (30-Digit Key Fingerprint) — SELESAI
+
+**Tanggal Selesai:** 26 September 2026 | **Branch:** `dev`
+
+### 1. Ringkasan Fitur & Implementasi Mobile
+Mengembangkan profil kontak, lencana identitas terverifikasi (*centang biru rosette*), dan sistem verifikasi 30-digit Safety Number E2EE pada WuzzChat Mobile yang memiliki interoperabilitas deterministik 100% dengan Web:
+1. **🔐 E2EE 30-Digit Safety Number Engine (`mobile/src/services/e2eeService.ts`)**:
+   - Algoritma hashing SHA-256 identik dengan `frontend/lib/crypto/e2ee.ts` (`[pubA, pubB].sort().join('::')`), mengekstrak 4 byte per blok untuk menghasilkan 6 blok $\times$ 5 digit angka.
+   - Cache-first public key resolution via `getOrFetchPeerPublicKey(userId)` dengan fallback request API `getUserPublicKey(userId)`.
+   - Persistensi status verifikasi kontak di `secureStorage` via `setContactSafetyVerified` dan `isContactSafetyVerified`.
+2. **📱 Pure TypeScript QR Code Generator & Matrix Visualizer (`mobile/src/services/qrCodeService.ts` & `QRCodeView.tsx`)**:
+   - Generator matrix QR Code murni tanpa dependensi native (2D boolean array) dan visualizer `<View>` pixel blocks resolusi tinggi.
+3. **🛡️ Verified Account Badge (`VerifiedBadge.tsx`)**:
+   - Rosette badge bergradasi electric cyan & azure (`#00f2fe` ke `#3b82f6`) dengan centang putih `✓`, terintegrasi di `ChatScreen` header, `ChatListItem`, dan `ContactInfoModal`.
+4. **👤 WhatsApp Aurora Glassmorphism Contact Profile Modal (`ContactInfoModal.tsx`)**:
+   - Interaksi tap header chat 1-on-1 membuka modal profil dengan avatar besar, display name, handle `@username`, status online / *last seen*, quick action buttons (Panggilan, Bagikan Kontak, Bisukan Notifikasi), Bio box, dan E2EE Security card.
+5. **🔍 Dedicated Safety Number Verification Modal (`SafetyNumberModal.tsx`)**:
+   - Tampilan 30 digit fingerprint dalam monospace grid 2-kolom, tab QR Code visual, tombol salin ke clipboard (`expo-clipboard`), dan toggle status verifikasi aman.
+6. **📋 Planning Task Berikutnya (M-Mobile-8.6)**:
+   - *In-App Live Camera QR Scanner & Zero-Knowledge Device Transfer* (`expo-camera` / `CameraView` barcode scanner) telah dicatat ke dalam roadmap perencanaan.
+
+### 2. File Dimodifikasi / Dibuat
+- **Baru**: `mobile/src/services/e2eeService.ts`, `mobile/src/services/qrCodeService.ts`, `mobile/src/components/QRCodeView.tsx`, `mobile/src/components/VerifiedBadge.tsx`, `mobile/src/components/SafetyNumberModal.tsx`, `mobile/src/components/ContactInfoModal.tsx`.
+- **Dimodifikasi**: `mobile/src/services/index.ts`, `mobile/src/components/index.ts`, `mobile/src/api/types.ts`, `mobile/src/api/users.ts`, `mobile/src/screens/ChatScreen.tsx`, `mobile/src/components/ChatListItem.tsx`, `docs/MOBILE_INTEGRATION_GUIDE.md`, `docs/ROADMAP.md`, `docs/PROGRESS.md`.
 
 ### 3. Bukti Pengujian Otomatis
 - **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
-- **Expo Bundler Build (`npx expo export`)**: **PASS 100%** (100% bundled untuk iOS & Android).
-- **Backend Test Suite (`go test -v ./internal/push/...` & `go test ./...` di `backend/`)**: **PASS 100%** (100% lulus).
+- **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (100% lulus).
+- **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 
 
 

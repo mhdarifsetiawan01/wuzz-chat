@@ -12,6 +12,7 @@ export interface User {
   is_verified?: boolean;
   public_key?: string;
   created_at?: string;
+  last_seen?: string;
 }
 
 export interface StartDirectChatRequest {

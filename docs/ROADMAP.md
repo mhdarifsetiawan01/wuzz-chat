@@ -57,6 +57,9 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Milestone M-Mobile-5: Media Attachments & Image/File Sharing**: **SELESAI ✅** (Kamera, galeri foto, staged preview, fullscreen viewer, store-and-forward ACK, Expo WinterCG stream)
 >    - **Milestone M-Mobile-6: Quoted Reply, Swipe-to-Reply & WhatsApp-Style Emoji Picker**: **SELESAI ✅** (Swipe-to-reply gesture, banner kutipan input, quote bubble viewer, quick reaction pill, keyboard-docked emoji panel)
 >    - **Milestone M-Mobile-7: Voice Notes & Audio Messaging**: **SELESAI ✅** (Perekaman suara WhatsApp-style, expo-audio & expo-file-system, scrubber waveform 24 bar, playback speed 1x/1.5x/2x, single active player, audio snippet "🎙️ Pesan Suara")
+>    - **Milestone M-Mobile-8: Group Chat, Sub-Groups & Notifications**: **SELESAI ✅** (Parent group management, sub-group topics, mentions, message pinning, push notifications & background sync)
+>    - **Milestone M-Mobile-8.5: Contact Profile, Verified Identity & E2EE Safety Number Verification**: **SELESAI ✅** (30-digit deterministic fingerprint, ContactInfoModal, VerifiedBadge rosette, pure JS QRCodeView, local verification persistence)
+>    - **Milestone M-Mobile-8.6: In-App Live Camera QR Scanner & Zero-Knowledge Device Transfer (Planning)**: **[ ] TERENCANA** (Integrasi `expo-camera` / `CameraView` barcode scanner untuk pemindaian instan Safety Number 30-digit dan migrasi kunci antar-perangkat via QR Code `POST /api/users/transfer/create` & `/consume`)
 
 ---
 

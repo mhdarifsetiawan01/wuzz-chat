@@ -16,3 +16,7 @@ export * from './AuthorizationShield';
 export * from './ForwardMessageModal';
 export * from './PinnedMessagesBanner';
 export * from './NotificationSettingsModal';
+export * from './VerifiedBadge';
+export * from './QRCodeView';
+export * from './SafetyNumberModal';
+export * from './ContactInfoModal';

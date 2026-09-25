@@ -1,16 +1,14 @@
-# Handover: DEC-012 & DEC-013 Mobile
+# Handover — Milestone M-Mobile-8.5
 
-- **Current Status**: Implementation & verification complete across all target components.
-- **Verification Evidence**:
-  - `mobile/`: `npx tsc --noEmit` exited with code 0 (0 type errors).
-  - `backend/`: `go test ./...` exited with code 0 (100% pass).
-  - `frontend/`: `npm run build` exited with code 0 (clean Next.js / Turbopack compilation).
-- **Files Modified / Created**:
-  - `mobile/src/components/GroupPreviewModal.tsx` *(New)*
-  - `mobile/src/components/AuthorizationShield.tsx` *(New)*
-  - `mobile/src/components/index.ts` *(Modified)*
-  - `mobile/src/screens/NewChatScreen.tsx` *(Modified)*
-  - `mobile/src/screens/ChatScreen.tsx` *(Modified)*
-  - `mobile/App.tsx` *(Modified)*
-- **Pending Actions**:
-  - Await explicit user confirmation ("selesai") before documentation synchronization and git commit.
+**Status**: Implemented & Verified on branch `dev`.
+**Modified & Created Files**:
+1. [`mobile/src/services/e2eeService.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/services/e2eeService.ts) — Deterministic 30-digit Safety Number engine & local verification persistence.
+2. [`mobile/src/services/qrCodeService.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/services/qrCodeService.ts) — Pure TypeScript QR matrix generator.
+3. [`mobile/src/components/QRCodeView.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/components/QRCodeView.tsx) — Zero-native-dependency pixel grid visualizer.
+4. [`mobile/src/components/VerifiedBadge.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/components/VerifiedBadge.tsx) — Electric cyan & azure verified account badge.
+5. [`mobile/src/components/SafetyNumberModal.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/components/SafetyNumberModal.tsx) — Full 30-digit monospace grid modal with QR, clipboard copy, and verify toggle.
+6. [`mobile/src/components/ContactInfoModal.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/components/ContactInfoModal.tsx) — WhatsApp Aurora Glassmorphism profile modal with hero avatar, quick actions, bio, and E2EE security card.
+7. [`mobile/src/api/users.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/api/users.ts) & [`mobile/src/api/types.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/api/types.ts) — `getUserProfile` endpoint and `last_seen` property.
+8. [`mobile/src/screens/ChatScreen.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/screens/ChatScreen.tsx) — Direct chat header tap interaction and verified badge.
+9. [`mobile/src/components/ChatListItem.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/components/ChatListItem.tsx) — Verified badge indicator on conversation list.
+10. [`mobile/src/services/index.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/services/index.ts) & [`mobile/src/components/index.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/components/index.ts) — Export definitions.

@@ -1,19 +1,34 @@
-# Implementation Progress: DEC-012 & DEC-013 Mobile
+# Implementation Progress — Milestone M-Mobile-8.5
 
-- [x] **Milestone 8.2A: Public Group Discovery & Preview Confirmation (DEC-012)**
-  - [x] Task 1.1: Create `mobile/src/components/GroupPreviewModal.tsx` with Aurora Glassmorphism styling, group metadata display, anti-double-action, 15s AbortController timeout, and conditional "Buka Obrolan" vs "Gabung ke Grup" action buttons.
-  - [x] Task 1.2: Export `GroupPreviewModal` in `mobile/src/components/index.ts`.
-  - [x] Task 1.3: Update `mobile/src/screens/NewChatScreen.tsx` to search both contacts and public groups (`groupsApi.searchPublicGroups`), render categorized sections, and bind group selection to open `GroupPreviewModal`.
-- [x] **Milestone 8.2A: Private Group Direct Link Gate & Authorization Shield (DEC-013)**
-  - [x] Task 2.1: Create `mobile/src/components/AuthorizationShield.tsx` with Aurora Glassmorphism styling, lock badge, error explanation, and "← Kembali ke Beranda Obrolan" action button.
-  - [x] Task 2.2: Export `AuthorizationShield` in `mobile/src/components/index.ts`.
-  - [x] Task 2.3: Update `mobile/src/screens/ChatScreen.tsx` with pre-flight group verification:
-    - Intercept HTTP 403 Forbidden on private groups.
-    - Suppress WebSocket `{ type: "join" }` frame.
-    - Suppress false connection timeout timer.
-    - Render `AuthorizationShield` when access is denied.
-    - Gated preview confirmation if opening unjoined public group via direct link.
-  - [x] Task 2.4: Update `mobile/App.tsx` with deep linking support for `wuzzchat://chat?room=grp_...` direct group links.
-- [x] **Verification & Quality Gate**
-  - [x] Task 3.1: Execute `npx tsc --noEmit` in `mobile/` and verify 0 type errors.
-  - [x] Task 3.2: Self-review against SOLID, Clean Code, and Mobile UX guidelines.
+- [x] Task 1: API & Type updates (`mobile/src/api/types.ts` & `mobile/src/api/users.ts`)
+  - [x] Add `last_seen?: string` to `User` interface.
+  - [x] Add `getUserProfile(userId: string): Promise<User>` with 15s timeout `AbortController`.
+- [x] Task 2: E2EE Safety Number Service (`mobile/src/services/e2eeService.ts`)
+  - [x] Implement `generateSafetyNumber(pubKeyJWKA, pubKeyJWKB): Promise<string>`.
+  - [x] Implement `getOrFetchPeerPublicKey(userId: string): Promise<string | null>`.
+  - [x] Implement `setContactSafetyVerified` & `isContactSafetyVerified` via `secureStorage`.
+  - [x] Export in `mobile/src/services/index.ts`.
+- [x] Task 3: QR Code Generator & Visualizer (`mobile/src/services/qrCodeService.ts` & `mobile/src/components/QRCodeView.tsx`)
+  - [x] Pure TS QR Matrix algorithm with Reed-Solomon error correction.
+  - [x] Component `QRCodeView.tsx` rendering high-contrast native `<View>` pixel grid.
+- [x] Task 4: Verified Account Badge Component (`mobile/src/components/VerifiedBadge.tsx`)
+  - [x] Electric cyan & azure rounded badge with crisp checkmark `✓`.
+  - [x] Export in `mobile/src/components/index.ts`.
+- [x] Task 5: Safety Number Verification Modal (`mobile/src/components/SafetyNumberModal.tsx`)
+  - [x] 30-digit key fingerprint organized in 2-column monospace grid.
+  - [x] Embedded QR Code display for direct peer scanning.
+  - [x] "Salin Nomor Keamanan" via `expo-clipboard` with feedback.
+  - [x] "Tandai Terverifikasi" toggle button saving to `secureStorage`.
+- [x] Task 6: Contact Profile & Info Screen / Modal (`mobile/src/components/ContactInfoModal.tsx`)
+  - [x] Aurora Glassmorphism modal layout with back/close button.
+  - [x] Big Avatar, display name, VerifiedBadge, @username, online status/last seen.
+  - [x] Quick Action Buttons: Voice Call, Share Contact, Mute Notifications.
+  - [x] Bio card & join date.
+  - [x] E2EE Security Card with verification status badge and "Pindai / Cocokkan Kode" trigger.
+- [x] Task 7: Integration with `ChatScreen.tsx` & `ChatListItem.tsx`
+  - [x] Enable header tap on 1-on-1 direct chats to open `ContactInfoModal`.
+  - [x] Render `VerifiedBadge` in chat header and conversation list items.
+- [x] Task 8: Verification & Automated Quality Gate
+  - [x] Run `npx tsc --noEmit` in `mobile/` (PASSED, 0 errors).
+  - [x] Run `go test -v ./...` in `backend/` (PASSED, 100%).
+  - [x] Run `npm run build` in `frontend/` (PASSED, 0 errors).

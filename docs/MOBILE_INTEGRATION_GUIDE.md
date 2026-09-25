@@ -438,7 +438,9 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
 - [ ] Indikator status centang 3 tahap (`🕒` ➔ `✓` ➔ `✓✓` ➔ `✓✓` biru) 100% sinkron.
 - [x] Perekaman voice note & pemutaran audio lancar tanpa patah-patah (expo-audio, expo-file-system, waveform scrubber, speed 1x/1.5x/2x).
 - [x] Auto-ACK media download (`/api/media/ack`) dan penyimpanan berkas lokal.
-- [ ] Safety Number 30-digit cocok dengan tampilan Web.
+- [x] Safety Number 30-digit cocok dengan tampilan Web.
+- [x] Verified Account & Custom Avatar UI: Render avatar lawan bicara (`peer_avatar_url`) dan tampilkan lencana centang biru terverifikasi di samping nama kontak jika `peer_is_verified` bernilai `true` (dari respons `GET /api/conversations` atau `GET /api/users/profile`).
+- [ ] In-App Live Camera QR Scanner (Planning): Implementasi pemindai kamera langsung via `expo-camera` (`CameraView`) / MLKit Barcode Scanner untuk pemindaian instan Safety Number & Device Transfer QR.
 - [ ] **Hapus Pesan (*For Me* dan *For Everyone*)** berjalan real-time:
   - Untuk *Delete for Everyone*, kirim payload **dua field sekaligus** ke `DELETE /api/messages` atau `POST /api/messages/delete`:
     ```json
@@ -455,7 +457,6 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
 - [ ] **QR Code E2EE Device Transfer**: Implementasi `POST /api/users/transfer/create` (perangkat sumber) dan `POST /api/users/transfer/consume` (perangkat target) menggunakan MLKit Barcode Scanner / AVFoundation — tidak ada batasan permission kamera seperti di PWA WebAPK.
 - [ ] **WebRTC 1-on-1 Voice Call**: Signaling via WebSocket, koneksi P2P via STUN/TURN, UI panggilan masuk & aktif, dan lifecycle cleanup resource audio.
 - [ ] **Local Decrypted Message Cache (Room / CoreData / SQLite)**: Simpan pesan terdekripsi secara persisten di database lokal perangkat (Room di Android, SwiftData/CoreData di iOS) dengan pola Cache-First Load (0ms instant open) dan write-through cache agar riwayat obrolan tetap terbaca saat lawan bicara me-reset perangkat/kunci E2EE.
-- [ ] **Verified Account & Custom Avatar UI**: Render avatar lawan bicara (`peer_avatar_url`) dan tampilkan lencana centang biru terverifikasi di samping nama kontak jika `peer_is_verified` bernilai `true` (dari respons `GET /api/conversations` atau `GET /api/users/profile`).
 - [ ] **UUID-First Identity Rule**: Seluruh logika identifikasi pengirim, pengecekan kepemilikan pesan (*isSelf*), filter receipt, dan pengecekan reaksi emoji **wajib menggunakan field `from` (UUID immutable)** dari payload — **bukan** `nickname` atau `display_name` yang bersifat mutable. Bandingkan: `message.from == currentUser.id` (UUID) — bukan `message.nickname == currentUser.username`.
 - [x] **Core Group Chat Engine (Milestone 8.2A & M-Mobile-8)**:
   - Mendukung penanganan room berawalan `grp_` (`grp_<UUIDv4>`).

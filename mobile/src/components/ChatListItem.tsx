@@ -8,6 +8,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Conversation, Message } from '../api/types';
 import { colors, radius, spacing, typography } from '../theme';
 import { Avatar } from './Avatar';
+import { VerifiedBadge } from './VerifiedBadge';
 import { useAuth } from '../context';
 
 interface ChatListItemProps {
@@ -147,12 +148,15 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
 
       <View style={styles.content}>
         <View style={styles.topRow}>
-          <Text
-            numberOfLines={1}
-            style={[styles.name, hasUnread && styles.nameUnread]}
-          >
-            {displayName}
-          </Text>
+          <View style={styles.nameContainer}>
+            <Text
+              numberOfLines={1}
+              style={[styles.name, hasUnread && styles.nameUnread]}
+            >
+              {displayName}
+            </Text>
+            {conversation.peer_is_verified && <VerifiedBadge size={14} />}
+          </View>
           <Text style={[styles.time, hasUnread && styles.timeUnread]}>
             {timeFormatted}
           </Text>
@@ -203,11 +207,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.xs,
   },
+  nameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: spacing.sm,
+    gap: 4,
+  },
   name: {
     ...typography.body,
     fontWeight: '600',
-    flex: 1,
-    marginRight: spacing.sm,
+    flexShrink: 1,
   },
   nameUnread: {
     fontWeight: '700',

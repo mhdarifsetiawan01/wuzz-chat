@@ -7,6 +7,18 @@ import { apiClient } from './client';
 import { User, StartDirectChatResponse, PublicKeyResponse, UpdatePublicKeyResponse } from './types';
 
 /**
+ * Fetch a user's full public profile by ID or username
+ * @param identifier User UUID or @username
+ */
+export async function getUserProfile(identifier: string): Promise<User> {
+  const isId = !identifier.startsWith('@') && identifier.includes('-');
+  const queryParam = isId ? `id=${encodeURIComponent(identifier)}` : `username=${encodeURIComponent(identifier.replace(/^@/, ''))}`;
+  return apiClient<User>(`/api/users/profile?${queryParam}`, {
+    method: 'GET',
+  });
+}
+
+/**
  * Search users by username or display name
  * @param query search keyword
  */
