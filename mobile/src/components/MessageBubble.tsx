@@ -5,7 +5,7 @@
  * Conforms to frontend/DESIGN.md & WhatsApp Aurora theme.
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
 import { AudioPlayerBubble } from './AudioPlayerBubble';
 import { getAvatarColor } from './Avatar';
+import { mediaCache } from '../services/mediaCache';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -56,6 +57,24 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [cachedMediaUri, setCachedMediaUri] = useState<string | null>(null);
+
+  // Check persistent local media cache on mount or URL change (DEC-034)
+  useEffect(() => {
+    let mounted = true;
+    if (message.media_url) {
+      mediaCache
+        .getCachedMediaUri(message.media_url, message.id, message.file_name)
+        .then((uri) => {
+          if (mounted && uri) {
+            setCachedMediaUri(uri);
+          }
+        });
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [message.media_url, message.id, message.file_name]);
 
   // PanResponder for smooth Swipe-to-Reply
   const panX = useRef(new Animated.Value(0)).current;
@@ -108,20 +127,24 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const isE2EE = typeof message.content === 'string' && message.content.startsWith('e2ee:v1:');
   const isSystem = message.type === 'system';
+  const effectiveMediaUrl = cachedMediaUri || message.media_url;
+
   const isImage = Boolean(
-    message.media_url &&
+    effectiveMediaUrl &&
       (message.media_type === 'image' ||
         message.type === 'image' ||
-        /\.(jpg|jpeg|png|webp|gif)$/i.test(message.media_url))
+        /\.(jpg|jpeg|png|webp|gif)$/i.test(effectiveMediaUrl))
   );
   const isAudio = Boolean(
-    message.media_url &&
+    effectiveMediaUrl &&
       (message.media_type === 'audio' ||
         message.type === 'audio' ||
-        /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(message.media_url) ||
+        /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(effectiveMediaUrl) ||
         (message.file_name && /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(message.file_name)))
   );
-  const isExpired = message.media_status === 'expired';
+
+  // DEC-034: Media is only expired if the server marked it as expired AND we do not have a local cached file
+  const isExpired = Boolean(message.media_status === 'expired' && !cachedMediaUri);
 
   // Format timestamp (HH:mm)
   const formatTime = (isoString?: string) => {
@@ -142,11 +165,27 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     if (!isSelf) {
       onMediaLoaded?.(message);
     }
+    // Auto-cache remote image into persistent local storage so it remains visible after server ACK delete
+    if (message.media_url && !cachedMediaUri && !message.media_url.startsWith('file://')) {
+      mediaCache
+        .ensureMediaCached(message.media_url, message.id, message.file_name)
+        .then((savedUri) => {
+          if (savedUri && savedUri.startsWith('file://')) {
+            setCachedMediaUri(savedUri);
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   const handleImageError = () => {
     setIsImageLoading(false);
-    setImageError(true);
+    // If loading from local cache failed, fallback to remote URL
+    if (cachedMediaUri && message.media_url && cachedMediaUri !== message.media_url) {
+      setCachedMediaUri(null);
+    } else {
+      setImageError(true);
+    }
   };
 
   if (isSystem) {
@@ -247,7 +286,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               ) : null}
 
               {/* Image Attachment Preview */}
-              {isImage && !isExpired && message.media_url ? (
+              {isImage && !isExpired && effectiveMediaUrl ? (
                 <View style={styles.imageContainer}>
                   <TouchableOpacity
                     activeOpacity={0.88}
@@ -255,7 +294,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     style={styles.imageTouchable}
                   >
                     <Image
-                      source={{ uri: message.media_url }}
+                      source={{ uri: effectiveMediaUrl }}
                       style={styles.mediaImage}
                       resizeMode="cover"
                       onLoad={handleImageLoad}
@@ -277,9 +316,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               ) : null}
 
               {/* Voice Note Audio Player */}
-              {isAudio && !isExpired && message.media_url ? (
+              {isAudio && !isExpired && effectiveMediaUrl ? (
                 <AudioPlayerBubble
-                  audioUrl={message.media_url}
+                  audioUrl={effectiveMediaUrl}
+                  messageId={message.id}
                   fileName={message.file_name}
                   isSelf={isSelf}
                   onLoaded={() => {
@@ -349,7 +389,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       </Animated.View>
 
       {/* Fullscreen Image Lightbox Modal */}
-      {isImage && message.media_url ? (
+      {isImage && effectiveMediaUrl ? (
         <Modal
           visible={isFullscreen}
           transparent
@@ -373,7 +413,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
             <Pressable style={styles.fullscreenBody} onPress={() => setIsFullscreen(false)}>
               <Image
-                source={{ uri: message.media_url }}
+                source={{ uri: effectiveMediaUrl }}
                 style={styles.fullscreenImage}
                 resizeMode="contain"
               />

@@ -3,3 +3,4 @@ export * from './deviceIdService';
 export * from './websocket';
 export * from './crypto';
 export * from './audioManager';
+export * from './mediaCache';

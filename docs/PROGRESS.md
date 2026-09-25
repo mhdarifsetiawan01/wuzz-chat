@@ -3059,3 +3059,35 @@ Mengimplementasikan dukungan penuh obrolan grup (*Core Group Chat Engine*) dan m
 - **Frontend Production Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 - **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (100% lulus).
 
+---
+
+## ✅ Milestone M-Mobile-8.2E: Persistent Local Media Cache & Resilient Expired-State Fallback (DEC-034) — SELESAI
+
+**Tanggal Selesai:** 26 September 2026 | **Branch:** `dev`
+
+### 1. Masalah & Akar Penyebab
+Pada arsitektur *Store-and-Forward* WhatsApp di WuzzChat, berkas media pesan 1-on-1 (*Direct Message*) otomatis dihapus dari server saat penerima mengirim konfirmasi penerimaan (`POST /api/media/ack`), dan status media diubah menjadi `media_status = 'expired'`. Karena klien mobile sebelumnya belum memiliki *persistent local filesystem cache*, setiap kali riwayat obrolan dimuat ulang dari server, bubble pesan (baik milik pengirim maupun penerima) langsung merender placeholder *"⌛ Media telah kedaluwarsa"* dan menghilangkan foto/audio.
+
+### 2. Perubahan Kode
+
+**Files Baru:**
+- `mobile/src/services/mediaCache.ts`: Service pengelola direktori `${documentDirectory}/wuzzchat_media/` via `expo-file-system/legacy` dengan fitur `saveLocalFileToCache` (sender persistence), `ensureMediaCached` (recipient download cache), dan `getCachedMediaUri` (fast local resolution).
+
+**Files Dimodifikasi:**
+- `mobile/src/services/index.ts`: +export `mediaCache`.
+- `mobile/src/components/MessageBubble.tsx`:
+  - Mengambil media dari cache lokal HP (`cachedMediaUri`).
+  - Memperbaiki logika status expired: media HANYA dianggap expired jika di server berstatus `expired` DAN tidak ditemukan salinan berkas lokal di HP.
+  - Auto-cache ke storage lokal saat gambar pertama kali dimuat oleh penerima.
+  - Menggunakan `effectiveMediaUrl` pada tampilan linimasa dan modal pratinjau layar penuh (*fullscreen lightbox*).
+- `mobile/src/components/AudioPlayerBubble.tsx`: Mendukung pemutaran dari cache lokal (`effectiveUrl`) dan auto-cache audio remote di latar belakang.
+- `mobile/src/screens/ChatScreen.tsx`:
+  - Menyimpan salinan berkas lokal pengirim (`saveLocalFileToCache`) saat mengirim gambar atau pesan suara.
+  - Memastikan berkas di-cache lokal sebelum/bersamaan dengan pengiriman sinyal ACK di `handleMediaLoaded`.
+
+### 3. Bukti Pengujian Otomatis
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Frontend Production Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (100% lulus).
+
+

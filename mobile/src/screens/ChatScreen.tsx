@@ -28,6 +28,7 @@ import { groupsApi } from '../api/groups';
 import { mediaApi } from '../api/media';
 import { messagesApi } from '../api/messages';
 import { websocketClient } from '../services/websocket';
+import { mediaCache } from '../services/mediaCache';
 import { useAuth } from '../context/AuthContext';
 import {
   deriveRoomAESKey,
@@ -648,6 +649,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const handleMediaLoaded = useCallback(
     (msg: Message) => {
       if (msg.sender_id !== currentUserId && msg.id) {
+        // DEC-034: Ensure received media is cached locally before or while sending ACK
+        if (msg.media_url && !msg.media_url.startsWith('file://')) {
+          mediaCache.ensureMediaCached(msg.media_url, msg.id, msg.file_name).catch((cacheErr) => {
+            console.warn('[ChatScreen] Failed to cache received media:', cacheErr);
+          });
+        }
         mediaApi.acknowledgeMediaDownload(msg.id, roomId).catch((err) => {
           console.log('[ChatScreen] Media ACK notice:', err.message);
         });
@@ -682,6 +689,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           uploadedMediaUrl = uploadRes.url;
           uploadedFileName = uploadRes.file_name;
           uploadedFileSize = uploadRes.file_size;
+
+          // DEC-034: Persist local copy of uploaded media to cache so sender never loses it
+          mediaCache.saveLocalFileToCache(media.uri, tempId, uploadedMediaUrl, uploadedFileName).catch((cacheErr) => {
+            console.warn('[ChatScreen] Failed to cache sent media:', cacheErr);
+          });
         } catch (err: any) {
           console.error('[ChatScreen] Media upload failed:', err);
           Alert.alert(
@@ -823,6 +835,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       // B. Upload audio file to storage in background
       try {
         const uploadRes = await mediaApi.uploadMedia(uri, fileName, 'audio/m4a');
+
+        // DEC-034: Persist local copy of sent voice note to cache
+        mediaCache.saveLocalFileToCache(uri, tempId, uploadRes.url, uploadRes.file_name).catch((cacheErr) => {
+          console.warn('[ChatScreen] Failed to cache sent voice note:', cacheErr);
+        });
 
         // C. Send WebSocket message with uploaded remote URL
         const mediaOptions = {

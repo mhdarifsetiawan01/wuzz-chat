@@ -1,3 +1,3 @@
 # Implementation Plan
 
-- **Status**: Standby
+No active implementation in progress.

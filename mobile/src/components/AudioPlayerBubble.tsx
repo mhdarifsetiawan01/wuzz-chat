@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { createAudioPlayer, AudioPlayer, AudioStatus } from 'expo-audio';
 import { audioManager } from '../services/audioManager';
+import { mediaCache } from '../services/mediaCache';
 import { colors } from '../theme/colors';
 
 // Waveform bar heights mimicking human speech patterns (24 bars)
@@ -28,6 +29,7 @@ const WAVEFORM_HEIGHTS = [
 
 export interface AudioPlayerBubbleProps {
   audioUrl: string;
+  messageId?: string;
   fileName?: string;
   isSelf?: boolean;
   onLoaded?: () => void;
@@ -35,9 +37,12 @@ export interface AudioPlayerBubbleProps {
 
 export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
   audioUrl,
+  messageId,
+  fileName,
   isSelf = false,
   onLoaded,
 }) => {
+  const [effectiveUrl, setEffectiveUrl] = useState<string>(audioUrl);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -47,6 +52,19 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
 
   const playerRef = useRef<AudioPlayer | null>(null);
   const isMountedRef = useRef(true);
+
+  // Check if audio file exists in persistent local cache
+  useEffect(() => {
+    let mounted = true;
+    mediaCache.getCachedMediaUri(audioUrl, messageId, fileName).then((cached) => {
+      if (mounted && cached) {
+        setEffectiveUrl(cached);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [audioUrl, messageId, fileName]);
 
   // Notify parent once on load for store-and-forward ACK
   useEffect(() => {
@@ -85,7 +103,18 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
 
       if (!playerRef.current) {
         setIsLoading(true);
-        const player = createAudioPlayer(audioUrl);
+        // Pre-cache remote audio in background so it remains playable offline/expired
+        if (effectiveUrl.startsWith('http://') || effectiveUrl.startsWith('https://')) {
+          mediaCache
+            .ensureMediaCached(effectiveUrl, messageId, fileName)
+            .then((cached) => {
+              if (isMountedRef.current && cached && cached.startsWith('file://')) {
+                setEffectiveUrl(cached);
+              }
+            })
+            .catch(() => {});
+        }
+        const player = createAudioPlayer(effectiveUrl);
         playerRef.current = player;
 
         player.addListener('playbackStatusUpdate', (status: AudioStatus) => {
