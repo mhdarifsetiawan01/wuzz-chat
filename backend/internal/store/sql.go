@@ -163,7 +163,6 @@ func (s *SQLMessageStore) autoMigrate() error {
 			created_at TIMESTAMP NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_push_subs_user_id ON push_subscriptions(user_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_push_subs_tenant_user ON push_subscriptions(tenant_id, user_id);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subs_endpoint ON push_subscriptions(endpoint);`,
 		// Tabel Device Transfer Sessions (E2EE Key Transfer via QR Code / One-Time Token)
 		`CREATE TABLE IF NOT EXISTS device_transfer_sessions (
