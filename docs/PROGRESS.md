@@ -2835,6 +2835,16 @@ Membangun aplikasi mobile resmi WuzzChat (`mobile/`) berbasis **Expo Managed Wor
   - Layar pencarian kontak (`NewChatScreen.tsx`) dengan pencarian *live debounced* (300ms), daftar hasil kontak terdaftar, avatar dinamis, centang verified, dan proteksi *anti-double-action*.
   - *Floating Action Button* (FAB) biru (`💬`) di pojok kanan bawah dan ikon pensil (`✏️`) di header kanan `RecentChatsScreen`.
   - Deteksi jenis obrolan otomatis (`isDirect` vs `isGroup`) pada header chat room (`dm_*` ID matching & fallback handling) sehingga langsung menampilkan status `🟢 Terhubung (Online)`.
+- **Milestone M-Mobile-4: End-to-End Encryption (E2EE) Mobile Integration**:
+  - Cryptography service baru (`mobile/src/services/crypto.ts`) dengan NIST P-256 ECDH key agreement, HKDF-SHA256 derivation, dan AES-256-GCM encryption/decryption. 100% bit-exact interoperable dengan Web Crypto API frontend (`frontend/lib/crypto/e2ee.ts`).
+  - CSPRNG polyfill via `expo-crypto` untuk `crypto.getRandomValues` di React Native runtime (diperlukan oleh `@noble/curves` p256.keygen).
+  - Integrasi lifecycle E2EE ke `AuthContext.tsx`: auto-generate keypair, persistent storage via SecureStore, auto-register public key ke backend, dan state `e2eeKeyPair` + `e2eeStatus`.
+  - API endpoints baru di `mobile/src/api/users.ts`: `getUserPublicKey`, `updatePublicKey`, `resetPublicKey` (backend: `GET/POST /api/users/{id}/public-key`).
+  - Transparent E2EE di `ChatScreen.tsx`: ECDH room key derivation per-room, retroactive decryption history, live incoming message decryption, dan encrypted send dengan optimistic UI.
+  - `MessageBubble.tsx` diperbaharui dengan lock badge 🔒 dan E2EE status indicator.
+  - Header ChatScreen menampilkan `🔒 Terenkripsi E2EE • Terhubung (Online)` saat kunci berhasil diderivasi.
+  - Memory cache ECDH AES key & peer public key di `mobile/src/services/crypto.ts` (`peerPublicKeyMemoryCache`, `derivedAESKeyMemoryCache`) untuk lookup berlatensi 0ms tanpa redudansi komputasi.
+  - Dekripsi otomatis snippet cuplikan pesan terakhir (`last_message`) di daftar chat (`RecentChatsScreen.tsx` & `ChatListItem.tsx`) sehingga cuplikan percakapan langsung terbaca (e.g. `tabung apa ?`, `lagi`, `Masih muncul gembok kah?`) seperti di WhatsApp & WuzzChat Web, dengan fallback `🔒 Pesan terenkripsi` untuk pesan usang yang tidak cocok kuncinya.
 
 ### 2. Bukti Pengujian Otomatis & Live Smoke Test
 - **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
@@ -2843,3 +2853,7 @@ Membangun aplikasi mobile resmi WuzzChat (`mobile/`) berbasis **Expo Managed Wor
   - Login & Session: Berhasil masuk ke akun pengguna via API backend Fly.io dan terkoneksi ke WebSocket hub (`🟢 Terhubung`).
   - Messaging: Mengirim dan menerima pesan realtime dua arah, tanda terima centang biru (`✓✓`), dan scrolling otomatis.
   - New Chat & Search: FAB dan ikon pensil membuka `NewChatScreen`, pencarian debounced mengembalikan user live, memilih kontak membuka room, dan tombol Back hardware Android mengembalikan ke Home secara mulus.
+  - E2EE: Header ruang obrolan menampilkan `🔒 Terenkripsi E2EE • Terhubung (Online)`. Pesan baru berhasil dienkripsi saat dikirim dan didekripsi saat diterima. Pesan lama yang kuncinya berbeda ditampilkan `🔒 Pesan terenkripsi (kunci tidak cocok)` (Forward Secrecy).
+  - Chat List Snippet E2EE: Daftar obrolan di `RecentChatsScreen` sukses mendekripsi preview cuplikan pesan terakhir secara transparan (misal pesan dari Dwi Rahayu Kartikasari, Surotong, dan Semantic langsung terbaca teks aslinya).
+
+

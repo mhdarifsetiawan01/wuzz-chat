@@ -1,14 +1,6 @@
 # Implementation Plan — Standby
 
-## 1. Overview & Objectives
-Workspace is in standby mode. Awaiting next user request and specifications.
-
----
-
-## 2. Key Architecture & Endpoints
-None currently active.
-
----
-
-## 3. Tasks Breakdown
-- [ ] Awaiting next task definition.
+- **Status**: Standby
+- **Active Task**: None
+- **Previous Completed**: Milestone M-Mobile-4: End-to-End Encryption (E2EE) Mobile Integration
+- **Archived Location**: `docs/plans/archived/25-09-2026-m-mobile-4-e2ee-integration/`

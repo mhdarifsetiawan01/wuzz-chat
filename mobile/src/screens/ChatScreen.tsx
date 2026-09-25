@@ -18,8 +18,18 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConversationItem, Message } from '../api/types';
+import { getUserPublicKey } from '../api/users';
 import { websocketClient } from '../services/websocket';
 import { useAuth } from '../context/AuthContext';
+import {
+  deriveRoomAESKey,
+  getOrDeriveRoomAESKey,
+  cachePeerPublicKey,
+  getCachedPeerPublicKey,
+  encryptText,
+  decryptText,
+  isEncryptedMessage,
+} from '../services/crypto';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInputBar } from '../components/ChatInputBar';
@@ -33,17 +43,105 @@ export interface ChatScreenProps {
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) => {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, e2eeKeyPair } = useAuth();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [roomAESKey, setRoomAESKey] = useState<Uint8Array | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
   const lastHandledMsgIdRef = useRef<string | null>(null);
+  const roomAESKeyRef = useRef<Uint8Array | null>(null);
 
   const roomId = conversation.id;
   const currentUserId = user?.id || '';
+
+  const title = conversation.title || conversation.peer_nickname || 'Obrolan';
+  const avatarUrl = conversation.avatar_url || conversation.peer_avatar_url;
+  const isDirect =
+    conversation.type === 'direct' ||
+    conversation.is_group === false ||
+    (typeof conversation.id === 'string' && conversation.id.startsWith('dm_')) ||
+    (!conversation.type && !conversation.is_group);
+  const isGroup = !isDirect && (conversation.type === 'group' || conversation.type === 'subgroup' || conversation.is_group === true);
+
+  // 0. Resolve Peer Public Key & Derive Room AES Key (ECDH + HKDF)
+  useEffect(() => {
+    if (!isDirect) return;
+
+    let mounted = true;
+
+    async function resolvePeerAndKey() {
+      let peerId = conversation.peer_id || '';
+      if (!peerId && roomId.startsWith('dm_')) {
+        const parts = roomId.replace(/^dm_/, '').split('_');
+        peerId = parts[0] === currentUserId ? parts[1] : parts[0];
+      }
+      if (!peerId && conversation.participants?.length) {
+        const other = conversation.participants.find((p) => p.id !== currentUserId);
+        peerId = other?.id || '';
+      }
+
+      let peerPubKey = conversation.peer_public_key || (peerId ? getCachedPeerPublicKey(peerId) : undefined);
+      if (!peerPubKey && peerId) {
+        try {
+          peerPubKey = (await getUserPublicKey(peerId)) || undefined;
+          if (peerPubKey) {
+            cachePeerPublicKey(peerId, peerPubKey);
+          }
+        } catch (err) {
+          console.warn('[ChatScreen] Could not fetch peer public key:', err);
+        }
+      } else if (peerPubKey && peerId) {
+        cachePeerPublicKey(peerId, peerPubKey);
+      }
+
+      if (!peerPubKey) {
+        console.log('[ChatScreen] Peer does not have a registered public key yet.');
+        return;
+      }
+
+      if (!e2eeKeyPair?.privateKeyHex) {
+        console.log('[ChatScreen] Current device does not have an active private key yet.');
+        return;
+      }
+
+      try {
+        const derived = getOrDeriveRoomAESKey(e2eeKeyPair.privateKeyHex, peerPubKey, roomId);
+        if (mounted) {
+          roomAESKeyRef.current = derived;
+          setRoomAESKey(derived);
+        }
+      } catch (err) {
+        console.error('[ChatScreen] Failed to derive room AES key:', err);
+      }
+    }
+
+    resolvePeerAndKey();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isDirect, conversation.peer_id, conversation.peer_public_key, conversation.participants, roomId, currentUserId, e2eeKeyPair]);
+
+  // 0B. Retroactively decrypt loaded messages once AES key is established
+  useEffect(() => {
+    if (!roomAESKey) return;
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (isEncryptedMessage(m.content)) {
+          try {
+            const plain = decryptText(roomAESKey, m.content);
+            return { ...m, content: plain, is_encrypted: true };
+          } catch {
+            return { ...m, content: '🔒 Pesan terenkripsi (kunci tidak cocok)', is_encrypted: true };
+          }
+        }
+        return m;
+      })
+    );
+  }, [roomAESKey]);
 
   // 1. Load History & Join Room on Mount (Clean History State Sync via WebSocket)
   useEffect(() => {
@@ -61,16 +159,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
 
       clearTimeout(timeout);
       const rawMessages = data.messages || [];
-      const mapped: Message[] = rawMessages.map((m: any) => ({
-        id: m.id || `hist_${Math.random()}`,
-        room_id: m.room || m.room_id || roomId,
-        sender_id: m.sender_id || m.from || '',
-        content: m.content || '',
-        from: m.from || m.nickname,
-        created_at: m.timestamp || m.created_at || new Date().toISOString(),
-        timestamp: m.timestamp || m.created_at || new Date().toISOString(),
-        status: m.status || 'sent',
-      }));
+      const mapped: Message[] = rawMessages.map((m: any) => {
+        let content = m.content || '';
+        let isEncrypted = false;
+        if (isEncryptedMessage(content)) {
+          isEncrypted = true;
+          if (roomAESKeyRef.current) {
+            try {
+              content = decryptText(roomAESKeyRef.current, content);
+            } catch (err) {
+              console.warn('[ChatScreen] History decrypt error:', err);
+              content = '🔒 Pesan terenkripsi (kunci tidak cocok)';
+            }
+          }
+        }
+        return {
+          id: m.id || `hist_${Math.random()}`,
+          room_id: m.room || m.room_id || roomId,
+          sender_id: m.sender_id || m.from || '',
+          content,
+          is_encrypted: isEncrypted,
+          from: m.from || m.nickname,
+          created_at: m.timestamp || m.created_at || new Date().toISOString(),
+          timestamp: m.timestamp || m.created_at || new Date().toISOString(),
+          status: m.status || 'sent',
+        };
+      });
 
       // Sort chronological
       mapped.sort((a, b) => {
@@ -113,11 +227,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         lastHandledMsgIdRef.current = incomingId;
       }
 
+      let content = incoming.content || '';
+      let isEncrypted = false;
+      if (isEncryptedMessage(content)) {
+        isEncrypted = true;
+        if (roomAESKeyRef.current) {
+          try {
+            content = decryptText(roomAESKeyRef.current, content);
+          } catch (err) {
+            console.warn('[ChatScreen] Incoming message decrypt error:', err);
+            content = '🔒 Pesan terenkripsi (kunci tidak cocok)';
+          }
+        }
+      }
+
       const newMsg: Message = {
         id: incoming.id || `msg_${Date.now()}`,
         room_id: targetRoom,
         sender_id: incoming.sender_id || incoming.from || '',
-        content: incoming.content || '',
+        content,
+        is_encrypted: isEncrypted,
         from: incoming.from,
         created_at: incoming.timestamp || incoming.created_at || new Date().toISOString(),
         timestamp: incoming.timestamp || incoming.created_at || new Date().toISOString(),
@@ -189,17 +318,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
     };
   }, [roomId, currentUserId]);
 
-  // 3. Handle Send Message (Optimistic UI)
+  // 3. Handle Send Message (Optimistic UI + Transparent E2EE)
   const handleSendMessage = useCallback(
     (text: string) => {
       const tempId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const nowIso = new Date().toISOString();
+
+      let payloadToSend = text;
+      let isEncrypted = false;
+
+      if (isDirect && roomAESKeyRef.current) {
+        try {
+          payloadToSend = encryptText(roomAESKeyRef.current, text);
+          isEncrypted = true;
+        } catch (err) {
+          console.error('[ChatScreen] Encryption failed, fallback to plaintext:', err);
+        }
+      }
 
       const optimisticMsg: Message = {
         id: tempId,
         room_id: roomId,
         sender_id: currentUserId,
         content: text,
+        is_encrypted: isEncrypted,
         created_at: nowIso,
         timestamp: nowIso,
         status: 'sending',
@@ -211,8 +353,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 50);
 
-      // Send through WebSocket
-      const sent = websocketClient.sendMessage(roomId, text, tempId);
+      // Send encrypted payload (or plaintext fallback) through WebSocket
+      const sent = websocketClient.sendMessage(roomId, payloadToSend, tempId);
       if (!sent) {
         // Mark as failed if socket is closed
         setMessages((prev) =>
@@ -220,17 +362,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         );
       }
     },
-    [roomId, currentUserId]
+    [roomId, currentUserId, isDirect]
   );
-
-  const title = conversation.title || conversation.peer_nickname || 'Obrolan';
-  const avatarUrl = conversation.avatar_url || conversation.peer_avatar_url;
-  const isDirect =
-    conversation.type === 'direct' ||
-    conversation.is_group === false ||
-    (typeof conversation.id === 'string' && conversation.id.startsWith('dm_')) ||
-    (!conversation.type && !conversation.is_group);
-  const isGroup = !isDirect && (conversation.type === 'group' || conversation.type === 'subgroup' || conversation.is_group === true);
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -265,7 +398,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
             <View style={styles.headerStatusRow}>
               <View style={styles.onlineDot} />
               <Text style={styles.headerSubtitle}>
-                {isDirect ? 'Terhubung (Online)' : `${conversation.type === 'subgroup' ? 'Topik Forum' : 'Grup'}`}
+                {isDirect
+                  ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
+                  : `${conversation.type === 'subgroup' ? 'Topik Forum' : 'Grup'}`}
               </Text>
             </View>
           </View>

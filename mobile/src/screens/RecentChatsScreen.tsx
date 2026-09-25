@@ -15,10 +15,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { conversationsApi } from '../api/conversations';
+import { getUserPublicKey } from '../api/users';
 import { Conversation } from '../api/types';
 import { Avatar, ChatListItem, SessionAlertModal } from '../components';
 import { useAuth } from '../context';
 import { ConnectionState, websocketClient } from '../services/websocket';
+import {
+  cachePeerPublicKey,
+  getCachedPeerPublicKey,
+  decryptSnippet,
+  isEncryptedMessage,
+} from '../services/crypto';
 import { colors, radius, spacing, typography } from '../theme';
 
 export interface RecentChatsScreenProps {
@@ -27,7 +34,7 @@ export interface RecentChatsScreenProps {
 }
 
 export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectChat, onStartNewChat }) => {
-  const { user, logout, sessionReplacedMessage, dismissSessionAlert } = useAuth();
+  const { user, logout, sessionReplacedMessage, dismissSessionAlert, e2eeKeyPair } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -42,14 +49,85 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
 
     try {
       const data = await conversationsApi.getConversations();
-      setConversations(data || []);
+      if (!data) {
+        setConversations([]);
+        return;
+      }
+
+      // Decrypt last_message for direct E2EE chats if keypair is available
+      const decryptedData = await Promise.all(
+        data.map(async (c) => {
+          const raw =
+            typeof c.last_message === 'string'
+              ? c.last_message
+              : c.last_message?.content;
+
+          if (!raw || !isEncryptedMessage(raw) || !user?.id || !e2eeKeyPair?.privateKeyHex) {
+            return c;
+          }
+
+          // 1. Resolve Peer ID for direct conversation
+          let peerId = c.peer_id || '';
+          if (!peerId && c.id && c.id.startsWith('dm_')) {
+            const parts = c.id.replace(/^dm_/, '').split('_');
+            peerId = parts[0] === user.id ? parts[1] : parts[0];
+          }
+          if (!peerId && c.participants?.length) {
+            const other = c.participants.find((p) => p.id !== user.id);
+            peerId = other?.id || '';
+          }
+
+          if (!peerId) {
+            return c;
+          }
+
+          // 2. Resolve Peer Public Key (cache-first to prevent network spam)
+          let peerPub = c.peer_public_key || getCachedPeerPublicKey(peerId);
+          if (!peerPub) {
+            try {
+              peerPub = (await getUserPublicKey(peerId)) || undefined;
+              if (peerPub) {
+                cachePeerPublicKey(peerId, peerPub);
+              }
+            } catch {
+              // ignore fetch failure
+            }
+          } else {
+            cachePeerPublicKey(peerId, peerPub);
+          }
+
+          if (!peerPub) {
+            return c;
+          }
+
+          // 3. Decrypt snippet using cached/derived AES key
+          const plain = decryptSnippet(raw, c.id, peerPub, e2eeKeyPair.privateKeyHex);
+
+          if (typeof c.last_message === 'object' && c.last_message !== null) {
+            return {
+              ...c,
+              last_message: {
+                ...c.last_message,
+                content: plain,
+              },
+            };
+          } else {
+            return {
+              ...c,
+              last_message: plain,
+            };
+          }
+        })
+      );
+
+      setConversations(decryptedData);
     } catch (err) {
       console.warn('[RecentChatsScreen] Failed to load conversations:', err);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [user?.id, e2eeKeyPair?.privateKeyHex]);
 
   useEffect(() => {
     fetchConversations();

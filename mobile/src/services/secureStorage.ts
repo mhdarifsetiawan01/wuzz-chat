@@ -10,6 +10,8 @@ const STORAGE_KEYS = {
   AUTH_TOKEN: 'wuzz_auth_token',
   DEVICE_ID: 'wuzz_device_id',
   USER_DATA: 'wuzz_user_profile',
+  E2EE_PRIVATE_KEY_PREFIX: 'wuzz_e2ee_priv_',
+  E2EE_PUBLIC_KEY_PREFIX: 'wuzz_e2ee_pub_',
 } as const;
 
 // In-memory fallback for environments without SecureStore (e.g. web preview)
@@ -93,4 +95,30 @@ export const secureStorage = {
     await this.deleteItem(STORAGE_KEYS.USER_DATA);
     // Note: Do NOT delete DEVICE_ID so device identity remains persistent
   },
+
+  async setE2EEKeyPair(
+    userId: string,
+    keyPairOrHex: { privateKeyHex: string; publicKeyJWK: string } | string,
+    publicKeyJWK?: string
+  ): Promise<void> {
+    const privHex = typeof keyPairOrHex === 'string' ? keyPairOrHex : keyPairOrHex.privateKeyHex;
+    const pubJWK = typeof keyPairOrHex === 'string' ? (publicKeyJWK || '') : keyPairOrHex.publicKeyJWK;
+    await this.setItem(`${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`, privHex);
+    await this.setItem(`${STORAGE_KEYS.E2EE_PUBLIC_KEY_PREFIX}${userId}`, pubJWK);
+  },
+
+  async getE2EEKeyPair(userId: string): Promise<{ privateKeyHex: string; publicKeyJWK: string } | null> {
+    const priv = await this.getItem(`${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`);
+    const pub = await this.getItem(`${STORAGE_KEYS.E2EE_PUBLIC_KEY_PREFIX}${userId}`);
+    if (priv && pub) {
+      return { privateKeyHex: priv, publicKeyJWK: pub };
+    }
+    return null;
+  },
+
+  async deleteE2EEKeyPair(userId: string): Promise<void> {
+    await this.deleteItem(`${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`);
+    await this.deleteItem(`${STORAGE_KEYS.E2EE_PUBLIC_KEY_PREFIX}${userId}`);
+  },
 };
+

@@ -7,10 +7,14 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { authApi } from '../api/auth';
 import { ApiError, LoginRequest, RegisterRequest, User } from '../api/types';
+import { updatePublicKey, resetPublicKey } from '../api/users';
+import { E2EEKeyPair, generateE2EEKeyPair } from '../services/crypto';
 import { deviceIdService } from '../services/deviceIdService';
 import { secureStorage } from '../services/secureStorage';
 import { websocketClient } from '../services/websocket';
 import { useDevice } from './DeviceContext';
+
+export type E2EEStatus = 'uninitialized' | 'loading' | 'ready' | 'conflict' | 'error';
 
 interface AuthContextType {
   user: User | null;
@@ -18,6 +22,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   sessionReplacedMessage: string | null;
+  e2eeKeyPair: E2EEKeyPair | null;
+  e2eeStatus: E2EEStatus;
+  initE2EEKeys: () => Promise<void>;
+  resetE2EEKeys: (password?: string) => Promise<void>;
   login: (credentials: Omit<LoginRequest, 'device_id'>) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
@@ -30,6 +38,10 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   isLoading: true,
   sessionReplacedMessage: null,
+  e2eeKeyPair: null,
+  e2eeStatus: 'uninitialized',
+  initE2EEKeys: async () => {},
+  resetE2EEKeys: async () => {},
   login: async () => {},
   register: async () => {},
   logout: async () => {},
@@ -42,6 +54,100 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [sessionReplacedMessage, setSessionReplacedMessage] = useState<string | null>(null);
+  const [e2eeKeyPair, setE2eeKeyPair] = useState<E2EEKeyPair | null>(null);
+  const [e2eeStatus, setE2eeStatus] = useState<E2EEStatus>('uninitialized');
+
+
+  const initE2EEForUser = useCallback(async (targetUserId: string, targetDeviceId: string) => {
+    console.log('[AuthContext] initE2EEForUser starting for user:', targetUserId);
+    setE2eeStatus('loading');
+    try {
+      const savedPair = await secureStorage.getE2EEKeyPair(targetUserId);
+      if (savedPair) {
+        console.log('[AuthContext] Found existing local keypair, syncing with server...');
+        setE2eeKeyPair(savedPair);
+        try {
+          await updatePublicKey(savedPair.publicKeyJWK, targetDeviceId);
+          setE2eeStatus('ready');
+          console.log('[AuthContext] Local keypair synced successfully with server.');
+        } catch (err: any) {
+          if (
+            err?.status === 409 ||
+            err?.title === 'KEY_ALREADY_REGISTERED' ||
+            err?.detail?.includes('KEY_ALREADY_REGISTERED')
+          ) {
+            console.warn('[AuthContext] E2EE key conflict: Account active on another device');
+            setE2eeStatus('conflict');
+          } else {
+            console.log('[AuthContext] Server sync skipped or offline, using local key.');
+            setE2eeStatus('ready');
+          }
+        }
+        return;
+      }
+
+      // No local keypair: generate new keypair
+      console.log('[AuthContext] No local keypair found. Generating fresh E2EE keypair...');
+      const newPair = generateE2EEKeyPair();
+      try {
+        await updatePublicKey(newPair.publicKeyJWK, targetDeviceId);
+        await secureStorage.setE2EEKeyPair(targetUserId, newPair);
+        setE2eeKeyPair(newPair);
+        setE2eeStatus('ready');
+        console.log('[AuthContext] New E2EE keypair registered and saved locally.');
+      } catch (err: any) {
+        if (
+          err?.status === 409 ||
+          err?.title === 'KEY_ALREADY_REGISTERED' ||
+          err?.detail?.includes('KEY_ALREADY_REGISTERED')
+        ) {
+          console.warn('[AuthContext] Device conflict during key registration. Account already registered.');
+          setE2eeStatus('conflict');
+        } else {
+          // Fallback save locally
+          await secureStorage.setE2EEKeyPair(targetUserId, newPair);
+          setE2eeKeyPair(newPair);
+          setE2eeStatus('ready');
+          console.log('[AuthContext] Saved locally as offline fallback.');
+        }
+      }
+    } catch (err) {
+      console.error('[AuthContext] initE2EEForUser failed:', err);
+      setE2eeStatus('error');
+    }
+  }, []);
+
+  // Auto-init E2EE keys whenever user is authenticated but e2eeKeyPair is not yet loaded
+  useEffect(() => {
+    if (!user?.id || e2eeKeyPair || e2eeStatus === 'loading') return;
+    const currentDeviceId = deviceId || '';
+    if (currentDeviceId) {
+      initE2EEForUser(user.id, currentDeviceId);
+    }
+  }, [user?.id, e2eeKeyPair, e2eeStatus, deviceId, initE2EEForUser]);
+
+  const initE2EEKeys = useCallback(async () => {
+    if (!user?.id) return;
+    const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+    await initE2EEForUser(user.id, currentDeviceId);
+  }, [user?.id, deviceId, initE2EEForUser]);
+
+  const resetE2EEKeys = useCallback(async (password?: string) => {
+    if (!user?.id) throw new Error('User tidak terotentikasi');
+    setE2eeStatus('loading');
+    try {
+      const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+      const freshPair = generateE2EEKeyPair();
+      await resetPublicKey(freshPair.publicKeyJWK, currentDeviceId, password);
+      await secureStorage.setE2EEKeyPair(user.id, freshPair);
+      setE2eeKeyPair(freshPair);
+      setE2eeStatus('ready');
+    } catch (err) {
+      console.error('[AuthContext] resetE2EEKeys failed:', err);
+      setE2eeStatus('error');
+      throw err;
+    }
+  }, [user?.id, deviceId]);
 
   // Setup WebSocket session replaced handler
   useEffect(() => {
@@ -49,8 +155,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('[AuthContext] Session replacement triggered:', reason);
       // Purge local credentials
       secureStorage.clearSession();
-      setUser(null);
+      setUser((prev) => {
+        if (prev?.id) {
+          secureStorage.deleteE2EEKeyPair(prev.id).catch(() => {});
+        }
+        return null;
+      });
       setToken(null);
+      setE2eeKeyPair(null);
+      setE2eeStatus('conflict');
       setSessionReplacedMessage(reason || 'Akun Anda sedang aktif di perangkat lain. Sesi pada perangkat ini telah dihentikan.');
     });
   }, []);
@@ -73,6 +186,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(savedUser);
           }
 
+          const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+          // Init E2EE asynchronously
+          initE2EEForUser(savedUser.id, currentDeviceId);
+
           // Verify with server in background
           try {
             const freshUser = await authApi.getMe();
@@ -80,7 +197,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(freshUser);
               await secureStorage.setUserData(freshUser);
               // Connect WebSocket
-              const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
               websocketClient.reset();
               websocketClient.connect(savedToken, currentDeviceId);
             }
@@ -95,7 +211,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             } else {
               // Network error or offline - keep cached session and attempt connect
-              const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
               websocketClient.reset();
               websocketClient.connect(savedToken, currentDeviceId);
             }
@@ -115,7 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       mounted = false;
     };
-  }, [isDeviceReady, deviceId]);
+  }, [isDeviceReady, deviceId, initE2EEForUser]);
 
   const login = useCallback(
     async (credentials: Omit<LoginRequest, 'device_id'>) => {
@@ -134,6 +249,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(response.user);
         setSessionReplacedMessage(null);
 
+        // Initialize E2EE Keys
+        await initE2EEForUser(response.user.id, currentDeviceId);
+
         // Connect WebSocket singleton
         websocketClient.reset();
         websocketClient.connect(response.token, currentDeviceId);
@@ -143,7 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
       }
     },
-    [deviceId]
+    [deviceId, initE2EEForUser]
   );
 
   const register = useCallback(
@@ -160,6 +278,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(response.user);
         setSessionReplacedMessage(null);
 
+        // Initialize E2EE Keys
+        await initE2EEForUser(response.user.id, currentDeviceId);
+
         // Connect WebSocket singleton
         websocketClient.reset();
         websocketClient.connect(response.token, currentDeviceId);
@@ -169,7 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
       }
     },
-    [deviceId]
+    [deviceId, initE2EEForUser]
   );
 
   const logout = useCallback(async () => {
@@ -187,15 +308,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Purge local storage
+      if (user?.id) {
+        try {
+          await secureStorage.deleteE2EEKeyPair(user.id);
+        } catch {}
+      }
       await secureStorage.clearSession();
       setUser(null);
       setToken(null);
+      setE2eeKeyPair(null);
+      setE2eeStatus('uninitialized');
       setSessionReplacedMessage(null);
       websocketClient.reset();
     } finally {
       setIsLoading(false);
     }
-  }, [deviceId]);
+  }, [deviceId, user?.id]);
 
   const dismissSessionAlert = useCallback(() => {
     setSessionReplacedMessage(null);
@@ -209,6 +337,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         isLoading,
         sessionReplacedMessage,
+        e2eeKeyPair,
+        e2eeStatus,
+        initE2EEKeys,
+        resetE2EEKeys,
         login,
         register,
         logout,

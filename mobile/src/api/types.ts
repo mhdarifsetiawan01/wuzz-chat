@@ -58,6 +58,19 @@ export interface Message {
     nickname?: string;
     content?: string;
   };
+  is_encrypted?: boolean;
+}
+
+export interface PublicKeyResponse {
+  user_id?: string;
+  public_key?: string;
+}
+
+export interface UpdatePublicKeyResponse {
+  status: string;
+  message?: string;
+  public_key?: string;
+  key_version?: number;
 }
 
 export type ConversationItem = Conversation;

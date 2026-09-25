@@ -63,7 +63,7 @@ function getMessagePreview(conversation: Conversation): string {
     return 'Belum ada pesan';
   }
   if (raw.startsWith('e2ee:')) {
-    return '🔒 Pesan terenkripsi E2EE';
+    return '🔒 Pesan terenkripsi';
   }
   return raw;
 }

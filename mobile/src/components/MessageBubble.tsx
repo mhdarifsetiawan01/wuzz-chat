@@ -59,13 +59,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {isE2EE ? (
           <View style={styles.e2eeRow}>
             <Text style={styles.e2eeIcon}>🔒</Text>
-            <Text style={[styles.messageText, styles.e2eeText]}>Pesan terenkripsi E2EE</Text>
+            <Text style={[styles.messageText, styles.e2eeText]}>Pesan terenkripsi (sedang menyinkronkan kunci...)</Text>
           </View>
         ) : (
           <Text style={styles.messageText}>{message.content}</Text>
         )}
 
         <View style={styles.footerRow}>
+          {message.is_encrypted ? (
+            <Text style={styles.e2eeLockBadge}>🔒</Text>
+          ) : null}
           <Text style={styles.timeText}>{timeString}</Text>
           {isSelf ? (
             <Text style={[styles.receiptIcon, message.status === 'read' ? styles.receiptRead : styles.receiptSent]}>
@@ -133,6 +136,10 @@ const styles = StyleSheet.create({
   e2eeText: {
     fontStyle: 'italic',
     color: colors.textSecondary,
+  },
+  e2eeLockBadge: {
+    fontSize: 9,
+    opacity: 0.85,
   },
   footerRow: {
     flexDirection: 'row',
