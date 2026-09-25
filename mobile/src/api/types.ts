@@ -49,6 +49,7 @@ export interface Message {
   sender_id: string;
   content: string;
   from?: string;
+  nickname?: string;
   type?: 'text' | 'image' | 'file' | 'audio' | 'system';
   created_at?: string;
   timestamp?: string;
@@ -64,6 +65,12 @@ export interface Message {
   file_name?: string;
   file_size?: number;
   media_status?: string;
+  reactions?: {
+    emoji: string;
+    users: string[];
+    count: number;
+  }[];
+  is_deleted?: boolean;
 }
 
 export interface MediaUploadResponse {

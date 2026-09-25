@@ -19,6 +19,12 @@ export interface SendMediaOptions {
   file_size?: number;
 }
 
+export interface SendReplyOptions {
+  id: string;
+  nickname?: string;
+  content?: string;
+}
+
 class WebSocketClient {
   private ws: WebSocket | null = null;
   private token: string | null = null;
@@ -219,13 +225,14 @@ class WebSocketClient {
   }
 
   /**
-   * Send a chat message to a room with unique request_id and optional media payload
+   * Send a chat message to a room with unique request_id, optional media, and optional reply_to payload
    */
   public sendMessage(
     roomId: string,
     content: string,
     requestId?: string,
-    media?: SendMediaOptions
+    media?: SendMediaOptions,
+    replyTo?: SendReplyOptions
   ): boolean {
     const payload: Record<string, any> = {
       type: 'message',
@@ -241,7 +248,29 @@ class WebSocketClient {
       if (media.file_size) payload.file_size = media.file_size;
     }
 
+    if (replyTo && replyTo.id) {
+      payload.reply_to = {
+        id: replyTo.id,
+        nickname: replyTo.nickname || '',
+        content: replyTo.content || '',
+      };
+    }
+
     return this.send(payload);
+  }
+
+  /**
+   * Send emoji reaction for a specific message
+   */
+  public sendReaction(roomId: string, messageId: string, emoji: string): boolean {
+    return this.send({
+      type: 'reaction',
+      room: roomId,
+      reaction: {
+        message_id: messageId,
+        emoji,
+      },
+    });
   }
 
   /**

@@ -5,7 +5,7 @@
  * Conforms to frontend/DESIGN.md & WhatsApp Aurora theme.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import {
   Modal,
   ActivityIndicator,
   Pressable,
+  Animated,
+  PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
@@ -26,7 +28,13 @@ export interface MessageBubbleProps {
   isSelf: boolean;
   showSenderName?: boolean;
   senderName?: string;
+  currentUserId?: string;
+  isHighlighted?: boolean;
   onMediaLoaded?: (message: Message) => void;
+  onReply?: (message: Message) => void;
+  onLongPress?: (message: Message) => void;
+  onPressQuote?: (messageId: string) => void;
+  onReact?: (messageId: string, emoji: string) => void;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -34,12 +42,67 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isSelf,
   showSenderName,
   senderName,
+  currentUserId,
+  isHighlighted,
   onMediaLoaded,
+  onReply,
+  onLongPress,
+  onPressQuote,
+  onReact,
 }) => {
   const insets = useSafeAreaInsets();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+
+  // PanResponder for smooth Swipe-to-Reply
+  const panX = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Only capture horizontal swipes to the right
+        return gestureState.dx > 15 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy * 1.5);
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dx > 0) {
+          const clamped = Math.min(gestureState.dx, 75);
+          panX.setValue(clamped);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx >= 50) {
+          onReply?.(message);
+        }
+        Animated.spring(panX, {
+          toValue: 0,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(panX, {
+          toValue: 0,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }).start();
+      },
+    })
+  ).current;
+
+  const replyIconOpacity = panX.interpolate({
+    inputRange: [0, 35],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const replyIconScale = panX.interpolate({
+    inputRange: [0, 35, 60],
+    outputRange: [0.5, 1, 1.15],
+    extrapolate: 'clamp',
+  });
 
   const isE2EE = typeof message.content === 'string' && message.content.startsWith('e2ee:v1:');
   const isSystem = message.type === 'system';
@@ -91,92 +154,165 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   return (
     <View style={[styles.container, isSelf ? styles.selfContainer : styles.otherContainer]}>
-      <View
+      {/* Swipe to reply reveal icon */}
+      <Animated.View
         style={[
-          styles.bubble,
-          isSelf ? styles.selfBubble : styles.otherBubble,
-          isImage ? styles.imageBubblePadding : null,
+          styles.swipeReplyIconContainer,
+          {
+            opacity: replyIconOpacity,
+            transform: [{ scale: replyIconScale }],
+          },
         ]}
       >
-        {showSenderName && !isSelf && senderName ? (
-          <Text style={styles.senderName}>{senderName}</Text>
-        ) : null}
+        <Text style={styles.swipeReplyIcon}>↩️</Text>
+      </Animated.View>
 
-        {/* Expired Media Banner (WhatsApp Store-and-Forward Lifecycle) */}
-        {message.media_url && isExpired ? (
-          <View style={styles.expiredBox}>
-            <Text style={styles.expiredIcon}>⌛</Text>
-            <View style={styles.expiredTextCol}>
-              <Text style={styles.expiredTitle}>Media telah kedaluwarsa</Text>
-              <Text style={styles.expiredSubtitle}>File sudah tidak tersedia di server</Text>
-            </View>
-          </View>
-        ) : null}
-
-        {/* Image Attachment Preview */}
-        {isImage && !isExpired && message.media_url ? (
-          <View style={styles.imageContainer}>
-            <TouchableOpacity
-              activeOpacity={0.88}
-              onPress={() => setIsFullscreen(true)}
-              style={styles.imageTouchable}
-            >
-              <Image
-                source={{ uri: message.media_url }}
-                style={styles.mediaImage}
-                resizeMode="cover"
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-              />
-              {isImageLoading ? (
-                <View style={styles.imageLoadingOverlay}>
-                  <ActivityIndicator size="small" color={colors.accentPrimary} />
-                </View>
-              ) : null}
-              {imageError ? (
-                <View style={styles.imageErrorOverlay}>
-                  <Text style={styles.imageErrorIcon}>⚠️</Text>
-                  <Text style={styles.imageErrorText}>Gagal memuat gambar</Text>
-                </View>
-              ) : null}
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {/* Text Content / Caption */}
-        {isE2EE ? (
-          <View style={styles.e2eeRow}>
-            <Text style={styles.e2eeIcon}>🔒</Text>
-            <Text style={[styles.messageText, styles.e2eeText]}>
-              Pesan terenkripsi (sedang menyinkronkan kunci...)
-            </Text>
-          </View>
-        ) : hasCaption ? (
-          <Text style={[styles.messageText, isImage ? styles.captionText : null]}>
-            {message.content}
-          </Text>
-        ) : null}
-
-        {/* Bubble Footer: Timestamp & Receipt Checkmarks */}
-        <View style={[styles.footerRow, isImage && !hasCaption ? styles.footerOverImage : null]}>
-          {message.is_encrypted ? <Text style={styles.e2eeLockBadge}>🔒</Text> : null}
-          <Text style={styles.timeText}>{timeString}</Text>
-          {isSelf ? (
-            <Text
-              style={[
-                styles.receiptIcon,
-                message.status === 'read' ? styles.receiptRead : styles.receiptSent,
-              ]}
-            >
-              {message.status === 'sending'
-                ? '🕒'
-                : message.status === 'read' || message.status === 'delivered'
-                ? '✓✓'
-                : '✓'}
-            </Text>
+      <Animated.View
+        style={{
+          transform: [{ translateX: panX }],
+          maxWidth: '85%',
+        }}
+        {...panResponder.panHandlers}
+      >
+        <Pressable
+          onLongPress={() => onLongPress?.(message)}
+          delayLongPress={280}
+          style={[
+            styles.bubble,
+            isSelf ? styles.selfBubble : styles.otherBubble,
+            isImage ? styles.imageBubblePadding : null,
+            isHighlighted ? styles.highlightedBubble : null,
+          ]}
+        >
+          {showSenderName && !isSelf && senderName ? (
+            <Text style={styles.senderName}>{senderName}</Text>
           ) : null}
-        </View>
-      </View>
+
+          {/* Deleted Message State */}
+          {message.is_deleted ? (
+            <View style={styles.deletedRow}>
+              <Text style={styles.deletedIcon}>🚫</Text>
+              <Text style={styles.deletedText}>Pesan ini telah dihapus</Text>
+            </View>
+          ) : (
+            <>
+              {/* Quoted Message Card */}
+              {message.reply_to ? (
+                <TouchableOpacity
+                  style={styles.quoteBox}
+                  onPress={() => onPressQuote?.(message.reply_to!.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.quoteAccentBar} />
+                  <View style={styles.quoteContent}>
+                    <Text style={styles.quoteSender} numberOfLines={1}>
+                      {message.reply_to.nickname || 'Pengguna'}
+                    </Text>
+                    <Text style={styles.quoteText} numberOfLines={2}>
+                      {message.reply_to.content || 'Pesan'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ) : null}
+
+              {/* Expired Media Banner (WhatsApp Store-and-Forward Lifecycle) */}
+              {message.media_url && isExpired ? (
+                <View style={styles.expiredBox}>
+                  <Text style={styles.expiredIcon}>⌛</Text>
+                  <View style={styles.expiredTextCol}>
+                    <Text style={styles.expiredTitle}>Media telah kedaluwarsa</Text>
+                    <Text style={styles.expiredSubtitle}>File sudah tidak tersedia di server</Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Image Attachment Preview */}
+              {isImage && !isExpired && message.media_url ? (
+                <View style={styles.imageContainer}>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    onPress={() => setIsFullscreen(true)}
+                    style={styles.imageTouchable}
+                  >
+                    <Image
+                      source={{ uri: message.media_url }}
+                      style={styles.mediaImage}
+                      resizeMode="cover"
+                      onLoad={handleImageLoad}
+                      onError={handleImageError}
+                    />
+                    {isImageLoading ? (
+                      <View style={styles.imageLoadingOverlay}>
+                        <ActivityIndicator size="small" color={colors.accentPrimary} />
+                      </View>
+                    ) : null}
+                    {imageError ? (
+                      <View style={styles.imageErrorOverlay}>
+                        <Text style={styles.imageErrorIcon}>⚠️</Text>
+                        <Text style={styles.imageErrorText}>Gagal memuat gambar</Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              {/* Text Content / Caption */}
+              {isE2EE ? (
+                <View style={styles.e2eeRow}>
+                  <Text style={styles.e2eeIcon}>🔒</Text>
+                  <Text style={[styles.messageText, styles.e2eeText]}>
+                    Pesan terenkripsi (sedang menyinkronkan kunci...)
+                  </Text>
+                </View>
+              ) : hasCaption ? (
+                <Text style={[styles.messageText, isImage ? styles.captionText : null]}>
+                  {message.content}
+                </Text>
+              ) : null}
+            </>
+          )}
+
+          {/* Bubble Footer: Timestamp & Receipt Checkmarks */}
+          <View style={[styles.footerRow, isImage && !hasCaption && !message.is_deleted ? styles.footerOverImage : null]}>
+            {message.is_encrypted ? <Text style={styles.e2eeLockBadge}>🔒</Text> : null}
+            <Text style={styles.timeText}>{timeString}</Text>
+            {isSelf ? (
+              <Text
+                style={[
+                  styles.receiptIcon,
+                  message.status === 'read' ? styles.receiptRead : styles.receiptSent,
+                ]}
+              >
+                {message.status === 'sending'
+                  ? '🕒'
+                  : message.status === 'read' || message.status === 'delivered'
+                  ? '✓✓'
+                  : '✓'}
+              </Text>
+            ) : null}
+          </View>
+        </Pressable>
+
+        {/* Reaction Pills Row */}
+        {message.reactions && message.reactions.length > 0 && !message.is_deleted ? (
+          <View style={[styles.reactionsRow, isSelf ? styles.selfReactions : styles.otherReactions]}>
+            {message.reactions.map((r, i) => {
+              const hasUserReacted = currentUserId && r.users?.includes(currentUserId);
+              return (
+                <TouchableOpacity
+                  key={`${r.emoji}_${i}`}
+                  style={[styles.reactionPill, hasUserReacted ? styles.reactionPillActive : null]}
+                  onPress={() => onReact?.(message.id, r.emoji)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.reactionEmoji}>{r.emoji}</Text>
+                  {r.count > 1 ? <Text style={styles.reactionCount}>{r.count}</Text> : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : null}
+      </Animated.View>
 
       {/* Fullscreen Image Lightbox Modal */}
       {isImage && message.media_url ? (
@@ -226,6 +362,7 @@ const styles = StyleSheet.create({
     marginVertical: 3,
     paddingHorizontal: spacing.sm,
     width: '100%',
+    position: 'relative',
   },
   selfContainer: {
     alignItems: 'flex-end',
@@ -233,12 +370,122 @@ const styles = StyleSheet.create({
   otherContainer: {
     alignItems: 'flex-start',
   },
+  swipeReplyIconContainer: {
+    position: 'absolute',
+    left: 8,
+    top: '35%',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: colors.bgCardSolid,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  swipeReplyIcon: {
+    fontSize: 15,
+  },
   bubble: {
-    maxWidth: '82%',
+    maxWidth: '100%',
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 6,
     borderRadius: 14,
+  },
+  highlightedBubble: {
+    borderWidth: 1.5,
+    borderColor: colors.accentPrimary,
+    backgroundColor: '#1e3a8a',
+  },
+  quoteBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginBottom: 6,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  quoteAccentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3.5,
+    backgroundColor: '#38bdf8',
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+  },
+  quoteContent: {
+    flex: 1,
+    marginLeft: 6,
+  },
+  quoteSender: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38bdf8',
+    marginBottom: 1,
+  },
+  quoteText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  deletedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    gap: 6,
+  },
+  deletedIcon: {
+    fontSize: 13,
+  },
+  deletedText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: colors.textMuted,
+  },
+  reactionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  selfReactions: {
+    justifyContent: 'flex-end',
+    marginRight: 4,
+  },
+  otherReactions: {
+    justifyContent: 'flex-start',
+    marginLeft: 4,
+  },
+  reactionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgCardSolid,
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    gap: 3,
+  },
+  reactionPillActive: {
+    borderColor: colors.accentPrimary,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+  },
+  reactionEmoji: {
+    fontSize: 13,
+  },
+  reactionCount: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   imageBubblePadding: {
     paddingHorizontal: 5,

@@ -39,14 +39,20 @@ export const messagesApi = {
 
   /**
    * DELETE /api/messages
-   * Deletes a message for everyone in the room.
+   * Deletes a message (for_me or for_everyone).
    */
-  async deleteMessage(messageId: string, roomId: string): Promise<{ status: string }> {
+  async deleteMessage(
+    messageId: string,
+    roomId: string,
+    type: 'for_me' | 'for_everyone' = 'for_everyone'
+  ): Promise<{ status: string }> {
     return apiClient<{ status: string }>('/api/messages', {
       method: 'DELETE',
       body: JSON.stringify({
         message_id: messageId,
         room_id: roomId,
+        type,
+        delete_for_everyone: type === 'for_everyone',
       }),
     });
   },

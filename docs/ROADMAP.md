@@ -55,8 +55,8 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Milestone M-Mobile-3: Contact Search & Start New Conversation**: **SELESAI ✅** (Debounced Search, NewChatScreen, FAB, Direct Chat Creation)
 >    - **Milestone M-Mobile-4: End-to-End Encryption (E2EE) Mobile Integration**: **SELESAI ✅** (NIST P-256 ECDH, HKDF-SHA256, AES-256-GCM, Auto-Decrypt Snippet Chat List, 100% Interop Web Crypto)
 >    - **Milestone M-Mobile-5: Media Attachments & Image/File Sharing**: **SELESAI ✅** (Kamera, galeri foto, staged preview, fullscreen viewer, store-and-forward ACK, Expo WinterCG stream)
->    - **Milestone M-Mobile-6: Quoted Reply, Swipe-to-Reply & WhatsApp-Style Emoji Picker**: *Siap Dieksekusi* (Swipe-to-reply gesture, banner kutipan input, quote bubble viewer, quick reaction pill, keyboard-docked emoji panel)
->    - **Milestone M-Mobile-7: Voice Notes & Audio Messaging**: *Direncanakan* (Perekaman suara, visualisasi waveform, audio player, E2EE audio transfer)
+>    - **Milestone M-Mobile-6: Quoted Reply, Swipe-to-Reply & WhatsApp-Style Emoji Picker**: **SELESAI ✅** (Swipe-to-reply gesture, banner kutipan input, quote bubble viewer, quick reaction pill, keyboard-docked emoji panel)
+>    - **Milestone M-Mobile-7: Voice Notes & Audio Messaging**: *Siap Dieksekusi* (Perekaman suara, visualisasi waveform, audio player, E2EE audio transfer)
 
 ---
 

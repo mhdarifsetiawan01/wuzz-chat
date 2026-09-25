@@ -2893,5 +2893,37 @@ Mengimplementasikan kemampuan berbagi media gambar (kamera & galeri foto) pada a
   - Berhasil mengunggah berkas JPEG asli ke backend Fly.io dan disimpan di Supabase CDN.
   - Penerima di aplikasi Web Next.js (`chat.wuzzhub.id`) dan lawan bicara di mobile berhasil merender pratinjau gambar berukuran penuh dengan kualitas sempurna dan caption E2EE terdekripsi utuh.
 
+---
+
+## 📱 Milestone M-Mobile-6: Quoted Reply, Swipe-to-Reply & WhatsApp-Style Emoji Picker (25 September 2026) — SELESAI ✅
+
+### 1. Deskripsi & Arsitektur Implementasi
+Mengimplementasikan interaksi chat tingkat lanjut sekelas WhatsApp & Telegram pada aplikasi mobile resmi WuzzChat (`mobile/`):
+- **WhatsApp-Style Docked Emoji Picker**:
+  - Dibuat katalog modular Unicode di `mobile/src/constants/emojis.ts` (Wajah 😀, Tangan 👍, Hati ❤️, Makanan & Objek ☕, Hewan & Alam 🐱, dan Quick Reactions).
+  - Komponen `mobile/src/components/EmojiPicker.tsx` berketinggian tetap (280dp) yang menggantikan soft keyboard dengan tab kategori dan tombol hapus (`⌫`).
+  - Toggle button dinamis 😊 ⇄ ⌨️ di `mobile/src/components/ChatInputBar.tsx` dengan transisi *anti-jump* (keyboard disembunyikan halus saat panel dibuka, dan kembali fokus saat kolom teks diketuk).
+- **PanResponder Swipe-to-Reply**:
+  - Mengimplementasikan `PanResponder` native pada `mobile/src/components/MessageBubble.tsx` dengan gesture filter `dx > 15 && dx > 1.5 * dy` sehingga scrolling vertikal FlatList tetap 100% mulus.
+  - Geseran ke kanan memunculkan ikon panah balas (↩️) dengan animasi fade & scale, serta animasi pegas (`Animated.spring`) saat dilepas.
+- **In-Bubble Quote Card & Tap-to-Scroll**:
+  - Kotak kutipan beraksen border kiri 3.5px (`#38bdf8`) dan latar semi-transparan ditampilkan di atas teks/media balon pesan yang memiliki `reply_to`.
+  - Mengetuk kotak kutipan memicu auto-scroll ke pesan asli via `flatListRef.current?.scrollToIndex(...)` disertai efek *highlight pulse* selama 1.5 detik.
+- **Staged Reply Preview Banner**:
+  - Banner pratinjau balasan disematkan di atas input bar pada `ChatInputBar.tsx`, menampilkan nama pengirim yang dikutip, cuplikan pesan (atau `📷 Foto`), dan tombol batal (✕).
+- **Long-Press Contextual Action Sheet & Quick Reactions**:
+  - Modal Action Sheet di `mobile/src/components/MessageActionSheet.tsx` dipicu oleh long-press pada balon pesan:
+    - Quick Reactions Bar (👍, ❤️, 😂, 😮, 😢, 🙏) yang menyematkan reaksi emoji ke pesan.
+    - Menu tindakan: Balas Pesan (↩️), Salin Teks (📋 via `expo-clipboard`), dan Hapus Pesan (🗑️ dengan validasi ≤ 60 detik "Tarik untuk Semua Orang" vs "Hapus untuk Saya").
+- **E2EE & WebSocket Protocol Continuity**:
+  - Teks balasan dienkripsi AES-256-GCM pada direct chat.
+  - Wire format payload pesan WebSocket memuat metadata `reply_to: { id, nickname, content }` yang 100% kompatibel dengan Go backend dan Next.js web client.
+  - Sinkronisasi realtime melalui listener WebSocket `reaction` dan `message_deleted`.
+
+### 2. Bukti Pengujian Otomatis
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Frontend Turbopack Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (Seluruh 30 package lulus).
+
 
 

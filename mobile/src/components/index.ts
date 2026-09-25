@@ -5,3 +5,5 @@ export * from './ChatListItem';
 export * from './SessionAlertModal';
 export * from './MessageBubble';
 export * from './ChatInputBar';
+export * from './EmojiPicker';
+export * from './MessageActionSheet';

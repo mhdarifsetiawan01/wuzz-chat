@@ -22,6 +22,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { ConversationItem, Message } from '../api/types';
 import { getUserPublicKey } from '../api/users';
 import { mediaApi } from '../api/media';
+import { messagesApi } from '../api/messages';
 import { websocketClient } from '../services/websocket';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -36,6 +37,7 @@ import {
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInputBar, StagedMedia } from '../components/ChatInputBar';
+import { MessageActionSheet } from '../components/MessageActionSheet';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -54,6 +56,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
   const [stagedMedia, setStagedMedia] = useState<StagedMedia | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [roomAESKey, setRoomAESKey] = useState<Uint8Array | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [actionSheetMessage, setActionSheetMessage] = useState<Message | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
   const lastHandledMsgIdRef = useRef<string | null>(null);
@@ -178,6 +183,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
             }
           }
         }
+        let replyToObj: Message['reply_to'] | undefined = undefined;
+        if (m.reply_to && m.reply_to.id) {
+          replyToObj = {
+            id: m.reply_to.id,
+            nickname: m.reply_to.nickname || m.reply_to.from || '',
+            content: m.reply_to.content || '',
+          };
+        }
         return {
           id: m.id || `hist_${Math.random()}`,
           room_id: m.room || m.room_id || roomId,
@@ -185,9 +198,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
           content,
           is_encrypted: isEncrypted,
           from: m.from || m.nickname,
+          nickname: m.nickname || m.from,
           created_at: m.timestamp || m.created_at || new Date().toISOString(),
           timestamp: m.timestamp || m.created_at || new Date().toISOString(),
           status: m.status || 'sent',
+          reply_to: replyToObj,
+          reactions: m.reactions || [],
+          is_deleted: Boolean(m.is_deleted),
           media_url: m.media_url,
           media_type: m.media_type,
           file_name: m.file_name,
@@ -251,6 +268,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         }
       }
 
+      let replyToObj: Message['reply_to'] | undefined = undefined;
+      if (incoming.reply_to && incoming.reply_to.id) {
+        replyToObj = {
+          id: incoming.reply_to.id,
+          nickname: incoming.reply_to.nickname || incoming.reply_to.from || '',
+          content: incoming.reply_to.content || '',
+        };
+      }
+
       const newMsg: Message = {
         id: incoming.id || `msg_${Date.now()}`,
         room_id: targetRoom,
@@ -258,9 +284,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         content,
         is_encrypted: isEncrypted,
         from: incoming.from,
+        nickname: incoming.nickname || incoming.from,
         created_at: incoming.timestamp || incoming.created_at || new Date().toISOString(),
         timestamp: incoming.timestamp || incoming.created_at || new Date().toISOString(),
         status: (incoming.sender_id === currentUserId || incoming.from === currentUserId) ? 'sent' : 'delivered',
+        reply_to: replyToObj,
+        reactions: incoming.reactions || [],
+        is_deleted: Boolean(incoming.is_deleted),
         media_url: incoming.media_url,
         media_type: incoming.media_type,
         file_name: incoming.file_name,
@@ -330,10 +360,43 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
       }
     });
 
+    // D. Reaction Listener
+    const unsubscribeReaction = websocketClient.on('reaction', (data: any) => {
+      const targetRoom = data.room || data.room_id;
+      if (targetRoom && targetRoom !== roomId) return;
+
+      const targetId = data.id || data.reaction?.message_id;
+      const reactions = data.reactions;
+      if (targetId && reactions) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === targetId ? { ...m, reactions } : m))
+        );
+      }
+    });
+
+    // E. Message Deleted Listener
+    const unsubscribeDeleted = websocketClient.on('message_deleted', (data: any) => {
+      const targetRoom = data.room || data.room_id;
+      if (targetRoom && targetRoom !== roomId) return;
+
+      const targetId = data.id || data.message_id;
+      if (targetId) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === targetId
+              ? { ...m, is_deleted: true, content: 'Pesan ini telah dihapus' }
+              : m
+          )
+        );
+      }
+    });
+
     return () => {
       unsubscribeMessage();
       unsubscribeAck();
       unsubscribeReceipt();
+      unsubscribeReaction();
+      unsubscribeDeleted();
     };
   }, [roomId, currentUserId]);
 
@@ -477,6 +540,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         }
       }
 
+      // Quoted Reply Context (if active)
+      const replyPayload = replyingTo
+        ? {
+            id: replyingTo.id,
+            nickname: replyingTo.nickname || replyingTo.from || (replyingTo.sender_id === currentUserId ? 'Anda' : title),
+            content: replyingTo.media_url ? '📷 Foto' : replyingTo.content,
+          }
+        : undefined;
+
       // C. Render optimistic di timeline
       const optimisticMsg: Message = {
         id: tempId,
@@ -487,6 +559,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         created_at: nowIso,
         timestamp: nowIso,
         status: 'sending',
+        reply_to: replyPayload,
         media_url: media ? media.uri : undefined,
         media_type: media ? 'image' : undefined,
         file_name: uploadedFileName || media?.fileName,
@@ -495,11 +568,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
 
       setMessages((prev) => [...prev, optimisticMsg]);
       setStagedMedia(null);
+      setReplyingTo(null);
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 50);
 
-      // D. Kirim pesan WebSocket lengkap dengan metadata media jika ada
+      // D. Kirim pesan WebSocket lengkap dengan metadata media dan reply_to jika ada
       const mediaOptions = uploadedMediaUrl
         ? {
             media_url: uploadedMediaUrl,
@@ -509,14 +583,73 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
           }
         : undefined;
 
-      const sent = websocketClient.sendMessage(roomId, payloadToSend, tempId, mediaOptions);
+      const sent = websocketClient.sendMessage(
+        roomId,
+        payloadToSend,
+        tempId,
+        mediaOptions,
+        replyPayload
+      );
       if (!sent) {
         setMessages((prev) =>
           prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
         );
       }
     },
-    [roomId, currentUserId, isDirect]
+    [roomId, currentUserId, isDirect, replyingTo, title]
+  );
+
+  // 5. Handle Reaction on Message
+  const handleReact = useCallback(
+    (messageId: string, emoji: string) => {
+      websocketClient.sendReaction(roomId, messageId, emoji);
+    },
+    [roomId]
+  );
+
+  // 6. Handle Delete Message (Delete for me vs Delete for everyone)
+  const handleDeleteMessage = useCallback(
+    async (messageId: string, type: 'for_me' | 'for_everyone') => {
+      try {
+        await messagesApi.deleteMessage(messageId, roomId, type);
+        if (type === 'for_everyone') {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === messageId
+                ? { ...m, is_deleted: true, content: 'Pesan ini telah dihapus' }
+                : m
+            )
+          );
+        } else {
+          setMessages((prev) => prev.filter((m) => m.id !== messageId));
+        }
+      } catch (err: any) {
+        console.warn('[ChatScreen] Delete message failed:', err);
+        Alert.alert('Gagal Menghapus', err.detail || err.message || 'Tidak dapat menghapus pesan.');
+      }
+    },
+    [roomId]
+  );
+
+  // 7. Handle Press Quote (Scroll to target message with highlight pulse)
+  const handlePressQuote = useCallback(
+    (targetMessageId: string) => {
+      const index = messages.findIndex((m) => m.id === targetMessageId);
+      if (index !== -1) {
+        flatListRef.current?.scrollToIndex({
+          index,
+          animated: true,
+          viewPosition: 0.5,
+        });
+        setHighlightedMessageId(targetMessageId);
+        setTimeout(() => {
+          setHighlightedMessageId(null);
+        }, 1500);
+      } else {
+        Alert.alert('Pesan Tidak Ditemukan', 'Pesan asli mungkin berada di riwayat sebelumnya.');
+      }
+    },
+    [messages]
   );
 
   return (
@@ -587,8 +720,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
                   message={item}
                   isSelf={isSelf}
                   showSenderName={!isDirect && !isSelf}
-                  senderName={item.from}
+                  senderName={item.from || item.nickname}
+                  currentUserId={currentUserId}
+                  isHighlighted={item.id === highlightedMessageId}
                   onMediaLoaded={handleMediaLoaded}
+                  onReply={(msg) => setReplyingTo(msg)}
+                  onLongPress={(msg) => setActionSheetMessage(msg)}
+                  onPressQuote={handlePressQuote}
+                  onReact={handleReact}
                 />
               );
             }}
@@ -606,8 +745,25 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
           onPickCamera={handlePickCamera}
           onPickGallery={handlePickGallery}
           onCancelStagedMedia={handleCancelStagedMedia}
+          replyTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
         />
       </KeyboardAvoidingView>
+
+      {/* Contextual Message Action Sheet (Reactions, Reply, Copy, Delete) */}
+      <MessageActionSheet
+        visible={Boolean(actionSheetMessage)}
+        message={actionSheetMessage}
+        isSelf={Boolean(
+          actionSheetMessage &&
+            (actionSheetMessage.sender_id === currentUserId ||
+              (Boolean(user?.username) && actionSheetMessage.from === user?.username))
+        )}
+        onClose={() => setActionSheetMessage(null)}
+        onReact={handleReact}
+        onReply={(msg) => setReplyingTo(msg)}
+        onDelete={handleDeleteMessage}
+      />
     </View>
   );
 };

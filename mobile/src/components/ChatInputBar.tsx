@@ -5,7 +5,7 @@
  * Conforms to frontend/DESIGN.md & WhatsApp Aurora theme.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -17,8 +17,11 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Message } from '../api/types';
+import { EmojiPicker } from './EmojiPicker';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -40,6 +43,8 @@ export interface ChatInputBarProps {
   onPickCamera?: () => void;
   onPickGallery?: () => void;
   onCancelStagedMedia?: () => void;
+  replyTo?: Message | null;
+  onCancelReply?: () => void;
 }
 
 function formatFileSize(bytes?: number): string {
@@ -57,10 +62,22 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onPickCamera,
   onPickGallery,
   onCancelStagedMedia,
+  replyTo,
+  onCancelReply,
 }) => {
   const [text, setText] = useState('');
   const [showAttachModal, setShowAttachModal] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
+
+  // Focus text input immediately when a reply is initiated
+  useEffect(() => {
+    if (replyTo) {
+      setShowEmojiPicker(false);
+      inputRef.current?.focus();
+    }
+  }, [replyTo]);
 
   const handleSend = () => {
     if (disabled || isUploading) return;
@@ -69,6 +86,30 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
 
     onSend(trimmed, stagedMedia);
     setText('');
+    setShowEmojiPicker(false);
+  };
+
+  const handleToggleEmoji = () => {
+    if (showEmojiPicker) {
+      setShowEmojiPicker(false);
+      inputRef.current?.focus();
+    } else {
+      Keyboard.dismiss();
+      setShowEmojiPicker(true);
+    }
+  };
+
+  const handleSelectEmoji = (emoji: string) => {
+    setText((prev) => prev + emoji);
+  };
+
+  const handleBackspace = () => {
+    setText((prev) => {
+      const chars = Array.from(prev);
+      if (chars.length === 0) return '';
+      chars.pop();
+      return chars.join('');
+    });
   };
 
   const handleSelectCamera = () => {
@@ -84,7 +125,35 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   const isSendActive = (text.trim().length > 0 || Boolean(stagedMedia)) && !disabled && !isUploading;
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View
+      style={[
+        styles.wrapper,
+        { paddingBottom: showEmojiPicker ? 0 : Math.max(insets.bottom, 8) },
+      ]}
+    >
+      {/* Quoted Reply Preview Banner (WhatsApp Style) */}
+      {replyTo ? (
+        <View style={styles.replyBanner}>
+          <View style={styles.replyAccentBar} />
+          <View style={styles.replyInfo}>
+            <Text style={styles.replySender} numberOfLines={1}>
+              Membalas ke {replyTo.from || replyTo.nickname || 'Pengguna'}
+            </Text>
+            <Text style={styles.replySnippet} numberOfLines={1}>
+              {replyTo.media_url ? '📷 Foto' : replyTo.content || 'Pesan'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.replyCancelBtn}
+            onPress={onCancelReply}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.replyCancelText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       {/* Staged Media Preview Banner */}
       {stagedMedia ? (
         <View style={styles.stagedBanner}>
@@ -116,10 +185,23 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
       ) : null}
 
       <View style={styles.container}>
+        {/* Emoji Picker Toggle Button */}
+        <TouchableOpacity
+          style={styles.emojiToggleBtn}
+          onPress={handleToggleEmoji}
+          disabled={disabled || isUploading}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.emojiToggleIcon}>{showEmojiPicker ? '⌨️' : '😊'}</Text>
+        </TouchableOpacity>
+
         {/* Attachment Picker Trigger Button */}
         <TouchableOpacity
           style={styles.attachButton}
-          onPress={() => setShowAttachModal(true)}
+          onPress={() => {
+            if (showEmojiPicker) setShowEmojiPicker(false);
+            setShowAttachModal(true);
+          }}
           disabled={disabled || isUploading}
           activeOpacity={0.7}
         >
@@ -128,11 +210,13 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
 
         {/* Text Input / Caption */}
         <TextInput
+          ref={inputRef}
           style={styles.input}
           placeholder={stagedMedia ? 'Tambah keterangan...' : 'Ketik pesan...'}
           placeholderTextColor={colors.textMuted}
           value={text}
           onChangeText={setText}
+          onFocus={() => setShowEmojiPicker(false)}
           multiline
           maxLength={4000}
           editable={!disabled && !isUploading}
@@ -154,6 +238,15 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Docked Emoji Picker Tray (Replacing soft keyboard at ~280dp) */}
+      {showEmojiPicker ? (
+        <EmojiPicker
+          onSelectEmoji={handleSelectEmoji}
+          onBackspace={handleBackspace}
+          height={280}
+        />
+      ) : null}
 
       {/* Attachment Options Modal */}
       <Modal
@@ -222,6 +315,58 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSubtle,
   },
+  replyBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgCardSolid,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  replyAccentBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: colors.accentPrimary,
+    borderTopLeftRadius: 10,
+    borderBottomLeftRadius: 10,
+  },
+  replyInfo: {
+    flex: 1,
+    marginLeft: 6,
+    justifyContent: 'center',
+  },
+  replySender: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.accentPrimary,
+    marginBottom: 2,
+  },
+  replySnippet: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  replyCancelBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  replyCancelText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '700',
+  },
   stagedThumbnail: {
     width: 48,
     height: 48,
@@ -272,6 +417,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: spacing.xs,
+  },
+  emojiToggleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.bgCardSolid,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 1,
+  },
+  emojiToggleIcon: {
+    fontSize: 18,
   },
   attachButton: {
     width: 40,

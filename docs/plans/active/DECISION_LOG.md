@@ -1,4 +1,4 @@
 # Decision Log — Standby
 
 - **Status**: Standby
-- **Previous Completed**: Milestone M-Mobile-5 Decisions (`DEC-M13` s/d `DEC-M16`) archived to `docs/plans/archived/25-09-2026-m-mobile-5-media-attachments/DECISION_LOG.md`.
+- **Previous Completed**: Milestone M-Mobile-6 Decisions (`DEC-M17` s/d `DEC-M21`) archived to `docs/plans/archived/25-09-2026-m-mobile-6-quoted-reply-emoji/DECISION_LOG.md`.
