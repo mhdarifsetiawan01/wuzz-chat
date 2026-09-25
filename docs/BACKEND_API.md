@@ -2,6 +2,11 @@
 
 Dokumen ini adalah **panduan integrasi resmi dan menyeluruh** bagi pengembang yang ingin membuat atau memelihara klien frontend (*Web*, *Mobile iOS/Android*, *Flutter*, *React Native*, dsb.) untuk ekosistem **Wuzz Chat**.
 
+> 🚀 **Spesifikasi Mesin & Panduan B2B**:
+> - **OpenAPI 3.1.0 Contract**: [`docs/openapi.yaml`](./openapi.yaml) (Disajikan langsung via backend di `GET /api/openapi.yaml`).
+> - **Interactive API Docs (Scalar UI)**: `GET /api/docs`.
+> - **Headless B2B Integration Guide**: [`docs/HEADLESS_INTEGRATION_GUIDE.md`](./HEADLESS_INTEGRATION_GUIDE.md) (Panduan JIT Provisioning, WebSocket Wire Format, dan E2EE Klien Eksternal).
+
 Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar enkripsi E2EE, dan siklus hidup media terdokumentasi di sini sesuai dengan kode aktual backend Go (`backend/internal/...`).
 
 ---

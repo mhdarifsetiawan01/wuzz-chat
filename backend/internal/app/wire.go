@@ -72,6 +72,7 @@ type Application struct {
 	LinkPreviewHandler *api.LinkPreviewHandler
 	TransferHandler    *api.TransferHandler
 	ProvisioningHandler *api.ProvisioningHandler
+	OpenAPIHandler     *api.OpenAPIHandler
 	WsHandler          *ws.Handler
 }
 
@@ -224,6 +225,7 @@ func New(cfg *config.Config) (*Application, error) {
 	}
 
 	app.LinkPreviewHandler = api.NewLinkPreviewHandler(messageBroker)
+	app.OpenAPIHandler = api.NewOpenAPIHandler()
 	app.AuthLimiter = ratelimit.NewDualTierRateLimiter(cfg.AuthRateLimitIP, cfg.AuthRateLimitUser, 1*time.Minute)
 
 	// -------------------------------------------------------------------------

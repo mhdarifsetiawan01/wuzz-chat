@@ -1,4 +1,5 @@
-# Active Implementation Plan
+# Implementation Plan — Standby for Milestone 7
 
-- Status: Standby
-- Plan: None
+- **Status**: Standby
+- **Target**: Milestone 7 (Webhooks & Event Subscription Engine)
+- **Reference**: `docs/TENANT_ENGINE_MASTER_PLAN.md`

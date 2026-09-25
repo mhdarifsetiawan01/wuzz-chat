@@ -36,6 +36,14 @@ func (a *Application) setupRouter() http.Handler {
 	}
 
 	// =========================================================================
+	// 1B. OPENAPI SPECIFICATION & API DOCUMENTATION (Milestone 6)
+	// =========================================================================
+	if a.OpenAPIHandler != nil {
+		mux.HandleFunc("/api/openapi.yaml", withCORS(a.OpenAPIHandler.ServeOpenAPISpec))
+		mux.HandleFunc("/api/docs", withCORS(a.OpenAPIHandler.ServeDocsUI))
+	}
+
+	// =========================================================================
 	// 2. STATIC UPLOADS & MEDIA ATTACHMENTS
 	// =========================================================================
 	uploadDir := a.Config.UploadDir

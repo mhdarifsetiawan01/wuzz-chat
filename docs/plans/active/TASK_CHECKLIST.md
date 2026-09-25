@@ -1,3 +1,4 @@
-# Task Checklist — Standby State
+# Task Checklist — Standby
 
-Menunggu instruksi baru.
+- **Status**: Standby
+- **Milestone 6 Tasks Completed & Archived**: `docs/plans/archived/25-09-2026/`

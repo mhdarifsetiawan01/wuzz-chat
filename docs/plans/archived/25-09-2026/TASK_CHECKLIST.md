@@ -1,0 +1,33 @@
+# Quick Task Checklist — Milestone 6: OpenAPI Contract & Headless Integration Guide
+
+- [ ] **Phase 1: Inventory & Schema Preparation**
+  - [ ] Audit rute `backend/internal/app/router.go`
+  - [ ] Definisikan shared schemas & error model RFC 7807
+- [ ] **Phase 2: Canonical OpenAPI 3.1.0 Contract (`docs/openapi.yaml`)**
+  - [ ] Root metadata & SecuritySchemes (Bearer, X-App-ID, X-App-Secret)
+  - [ ] B2B Auth Gateway endpoints (`/api/v1/auth/*`)
+  - [ ] Identity & Auth endpoints (`/api/auth/*`)
+  - [ ] Messaging & Conversation endpoints (`/api/conversations`, `/api/messages`)
+  - [ ] Groups & Ephemeral Fora endpoints (`/api/groups/*`)
+  - [ ] AI Memory Context Scoped endpoints (`/api/memory/*`, `/api/memories/*`)
+  - [ ] Push & Utility endpoints (`/api/notifications/*`, `/health`, dll)
+  - [ ] Validasi sintaks OpenAPI tanpa error
+- [ ] **Phase 3: Headless B2B Integration Guide (`docs/HEADLESS_INTEGRATION_GUIDE.md`)**
+  - [ ] Arsitektur headless & isolasi multi-tenant
+  - [ ] Alur JIT Provisioning & 60s Token Exchange (diagram & kode)
+  - [ ] Katalog event WebSocket RFC 6455 wire format & keep-alive
+  - [ ] Panduan enkripsi E2EE untuk mobile & web klien eksternal
+  - [ ] Penanganan error & rate limiting
+- [ ] **Phase 4: Self-Hosted API Documentation Endpoints (Go Backend)**
+  - [ ] `GET /api/openapi.yaml`
+  - [ ] `GET /api/docs` (Swagger UI / Scalar UI embedded)
+  - [ ] Registrasi router & CORS di `router.go`
+- [ ] **Phase 5: Automated Verification & Testing Gate**
+  - [ ] Automated unit test `backend/internal/api/openapi_test.go`
+  - [ ] `cd backend && go test -v ./...` (100% PASS)
+  - [ ] `cd frontend && npm run build` (100% PASS)
+- [ ] **Phase 6: User Approval & Promotion Gate**
+  - [ ] Presentasi hasil ke pengguna & tunggu konfirmasi "selesai"
+  - [ ] Tier 1 documentation sync
+  - [ ] Arsip active plan & git commit di `dev`
+  - [ ] Penawaran promosi merge/push ke `main`

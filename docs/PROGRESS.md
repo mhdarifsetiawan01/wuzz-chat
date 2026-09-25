@@ -2746,6 +2746,36 @@ Mengisolasi seluruh siklus hidup AI Memory Engine (antrean job worker, ekstraksi
 - **Full Backend Test Suite (`go test ./...`)**: **PASS 100%** di seluruh packages internal (`ai`, `api`, `app`, `auth`, `authz`, `broker`, `group`, `memory`, `messaging`, `push`, `shared`, `storage`, `store`, `tenant`, `worker`, `ws`).
 - **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 errors, 8/8 routes prerendered).
 
+---
+
+## 📜 Milestone 6: OpenAPI Contract & Headless Integration Guide (25 September 2026) — SELESAI ✅
+
+### 1. Deskripsi & Arsitektur
+Menyediakan spesifikasi kontrak mesin terstandarisasi, panduan integrasi headless B2B yang menyeluruh, serta endpoint dokumentasi API mandiri pada backend Go:
+- **Canonical OpenAPI 3.1.0 Contract (`docs/openapi.yaml` & `backend/internal/api/openapi.yaml`)**:
+  - Memetakan 100% surface area REST API backend Go (12 kategori modul: B2B Gateway, Identity & Auth, Multi-Device Sessions, E2EE Keys, Conversations, Messages, Media Store-and-Forward, Groups, Ephemeral Fora/Subgroups ber-TTL, AI Memory Engine, Push Notifications, Utility & Diagnostics).
+  - Skema otorisasi terstandar: `BearerAuth` (JWT 7 hari), `B2BAppID` (`X-App-ID`), `B2BAppSecret` (`X-App-Secret`), dan `HeaderTenantID` (`X-Tenant-ID`).
+  - Standarisasi format error envelope RFC 7807 Problem Details (`ProblemDetails`).
+  - Salinan identik tertanam di `backend/internal/api/openapi.yaml` menggunakan `//go:embed` untuk menjamin portabilitas binary tanpa ketergantungan file eksternal pada kontainer runtime.
+- **Headless B2B Integration Guide (`docs/HEADLESS_INTEGRATION_GUIDE.md`)**:
+  - Arsitektur headless WuzzChat Engine dan prinsip isolasi data tenant.
+  - Alur Server-to-Server JIT User Provisioning (`POST /api/v1/auth/provision-token`) dan 60s Token Exchange (`POST /api/v1/auth/exchange`) lengkap dengan sequence diagram Mermaid dan contoh kode Node.js/TypeScript menggunakan environment variable dinamis.
+  - Realtime WebSocket RFC 6455 Event Catalog & Wire Format (`message`, `typing`, `receipt`, `reaction`, `memory_approved`), keep-alive ping/pong 30s, dan penanganan WebSocket Close Code `4001: SESSION_REPLACED`.
+  - Panduan implementasi enkripsi end-to-end (ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM).
+  - Siklus hidup forum ephemeral (subgroup) ber-TTL dan integrasi AI Memory review.
+- **Self-Hosted Documentation Endpoints (`backend/internal/api/openapi_handler.go`)**:
+  - `GET /api/openapi.yaml`: Menyajikan file spesifikasi mentah dengan MIME type `application/yaml; charset=utf-8` dan dukungan CORS.
+  - `GET /api/docs`: Menyajikan halaman web interaktif mandiri (*embedded*) yang memuat UI dokumentasi Scalar API Reference modern dengan built-in offline fallback UI.
+  - Pendaftaran rute dan integrasi CORS pada `backend/internal/app/router.go` dan `backend/internal/app/wire.go`.
+
+### 2. Bukti Pengujian Otomatis
+- **OpenAPI Unit Tests (`backend/internal/api/openapi_test.go`)**: **PASS 100%**
+  - `TestOpenAPIHandler_ServeOpenAPISpec`: Validasi ketersediaan spesifikasi, format YAML, parsing rute, verifikasi header MIME, dan penolakan method yang tidak diizinkan (`405 Method Not Allowed`).
+  - `TestOpenAPIHandler_ServeDocsUI`: Validasi penyajian UI HTML, referensi skrip `/api/openapi.yaml`, dan penanganan method `HEAD` & `GET`.
+- **Full Backend Test Suite (`go test ./...`)**: **PASS 100%** di seluruh package backend.
+- **Frontend Turbopack Build (`npm run build`)**: **PASS 100%** (0 lint/typecheck error, 8/8 static routes).
+
+
 
 
 

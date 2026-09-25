@@ -1,4 +1,5 @@
-# Handover Document
+# Handover Document — Standby
 
-- Status: Standby
-- Previous Milestone: Milestone 5 (AI Memory Context Tenant Scoping) completed & archived.
+- **Status**: Standby / Ready for Milestone 7
+- **Current Branch**: `dev`
+- **Milestone 6 Handover**: Archived at `docs/plans/archived/25-09-2026/HANDOVER.md`

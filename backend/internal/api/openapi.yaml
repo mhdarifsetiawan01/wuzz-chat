@@ -1,0 +1,2612 @@
+openapi: 3.1.0
+info:
+  title: WuzzChat Engine API
+  version: 1.0.0
+  description: |
+    Enterprise Multi-Tenant Messaging Engine, Headless Realtime Chat, AI Memory, and E2EE Signaling Server.
+    
+    WuzzChat is a production-grade, headless communication engine designed for modern web, mobile (Flutter/React Native/Native iOS & Android), and B2B third-party platform integrations.
+    
+    Key Features:
+    - **Multi-Tenancy**: Data isolation with automatic tenant resolution via `X-Tenant-ID` header or JWT claims.
+    - **B2B Token Provisioning**: Server-to-server JIT provisioning via `X-App-ID` & `X-App-Secret` and 60-second client token exchange.
+    - **Zero-Knowledge E2EE**: ECDH (P-256) + HKDF-SHA256 + AES-256-GCM architecture. Server never sees plaintext content.
+    - **Level 2 Multi-Device Support**: Up to 2 concurrent devices per user with FIFO session eviction (`SESSION_REPLACED`).
+    - **Store-and-Forward Media**: Ephemeral media auto-deletion upon client download acknowledgement (ACK) for 1-on-1 chats; 7-day retention for group fora.
+    - **AI Memory Engine**: Human-in-the-Loop review lifecycle for AI-synthesized group memories and ephemeral fora.
+  contact:
+    name: WuzzChat Core Team
+    url: https://chat.wuzzhub.id
+    email: support@wuzzhub.id
+  license:
+    name: Proprietary / MIT
+
+servers:
+  - url: https://wuzz-chat-backend.fly.dev
+    description: Live Production Server (Fly.io)
+  - url: http://localhost:8080
+    description: Local Development Server
+
+tags:
+  - name: B2B Gateway
+    description: Server-to-Server JIT User Provisioning & 60s Client Token Exchange
+  - name: Authentication & Identity
+    description: Registration, Login, Session Revocation, Multi-Device Quota, Password & Key Lifecycle
+  - name: Conversations & Chat
+    description: 1-on-1 Direct Chat Inception, Conversation Clearing, Pinning, and Room Metadata
+  - name: Messages
+    description: History Query, Realtime Messaging, Edits, Deletion (Self/Everyone), Pinning, Forwarding, and Receipts
+  - name: Media Attachments
+    description: Store-and-Forward Encrypted File Uploads and Download Acknowledgements (ACK)
+  - name: Groups & Communities
+    description: Group Creation, Settings, Member Roster, and Role Management
+  - name: Ephemeral Fora (Subgroups)
+    description: TTL-based Ephemeral Sub-channels, Instant Expiration, Join Requests, and Approvals
+  - name: AI Memory Engine
+    description: Group Context AI Memory Drafts, Human-in-the-Loop Artifact Editing, Approval, and Member Knowledge
+  - name: Push Notifications
+    description: Web Push VAPID Public Key Distribution and Push Subscription Management
+  - name: Utility & Diagnostics
+    description: Health Probes, Client System Configuration, and OpenGraph Link Previews
+
+paths:
+  # =========================================================================
+  # 1. B2B GATEWAY
+  # =========================================================================
+  /api/v1/auth/provision-token:
+    post:
+      tags:
+        - B2B Gateway
+      summary: Provision JIT User & Issue 60s Exchange Token
+      description: |
+        Called server-to-server by third-party B2B backend systems to silently provision or upsert a user within their tenant and obtain a single-use 60-second exchange token.
+        
+        Requires `X-App-ID` and `X-App-Secret` headers matching an active tenant.
+      security:
+        - B2BAppID: []
+          B2BAppSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisionTokenRequest'
+      responses:
+        '200':
+          description: Exchange token generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvisionTokenResponse'
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Missing or invalid B2B application credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '403':
+          description: Tenant is inactive, suspended, or rate-limited
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/auth/exchange:
+    post:
+      tags:
+        - B2B Gateway
+      summary: Exchange One-Time Token for Session JWT
+      description: |
+        Called by the third-party client application (Web/Mobile SDK) using the short-lived exchange token to receive a 7-day WuzzChat session JWT.
+      parameters:
+        - $ref: '#/components/parameters/HeaderTenantID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExchangeTokenRequest'
+      responses:
+        '200':
+          description: Token exchanged successfully. Returns standard session JWT and user profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '400':
+          description: Invalid request or missing exchange token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '401':
+          description: Exchange token expired, consumed, or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  # =========================================================================
+  # 2. AUTHENTICATION & IDENTITY
+  # =========================================================================
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Register a New User Account
+      description: |
+        Registers a new user account within the resolved tenant. Rate-limited to 15 requests/minute per IP.
+      parameters:
+        - $ref: '#/components/parameters/HeaderTenantID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '400':
+          description: Validation error or invalid inputs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Username already exists in this tenant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Authenticate User & Issue Session JWT
+      description: |
+        Validates username and password within the tenant. Enforces a maximum of 2 active devices per user.
+      parameters:
+        - $ref: '#/components/parameters/HeaderTenantID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '429':
+          description: Too many failed login attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/auth/me:
+    get:
+      tags:
+        - Authentication & Identity
+      summary: Get Current User Profile
+      description: Returns the authenticated user profile along with tenant information.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/auth/logout:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Logout & Revoke Current Session
+      description: Revokes the current JWT session and blacklists its JTI token.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  message:
+                    type: string
+                    example: Logged out successfully
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/auth/sessions:
+    get:
+      tags:
+        - Authentication & Identity
+      summary: List Active Sessions
+      description: Retrieves all active sessions for the authenticated user across devices.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Active sessions list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/auth/sessions/{id}:
+    delete:
+      tags:
+        - Authentication & Identity
+      summary: Revoke a Specific Session
+      description: Forcefully terminates a specific session by its session ID.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Session UUID to revoke
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/auth/sessions/revoke-others:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Revoke All Other Active Sessions
+      description: Terminates all active sessions except the current caller session.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Other sessions revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  revoked_count:
+                    type: integer
+                    example: 1
+
+  /api/auth/devices:
+    get:
+      tags:
+        - Authentication & Identity
+      summary: List Registered Devices
+      description: Returns list of devices registered under the user account.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Devices list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Device'
+
+  /api/auth/devices/{id}:
+    delete:
+      tags:
+        - Authentication & Identity
+      summary: Unregister Device
+      description: Removes a registered device and revokes its associated tokens.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Device ID or UUID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Device removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/auth/profile:
+    put:
+      tags:
+        - Authentication & Identity
+      summary: Update User Profile
+      description: Updates display name, status bio, and avatar image URL.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                  example: Alice Smith
+                status:
+                  type: string
+                  example: Available for meetings
+                avatar_url:
+                  type: string
+                  example: /uploads/avatar-alice.png
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/auth/verify-password:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Verify User Password
+      description: Pre-flight check to verify current password before high-privilege operations.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  format: password
+                  example: secret12345
+      responses:
+        '200':
+          description: Password verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    example: true
+        '400':
+          description: Invalid password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/auth/change-password:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Change Password
+      description: Updates user password and revokes all active sessions except the current one.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - old_password
+                - new_password
+              properties:
+                old_password:
+                  type: string
+                  format: password
+                new_password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/auth/public-key:
+    get:
+      tags:
+        - Authentication & Identity
+      summary: Fetch E2EE Public Key of a User
+      description: Retrieves the public key and key_version of a specified user for ECDH secret agreement.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          description: Target user UUID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public key details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+                  public_key:
+                    type: string
+                    description: Base64-encoded raw uncompressed P-256 public key
+                  key_version:
+                    type: integer
+                    example: 1
+    put:
+      tags:
+        - Authentication & Identity
+      summary: Update Authenticated User Public Key
+      description: Sets or updates the user's ECDH P-256 public key.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - public_key
+              properties:
+                public_key:
+                  type: string
+                key_version:
+                  type: integer
+                  default: 1
+      responses:
+        '200':
+          description: Public key updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/user/public-key/reset:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Force Reset E2EE Public Key
+      description: Increments the user's `key_version` and stores a fresh public key when migrating to a new primary device without key backup.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - public_key
+              properties:
+                public_key:
+                  type: string
+      responses:
+        '200':
+          description: Public key reset and version incremented
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  key_version:
+                    type: integer
+                    example: 2
+
+  # =========================================================================
+  # 3. E2EE DEVICE KEY TRANSFER (QR CODE)
+  # =========================================================================
+  /api/users/transfer/create:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Create QR Code Key Migration Session
+      description: Creates an ephemeral rendezvous session (TTL 5 minutes) on the existing verified device to securely export private keys to a secondary device.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Key transfer session initialized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id:
+                    type: string
+                  secret_code:
+                    type: string
+                  expires_in:
+                    type: integer
+                    example: 300
+
+  /api/users/transfer/consume:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Consume Key Migration Session
+      description: Called by the new scanning device using the session_id and encrypted key bundle payload.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - session_id
+                - encrypted_bundle
+              properties:
+                session_id:
+                  type: string
+                encrypted_bundle:
+                  type: string
+      responses:
+        '200':
+          description: Migration completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  # =========================================================================
+  # 4. CONVERSATIONS & CHAT
+  # =========================================================================
+  /api/users/search:
+    get:
+      tags:
+        - Conversations & Chat
+      summary: Search Users by Username or Name
+      description: Searches directory within the caller's tenant.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search keyword
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+  /api/users/profile:
+    get:
+      tags:
+        - Conversations & Chat
+      summary: Get Target User Public Profile
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: user_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/conversations:
+    get:
+      tags:
+        - Conversations & Chat
+      summary: List User Conversations
+      description: Returns active direct chats and group conversations with last message and unread counts.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Conversation'
+    post:
+      tags:
+        - Conversations & Chat
+      summary: Start Direct (1-on-1) Conversation
+      description: Resolves or creates a deterministic 1-on-1 direct chat room with another user.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - recipient_id
+              properties:
+                recipient_id:
+                  type: string
+                  example: usr_99887766
+      responses:
+        '200':
+          description: Conversation resolved or created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+
+  /api/conversations/clear:
+    post:
+      tags:
+        - Conversations & Chat
+      summary: Clear Conversation History
+      description: Clears conversation messages for the current user without affecting the other party.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+              properties:
+                room_id:
+                  type: string
+      responses:
+        '200':
+          description: Conversation cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/conversations/pin:
+    post:
+      tags:
+        - Conversations & Chat
+      summary: Pin Conversation to Top
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+              properties:
+                room_id:
+                  type: string
+      responses:
+        '200':
+          description: Pinned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/conversations/unpin:
+    post:
+      tags:
+        - Conversations & Chat
+      summary: Unpin Conversation
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+              properties:
+                room_id:
+                  type: string
+      responses:
+        '200':
+          description: Unpinned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  # =========================================================================
+  # 5. MESSAGES
+  # =========================================================================
+  /api/messages:
+    get:
+      tags:
+        - Messages
+      summary: Get Message History for Room
+      description: Fetches paginated messages in a conversation. Enforces room membership verification.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: room_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: before
+          in: query
+          required: false
+          description: Cursor message timestamp or ID for backward pagination
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Message list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+    put:
+      tags:
+        - Messages
+      summary: Edit Message Content
+      description: Edits an existing message sent by the caller. Broadcasts update to room participants.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message_id
+                - room_id
+                - content
+              properties:
+                message_id:
+                  type: string
+                room_id:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Message updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+    delete:
+      tags:
+        - Messages
+      summary: Delete Message
+      description: |
+        Deletes a message.
+        - `delete_for_everyone=true`: Permitted only within 1 minute of sending by the original author.
+        - `delete_for_everyone=false`: Removes message view only for caller.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message_id
+                - room_id
+              properties:
+                message_id:
+                  type: string
+                room_id:
+                  type: string
+                delete_for_everyone:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Message deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/messages/forward:
+    post:
+      tags:
+        - Messages
+      summary: Forward Message to Target Room
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message_id
+                - source_room_id
+                - target_room_id
+              properties:
+                message_id:
+                  type: string
+                source_room_id:
+                  type: string
+                target_room_id:
+                  type: string
+      responses:
+        '200':
+          description: Message forwarded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+
+  /api/messages/receipt:
+    post:
+      tags:
+        - Messages
+      summary: Update Message Receipt Status (Delivered / Read)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+                - message_ids
+                - status
+              properties:
+                room_id:
+                  type: string
+                message_ids:
+                  type: array
+                  items:
+                    type: string
+                status:
+                  type: string
+                  enum: [delivered, read]
+      responses:
+        '200':
+          description: Receipt updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/messages/pin:
+    post:
+      tags:
+        - Messages
+      summary: Pin Message in Room
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+                - message_id
+              properties:
+                room_id:
+                  type: string
+                message_id:
+                  type: string
+      responses:
+        '200':
+          description: Message pinned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/messages/unpin:
+    post:
+      tags:
+        - Messages
+      summary: Unpin Message
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - room_id
+                - message_id
+              properties:
+                room_id:
+                  type: string
+                message_id:
+                  type: string
+      responses:
+        '200':
+          description: Message unpinned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/messages/pinned:
+    get:
+      tags:
+        - Messages
+      summary: List Pinned Messages in Room
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: room_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pinned messages list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+
+  /api/messages/search:
+    get:
+      tags:
+        - Messages
+      summary: Search Messages in Room
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: room_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matching messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+
+  # =========================================================================
+  # 6. MEDIA ATTACHMENTS
+  # =========================================================================
+  /api/media/upload:
+    post:
+      tags:
+        - Media Attachments
+      summary: Upload Encrypted Media File (Store-and-Forward)
+      description: |
+        Uploads encrypted media payload. Supports local disk storage and S3/Cloudflare R2.
+        For direct 1-on-1 chats, media is ephemeral and automatically deleted once the recipient sends an acknowledgement (`ACK`).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                room_id:
+                  type: string
+      responses:
+        '200':
+          description: Media uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaUploadResponse'
+        '413':
+          description: File size exceeds server limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/media/ack:
+    post:
+      tags:
+        - Media Attachments
+      summary: Acknowledge Media Download (Trigger Ephemeral Deletion)
+      description: Signals the backend that the recipient successfully downloaded the media attachment. In 1-on-1 chats, this securely wipes the file from backend storage.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - media_id
+                - room_id
+              properties:
+                media_id:
+                  type: string
+                room_id:
+                  type: string
+      responses:
+        '200':
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  deleted:
+                    type: boolean
+                    example: true
+
+  # =========================================================================
+  # 7. GROUPS & COMMUNITIES
+  # =========================================================================
+  /api/groups:
+    post:
+      tags:
+        - Groups & Communities
+      summary: Create New Group
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+
+  /api/groups/search:
+    get:
+      tags:
+        - Groups & Communities
+      summary: Search Public Groups
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Matching public groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+
+  /api/groups/{id}:
+    get:
+      tags:
+        - Groups & Communities
+      summary: Get Group Details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Group details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+    patch:
+      tags:
+        - Groups & Communities
+      summary: Update Group Metadata
+      description: Update name, description, avatar, or settings (Admin only).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                avatar_url:
+                  type: string
+      responses:
+        '200':
+          description: Group updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+
+  /api/groups/{id}/join:
+    post:
+      tags:
+        - Groups & Communities
+      summary: Join Public Group
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Joined group
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/groups/{id}/members:
+    get:
+      tags:
+        - Groups & Communities
+      summary: List Group Members
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Members roster
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupMember'
+    post:
+      tags:
+        - Groups & Communities
+      summary: Add Members to Group (Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_ids
+              properties:
+                user_ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Members added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  added_count:
+                    type: integer
+
+  /api/groups/{id}/members/{user_id}:
+    delete:
+      tags:
+        - Groups & Communities
+      summary: Remove Member from Group (or Leave Group)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/groups/{id}/members/{user_id}/role:
+    patch:
+      tags:
+        - Groups & Communities
+      summary: Update Member Role (admin / member)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum: [admin, member]
+      responses:
+        '200':
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  # =========================================================================
+  # 8. EPHEMERAL FORA (SUBGROUPS)
+  # =========================================================================
+  /api/groups/{id}/subgroups:
+    get:
+      tags:
+        - Ephemeral Fora (Subgroups)
+      summary: List Ephemeral Fora / Subgroups for Group
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Subgroups list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subgroup'
+    post:
+      tags:
+        - Ephemeral Fora (Subgroups)
+      summary: Create Ephemeral Subgroup with TTL
+      description: Creates a focused discussion forum with a time-to-live (TTL). Upon expiry, forum locks and triggers AI Memory synthesis.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubgroupRequest'
+      responses:
+        '201':
+          description: Subgroup created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subgroup'
+
+  /api/groups/{id}/subgroups/{subId}/expire:
+    post:
+      tags:
+        - Ephemeral Fora (Subgroups)
+      summary: Instant Expire Subgroup (Admin Force-Close)
+      description: Closes an ephemeral subgroup immediately and queues memory synthesis.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Subgroup closed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: expired
+
+  /api/groups/{id}/join-request:
+    post:
+      tags:
+        - Ephemeral Fora (Subgroups)
+      summary: Request to Join Private Group or Forum
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Request submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinRequest'
+
+  /api/groups/{id}/join-requests:
+    get:
+      tags:
+        - Ephemeral Fora (Subgroups)
+      summary: List Pending Join Requests (Admin only)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JoinRequest'
+
+  /api/groups/{id}/join-requests/{requestId}/action:
+    post:
+      tags:
+        - Ephemeral Fora (Subgroups)
+      summary: Approve or Reject Join Request
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [approve, reject]
+      responses:
+        '200':
+          description: Request processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  # =========================================================================
+  # 9. AI MEMORY ENGINE
+  # =========================================================================
+  /api/memory/drafts:
+    get:
+      tags:
+        - AI Memory Engine
+      summary: List Memory Drafts Pending Review
+      description: Returns drafts synthesized by the background AI engine waiting for admin human-in-the-loop review.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Memory drafts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MemoryDraft'
+
+  /api/memory/drafts/{id}:
+    get:
+      tags:
+        - AI Memory Engine
+      summary: Get Memory Draft Details
+      description: Returns complete draft details including synthesized artifacts (Decisions, Action Items, Key Takeaways, Journey Lite).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Draft details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryDraft'
+
+  /api/memory/drafts/{id}/artifacts/{art_id}:
+    patch:
+      tags:
+        - AI Memory Engine
+      summary: Edit Memory Artifact (Human-in-the-Loop)
+      description: Allows administrators to refine or edit title and content of AI synthesized artifacts prior to approval.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: art_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Artifact updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryArtifact'
+
+  /api/memory/drafts/{id}/journey:
+    delete:
+      tags:
+        - AI Memory Engine
+      summary: Remove Journey Lite from Draft
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Journey removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/memory/drafts/{id}/approve:
+    post:
+      tags:
+        - AI Memory Engine
+      summary: Approve & Publish Memory Snapshot
+      description: Commits the draft into published group memory and emits a real-time `memory_approved` event to all room members.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Draft approved and published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovedMemory'
+
+  /api/memory/drafts/{id}/approve-with-changes:
+    post:
+      tags:
+        - AI Memory Engine
+      summary: Approve Draft with Direct Payload Overrides
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                summary:
+                  type: string
+                artifacts:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/MemoryArtifact'
+      responses:
+        '200':
+          description: Approved with changes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovedMemory'
+
+  /api/memory/drafts/{id}/reject:
+    post:
+      tags:
+        - AI Memory Engine
+      summary: Reject Memory Draft
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Draft rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: rejected
+
+  /api/groups/{id}/memories:
+    get:
+      tags:
+        - AI Memory Engine
+      summary: List Published Group Memories
+      description: Returns chronological collection of approved group memories available for members.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Published memories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApprovedMemory'
+
+  /api/memories/{id}:
+    get:
+      tags:
+        - AI Memory Engine
+      summary: Get Published Memory Detail
+      description: Fetches full memory snapshot and increments member view counter.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Published memory details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovedMemory'
+
+  # =========================================================================
+  # 10. PUSH NOTIFICATIONS
+  # =========================================================================
+  /api/notifications/vapid-public-key:
+    get:
+      tags:
+        - Push Notifications
+      summary: Get VAPID Public Key for Web Push
+      description: Returns the base64 URL-safe VAPID application server public key for browser push subscription handshake.
+      responses:
+        '200':
+          description: VAPID public key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  public_key:
+                    type: string
+                    example: BNq1L6_Q...
+
+  /api/notifications/subscribe:
+    post:
+      tags:
+        - Push Notifications
+      summary: Register Push Notification Subscription
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushSubscription'
+      responses:
+        '200':
+          description: Subscribed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/notifications/unsubscribe:
+    post:
+      tags:
+        - Push Notifications
+      summary: Unsubscribe from Push Notifications
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - endpoint
+              properties:
+                endpoint:
+                  type: string
+      responses:
+        '200':
+          description: Unsubscribed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  # =========================================================================
+  # 11. UTILITY & DIAGNOSTICS
+  # =========================================================================
+  /health:
+    get:
+      tags:
+        - Utility & Diagnostics
+      summary: Health Check & Readiness Probe
+      description: Probe used by load balancers, orchestrators (Fly.io/Kubernetes), and uptime monitors.
+      responses:
+        '200':
+          description: Server operational
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+
+  /api/config:
+    get:
+      tags:
+        - Utility & Diagnostics
+      summary: Public Client Configuration
+      description: Returns client environment config including max file upload limits and allowed MIME types.
+      responses:
+        '200':
+          description: Configuration parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  max_upload_size:
+                    type: integer
+                    example: 26214400
+                  allowed_types:
+                    type: array
+                    items:
+                      type: string
+                    example: ["image/jpeg", "image/png", "application/pdf"]
+
+  /api/link-preview:
+    get:
+      tags:
+        - Utility & Diagnostics
+      summary: Fetch OpenGraph Metadata for Link Preview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OpenGraph metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkPreview'
+
+  # =========================================================================
+  # 12. DOCUMENTATION ENDPOINTS
+  # =========================================================================
+  /api/openapi.yaml:
+    get:
+      tags:
+        - Utility & Diagnostics
+      summary: Raw OpenAPI 3.1.0 Specification
+      description: Serves the canonical OpenAPI 3.1.0 specification file in YAML format.
+      responses:
+        '200':
+          description: Raw YAML specification
+          content:
+            application/yaml:
+              schema:
+                type: string
+
+  /api/docs:
+    get:
+      tags:
+        - Utility & Diagnostics
+      summary: Self-Hosted Interactive API Documentation UI
+      description: Embedded web UI rendering OpenAPI documentation with zero external cloud dependencies.
+      responses:
+        '200':
+          description: Interactive documentation webpage
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  parameters:
+    HeaderTenantID:
+      name: X-Tenant-ID
+      in: header
+      required: false
+      description: Optional tenant identifier. Falls back to JWT claims or 'default'.
+      schema:
+        type: string
+        default: default
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Standard 7-day session token passed as Authorization: Bearer <token>."
+    B2BAppID:
+      type: apiKey
+      in: header
+      name: X-App-ID
+      description: Third-party tenant application ID.
+    B2BAppSecret:
+      type: apiKey
+      in: header
+      name: X-App-Secret
+      description: Third-party tenant secret key.
+
+  schemas:
+    ProblemDetails:
+      type: object
+      description: Standardized error envelope adhering to RFC 7807 Problem Details for HTTP APIs.
+      required:
+        - type
+        - title
+        - status
+        - detail
+      properties:
+        type:
+          type: string
+          example: https://wuzzhub.id/errors/unauthorized
+        title:
+          type: string
+          example: Unauthorized
+        status:
+          type: integer
+          example: 401
+        detail:
+          type: string
+          example: Invalid or expired Bearer token provided
+        instance:
+          type: string
+          example: /api/conversations
+
+    Tenant:
+      type: object
+      properties:
+        id:
+          type: string
+          example: b2b_tenant_alpha
+        name:
+          type: string
+          example: Enterprise Alpha
+        slug:
+          type: string
+          example: enterprise-alpha
+        status:
+          type: string
+          enum: [active, suspended, inactive]
+          example: active
+        created_at:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: usr_abc12345
+        tenant_id:
+          type: string
+          example: default
+        username:
+          type: string
+          example: johndoe
+        display_name:
+          type: string
+          example: John Doe
+        avatar_url:
+          type: string
+          example: /uploads/avatar.png
+        status:
+          type: string
+          example: Available
+        public_key:
+          type: string
+          description: Base64 raw ECDH P-256 public key
+        key_version:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: alice
+        password:
+          type: string
+          format: password
+          example: StrongPassw0rd!
+        display_name:
+          type: string
+          example: Alice
+        public_key:
+          type: string
+        key_version:
+          type: integer
+          default: 1
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: alice
+        password:
+          type: string
+          format: password
+          example: StrongPassw0rd!
+        device_id:
+          type: string
+          example: dev_mobile_pixel8
+        device_name:
+          type: string
+          example: Pixel 8 Pro
+
+    AuthTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: 7-day session JWT
+        user:
+          $ref: '#/components/schemas/User'
+        expires_in:
+          type: integer
+          example: 604800
+
+    ProvisionTokenRequest:
+      type: object
+      required:
+        - user_id
+        - username
+      properties:
+        user_id:
+          type: string
+          description: Partner platform external user UUID
+          example: ext_u_12345
+        username:
+          type: string
+          example: partner_user
+        display_name:
+          type: string
+          example: Partner User
+        avatar_url:
+          type: string
+          example: https://partner.com/avatars/user.jpg
+        role:
+          type: string
+          example: member
+
+    ProvisionTokenResponse:
+      type: object
+      properties:
+        exchange_token:
+          type: string
+          description: Ephemeral 60-second single-use exchange token
+        expires_in:
+          type: integer
+          example: 60
+
+    ExchangeTokenRequest:
+      type: object
+      required:
+        - exchange_token
+      properties:
+        exchange_token:
+          type: string
+        device_id:
+          type: string
+          example: mobile_ios_17
+        device_name:
+          type: string
+          example: iPhone 15 Pro
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        device_id:
+          type: string
+        device_name:
+          type: string
+        ip_address:
+          type: string
+        is_current:
+          type: boolean
+        last_active_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+        device_id:
+          type: string
+        device_name:
+          type: string
+        last_seen_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: string
+        room_id:
+          type: string
+          example: dm_default_usrA_usrB
+        name:
+          type: string
+          example: Alice Smith
+        type:
+          type: string
+          enum: [direct, group, subgroup]
+          example: direct
+        is_group:
+          type: boolean
+        is_subgroup:
+          type: boolean
+        unread_count:
+          type: integer
+          example: 0
+        pinned:
+          type: boolean
+        last_message:
+          $ref: '#/components/schemas/Message'
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        updated_at:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        room_id:
+          type: string
+        sender_id:
+          type: string
+        content:
+          type: string
+          description: Ciphertext string (if E2EE) or plain text
+        type:
+          type: string
+          enum: [text, image, file, audio, system]
+          example: text
+        status:
+          type: string
+          enum: [sent, delivered, read]
+          example: read
+        media_url:
+          type: string
+        reply_to_id:
+          type: string
+        reactions:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        is_pinned:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    MediaUploadResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        filename:
+          type: string
+        original_name:
+          type: string
+        mime_type:
+          type: string
+        size:
+          type: integer
+        url:
+          type: string
+        hash_sha256:
+          type: string
+
+    CreateGroupRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: Engineering Core
+        description:
+          type: string
+          example: Architecture & Core Platform
+        avatar_url:
+          type: string
+        type:
+          type: string
+          enum: [public, private]
+          default: private
+
+    Group:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        avatar_url:
+          type: string
+        type:
+          type: string
+        created_by:
+          type: string
+        members_count:
+          type: integer
+        subgroups_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    GroupMember:
+      type: object
+      properties:
+        user_id:
+          type: string
+        group_id:
+          type: string
+        role:
+          type: string
+          enum: [admin, member]
+        joined_at:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/User'
+
+    CreateSubgroupRequest:
+      type: object
+      required:
+        - name
+        - ttl_minutes
+      properties:
+        name:
+          type: string
+          example: Incident-2026-09
+        description:
+          type: string
+          example: Post-mortem war room
+        ttl_minutes:
+          type: integer
+          example: 120
+
+    Subgroup:
+      type: object
+      properties:
+        id:
+          type: string
+        parent_group_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        is_expired:
+          type: boolean
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    JoinRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        group_id:
+          type: string
+        user_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        created_at:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/User'
+
+    MemoryArtifact:
+      type: object
+      properties:
+        id:
+          type: string
+        draft_id:
+          type: string
+        type:
+          type: string
+          enum: [decision, action_item, key_takeaway, journey_lite]
+        title:
+          type: string
+        content:
+          type: string
+        metadata:
+          type: object
+
+    MemoryDraft:
+      type: object
+      properties:
+        id:
+          type: string
+        group_id:
+          type: string
+        subgroup_id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        confidence_score:
+          type: number
+          example: 0.94
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryArtifact'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ApprovedMemory:
+      type: object
+      properties:
+        id:
+          type: string
+        group_id:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryArtifact'
+        views_count:
+          type: integer
+        approved_by:
+          type: string
+        published_at:
+          type: string
+          format: date-time
+
+    PushSubscription:
+      type: object
+      required:
+        - endpoint
+        - keys
+      properties:
+        endpoint:
+          type: string
+        keys:
+          type: object
+          required:
+            - p256dh
+            - auth
+          properties:
+            p256dh:
+              type: string
+            auth:
+              type: string
+
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        time:
+          type: string
+          format: date-time
+
+    LinkPreview:
+      type: object
+      properties:
+        url:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        image:
+          type: string
+        site_name:
+          type: string

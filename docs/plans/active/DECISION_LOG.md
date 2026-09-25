@@ -1,4 +1,4 @@
-# Decision Log
+# Decision Log — Standby
 
-- Status: Standby
-- Previous decisions archived in `docs/plans/archived/24-09-2026-milestone-5-ai-memory-tenant-scoping/DECISION_LOG.md`.
+- **Status**: Standby
+- **Milestone 6 Decisions Archived**: See `docs/plans/archived/25-09-2026/DECISION_LOG.md`
