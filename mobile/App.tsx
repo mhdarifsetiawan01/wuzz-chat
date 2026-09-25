@@ -18,6 +18,7 @@ import {
   RegisterScreen,
 } from './src/screens';
 import { Conversation, ConversationItem, GroupDetails } from './src/api/types';
+import { notificationService } from './src/services/notificationService';
 import { colors, spacing, typography } from './src/theme';
 
 type AuthRoute = 'login' | 'register';
@@ -108,6 +109,48 @@ function AppNavigator() {
 
     return () => {
       subscription.remove();
+    };
+  }, [isAuthenticated]);
+
+  // Sync active room ID to notification service for foreground suppression (DEC-015)
+  React.useEffect(() => {
+    const roomId = activeConversation
+      ? (activeConversation.id || activeConversation.room_id || null)
+      : null;
+    notificationService.setActiveRoomId(roomId);
+  }, [activeConversation]);
+
+  // Push notification tap & cold start listener
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleTargetNavigation = (target: {
+      roomId: string | null;
+      isGroup: boolean;
+      title: string | null;
+      senderId: string | null;
+    }) => {
+      if (!target.roomId) return;
+      setActiveGroupInfo(null);
+      setIsNewGroupOpen(false);
+      setIsNewChatOpen(false);
+      setActiveConversation({
+        id: target.roomId,
+        room_id: target.roomId,
+        title: target.title || (target.isGroup ? 'Grup' : 'Obrolan'),
+        is_group: target.isGroup,
+        type: target.roomId.startsWith('sub_') ? 'subgroup' : target.isGroup ? 'group' : 'direct',
+      });
+    };
+
+    // Attach response listener
+    const unsubscribeListener = notificationService.addNotificationResponseListener(handleTargetNavigation);
+
+    // Check cold start
+    notificationService.checkColdStartNotification(handleTargetNavigation);
+
+    return () => {
+      unsubscribeListener();
     };
   }, [isAuthenticated]);
 

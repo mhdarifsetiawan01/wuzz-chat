@@ -1,5 +1,3 @@
-# Decision Log — Active Workspace
+# Active Decision Log
 
-## Status
-- Tidak ada keputusan teknis aktif yang sedang diproses. Workspace dalam kondisi standby.
-- Keputusan terdahulu telah diarsipkan ke: `docs/plans/archived/`
+*No active milestone in progress. See `docs/plans/archived/` for past decision logs.*

@@ -3126,4 +3126,38 @@ Mengimplementasikan kesetaraan fitur pengelolaan pesan (*Message Management Suit
 - **Frontend Production Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 - **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (100% lulus).
 
+---
+
+## ✅ Milestone M-Mobile-8.4: Push Notification System & Background Sync (Expo / FCM / APNs) — SELESAI
+
+**Tanggal Selesai:** 26 September 2026 | **Branch:** `dev`
+
+### 1. Ringkasan Fitur & Implementasi Mobile
+Membangun arsitektur push notification yang andal, aman, hemat baterai, dan ramah privasi (*Zero-Knowledge*) pada klien mobile WuzzChat menggunakan Expo Notifications, terintegrasi penuh dengan Go Backend WebSocket & Push Service (`/api/notifications/subscribe` & `/api/notifications/unsubscribe`):
+1. **🔔 Device Token Registration & Subscription Flow**:
+   - Integrasi `expo-notifications`, `expo-device`, dan `expo-constants` di `mobile/package.json` dan `mobile/app.json`.
+   - API client `notificationsApi` (`subscribe`, `unsubscribe`, `getVapidPublicKey`) dengan batas waktu `AbortController` (15 detik).
+   - Lifecycle auth di `AuthContext.tsx`: auto-subscribe saat login/restore sesi dan auto-unsubscribe saat logout atau sesi digantikan (`SESSION_REPLACED`).
+   - Helper penyimpanan `PUSH_TOKEN` dan `NOTIFICATIONS_ENABLED` di `secureStorage.ts`.
+2. **🛡️ Zero-Knowledge & Privacy-Safe Notification Payload Handling**:
+   - Menangani payload notifikasi terenkripsi `e2ee:v1:...` dengan cuplikan aman `🔒 Pesan Baru (Terenkripsi)` tanpa membocorkan konten ke log backend.
+   - Sinkronisasi unread badge counter pada app icon via `setBadgeCountAsync` dan `clearBadge()`.
+3. **🚀 Notification Response & Deep Link Navigation**:
+   - Penanganan tap notifikasi di `App.tsx` (`addNotificationResponseListener` dan `checkColdStartNotification`).
+   - Navigasi instan langsung ke `ChatScreen` (DM / Group `grp_...` / Subgroup `sub_...`).
+4. **⚙️ Notification Settings & Foreground Suppression**:
+   - Peredaman banner foreground (*DEC-015*): banner pop-up otomatis diredam jika pesan masuk berasal dari ruang obrolan yang sedang aktif dibuka (`activeRoomId`).
+   - Komponen modal preferensi `NotificationSettingsModal.tsx` diakses dari header `RecentChatsScreen.tsx` (tombol 🔔) dengan toggle notifikasi, uji coba notifikasi lokal, dan pembersihan badge.
+   - Isolasi runtime dinamis (*DEC-016*): proteksi evaluasi side-effect modul Android Expo Go (SDK 53+) dengan simulasi in-app alert dan kesiapan 100% untuk Development/Production Build.
+
+### 2. File Dimodifikasi / Dibuat
+- **Baru**: `mobile/src/api/notifications.ts`, `mobile/src/services/notificationService.ts`, `mobile/src/components/NotificationSettingsModal.tsx`.
+- **Dimodifikasi**: `mobile/package.json`, `mobile/app.json`, `mobile/src/api/index.ts`, `mobile/src/services/index.ts`, `mobile/src/services/secureStorage.ts`, `mobile/src/components/index.ts`, `mobile/src/context/AuthContext.tsx`, `mobile/src/screens/RecentChatsScreen.tsx`, `mobile/App.tsx`, `docs/MOBILE_INTEGRATION_GUIDE.md`, `docs/PROGRESS.md`.
+
+### 3. Bukti Pengujian Otomatis
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Expo Bundler Build (`npx expo export`)**: **PASS 100%** (100% bundled untuk iOS & Android).
+- **Backend Test Suite (`go test -v ./internal/push/...` & `go test ./...` di `backend/`)**: **PASS 100%** (100% lulus).
+
+
 

@@ -10,6 +10,7 @@ import { ApiError, LoginRequest, RegisterRequest, User } from '../api/types';
 import { updatePublicKey, resetPublicKey } from '../api/users';
 import { E2EEKeyPair, generateE2EEKeyPair } from '../services/crypto';
 import { deviceIdService } from '../services/deviceIdService';
+import { notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
 import { websocketClient } from '../services/websocket';
 import { useDevice } from './DeviceContext';
@@ -153,6 +154,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     websocketClient.onSessionReplaced((reason) => {
       console.warn('[AuthContext] Session replacement triggered:', reason);
+      // Unsubscribe push token from backend
+      notificationService.unsubscribeDevice().catch(() => {});
       // Purge local credentials
       secureStorage.clearSession();
       setUser((prev) => {
@@ -180,15 +183,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const savedUser = await secureStorage.getUserData<User>();
 
         if (savedToken && savedUser) {
-          // Optimistically restore session
+          // Optimistically restore session instantly (0ms splash screen release)
           if (mounted) {
             setToken(savedToken);
             setUser(savedUser);
+            setIsLoading(false);
           }
 
           const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
           // Init E2EE asynchronously
           initE2EEForUser(savedUser.id, currentDeviceId);
+
+          // Register Push Notifications asynchronously
+          notificationService.subscribeDevice().catch((err) => {
+            console.warn('[AuthContext] Push subscribe on restore skipped:', err);
+          });
 
           // Verify with server in background
           try {
@@ -204,6 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // If token expired or unauthorized (401), clean up
             if (err?.status === 401) {
               console.warn('[AuthContext] Stored token expired, clearing session.');
+              await notificationService.unsubscribeDevice().catch(() => {});
               await secureStorage.clearSession();
               if (mounted) {
                 setToken(null);
@@ -252,6 +262,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Initialize E2EE Keys
         await initE2EEForUser(response.user.id, currentDeviceId);
 
+        // Subscribe Push Notifications
+        notificationService.subscribeDevice().catch((err) => {
+          console.warn('[AuthContext] Push subscribe on login skipped:', err);
+        });
+
         // Connect WebSocket singleton
         websocketClient.reset();
         websocketClient.connect(response.token, currentDeviceId);
@@ -281,6 +296,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Initialize E2EE Keys
         await initE2EEForUser(response.user.id, currentDeviceId);
 
+        // Subscribe Push Notifications
+        notificationService.subscribeDevice().catch((err) => {
+          console.warn('[AuthContext] Push subscribe on register skipped:', err);
+        });
+
         // Connect WebSocket singleton
         websocketClient.reset();
         websocketClient.connect(response.token, currentDeviceId);
@@ -299,6 +319,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
       // Disconnect socket immediately
       websocketClient.disconnect();
+
+      // Unsubscribe Push Notifications
+      try {
+        await notificationService.unsubscribeDevice();
+      } catch (err) {
+        console.warn('[AuthContext] Push unsubscribe during logout failed:', err);
+      }
 
       // Notify server (best effort with 30s timeout)
       try {

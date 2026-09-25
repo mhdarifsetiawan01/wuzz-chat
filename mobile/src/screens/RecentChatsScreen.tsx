@@ -18,7 +18,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { conversationsApi } from '../api/conversations';
 import { getUserPublicKey } from '../api/users';
 import { Conversation } from '../api/types';
-import { Avatar, ChatListItem, SessionAlertModal } from '../components';
+import { Avatar } from '../components/Avatar';
+import { ChatListItem } from '../components/ChatListItem';
+import { SessionAlertModal } from '../components/SessionAlertModal';
+import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
 import { useAuth } from '../context';
 import { ConnectionState, websocketClient } from '../services/websocket';
 import {
@@ -39,6 +42,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [wsState, setWsState] = useState<ConnectionState>(websocketClient.getState());
 
   const fetchConversations = useCallback(async (isRefresh = false) => {
@@ -255,6 +259,15 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
         </View>
 
         <View style={styles.headerRight}>
+          <TouchableOpacity
+            onPress={() => setIsNotificationModalOpen(true)}
+            activeOpacity={0.7}
+            style={styles.headerIconButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.headerIconText}>🔔</Text>
+          </TouchableOpacity>
+
           {onStartNewChat && (
             <TouchableOpacity
               onPress={onStartNewChat}
@@ -342,6 +355,12 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
         visible={!!sessionReplacedMessage}
         message={sessionReplacedMessage}
         onDismiss={dismissSessionAlert}
+      />
+
+      {/* Push Notification Preferences & Diagnostics Modal */}
+      <NotificationSettingsModal
+        visible={isNotificationModalOpen}
+        onClose={() => setIsNotificationModalOpen(false)}
       />
     </SafeAreaView>
   );

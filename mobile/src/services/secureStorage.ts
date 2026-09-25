@@ -10,6 +10,8 @@ const STORAGE_KEYS = {
   AUTH_TOKEN: 'wuzz_auth_token',
   DEVICE_ID: 'wuzz_device_id',
   USER_DATA: 'wuzz_user_profile',
+  PUSH_TOKEN: 'wuzz_push_token',
+  NOTIFICATIONS_ENABLED: 'wuzz_notifications_enabled',
   E2EE_PRIVATE_KEY_PREFIX: 'wuzz_e2ee_priv_',
   E2EE_PUBLIC_KEY_PREFIX: 'wuzz_e2ee_pub_',
 } as const;
@@ -94,6 +96,27 @@ export const secureStorage = {
     await this.deleteAuthToken();
     await this.deleteItem(STORAGE_KEYS.USER_DATA);
     // Note: Do NOT delete DEVICE_ID so device identity remains persistent
+  },
+
+  async setPushToken(token: string): Promise<void> {
+    await this.setItem(STORAGE_KEYS.PUSH_TOKEN, token);
+  },
+
+  async getPushToken(): Promise<string | null> {
+    return await this.getItem(STORAGE_KEYS.PUSH_TOKEN);
+  },
+
+  async deletePushToken(): Promise<void> {
+    await this.deleteItem(STORAGE_KEYS.PUSH_TOKEN);
+  },
+
+  async setNotificationsEnabled(enabled: boolean): Promise<void> {
+    await this.setItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED, enabled ? 'true' : 'false');
+  },
+
+  async getNotificationsEnabled(): Promise<boolean> {
+    const raw = await this.getItem(STORAGE_KEYS.NOTIFICATIONS_ENABLED);
+    return raw !== 'false'; // Default enabled (true)
   },
 
   async setE2EEKeyPair(

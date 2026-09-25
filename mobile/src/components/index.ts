@@ -15,3 +15,4 @@ export * from './GroupPreviewModal';
 export * from './AuthorizationShield';
 export * from './ForwardMessageModal';
 export * from './PinnedMessagesBanner';
+export * from './NotificationSettingsModal';

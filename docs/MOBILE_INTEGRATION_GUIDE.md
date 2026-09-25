@@ -494,7 +494,7 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - **Pin Chat (Sidebar)**: Mendukung penyematan obrolan di bagian atas sidebar via `POST /api/conversations/pin` dan `POST /api/conversations/unpin`, mengurutkan daftar obrolan dengan prioritas chat yang disematkan (`is_pinned == true`).
   - **Pin Message (Dalam Obrolan)**: Mendukung penyematan hingga 3 pesan per room via `POST /api/messages/pin`, `POST /api/messages/unpin`, `GET /api/messages/pinned`, menampilkan banner multi-pin di bagian atas obrolan, menangani event real-time `message_pinned` & `message_unpinned`, dan aksi jump-to-message saat banner pin diklik.
   - **In-Chat Text Search**: Mendukung pencarian pesan dalam obrolan aktif via `GET /api/messages/search?conversation_id=...&q=...`, badge counter hasil (X/Y), navigasi Atas/Bawah, dan auto-scroll ke posisi pesan yang ditemukan.
-- [ ] **Push Notification**: FCM/APNs token terdaftar ke `POST /api/notifications/subscribe`, Zero-Knowledge Background Decryption di service layer, dan pencabutan token saat logout.
+- [x] **Push Notification (Milestone 8.4)**: FCM/APNs token terdaftar ke `POST /api/notifications/subscribe`, Zero-Knowledge Background Decryption di service layer, pencabutan token saat logout & `SESSION_REPLACED`, dynamic foreground banner suppression, unread badge counter synchronization, dan notification tap deep link handler.
 
 ---
 

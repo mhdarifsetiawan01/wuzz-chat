@@ -1,4 +1,3 @@
-# Handover Document — Active Workspace
+# Handover
 
-## Status
-- Tidak ada serah terima tugas aktif yang tertunda. Workspace dalam kondisi standby.
+*Standby. Ready for next task.*
