@@ -12,6 +12,13 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'rec
 export type WebSocketEventListener = (data: any) => void;
 export type SessionReplacedCallback = (reason: string) => void;
 
+export interface SendMediaOptions {
+  media_url?: string;
+  media_type?: string;
+  file_name?: string;
+  file_size?: number;
+}
+
 class WebSocketClient {
   private ws: WebSocket | null = null;
   private token: string | null = null;
@@ -212,15 +219,29 @@ class WebSocketClient {
   }
 
   /**
-   * Send a chat message to a room with unique request_id
+   * Send a chat message to a room with unique request_id and optional media payload
    */
-  public sendMessage(roomId: string, content: string, requestId?: string): boolean {
-    return this.send({
+  public sendMessage(
+    roomId: string,
+    content: string,
+    requestId?: string,
+    media?: SendMediaOptions
+  ): boolean {
+    const payload: Record<string, any> = {
       type: 'message',
       room: roomId,
       content,
       request_id: requestId || `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-    });
+    };
+
+    if (media?.media_url) {
+      payload.media_url = media.media_url;
+      payload.media_type = media.media_type || 'image';
+      if (media.file_name) payload.file_name = media.file_name;
+      if (media.file_size) payload.file_size = media.file_size;
+    }
+
+    return this.send(payload);
   }
 
   /**

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Conversation } from '../api/types';
+import { Conversation, Message } from '../api/types';
 import { colors, radius, spacing, typography } from '../theme';
 import { Avatar } from './Avatar';
 
@@ -54,10 +54,23 @@ function getMessagePreview(conversation: Conversation): string {
     return 'Belum ada pesan';
   }
 
-  const raw =
-    typeof conversation.last_message === 'string'
-      ? conversation.last_message
-      : conversation.last_message.content;
+  const isMsgObj = typeof conversation.last_message === 'object' && conversation.last_message !== null;
+  const lastMsg = isMsgObj ? (conversation.last_message as Message) : null;
+  const mediaUrl = lastMsg?.media_url;
+  const mediaType = lastMsg?.media_type;
+
+  const raw: string = isMsgObj
+    ? lastMsg?.content || ''
+    : typeof conversation.last_message === 'string'
+    ? conversation.last_message
+    : '';
+
+  if (mediaUrl || mediaType === 'image') {
+    if (raw && !raw.startsWith('e2ee:')) {
+      return `📷 Foto: ${raw}`;
+    }
+    return '📷 Foto';
+  }
 
   if (!raw) {
     return 'Belum ada pesan';

@@ -29,12 +29,20 @@ export async function apiClient<T>(
   const fullUrl = `${baseUrl}${cleanEndpoint}`;
 
   const requestHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
     'Accept': 'application/json',
     'X-Device-Platform': API_CONFIG.PLATFORM,
     'X-Tenant-ID': API_CONFIG.TENANT_ID,
     ...(headers as Record<string, string>),
   };
+
+  // Set Content-Type: application/json by default unless body is FormData (to allow boundary creation)
+  const isFormData =
+    (typeof FormData !== 'undefined' && restOptions.body instanceof FormData) ||
+    (Boolean(restOptions.body) && typeof (restOptions.body as any).append === 'function');
+
+  if (!requestHeaders['Content-Type'] && !isFormData) {
+    requestHeaders['Content-Type'] = 'application/json';
+  }
 
   if (!skipAuth) {
     const token = await secureStorage.getAuthToken();

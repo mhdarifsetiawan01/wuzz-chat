@@ -15,10 +15,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { ConversationItem, Message } from '../api/types';
 import { getUserPublicKey } from '../api/users';
+import { mediaApi } from '../api/media';
 import { websocketClient } from '../services/websocket';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -32,7 +35,7 @@ import {
 } from '../services/crypto';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/MessageBubble';
-import { ChatInputBar } from '../components/ChatInputBar';
+import { ChatInputBar, StagedMedia } from '../components/ChatInputBar';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -48,6 +51,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [stagedMedia, setStagedMedia] = useState<StagedMedia | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [roomAESKey, setRoomAESKey] = useState<Uint8Array | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
@@ -183,6 +188,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
           created_at: m.timestamp || m.created_at || new Date().toISOString(),
           timestamp: m.timestamp || m.created_at || new Date().toISOString(),
           status: m.status || 'sent',
+          media_url: m.media_url,
+          media_type: m.media_type,
+          file_name: m.file_name,
+          file_size: m.file_size,
+          media_status: m.media_status,
         };
       });
 
@@ -251,6 +261,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         created_at: incoming.timestamp || incoming.created_at || new Date().toISOString(),
         timestamp: incoming.timestamp || incoming.created_at || new Date().toISOString(),
         status: (incoming.sender_id === currentUserId || incoming.from === currentUserId) ? 'sent' : 'delivered',
+        media_url: incoming.media_url,
+        media_type: incoming.media_type,
+        file_name: incoming.file_name,
+        file_size: incoming.file_size,
+        media_status: incoming.media_status,
       };
 
       setMessages((prev) => {
@@ -259,7 +274,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
           const existsIndex = prev.findIndex((m) => m.id === incoming.request_id);
           if (existsIndex !== -1) {
             const updated = [...prev];
-            updated[existsIndex] = { ...newMsg, id: incoming.id || updated[existsIndex].id };
+            updated[existsIndex] = {
+              ...newMsg,
+              id: incoming.id || updated[existsIndex].id,
+              media_url: updated[existsIndex].media_url || incoming.media_url,
+            };
             return updated;
           }
         }
@@ -318,45 +337,180 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
     };
   }, [roomId, currentUserId]);
 
-  // 3. Handle Send Message (Optimistic UI + Transparent E2EE)
+  // 3. Image Picker Handlers
+  const handlePickCamera = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Izin Kamera Dibutuhkan',
+          'Aplikasi membutuhkan izin kamera untuk mengambil foto secara langsung.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        base64: true,
+        allowsEditing: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setStagedMedia({
+          uri: asset.uri,
+          fileName: asset.fileName || `camera_${Date.now()}.jpg`,
+          fileSize: asset.fileSize,
+          mimeType: asset.mimeType || 'image/jpeg',
+          width: asset.width,
+          height: asset.height,
+          base64: asset.base64 ?? undefined,
+        });
+      }
+    } catch (err) {
+      console.warn('[ChatScreen] Error launching camera:', err);
+      Alert.alert('Gagal Mengakses Kamera', 'Terjadi kesalahan saat membuka kamera perangkat.');
+    }
+  };
+
+  const handlePickGallery = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Izin Galeri Dibutuhkan',
+          'Aplikasi membutuhkan izin akses galeri untuk memilih foto dari perangkat Anda.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        base64: true,
+        allowsEditing: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setStagedMedia({
+          uri: asset.uri,
+          fileName: asset.fileName || `gallery_${Date.now()}.jpg`,
+          fileSize: asset.fileSize,
+          mimeType: asset.mimeType || 'image/jpeg',
+          width: asset.width,
+          height: asset.height,
+          base64: asset.base64 ?? undefined,
+        });
+      }
+    } catch (err) {
+      console.warn('[ChatScreen] Error launching gallery:', err);
+      Alert.alert('Gagal Mengakses Galeri', 'Terjadi kesalahan saat membuka galeri foto.');
+    }
+  };
+
+  const handleCancelStagedMedia = () => {
+    setStagedMedia(null);
+  };
+
+  const handleMediaLoaded = useCallback(
+    (msg: Message) => {
+      if (msg.sender_id !== currentUserId && msg.id) {
+        mediaApi.acknowledgeMediaDownload(msg.id, roomId).catch((err) => {
+          console.log('[ChatScreen] Media ACK notice:', err.message);
+        });
+      }
+    },
+    [currentUserId, roomId]
+  );
+
+  // 4. Handle Send Message (Optimistic UI + Media Upload + Transparent E2EE)
   const handleSendMessage = useCallback(
-    (text: string) => {
+    async (text: string, media?: StagedMedia | null) => {
+      const trimmedText = text.trim();
+      if (!trimmedText && !media) return;
+
       const tempId = `req_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const nowIso = new Date().toISOString();
 
-      let payloadToSend = text;
+      let uploadedMediaUrl: string | undefined;
+      let uploadedFileName: string | undefined;
+      let uploadedFileSize: number | undefined;
+
+      // A. Jika ada lampiran media, unggah ke backend storage terlebih dahulu
+      if (media) {
+        setIsUploadingMedia(true);
+        try {
+          const uploadRes = await mediaApi.uploadMedia(
+            media.uri,
+            media.fileName,
+            media.mimeType,
+            media.base64
+          );
+          uploadedMediaUrl = uploadRes.url;
+          uploadedFileName = uploadRes.file_name;
+          uploadedFileSize = uploadRes.file_size;
+        } catch (err: any) {
+          console.error('[ChatScreen] Media upload failed:', err);
+          Alert.alert(
+            'Gagal Mengunggah Gambar',
+            err.detail || err.message || 'Terjadi kesalahan saat mengunggah gambar ke server.'
+          );
+          setIsUploadingMedia(false);
+          return;
+        } finally {
+          setIsUploadingMedia(false);
+        }
+      }
+
+      // B. Enkripsi teks caption via AES-256-GCM jika percakapan direct chat
+      let payloadToSend = trimmedText;
       let isEncrypted = false;
 
-      if (isDirect && roomAESKeyRef.current) {
+      if (isDirect && roomAESKeyRef.current && trimmedText) {
         try {
-          payloadToSend = encryptText(roomAESKeyRef.current, text);
+          payloadToSend = encryptText(roomAESKeyRef.current, trimmedText);
           isEncrypted = true;
         } catch (err) {
           console.error('[ChatScreen] Encryption failed, fallback to plaintext:', err);
         }
       }
 
+      // C. Render optimistic di timeline
       const optimisticMsg: Message = {
         id: tempId,
         room_id: roomId,
         sender_id: currentUserId,
-        content: text,
+        content: trimmedText,
         is_encrypted: isEncrypted,
         created_at: nowIso,
         timestamp: nowIso,
         status: 'sending',
+        media_url: media ? media.uri : undefined,
+        media_type: media ? 'image' : undefined,
+        file_name: uploadedFileName || media?.fileName,
+        file_size: uploadedFileSize || media?.fileSize,
       };
 
-      // Immediate render on screen
       setMessages((prev) => [...prev, optimisticMsg]);
+      setStagedMedia(null);
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 50);
 
-      // Send encrypted payload (or plaintext fallback) through WebSocket
-      const sent = websocketClient.sendMessage(roomId, payloadToSend, tempId);
+      // D. Kirim pesan WebSocket lengkap dengan metadata media jika ada
+      const mediaOptions = uploadedMediaUrl
+        ? {
+            media_url: uploadedMediaUrl,
+            media_type: 'image',
+            file_name: uploadedFileName,
+            file_size: uploadedFileSize,
+          }
+        : undefined;
+
+      const sent = websocketClient.sendMessage(roomId, payloadToSend, tempId, mediaOptions);
       if (!sent) {
-        // Mark as failed if socket is closed
         setMessages((prev) =>
           prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
         );
@@ -434,6 +588,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
                   isSelf={isSelf}
                   showSenderName={!isDirect && !isSelf}
                   senderName={item.from}
+                  onMediaLoaded={handleMediaLoaded}
                 />
               );
             }}
@@ -443,7 +598,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ conversation, onBack }) 
         )}
 
         {/* Chat Input Bar */}
-        <ChatInputBar onSend={handleSendMessage} disabled={isSending} />
+        <ChatInputBar
+          onSend={handleSendMessage}
+          disabled={isSending || isUploadingMedia}
+          stagedMedia={stagedMedia}
+          isUploading={isUploadingMedia}
+          onPickCamera={handlePickCamera}
+          onPickGallery={handlePickGallery}
+          onCancelStagedMedia={handleCancelStagedMedia}
+        />
       </KeyboardAvoidingView>
     </View>
   );

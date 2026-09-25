@@ -2856,4 +2856,42 @@ Membangun aplikasi mobile resmi WuzzChat (`mobile/`) berbasis **Expo Managed Wor
   - E2EE: Header ruang obrolan menampilkan `🔒 Terenkripsi E2EE • Terhubung (Online)`. Pesan baru berhasil dienkripsi saat dikirim dan didekripsi saat diterima. Pesan lama yang kuncinya berbeda ditampilkan `🔒 Pesan terenkripsi (kunci tidak cocok)` (Forward Secrecy).
   - Chat List Snippet E2EE: Daftar obrolan di `RecentChatsScreen` sukses mendekripsi preview cuplikan pesan terakhir secara transparan (misal pesan dari Dwi Rahayu Kartikasari, Surotong, dan Semantic langsung terbaca teks aslinya).
 
+---
+
+## 📱 Milestone M-Mobile-5: Media Attachments & Image/File Sharing (25 September 2026) — SELESAI ✅
+
+### 1. Deskripsi & Arsitektur Implementasi
+Mengimplementasikan kemampuan berbagi media gambar (kamera & galeri foto) pada aplikasi mobile resmi WuzzChat (`mobile/`) dengan kepatuhan penuh terhadap standar desain WhatsApp Aurora, arsitektur E2EE caption, dan mekanisme Store-and-Forward:
+- **Dependensi & Kontrak Data**:
+  - Menambahkan `expo-image-picker@~57.0.20` dan `base64-js@^1.5.1` di `mobile/package.json`.
+  - Kontrak interface media di `mobile/src/api/types.ts`: `MediaUploadResponse`, `MediaAckRequest`, `MediaAckResponse`, serta ekstensi `Message` (`media_url`, `media_type`, `file_name`, `file_size`).
+- **REST API Client & Robust FormData Handling**:
+  - Modul API media `mobile/src/api/media.ts` dengan fungsi `uploadMedia` (batas waktu 60 detik via AbortController) dan `acknowledgeMediaDownload` (ACK konfirmasi penerimaan media).
+  - Perbaikan `mobile/src/api/client.ts` untuk mendeteksi `body instanceof FormData || typeof (body as any).append === 'function'` secara akurat guna mencegah injeksi default `Content-Type: application/json` yang dapat merusak multipart boundary.
+- **Expo SDK 57 / React Native 0.86 FormData & Scoped Storage WinterCG Stream**:
+  - Menangani pembatasan Android Scoped Storage (di mana `fetch(localUri)` menghasilkan HTTP 404 `"File not found"` 14-byte ASCII).
+  - Konfigurasi `ImagePicker` dengan `base64: true`, mendekode string base64 menjadi `Uint8Array` in-memory dengan `base64-js`, dan menginjeksi part object dengan metode `.bytes()` async (`bytes: async () => bytes`) ke `FormData.append('file', ...)`. Format ini mematuhi standar WinterCG Expo tanpa error binary blob React Native.
+- **ChatInputBar Attachment Trigger & Staged Media Banner**:
+  - Tombol lampiran (📎) di `mobile/src/components/ChatInputBar.tsx` dengan modal aksi pilihan: Kamera vs Galeri Foto.
+  - Staged Media Banner di atas text input dengan preview thumbnail gambar, nama berkas, ukuran (KB/MB), loading spinner, dan tombol batalkan (✕).
+- **MessageBubble Image Rendering & Fullscreen Lightbox Modal**:
+  - Pembaruan `mobile/src/components/MessageBubble.tsx` untuk merender gambar responsif dengan rasio aspek terjaga, loading skeleton/spinner, dan fallback expired (`⌛ Media telah kedaluwarsa`).
+  - Fullscreen Image Viewer Modal dengan latar belakang gelap pekat, animasi fade, tombol close (✕), dan informasi ukuran/nama file saat gambar di-tap.
+  - Caption pesan ditampilkan rapi di bawah gambar dengan tanda gembok 🔒 saat terenkripsi E2EE dan status pengiriman/tanda terima (`✓` / `✓✓` / 🕒).
+- **Integrasi Lifecycle & Store-and-Forward ACK di ChatScreen**:
+  - Alur lengkap di `mobile/src/screens/ChatScreen.tsx`: Permintaan izin kamera/galeri ➔ upload ke `/api/media/upload` ➔ enkripsi caption teks AES-256-GCM jika E2EE aktif ➔ dispatch pesan WebSocket dengan payload media ➔ render optimistic di timeline ➔ pemetaan data media pada event WebSocket `history` dan `message`.
+  - Trigger otomatis `acknowledgeMediaDownload` saat klien penerima berhasil memuat gambar dari lawan bicara (`sender_id !== currentUserId`), memastikan siklus hidup retensi media backend berjalan optimal.
+- **ChatListItem Snippet Preview**:
+  - Cuplikan pesan di daftar obrolan (`RecentChatsScreen.tsx` & `ChatListItem.tsx`) otomatis menampilkan `📷 Foto` atau `📷 Foto: [caption]` dengan dukungan dekripsi E2EE.
+
+### 2. Bukti Pengujian Otomatis & Live Smoke Test
+- **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Frontend Turbopack Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** di seluruh package backend.
+- **Live Physical Smoke Test on Android Device (Realme RMX3506 via Expo Tunnel)**:
+  - Berhasil memilih foto dari galeri dan mengambil gambar dari kamera fisik.
+  - Berhasil mengunggah berkas JPEG asli ke backend Fly.io dan disimpan di Supabase CDN.
+  - Penerima di aplikasi Web Next.js (`chat.wuzzhub.id`) dan lawan bicara di mobile berhasil merender pratinjau gambar berukuran penuh dengan kualitas sempurna dan caption E2EE terdekripsi utuh.
+
+
 

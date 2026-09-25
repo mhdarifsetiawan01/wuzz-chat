@@ -59,6 +59,29 @@ export interface Message {
     content?: string;
   };
   is_encrypted?: boolean;
+  media_url?: string;
+  media_type?: string;
+  file_name?: string;
+  file_size?: number;
+  media_status?: string;
+}
+
+export interface MediaUploadResponse {
+  url: string;
+  file_name: string;
+  file_size: number;
+  media_type: string;
+  mime_type: string;
+}
+
+export interface MediaAckRequest {
+  message_id: string;
+  room_id?: string;
+}
+
+export interface MediaAckResponse {
+  status: string;
+  media_status: string;
 }
 
 export interface PublicKeyResponse {
