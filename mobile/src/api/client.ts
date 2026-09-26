@@ -75,7 +75,7 @@ export async function apiClient<T>(
       const error: ApiError = {
         status: response.status,
         title: data?.title || data?.error || 'Request Error',
-        detail: data?.detail || data?.message || `Server merespons dengan status ${response.status}`,
+        detail: data?.detail || data?.message || data?.error || `Server merespons dengan status ${response.status}`,
         code: data?.code,
       };
       throw error;

@@ -3444,3 +3444,26 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - `node mobile/test-webrtc-signaling.mjs`: 10/10 PASS (Pengujian langsung pada Google Chrome headless via CDP).
 - `npx tsc --noEmit` di `mobile/`: 0 errors.
 - `npm run build` di `frontend/`: 0 errors.
+
+---
+
+## 📱 Android Production Release APK Build & Live Verification (26 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Kompilasi Standalone Release APK (`./gradlew assembleRelease`)**:
+  - Konfigurasi memori JVM Metaspace ditingkatkan (`-Xmx3072m -XX:MaxMetaspaceSize=1024m`) di `mobile/android/gradle.properties` untuk mencegah OOM Metaspace saat kompilasi Hermes, WebRTC native binaries, dan asset packaging.
+  - Berhasil menghasilkan universal APK standalone (`mobile/wuzzchat-release.apk` dan `mobile/android/app/build/outputs/apk/release/app-release.apk`, ~144 MB) yang siap di-sideload ke perangkat Android manapun tanpa memerlukan Metro server / laptop.
+- **Penyempurnaan Error Response di Mobile API Client (`mobile/src/api/client.ts`)**:
+  - Menyempurnakan parsing `error.detail` untuk menangkap `data?.error` dari response backend (misal: `"Username atau password salah"`).
+- **Pengabaian Berkas APK di Version Control (`mobile/.gitignore`)**:
+  - Menambahkan aturan `*.apk` untuk menjaga kebersihan repositori Git.
+- **Verifikasi Lapangan (Live Production Device)**:
+  - Instalasi langsung di perangkat HP fisik berhasil.
+  - Autentikasi dan login ke backend live Fly.io (`https://wuzz-chat-backend.fly.dev`) berhasil 100%.
+  - Panggilan suara WebRTC 1-on-1 (WebRTC Voice Calling) antar perangkat berhasil 100% dengan audio jernih.
+
+### 2. Bukti Pengujian Otomatis
+- **Gradle Release Build (`./gradlew assembleRelease`)**: **SUCCESS** (403 actionable tasks, 216 executed, 187 up-to-date).
+- **Mobile TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (100% pass).
