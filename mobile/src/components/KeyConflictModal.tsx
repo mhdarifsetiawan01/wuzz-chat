@@ -31,6 +31,8 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   onOpenDeviceTransfer,
   onCancel,
 }) => {
+  if (!visible) return null;
+
   const [isPromptingPassword, setIsPromptingPassword] = useState<boolean>(false);
   const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);

@@ -19,6 +19,8 @@ export const SessionAlertModal: React.FC<SessionAlertModalProps> = ({
   message,
   onDismiss,
 }) => {
+  if (!visible) return null;
+
   return (
     <Modal
       transparent

@@ -58,6 +58,8 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
   onClose,
   onTransferSuccess,
 }) => {
+  if (!visible) return null;
+
   const { user, e2eeKeyPair, importTransferredKeyPair } = useAuth();
   const { deviceId } = useDevice();
 

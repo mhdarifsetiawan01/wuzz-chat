@@ -374,26 +374,32 @@ function AppNavigator() {
       {renderContent()}
 
       {/* Global Terminal Session Replaced Guard Modal */}
-      <SessionAlertModal
-        visible={!!sessionReplacedMessage}
-        message={sessionReplacedMessage}
-        onDismiss={handleDismissSessionAlert}
-      />
+      {!!sessionReplacedMessage && (
+        <SessionAlertModal
+          visible={!!sessionReplacedMessage}
+          message={sessionReplacedMessage}
+          onDismiss={handleDismissSessionAlert}
+        />
+      )}
 
       {/* Global E2EE Key Conflict Resolution Modal (HTTP 409) */}
-      <KeyConflictModal
-        visible={e2eeStatus === 'conflict'}
-        onConfirmReset={resetE2EEKeys}
-        onOpenDeviceTransfer={() => setIsKeyTransferModalOpen(true)}
-        onCancel={handleCancelKeyConflict}
-      />
+      {e2eeStatus === 'conflict' && (
+        <KeyConflictModal
+          visible={e2eeStatus === 'conflict'}
+          onConfirmReset={resetE2EEKeys}
+          onOpenDeviceTransfer={() => setIsKeyTransferModalOpen(true)}
+          onCancel={handleCancelKeyConflict}
+        />
+      )}
 
       {/* Global E2EE Key Transfer Modal */}
-      <DeviceTransferModal
-        visible={isKeyTransferModalOpen}
-        initialMode="scan"
-        onClose={() => setIsKeyTransferModalOpen(false)}
-      />
+      {isKeyTransferModalOpen && (
+        <DeviceTransferModal
+          visible={isKeyTransferModalOpen}
+          initialMode="scan"
+          onClose={() => setIsKeyTransferModalOpen(false)}
+        />
+      )}
 
       {/* Global WebRTC 1-on-1 Voice Calling Modals */}
       <IncomingCallModal />

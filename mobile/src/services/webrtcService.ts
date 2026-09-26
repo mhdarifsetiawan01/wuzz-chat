@@ -101,17 +101,38 @@ export function generateFallbackSDP(type: 'offer' | 'answer'): string {
   ].join('\r\n');
 }
 
+// Safely resolve native WebRTC modules (supports both native development build and web/fallback)
+let NativeRTCPeerConnection: any = null;
+let nativeMediaDevices: any = null;
+let NativeRTCSessionDescription: any = null;
+let NativeRTCIceCandidate: any = null;
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const webrtc = require('react-native-webrtc');
+  NativeRTCPeerConnection = webrtc.RTCPeerConnection;
+  nativeMediaDevices = webrtc.mediaDevices;
+  NativeRTCSessionDescription = webrtc.RTCSessionDescription;
+  NativeRTCIceCandidate = webrtc.RTCIceCandidate;
+} catch {
+  // Native module not available (e.g. in Expo Go before custom dev build)
+}
+
 export class WebRTCAudioSession {
   private pc: any = null;
   private localStream: any = null;
+  private remoteStream: any = null;
   private pendingCandidates: any[] = [];
   private onConnectionStateChangeCallback: ((state: string) => void) | null = null;
+  private onRemoteStreamCallback: ((stream: any) => void) | null = null;
   private isMuted: boolean = false;
 
   constructor(
-    onConnectionStateChange?: (state: string) => void
+    onConnectionStateChange?: (state: string) => void,
+    onRemoteStream?: (stream: any) => void
   ) {
     this.onConnectionStateChangeCallback = onConnectionStateChange || null;
+    this.onRemoteStreamCallback = onRemoteStream || null;
   }
 
   /**
@@ -120,8 +141,9 @@ export class WebRTCAudioSession {
   private getPeerConnection(onIceCandidate: (candidateJson: string) => void): any {
     if (this.pc) return this.pc;
 
-    // Cek ketersediaan RTCPeerConnection global (React Native WebRTC / Web)
+    // Cek ketersediaan RTCPeerConnection (react-native-webrtc / globalThis / window)
     const PeerConnectionClass =
+      NativeRTCPeerConnection ||
       (typeof globalThis !== 'undefined' && (globalThis as any).RTCPeerConnection) ||
       (typeof window !== 'undefined' && (window as any).RTCPeerConnection);
 
@@ -143,6 +165,15 @@ export class WebRTCAudioSession {
           }
         };
 
+        pc.ontrack = (event: any) => {
+          if (event && event.streams && event.streams[0]) {
+            this.remoteStream = event.streams[0];
+            if (this.onRemoteStreamCallback) {
+              this.onRemoteStreamCallback(event.streams[0]);
+            }
+          }
+        };
+
         this.pc = pc;
         return pc;
       } catch (err) {
@@ -155,11 +186,35 @@ export class WebRTCAudioSession {
 
   /**
    * Start Call: Create local SDP offer (Returns raw SDP string)
+   * Captures microphone stream via mediaDevices.getUserMedia
    */
   public async createOffer(onIceCandidate: (candidateJson: string) => void): Promise<string> {
     const pc = this.getPeerConnection(onIceCandidate);
     if (pc && typeof pc.createOffer === 'function') {
       try {
+        const mediaDevicesObj =
+          nativeMediaDevices ||
+          (typeof navigator !== 'undefined' && navigator.mediaDevices);
+
+        if (mediaDevicesObj && typeof mediaDevicesObj.getUserMedia === 'function') {
+          try {
+            const stream = await mediaDevicesObj.getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+              video: false,
+            });
+            this.localStream = stream;
+            stream.getTracks().forEach((track: any) => {
+              pc.addTrack(track, stream);
+            });
+          } catch (micErr) {
+            console.warn('[WebRTC] Failed to capture local microphone:', micErr);
+          }
+        }
+
         const offer = await pc.createOffer({
           offerToReceiveAudio: true,
           offerToReceiveVideo: false,
@@ -177,6 +232,7 @@ export class WebRTCAudioSession {
 
   /**
    * Accept Call: Process remote SDP offer and create local SDP answer
+   * Captures microphone stream and connects remote media
    */
   public async createAnswer(
     offerSdpInput: string,
@@ -187,16 +243,42 @@ export class WebRTCAudioSession {
 
     if (pc && typeof pc.setRemoteDescription === 'function') {
       try {
-        await pc.setRemoteDescription({
-          type: 'offer',
-          sdp: cleanOfferSDP,
-        });
+        const mediaDevicesObj =
+          nativeMediaDevices ||
+          (typeof navigator !== 'undefined' && navigator.mediaDevices);
+
+        if (mediaDevicesObj && typeof mediaDevicesObj.getUserMedia === 'function') {
+          try {
+            const stream = await mediaDevicesObj.getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+              video: false,
+            });
+            this.localStream = stream;
+            stream.getTracks().forEach((track: any) => {
+              pc.addTrack(track, stream);
+            });
+          } catch (micErr) {
+            console.warn('[WebRTC] Failed to capture local microphone for answer:', micErr);
+          }
+        }
+
+        const SessionDescClass = NativeRTCSessionDescription || (typeof RTCSessionDescription !== 'undefined' ? RTCSessionDescription : null);
+        const offerDesc = SessionDescClass
+          ? new SessionDescClass({ type: 'offer', sdp: cleanOfferSDP })
+          : { type: 'offer', sdp: cleanOfferSDP };
+
+        await pc.setRemoteDescription(offerDesc);
 
         // Process buffered ICE candidates
         while (this.pendingCandidates.length > 0) {
           const cand = this.pendingCandidates.shift();
           try {
-            await pc.addIceCandidate(cand);
+            const IceCandidateClass = NativeRTCIceCandidate || (typeof RTCIceCandidate !== 'undefined' ? RTCIceCandidate : null);
+            await pc.addIceCandidate(IceCandidateClass ? new IceCandidateClass(cand) : cand);
           } catch {}
         }
 
@@ -219,16 +301,19 @@ export class WebRTCAudioSession {
     const cleanAnswerSDP = extractRawSDP(answerSdpInput);
     if (this.pc && typeof this.pc.setRemoteDescription === 'function') {
       try {
-        await this.pc.setRemoteDescription({
-          type: 'answer',
-          sdp: cleanAnswerSDP,
-        });
+        const SessionDescClass = NativeRTCSessionDescription || (typeof RTCSessionDescription !== 'undefined' ? RTCSessionDescription : null);
+        const answerDesc = SessionDescClass
+          ? new SessionDescClass({ type: 'answer', sdp: cleanAnswerSDP })
+          : { type: 'answer', sdp: cleanAnswerSDP };
+
+        await this.pc.setRemoteDescription(answerDesc);
 
         // Process buffered ICE candidates
         while (this.pendingCandidates.length > 0) {
           const cand = this.pendingCandidates.shift();
           try {
-            await this.pc.addIceCandidate(cand);
+            const IceCandidateClass = NativeRTCIceCandidate || (typeof RTCIceCandidate !== 'undefined' ? RTCIceCandidate : null);
+            await this.pc.addIceCandidate(IceCandidateClass ? new IceCandidateClass(cand) : cand);
           } catch {}
         }
       } catch (err) {
