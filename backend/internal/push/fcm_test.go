@@ -51,14 +51,27 @@ func TestFCMv1PushProvider_Lifecycle(t *testing.T) {
 
 			var reqBody struct {
 				Message struct {
-					Token string `json:"token"`
-					Notification struct {
-						Title string `json:"title"`
-						Body  string `json:"body"`
-					} `json:"notification"`
+					Token        string                 `json:"token"`
+					Notification map[string]interface{} `json:"notification"`
+					Data         map[string]string      `json:"data"`
+					Android      struct {
+						Priority string `json:"priority"`
+					} `json:"android"`
 				} `json:"message"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			// Verifikasi bahwa FCM message adalah data-only (tanpa field notification)
+			if len(reqBody.Message.Notification) > 0 {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":"notification field should not be present for E2EE data-only push"}`))
+				return
+			}
+
+			if reqBody.Message.Data["title"] == "" {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}

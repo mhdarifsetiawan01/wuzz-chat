@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   AUTH_TOKEN: 'wuzz_auth_token',
   DEVICE_ID: 'wuzz_device_id',
   USER_DATA: 'wuzz_user_profile',
+  CURRENT_USER_ID: 'wuzz_current_user_id',
   PUSH_TOKEN: 'wuzz_push_token',
   NOTIFICATIONS_ENABLED: 'wuzz_notifications_enabled',
   E2EE_PRIVATE_KEY_PREFIX: 'wuzz_e2ee_priv_',
@@ -92,9 +93,22 @@ export const secureStorage = {
     }
   },
 
+  async setCurrentUserId(userId: string): Promise<void> {
+    await this.setItem(STORAGE_KEYS.CURRENT_USER_ID, userId);
+  },
+
+  async getCurrentUserId(): Promise<string | null> {
+    return await this.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+  },
+
+  async deleteCurrentUserId(): Promise<void> {
+    await this.deleteItem(STORAGE_KEYS.CURRENT_USER_ID);
+  },
+
   async clearSession(): Promise<void> {
     await this.deleteAuthToken();
     await this.deleteItem(STORAGE_KEYS.USER_DATA);
+    await this.deleteCurrentUserId();
     // Note: Do NOT delete DEVICE_ID so device identity remains persistent
   },
 

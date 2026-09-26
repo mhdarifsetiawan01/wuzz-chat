@@ -209,6 +209,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsLoading(false);
           }
 
+          await secureStorage.setCurrentUserId(savedUser.id);
+
           const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
           // Init E2EE asynchronously
           initE2EEForUser(savedUser.id, currentDeviceId);
@@ -224,6 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (mounted) {
               setUser(freshUser);
               await secureStorage.setUserData(freshUser);
+              await secureStorage.setCurrentUserId(freshUser.id);
               // Connect WebSocket
               websocketClient.reset();
               websocketClient.connect(savedToken, currentDeviceId);
@@ -273,6 +276,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         await secureStorage.setAuthToken(response.token);
         await secureStorage.setUserData(response.user);
+        await secureStorage.setCurrentUserId(response.user.id);
 
         setToken(response.token);
         setUser(response.user);
@@ -307,6 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         await secureStorage.setAuthToken(response.token);
         await secureStorage.setUserData(response.user);
+        await secureStorage.setCurrentUserId(response.user.id);
 
         setToken(response.token);
         setUser(response.user);

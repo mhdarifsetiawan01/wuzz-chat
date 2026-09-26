@@ -3499,3 +3499,27 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
   - Notifikasi FCM berhasil diterima di status bar Android HP fisik saat di-minimize.
   - Form login dan chat input bar terdorong secara mulus saat keyboard muncul.
 
+---
+
+## 🔒 Client-Side Background Decryption Push Notifikasi (WhatsApp-Style Zero-Knowledge E2EE) (26 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Backend Silent Data-Only Push (`backend/internal/push/fcm.go`, `push.go`)**:
+  - Mengubah payload FCM v1 menjadi pure *data-only* (menghapus blok `Notification` dan `Android.Notification`).
+  - Mengirim seluruh metadata terenkripsi (`encrypted_content`, `sender_public_key`, `room_id`, `sender_nickname`, dll) dalam dictionary `data` dengan `priority: HIGH` agar OS Android membangkitkan background handler tanpa menampilkan placeholder teks dari server.
+- **Client-Side Background Decryption Task (`mobile/src/services/notificationBackgroundTask.ts`)**:
+  - Mengimplementasikan background task `WUZZ_BACKGROUND_NOTIFICATION_DECRYPT` menggunakan `expo-task-manager` dan `expo-notifications`.
+  - Mengambil `current_user_id` dan private key E2EE lokal dari SecureStore secara aman saat perangkat dalam kondisi background.
+  - Menghitung symmetric key via ECDH + HKDF secara lokal, mendekripsi teks pesan, dan memposting notifikasi lokal ke Status Bar Android.
+  - Menyiapkan fallback graceful (`"🔒 Pesan Baru (Terenkripsi)"`) jika kunci belum disinkronkan.
+- **Penyimpanan Identitas Pengguna Lokal (`mobile/src/services/secureStorage.ts`, `mobile/src/context/AuthContext.tsx`)**:
+  - Menyimpan `wuzz_current_user_id` di `SecureStore` saat login dan me-restore auth agar task background non-React context dapat menemukan keypair E2EE yang tepat.
+- **Registrasi Background Task (`mobile/src/services/notificationService.ts`, `mobile/App.tsx`)**:
+  - Memanggil `registerTaskAsync` saat perizinan notifikasi aktif dan mengimpor modul background task di level root `App.tsx`.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (Termasuk `TestFCMv1PushProvider_Lifecycle` dengan validasi payload data-only).
+- **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Frontend Next.js Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
+
+

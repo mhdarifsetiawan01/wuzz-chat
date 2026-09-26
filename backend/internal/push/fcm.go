@@ -242,30 +242,15 @@ func (p *FCMv1PushProvider) Send(ctx context.Context, sub store.PushSubscription
 	fcmData["body"] = notifPayload.Body
 	fcmData["timestamp"] = fmt.Sprintf("%d", notifPayload.Timestamp)
 
-	// Susun FCM HTTP v1 Message Payload
-	type fcmAndroidNotification struct {
-		ChannelID string `json:"channel_id,omitempty"`
-		Sound     string `json:"sound,omitempty"`
-		Color     string `json:"color,omitempty"`
-		Icon      string `json:"icon,omitempty"`
-	}
-
+	// Susun FCM HTTP v1 Message Payload (Data-Only Silent Push untuk Background Decryption)
 	type fcmAndroidConfig struct {
-		Priority     string                  `json:"priority"`
-		Notification *fcmAndroidNotification `json:"notification,omitempty"`
-	}
-
-	type fcmNotification struct {
-		Title string `json:"title"`
-		Body  string `json:"body"`
-		Image string `json:"image,omitempty"`
+		Priority string `json:"priority"`
 	}
 
 	type fcmMessage struct {
-		Token        string            `json:"token"`
-		Notification *fcmNotification  `json:"notification,omitempty"`
-		Data         map[string]string `json:"data,omitempty"`
-		Android      *fcmAndroidConfig `json:"android,omitempty"`
+		Token   string            `json:"token"`
+		Data    map[string]string `json:"data,omitempty"`
+		Android *fcmAndroidConfig `json:"android,omitempty"`
 	}
 
 	type fcmPayloadWrapper struct {
@@ -275,18 +260,9 @@ func (p *FCMv1PushProvider) Send(ctx context.Context, sub store.PushSubscription
 	reqBody := fcmPayloadWrapper{
 		Message: fcmMessage{
 			Token: deviceToken,
-			Notification: &fcmNotification{
-				Title: notifPayload.Title,
-				Body:  notifPayload.Body,
-			},
-			Data: fcmData,
+			Data:  fcmData,
 			Android: &fcmAndroidConfig{
 				Priority: "HIGH",
-				Notification: &fcmAndroidNotification{
-					ChannelID: "wuzz_chat_messages",
-					Sound:     "default",
-					Color:     "#10B981",
-				},
 			},
 		},
 	}

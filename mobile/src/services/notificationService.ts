@@ -10,6 +10,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import { notificationsApi } from '../api/notifications';
 import { secureStorage } from './secureStorage';
+import { BACKGROUND_NOTIFICATION_TASK } from './notificationBackgroundTask';
 
 // Android default notification channel IDs
 export const DEFAULT_NOTIFICATION_CHANNEL_ID = 'wuzz_chat_messages';
@@ -247,10 +248,29 @@ export const notificationService = {
         console.log('[NotificationService] Push token registered:', token);
       }
 
+      // Register background decryption task handler with expo-notifications
+      await this.registerBackgroundHandler();
+
       return token;
     } catch (err) {
       console.warn('[NotificationService] registerForPushNotificationsAsync error (graceful fallback):', err);
       return null;
+    }
+  },
+
+  /**
+   * Registers the background decryption task with expo-notifications.
+   */
+  async registerBackgroundHandler(): Promise<void> {
+    if (Platform.OS === 'web' || isExpoGo()) return;
+    try {
+      const Notifications = getExpoNotificationsModule();
+      if (Notifications && typeof Notifications.registerTaskAsync === 'function') {
+        await Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK);
+        console.log('[NotificationService] Background notification task registered with OS:', BACKGROUND_NOTIFICATION_TASK);
+      }
+    } catch (err) {
+      console.warn('[NotificationService] registerBackgroundHandler skipped or failed:', err);
     }
   },
 

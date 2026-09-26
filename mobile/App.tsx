@@ -5,6 +5,7 @@
 
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
+import './src/services/notificationBackgroundTask';
 import { ActivityIndicator, BackHandler, Linking, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, CallProvider, DeviceProvider, useAuth } from './src/context';
