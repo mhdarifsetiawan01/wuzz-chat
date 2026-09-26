@@ -26,12 +26,15 @@ import {
   ActiveCallOverlay,
 } from './src/components';
 import { notificationService } from './src/services/notificationService';
+import { websocketClient } from './src/services/websocket';
+import { isEncryptedMessage } from './src/services/crypto';
 import { colors, spacing, typography } from './src/theme';
 
 type AuthRoute = 'login' | 'register';
 
 function AppNavigator() {
   const {
+    user,
     isAuthenticated,
     isLoading,
     sessionReplacedMessage,
@@ -169,6 +172,65 @@ function AppNavigator() {
       unsubscribeListener();
     };
   }, [isAuthenticated]);
+
+  // Real-time Local Notification Trigger for Incoming Messages (DEC-017)
+  React.useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const unsubscribeMsg = websocketClient.on('message', (incoming: any) => {
+      if (!incoming) return;
+
+      const targetRoom = incoming.room || incoming.room_id;
+      const senderId = incoming.sender_id || incoming.sender;
+      const senderUsername = incoming.sender || incoming.sender_username;
+
+      // Do not trigger notification for messages sent by the logged-in user
+      if (
+        (user.id && senderId === user.id) ||
+        (user.username && (senderUsername === user.username || senderId === user.username))
+      ) {
+        return;
+      }
+
+      // If the user is currently inside this specific chat room, suppress notification banner (already visible on screen)
+      const currentActiveRoom = notificationService.getActiveRoomId();
+      if (currentActiveRoom && targetRoom === currentActiveRoom) {
+        return;
+      }
+
+      const senderTitle = incoming.nickname || incoming.sender_nickname || senderUsername || 'Pesan Baru';
+      let bodyText = incoming.content || '';
+
+      if (incoming.media_type === 'image') {
+        bodyText = '📷 Mengirim foto';
+      } else if (incoming.media_type === 'audio') {
+        bodyText = '🎤 Mengirim pesan suara';
+      } else if (incoming.media_type === 'document') {
+        bodyText = '📄 Mengirim dokumen';
+      } else if (incoming.media_type === 'video') {
+        bodyText = '🎥 Mengirim video';
+      } else if (isEncryptedMessage(bodyText)) {
+        bodyText = '🔒 Pesan Baru (Terenkripsi)';
+      } else if (!bodyText) {
+        bodyText = 'Mengirim pesan';
+      }
+
+      // Schedule local notification immediately to Notification Bar
+      notificationService
+        .scheduleLocalNotification(senderTitle, bodyText, {
+          room_id: targetRoom,
+          sender_id: senderId,
+          sender_nickname: senderTitle,
+        })
+        .catch((err) => {
+          console.warn('[App] Failed to schedule local notification:', err);
+        });
+    });
+
+    return () => {
+      unsubscribeMsg();
+    };
+  }, [isAuthenticated, user]);
 
   // Memoized screen event handlers to eliminate infinite re-render cycles
   const handleBackFromGroupInfo = useCallback(() => {

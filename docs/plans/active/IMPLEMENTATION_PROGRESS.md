@@ -1,20 +1,8 @@
-# Implementation Progress — Milestone M-Mobile-8.12
+# Implementation Progress: FCM Push Notification & Android Notification Bar Integration
 
-- [x] Task 1: Instalasi dependensi `react-native-webrtc` dan `expo-dev-client` di `mobile/`.
-- [x] Task 2: Konfigurasi `mobile/app.json` (`package: com.wuzzchat.mobile`, audio/camera permissions, plugin `react-native-webrtc`).
-- [x] Task 3: Integrasi `react-native-webrtc` di `mobile/src/services/webrtcService.ts` (`RTCPeerConnection`, `mediaDevices.getUserMedia`, track audio, & graceful fallback).
-- [x] Task 4: Eksekusi `npx expo prebuild --platform android --clean` untuk menghasilkan folder native `mobile/android/`.
-- [x] Task 5: Build dan instalasi Development APK ke perangkat Android via ADB (`Performing Streamed Install -> Success`).
-# Implementation Progress — Milestone M-Mobile-8.12
-
-- [x] Task 1: Instalasi dependensi `react-native-webrtc` dan `expo-dev-client` di `mobile/`.
-- [x] Task 2: Konfigurasi `mobile/app.json` (`package: com.wuzzchat.mobile`, audio/camera permissions, plugin `react-native-webrtc`).
-- [x] Task 3: Integrasi `react-native-webrtc` di `mobile/src/services/webrtcService.ts`.
-- [x] Task 4: Eksekusi `npx expo prebuild --platform android --clean` untuk menghasilkan folder native `mobile/android/`.
-- [x] Task 5: Build dan instalasi Development APK ke perangkat Android via ADB.
-- [x] Task 6: Verifikasi panggilan suara WebRTC nyata dua arah (Android HP ⇄ Web PWA) — **BERHASIL: audio 2 arah terdengar real-time**.
-- [x] Task 7: Perbaikan touch interception modal (SessionAlertModal, KeyConflictModal, DeviceTransferModal).
-- [x] Task 8: Suppress LogBox banners di `mobile/index.ts` (`LogBox.ignoreAllLogs(true)`).
-- [x] Task 9: Fix keyboard menutupi input bar Android — `KeyboardAvoidingView` behavior `'height'` di `ChatScreen.tsx`.
-
-**Status: SELESAI ✅**
+- [x] Task 1: Proteksi Kredensial di `.gitignore` (`service-account.json` & `backend/service-account.json`)
+- [x] Task 2: Update konfigurasi `mobile/app.json` (`googleServicesFile` & `POST_NOTIFICATIONS` & `VIBRATE`)
+- [x] Task 3: Optimasi `mobile/src/services/notificationService.ts` untuk native device token & foreground presentation
+- [x] Task 4: Integrasi trigger Local Notification pada mobile client saat pesan masuk dari WebSocket (`App.tsx`)
+- [x] Task 5: Implementasi FCM HTTP v1 Provider di Go Backend (`backend/internal/push/fcm.go`)
+- [x] Task 6: Unit Test FCM Provider & Verifikasi Automated Testing (`go test ./...` 100% PASS, `npm run build` PASS, `tsc --noEmit` PASS)

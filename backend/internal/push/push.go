@@ -218,38 +218,6 @@ func (p *VAPIDWebPushProvider) Send(ctx context.Context, sub store.PushSubscript
 	return nil
 }
 
-// FCMv1PushProvider adalah implementasi scaffolding PushProvider untuk Firebase Cloud Messaging (FCM HTTP v1).
-// Digunakan untuk klien React Native (Android & iOS) yang mendaftarkan FCM registration token sebagai endpoint.
-type FCMv1PushProvider struct {
-	projectID   string
-	credentials string
-}
-
-// NewFCMv1PushProvider membuat provider FCM v1 baru.
-func NewFCMv1PushProvider(projectID, credentials string) *FCMv1PushProvider {
-	return &FCMv1PushProvider{
-		projectID:   projectID,
-		credentials: credentials,
-	}
-}
-
-func (p *FCMv1PushProvider) Name() string {
-	return "fcm_v1"
-}
-
-func (p *FCMv1PushProvider) Send(ctx context.Context, sub store.PushSubscription, payload []byte) error {
-	if sub.Endpoint == "" {
-		return errors.New("fcm registration token tidak boleh kosong")
-	}
-
-	if p.projectID == "" {
-		log.Printf("ℹ️ [Push:FCM] FCM v1 belum dikonfigurasi (FCM_PROJECT_ID kosong). Simulasi push berhasil untuk device %s (token: %s)", sub.Platform, safePrefix(sub.Endpoint, 24))
-		return nil
-	}
-
-	log.Printf("🚀 [Push:FCM] FCM v1 notification dispatched untuk device %s (Project: %s, token: %s)", sub.Platform, p.projectID, safePrefix(sub.Endpoint, 24))
-	return nil
-}
 
 // NotifyOfflineRecipients menyaring anggota yang sedang offline dan mengirimkan push notification.
 func (s *Service) NotifyOfflineRecipients(

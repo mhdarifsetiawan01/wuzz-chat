@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "909236873709",
+    "project_id": "wuzz-chat-fcm",
+    "storage_bucket": "wuzz-chat-fcm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:909236873709:android:5ffd986258ae21b229dfe4",
+        "android_client_info": {
+          "package_name": "com.wuzzchat.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDz8O3rp353-a4IC77rN1MOLghZWfLp02A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

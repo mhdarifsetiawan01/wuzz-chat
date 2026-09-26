@@ -214,27 +214,31 @@ export const notificationService = {
         return null;
       }
 
-      // Fetch token safely
+      // Fetch token safely: Try native device push token first for FCM/APNs, fallback to Expo push token
       let token: string | null = null;
       try {
-        if (typeof Notifications.getExpoPushTokenAsync === 'function') {
-          const tokenResponse = await Notifications.getExpoPushTokenAsync();
-          token = tokenResponse.data;
-        }
-      } catch (expoErr: any) {
-        if (expoErr?.message?.includes('removed from Expo Go')) {
-          console.log('ℹ️ [NotificationService] Remote push requires a development build.');
-          return null;
-        }
-        console.warn('[NotificationService] Expo push token fetch skipped, trying device token:', expoErr);
-        try {
-          if (typeof Notifications.getDevicePushTokenAsync === 'function') {
-            const deviceTokenResponse = await Notifications.getDevicePushTokenAsync();
+        if (typeof Notifications.getDevicePushTokenAsync === 'function') {
+          const deviceTokenResponse = await Notifications.getDevicePushTokenAsync();
+          if (deviceTokenResponse && deviceTokenResponse.data) {
             token = deviceTokenResponse.data;
           }
-        } catch (deviceErr) {
-          console.warn('[NotificationService] Device push token unavailable:', deviceErr);
-          return null;
+        }
+      } catch (deviceErr) {
+        console.warn('[NotificationService] Device push token unavailable, attempting Expo push token:', deviceErr);
+      }
+
+      if (!token) {
+        try {
+          if (typeof Notifications.getExpoPushTokenAsync === 'function') {
+            const tokenResponse = await Notifications.getExpoPushTokenAsync();
+            token = tokenResponse.data;
+          }
+        } catch (expoErr: any) {
+          if (expoErr?.message?.includes('removed from Expo Go')) {
+            console.log('ℹ️ [NotificationService] Remote push requires a development build.');
+            return null;
+          }
+          console.warn('[NotificationService] Expo push token fetch failed:', expoErr);
         }
       }
 
@@ -368,6 +372,7 @@ export const notificationService = {
           data: data || {},
           sound: 'default',
           badge: 1,
+          ...(Platform.OS === 'android' ? { channelId: DEFAULT_NOTIFICATION_CHANNEL_ID } : {}),
         },
         trigger: null, // show immediately
       });
