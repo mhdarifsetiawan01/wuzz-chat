@@ -136,7 +136,11 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
   - 🔒 **Single Consolidated Banner for Encrypted Messages UX**: Menggantikan tumpukan puluhan bubble `🔒 [Pesan Terenkripsi]` yang mengotori layar dengan **1 buah banner sistem ringkas** di linimasa chat (`ChatWindow.tsx`), dipadukan dengan optimasi performa $O(N)$ single-pass loop menggunakan `useMemo` untuk mencegah re-filtering overhead saat rendering.
 - [x] **Anti-Infinite Reset Loop, 30s Server Timeout & Loading Logout UI (Fase 8 Milestone 8.11)**:
   - 🔄 **Anti-Loop Route Guard & Synchronous 0ms Local Purge**: Memutus siklus ping-pong reset tak berujung antara dua perangkat saat terjadi konflik rotasi kunci. Sesi lokal di browser dimusnahkan seketika (0ms) sebelum jaringan dipanggil, rute `/login?logout=1` memblokir auto-redirect ke linimasa obrolan, dan pengguna diwajibkan memasukkan password baru.
-  - ⏳ **30-Second Timeout Resilient Logout (`AbortController`) & Loading State**: Pemanggilan logout server dibatasi waktu maksimal 30 detik agar kebal terhadap jaringan seluler yang lambat, serta tombol logout di modal konflik dan profil otomatis masuk ke status `disabled` dengan indikator `⏳ Memproses Keluar...` guna mencegah *double-click race conditions*.
+- [x] **Multi-Device History Routing & Mobile Trusted Device Synchronization (Fase 8 Milestone 8.12)**:
+  - 📡 **Deterministic Socket-Targeted History Delivery**: Routing paket riwayat obrolan (`sendRoomHistory`) langsung ke channel soket perangkat pemohon (`c.send`), mengeliminasi bug riwayat kosong di HP saat login bersamaan dengan Laptop di sesi multi-perangkat.
+  - 📱 **Mobile & Web Trusted Device Pattern**: Penyelarasan arsitektur penyimpanan kunci E2EE lokal antara React Native (Android Keystore / iOS Keychain) dan Next.js (IndexedDB). Kunci tidak lagi dihapus saat logout normal (`clearSession`), sehingga login ulang di perangkat yang sama langsung masuk ke linimasa chat tanpa modal scan QR / reset berulang kali.
+  - 👥 **Multi-User Isolation on Single Device**: Kunci E2EE disimpan terisolasi penuh berbasis `userId` (`wuzz_e2ee_priv_${userId}`), memungkinkan banyak user bergantian memakai 1 perangkat fisik tanpa tumpang tindih atau konflik kunci.
+  - 🛡️ **Server-Side Public Key Overwrite Protection**: Endpoint `PUT /api/users/public-key` memvalidasi integritas kunci: kunci yang identik diizinkan tanpa batas (Trusted Device & QR Sync), namun kunci yang berbeda ditolak tegas (`HTTP 409 Conflict`) jika akun memiliki sesi perangkat aktif, mencegah penimpaan kunci sepihak.
 
 ---
 

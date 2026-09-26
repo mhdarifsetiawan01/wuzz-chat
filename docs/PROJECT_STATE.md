@@ -51,7 +51,7 @@ Status eksplisit kapabilitas sistem berdasarkan implementasi aktual di codebase:
 | **Subgroups / Forum Topics** | `IMPLEMENTED` | Subgrup bertopik efemeral (`sub_<UUID>`), waktu hidup terbatas (*TTL expiration*), purging otomatis keanggotaan saat masa aktif usai. |
 | **Realtime WebSocket Hub** | `IMPLEMENTED` | Goroutine read/write pump, heartbeat ping/pong, typing indicator dinamis, otorisasi keanggotaan room *fail-closed*, receipt broadcasting. |
 | **Cluster Synchronization** | `IMPLEMENTED` | Redis Pub/Sub multi-instance Go hub via channel `wuzz:cluster:events`, mekanisme anti-echo loop UUID, in-memory dedup cache. |
-| **End-to-End Encryption (E2EE)** | `IMPLEMENTED (DM Only)` | ECDH P-256 + HKDF + AES-256-GCM via Web Crypto API, penyimpanan kunci privat lokal di IndexedDB (`wuzz_crypto_db`), Safety Number fingerprint 30-digit. *Grup dan Forum bersifat non-E2EE.* |
+| **End-to-End Encryption (E2EE)** | `IMPLEMENTED (DM Only)` | ECDH P-256 + HKDF + AES-256-GCM via Web Crypto API (Web) & pure crypto (Mobile), penyimpanan kunci privat lokal di IndexedDB (Web) / Keystore (Mobile), Safety Number fingerprint 30-digit, pola Trusted Device persisten lintas normal logout. *Grup dan Forum bersifat non-E2EE.* |
 | **E2EE Device Migration (QR)** | `IMPLEMENTED` | Pemindahan keypair E2EE antar perangkat secara Zero-Knowledge menggunakan QR code ephemeral (TTL 5 menit), enkripsi AES-256-GCM dari entropy PBKDF2. |
 | **Store-and-Forward Media** | `IMPLEMENTED` | Unggah gambar, dokumen (PDF/Word/ZIP), voice note berformat audio kustom; auto-purge di server via `POST /api/media/ack` (DM) dan background TTL purge worker (7 hari). |
 | **Shared Media Hub (Group/Forum)**| `IMPLEMENTED` | Untuk grup dan forum, panggilan ack download tidak menghapus media fisik sebelum masa TTL habis agar seluruh anggota berkesempatan mengunduh ke cache lokal. |
@@ -66,7 +66,7 @@ Status eksplisit kapabilitas sistem berdasarkan implementasi aktual di codebase:
 | **AI Memory (Group Chat)** | `PARTIAL` | Interface `ContextSource` telah mendukung `ContextTypeGroup`, namun belum ada penjadwal / trigger summarization on-demand di luar siklus expired forum. |
 | **AI Memory (Personal Chat)** | `NOT IMPLEMENTED` | Terkendala arsitektur E2EE (server hanya memegang ciphertext, tidak memiliki akses plaintext pesan direct chat). Memerlukan pipeline ekspor / LLM di sisi klien. |
 | **AI Memory (Meeting)** | `NOT IMPLEMENTED` | Belum ada pipeline transkrip audio / Speech-to-Text (STT) dan prompt agenda/action items. |
-| **Mobile Client App** | `NOT IMPLEMENTED` | Backend telah siap melayani mobile (REST/WS/Push), namun aplikasi mobile native (React Native / Flutter / Kotlin / Swift) belum dibangun. |
+| **Mobile Client App** | `IMPLEMENTED` | Aplikasi React Native Expo (Android & iOS) di direktori `mobile/`, release APK teruji via USB, Zero-Knowledge background decryption push FCM v1, WebRTC voice calling, dan integrasi penuh REST/WebSocket. |
 | **Passkey / WebAuthn (FIDO2)** | `NOT IMPLEMENTED` | Desain arsitektur telah tercatat di `docs/ARCHITECTURE_AUDIT.md` (Fase 11 Phase 4), namun belum diimplementasikan di kode. |
 
 ---

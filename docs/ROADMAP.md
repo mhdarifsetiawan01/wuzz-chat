@@ -301,6 +301,11 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 - ✅ **Post-Milestone 8: Multi-Node WebSocket Cluster Session Kick (`SESSION_REPLACED` & `DEVICE_KICKED` via Redis Pub/Sub) (SELESAI)**:
   - *Tujuan*: Sinkronisasi pergantian sesi perangkat aktif dan remote logout lintas-mesin container Fly.io (multi-node cluster).
   - *Mekanisme*: Saat pengguna login di Instance A dengan `device_id` baru atau mengeluarkan perangkat dari jarak jauh, event `session_kick` atau `device_kick` di-broadcast ke Redis channel `wuzz:cluster:events`. Instance B yang menampung koneksi soket lama langsung menendang koneksi tersebut dengan Close Code 4001 (`SESSION_REPLACED` / `DEVICE_KICKED`) tanpa duplicate loop (Anti-Echo Loop terisolasi). Dilindungi unit test suite `hub_cross_instance_kick_test.go` (100% PASS).
+- ✅ **Milestone 8.12: Multi-Device Room History Routing & Mobile Trusted Device Synchronization (SELESAI)**:
+  - **Targeted Socket History Delivery**: Mengirim paket `sendRoomHistory` secara langsung ke soket pemohon (`c.send`) di `hub.go`, menuntaskan problem riwayat chat kosong di HP saat login bersamaan dengan Laptop di sesi multi-perangkat. Dilindungi unit test `TestHub_MultiDevice_RoomHistoryDeliveredToCorrectDevice` (100% PASS).
+  - **Pola Trusted Device Klien Mobile**: Penyelarasan arsitektur penyimpanan kunci E2EE lokal antara React Native (Android Keystore / iOS Keychain) dan Next.js (IndexedDB). Kunci tidak lagi dihapus saat logout normal (`clearSession`), sehingga login ulang di perangkat yang sama langsung masuk ke linimasa chat tanpa modal scan QR / reset berulang kali.
+  - **Isolasi Multi-User pada 1 Perangkat Fisik**: Kunci E2EE disimpan terisolasi penuh berbasis `userId` (`wuzz_e2ee_priv_${userId}`), memungkinkan banyak user bergantian memakai 1 perangkat fisik tanpa tumpang tindih atau konflik kunci.
+  - **Proteksi Penimpaan Kunci Publik Sepihak**: Endpoint `PUT /api/users/public-key` memvalidasi integritas kunci: kunci yang identik diizinkan tanpa batas (Trusted Device & QR Sync), namun kunci yang berbeda ditolak tegas (`HTTP 409 Conflict`) jika akun memiliki sesi perangkat aktif, mencegah penimpaan kunci sepihak.
 
 ---
 
