@@ -70,6 +70,19 @@ try {
           };
         }
 
+        // Suppress remote raw FCM push: Jangan biarkan OS menampilkan notifikasi mentah sebelum didekripsi
+        // Hanya notifikasi lokal yang memiliki is_locally_decrypted yang diizinkan untuk di-display
+        const isRemoteRawPush = data && !data.is_locally_decrypted && (Boolean(data.encrypted_content) || Boolean(data.room_id));
+        if (isRemoteRawPush) {
+          return {
+            shouldShowAlert: false,
+            shouldShowBanner: false,
+            shouldShowList: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+          };
+        }
+
         return {
           shouldShowAlert: true,
           shouldShowBanner: true,
@@ -389,7 +402,7 @@ export const notificationService = {
         content: {
           title,
           body,
-          data: data || {},
+          data: { ...(data || {}), is_locally_decrypted: true },
           sound: 'default',
           badge: 1,
           ...(Platform.OS === 'android' ? { channelId: DEFAULT_NOTIFICATION_CHANNEL_ID } : {}),

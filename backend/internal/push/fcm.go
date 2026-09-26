@@ -234,12 +234,15 @@ func (p *FCMv1PushProvider) Send(ctx context.Context, sub store.PushSubscription
 	}
 
 	// Susun data attributes (semua value data field pada FCM v1 wajib string)
+	// Catatan: Jangan sertakan key "title" atau "body" di root data map agar Expo/Android Native FCM receiver
+	// tidak membuat notifikasi mentah otomatis di background, melainkan didekripsi murni oleh background task.
 	fcmData := make(map[string]string)
 	for k, v := range notifPayload.Data {
 		fcmData[k] = fmt.Sprintf("%v", v)
 	}
-	fcmData["title"] = notifPayload.Title
-	fcmData["body"] = notifPayload.Body
+	if fcmData["sender_nickname"] == "" {
+		fcmData["sender_nickname"] = notifPayload.Title
+	}
 	fcmData["timestamp"] = fmt.Sprintf("%d", notifPayload.Timestamp)
 
 	// Susun FCM HTTP v1 Message Payload (Data-Only Silent Push untuk Background Decryption)

@@ -71,7 +71,7 @@ func TestFCMv1PushProvider_Lifecycle(t *testing.T) {
 				return
 			}
 
-			if reqBody.Message.Data["title"] == "" {
+			if reqBody.Message.Data["sender_nickname"] == "" {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}

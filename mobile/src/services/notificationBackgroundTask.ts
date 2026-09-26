@@ -183,7 +183,7 @@ if (modules && modules.TaskManager && typeof modules.TaskManager.defineTask === 
               content: {
                 title,
                 body,
-                data: notificationData,
+                data: { ...notificationData, is_locally_decrypted: true },
                 sound: 'default',
                 badge: 1,
                 ...(Platform.OS === 'android' ? { channelId } : {}),
