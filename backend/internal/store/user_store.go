@@ -578,18 +578,17 @@ func (s *SQLUserStore) UpdatePublicKeyWithDevice(userID, publicKey, deviceID str
 	trimmedKey := strings.TrimSpace(publicKey)
 	trimmedDev := strings.TrimSpace(deviceID)
 
-	// Jika sudah ada key terdaftar dan ada device terdaftar yang BERBEDA dari deviceID ini
-	if pubKey != "" && activeDev != "" && trimmedDev != "" && activeDev != trimmedDev {
-		// Multi-Device Phase 5: Jika kunci yang dikirim IDENTIK dengan kunci di server,
-		// perangkat ke-2 sudah mendapatkan kunci via QR Transfer → Izinkan tanpa menimpa active_device_id.
+	// Jika sudah ada key terdaftar dan ada perangkat yang SEDANG AKTIF:
+	if pubKey != "" && activeDev != "" {
+		// Multi-Device & Trusted Device: Jika kunci yang dikirim IDENTIK dengan kunci di server
+		// (baik dari laptop, HP setelah QR transfer, atau reconnect HP yang sama):
+		// Izinkan langsung tanpa error dan tanpa menimpa active_device_id.
 		if strings.TrimSpace(pubKey) == trimmedKey {
 			return keyVer, nil
 		}
-		return keyVer, ErrKeyConflict
-	}
-
-	// Jika deviceID kosong tapi sudah ada activeDev terdaftar, tolak jika key berbeda
-	if pubKey != "" && activeDev != "" && trimmedDev == "" && pubKey != trimmedKey {
+		// Jika kunci yang dikirim BERBEDA dari kunci resmi di server dan masih ada perangkat aktif:
+		// DILARANG menimpa secara diam-diam! Wajib kembalikan ErrKeyConflict agar klien
+		// diarahkan ke transfer QR atau reset kunci resmi dengan verifikasi password.
 		return keyVer, ErrKeyConflict
 	}
 

@@ -81,7 +81,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             err?.title === 'KEY_ALREADY_REGISTERED' ||
             err?.detail?.includes('KEY_ALREADY_REGISTERED')
           ) {
-            console.warn('[AuthContext] E2EE key conflict: Account active on another device');
+            console.warn('[AuthContext] E2EE key conflict: Local key does not match server key. Clearing stale key.');
+            await secureStorage.deleteE2EEKeyPair(targetUserId);
+            setE2eeKeyPair(null);
             setE2eeStatus('conflict');
           } else {
             console.log('[AuthContext] Server sync skipped or offline, using local key.');
@@ -369,12 +371,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Continue logout locally even if server call fails
       }
 
-      // Purge local storage
-      if (user?.id) {
-        try {
-          await secureStorage.deleteE2EEKeyPair(user.id);
-        } catch {}
-      }
+      // Trusted Device Pattern (matches Next.js frontend IndexedDB behavior):
+      // Do NOT delete the local E2EE keypair on normal logout so that when the user logs back in
+      // on this trusted phone, the existing key is retained and past messages decrypt cleanly
+      // without needing to re-scan the QR code every time.
       await secureStorage.clearSession();
       setUser(null);
       setToken(null);

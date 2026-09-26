@@ -3546,4 +3546,29 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
 - **APK Packaging & Install (`./gradlew assembleRelease` & `adb install`)**: **BUILD SUCCESSFUL & INSTALLED**.
 
+---
+
+## 🔄 Sinkronisasi Routing Riwayat Multi-Device & Pola Trusted Device Mobile (27 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Targeted WebSocket Room History Routing (`backend/internal/ws/hub.go`, `client.go`)**:
+  - Memperbaiki pengiriman paket riwayat pesan (`sendRoomHistory`) agar dikirim langsung secara deterministik ke channel soket perangkat pemohon (`c.send`), bukan disebar ke peta `h.userClients` yang memiliki urutan iterasi Go map acak.
+  - Memastikan skenario multi-device (Laptop Web & HP React Native terhubung bersamaan) menerima riwayat chat lengkap di HP tanpa paket tersasar ke Laptop.
+  - Menambahkan test `TestHub_MultiDevice_RoomHistoryDeliveredToCorrectDevice` pada test suite backend Go.
+- **Penyelarasan Arsitektur Trusted Device Mobile (`mobile/src/context/AuthContext.tsx`)**:
+  - Menyamakan perilaku mobile dengan Frontend Next.js (IndexedDB): kunci E2EE lokal tidak dihapus saat logout normal (`clearSession`), melainkan tetap tersimpan aman di Android Keystore / iOS Keychain per `userId`.
+  - Saat login ulang di perangkat yang sama, aplikasi memverifikasi kunci ke server, menerima HTTP 200 OK, dan langsung masuk ke beranda obrolan tanpa modal konfirmasi transfer/reset berulang kali.
+  - Memastikan isolasi multi-user di satu HP tetap terjaga penuh via prefix `wuzz_e2ee_priv_${userId}`.
+  - Membersihkan kunci usang secara otomatis jika terdeteksi konflik HTTP 409 (misal saat kunci di-reset dari perangkat lain).
+- **Proteksi Penimpaan Kunci Publik Sepihak (`backend/internal/store/user_store.go`)**:
+  - Pada `UpdatePublicKeyWithDevice`, jika kunci identik dengan kunci server (baik dari web atau mobile paska transfer/reconnect), izinkan tanpa konflik.
+  - Jika kunci berbeda dan terdapat perangkat yang sedang aktif, wajib kembalikan `ErrKeyConflict` (HTTP 409) untuk mencegah penimpaan kunci sepihak tanpa verifikasi password.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (Termasuk `TestHub_MultiDevice_RoomHistoryDeliveredToCorrectDevice`).
+- **Frontend Next.js Production Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **APK Release Packaging & USB Install (`./gradlew assembleRelease` & `adb install`)**: **BUILD SUCCESSFUL & INSTALLED ke device 2706294010BA1U6W**.
+
+
 

@@ -496,6 +496,11 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - **In-Chat Text Search**: Mendukung pencarian pesan dalam obrolan aktif via `GET /api/messages/search?conversation_id=...&q=...`, badge counter hasil (X/Y), navigasi Atas/Bawah, dan auto-scroll ke posisi pesan yang ditemukan.
 - [x] **Push Notification (Milestone 8.4)**: FCM/APNs token terdaftar ke `POST /api/notifications/subscribe`, Zero-Knowledge Background Decryption di service layer, pencabutan token saat logout & `SESSION_REPLACED`, dynamic foreground banner suppression, unread badge counter synchronization, dan notification tap deep link handler.
 
+- [x] **Trusted Device Pattern & Multi-User Key Isolation (Milestone 8.5 & 8.9)**:
+  - **Pola Trusted Device pada Normal Logout**: Klien mobile mempertahankan keypair E2EE di hardware Keystore (`expo-secure-store`) saat user menekan logout. Ketika user yang sama login kembali di HP tersebut, aplikasi memverifikasi kunci yang ada ke server (`PUT /api/users/public-key`), menerima status 200 OK, dan langsung masuk ke beranda tanpa modal konfirmasi scan QR atau reset kunci.
+  - **Isolasi Multi-User pada 1 Perangkat Fisik**: Kunci privat & publik disimpan dengan kunci berawalan `wuzz_e2ee_priv_${userId}` dan `wuzz_e2ee_pub_${userId}`. Jika beberapa pengguna bergantian login dan logout di satu HP yang sama, kunci masing-masing user tetap terisolasi penuh, tidak saling menimpa, dan tidak menimbulkan konflik otorisasi saat berganti sesi.
+  - **Penanganan Konflik E2EE (HTTP 409)**: Modal konflik (`KeyConflictModal`) HANYA dimunculkan jika user baru pertama kali login di HP dan akun sudah aktif di perangkat lain, ATAU jika kunci akun di server telah di-reset dari perangkat lain (kunci lokal lama otomatis dibersihkan untuk siap menerima transfer QR).
+
 ---
 
 *Dokumentasi ini adalah bagian resmi dari arsitektur Wuzz Chat dan wajib dijadikan acuan utama dalam pengembangan klien mobile.*

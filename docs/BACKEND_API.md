@@ -472,6 +472,7 @@ Mendaftarkan atau memperbarui Public Key E2EE perangkat saat ini.
   }
   ```
 - **Success Response (200 OK)**:
+  Kembali sukses jika kunci baru pertama kali didaftarkan, ATAU jika kunci yang dikirim identik dengan kunci terdaftar di server (pola *Trusted Device* / paska QR Transfer).
   ```json
   {
     "status": "ok",
@@ -481,7 +482,7 @@ Mendaftarkan atau memperbarui Public Key E2EE perangkat saat ini.
   }
   ```
 - **Error Conflict (409 Conflict)**:
-  Terjadi bila akun sudah memiliki kunci dari perangkat lain dan belum di-reset.
+  Terjadi bila akun sudah memiliki kunci aktif di server dan kunci yang dikirim berbeda (mismatched), mencegah penimpaan kunci publik secara sepihak/tanpa izin.
   ```json
   {
     "error": "KEY_ALREADY_REGISTERED",
