@@ -1,3 +1,3 @@
 # Implementation Progress — Standby
 
-Belum ada checklist aktif.
+Belum ada progress aktif.

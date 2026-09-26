@@ -18,7 +18,7 @@ import {
   RegisterScreen,
 } from './src/screens';
 import { Conversation, ConversationItem, GroupDetails } from './src/api/types';
-import { KeyConflictModal, SessionAlertModal } from './src/components';
+import { KeyConflictModal, SessionAlertModal, DeviceTransferModal } from './src/components';
 import { notificationService } from './src/services/notificationService';
 import { colors, spacing, typography } from './src/theme';
 
@@ -38,6 +38,7 @@ function AppNavigator() {
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState<boolean>(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState<boolean>(false);
+  const [isKeyTransferModalOpen, setIsKeyTransferModalOpen] = useState<boolean>(false);
   const [activeGroupInfo, setActiveGroupInfo] = useState<GroupDetails | ConversationItem | null>(null);
   // M-Mobile-8.2C: Tracks the parent group conversation when inside a sub-group
   // (used for smart back navigation & breadcrumb info)
@@ -377,7 +378,15 @@ function AppNavigator() {
       <KeyConflictModal
         visible={e2eeStatus === 'conflict'}
         onConfirmReset={resetE2EEKeys}
+        onOpenDeviceTransfer={() => setIsKeyTransferModalOpen(true)}
         onCancel={handleCancelKeyConflict}
+      />
+
+      {/* Global E2EE Key Transfer Modal */}
+      <DeviceTransferModal
+        visible={isKeyTransferModalOpen}
+        initialMode="scan"
+        onClose={() => setIsKeyTransferModalOpen(false)}
       />
     </View>
   );

@@ -1,37 +1,35 @@
-# Handover & Verification — Milestone M-Mobile-8.9
+# Handover Document — Milestone M-Mobile-8.10
 
-## Implementation Status
-- **Status**: `COMPLETED_AWAITING_USER_CONFIRMATION`
-- **Milestone**: M-Mobile-8.9 — E2EE Key Conflict Handling & Reset Dialog (HTTP 409)
+## Verification & Status
+- **Status**: Completed & Verified
 - **Branch**: `dev`
 
-## Verification Evidence & Quality Gate Results
-1. **Mobile E2EE Key Conflict & Reset Integration Test (`frontend/test-mobile-key-conflict.mjs`)**:
-   - Command: `node test-mobile-key-conflict.mjs` (Cwd: `frontend/`)
-   - Result: **PASSED (100% pass)**.
-   - Evidence:
-     - Catch HTTP 409 `KEY_ALREADY_REGISTERED` on initial key sync -> transitions `e2eeStatus` to `'conflict'` and opens `KeyConflictModal`.
-     - Confirm reset with password verification -> calls `resetPublicKey` with password -> fresh keypair generated -> transitions `e2eeStatus` to `'ready'`.
-     - Cancel conflict -> aborts session locally and resets to login without calling remote `POST /api/auth/logout`.
-2. **Mobile TypeScript Verification**:
-   - Command: `npx tsc --noEmit` (Cwd: `mobile/`)
-   - Result: **PASSED (0 errors)**.
-3. **Backend Full Test Suite**:
-   - Command: `go test -v ./...` (Cwd: `backend/`)
-   - Result: **PASSED (100% pass)**.
-4. **Frontend Automated Build**:
-   - Command: `npm run build` (Cwd: `frontend/`)
-   - Result: **PASSED (0 errors)**.
+## Execution Logs & Verification Evidence
+1. **Mobile TypeScript Compilation (`npx tsc --noEmit`)**:
+   - Status: **PASSED (0 Errors)**
+2. **Key Transfer E2E & Cross-Platform Suite (`node test-key-transfer-e2e.mjs`)**:
+   - Status: **11/11 PASSED (100%)**
+   - Test 1: Session Token Generation (64-hex lowercase) ➔ PASS
+   - Test 2: PBKDF2 Bit-Exact Parity (Noble vs WebCrypto) ➔ PASS
+   - Test 3: Key Wrapping & AES-GCM Encrypt/Decrypt Roundtrip ➔ PASS
+   - Test 4: Cross-Platform Interoperability (WebCrypto/Node -> Mobile Decrypt) ➔ PASS
+   - Test 5: QR Code Data Parser Robustness (URL, JSON, raw hex, reject invalid) ➔ PASS
+3. **Backend Full Test Suite (`go test -v ./internal/api/...`)**:
+   - Status: **PASSED (100%)**
+4. **Web Frontend Build (`npm run build`)**:
+   - Status: **PASSED (Next.js Turbopack 0 errors)**
 
-## Impacted Files
-- `mobile/src/components/KeyConflictModal.tsx` *(baru)*
+## Artifacts Created / Modified
+- `mobile/src/api/transfer.ts`
+- `mobile/src/api/index.ts`
+- `mobile/src/services/keyTransfer.ts`
+- `mobile/src/services/index.ts`
+- `mobile/src/components/DeviceTransferModal.tsx`
 - `mobile/src/components/index.ts`
-- `mobile/src/theme/colors.ts`
+- `mobile/src/components/KeyConflictModal.tsx`
+- `mobile/src/screens/RecentChatsScreen.tsx`
 - `mobile/src/context/AuthContext.tsx`
 - `mobile/App.tsx`
-- `frontend/test-mobile-key-conflict.mjs` *(baru)*
+- `mobile/test-key-transfer-e2e.mjs`
 - `docs/MOBILE_INTEGRATION_GUIDE.md`
-- `docs/plans/active/*`
-
-## Completion Confirmation Protocol
-Under `implementation-protocol` and workspace safety guidelines, git commit and documentation archiving are held in Phase 1 pending explicit user confirmation.
+- `docs/PROGRESS.md`

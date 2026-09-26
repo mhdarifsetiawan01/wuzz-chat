@@ -1,18 +1,20 @@
-# Decision Log — Milestone M-Mobile-8.9
+# Decision Log — Milestone M-Mobile-8.10
 
-## Architectural & Technical Decisions
+## DEC-001: 100% Interoperable PBKDF2 & AES-256-GCM Key Wrapping
+- **Context**: Mobile app WuzzChat menggunakan `@noble/curves`, `@noble/hashes`, dan `@noble/ciphers` sedangkan web client menggunakan standar Web Crypto API (`window.crypto.subtle`). Keduanya harus menghasilkan enkripsi/dekripsi bit-exact pada bundle transfer kunci.
+- **Decision**: Menggunakan `@noble/hashes/pbkdf2` dengan parameter SHA-256, 100.000 iterasi, 32-byte derived key, dan `@noble/ciphers/aes` GCM dengan 12-byte IV serta authentication tag 16-byte di akhir ciphertext. Telah diverifikasi kompatibel 100% dengan Web Crypto API.
+- **Alternatives Considered**: Menggunakan library pihak ketiga lain (seperti react-native-crypto-js), ditolak karena `@noble/*` sudah ada di dependencies dan merupakan implementasi modern audited pure TypeScript.
 
-### DEC-022: Local-Only Session Abort on Key Conflict Cancellation
-- **Context**: Sesuai `docs/MOBILE_INTEGRATION_GUIDE.md` Section 2B line 84: *"Jika menerima HTTP 409 Conflict (`KEY_ALREADY_REGISTERED`), tampilkan dialog konfirmasi apakah pengguna ingin mereset kunci ke perangkat ini via `POST /api/users/public-key/reset`. Jika pengguna membatalkan dialog tersebut, **hanya bersihkan sesi lokal tanpa memanggil `POST /api/auth/logout` ke server**, agar sesi aktif perangkat utama tidak terganggu."*
-- **Decision**: Saat pengguna memilih opsi "Batal / Keluar" di `KeyConflictModal`:
-  1. Hapus token dan user profile di `secureStorage` perangkat ini.
-  2. Putus socket lokal dan kembalikan state navigasi ke `LoginScreen`.
-  3. DILARANG memanggil endpoint `POST /api/auth/logout` ke server backend.
-- **Consequences**: Sesi perangkat utama (HP lama atau Web) yang sedang memegang kunci aktif tidak akan terputus karena server tidak menerima perintah logout untuk user tersebut.
+## DEC-002: Format QR Code & Parsing Fleksibel
+- **Context**: Perangkat pengirim merender QR code. Klien penerima bisa berupa HP WuzzChat, kamera HP umum, atau web browser.
+- **Decision**: QR Code memuat URL standar `https://chat.wuzzhub.id/transfer?token=<session_token>`. Pemindai QR mobile akan mengekstrak nilai token baik jika formatnya URL, JSON object (`{"token":"..."}`), ataupun raw hex token string 64-karakter secara cerdas.
+- **Alternatives Considered**: Hanya memuat raw hex string, ditolak karena menyulitkan pengguna jika discan dengan aplikasi kamera bawaan yang mengharapkan tautan web.
 
-### DEC-023: Two-Phase Password Verification Flow in `KeyConflictModal`
-- **Context**: Mereset kunci keamanan adalah operasi kritis yang akan menggantikan kunci publik akun di backend dan meng-kick sesi perangkat lama. Oleh karena itu, backend mewajibkan verifikasi kata sandi (`password`) pada `POST /api/users/public-key/reset`.
-- **Decision**: Modal didesain dengan 2 tahap tampilan (*two-phase state*):
-  - **Fase 1**: Edukasi konflik perangkat dengan 2 tombol aksi ("Reset Kunci ke Perangkat Ini" dan "Batal").
-  - **Fase 2**: Input password dengan penyamaran teks (`secureTextEntry`), loading spinner saat request ke API, dan pesan error jika password salah.
-- **Consequences**: Pengguna terlindungi dari reset kunci yang tidak disengaja dan mendapatkan feedback langsung jika password salah.
+## DEC-003: Hubungan KeyConflictModal dengan DeviceTransferModal
+- **Context**: Ketika pengguna baru login di HP kedua dan kunci E2EE sudah terdaftar di server, server merespons HTTP 409 (`KEY_ALREADY_REGISTERED`). Sebelumnya pengguna hanya disuguhkan opsi Reset Kunci (yang memutus riwayat E2EE lama).
+- **Decision**: Menambahkan tombol sekunder *"Transfer dari Perangkat Lain"* di `KeyConflictModal` yang langsung membuka `DeviceTransferModal` dalam mode Pindai QR. Dengan demikian pengguna dapat mengimpor kunci secara instan tanpa perlu mereset akun.
+
+## DEC-004: Optimasi HKDF-SHA256 (RFC 5869) untuk Generasi Kunci Instan (<1ms)
+- **Context**: PBKDF2 100.000 iterasi di lingkungan JavaScript interpreted pada mobile ARM CPU (Hermès) membutuhkan waktu ~1.5–3.5 detik untuk menghitung hash, menyebabkan loading spinner pada saat generate QR terasa lambat. Padahal token sesi yang digunakan adalah token acak CSPRNG 256-bit entropy tinggi (bukan password lemah manusia).
+- **Decision**: Meng-upgrade KDF default menjadi **HKDF-SHA256 (RFC 5869)** dengan schema version `v: 2` (dengan fallback backward-compatibility `v: 1` PBKDF2) pada klien Mobile dan Web. Hasil kalkulasi turun dari ~3000ms menjadi **<1ms (instan)**, sehingga kode QR muncul seketika saat modal dibuka.
+

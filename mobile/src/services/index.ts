@@ -6,6 +6,7 @@ export * from './audioManager';
 export * from './mediaCache';
 export * from './notificationService';
 export * from './qrCodeService';
+export * from './keyTransfer';
 export {
   getOrFetchPeerPublicKey,
   setContactSafetyVerified,

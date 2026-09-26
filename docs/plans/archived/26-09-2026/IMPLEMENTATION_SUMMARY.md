@@ -1,27 +1,27 @@
-# Implementation Summary — Milestone M-Mobile-8.9
+# Implementation Summary — Milestone M-Mobile-8.10
 
 ## Executive Status Snapshot
-- **Milestone**: M-Mobile-8.9 — E2EE Key Conflict Handling & Reset Dialog (HTTP 409)
-- **Status**: `COMPLETED_AWAITING_USER_CONFIRMATION`
+- **Milestone**: M-Mobile-8.10 — QR Code E2EE Device Transfer & Multi-Device Companion Linking (Mobile)
+- **Status**: `VERIFIED` (Automated Tests Passing 100%, Awaiting User Completion Confirmation)
+- **Target Repository**: `wuzz-chat` (Mobile App)
 - **Branch**: `dev`
-- **Impacted Subsystems**: Mobile E2EE Components (`KeyConflictModal`), Mobile Auth Context, Mobile App Navigator, Mobile Documentation.
 
-## Summary of Accomplishments
-1. **Key Conflict Modal (`mobile/src/components/KeyConflictModal.tsx`)**:
-   - Created native modal with sleek design tokens, safe area padding, and keyboard avoidance.
-   - Designed 2-step interaction: Action selection (Reset vs Cancel) and secure password verification input.
-   - Added loading spinner and inline error message for invalid password or server errors.
-   - Exported in `mobile/src/components/index.ts`.
-2. **Auth Context Actions (`mobile/src/context/AuthContext.tsx`)**:
-   - Added `cancelKeyConflict()` to abort session locally without calling remote `POST /api/auth/logout`, preserving the primary device's active session.
-   - Verified `resetE2EEKeys(password)` parameter passing to `POST /api/users/public-key/reset`.
-   - Added `tintWarning10` color token in `mobile/src/theme/colors.ts`.
-3. **Global Root Hoisting (`mobile/App.tsx`)**:
-   - Mounted `KeyConflictModal` globally at `AppNavigator` root controlled by `e2eeStatus === 'conflict'`.
-   - Wired `onConfirmReset` with `resetE2EEKeys` and `onCancel` with `handleCancelKeyConflict`.
-4. **Quality Gate & Testing**:
-   - `npx tsc --noEmit` in `mobile/` -> 0 errors.
-   - `go test -v ./...` in `backend/` -> 100% passed.
-   - `npm run build` in `frontend/` -> 0 errors.
-   - Added integration test `frontend/test-mobile-key-conflict.mjs` -> 100% passed.
-   - Section 7 in `docs/MOBILE_INTEGRATION_GUIDE.md` updated.
+## Objectives Completed
+Berhasil mengimplementasikan alur Zero-Knowledge QR Code E2EE Device Transfer & Companion Linking pada klien mobile WuzzChat (React Native / Expo), memungkinkan pengguna menautkan perangkat kedua (Web/Desktop atau HP baru) secara simultan tanpa mereset kunci enkripsi (*WhatsApp-Style Companion Mode*).
+
+## High-Level Architecture Completed
+1. **API Layer (`mobile/src/api/transfer.ts`)**: Integrasi endpoint `POST /api/users/transfer/create` dan `POST /api/users/transfer/consume` via `apiClient`.
+2. **Crypto & Key Wrapping Layer (`mobile/src/services/keyTransfer.ts`)**:
+   - Generator token sesi 32-byte CSPRNG.
+   - Derivasi kunci AES-256-GCM dari session token menggunakan PBKDF2 (100.000 iterasi, SHA-256) dengan salt 16-byte CSPRNG.
+   - Enkripsi bundle keypair lokal (`privateKeyJWK`, `publicKeyJWK`) menjadi format `EncryptedTransferPayload` yang 100% kompatibel dengan Web Crypto API di `frontend/lib/crypto/keyTransfer.ts`.
+   - Dekripsi bundle dan konversi JWK ke format Keystore mobile (`privateKeyHex` & `publicKeyJWK`).
+   - Parser multi-format QR Code (`parseTransferQRData`) untuk URL, JSON, dan raw hex string.
+3. **UI / UX Layer (`mobile/src/components/DeviceTransferModal.tsx`)**:
+   - **Mode Bagi Kunci (Pengirim / HP Sumber)**: Menghasilkan session token, enkripsi bundle, kirim ke server, dan render QR code via `QRCodeView.tsx` dengan countdown timer 5 menit dan tombol salin kode manual.
+   - **Mode Pindai QR (Penerima / HP Target)**: Membuka pemindai kamera live native `CameraQRScannerModal.tsx`, scan QR perangkat lain, consume session, dekripsi, dan impor kunci ke Keystore.
+   - **Mode Input Manual**: Fallback input kode token 64-hex karakter jika kamera terkendala.
+4. **Integration & Navigation**:
+   - Integrasi tombol "Tautkan Perangkat" (`💻`) di header `RecentChatsScreen.tsx`.
+   - Opsi "Transfer dari Perangkat Lain" di `KeyConflictModal.tsx` agar pengguna dapat memilih transfer alih-alih reset kunci saat 409 conflict.
+   - Penambahan method `importTransferredKeyPair` di `AuthContext.tsx` untuk sinkronisasi state aplikasi secara reaktif.

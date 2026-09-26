@@ -21,6 +21,7 @@ import { Conversation } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { ChatListItem } from '../components/ChatListItem';
 import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
+import { DeviceTransferModal } from '../components/DeviceTransferModal';
 import { useAuth } from '../context';
 import { ConnectionState, websocketClient } from '../services/websocket';
 import {
@@ -42,6 +43,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
+  const [isDeviceTransferModalOpen, setIsDeviceTransferModalOpen] = useState<boolean>(false);
   const [wsState, setWsState] = useState<ConnectionState>(websocketClient.getState());
 
   const fetchConversations = useCallback(async (isRefresh = false) => {
@@ -259,10 +261,21 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
 
         <View style={styles.headerRight}>
           <TouchableOpacity
+            onPress={() => setIsDeviceTransferModalOpen(true)}
+            activeOpacity={0.7}
+            style={styles.headerIconButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Tautkan Perangkat"
+          >
+            <Text style={styles.headerIconText}>💻</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             onPress={() => setIsNotificationModalOpen(true)}
             activeOpacity={0.7}
             style={styles.headerIconButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Notifikasi"
           >
             <Text style={styles.headerIconText}>🔔</Text>
           </TouchableOpacity>
@@ -353,6 +366,13 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
       <NotificationSettingsModal
         visible={isNotificationModalOpen}
         onClose={() => setIsNotificationModalOpen(false)}
+      />
+
+      {/* Multi-Device QR Code E2EE Key Transfer Modal */}
+      <DeviceTransferModal
+        visible={isDeviceTransferModalOpen}
+        initialMode="share"
+        onClose={() => setIsDeviceTransferModalOpen(false)}
       />
     </SafeAreaView>
   );

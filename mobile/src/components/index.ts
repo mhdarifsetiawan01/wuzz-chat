@@ -22,3 +22,4 @@ export * from './SafetyNumberModal';
 export * from './ContactInfoModal';
 export * from './CameraQRScannerModal';
 export * from './KeyConflictModal';
+export * from './DeviceTransferModal';

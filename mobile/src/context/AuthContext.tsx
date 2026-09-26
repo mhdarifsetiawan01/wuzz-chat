@@ -27,6 +27,7 @@ interface AuthContextType {
   e2eeStatus: E2EEStatus;
   initE2EEKeys: () => Promise<void>;
   resetE2EEKeys: (password?: string) => Promise<void>;
+  importTransferredKeyPair: (pair: E2EEKeyPair) => Promise<void>;
   login: (credentials: Omit<LoginRequest, 'device_id'>) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
@@ -44,6 +45,7 @@ const AuthContext = createContext<AuthContextType>({
   e2eeStatus: 'uninitialized',
   initE2EEKeys: async () => {},
   resetE2EEKeys: async () => {},
+  importTransferredKeyPair: async () => {},
   login: async () => {},
   register: async () => {},
   logout: async () => {},
@@ -151,6 +153,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw err;
     }
   }, [user?.id, deviceId]);
+
+  const importTransferredKeyPair = useCallback(async (pair: E2EEKeyPair) => {
+    if (!user?.id) throw new Error('User tidak terotentikasi');
+    setE2eeStatus('loading');
+    try {
+      await secureStorage.setE2EEKeyPair(user.id, pair);
+      setE2eeKeyPair(pair);
+      setE2eeStatus('ready');
+      console.log('[AuthContext] Transferred keypair imported and active.');
+    } catch (err) {
+      console.error('[AuthContext] importTransferredKeyPair failed:', err);
+      setE2eeStatus('error');
+      throw err;
+    }
+  }, [user?.id]);
 
   // Setup WebSocket session replaced handler
   useEffect(() => {
@@ -404,6 +421,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         e2eeStatus,
         initE2EEKeys,
         resetE2EEKeys,
+        importTransferredKeyPair,
         login,
         register,
         logout,

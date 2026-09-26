@@ -9,3 +9,4 @@ export * from './media';
 export * from './groups';
 export * from './subgroups';
 export * from './notifications';
+export * from './transfer';

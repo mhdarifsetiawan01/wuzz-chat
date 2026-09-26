@@ -21,12 +21,14 @@ import { Input } from './Input';
 interface KeyConflictModalProps {
   visible: boolean;
   onConfirmReset: (password: string) => Promise<void>;
+  onOpenDeviceTransfer?: () => void;
   onCancel: () => void | Promise<void>;
 }
 
 export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   visible,
   onConfirmReset,
+  onOpenDeviceTransfer,
   onCancel,
 }) => {
   const [isPromptingPassword, setIsPromptingPassword] = useState<boolean>(false);
@@ -102,7 +104,7 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
           <Text style={styles.description}>
             {isPromptingPassword
               ? 'Mereset kunci keamanan akan mengaktifkan enkripsi E2EE baru pada perangkat ini dan menonaktifkan sesi pada perangkat lain.'
-              : 'Akun Anda telah memiliki kunci enkripsi aktif di perangkat lain. Untuk mengaktifkan obrolan terenkripsi (E2EE) pada perangkat ini, Anda dapat mereset kunci keamanan menggunakan kata sandi Anda.'}
+              : 'Akun Anda telah memiliki kunci enkripsi aktif di perangkat lain. Anda dapat memindai kode QR dari perangkat lama untuk menyinkronkan kunci tanpa reset, atau mereset kunci menggunakan kata sandi Anda.'}
           </Text>
 
           {isPromptingPassword ? (
@@ -141,9 +143,18 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
             </View>
           ) : (
             <View style={styles.formContainer}>
+              {onOpenDeviceTransfer && (
+                <Button
+                  title="📱 Transfer dari Perangkat Lain"
+                  variant="primary"
+                  style={styles.actionButton}
+                  onPress={onOpenDeviceTransfer}
+                />
+              )}
+
               <Button
-                title="Reset Kunci ke Perangkat Ini"
-                variant="primary"
+                title={onOpenDeviceTransfer ? 'Reset Kunci Baru' : 'Reset Kunci ke Perangkat Ini'}
+                variant={onOpenDeviceTransfer ? 'secondary' : 'primary'}
                 style={styles.actionButton}
                 onPress={handleStartReset}
               />

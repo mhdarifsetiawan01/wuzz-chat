@@ -1,7 +1,7 @@
 # AI Context — Standby
 
-## Active Context Snapshot
+## Status
 - **Milestone**: None (Standby)
-- **Status**: `STANDBY`
 - **Branch**: `dev`
-- **Target Repository**: None
+
+Menunggu penugasan milestone atau task berikutnya dari pengguna.

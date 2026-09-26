@@ -1,3 +1,3 @@
-# Handover — Standby
+# Handover Document — Standby
 
-Belum ada serah terima aktif.
+Belum ada handover aktif.

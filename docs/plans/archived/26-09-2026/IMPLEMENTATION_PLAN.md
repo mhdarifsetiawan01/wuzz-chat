@@ -1,50 +1,65 @@
-# Implementation Plan — Milestone M-Mobile-8.9: E2EE Key Conflict Handling & Reset Dialog (HTTP 409)
+# Implementation Plan — Milestone M-Mobile-8.10
 
-## 1. Problem Statement & Motivation
-When an existing user logs in from a fresh phone (or installs the app on a secondary device) without transferring their local E2EE keys, the client attempts to register its new public key via `PUT /api/users/public-key`. The backend responds with `HTTP 409: KEY_ALREADY_REGISTERED` to protect the existing key from accidental overwriting.
-Currently, `AuthContext` catches this error and transitions `e2eeStatus` to `'conflict'`, but no UI modal is presented to the user. The app hangs or remains in conflict mode without giving the user the ability to verify their password and force-reset the key, or cancel and return to login without killing the primary device's active session.
+## 1. Objectives & Goals
+Mengimplementasikan alur **QR Code E2EE Device Transfer & Multi-Device Companion Linking** pada aplikasi Mobile WuzzChat sesuai dengan panduan `docs/MOBILE_INTEGRATION_GUIDE.md` Section 3D & Section 7.
 
-## 2. Technical Architecture & Component Flow
+## 2. Target Modified & Created Files
+- **Created**:
+  - `mobile/src/api/transfer.ts`: REST client untuk endpoint transfer backend (`/api/users/transfer/create` dan `/api/users/transfer/consume`).
+  - `mobile/src/services/keyTransfer.ts`: Crypto key wrapping service (PBKDF2-SHA256, AES-256-GCM, bundle packing/unpacking, konversi format JWK <-> Keystore).
+  - `mobile/src/components/DeviceTransferModal.tsx`: Modal lengkap penautan & migrasi perangkat (Mode Bagi Kunci / QR Generator, Mode Pindai Kamera, Mode Input Manual).
+  - `mobile/src/services/__tests__/keyTransfer.test.ts` (atau test simulasi transfer interoperabilitas Mobile <-> Web).
+- **Modified**:
+  - `mobile/src/api/index.ts`: Ekspor modul transfer API.
+  - `mobile/src/services/index.ts`: Ekspor modul keyTransfer service.
+  - `mobile/src/components/index.ts`: Ekspor `DeviceTransferModal`.
+  - `mobile/src/context/AuthContext.tsx`: Tambahkan `importTransferredKeyPair` untuk menyimpan keypair hasil transfer dan memperbarui state E2EE menjadi `ready`.
+  - `mobile/src/screens/RecentChatsScreen.tsx`: Tambahkan tombol/icon "Tautkan Perangkat" di header untuk membuka `DeviceTransferModal`.
+  - `mobile/src/components/KeyConflictModal.tsx`: Sediakan tombol "Transfer dari Perangkat Lain" sebagai alternatif reset kunci dengan password.
 
-### A. New UI Modal: `KeyConflictModal.tsx`
-- **Location**: `mobile/src/components/KeyConflictModal.tsx`
-- **Export**: `mobile/src/components/index.ts`
-- **Visual Design**:
-  - Centered card overlay with frosted backdrop (`colors.bgOverlay`).
-  - Warning/Key badge (`🔐`) with error/warning tint (`colors.tintWarning10` / `colors.tintAccent10`).
-  - Header: *"Kunci Keamanan Terdaftar"* / *"Perangkat Lain Sedang Aktif"*.
-  - Body: *"Akun Anda telah memiliki kunci enkripsi di perangkat lain. Untuk mengaktifkan obrolan terenkripsi (E2EE) pada perangkat ini, Anda dapat mereset kunci keamanan menggunakan password akun Anda."*.
-  - Interactive Action Modes:
-    1. **Default State**:
-       - Button "Reset Kunci ke Perangkat Ini" (variant: `primary`).
-       - Button "Batal / Kembali" (variant: `secondary` / `ghost`).
-    2. **Password Verification Prompt State**:
-       - Animated/Visible input field with password masking (`secureTextEntry`).
-       - Inline error message for wrong password or network failure.
-       - Button "Konfirmasi Reset" (calls `onConfirmReset(password)` with loading indicator).
-       - Button "Kembali" (returns to default state).
+## 3. Technical Architecture & Data Flow
 
-### B. Auth Context Integration: `mobile/src/context/AuthContext.tsx`
-- Add `cancelKeyConflict()` method:
-  - Clears local tokens and stored session (`secureStorage.clearSession()`).
-  - Sets `user = null`, `token = null`, `e2eeKeyPair = null`, `e2eeStatus = 'uninitialized'`.
-  - Does NOT call remote `POST /api/auth/logout` (preserves the primary device's active session per `docs/MOBILE_INTEGRATION_GUIDE.md` line 84).
-- Ensure `resetE2EEKeys(password)` handles invalid password error reporting cleanly.
+```text
+[Device A (Sumber/Pengirim)]               [Server Go]                 [Device B (Target/Penerima)]
+         │                                      │                                    │
+1. Generate session_token (64-hex)              │                                    │
+2. Pack & Encrypt keypair via AES-GCM (PBKDF2)  │                                    │
+3. POST /api/users/transfer/create ────────────►│ (Simpan di Redis/Memory, TTL 5m)  │
+4. Render QR: https://.../transfer?token=...    │                                    │
+         │                                      │                                    │
+         │ ◄────────── Scan QR via CameraQRScannerModal ─────────────────────────────┤
+         │                                      │                                    │
+         │                                      │◄── POST /api/users/transfer/consume┤ (Kirim session_token & device_id)
+         │                                      ├───────────────────────────────────►│ (Return encrypted_bundle)
+         │                                      │                                    │
+         │                                      │                       5. Dekripsi via PBKDF2
+         │                                      │                       6. Simpan ke Keystore
+         │                                      │                       7. Sesi aktif simultan!
+```
 
-### C. Root Navigator Mounting: `mobile/App.tsx`
-- In `AppNavigator`, read `e2eeStatus`, `resetE2EEKeys`, and `cancelKeyConflict` from `useAuth()`.
-- Mount `<KeyConflictModal visible={e2eeStatus === 'conflict'} ... />` globally.
+## 4. Key Wrapping Specification
+- **Algorithm**: AES-256-GCM
+- **Key Derivation Function**: PBKDF2 with SHA-256, 100,000 iterations, 16-byte random salt.
+- **Payload Schema**:
+  ```json
+  {
+    "ciphertext": "<base64>",
+    "iv": "<base64_12bytes>",
+    "salt": "<base64_16bytes>",
+    "v": 1
+  }
+  ```
+- **Plaintext Data**:
+  ```json
+  {
+    "privateKeyJWK": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"d\":\"...\",\"x\":\"...\",\"y\":\"...\",\"ext\":true,\"key_ops\":[\"deriveKey\"]}",
+    "publicKeyJWK": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"...\",\"y\":\"...\",\"ext\":true,\"key_ops\":[]}",
+    "createdAt": 1720000000000
+  }
+  ```
 
-## 3. Impacted Files
-- `mobile/src/components/KeyConflictModal.tsx` (new)
-- `mobile/src/components/index.ts`
-- `mobile/src/context/AuthContext.tsx`
-- `mobile/App.tsx`
-- `docs/MOBILE_INTEGRATION_GUIDE.md`
-- `docs/plans/active/*`
-
-## 4. Verification & Testing Strategy
-- Automated Typecheck: `npx tsc --noEmit` in `mobile/`
-- Automated Backend Tests: `go test -v ./...` in `backend/`
-- Automated Frontend Build: `npm run build` in `frontend/`
-- Integration Script: Verify key conflict 409 and reset flow in an integration test.
+## 5. Verification Strategy
+1. **Automated Interoperability Unit Test**: Uji roundtrip enkripsi di mobile dan dekripsi di web/node, serta konversi JWK <-> Keystore Hex.
+2. **TypeScript Compilation Check**: `npx tsc --noEmit` di folder `mobile/`.
+3. **Backend Unit Tests**: `go test -v ./internal/api/...` di folder `backend/`.
+4. **Frontend Build Check**: `npm run build` di folder `frontend/`.

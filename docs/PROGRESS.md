@@ -3330,6 +3330,55 @@ Mengimplementasikan modul penanganan konflik kunci E2EE (*Key Conflict Handling*
 - **Backend Full Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (100% lulus).
 - **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
 
+---
+
+## 🚀 Milestone M-Mobile-8.10: QR Code E2EE Device Transfer & Multi-Device Companion Linking (Mobile) (26 September 2026)
+
+### 1. Ringkasan Fitur & Implementasi Mobile
+Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-Device Companion Linking** pada WuzzChat Mobile (React Native / Expo 57):
+1. **🔌 Transfer REST API Client (`mobile/src/api/transfer.ts`)**:
+   - `createTransferSession(sessionToken, encryptedBundle)` ➔ `POST /api/users/transfer/create` (TTL 5 menit).
+   - `consumeTransferSession(sessionToken, deviceId)` ➔ `POST /api/users/transfer/consume`.
+2. **🔐 Cryptographic Key Wrapping Service (`mobile/src/services/keyTransfer.ts`)**:
+   - Generator token sesi 32-byte (Hex 64-karakter) CSPRNG.
+   - Derivasi kunci simetris AES-256-GCM dari token sesi menggunakan PBKDF2 (100.000 iterasi, SHA-256) dengan salt 16-byte CSPRNG — 100% bit-exact parity dengan Web Crypto API.
+   - Enkripsi bundle keypair lokal (`privateKeyJWK`, `publicKeyJWK`) menjadi format `EncryptedTransferPayload` yang kompatibel silang platform.
+   - Dekripsi bundle dan konversi format JWK skalar `d` ⇄ Keystore internal mobile (`privateKeyHex` & `publicKeyJWK`).
+   - Parser multi-format QR Code (`parseTransferQRData`) yang mampu mengekstrak token dari URL web, payload JSON, maupun raw hex string.
+3. **🛡️ AuthContext Reactive Key Import (`mobile/src/context/AuthContext.tsx`)**:
+   - Menambahkan method `importTransferredKeyPair(pair: E2EEKeyPair)` untuk menyimpan keypair hasil transfer ke `secureStorage` dan mengubah status E2EE menjadi `'ready'`.
+4. **📱 Multi-Mode UI Component (`mobile/src/components/DeviceTransferModal.tsx`)**:
+   - **Mode Bagi Kunci (Pengirim / HP Sumber)**: Mengenkripsi keypair lokal, upload transfer session ke server, dan menampilkan QR Code dinamis via `QRCodeView` dengan countdown timer 5 menit (300s) dan tombol salin token manual.
+   - **Mode Pindai QR (Penerima / HP Target)**: Mengintegrasikan live camera scanner `CameraQRScannerModal` untuk memindai QR perangkat lain, consume session, dan mengimpor keypair secara instan.
+   - **Mode Input Kode (Fallback Manual)**: Form input manual token 64-hex karakter jika kamera tidak dapat digunakan.
+5. **🧭 Navigasi & Entry Points Terpadu**:
+   - Menambahkan tombol *"Tautkan Perangkat"* (`💻`) pada header `RecentChatsScreen.tsx`.
+   - Menghubungkan opsi *"Transfer dari Perangkat Lain"* pada `KeyConflictModal.tsx` sehingga pengguna baru di HP kedua dapat langsung memindai QR tanpa harus mereset kunci.
+6. **🧪 Pengujian Otomatis Interoperabilitas (`mobile/test-key-transfer-e2e.mjs`)**:
+   - Pengujian 11 skenario enkripsi/dekripsi, parsing QR, dan uji silang Node.js/WebCrypto vs Mobile Noble Crypto dengan hasil **11/11 PASS 100%**.
+
+### 2. File Dimodifikasi / Dibuat
+- `mobile/src/api/transfer.ts` *(baru)*
+- `mobile/src/api/index.ts`
+- `mobile/src/services/keyTransfer.ts` *(baru)*
+- `mobile/src/services/index.ts`
+- `mobile/src/components/DeviceTransferModal.tsx` *(baru)*
+- `mobile/src/components/index.ts`
+- `mobile/src/components/KeyConflictModal.tsx`
+- `mobile/src/screens/RecentChatsScreen.tsx`
+- `mobile/src/context/AuthContext.tsx`
+- `mobile/App.tsx`
+- `mobile/test-key-transfer-e2e.mjs` *(baru)*
+- `docs/MOBILE_INTEGRATION_GUIDE.md`
+- `docs/PROGRESS.md`
+
+### 3. Bukti Pengujian Otomatis
+- **Mobile TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Mobile E2EE Key Transfer E2E & Cross-Platform Test (`node test-key-transfer-e2e.mjs` di `mobile/`)**: **PASS 100%** (11/11 tests pass).
+- **Backend Full Test Suite (`go test -v ./internal/api/...` di `backend/`)**: **PASS 100%** (100% pass).
+- **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
+
+
 
 
 

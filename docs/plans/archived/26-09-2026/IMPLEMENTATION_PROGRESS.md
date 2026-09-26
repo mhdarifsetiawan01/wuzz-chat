@@ -1,26 +1,28 @@
-# Implementation Progress — Milestone M-Mobile-8.9
+# Implementation Progress — Milestone M-Mobile-8.10
 
-## Granular Atomic Task Checklist
-
-- [x] **Task 1: Build `KeyConflictModal.tsx` Component**
-  - [x] Implement dialog UI with design tokens (`colors`, `radius`, `spacing`, `typography`).
-  - [x] Implement dual-step interaction: Action choice (Reset vs Cancel) & Password prompt.
-  - [x] Support loading state and inline error message for incorrect password or server error.
-  - [x] Export `KeyConflictModal` in `mobile/src/components/index.ts`.
-
-- [x] **Task 2: Auth Context Enhancements (`mobile/src/context/AuthContext.tsx`)**
-  - [x] Implement `cancelKeyConflict()` to abort session locally without calling remote logout.
-  - [x] Verify `resetE2EEKeys(password)` parameter passing to `resetPublicKey()`.
-  - [x] Expose `cancelKeyConflict` in `AuthContextType`.
-
-- [x] **Task 3: Root Navigator Mounting & UI Wiring (`mobile/App.tsx`)**
-  - [x] Import and render `<KeyConflictModal>` at `AppNavigator` root.
-  - [x] Wire `visible={e2eeStatus === 'conflict'}`.
-  - [x] Wire `onConfirmReset` with `resetE2EEKeys` and `onCancel` with `cancelKeyConflict`.
-
-- [x] **Task 4: Quality Gate, Automated Testing & Documentation Sync**
-  - [x] Typecheck mobile with `npx tsc --noEmit` (Passed: 0 errors).
-  - [x] Run backend unit tests `go test -v ./...` (Passed: 100% pass).
-  - [x] Run frontend build `npm run build` (Passed: 0 errors).
-  - [x] Write integration test verifying 409 conflict and reset flow (`test-mobile-key-conflict.mjs`).
-  - [x] Update Section 7 checklist in `docs/MOBILE_INTEGRATION_GUIDE.md`.
+- [x] **Task 1: API Layer for Device Transfer**
+  - [x] Buat file `mobile/src/api/transfer.ts` dengan fungsi `createTransferSession` dan `consumeTransferSession`.
+  - [x] Ekspor fungsi di `mobile/src/api/index.ts`.
+- [x] **Task 2: Cryptographic Key Wrapping Service**
+  - [x] Buat file `mobile/src/services/keyTransfer.ts` mengimplementasikan PBKDF2 (100k iterasi, SHA-256), AES-256-GCM, format payload `EncryptedTransferPayload`, dan konversi keypair JWK <-> Keystore.
+  - [x] Ekspor service di `mobile/src/services/index.ts`.
+- [x] **Task 3: AuthContext Integration**
+  - [x] Tambahkan method `importTransferredKeyPair` di `mobile/src/context/AuthContext.tsx` untuk menyimpan keypair hasil transfer dan memulihkan status E2EE menjadi `ready`.
+- [x] **Task 4: DeviceTransferModal Component & UI Integration**
+  - [x] Buat modal `mobile/src/components/DeviceTransferModal.tsx` yang mendukung:
+    - Mode Bagi Kunci (Pengirim) dengan countdown timer 5 menit dan QR display via `QRCodeView`.
+    - Mode Pindai Kamera (Penerima) mengintegrasikan `CameraQRScannerModal`.
+    - Mode Input Token Manual (Fallback).
+  - [x] Ekspor di `mobile/src/components/index.ts`.
+  - [x] Integrasikan tombol akses di header `mobile/src/screens/RecentChatsScreen.tsx`.
+  - [x] Hubungkan opsi "Transfer dari Perangkat Lain" pada `mobile/src/components/KeyConflictModal.tsx`.
+  - [x] Hubungkan modal ke `mobile/App.tsx`.
+- [x] **Task 5: Automated Testing & Verification**
+  - [x] Buat skrip simulasi / test interoperabilitas e2e transfer kunci (`mobile/test-key-transfer-e2e.mjs`).
+  - [x] Jalankan `npx tsc --noEmit` di `mobile/` ➔ PASS (0 error).
+  - [x] Jalankan `node test-key-transfer-e2e.mjs` di `mobile/` ➔ PASS (11/11 tests pass).
+  - [x] Jalankan `go test -v ./internal/api/...` di `backend/` ➔ PASS (100% pass).
+  - [x] Jalankan `npm run build` di `frontend/` ➔ PASS (Next.js Turbopack 0 errors).
+- [x] **Task 6: Documentation Sync & Self-Review**
+  - [x] Perbarui checklist di `docs/MOBILE_INTEGRATION_GUIDE.md` Section 7 (`[x] QR Code E2EE Device Transfer`).
+  - [x] Perbarui ringkasan kemajuan di `docs/PROGRESS.md`.

@@ -25,25 +25,51 @@ export function generateTransferSessionToken(): string {
     .join('')
 }
 
-// Derive AES-GCM key menggunakan PBKDF2 (100.000 iterasi, SHA-256) dari session token
-async function deriveTransferAESKey(sessionToken: string, salt: Uint8Array): Promise<CryptoKey> {
+// Derive AES-GCM key menggunakan HKDF-SHA256 (v2, instant <1ms) atau PBKDF2 (v1 fallback)
+async function deriveTransferAESKey(
+  sessionToken: string,
+  salt: Uint8Array,
+  version: number = 2
+): Promise<CryptoKey> {
   const enc = new TextEncoder()
   const tokenBytes = enc.encode(sessionToken)
 
+  if (version === 1) {
+    const baseKey = await window.crypto.subtle.importKey(
+      'raw',
+      tokenBytes,
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    )
+    return window.crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt as any,
+        iterations: 100000,
+        hash: 'SHA-256',
+      },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    )
+  }
+
+  // Version 2 (Default): HKDF-SHA256 (RFC 5869) - Instant (<1ms)
   const baseKey = await window.crypto.subtle.importKey(
     'raw',
     tokenBytes,
-    { name: 'PBKDF2' },
+    { name: 'HKDF' },
     false,
     ['deriveKey']
   )
-
   return window.crypto.subtle.deriveKey(
     {
-      name: 'PBKDF2',
-      salt: salt as any,
-      iterations: 100000,
+      name: 'HKDF',
       hash: 'SHA-256',
+      salt: salt as any,
+      info: enc.encode('wuzz-transfer-aes-v1') as any,
     },
     baseKey,
     { name: 'AES-GCM', length: 256 },
@@ -85,7 +111,7 @@ export async function encryptKeyBundleForTransfer(
   window.crypto.getRandomValues(salt)
   window.crypto.getRandomValues(iv)
 
-  const aesKey = await deriveTransferAESKey(sessionToken, salt)
+  const aesKey = await deriveTransferAESKey(sessionToken, salt, 2)
 
   const payload = JSON.stringify({
     privateKeyJWK,
@@ -104,7 +130,7 @@ export async function encryptKeyBundleForTransfer(
     ciphertext: uint8ToBase64(new Uint8Array(ciphertextBuffer)),
     iv: uint8ToBase64(iv),
     salt: uint8ToBase64(salt),
-    v: 1,
+    v: 2,
   }
 
   return JSON.stringify(result)
@@ -130,7 +156,7 @@ export async function decryptKeyBundleFromTransfer(
   const iv = base64ToUint8(payload.iv)
   const ciphertext = base64ToUint8(payload.ciphertext)
 
-  const aesKey = await deriveTransferAESKey(sessionToken, salt)
+  const aesKey = await deriveTransferAESKey(sessionToken, salt, payload.v || 1)
 
   try {
     const decryptedBuffer = await window.crypto.subtle.decrypt(
