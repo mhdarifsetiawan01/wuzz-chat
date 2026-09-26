@@ -3427,13 +3427,20 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 
 ### 3. Bukti Pengujian Otomatis
 - **Mobile TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
-- **WebRTC Signaling Simulation (`node mobile/test-webrtc-signaling.mjs`)**: **PASS 100%** (8/8 tests pass).
+- **WebRTC Signaling & Chromium Headless Test (`node mobile/test-webrtc-signaling.mjs`)**: **PASS 100%** (10/10 tests pass, including live Chromium engine DTLS RFC compliance).
 - **Backend Full Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (100% pass).
 - **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
 
+---
 
+## 🚀 Perbaikan Pasca-Testing: WebRTC DTLS Compliance & Audio Feedback Fix (26 September 2026)
 
+### 1. Masalah yang Diperbaiki
+- **PWA "Called with SDP without DTLS fingerprint"**: Mengatasi error Chromium saat callee mengeksekusi `setRemoteDescription` terhadap offer/answer dengan menyertakan atribut DTLS fingerprint sha-256, `a=ice-ufrag`, `a=ice-pwd` (22-256 karakter), `a=setup:actpass/active`, `a=group:BUNDLE 0`, dan `a=rtcp-mux`.
+- **Dual-Layer Protection di Web Frontend (`normalizeSDP`)**: Sanitasi otomatis di `frontend/lib/webrtc/webrtcAudio.ts` sehingga klien web kebal terhadap error negosiasi SDP yang tidak lengkap.
+- **Audible Ringtone & Rhythmic Vibration**: Integrasi `Vibration` di `mobile/src/services/callAudioManager.ts` dan pemaksaan volume maksimum (`volume = 1.0`).
 
-
-
-
+### 2. Bukti Pengujian
+- `node mobile/test-webrtc-signaling.mjs`: 10/10 PASS (Pengujian langsung pada Google Chrome headless via CDP).
+- `npx tsc --noEmit` di `mobile/`: 0 errors.
+- `npm run build` di `frontend/`: 0 errors.

@@ -13,6 +13,7 @@ import {
   AudioPlayer,
 } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Vibration } from 'react-native';
 import { fromByteArray } from 'base64-js';
 
 function createToneWavBase64(durationSec: number, freq1: number, freq2: number, onDuration: number): string {
@@ -210,12 +211,21 @@ class CallAudioManager {
     }
   }
 
+  constructor() {
+    this.ensureTonesGenerated().catch(() => {});
+  }
+
   /**
    * Play incoming melodic ringtone loop.
    */
   public async playIncomingRingtone(): Promise<void> {
     this.stopAllCallTones();
-    console.log('[CallAudioManager] Playing audible incoming ringtone...');
+    console.log('[CallAudioManager] Playing audible incoming ringtone & vibration...');
+
+    // Trigger rhythmic call vibration pattern: [delay, vibrate, pause, vibrate...]
+    try {
+      Vibration.vibrate([0, 1000, 1000, 1000], true);
+    } catch {}
 
     try {
       await setAudioModeAsync({
@@ -228,6 +238,7 @@ class CallAudioManager {
       const { ringtoneUri } = await this.ensureTonesGenerated();
       const player = createAudioPlayer(ringtoneUri);
       player.loop = true;
+      player.volume = 1.0;
       player.play();
       this.activePlayer = player;
     } catch (err) {
@@ -253,6 +264,7 @@ class CallAudioManager {
       const { ringbackUri } = await this.ensureTonesGenerated();
       const player = createAudioPlayer(ringbackUri);
       player.loop = true;
+      player.volume = 1.0;
       player.play();
       this.activePlayer = player;
     } catch (err) {
@@ -261,9 +273,13 @@ class CallAudioManager {
   }
 
   /**
-   * Stop all active ringtone / ringback tones.
+   * Stop all active ringtone / ringback tones and vibrations.
    */
   public stopAllCallTones(): void {
+    try {
+      Vibration.cancel();
+    } catch {}
+
     if (this.activePlayer) {
       try {
         if (this.activePlayer.playing) {

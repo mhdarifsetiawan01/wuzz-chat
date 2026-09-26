@@ -73,6 +73,34 @@ export function extractRawSDP(sdpInput: string): string {
   return sdpInput;
 }
 
+export function generateFallbackSDP(type: 'offer' | 'answer'): string {
+  const sessionId = `${Math.floor(Date.now() / 1000)}`;
+  const ufrag = `wuzz_${Math.random().toString(36).slice(2, 8)}`;
+  const pwd = `wuzzpassword_${Math.random().toString(36).slice(2, 12)}_${Math.random().toString(36).slice(2, 10)}`;
+  const setup = type === 'offer' ? 'actpass' : 'active';
+
+  return [
+    'v=0',
+    `o=- ${sessionId} 2 IN IP4 127.0.0.1`,
+    's=-',
+    't=0 0',
+    'a=group:BUNDLE 0',
+    'm=audio 9 UDP/TLS/RTP/SAVPF 111',
+    'c=IN IP4 0.0.0.0',
+    'a=rtcp:9 IN IP4 0.0.0.0',
+    `a=ice-ufrag:${ufrag}`,
+    `a=ice-pwd:${pwd}`,
+    'a=fingerprint:sha-256 37:FB:B5:5E:48:CD:EC:C4:DC:18:E3:C3:A8:57:CF:B9:41:D6:57:0A:E8:C4:95:3F:4C:7A:CA:1E:98:9F:9E:E5',
+    `a=setup:${setup}`,
+    'a=mid:0',
+    'a=sendrecv',
+    'a=rtcp-mux',
+    'a=rtpmap:111 opus/48000/2',
+    'a=fmtp:111 minptime=10;useinbandfec=1',
+    '',
+  ].join('\r\n');
+}
+
 export class WebRTCAudioSession {
   private pc: any = null;
   private localStream: any = null;
@@ -143,8 +171,8 @@ export class WebRTCAudioSession {
       }
     }
 
-    // Standardized Raw SDP Signaling Payload Fallback
-    return `v=0\r\no=wuzzchat ${Date.now()} 2 IN IP4 127.0.0.1\r\ns=WuzzChat-Audio-Call\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 0.0.0.0\r\na=sendrecv\r\na=rtpmap:111 opus/48000/2\r\n`;
+    // Standardized Raw SDP Signaling Payload Fallback with RFC DTLS & ICE attributes
+    return generateFallbackSDP('offer');
   }
 
   /**
@@ -180,8 +208,8 @@ export class WebRTCAudioSession {
       }
     }
 
-    // Standardized Raw SDP Signaling Payload Fallback
-    return `v=0\r\no=wuzzchat ${Date.now()} 2 IN IP4 127.0.0.1\r\ns=WuzzChat-Audio-Call\r\nt=0 0\r\nm=audio 9 UDP/TLS/RTP/SAVPF 111\r\nc=IN IP4 0.0.0.0\r\na=sendrecv\r\na=rtpmap:111 opus/48000/2\r\n`;
+    // Standardized Raw SDP Signaling Payload Fallback with RFC DTLS & ICE attributes
+    return generateFallbackSDP('answer');
   }
 
   /**

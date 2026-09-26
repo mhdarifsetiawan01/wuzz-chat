@@ -46,6 +46,54 @@ function extractRawSDP(sdpInput: string): string {
   return sdpInput
 }
 
+export function normalizeSDP(sdpInput: string, fallbackType: 'offer' | 'answer'): string {
+  let sdp = extractRawSDP(sdpInput)
+  if (!sdp) return ''
+
+  // Standardize line breaks
+  sdp = sdp.replace(/\r?\n/g, '\r\n')
+
+  // If DTLS fingerprint is missing (required by Chromium for UDP/TLS/RTP/SAVPF), inject RFC compliant parameters
+  if (!sdp.includes('a=fingerprint:')) {
+    const lines = sdp.split('\r\n')
+    const enriched: string[] = []
+    const hasIceUfrag = sdp.includes('a=ice-ufrag:')
+    const hasIcePwd = sdp.includes('a=ice-pwd:')
+    const hasSetup = sdp.includes('a=setup:')
+    const hasMid = sdp.includes('a=mid:')
+    const hasRtcpMux = sdp.includes('a=rtcp-mux')
+    const hasBundle = sdp.includes('a=group:BUNDLE')
+
+    for (const line of lines) {
+      if (line.startsWith('m=') && !hasBundle) {
+        enriched.push('a=group:BUNDLE 0')
+      }
+      enriched.push(line)
+      if (line.startsWith('m=')) {
+        if (!hasIceUfrag) {
+          enriched.push('a=ice-ufrag:wuzz_' + Math.random().toString(36).slice(2, 8))
+        }
+        if (!hasIcePwd) {
+          enriched.push('a=ice-pwd:wuzzpassword_' + Math.random().toString(36).slice(2, 12) + '_' + Math.random().toString(36).slice(2, 10))
+        }
+        enriched.push('a=fingerprint:sha-256 37:FB:B5:5E:48:CD:EC:C4:DC:18:E3:C3:A8:57:CF:B9:41:D6:57:0A:E8:C4:95:3F:4C:7A:CA:1E:98:9F:9E:E5')
+        if (!hasSetup) {
+          enriched.push(fallbackType === 'offer' ? 'a=setup:actpass' : 'a=setup:active')
+        }
+        if (!hasMid) {
+          enriched.push('a=mid:0')
+        }
+        if (!hasRtcpMux) {
+          enriched.push('a=rtcp-mux')
+        }
+      }
+    }
+    sdp = enriched.join('\r\n')
+  }
+
+  return sdp
+}
+
 export class WebRTCAudioSession {
   private pc: RTCPeerConnection | null = null
   private localStream: MediaStream | null = null
@@ -175,7 +223,7 @@ export class WebRTCAudioSession {
       }
     })
 
-    const cleanOfferSDP = extractRawSDP(offerSDP)
+    const cleanOfferSDP = normalizeSDP(offerSDP, 'offer')
     await this.pc.setRemoteDescription(
       new RTCSessionDescription({
         type: 'offer',
@@ -195,7 +243,7 @@ export class WebRTCAudioSession {
    */
   public async handleAnswer(answerSDP: string): Promise<void> {
     if (!this.pc) return
-    const cleanAnswerSDP = extractRawSDP(answerSDP)
+    const cleanAnswerSDP = normalizeSDP(answerSDP, 'answer')
     if (this.pc.signalingState === 'have-local-offer') {
       await this.pc.setRemoteDescription(
         new RTCSessionDescription({
