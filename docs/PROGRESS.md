@@ -3218,5 +3218,39 @@ Mengembangkan sistem penghapusan pesan real-time berkelas WhatsApp pada WuzzChat
 - **TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
 - **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (100% lulus).
 
+## ✅ Milestone M-Mobile-8.6: In-App Live Camera QR Scanner & Instant Safety Number Verification — SELESAI
+
+**Tanggal Selesai:** 26 September 2026 | **Branch:** `dev`
+
+### 1. Ringkasan Fitur & Implementasi Mobile
+Mengintegrasikan modul pemindai kamera live native dan verifikasi instan E2EE Safety Number pada WuzzChat Mobile:
+1. **📷 Native Camera QR Scanner Modal (`mobile/src/components/CameraQRScannerModal.tsx`)**:
+   - Memanfaatkan `CameraView` dari `expo-camera` SDK 57 dengan `barcodeScannerSettings={{ barcodeTypes: ['qr'] }}`.
+   - Desain *Aurora Glassmorphism reticle viewfinder* dengan 4 siku neon cyan (`#00f2fe`) dan animasi laser pemindai vertikal looping halus (`Animated.loop`).
+   - Kontrol lampu senter (*torch toggle*) dan tombol tutup responsif safe-area (`useSafeAreaInsets`).
+   - Penanganan izin kamera ramah pengguna (`useCameraPermissions`) dengan fallback modal edukasi izin.
+   - Double-scan lock guard (`scanLockRef`) untuk mencegah *multiple triggers* saat frame kamera menangkap QR berulang kali.
+2. **🔐 Instant Multi-Format Safety Number Verification (`mobile/src/components/SafetyNumberModal.tsx`)**:
+   - Fungsi normalisasi multi-format (`extractFingerprintFromQR`) mengenali URL scheme `wuzz-safety://...`, link web, payload JSON, serta string 30-digit numerik.
+   - Tombol "📷 Pindai Kode QR" di Tab QR dan Tab 30-Digit angka.
+   - Pencocokan instan: saat cocok, otomatis memperbarui status ke `isVerified = true`, menyimpan secara persisten via `setContactSafetyVerified`, dan memanggil callback `onVerificationChanged`.
+   - Proteksi Anti-MITM: jika fingerprint tidak cocok, aplikasi menampilkan peringatan keamanan kritis (*Man-in-the-Middle Danger Alert*).
+3. **📦 Ekspor Komponen & Dokumentasi**:
+   - Komponen diekspor di `mobile/src/components/index.ts`.
+   - Update status checklist di `docs/MOBILE_INTEGRATION_GUIDE.md` Section 7.
+
+### 2. File Dimodifikasi / Dibuat
+- `mobile/package.json` & `mobile/package-lock.json`
+- `mobile/src/components/CameraQRScannerModal.tsx` *(baru)*
+- `mobile/src/components/SafetyNumberModal.tsx`
+- `mobile/src/components/index.ts`
+- `docs/MOBILE_INTEGRATION_GUIDE.md`
+- `docs/PROGRESS.md`
+
+### 3. Bukti Pengujian Otomatis
+- **Mobile TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js 16.3.5 Turbopack 0 lint/compile error).
+- **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (100% lulus).
+
 
 

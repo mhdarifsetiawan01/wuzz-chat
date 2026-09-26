@@ -1,15 +1,14 @@
-# Implementation Summary — Milestone M-Mobile-8.7
+# Implementation Summary — Milestone M-Mobile-8.6
 
 ## Executive Status Snapshot
-- **Feature**: Real-time Message Deletion ("Hapus untuk Semua Orang" & "Hapus untuk Saya") on Mobile
-- **Milestone**: M-Mobile-8.7
-- **Status**: 🟢 Completed & Verified (with 404 Root Cause Fix applied) — Awaiting User Completion Confirmation
-- **Target Branch**: `dev`
+- **Milestone**: `M-Mobile-8.6: In-App Live Camera QR Scanner & Instant Safety Number Verification`
+- **Status**: `IN_VERIFICATION` (Awaiting User Confirmation)
+- **Target Repository**: `mobile/`
+- **Branch**: `dev`
 
-## Scope Completed
-1. **API Client Helper**: Diimplementasikan `deleteMessage(messageId, forEveryone, roomId)` di `mobile/src/api/messages.ts` dengan payload ganda (`message_id`, `id`, `delete_for_everyone`, `type`) dan `apiClient` 15s timeout.
-2. **WhatsApp-Style Action Sheet**: Sub-view dialog konfirmasi di `MessageActionSheet.tsx` menampilkan opsi kondisional berdasarkan UUID-First Identity (`isSender`), countdown timer 60s, kartu aksi terpisah, dan tombol batal.
-3. **MessageBubble Guard & Styling**: Derivasi status `isDeleted` melindungi interaksi (swipe-to-reply, long-press context menu dinonaktifkan), menyembunyikan status receipt checkmarks, serta merender teks miring abu-abu dengan ikon `🚫`.
-4. **Optimistic UI & Real-time WebSocket Dispatch**: `ChatScreen.tsx` melakukan optimistic mutation seketika pada array linimasa (dengan rollback otomatis jika error) dan menangani broadcast event `message_deleted` & `delete_message` dari server.
-5. **Deterministic UUIDv4 Instant ID Consistency (Fix 404)**: Mengganti prefix sementara `req_...` dengan `Crypto.randomUUID()` pada pengiriman teks & voice note, serta rekonsiliasi ID pada event `ack` & `receipt`.
-6. **Quality Gate Verification**: `npx tsc --noEmit` lulus 0 error dan `go test ./...` lulus 100%.
+## Objectives
+Implement native live camera QR scanner modal and seamless instant Safety Number verification for WuzzChat Mobile:
+1. Integrate `expo-camera` (`CameraView`) for live camera feed and high-speed QR barcode detection.
+2. Build `CameraQRScannerModal.tsx` featuring an Aurora Glassmorphism reticle viewfinder with electric cyan accent (`#00f2fe`), animated laser scanning beam, torch toggle, and graceful camera permission dialog.
+3. Integrate QR scanning flow into `SafetyNumberModal.tsx` with multi-format parsing (`wuzz-safety://`, JSON, raw 30-digit fingerprint), instant matching, verification state persistence, green verified badge, and mismatch danger alert.
+4. Ensure compliance with token efficiency, clean architecture, and automated test gates (`npx tsc --noEmit` & `go test ./...`).

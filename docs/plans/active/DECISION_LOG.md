@@ -1,3 +1,3 @@
-# Decision Log
+# Decision Log — Standby
 
-*Standby. Ready for next task.*
+Belum ada keputusan teknis aktif.

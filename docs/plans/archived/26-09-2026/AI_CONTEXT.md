@@ -1,17 +1,20 @@
-# AI Context — Milestone M-Mobile-8.7
+# AI Context — Milestone M-Mobile-8.6: In-App Live Camera QR Scanner & Instant Safety Number Verification
 
-- **Milestone**: M-Mobile-8.7 (Real-time Message Deletion: "Hapus untuk Semua Orang" & "Hapus untuk Saya")
-- **Active Branch**: `dev`
-- **Target Directories**:
-  - `mobile/src/api/` (API client & helpers)
-  - `mobile/src/components/` (`MessageActionSheet.tsx`, `MessageBubble.tsx`)
-  - `mobile/src/screens/` (`ChatScreen.tsx`)
-- **Key Reference Implementations**:
-  - `docs/MOBILE_INTEGRATION_GUIDE.md` (Bagian 7: Checklist & UUID-First Identity)
-  - `docs/BACKEND_API.md` (`DELETE /api/messages`, `POST /api/messages/delete`, `message_deleted` WS event)
-  - `frontend/app/chat/page.tsx` & `frontend/app/chat/MessageBubble.tsx` (WhatsApp-style delete UX, countdown, optimistic update, placeholder `🚫 Pesan ini telah dihapus`)
-- **Constraints**:
-  - Strict Dev-Only Branch (`dev`), dilarang bekerja di `main`.
-  - Slow & Flaky Server Resilience: AbortController 15s timeout, optimistic local state update.
-  - UUID-First Identity Rule: Pemilik pesan diidentifikasi via `message.from === currentUser.id`.
-  - Anti-Magic Numbers & Token Compliance (`colors.ts`, `spacing.ts`, aurora theme).
+## 1. Project Boundaries & Environment
+- **Workspace Root**: `/home/bms-del112/BMS/personal-project/wuzz-chat`
+- **Target Subsystem**: `mobile/` (React Native Expo 57, TypeScript)
+- **Active Branch**: `dev` (STRICT: main branch is protected)
+- **Engine**: Node.js v20+, Expo SDK 57, React 19, React Native 0.86
+
+## 2. Key References & Dependencies
+- `docs/MOBILE_INTEGRATION_GUIDE.md`: Section 7 Checklist (In-App Live Camera QR Scanner), Section 2 Single Device Identity, Section 3 E2EE Cryptographic Standards.
+- `mobile/src/components/SafetyNumberModal.tsx`: 30-digit fingerprint UI & modal.
+- `mobile/src/components/QRCodeView.tsx` & `mobile/src/services/qrCodeService.ts`: Pure TypeScript QR generator.
+- `mobile/src/services/e2eeService.ts`: `generateSafetyNumber`, `isContactSafetyVerified`, `setContactSafetyVerified`.
+- `expo-camera`: CameraView with `barcodeScannerSettings={{ barcodeTypes: ['qr'] }}` and `onBarcodeScanned`.
+
+## 3. Strict Operating Constraints
+1. **Branch Protection**: Never work on or commit to `main`.
+2. **Token Efficiency**: Line-range reading, diff-chunk editing, concise outputs.
+3. **Server Lifecycle**: AI must kill any test servers before completing response (`fuser -k <port>/tcp`).
+4. **Approval Gate**: Stop after presenting this plan and wait for explicit user approval before modifying code.

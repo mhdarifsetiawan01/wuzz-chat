@@ -20,3 +20,4 @@ export * from './VerifiedBadge';
 export * from './QRCodeView';
 export * from './SafetyNumberModal';
 export * from './ContactInfoModal';
+export * from './CameraQRScannerModal';

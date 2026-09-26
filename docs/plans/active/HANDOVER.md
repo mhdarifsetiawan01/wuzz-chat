@@ -1,3 +1,3 @@
-# Handover
+# Handover Notes — Standby
 
-*Standby. Ready for next task.*
+Belum ada catatan serah terima aktif.

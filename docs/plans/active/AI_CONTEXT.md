@@ -1,3 +1,3 @@
-# AI Context
+# AI Context — Standby
 
-*Standby. Ready for next task.*
+Sistem berada dalam status standby.

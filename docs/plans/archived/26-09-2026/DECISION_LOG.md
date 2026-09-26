@@ -1,13 +1,16 @@
-# Decision Log — Milestone M-Mobile-8.7
+# Decision Log — Milestone M-Mobile-8.6
 
-## DEC-037: Dual-Payload Strategy for Message Deletion API
-- **Context**: Backend Go menerima payload fleksibel (`delete_for_everyone: true` boolean dan `type: "for_everyone" | "for_me"` string, serta `id` / `message_id`).
-- **Decision**: Mengirimkan seluruh field kunci secara lengkap dalam satu request (`message_id`, `id`, `delete_for_everyone`, `type`) untuk menjamin kompatibilitas 100% tanpa risiko mismatch versi handler backend.
+## DEC-001: Selection of `expo-camera` (`CameraView`) for In-App Live QR Scanning
+- **Context**: In React Native / Expo 57, the legacy `BarCodeScanner` component is deprecated in favor of `CameraView` from `expo-camera` which natively bundles high-performance Barcode/QR scanning (`barcodeScannerSettings={{ barcodeTypes: ['qr'] }}`).
+- **Decision**: Use `expo-camera`'s `CameraView` with back-facing camera and `enableTorch` support.
+- **Consequences**: Zero native bridging overhead, zero extra native libraries, complete compatibility with Expo Go and development builds.
 
-## DEC-038: 60-Second Countdown & Graceful State for "Delete for Everyone"
-- **Context**: Aturan backend membatasi *Delete for Everyone* dalam jangka waktu maksimal 60 detik sejak pesan terkirim.
-- **Decision**: Menghitung sisa detik di sisi mobile secara dinamis. Jika pesan sudah melebihi 60 detik, tombol dinonaktifkan dengan label waktu habis, atau hanya menyisakan opsi "Hapus untuk Saya", selaras dengan perilaku di web desktop.
+## DEC-002: Multi-Format QR Decoding & Normalization
+- **Context**: QR codes generated across different platforms (Web, Mobile, External QR generators) might supply URLs (`wuzz-safety://...`, `https://chat.wuzzhub.id/safety/...`), JSON objects, or plain 30-digit numbers with or without spaces.
+- **Decision**: Implement a robust normalizer that strips protocol prefixes and whitespace, extracting only the continuous 30-digit fingerprint string for exact comparison.
+- **Consequences**: Fault-tolerant scanning experience across all clients and custom pairing URLs.
 
-## DEC-039: Instant Client-Generated UUIDv4 ID Consistency (Fix 404 on Delete)
-- **Context**: Sebelumnya pesan optimistik yang baru dikirim menggunakan prefix sementara `tempId = req_...`. Backend database menghasilkan UUIDv4 baru secara terpisah di DB, sehingga jika pesan langsung dihapus sebelum/tanpa ID sync, API `DELETE /api/messages` menerima string `req_...` dan mengembalikan error 404 "pesan tidak ditemukan".
-- **Decision**: Menggunakan `Crypto.randomUUID()` secara deterministik sejak pesan dibuat di timeline lokal dan dikirimkan di payload WebSocket (`id: msgId`, `request_id: msgId`). Dengan demikian, ID pesan di state lokal dan di tabel SQL database identik 100% sejak milidetik ke-0. Ditambahkan pula rekonsiliasi ID pada listener event `ack` dan `receipt` untuk pesan lama/masuk.
+## DEC-003: Double-Scan Lock Guard in Scanner Component
+- **Context**: Live camera frames fire `onBarcodeScanned` multiple times per second while focused on a QR code.
+- **Decision**: Introduce a `scannedLock` ref state in `CameraQRScannerModal` that immediately freezes further scan events until dismissed or reset.
+- **Consequences**: Prevents duplicate state dispatches, multiple alert popups, or jarring UI loops.

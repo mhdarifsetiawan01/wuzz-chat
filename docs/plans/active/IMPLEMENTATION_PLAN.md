@@ -1,3 +1,3 @@
-# Implementation Plan
+# Implementation Plan — Standby
 
-*Standby. Ready for next task.*
+Belum ada rencana implementasi aktif.

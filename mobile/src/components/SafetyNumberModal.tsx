@@ -17,11 +17,13 @@ import {
   View,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateSafetyNumber, isContactSafetyVerified, setContactSafetyVerified } from '../services/e2eeService';
 import { QRCodeView } from './QRCodeView';
+import { CameraQRScannerModal } from './CameraQRScannerModal';
 import { colors, radius, spacing, typography } from '../theme';
 
 export interface SafetyNumberModalProps {
@@ -33,6 +35,42 @@ export interface SafetyNumberModalProps {
   peerPublicKeyJWK?: string;
   myPublicKeyJWK?: string;
   onVerificationChanged?: (verified: boolean) => void;
+}
+
+function extractFingerprintFromQR(data: string): string | null {
+  if (!data) return null;
+  const trimmed = data.trim();
+
+  // 1. JSON format: {"type":"safety_number","fingerprint":"..."}
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      const candidate = parsed.fingerprint || parsed.safetyNumber || parsed.safety_number || parsed.num;
+      if (typeof candidate === 'string') {
+        const cleaned = candidate.replace(/\D/g, '');
+        if (cleaned.length === 30) return cleaned;
+      }
+    } catch {
+      // not JSON, continue to other checks
+    }
+  }
+
+  // 2. Custom URL or Web link (wuzz-safety://... or https://...)
+  if (trimmed.includes('://')) {
+    const parts = trimmed.split('/');
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const cleaned = parts[i].replace(/\D/g, '');
+      if (cleaned.length === 30) return cleaned;
+    }
+  }
+
+  // 3. Raw 30 digits with optional spaces or dashes
+  const plainCleaned = trimmed.replace(/\D/g, '');
+  if (plainCleaned.length === 30) {
+    return plainCleaned;
+  }
+
+  return null;
 }
 
 export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
@@ -51,12 +89,18 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [isVerified, setIsVerified] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'digits' | 'qr'>('digits');
+  const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
+  const [scanFeedback, setScanFeedback] = useState<{
+    type: 'success' | 'danger' | 'warning';
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!visible) return;
 
     let mounted = true;
     setIsLoading(true);
+    setScanFeedback(null);
 
     async function loadFingerprint() {
       try {
@@ -107,6 +151,55 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
     await setContactSafetyVerified(peerId, safetyNumber, nextState);
     if (onVerificationChanged) {
       onVerificationChanged(nextState);
+    }
+  };
+
+  const handleScanQR = async (scannedData: string) => {
+    setIsScannerOpen(false);
+    const currentClean = safetyNumber.replace(/\D/g, '');
+    if (!currentClean || currentClean.length !== 30) {
+      Alert.alert('Perhatian', 'Nomor keamanan belum siap dihitung. Harap tunggu sebentar.');
+      return;
+    }
+
+    const scannedFingerprint = extractFingerprintFromQR(scannedData);
+    if (!scannedFingerprint) {
+      setScanFeedback({
+        type: 'warning',
+        message: 'Kode QR tidak dikenali sebagai format nomor keamanan WuzzChat yang valid.',
+      });
+      Alert.alert(
+        'Format QR Tidak Dikenal',
+        'Kode QR yang dipindai bukan format nomor keamanan WuzzChat yang valid.'
+      );
+      return;
+    }
+
+    if (scannedFingerprint === currentClean) {
+      setIsVerified(true);
+      await setContactSafetyVerified(peerId, safetyNumber, true);
+      if (onVerificationChanged) {
+        onVerificationChanged(true);
+      }
+      setScanFeedback({
+        type: 'success',
+        message: 'Nomor Keamanan Cocok 100%! Kontak telah berhasil diverifikasi melalui pemindaian kamera.',
+      });
+      Alert.alert(
+        'Verifikasi Berhasil',
+        `Nomor keamanan untuk ${peerNickname || 'kontak'} cocok 100%!\n\nKontak ini telah ditandai sebagai kontak aman terverifikasi.`,
+        [{ text: 'Selesai' }]
+      );
+    } else {
+      setScanFeedback({
+        type: 'danger',
+        message: 'PERINGATAN KEAMANAN: Nomor keamanan TIDAK COCOK! Kemungkinan kunci kontak telah berubah atau terjadi manipulasi jaringan (Man-in-the-Middle).',
+      });
+      Alert.alert(
+        'PERINGATAN KEAMANAN',
+        `Nomor keamanan TIDAK COCOK dengan perangkat ${peerNickname || 'kontak'}!\n\nKemungkinan sesi tidak aman atau perangkat lawan bicara menggunakan kunci enkripsi yang berbeda.`,
+        [{ text: 'Mengerti', style: 'destructive' }]
+      );
     }
   };
 
@@ -172,6 +265,30 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
               </Text>
             </View>
 
+            {/* Scan Result Feedback Banner */}
+            {scanFeedback && (
+              <View
+                style={[
+                  styles.feedbackBanner,
+                  scanFeedback.type === 'success' && styles.feedbackSuccess,
+                  scanFeedback.type === 'danger' && styles.feedbackDanger,
+                  scanFeedback.type === 'warning' && styles.feedbackWarning,
+                ]}
+              >
+                <Text style={styles.feedbackIcon}>
+                  {scanFeedback.type === 'success' ? '✅' : scanFeedback.type === 'danger' ? '🚨' : '⚠️'}
+                </Text>
+                <Text style={styles.feedbackText}>{scanFeedback.message}</Text>
+                <TouchableOpacity
+                  onPress={() => setScanFeedback(null)}
+                  style={styles.feedbackCloseBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.feedbackCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Tab Switcher: 30-Digit vs QR Code */}
             <View style={styles.tabContainer}>
               <TouchableOpacity
@@ -214,15 +331,25 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
                   </View>
                 )}
 
-                <TouchableOpacity
-                  style={styles.copyButton}
-                  onPress={handleCopy}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.copyButtonText}>
-                    {copied ? '✅ Nomor Keamanan Disalin!' : '📋 Salin Nomor Keamanan'}
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={styles.copyButton}
+                    onPress={handleCopy}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.copyButtonText}>
+                      {copied ? '✅ Disalin!' : '📋 Salin Nomor'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.scanSecondaryBtn}
+                    onPress={() => setIsScannerOpen(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.scanSecondaryBtnText}>📷 Pindai QR</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               /* Tab 2: Visual QR Code */
@@ -237,6 +364,16 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
                 <Text style={styles.qrCaption}>
                   Pindai kode ini langsung dari kamera atau scanner perangkat lawan bicara.
                 </Text>
+
+                <TouchableOpacity
+                  style={styles.scanCameraPrimaryBtn}
+                  onPress={() => setIsScannerOpen(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.scanCameraPrimaryBtnText}>
+                    📷 Pindai Kode QR {peerNickname ? peerNickname.split(' ')[0] : 'Kontak'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -263,6 +400,14 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Live Camera QR Scanner Modal */}
+      <CameraQRScannerModal
+        visible={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onScan={handleScanQR}
+        title={`Pindai QR ${peerNickname || 'Kontak'}`}
+      />
     </Modal>
   );
 };
@@ -421,20 +566,82 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: colors.colorCyanNeon,
   },
+  feedbackBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+  },
+  feedbackSuccess: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+  },
+  feedbackDanger: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  feedbackWarning: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+  },
+  feedbackIcon: {
+    fontSize: 16,
+    marginRight: spacing.sm,
+  },
+  feedbackText: {
+    flex: 1,
+    ...typography.caption,
+    color: colors.textPrimary,
+    lineHeight: 18,
+  },
+  feedbackCloseBtn: {
+    padding: 4,
+    marginLeft: spacing.xs,
+  },
+  feedbackCloseText: {
+    fontSize: 14,
+    color: colors.textMuted,
+    fontWeight: '700',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    width: '100%',
+  },
   copyButton: {
+    flex: 1,
     backgroundColor: colors.bgCard,
     borderWidth: 1,
     borderColor: colors.borderSubtle,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.sm,
     borderRadius: radius.md,
-    width: '100%',
     alignItems: 'center',
   },
   copyButtonText: {
     ...typography.bodySecondary,
     color: colors.textPrimary,
     fontWeight: '600',
+    fontSize: 13,
+  },
+  scanSecondaryBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.4)',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  scanSecondaryBtnText: {
+    ...typography.bodySecondary,
+    color: colors.colorCyanNeon,
+    fontWeight: '600',
+    fontSize: 13,
   },
   qrSection: {
     alignItems: 'center',
@@ -451,6 +658,23 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  scanCameraPrimaryBtn: {
+    backgroundColor: 'rgba(0, 242, 254, 0.12)',
+    borderWidth: 1,
+    borderColor: colors.colorCyanNeon,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  scanCameraPrimaryBtnText: {
+    ...typography.bodySecondary,
+    color: colors.colorCyanNeon,
+    fontWeight: '700',
   },
   verifyToggleBtn: {
     paddingVertical: spacing.sm + 2,

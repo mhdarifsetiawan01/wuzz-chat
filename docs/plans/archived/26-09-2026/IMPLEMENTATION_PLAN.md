@@ -1,70 +1,57 @@
-# Implementation Plan — Milestone M-Mobile-8.7
+# Implementation Plan — Milestone M-Mobile-8.6: In-App Live Camera QR Scanner & Instant Safety Number Verification
 
-## Objective
-Mengimplementasikan penghapusan pesan real-time (*Delete for Everyone* dan *Delete for Me*) pada WuzzChat Mobile (`mobile/`), lengkap dengan dialog konfirmasi WhatsApp-Style, optimistic UI, penanganan event WebSocket server-to-client, dan styling placeholder pesan terhapus.
+## 1. Overview & Goals
+Provide Signal & WhatsApp grade in-person key verification by combining camera-based QR code scanning with ECDH P-256 fingerprint matching in WuzzChat Mobile.
 
-## Proposed Architecture & File Changes
+## 2. Technical Architecture & Component Flow
 
-### 1. `mobile/src/api/messages.ts`
-- Tambahkan / ekspor fungsi helper:
-  ```ts
-  export async function deleteMessage(
-    messageId: string,
-    forEveryone: boolean,
-    roomId?: string
-  ): Promise<void>
-  ```
-  serta perbarui metode di `messagesApi.deleteMessage`:
-  - Kirim HTTP DELETE `/api/messages` dengan payload:
-    ```json
-    {
-      "message_id": messageId,
-      "id": messageId,
-      "room_id": roomId,
-      "delete_for_everyone": forEveryone,
-      "type": forEveryone ? "for_everyone" : "for_me"
-    }
-    ```
-  - Tetap gunakan `apiClient` dengan AbortController timeout 15s.
+```text
+[SafetyNumberModal]
+   │
+   ├── User clicks "📷 Pindai Kode QR"
+   ▼
+[CameraQRScannerModal]
+   ├── Checks & requests camera permission (useCameraPermissions)
+   ├── Renders CameraView (facing="back", barcodeScannerSettings={barcodeTypes: ['qr']})
+   ├── Aurora Glassmorphism Viewfinder:
+   │   ├── Reticle: 260x260 dp, 4 corner brackets (#00f2fe electric cyan)
+   │   ├── Animated Scanning Beam (up & down translation via Animated API)
+   │   ├── Top Bar: Close (✕) & Torch toggle (🔦)
+   │   └── Bottom Caption: "Arahkan kamera ke Kode QR Nomor Keamanan lawan bicara"
+   ▼
+[Barcode Detected (onBarcodeScanned)]
+   ├── Debounce lock (prevents double triggers)
+   ├── Extracted Payload:
+   │   ├── Format A: `wuzz-safety://${currentUserId}/${peerId}/${fingerprint}` or `wuzz://safety/...`
+   │   ├── Format B: `{"type":"wuzz:v1:safety", "safetyNumber":"..."}` or `wuzz:v1:safety:<fingerprint>`
+   │   └── Format C: Raw 30-digit numeric string (with/without whitespace)
+   ▼
+[Verification Logic in SafetyNumberModal]
+   ├── Normalize scanned fingerprint (strip spaces)
+   ├── Compare with current computed safety number (`cleanScanned === cleanCurrent`)
+   ├── MATCH:
+   │   ├── Persist verification via `e2eeService.setContactSafetyVerified(peerId, safetyNumber, true)`
+   │   ├── Update local state `isVerified = true`
+   │   ├── Trigger `onVerificationChanged?.(true)`
+   │   ├── Show Green Success Badge & Toast: "Telah Diverifikasi Melalui Pemindaian Kamera"
+   │   └── Close Camera Modal
+   └── MISMATCH:
+       ├── Show Danger Alert: "Nomor Keamanan Tidak Cocok! Kemungkinan serangan Man-in-the-Middle atau kunci kontak telah diperbarui."
+       └── Reset scan lock for re-attempt or dismiss
+```
 
-### 2. `mobile/src/components/MessageActionSheet.tsx`
-- Sempurnakan dialog konfirmasi WhatsApp-Style di sub-view penghapusan:
-  - Cek `isSelf` via UUID perbandingan `message.from === currentUserId || isSelf`.
-  - Hitung countdown sisa waktu `remainingSeconds` untuk 60 detik (1 menit) sejak `message.timestamp || message.created_at`.
-  - Jika `isSelf`:
-    - Tampilkan kartu tombol "Hapus untuk Semua Orang" (dengan countdown badge atau disabled jika > 60 detik).
-    - Tampilkan kartu tombol "Hapus untuk Saya".
-    - Tampilkan tombol "Batal".
-  - Jika BUKAN `isSelf`:
-    - Hanya tampilkan kartu tombol "Hapus untuk Saya".
-    - Tampilkan tombol "Batal".
-  - Styling rapi sesuai Aurora theme tokens.
+## 3. Impacted & Created Files
+1. `mobile/package.json`: Install `expo-camera` (`~16.x` / compatible with Expo 57).
+2. `mobile/src/components/CameraQRScannerModal.tsx`: New component implementing camera feed, permission prompt, Aurora overlay, animated laser, torch toggle, and QR handler.
+3. `mobile/src/components/SafetyNumberModal.tsx`:
+   - Add scanner trigger button ("📷 Pindai Kode QR") on QR tab and action bar.
+   - Embed `CameraQRScannerModal`.
+   - Add parsing & validation routine for QR payloads.
+   - Display verified badge ("Telah Diverifikasi Melalui Pemindaian Kamera") when verified via camera.
+   - Alert handling for mismatch vs success.
+4. `docs/MOBILE_INTEGRATION_GUIDE.md`: Update Section 7 checklist item to mark In-App Live Camera QR Scanner as completed.
 
-### 3. `mobile/src/components/MessageBubble.tsx`
-- Deteksi status deleted:
-  `const isDeleted = Boolean(message.is_deleted || message.content?.startsWith('🚫 Pesan ini telah dihapus'));`
-- Disable interactions:
-  - `PanResponder`: Cegah swipe-to-reply jika `isDeleted`.
-  - `onLongPress`: Abaikan long press jika `isDeleted`.
-  - Sembunyikan quoted message / media preview / reactions / reply preview jika terhapus.
-  - Sembunyikan checklist delivery receipt (`🕒` / `✓` / `✓✓`).
-  - Render icon `🚫` dengan teks miring abu-abu (*italic*).
-
-### 4. `mobile/src/screens/ChatScreen.tsx`
-- **Optimistic UI Update** di `handleDeleteMessage`:
-  - Jika `type === 'for_everyone'`: ubah pesan seketika di state lokal menjadi:
-    `{ ...m, is_deleted: true, content: '🚫 Pesan ini telah dihapus' }`.
-  - Jika `type === 'for_me'`: hapus pesan dari array state:
-    `prev.filter(m => m.id !== messageId)`.
-  - Kirim request via `messagesApi.deleteMessage` / `deleteMessage` helper. Jika error, kembalikan state sebelumnya dan munculkan alert user-friendly.
-- **WebSocket Event Handling**:
-  - Tangani `message_deleted` dan `delete_message`:
-    - Jika `data.type === 'for_me'`, hapus dari array timeline lokal jika cocok dengan user.
-    - Jika `data.is_deleted === true` atau default delete: mutasi pesan lokal menjadi `{ ...m, is_deleted: true, content: data.content || '🚫 Pesan ini telah dihapus' }`.
-  - Bersihkan juga pesan dari pinned messages atau reply preview jika pesan yang sedang dihapus relevan.
-
-## Verification & Testing Plan
-1. **Typecheck & Linter**:
-   - Jalankan `npx tsc --noEmit` di direktori `mobile/` memastikan 0 error.
-2. **Backend Regression Test**:
-   - Jalankan `go test -v ./...` di direktori `backend/` memastikan semua test endpoint delete dan chat lolos.
+## 4. Verification & Testing Strategy
+1. **Typecheck Gate**: `npx tsc --noEmit` in `mobile/` (0 errors).
+2. **Backend Regression Test**: `go test -v ./...` in `backend/` (100% pass).
+3. **Static Analysis & Token Optimization**: Ensure no magic numbers, proper theme tokens, safe area insets handled, and resource cleanup on unmount.
