@@ -1,7 +1,3 @@
 # AI Context — Standby
 
-## Status
-- **Milestone**: None (Standby)
-- **Branch**: `dev`
-
-Menunggu penugasan milestone atau task berikutnya dari pengguna.
+Belum ada milestone aktif. Menunggu arahan pengerjaan task/fitur berikutnya.

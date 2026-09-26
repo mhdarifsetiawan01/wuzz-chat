@@ -1,3 +1,3 @@
-# Handover Document — Standby
+# Handover — Standby
 
-Belum ada handover aktif.
+Belum ada handover aktif. Seluruh tugas sesi sebelumnya telah diarsipkan.

@@ -7,6 +7,8 @@ export * from './mediaCache';
 export * from './notificationService';
 export * from './qrCodeService';
 export * from './keyTransfer';
+export * from './callAudioManager';
+export * from './webrtcService';
 export {
   getOrFetchPeerPublicKey,
   setContactSafetyVerified,

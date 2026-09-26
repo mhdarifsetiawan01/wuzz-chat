@@ -1,28 +1,43 @@
-# Implementation Progress — Milestone M-Mobile-8.10
+# Implementation Progress — Milestone M-Mobile-8.11
 
-- [x] **Task 1: API Layer for Device Transfer**
-  - [x] Buat file `mobile/src/api/transfer.ts` dengan fungsi `createTransferSession` dan `consumeTransferSession`.
-  - [x] Ekspor fungsi di `mobile/src/api/index.ts`.
-- [x] **Task 2: Cryptographic Key Wrapping Service**
-  - [x] Buat file `mobile/src/services/keyTransfer.ts` mengimplementasikan PBKDF2 (100k iterasi, SHA-256), AES-256-GCM, format payload `EncryptedTransferPayload`, dan konversi keypair JWK <-> Keystore.
-  - [x] Ekspor service di `mobile/src/services/index.ts`.
-- [x] **Task 3: AuthContext Integration**
-  - [x] Tambahkan method `importTransferredKeyPair` di `mobile/src/context/AuthContext.tsx` untuk menyimpan keypair hasil transfer dan memulihkan status E2EE menjadi `ready`.
-- [x] **Task 4: DeviceTransferModal Component & UI Integration**
-  - [x] Buat modal `mobile/src/components/DeviceTransferModal.tsx` yang mendukung:
-    - Mode Bagi Kunci (Pengirim) dengan countdown timer 5 menit dan QR display via `QRCodeView`.
-    - Mode Pindai Kamera (Penerima) mengintegrasikan `CameraQRScannerModal`.
-    - Mode Input Token Manual (Fallback).
-  - [x] Ekspor di `mobile/src/components/index.ts`.
-  - [x] Integrasikan tombol akses di header `mobile/src/screens/RecentChatsScreen.tsx`.
-  - [x] Hubungkan opsi "Transfer dari Perangkat Lain" pada `mobile/src/components/KeyConflictModal.tsx`.
-  - [x] Hubungkan modal ke `mobile/App.tsx`.
-- [x] **Task 5: Automated Testing & Verification**
-  - [x] Buat skrip simulasi / test interoperabilitas e2e transfer kunci (`mobile/test-key-transfer-e2e.mjs`).
-  - [x] Jalankan `npx tsc --noEmit` di `mobile/` ➔ PASS (0 error).
-  - [x] Jalankan `node test-key-transfer-e2e.mjs` di `mobile/` ➔ PASS (11/11 tests pass).
-  - [x] Jalankan `go test -v ./internal/api/...` di `backend/` ➔ PASS (100% pass).
-  - [x] Jalankan `npm run build` di `frontend/` ➔ PASS (Next.js Turbopack 0 errors).
-- [x] **Task 6: Documentation Sync & Self-Review**
-  - [x] Perbarui checklist di `docs/MOBILE_INTEGRATION_GUIDE.md` Section 7 (`[x] QR Code E2EE Device Transfer`).
-  - [x] Perbarui ringkasan kemajuan di `docs/PROGRESS.md`.
+## 📋 Task Checklist
+
+- [x] **Task 1: WebSocket Signaling Methods (`mobile/src/services/websocket.ts`)**
+  - [x] Implementasi method `sendCallOffer(room, sdp, targetUserId)`
+  - [x] Implementasi method `sendCallAnswer(room, sdp)`
+  - [x] Implementasi method `sendIceCandidate(room, candidate)`
+  - [x] Implementasi method `sendCallReject(room)`
+  - [x] Implementasi method `sendCallEnd(room)`
+  - [x] Implementasi method `sendCallBusy(room)`
+
+- [x] **Task 2: Call Audio Manager & Device Permissions (`mobile/src/services/callAudioManager.ts` & `app.json`)**
+  - [x] Deklarasi permissions Android (`RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`, `INTERNET`) dan iOS `NSMicrophoneUsageDescription` di `mobile/app.json`
+  - [x] Implementasi runtime permission guard (`requestRecordingPermissionsAsync`) sebelum memulai / menerima panggilan
+  - [x] Inisialisasi audio mode untuk calling (`expo-audio`)
+  - [x] Route toggling: Speakerphone (`shouldRouteThroughEarpiece: false`) vs Earpiece (`shouldRouteThroughEarpiece: true`)
+  - [x] Generator nada sambung (ringback) & nada dering masuk (ringtone)
+  - [x] Lifecycle cleanup resource audio saat panggilan berakhir
+
+- [x] **Task 3: WebRTC Calling Service & State Machine (`mobile/src/services/webrtcService.ts`)**
+  - [x] Definisi tipe state panggilan (`CallState`, `CallSession`)
+  - [x] Setup STUN/TURN server configuration matching Web frontend
+  - [x] Manajemen antrian ICE candidates & SDP negotiation flow
+  - [x] State transition handling (`idle` ➔ `outgoing_calling` ➔ `incoming_ringing` ➔ `connecting` ➔ `connected` ➔ `ended`)
+
+- [x] **Task 4: React Call Context & Global Hook (`mobile/src/context/CallContext.tsx`)**
+  - [x] Hubungkan event WebSocket signaling ke state panggilan global
+  - [x] Timer durasi panggilan aktif real-time
+  - [x] Expose aksi: `startCall`, `acceptCall`, `rejectCall`, `endCall`, `toggleMute`, `toggleSpeaker`
+
+- [x] **Task 5: Mobile Call UI Components & Header Integration**
+  - [x] Tombol `📞` panggil suara di `mobile/src/screens/ChatScreen.tsx` (1-on-1 chat)
+  - [x] `IncomingCallModal.tsx`: Modal panggilan masuk bertema Aurora Dark Mode
+  - [x] `ActiveCallOverlay.tsx`: Overlay panggilan aktif dengan tombol aksi terpadu
+  - [x] Pasang `CallProvider` & modal/overlay di root `mobile/App.tsx`
+
+- [x] **Task 6: Verification, Automated Testing & Documentation**
+  - [x] Automated typecheck `npx tsc --noEmit` di `mobile/` (0 error)
+  - [x] Backend test `go test -v ./...` di `backend/` (100% lulus)
+  - [x] Frontend build `npm run build` di `frontend/` (0 error)
+  - [x] Skrip simulasi signaling `mobile/test-webrtc-signaling.mjs` (8/8 tests pass)
+  - [x] Update `docs/MOBILE_INTEGRATION_GUIDE.md` Section 7

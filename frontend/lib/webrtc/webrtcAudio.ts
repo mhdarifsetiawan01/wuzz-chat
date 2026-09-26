@@ -32,6 +32,20 @@ const ICE_SERVERS: RTCConfiguration = {
   iceCandidatePoolSize: 10,
 }
 
+function extractRawSDP(sdpInput: string): string {
+  if (!sdpInput) return ''
+  const trimmed = sdpInput.trim()
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (parsed.sdp && typeof parsed.sdp === 'string') {
+        return parsed.sdp
+      }
+    } catch {}
+  }
+  return sdpInput
+}
+
 export class WebRTCAudioSession {
   private pc: RTCPeerConnection | null = null
   private localStream: MediaStream | null = null
@@ -161,10 +175,11 @@ export class WebRTCAudioSession {
       }
     })
 
+    const cleanOfferSDP = extractRawSDP(offerSDP)
     await this.pc.setRemoteDescription(
       new RTCSessionDescription({
         type: 'offer',
-        sdp: offerSDP,
+        sdp: cleanOfferSDP,
       })
     )
     await this.flushPendingCandidates()
@@ -180,11 +195,12 @@ export class WebRTCAudioSession {
    */
   public async handleAnswer(answerSDP: string): Promise<void> {
     if (!this.pc) return
+    const cleanAnswerSDP = extractRawSDP(answerSDP)
     if (this.pc.signalingState === 'have-local-offer') {
       await this.pc.setRemoteDescription(
         new RTCSessionDescription({
           type: 'answer',
-          sdp: answerSDP,
+          sdp: cleanAnswerSDP,
         })
       )
       await this.flushPendingCandidates()

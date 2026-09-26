@@ -1,65 +1,80 @@
-# Implementation Plan — Milestone M-Mobile-8.10
+# Implementation Plan — Milestone M-Mobile-8.11: WebRTC 1-on-1 Voice Calling & Audio Session Management (Mobile)
 
-## 1. Objectives & Goals
-Mengimplementasikan alur **QR Code E2EE Device Transfer & Multi-Device Companion Linking** pada aplikasi Mobile WuzzChat sesuai dengan panduan `docs/MOBILE_INTEGRATION_GUIDE.md` Section 3D & Section 7.
+## 🎯 Tujuan & Latar Belakang
+Mengintegrasikan fitur panggilan suara peer-to-peer (P2P) berbasis WebRTC ke aplikasi WuzzChat Mobile (React Native / Expo SDK 57) agar kompatibel penuh dengan Go Backend WebSocket Signaling dan Frontend Web. Pengguna mobile dapat memanggil dan menerima panggilan suara dari pengguna Web maupun sesama pengguna mobile secara real-time.
 
-## 2. Target Modified & Created Files
-- **Created**:
-  - `mobile/src/api/transfer.ts`: REST client untuk endpoint transfer backend (`/api/users/transfer/create` dan `/api/users/transfer/consume`).
-  - `mobile/src/services/keyTransfer.ts`: Crypto key wrapping service (PBKDF2-SHA256, AES-256-GCM, bundle packing/unpacking, konversi format JWK <-> Keystore).
-  - `mobile/src/components/DeviceTransferModal.tsx`: Modal lengkap penautan & migrasi perangkat (Mode Bagi Kunci / QR Generator, Mode Pindai Kamera, Mode Input Manual).
-  - `mobile/src/services/__tests__/keyTransfer.test.ts` (atau test simulasi transfer interoperabilitas Mobile <-> Web).
-- **Modified**:
-  - `mobile/src/api/index.ts`: Ekspor modul transfer API.
-  - `mobile/src/services/index.ts`: Ekspor modul keyTransfer service.
-  - `mobile/src/components/index.ts`: Ekspor `DeviceTransferModal`.
-  - `mobile/src/context/AuthContext.tsx`: Tambahkan `importTransferredKeyPair` untuk menyimpan keypair hasil transfer dan memperbarui state E2EE menjadi `ready`.
-  - `mobile/src/screens/RecentChatsScreen.tsx`: Tambahkan tombol/icon "Tautkan Perangkat" di header untuk membuka `DeviceTransferModal`.
-  - `mobile/src/components/KeyConflictModal.tsx`: Sediakan tombol "Transfer dari Perangkat Lain" sebagai alternatif reset kunci dengan password.
+---
 
-## 3. Technical Architecture & Data Flow
+## 🏛️ Arsitektur & Spesifikasi Teknis
 
-```text
-[Device A (Sumber/Pengirim)]               [Server Go]                 [Device B (Target/Penerima)]
-         │                                      │                                    │
-1. Generate session_token (64-hex)              │                                    │
-2. Pack & Encrypt keypair via AES-GCM (PBKDF2)  │                                    │
-3. POST /api/users/transfer/create ────────────►│ (Simpan di Redis/Memory, TTL 5m)  │
-4. Render QR: https://.../transfer?token=...    │                                    │
-         │                                      │                                    │
-         │ ◄────────── Scan QR via CameraQRScannerModal ─────────────────────────────┤
-         │                                      │                                    │
-         │                                      │◄── POST /api/users/transfer/consume┤ (Kirim session_token & device_id)
-         │                                      ├───────────────────────────────────►│ (Return encrypted_bundle)
-         │                                      │                                    │
-         │                                      │                       5. Dekripsi via PBKDF2
-         │                                      │                       6. Simpan ke Keystore
-         │                                      │                       7. Sesi aktif simultan!
-```
+### 1. WebSocket Signaling Integration (`mobile/src/services/websocket.ts` & `webrtcService.ts`)
+- **Tipe Pesan Signaling**:
+  - `call_offer`: Pemanggil mengirim penawaran SDP ke penerima di room DM.
+  - `call_answer`: Penerima mengirim balasan SDP ke pemanggil setelah menerima panggilan.
+  - `ice_candidate`: Pertukaran kandidat koneksi STUN/TURN antar peer.
+  - `call_reject`: Penerima menolak panggilan masuk.
+  - `call_end`: Pemanggil atau penerima menutup / membatalkan panggilan.
+  - `call_busy`: Sinyal otomatis jika penerima sedang berada dalam panggilan lain saat panggilan masuk tiba.
+- **ICE Configuration**:
+  - Google Public STUN Cluster (`stun:stun.l.google.com:19302`, dll).
+  - OpenRelay STUN & TURN Relay Cluster (`turn:standard.relay.metered.ca:80/443`, transport udp/tcp).
 
-## 4. Key Wrapping Specification
-- **Algorithm**: AES-256-GCM
-- **Key Derivation Function**: PBKDF2 with SHA-256, 100,000 iterations, 16-byte random salt.
-- **Payload Schema**:
-  ```json
-  {
-    "ciphertext": "<base64>",
-    "iv": "<base64_12bytes>",
-    "salt": "<base64_16bytes>",
-    "v": 1
-  }
-  ```
-- **Plaintext Data**:
-  ```json
-  {
-    "privateKeyJWK": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"d\":\"...\",\"x\":\"...\",\"y\":\"...\",\"ext\":true,\"key_ops\":[\"deriveKey\"]}",
-    "publicKeyJWK": "{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"...\",\"y\":\"...\",\"ext\":true,\"key_ops\":[]}",
-    "createdAt": 1720000000000
-  }
-  ```
+### 2. Call State Machine & Service Layer (`webrtcService.ts`)
+- **Call Statuses**:
+  - `idle`: Tidak ada panggilan aktif.
+  - `outgoing_calling`: Memanggil peer, menunggu jawaban / dering.
+  - `incoming_ringing`: Panggilan masuk berdering, menunggu aksi user (Terima / Tolak).
+  - `connecting`: Peer menerima panggilan, pertukaran SDP & ICE candidate berlangsung.
+  - `connected`: P2P terhubung, timer durasi berjalan, audio streaming aktif.
+  - `ended`: Panggilan ditutup, membersihkan resource audio & koneksi.
+- **Resilience & Universal Compatibility**:
+  - Menyediakan interface `WebRTCSession` terisolasi dengan penanganan gracefully untuk environment React Native/Expo.
+  - Pipa signaling dan state machine dapat beroperasi penuh dengan logging diagnosa komprehensif.
 
-## 5. Verification Strategy
-1. **Automated Interoperability Unit Test**: Uji roundtrip enkripsi di mobile dan dekripsi di web/node, serta konversi JWK <-> Keystore Hex.
-2. **TypeScript Compilation Check**: `npx tsc --noEmit` di folder `mobile/`.
-3. **Backend Unit Tests**: `go test -v ./internal/api/...` di folder `backend/`.
-4. **Frontend Build Check**: `npm run build` di folder `frontend/`.
+### 3. Audio Session, Permissions & Ringtone Manager (`mobile/src/services/callAudioManager.ts` & `app.json`)
+- **Android & iOS Permissions Configuration (`mobile/app.json`)**:
+  - Android permissions: `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`, `INTERNET`.
+  - iOS `infoPlist`: `NSMicrophoneUsageDescription` ("WuzzChat memerlukan izin akses mikrofon untuk melakukan panggilan suara dan mengirim pesan audio.").
+  - Runtime permission guard: request / periksa izin mikrofon (`requestRecordingPermissionsAsync`) sebelum memulai (`startCall`) atau menerima (`acceptCall`) panggilan.
+- **Expo Audio Management (`expo-audio`)**:
+  - Konfigurasi audio mode untuk panggilan (`allowsRecording: true`, `playsInSilentMode: true`).
+  - Switch rute audio antara **Speakerphone** (`shouldRouteThroughEarpiece: false`) dan **Earpiece** (`shouldRouteThroughEarpiece: true`).
+  - Kontrol Mute / Unmute mikrofon (`setMute(boolean)`).
+  - Generator / Pemutar nada sambung (*outgoing ringback tone*) dan nada dering (*incoming ringtone*).
+  - Lifecycle cleanup otomatis saat panggilan diakhiri atau ditolak.
+
+### 4. User Interface Panggilan (Aurora Dark Mode)
+- **Tombol Panggil (`📞`)** di header `ChatScreen.tsx` untuk 1-on-1 chat (`!isGroup`).
+- **`IncomingCallModal.tsx`**:
+  - Banner/Modal fullscreen bertema Aurora Dark Mode.
+  - Avatar penelepon, nama/nickname, animasi denyut (*pulse indicator*).
+  - Tombol **Terima (Hijau)** dan **Tolak (Merah)**.
+- **`ActiveCallOverlay.tsx`**:
+  - Tampilan panggilan aktif dengan avatar lawan bicara.
+  - Indikator status: "Memanggil...", "Menghubungkan...", "Terhubung" + timer durasi `mm:ss`.
+  - Tombol kontrol: **Mute Mic**, **Speaker/Earpiece Toggle**, dan **Tutup Panggilan (Merah)**.
+- **Root Mount (`App.tsx` & `CallContext.tsx`)**:
+  - Panggilan masuk dapat dideteksi dan ditampilkan dari screen manapun saat user login.
+
+---
+
+## 📂 Target Modifikasi & Pembuatan File
+1. `mobile/app.json`: Tambahkan deklarasi permissions Android (`RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`) dan iOS `NSMicrophoneUsageDescription`.
+2. `mobile/src/services/websocket.ts`: Tambah helper method signaling (`sendCallOffer`, `sendCallAnswer`, `sendIceCandidate`, `sendCallReject`, `sendCallEnd`, `sendCallBusy`).
+3. `mobile/src/services/callAudioManager.ts`: Audio manager khusus panggilan suara berbasis `expo-audio` + runtime permission check.
+4. `mobile/src/services/webrtcService.ts`: WebRTC calling session & state management.
+5. `mobile/src/context/CallContext.tsx`: React Context untuk state panggilan global di level mobile app.
+6. `mobile/src/components/IncomingCallModal.tsx`: Komponen modal panggilan masuk.
+7. `mobile/src/components/ActiveCallOverlay.tsx`: Komponen overlay panggilan aktif dengan kontrol mic/speaker/hangup.
+8. `mobile/src/screens/ChatScreen.tsx`: Tambah tombol `📞` panggil suara di header room 1-on-1.
+9. `mobile/App.tsx`: Bungkus dengan `CallProvider` dan pasang modal panggilan global.
+10. `mobile/test-webrtc-signaling.mjs`: Skrip automated test simulasi skenario signaling WebRTC mobile.
+11. `docs/MOBILE_INTEGRATION_GUIDE.md`: Update status checklist dan dokumentasi WebRTC.
+
+---
+
+## 🧪 Strategi Verifikasi & Quality Gate
+1. `npx tsc --noEmit` di `mobile/` (0 error TypeScript).
+2. `go test -v ./...` di `backend/` (100% test lulus).
+3. `npm run build` di `frontend/` (0 error kompilasi).
+4. Menjalankan `test-webrtc-signaling.mjs` untuk menguji alur signaling P2P antara dua klien mobile simulasi.

@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, BackHandler, Linking, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, DeviceProvider, useAuth } from './src/context';
+import { AuthProvider, CallProvider, DeviceProvider, useAuth } from './src/context';
 import {
   ChatScreen,
   GroupInfoScreen,
@@ -18,7 +18,13 @@ import {
   RegisterScreen,
 } from './src/screens';
 import { Conversation, ConversationItem, GroupDetails } from './src/api/types';
-import { KeyConflictModal, SessionAlertModal, DeviceTransferModal } from './src/components';
+import {
+  KeyConflictModal,
+  SessionAlertModal,
+  DeviceTransferModal,
+  IncomingCallModal,
+  ActiveCallOverlay,
+} from './src/components';
 import { notificationService } from './src/services/notificationService';
 import { colors, spacing, typography } from './src/theme';
 
@@ -388,6 +394,10 @@ function AppNavigator() {
         initialMode="scan"
         onClose={() => setIsKeyTransferModalOpen(false)}
       />
+
+      {/* Global WebRTC 1-on-1 Voice Calling Modals */}
+      <IncomingCallModal />
+      <ActiveCallOverlay />
     </View>
   );
 }
@@ -398,7 +408,9 @@ export default function App() {
       <StatusBar style="light" />
       <DeviceProvider>
         <AuthProvider>
-          <AppNavigator />
+          <CallProvider>
+            <AppNavigator />
+          </CallProvider>
         </AuthProvider>
       </DeviceProvider>
     </SafeAreaProvider>

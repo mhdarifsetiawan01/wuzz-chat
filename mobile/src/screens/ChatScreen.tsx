@@ -31,7 +31,7 @@ import { mediaApi } from '../api/media';
 import { messagesApi } from '../api/messages';
 import { websocketClient } from '../services/websocket';
 import { mediaCache } from '../services/mediaCache';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, useCall } from '../context';
 import {
   deriveRoomAESKey,
   getOrDeriveRoomAESKey,
@@ -84,6 +84,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const insets = useSafeAreaInsets();
   const { user, e2eeKeyPair } = useAuth();
+  const { startCall } = useCall();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -143,6 +144,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // Milestone M-Mobile-8.5: Contact Profile & Verified Identity modal
   const [showContactInfoModal, setShowContactInfoModal] = useState(false);
+
+  // WebRTC 1-on-1 Voice Calling Handler
+  const handleVoiceCall = useCallback(async () => {
+    if (isGroup) return;
+    const peerId = (conversation as any).peer_user_id || (conversation as any).user_id || conversation.id;
+    const peerNickname = conversation.title || 'Pengguna';
+    const peerAvatar = conversation.avatar_url;
+    await startCall(roomId, peerId, peerNickname, peerAvatar);
+  }, [conversation, isGroup, roomId, startCall]);
   const [peerPublicKey, setPeerPublicKey] = useState<string | undefined>(conversation.peer_public_key);
 
   const flatListRef = useRef<FlatList>(null);
@@ -1527,6 +1537,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
             {/* Right-side buttons */}
             <View style={styles.headerRightActions}>
+              {/* Voice Call Button (1-on-1 Direct Chat Only) */}
+              {isDirect && (
+                <TouchableOpacity
+                  style={styles.headerIconButton}
+                  onPress={handleVoiceCall}
+                  hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.headerIconText}>📞</Text>
+                </TouchableOpacity>
+              )}
+
               {/* In-Chat Search Button */}
               <TouchableOpacity
                 style={styles.headerIconButton}

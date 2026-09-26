@@ -1,35 +1,31 @@
-# Handover Document — Milestone M-Mobile-8.10
+# Handover — Milestone M-Mobile-8.11: WebRTC 1-on-1 Voice Calling & Audio Session Management (Mobile)
 
-## Verification & Status
-- **Status**: Completed & Verified
-- **Branch**: `dev`
+## 📌 Status
+Selesai diimplementasikan dan seluruh pengujian otomatis lulus 100%.
 
-## Execution Logs & Verification Evidence
-1. **Mobile TypeScript Compilation (`npx tsc --noEmit`)**:
-   - Status: **PASSED (0 Errors)**
-2. **Key Transfer E2E & Cross-Platform Suite (`node test-key-transfer-e2e.mjs`)**:
-   - Status: **11/11 PASSED (100%)**
-   - Test 1: Session Token Generation (64-hex lowercase) ➔ PASS
-   - Test 2: PBKDF2 Bit-Exact Parity (Noble vs WebCrypto) ➔ PASS
-   - Test 3: Key Wrapping & AES-GCM Encrypt/Decrypt Roundtrip ➔ PASS
-   - Test 4: Cross-Platform Interoperability (WebCrypto/Node -> Mobile Decrypt) ➔ PASS
-   - Test 5: QR Code Data Parser Robustness (URL, JSON, raw hex, reject invalid) ➔ PASS
-3. **Backend Full Test Suite (`go test -v ./internal/api/...`)**:
-   - Status: **PASSED (100%)**
-4. **Web Frontend Build (`npm run build`)**:
-   - Status: **PASSED (Next.js Turbopack 0 errors)**
+## 🧪 Verification Artifacts & Test Evidence
+1. **TypeScript Typecheck (`mobile/`)**:
+   - Perintah: `npx tsc --noEmit`
+   - Hasil: Exit Code 0 (0 errors)
+2. **WebRTC Signaling & State Machine Simulation**:
+   - Perintah: `node mobile/test-webrtc-signaling.mjs`
+   - Hasil: 8/8 test suites lulus
+3. **Backend Test Suite (`backend/`)**:
+   - Perintah: `go test ./...`
+   - Hasil: 100% test lulus
+4. **Frontend Build (`frontend/`)**:
+   - Perintah: `npm run build`
+   - Hasil: 0 error kompilasi Next.js Turbopack
 
-## Artifacts Created / Modified
-- `mobile/src/api/transfer.ts`
-- `mobile/src/api/index.ts`
-- `mobile/src/services/keyTransfer.ts`
-- `mobile/src/services/index.ts`
-- `mobile/src/components/DeviceTransferModal.tsx`
-- `mobile/src/components/index.ts`
-- `mobile/src/components/KeyConflictModal.tsx`
-- `mobile/src/screens/RecentChatsScreen.tsx`
-- `mobile/src/context/AuthContext.tsx`
-- `mobile/App.tsx`
-- `mobile/test-key-transfer-e2e.mjs`
-- `docs/MOBILE_INTEGRATION_GUIDE.md`
-- `docs/PROGRESS.md`
+## 📦 Berkas yang Dimodifikasi & Dibuat
+- `mobile/app.json`: Deklarasi permission Android (`RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS`, `INTERNET`) dan iOS `infoPlist` (`NSMicrophoneUsageDescription`).
+- `mobile/src/services/websocket.ts`: Helper method signaling WebRTC (`sendCallOffer`, `sendCallAnswer`, `sendIceCandidate`, `sendCallReject`, `sendCallEnd`, `sendCallBusy`).
+- `mobile/src/services/callAudioManager.ts`: Audio manager panggilan suara (`expo-audio`), audio routing (Speakerphone vs Earpiece), dan runtime permission guard.
+- `mobile/src/services/webrtcService.ts`: Session WebRTC, konfigurasi ICE servers (Google STUN + OpenRelay TURN fallback), dan state machine.
+- `mobile/src/context/CallContext.tsx`: Context & hook global untuk mengelola lifecycle panggilan suara.
+- `mobile/src/components/IncomingCallModal.tsx`: Modal panggilan masuk bertema Aurora Dark Mode dengan tombol Terima & Tolak.
+- `mobile/src/components/ActiveCallOverlay.tsx`: Overlay panggilan aktif dengan live timer, tombol Mute, tombol Speaker, dan tombol Tutup Panggilan.
+- `mobile/src/screens/ChatScreen.tsx`: Tombol `📞` panggil suara di header obrolan 1-on-1.
+- `mobile/App.tsx`: Mount `CallProvider` & modal panggilan global di root level.
+- `mobile/test-webrtc-signaling.mjs`: Automated verification script.
+- `docs/MOBILE_INTEGRATION_GUIDE.md`: Update Section 7 checklist `[x] WebRTC 1-on-1 Voice Call`.

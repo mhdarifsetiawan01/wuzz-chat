@@ -3378,6 +3378,60 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Backend Full Test Suite (`go test -v ./internal/api/...` di `backend/`)**: **PASS 100%** (100% pass).
 - **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
 
+---
+
+## 📱 Milestone M-Mobile-8.11: WebRTC 1-on-1 Voice Calling & Audio Session Management (Mobile) — 26 September 2026 ✅
+
+### 1. Ringkasan Implementasi
+1. **📞 WebRTC WebSocket Signaling Layer (`mobile/src/services/websocket.ts`)**:
+   - Menambahkan helper method pengiriman sinyal WebRTC: `sendCallOffer`, `sendCallAnswer`, `sendIceCandidate`, `sendCallReject`, `sendCallEnd`, dan `sendCallBusy` dengan wire format 100% kompatibel dengan Go Backend & Web Frontend.
+2. **🔊 Call Audio Session, Permissions & Ringtone Manager (`mobile/src/services/callAudioManager.ts` & `mobile/app.json`)**:
+   - Mengonfigurasi `expo-audio` (`setAudioModeAsync`) untuk aktivasi mikrofon, playback saat silent mode, serta dynamic audio routing (Speakerphone vs Earpiece).
+   - Menambahkan generator gelombang nada dering lokal (dual-tone melodic WAV) yang disimpan ke cache via `expo-file-system/legacy` dan diputar secara berulang dengan `createAudioPlayer` sehingga panggilan masuk berdering nyaring di perangkat Android.
+   - Dual-layer runtime microphone permission guard (`requestRecordingPermissionsAsync`) dan static manifest declaration di `mobile/app.json`.
+3. **🌐 WebRTC Calling Service & State Machine (`mobile/src/services/webrtcService.ts`)**:
+   - Pengelolaan transisi status panggilan: `idle` ➔ `outgoing_calling` ➔ `incoming_ringing` ➔ `connecting` ➔ `connected` ➔ `ended`.
+   - Konfigurasi STUN/TURN (Google Public STUN + OpenRelay TURN Fallback).
+   - Standardisasi format raw SDP (`v=0...`) murni antar platform.
+4. **🔄 React Call Context & Global Hook (`mobile/src/context/CallContext.tsx`)**:
+   - Mengikat event WebSocket sinyal panggilan real-time ke state aplikasi secara global.
+   - Timer durasi panggilan aktif real-time (`00:00`).
+   - Menyediakan handler aksi: `startCall`, `acceptCall`, `rejectCall`, `endCall`, `toggleMute`, `toggleSpeaker`.
+5. **🎨 Komponen UI Panggilan Aurora Dark Mode**:
+   - Tombol panggil suara `📞` di header obrolan 1-on-1 di `mobile/src/screens/ChatScreen.tsx`.
+   - `IncomingCallModal.tsx`: Dialog panggilan masuk dengan avatar penelepon, animasi berdenyut, tombol Terima & Tolak.
+   - `ActiveCallOverlay.tsx`: Layar panggilan aktif dengan avatar lawan bicara, status koneksi, timer durasi, tombol Mute Mic, Speaker, dan Tutup Panggilan.
+   - Mount `CallProvider` & modal di root level `mobile/App.tsx`.
+6. **🌐 Web Frontend Resilience (`frontend/lib/webrtc/webrtcAudio.ts` & `frontend/app/chat/page.tsx`)**:
+   - Menambahkan `extractRawSDP()` untuk menormalisasi SDP jika terbungkus JSON string.
+   - Membedakan pesan error izin mikrofon vs kegagalan negosiasi WebRTC pada `handleAcceptCall`.
+
+### 2. File Dimodifikasi / Dibuat
+- `mobile/app.json`
+- `mobile/src/services/websocket.ts`
+- `mobile/src/services/callAudioManager.ts` *(baru)*
+- `mobile/src/services/webrtcService.ts` *(baru)*
+- `mobile/src/services/index.ts`
+- `mobile/src/context/CallContext.tsx` *(baru)*
+- `mobile/src/context/index.ts`
+- `mobile/src/components/IncomingCallModal.tsx` *(baru)*
+- `mobile/src/components/ActiveCallOverlay.tsx` *(baru)*
+- `mobile/src/components/index.ts`
+- `mobile/src/screens/ChatScreen.tsx`
+- `mobile/App.tsx`
+- `mobile/test-webrtc-signaling.mjs` *(baru)*
+- `frontend/lib/webrtc/webrtcAudio.ts`
+- `frontend/app/chat/page.tsx`
+- `docs/MOBILE_INTEGRATION_GUIDE.md`
+- `docs/PROGRESS.md`
+
+### 3. Bukti Pengujian Otomatis
+- **Mobile TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **WebRTC Signaling Simulation (`node mobile/test-webrtc-signaling.mjs`)**: **PASS 100%** (8/8 tests pass).
+- **Backend Full Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (100% pass).
+- **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
+
+
 
 
 

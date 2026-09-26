@@ -2061,14 +2061,18 @@ function ChatPageContent() {
         sdp: answerSdp,
       })
       setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: Date.now() } : null))
-    } catch (err) {
+    } catch (err: any) {
       console.error('[WebRTC] Accept audio call error:', err)
       if (webrtcAudioRef.current) {
         webrtcAudioRef.current.cleanup()
         webrtcAudioRef.current = null
       }
       setActiveCall(null)
-      alert('Gagal mengakses mikrofon untuk menerima panggilan.')
+      const isMicError = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError' || err?.name === 'NotFoundError'
+      const errorMsg = isMicError
+        ? 'Gagal mengakses mikrofon untuk menerima panggilan. Pastikan izin mikrofon telah diberikan pada browser.'
+        : `Gagal menerima panggilan: ${err?.message || 'Koneksi WebRTC gagal'}`
+      alert(errorMsg)
     }
   }, [user?.display_name, user?.username, handleEndCall])
 

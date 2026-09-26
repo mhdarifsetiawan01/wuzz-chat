@@ -349,6 +349,70 @@ class WebSocketClient {
   }
 
   /**
+   * WebRTC Signaling: Send SDP Offer to initiate peer call
+   */
+  public sendCallOffer(roomId: string, sdp: string, targetUserId?: string): boolean {
+    return this.send({
+      type: 'call_offer',
+      room: roomId,
+      sdp,
+      ...(targetUserId ? { to: targetUserId } : {}),
+    });
+  }
+
+  /**
+   * WebRTC Signaling: Send SDP Answer to accept incoming call
+   */
+  public sendCallAnswer(roomId: string, sdp: string): boolean {
+    return this.send({
+      type: 'call_answer',
+      room: roomId,
+      sdp,
+    });
+  }
+
+  /**
+   * WebRTC Signaling: Send ICE candidate
+   */
+  public sendIceCandidate(roomId: string, candidate: string): boolean {
+    return this.send({
+      type: 'ice_candidate',
+      room: roomId,
+      candidate,
+    });
+  }
+
+  /**
+   * WebRTC Signaling: Reject incoming call
+   */
+  public sendCallReject(roomId: string): boolean {
+    return this.send({
+      type: 'call_reject',
+      room: roomId,
+    });
+  }
+
+  /**
+   * WebRTC Signaling: Hang up / End active call or cancel outgoing call
+   */
+  public sendCallEnd(roomId: string): boolean {
+    return this.send({
+      type: 'call_end',
+      room: roomId,
+    });
+  }
+
+  /**
+   * WebRTC Signaling: Send busy response if already in another call
+   */
+  public sendCallBusy(roomId: string): boolean {
+    return this.send({
+      type: 'call_busy',
+      room: roomId,
+    });
+  }
+
+  /**
    * Subscribe to specific event types (e.g. 'message', 'receipt', 'typing', 'system')
    */
   public on(eventType: string, listener: WebSocketEventListener): () => void {

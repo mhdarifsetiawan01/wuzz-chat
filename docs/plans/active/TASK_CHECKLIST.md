@@ -1,3 +1,3 @@
-# Task Checklist
+# Task Checklist — Standby
 
-*Standby. Ready for next task.*
+Belum ada task aktif.
