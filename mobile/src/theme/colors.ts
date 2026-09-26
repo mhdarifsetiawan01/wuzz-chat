@@ -37,6 +37,7 @@ export const colors = {
   tintError10: 'rgba(239, 68, 68, 0.10)',
   tintError20: 'rgba(239, 68, 68, 0.20)',
   tintSuccess10: 'rgba(16, 185, 129, 0.10)',
+  tintWarning10: 'rgba(251, 191, 36, 0.10)',
 
   // Status & Semantic
   colorOnline: '#34d399',

@@ -1,45 +1,35 @@
-# Handover & Verification — Milestone M-Mobile-8.8
+# Handover & Verification — Milestone M-Mobile-8.9
 
 ## Implementation Status
 - **Status**: `COMPLETED_AWAITING_USER_CONFIRMATION`
-- **Milestone**: M-Mobile-8.8 — Single Active Device Guard & Terminal Reconnect Protection (Mobile)
+- **Milestone**: M-Mobile-8.9 — E2EE Key Conflict Handling & Reset Dialog (HTTP 409)
 - **Branch**: `dev`
 
 ## Verification Evidence & Quality Gate Results
-1. **Real Server E2E Eviction Test (`backend/internal/ws/hub_mobile_eviction_e2e_test.go`)**:
-   - Command: `go test -v -run TestE2E_MobileEvictedByWebLogin ./...` (Cwd: `backend/`)
-   - Scenario:
-     - User connects on Android client (`device_id: android_phone_001`).
-     - User then logs in & connects on Web client (`device_id: web_laptop_002`).
-     - Server sends Close Code `4001: SESSION_REPLACED` to Android client.
-     - Android socket is terminated immediately and Web becomes the sole active session.
-   - Result: **PASSED (100% pass)**.
-2. **Mobile Client Session Guard Simulation (`frontend/test-mobile-session-guard.mjs`)**:
-   - Command: `node test-mobile-session-guard.mjs` (Cwd: `frontend/`)
+1. **Mobile E2EE Key Conflict & Reset Integration Test (`frontend/test-mobile-key-conflict.mjs`)**:
+   - Command: `node test-mobile-key-conflict.mjs` (Cwd: `frontend/`)
    - Result: **PASSED (100% pass)**.
    - Evidence:
-     - `isTerminated = true` & `destroyed = true`.
-     - `onSessionReplaced` callback & `session_replaced` event listener triggered.
-     - Auto-reconnect backoff loop halted (`scheduleReconnect() -> false`).
-     - Local tokens purged while persistent `device_id` is preserved.
-     - Modal `SessionAlertModal` triggered at root level, and upon dismissal, navigates to `LoginScreen`.
-3. **Mobile TypeScript Verification**:
+     - Catch HTTP 409 `KEY_ALREADY_REGISTERED` on initial key sync -> transitions `e2eeStatus` to `'conflict'` and opens `KeyConflictModal`.
+     - Confirm reset with password verification -> calls `resetPublicKey` with password -> fresh keypair generated -> transitions `e2eeStatus` to `'ready'`.
+     - Cancel conflict -> aborts session locally and resets to login without calling remote `POST /api/auth/logout`.
+2. **Mobile TypeScript Verification**:
    - Command: `npx tsc --noEmit` (Cwd: `mobile/`)
    - Result: **PASSED (0 errors)**.
-4. **Backend Full Test Suite**:
+3. **Backend Full Test Suite**:
    - Command: `go test -v ./...` (Cwd: `backend/`)
    - Result: **PASSED (100% pass)**.
-5. **Frontend Automated Build**:
+4. **Frontend Automated Build**:
    - Command: `npm run build` (Cwd: `frontend/`)
    - Result: **PASSED (0 errors)**.
 
 ## Impacted Files
-- `mobile/src/services/websocket.ts`
+- `mobile/src/components/KeyConflictModal.tsx` *(baru)*
+- `mobile/src/components/index.ts`
+- `mobile/src/theme/colors.ts`
 - `mobile/src/context/AuthContext.tsx`
 - `mobile/App.tsx`
-- `mobile/src/screens/RecentChatsScreen.tsx`
-- `backend/internal/ws/hub_mobile_eviction_e2e_test.go`
-- `frontend/test-mobile-session-guard.mjs`
+- `frontend/test-mobile-key-conflict.mjs` *(baru)*
 - `docs/MOBILE_INTEGRATION_GUIDE.md`
 - `docs/plans/active/*`
 

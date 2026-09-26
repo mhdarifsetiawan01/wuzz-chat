@@ -3294,6 +3294,43 @@ Mengimplementasikan proteksi sesi tunggal (*Single Active Device Guard*) dan per
 - **Backend Full Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (100% lulus).
 - **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
 
+## ✅ Milestone M-Mobile-8.9: E2EE Key Conflict Handling & Reset Dialog (HTTP 409) — SELESAI
+
+**Tanggal Selesai:** 26 September 2026 | **Branch:** `dev`
+
+### 1. Ringkasan Fitur & Implementasi Mobile
+Mengimplementasikan modul penanganan konflik kunci E2EE (*Key Conflict Handling*) dan dialog reset kunci terverifikasi pada WuzzChat Mobile:
+1. **🔐 Key Conflict Modal Component (`mobile/src/components/KeyConflictModal.tsx`)**:
+   - Membangun komponen modal dialog dengan desain token resmi (`colors`, `radius`, `spacing`, `typography`, `shadows`).
+   - Menerapkan alur interaktif 2 tahap (*two-phase flow*):
+     - **Tahap 1**: Menampilkan ikon badge `🔐`, judul *"Kunci Keamanan Terdaftar"*, penjelasan bahwa akun telah memiliki kunci aktif di perangkat lain, tombol *"Reset Kunci ke Perangkat Ini"*, dan tombol *"Batal / Keluar"*.
+     - **Tahap 2**: Form input kata sandi dengan penyamaran teks (`secureTextEntry`), loading state saat pemrosesan, dan pesan error inline jika kata sandi salah.
+   - Diekspor di `mobile/src/components/index.ts` dan penambahan token `tintWarning10` di `mobile/src/theme/colors.ts`.
+2. **🛡️ Auth Context Local-Only Abort & Key Reset Actions (`mobile/src/context/AuthContext.tsx`)**:
+   - Menambahkan fungsi `cancelKeyConflict()`: Jika pengguna membatalkan konflik, aplikasi **hanya membersihkan sesi lokal** (`secureStorage.clearSession()`, reset state ke `LoginScreen`) **tanpa memanggil `POST /api/auth/logout` ke server**, sehingga sesi aktif perangkat utama tidak terganggu (sesuai SOP `docs/MOBILE_INTEGRATION_GUIDE.md` baris 84).
+   - Memastikan `resetE2EEKeys(password)` meneruskan kata sandi ke `POST /api/users/public-key/reset` dan memperbarui keypair lokal serta status E2EE kembali ke `'ready'`.
+3. **📱 Global Root Hoisting di AppNavigator (`mobile/App.tsx`)**:
+   - Me-mount `<KeyConflictModal visible={e2eeStatus === 'conflict'} ... />` di tingkat root `AppNavigator` dengan handler `onConfirmReset={resetE2EEKeys}` dan `onCancel={handleCancelKeyConflict}`.
+4. **🧪 Pengujian Integrasi Otomatis (`frontend/test-mobile-key-conflict.mjs`)**:
+   - Menambahkan skrip verifikasi penanganan error 409 `KEY_ALREADY_REGISTERED`, alur reset kunci dengan password, dan kepatuhan aturan *Local-Only Abort*.
+
+### 2. File Dimodifikasi / Dibuat
+- `mobile/src/components/KeyConflictModal.tsx` *(baru)*
+- `mobile/src/components/index.ts`
+- `mobile/src/theme/colors.ts`
+- `mobile/src/context/AuthContext.tsx`
+- `mobile/App.tsx`
+- `frontend/test-mobile-key-conflict.mjs` *(baru)*
+- `docs/MOBILE_INTEGRATION_GUIDE.md`
+- `docs/PROGRESS.md`
+
+### 3. Bukti Pengujian Otomatis
+- **Mobile TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Mobile E2EE Key Conflict Test (`node test-mobile-key-conflict.mjs` di `frontend/`)**: **PASS 100%**.
+- **Backend Full Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (100% lulus).
+- **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
+
+
 
 
 

@@ -18,14 +18,22 @@ import {
   RegisterScreen,
 } from './src/screens';
 import { Conversation, ConversationItem, GroupDetails } from './src/api/types';
-import { SessionAlertModal } from './src/components';
+import { KeyConflictModal, SessionAlertModal } from './src/components';
 import { notificationService } from './src/services/notificationService';
 import { colors, spacing, typography } from './src/theme';
 
 type AuthRoute = 'login' | 'register';
 
 function AppNavigator() {
-  const { isAuthenticated, isLoading, sessionReplacedMessage, dismissSessionAlert } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    sessionReplacedMessage,
+    dismissSessionAlert,
+    e2eeStatus,
+    resetE2EEKeys,
+    cancelKeyConflict,
+  } = useAuth();
   const [authRoute, setAuthRoute] = useState<AuthRoute>('login');
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState<boolean>(false);
@@ -271,6 +279,16 @@ function AppNavigator() {
     setForumParentConversation(null);
   }, [dismissSessionAlert]);
 
+  const handleCancelKeyConflict = useCallback(async () => {
+    await cancelKeyConflict();
+    setAuthRoute('login');
+    setActiveConversation(null);
+    setActiveGroupInfo(null);
+    setIsNewGroupOpen(false);
+    setIsNewChatOpen(false);
+    setForumParentConversation(null);
+  }, [cancelKeyConflict]);
+
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -353,6 +371,13 @@ function AppNavigator() {
         visible={!!sessionReplacedMessage}
         message={sessionReplacedMessage}
         onDismiss={handleDismissSessionAlert}
+      />
+
+      {/* Global E2EE Key Conflict Resolution Modal (HTTP 409) */}
+      <KeyConflictModal
+        visible={e2eeStatus === 'conflict'}
+        onConfirmReset={resetE2EEKeys}
+        onCancel={handleCancelKeyConflict}
       />
     </View>
   );

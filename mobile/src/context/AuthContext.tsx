@@ -31,6 +31,7 @@ interface AuthContextType {
   register: (payload: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   dismissSessionAlert: () => void | Promise<void>;
+  cancelKeyConflict: () => void | Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -47,6 +48,7 @@ const AuthContext = createContext<AuthContextType>({
   register: async () => {},
   logout: async () => {},
   dismissSessionAlert: () => {},
+  cancelKeyConflict: () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -362,6 +364,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     websocketClient.reset();
   }, []);
 
+  const cancelKeyConflict = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Disconnect socket locally
+      websocketClient.disconnect();
+      websocketClient.reset();
+
+      // Unsubscribe push token locally
+      notificationService.unsubscribeDevice().catch(() => {});
+
+      // Clear local storage ONLY (Do NOT call remote authApi.logout to preserve primary device session)
+      if (user?.id) {
+        try {
+          await secureStorage.deleteE2EEKeyPair(user.id);
+        } catch {}
+      }
+      await secureStorage.clearSession();
+
+      setUser(null);
+      setToken(null);
+      setE2eeKeyPair(null);
+      setE2eeStatus('uninitialized');
+      setSessionReplacedMessage(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -378,6 +408,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         dismissSessionAlert,
+        cancelKeyConflict,
       }}
     >
       {children}
