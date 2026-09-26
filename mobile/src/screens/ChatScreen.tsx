@@ -468,15 +468,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }, 100);
     });
 
-    // Join room via WebSocket & send read receipt
-    websocketClient.joinRoom(roomId);
-    websocketClient.sendReceipt(roomId, 'read');
+    // Join room via WebSocket & send read receipt.
+    // If WS is not yet OPEN (e.g. right after QR transfer), joinRoom returns false.
+    // In that case, install a one-shot state-change listener that retries once
+    // the connection becomes 'connected', preventing empty chat on fresh sessions.
+    const joined = websocketClient.joinRoom(roomId);
+    if (joined) {
+      websocketClient.sendReceipt(roomId, 'read');
+    }
+
+    let retried = false;
+    const unsubscribeWsState = websocketClient.onStateChange((state) => {
+      if (state === 'connected' && !retried) {
+        retried = true;
+        console.log('[ChatScreen] WS reconnected — retrying joinRoom for room:', roomId);
+        websocketClient.joinRoom(roomId);
+        websocketClient.sendReceipt(roomId, 'read');
+      }
+    });
 
     return () => {
       clearTimeout(timeout);
       unsubscribeHistory();
+      unsubscribeWsState();
     };
   }, [roomId, isVerifyingGroup, isAccessDenied, directPreviewGroup]);
+
 
   // 2. Realtime WebSocket Listeners (Anti-Stale Reprocessing Guard)
   useEffect(() => {

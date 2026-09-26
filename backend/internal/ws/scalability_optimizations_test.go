@@ -166,7 +166,7 @@ func TestHub_DeltaHistorySince(t *testing.T) {
 	hub.Register(client)
 
 	// 1. Uji tanpa checkpoint (default 50 pesan): harus mengembalikan semua 3 pesan
-	hub.sendRoomHistory(client.ID, roomID)
+	hub.sendRoomHistory(client, roomID)
 	select {
 	case historyMsg := <-client.send:
 		if historyMsg.Type != TypeHistory {
@@ -181,7 +181,7 @@ func TestHub_DeltaHistorySince(t *testing.T) {
 
 	// 2. Uji dengan checkpoint 'since' = baseTime (RFC3339): hanya boleh mengembalikan 1 pesan ('msg-new-1')
 	sinceCheckpoint := baseTime.Format(time.RFC3339)
-	hub.sendRoomHistory(client.ID, roomID, sinceCheckpoint)
+	hub.sendRoomHistory(client, roomID, sinceCheckpoint)
 	select {
 	case historyMsg := <-client.send:
 		if historyMsg.Type != TypeHistory {
@@ -195,6 +195,75 @@ func TestHub_DeltaHistorySince(t *testing.T) {
 		}
 	case <-time.After(200 * time.Millisecond):
 		t.Fatal("Timeout menunggu delta history")
+	}
+}
+
+// TestHub_MultiDevice_RoomHistoryDeliveredToCorrectDevice memastikan bahwa saat user memiliki
+// 2 perangkat aktif (misal Laptop dan HP), pemanggilan sendRoomHistory hanya mengirimkan paket
+// history ke perangkat yang meminta, bukan salah sasaran ke perangkat lain milik user yang sama.
+func TestHub_MultiDevice_RoomHistoryDeliveredToCorrectDevice(t *testing.T) {
+	cs := store.NewMemoryClientStore()
+	ms := store.NewMemoryMessageStore()
+	hub := NewHub(cs, ms)
+
+	roomID := "room-multi-test"
+	_ = ms.Save(store.StoredMessage{
+		ID:        "msg-test-1",
+		RoomID:    roomID,
+		FromID:    "user-peer",
+		Content:   "Halo dari peer",
+		Timestamp: time.Now().UTC(),
+	})
+
+	userID := "user-multi-device-123"
+
+	// Perangkat 1: Laptop
+	laptopClient := &Client{
+		ID:         userID,
+		DeviceID:   "dev-laptop",
+		SessionKey: userID + ":dev-laptop",
+		Nickname:   "User Laptop",
+		send:       make(chan Message, 10),
+		hub:        hub,
+	}
+	hub.Register(laptopClient)
+
+	// Perangkat 2: Mobile / HP
+	mobileClient := &Client{
+		ID:         userID,
+		DeviceID:   "dev-mobile",
+		SessionKey: userID + ":dev-mobile",
+		Nickname:   "User Mobile",
+		send:       make(chan Message, 10),
+		hub:        hub,
+	}
+	hub.Register(mobileClient)
+
+	// Mobile membuka room -> meminta sendRoomHistory
+	hub.sendRoomHistory(mobileClient, roomID)
+
+	// 1. Verifikasi Mobile menerima paket TypeHistory
+	select {
+	case historyMsg := <-mobileClient.send:
+		if historyMsg.Type != TypeHistory {
+			t.Fatalf("Expected TypeHistory on mobile, got %s", historyMsg.Type)
+		}
+		if len(historyMsg.Messages) != 1 {
+			t.Fatalf("Expected 1 message on mobile, got %d", len(historyMsg.Messages))
+		}
+		if historyMsg.Messages[0].ID != "msg-test-1" {
+			t.Errorf("Expected 'msg-test-1', got '%s'", historyMsg.Messages[0].ID)
+		}
+	case <-time.After(300 * time.Millisecond):
+		t.Fatal("Timeout: Mobile tidak menerima history!")
+	}
+
+	// 2. Verifikasi Laptop TIDAK menerima paket TypeHistory (tidak bocor/salah sasaran)
+	select {
+	case leakedMsg := <-laptopClient.send:
+		t.Fatalf("Laptop menerima pesan tidak terduga: %+v", leakedMsg)
+	case <-time.After(100 * time.Millisecond):
+		// Sukses: channel laptop bersih
 	}
 }
 

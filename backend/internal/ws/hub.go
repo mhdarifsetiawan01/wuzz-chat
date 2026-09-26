@@ -851,9 +851,14 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 	}
 }
 
-// sendRoomHistory mengambil riwayat pesan dari database dan mengirimkannya ke client spesifik.
+// sendRoomHistory mengambil riwayat pesan dari database dan mengirimkannya langsung ke socket client peminta.
+// Hal ini mencegah kesalahan routing paket history pada skenario multi-device (misal: laptop + HP).
 // Jika sinceStr diberikan dan valid (RFC3339), hanya mengambil pesan delta yang lebih baru dari checkpoint.
-func (h *Hub) sendRoomHistory(clientID, roomID string, sinceStr ...string) {
+func (h *Hub) sendRoomHistory(c *Client, roomID string, sinceStr ...string) {
+	if c == nil {
+		return
+	}
+
 	var sinceTime time.Time
 	if len(sinceStr) > 0 && strings.TrimSpace(sinceStr[0]) != "" {
 		raw := strings.TrimSpace(sinceStr[0])
@@ -868,20 +873,25 @@ func (h *Hub) sendRoomHistory(clientID, roomID string, sinceStr ...string) {
 	var err error
 
 	if !sinceTime.IsZero() {
-		history, err = h.GetRoomHistorySince(roomID, clientID, sinceTime, 100)
+		history, err = h.GetRoomHistorySince(roomID, c.ID, sinceTime, 100)
 	} else {
-		history, err = h.GetRoomHistoryForUser(roomID, clientID, 50)
+		history, err = h.GetRoomHistoryForUser(roomID, c.ID, 50)
 	}
 	if err != nil {
 		log.Printf("[Hub %s] gagal mengambil history untuk room %s: %v", h.nodeID[:8], roomID, err)
-		h.notifyClient(clientID, Message{
+		historyMsg := Message{
 			Type:      TypeHistory,
 			From:      "server",
-			To:        clientID,
+			To:        c.ID,
 			Room:      roomID,
 			Timestamp: time.Now().UTC(),
 			Messages:  []Message{},
-		})
+		}
+		select {
+		case c.send <- historyMsg:
+		default:
+			log.Printf("[Hub %s] buffer penuh saat mengirim error history ke client %s (session %s)", h.nodeID[:8], c.ID, c.SessionKey)
+		}
 		return
 	}
 
@@ -941,14 +951,20 @@ func (h *Hub) sendRoomHistory(clientID, roomID string, sinceStr ...string) {
 		})
 	}
 
-	h.notifyClient(clientID, Message{
+	historyMsg := Message{
 		Type:      TypeHistory,
 		From:      "server",
-		To:        clientID,
+		To:        c.ID,
 		Room:      roomID,
 		Timestamp: time.Now().UTC(),
 		Messages:  msgs,
-	})
+	}
+
+	select {
+	case c.send <- historyMsg:
+	default:
+		log.Printf("[Hub %s] buffer penuh saat mengirim history ke client %s (session %s)", h.nodeID[:8], c.ID, c.SessionKey)
+	}
 }
 
 // GetClient mengambil client berdasarkan sessionKey atau userID.

@@ -217,7 +217,7 @@ func (c *Client) onJoin(msg Message) {
 		}, c.ID)
 
 		// Muat dan kirim riwayat pesan percakapan dari database (mendukung delta sync jika msg.Since ada)
-		c.hub.sendRoomHistory(c.ID, targetRoom, msg.Since)
+		c.hub.sendRoomHistory(c, targetRoom, msg.Since)
 	}
 
 	log.Printf("[Client %s] join: nickname=%s room=%s", c.ID, c.Nickname, targetRoom)

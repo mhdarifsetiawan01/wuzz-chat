@@ -162,12 +162,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setE2eeKeyPair(pair);
       setE2eeStatus('ready');
       console.log('[AuthContext] Transferred keypair imported and active.');
+
+      // Re-establish WebSocket connection after QR transfer.
+      // The JWT token is already stored from the original login; retrieve it and
+      // reconnect so that ChatScreen joinRoom succeeds immediately after transfer.
+      const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+      const storedToken = await secureStorage.getAuthToken();
+      if (storedToken) {
+        websocketClient.reset();
+        websocketClient.connect(storedToken, currentDeviceId);
+        console.log('[AuthContext] WebSocket reconnected after QR key transfer.');
+      }
     } catch (err) {
       console.error('[AuthContext] importTransferredKeyPair failed:', err);
       setE2eeStatus('error');
       throw err;
     }
-  }, [user?.id]);
+  }, [user?.id, deviceId]);
 
   // Setup WebSocket session replaced handler
   useEffect(() => {
