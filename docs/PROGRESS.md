@@ -3522,4 +3522,28 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
 - **Frontend Next.js Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
 
+---
+
+## 📱 Stabilitas Multi-Device, Device Eviction E2EE, dan Deteksi Perangkat React Native (27 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Penyelarasan Deteksi Perangkat React Native Mobile (`backend/internal/api/auth_handler.go`, `backend/internal/ws/handler.go`, `frontend/app/chat/ProfileModal.tsx`, `frontend/app/login/DeviceLimitModal.tsx`)**:
+  - Mengatasi label *"Browser on Unknown OS"* dengan mengenali User-Agent `WuzzChat-Mobile`, runtime `okhttp`, serta parameter query `platform=android` dan `name`.
+  - Memetakan icon perangkat menjadi `📱` dan label menjadi `"Aplikasi WuzzChat di Android"` di seluruh panel web dan modal batas perangkat.
+- **Header Canonical & Handshake Param Mobile (`mobile/src/api/client.ts`, `mobile/src/services/websocket.ts`)**:
+  - Menambahkan header `User-Agent: WuzzChat-Mobile/1.0 (Android; Mobile; React-Native)` pada seluruh request REST API.
+  - Menyertakan query parameter `platform` dan `name` saat inisiasi koneksi WebSocket.
+- **Stabilitas Keyboard & Pencegahan Modal Flicker di Mobile (`mobile/src/screens/ChatScreen.tsx`, `mobile/src/components/ChatInputBar.tsx`, `mobile/src/context/AuthContext.tsx`)**:
+  - Mencegah pop-up "Kunci Terdaftar" berkedip atau menutup keyboard saat mengetik di ruang obrolan.
+  - Memperbaiki penanganan `KeyboardAvoidingView` dan padding dynamic safe-area.
+- **Simulasi & Pengujian 3 Perangkat E2EE (`frontend/test-three-device-transfer-simulation.mjs`)**:
+  - Menjalankan simulasi transfer akun multi-perangkat (Laptop 1 Web, Laptop 2 Web, HP Android React Native).
+  - Membuktikan pertukaran kunci E2EE berjalan sukses dan perangkat lama otomatis ter-logout via Close Code 4001 (`SESSION_REPLACED`).
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Unit & Integration Tests (`go test -v ./...` di `backend/`)**: **PASS 100%**.
+- **Frontend Next.js Production Build (`npm run build` di `frontend/`)**: **PASS 100%** (Turbopack 0 errors).
+- **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **APK Packaging & Install (`./gradlew assembleRelease` & `adb install`)**: **BUILD SUCCESSFUL & INSTALLED**.
+
 

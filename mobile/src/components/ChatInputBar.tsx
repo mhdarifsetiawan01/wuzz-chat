@@ -99,6 +99,23 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   const recordTimerRef = useRef<any>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   // Set text and focus when editing a message
   useEffect(() => {
     if (editingMessage) {
@@ -294,7 +311,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     <View
       style={[
         styles.wrapper,
-        { paddingBottom: showEmojiPicker ? 0 : Math.max(insets.bottom, 8) },
+        { paddingBottom: (showEmojiPicker || isKeyboardVisible) ? 8 : Math.max(insets.bottom, 8) },
       ]}
     >
       {/* Edit Mode Preview Banner */}

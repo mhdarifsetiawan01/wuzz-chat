@@ -31,6 +31,13 @@ function parseUserAgent(ua?: string, fallbackName?: string) {
     return { name: fallbackName || 'Perangkat Terdaftar', icon: '💻' }
   }
 
+  if (/wuzzchat|okhttp|react-native|expo/i.test(ua)) {
+    if (/ios|iphone|ipad/i.test(ua)) {
+      return { name: 'Aplikasi WuzzChat di iOS', icon: '📱' }
+    }
+    return { name: 'Aplikasi WuzzChat di Android', icon: '📱' }
+  }
+
   if (/android/i.test(ua)) {
     os = 'Android'
     icon = '📱'

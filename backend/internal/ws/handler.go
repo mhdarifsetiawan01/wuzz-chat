@@ -109,11 +109,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 				// Jika perangkat sebelumnya terikat ke user lain atau belum aktif untuk user ini, re-bind ke user saat ini
 				if targetDev.UserID != claims.UserID || !targetDev.IsActive {
+					platform := strings.TrimSpace(r.URL.Query().Get("platform"))
+					if platform == "" {
+						platform = "web"
+					}
+					devName := strings.TrimSpace(r.URL.Query().Get("name"))
+					if devName == "" {
+						devName = parseDeviceName(r.UserAgent())
+					}
 					rebindDev := &store.Device{
 						ID:        deviceID,
 						UserID:    claims.UserID,
-						Name:      parseDeviceName(r.UserAgent()),
-						Platform:  "web",
+						Name:      devName,
+						Platform:  platform,
 						UserAgent: r.UserAgent(),
 						IPAddress: getClientIP(r),
 						IsActive:  true,
@@ -126,11 +134,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			} else if targetDev == nil {
 				// Perangkat belum terdaftar di tabel devices (misal sesi lama sebelum migrasi)
 				// Daftarkan sebagai perangkat aktif secara otomatis
+				platform := strings.TrimSpace(r.URL.Query().Get("platform"))
+				if platform == "" {
+					platform = "web"
+				}
+				devName := strings.TrimSpace(r.URL.Query().Get("name"))
+				if devName == "" {
+					devName = parseDeviceName(r.UserAgent())
+				}
 				newDev := &store.Device{
 					ID:        deviceID,
 					UserID:    claims.UserID,
-					Name:      parseDeviceName(r.UserAgent()),
-					Platform:  "web",
+					Name:      devName,
+					Platform:  platform,
 					UserAgent: r.UserAgent(),
 					IPAddress: getClientIP(r),
 					IsActive:  true,

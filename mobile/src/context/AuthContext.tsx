@@ -122,9 +122,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Auto-init E2EE keys whenever user is authenticated but e2eeKeyPair is not yet loaded
+  // Auto-init E2EE keys whenever user is authenticated but e2eeKeyPair is not yet loaded and status is uninitialized
   useEffect(() => {
-    if (!user?.id || e2eeKeyPair || e2eeStatus === 'loading') return;
+    if (!user?.id || e2eeKeyPair || e2eeStatus !== 'uninitialized') return;
     const currentDeviceId = deviceId || '';
     if (currentDeviceId) {
       initE2EEForUser(user.id, currentDeviceId);

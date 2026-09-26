@@ -5,13 +5,16 @@
  * Adheres to docs/MOBILE_INTEGRATION_GUIDE.md Section 2B & 7.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { colors, radius, shadows, spacing, typography } from '../theme';
@@ -37,6 +40,13 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Auto-dismiss software keyboard when modal appears so modal buttons are never obscured
+  useEffect(() => {
+    if (visible) {
+      Keyboard.dismiss();
+    }
+  }, [visible]);
 
   const handleStartReset = () => {
     setErrorMessage(null);
@@ -90,87 +100,98 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
       visible={visible}
       onRequestClose={handleCancel}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.overlay}
-      >
-        <View style={styles.card}>
-          <View style={styles.iconContainer}>
-            <Text style={styles.icon}>🔐</Text>
-          </View>
-
-          <Text style={styles.title}>
-            {isPromptingPassword ? 'Konfirmasi Kata Sandi' : 'Kunci Keamanan Terdaftar'}
-          </Text>
-
-          <Text style={styles.description}>
-            {isPromptingPassword
-              ? 'Mereset kunci keamanan akan mengaktifkan enkripsi E2EE baru pada perangkat ini dan menonaktifkan sesi pada perangkat lain.'
-              : 'Akun Anda telah memiliki kunci enkripsi aktif di perangkat lain. Anda dapat memindai kode QR dari perangkat lama untuk menyinkronkan kunci tanpa reset, atau mereset kunci menggunakan kata sandi Anda.'}
-          </Text>
-
-          {isPromptingPassword ? (
-            <View style={styles.formContainer}>
-              <Input
-                label="Kata Sandi Akun"
-                placeholder="Masukkan kata sandi akun Anda"
-                secureTextEntry
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (errorMessage) setErrorMessage(null);
-                }}
-                error={errorMessage}
-                autoCapitalize="none"
-                editable={!isLoading}
-                containerStyle={styles.inputContainer}
-              />
-
-              <Button
-                title="Konfirmasi & Reset Kunci"
-                variant="primary"
-                isLoading={isLoading}
-                disabled={isLoading}
-                style={styles.actionButton}
-                onPress={handleSubmitReset}
-              />
-
-              <Button
-                title="Kembali"
-                variant="secondary"
-                disabled={isLoading}
-                style={styles.actionButton}
-                onPress={handleBackToOptions}
-              />
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.overlay}
+        >
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()} accessible={false}>
+            <View style={styles.card}>
+              <ScrollView
+                style={styles.scrollWrapper}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+            <View style={styles.iconContainer}>
+              <Text style={styles.icon}>🔐</Text>
             </View>
-          ) : (
-            <View style={styles.formContainer}>
-              {onOpenDeviceTransfer && (
-                <Button
-                  title="📱 Transfer dari Perangkat Lain"
-                  variant="primary"
-                  style={styles.actionButton}
-                  onPress={onOpenDeviceTransfer}
+
+            <Text style={styles.title}>
+              {isPromptingPassword ? 'Konfirmasi Kata Sandi' : 'Kunci Keamanan Terdaftar'}
+            </Text>
+
+            <Text style={styles.description}>
+              {isPromptingPassword
+                ? 'Mereset kunci keamanan akan mengaktifkan enkripsi E2EE baru pada perangkat ini dan menonaktifkan sesi pada perangkat lain.'
+                : 'Akun Anda telah memiliki kunci enkripsi aktif di perangkat lain. Anda dapat memindai kode QR dari perangkat lama untuk menyinkronkan kunci tanpa reset, atau mereset kunci menggunakan kata sandi Anda.'}
+            </Text>
+
+            {isPromptingPassword ? (
+              <View style={styles.formContainer}>
+                <Input
+                  label="Kata Sandi Akun"
+                  placeholder="Masukkan kata sandi akun Anda"
+                  secureTextEntry
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  error={errorMessage}
+                  autoCapitalize="none"
+                  editable={!isLoading}
+                  containerStyle={styles.inputContainer}
                 />
-              )}
 
-              <Button
-                title={onOpenDeviceTransfer ? 'Reset Kunci Baru' : 'Reset Kunci ke Perangkat Ini'}
-                variant={onOpenDeviceTransfer ? 'secondary' : 'primary'}
-                style={styles.actionButton}
-                onPress={handleStartReset}
-              />
+                <Button
+                  title="Konfirmasi & Reset Kunci"
+                  variant="primary"
+                  isLoading={isLoading}
+                  disabled={isLoading}
+                  style={styles.actionButton}
+                  onPress={handleSubmitReset}
+                />
 
-              <Button
-                title="Batal / Keluar"
-                variant="secondary"
-                style={styles.actionButton}
-                onPress={handleCancel}
-              />
+                <Button
+                  title="Kembali"
+                  variant="secondary"
+                  disabled={isLoading}
+                  style={styles.actionButton}
+                  onPress={handleBackToOptions}
+                />
+              </View>
+            ) : (
+              <View style={styles.formContainer}>
+                {onOpenDeviceTransfer && (
+                  <Button
+                    title="📱 Transfer dari Perangkat Lain"
+                    variant="primary"
+                    style={styles.actionButton}
+                    onPress={onOpenDeviceTransfer}
+                  />
+                )}
+
+                <Button
+                  title={onOpenDeviceTransfer ? 'Reset Kunci Baru' : 'Reset Kunci ke Perangkat Ini'}
+                  variant={onOpenDeviceTransfer ? 'secondary' : 'primary'}
+                  style={styles.actionButton}
+                  onPress={handleStartReset}
+                />
+
+                <Button
+                  title="Batal / Keluar"
+                  variant="secondary"
+                  style={styles.actionButton}
+                  onPress={handleCancel}
+                />
+              </View>
+            )}
+          </ScrollView>
             </View>
-          )}
-        </View>
-      </KeyboardAvoidingView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 };
@@ -185,13 +206,20 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
+    maxHeight: '85%',
     backgroundColor: colors.bgCardSolid,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderDefault,
     padding: spacing.xxl,
-    alignItems: 'center',
     ...shadows.modal,
+  },
+  scrollWrapper: {
+    width: '100%',
+  },
+  scrollContent: {
+    alignItems: 'center',
+    paddingBottom: spacing.sm,
   },
   iconContainer: {
     width: 60,

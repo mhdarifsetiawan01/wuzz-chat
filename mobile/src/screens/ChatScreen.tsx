@@ -1388,7 +1388,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* Sticky Header — with In-Chat Search mode toggle and Sub-Group breadcrumb */}
         {isSearching ? (

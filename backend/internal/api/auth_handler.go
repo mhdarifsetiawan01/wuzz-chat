@@ -132,6 +132,14 @@ func getClientIP(r *http.Request) string {
 func parseDeviceName(userAgent string) string {
 	ua := strings.ToLower(userAgent)
 
+	// Deteksi Aplikasi Mobile Native
+	if strings.Contains(ua, "wuzzchat") || strings.Contains(ua, "okhttp") || strings.Contains(ua, "react-native") || strings.Contains(ua, "expo") {
+		if strings.Contains(ua, "ios") || strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") {
+			return "Aplikasi WuzzChat di iOS"
+		}
+		return "Aplikasi WuzzChat di Android"
+	}
+
 	// Deteksi OS
 	os := "Unknown OS"
 	switch {

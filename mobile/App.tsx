@@ -404,6 +404,7 @@ function AppNavigator() {
           visible={isKeyTransferModalOpen}
           initialMode="scan"
           onClose={() => setIsKeyTransferModalOpen(false)}
+          onTransferSuccess={() => setIsKeyTransferModalOpen(false)}
         />
       )}
 

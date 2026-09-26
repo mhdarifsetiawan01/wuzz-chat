@@ -5,6 +5,7 @@
  * Reference: docs/MOBILE_INTEGRATION_GUIDE.md Section 2B & 2C.
  */
 
+import { Platform } from 'react-native';
 import { getBaseWsUrl } from '../api/config';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'terminated';
@@ -150,7 +151,7 @@ class WebSocketClient {
     this.setState(this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting');
 
     const baseUrl = getBaseWsUrl();
-    const wsUrl = `${baseUrl}?token=${encodeURIComponent(this.token)}&device_id=${encodeURIComponent(this.deviceId)}`;
+    const wsUrl = `${baseUrl}?token=${encodeURIComponent(this.token)}&device_id=${encodeURIComponent(this.deviceId)}&platform=${Platform.OS === 'ios' ? 'ios' : 'android'}&name=${encodeURIComponent(Platform.OS === 'ios' ? 'Aplikasi WuzzChat di iOS' : 'Aplikasi WuzzChat di Android')}`;
 
     const originHeader = baseUrl.includes('localhost') || baseUrl.includes('10.0.2.2')
       ? 'http://localhost:3000'
