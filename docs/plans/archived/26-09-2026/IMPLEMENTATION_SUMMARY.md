@@ -1,10 +1,9 @@
-# Implementation Summary — Milestone M-Mobile-8.11
+# Implementation Summary: FCM Push Notification & Android Notification Bar Integration
 
-## 📊 Status Snapshot
-- **Milestone**: M-Mobile-8.11 — WebRTC 1-on-1 Voice Calling & Audio Session Management (Mobile)
-- **Status**: Planning Phase (Menunggu Konfirmasi User)
-- **Target Branch**: `dev`
-- **Terkait**: `frontend/lib/webrtc/webrtcAudio.ts`, `backend/internal/ws/client.go`
-
-## 🎯 Ringkasan Eksekutif
-Milestone ini melengkapi kapabilitas panggilan suara real-time WebRTC 1-on-1 pada aplikasi mobile WuzzChat (Expo SDK 57 / React Native). Sistem dirancang agar dapat bertukar sinyal audio secara mulus dengan klien Web (`chat.wuzzhub.id`) maupun sesama klien Mobile, didukung oleh state machine yang tangguh, manajemen rute audio (speaker vs earpiece), serta antarmuka panggilan Aurora Dark Mode yang modern.
+- **Objective**: Mengaktifkan notifikasi di Notification Bar Android untuk APK WuzzChat saat aplikasi di latar depan (foreground), latar belakang (background), maupun saat aplikasi tertutup (offline/killed) menggunakan Firebase Cloud Messaging (FCM v1) dan Local Notification Trigger.
+- **Status**: IN_PROGRESS
+- **Key Modules**:
+  1. `mobile/app.json`: Registrasi `google-services.json` dan izin `POST_NOTIFICATIONS`
+  2. `mobile/src/services/notificationService.ts`: Native FCM token extraction & local banner presentation
+  3. `mobile/src/screens/RecentChatsScreen.tsx`: Background/foreground local notification dispatch
+  4. `backend/internal/push/`: Implementasi FCM HTTP v1 Dispatcher dengan Google Service Account OAuth2 JWT

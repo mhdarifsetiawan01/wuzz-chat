@@ -3467,3 +3467,35 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Mobile TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
 - **Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
 - **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%** (100% pass).
+
+---
+
+## 🔔 Integrasi FCM HTTP v1 Push Notification, Keyboard Android & Multi-Device Override (26 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Firebase Cloud Messaging (FCM HTTP v1) Backend Provider (`backend/internal/push/fcm.go`)**:
+  - Mengimplementasikan `FCMv1PushProvider` penuh dengan autentikasi OAuth2 assertion JWT berbasis RSA-256 (`google.PrivateKey`).
+  - Mengirim payload push langsung ke Google endpoint resmi `https://fcm.googleapis.com/v1/projects/{project_id}/messages:send`.
+  - Secret `FCM_CREDENTIALS` telah dideploy secara aman ke server produksi Fly.io (`https://wuzz-chat-backend.fly.dev`).
+  - Unit test suite lengkap `backend/internal/push/fcm_test.go` (100% pass).
+- **Native Device Push Token & Notification Service (`mobile/src/services/notificationService.ts`)**:
+  - Menyesuaikan `registerForPushNotificationsAsync` untuk mengambil token perangkat native via `getDevicePushTokenAsync()`.
+  - Menghapus trigger notifikasi lokal duplikat di `mobile/App.tsx` sehingga notifikasi hanya muncul tepat 1 kali secara bersih via FCM remote push.
+- **Perbaikan Keyboard Layout Android (`mobile/src/screens/ChatScreen.tsx`, `LoginScreen.tsx`, `RegisterScreen.tsx`)**:
+  - Menyesuaikan `KeyboardAvoidingView behavior="height"` pada Android untuk layar percakapan dan form autentikasi dengan status bar & navigation bar transparan.
+  - Memperbaiki penataan layout agar chat input bar dan form input terangkat sempurna tepat di atas keyboard tanpa tertutup.
+- **Konfirmasi Batas Perangkat (*Multi-Device Override Flow*) di Layar Login (`mobile/src/screens/LoginScreen.tsx`, `mobile/src/api/types.ts`)**:
+  - Menangkap respons error `DEVICE_LIMIT_REACHED` (409 Conflict) saat akun mencapai kuota 2 perangkat.
+  - Menampilkan dialog konfirmasi ramah bagi pengguna untuk menimpa (*override*) sesi lama dengan parameter `confirm_override: true` dan login langsung berhasil.
+- **Pembaruan Label Nama Aplikasi**:
+  - Memperbarui label di `strings.xml` dan `app.json` menjadi **"Wuzz Chat"**.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (Seluruh unit & integration test lolos).
+- **Frontend Next.js Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors, Turbopack verified).
+- **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Gradle Release Build (`./gradlew assembleRelease` di `mobile/android`)**: **BUILD SUCCESSFUL**.
+- **Live Device Verification**:
+  - Notifikasi FCM berhasil diterima di status bar Android HP fisik saat di-minimize.
+  - Form login dan chat input bar terdorong secara mulus saat keyboard muncul.
+

@@ -34,6 +34,8 @@ export interface LoginRequest {
   password: string;
   device_id?: string;
   device_name?: string;
+  confirm_override?: boolean;
+  kick_device_id?: string;
 }
 
 export interface RegisterRequest {

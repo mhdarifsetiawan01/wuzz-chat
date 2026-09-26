@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -48,6 +49,42 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
         password,
       });
     } catch (err: any) {
+      if (err?.code === 'DEVICE_LIMIT_REACHED' || err?.status === 409) {
+        Alert.alert(
+          'Batas Perangkat Tercapai',
+          'Akun Anda saat ini sudah aktif di perangkat lain. Apakah Anda ingin menimpa sesi perangkat lama dan melanjutkan masuk di HP ini?',
+          [
+            {
+              text: 'Batal',
+              style: 'cancel',
+            },
+            {
+              text: 'Ganti Sesi & Masuk',
+              onPress: async () => {
+                setIsLoading(true);
+                setErrorMessage(null);
+                try {
+                  await login({
+                    username: username.trim().toLowerCase(),
+                    password,
+                    confirm_override: true,
+                  });
+                } catch (overrideErr: any) {
+                  setErrorMessage(
+                    overrideErr?.detail ||
+                    overrideErr?.message ||
+                    'Gagal menimpa sesi perangkat lama. Silakan coba lagi.'
+                  );
+                } finally {
+                  setIsLoading(false);
+                }
+              },
+            },
+          ]
+        );
+        return;
+      }
+
       setErrorMessage(err?.detail || err?.message || 'Login gagal. Periksa username dan password Anda.');
     } finally {
       setIsLoading(false);
