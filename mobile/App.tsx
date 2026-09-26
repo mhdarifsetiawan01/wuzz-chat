@@ -18,13 +18,14 @@ import {
   RegisterScreen,
 } from './src/screens';
 import { Conversation, ConversationItem, GroupDetails } from './src/api/types';
+import { SessionAlertModal } from './src/components';
 import { notificationService } from './src/services/notificationService';
 import { colors, spacing, typography } from './src/theme';
 
 type AuthRoute = 'login' | 'register';
 
 function AppNavigator() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, sessionReplacedMessage, dismissSessionAlert } = useAuth();
   const [authRoute, setAuthRoute] = useState<AuthRoute>('login');
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState<boolean>(false);
@@ -260,78 +261,101 @@ function AppNavigator() {
     setIsNewGroupOpen(true);
   }, []);
 
-  if (isLoading) {
-    return (
-      <View style={styles.splashContainer}>
-        <View style={styles.splashBadge}>
-          <Text style={styles.splashLogo}>⚡</Text>
+  const handleDismissSessionAlert = useCallback(async () => {
+    await dismissSessionAlert();
+    setAuthRoute('login');
+    setActiveConversation(null);
+    setActiveGroupInfo(null);
+    setIsNewGroupOpen(false);
+    setIsNewChatOpen(false);
+    setForumParentConversation(null);
+  }, [dismissSessionAlert]);
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.splashContainer}>
+          <View style={styles.splashBadge}>
+            <Text style={styles.splashLogo}>⚡</Text>
+          </View>
+          <Text style={styles.splashTitle}>WuzzChat</Text>
+          <ActivityIndicator size="large" color={colors.accentPrimary} style={styles.spinner} />
         </View>
-        <Text style={styles.splashTitle}>WuzzChat</Text>
-        <ActivityIndicator size="large" color={colors.accentPrimary} style={styles.spinner} />
-      </View>
-    );
-  }
+      );
+    }
 
-  if (isAuthenticated) {
-    if (activeGroupInfo) {
-      const targetGroupId = activeGroupInfo.id || (activeGroupInfo as any).room_id || '';
+    if (isAuthenticated) {
+      if (activeGroupInfo) {
+        const targetGroupId = activeGroupInfo.id || (activeGroupInfo as any).room_id || '';
+        return (
+          <GroupInfoScreen
+            groupId={targetGroupId}
+            onBack={handleBackFromGroupInfo}
+            onLeaveSuccess={handleLeaveSuccess}
+            onGroupUpdated={handleGroupUpdated}
+          />
+        );
+      }
+
+      if (activeConversation) {
+        return (
+          <ChatScreen
+            conversation={activeConversation as unknown as ConversationItem}
+            onBack={handleBackFromChat}
+            onOpenGroupInfo={handleOpenGroupInfo}
+            onNavigateToParent={handleNavigateToParent}
+            parentGroupConversation={forumParentConversation as unknown as ConversationItem}
+            onEnterSubGroup={handleEnterSubGroup}
+          />
+        );
+      }
+
+      if (isNewGroupOpen) {
+        return (
+          <NewGroupScreen
+            onBack={handleBackFromNewGroup}
+            onSelectChat={handleSelectFromNewGroup}
+          />
+        );
+      }
+
+      if (isNewChatOpen) {
+        return (
+          <NewChatScreen
+            onBack={handleBackFromNewChat}
+            onSelectChat={handleSelectFromNewChat}
+            onNavigateToNewGroup={handleNavigateToNewGroup}
+          />
+        );
+      }
+
       return (
-        <GroupInfoScreen
-          groupId={targetGroupId}
-          onBack={handleBackFromGroupInfo}
-          onLeaveSuccess={handleLeaveSuccess}
-          onGroupUpdated={handleGroupUpdated}
+        <RecentChatsScreen
+          onSelectChat={(chat) => setActiveConversation(chat)}
+          onStartNewChat={() => setIsNewChatOpen(true)}
         />
       );
     }
 
-    if (activeConversation) {
-      return (
-        <ChatScreen
-          conversation={activeConversation as unknown as ConversationItem}
-          onBack={handleBackFromChat}
-          onOpenGroupInfo={handleOpenGroupInfo}
-          onNavigateToParent={handleNavigateToParent}
-          parentGroupConversation={forumParentConversation as unknown as ConversationItem}
-          onEnterSubGroup={handleEnterSubGroup}
-        />
-      );
+    if (authRoute === 'register') {
+      return <RegisterScreen onNavigateToLogin={() => setAuthRoute('login')} />;
     }
 
-    if (isNewGroupOpen) {
-      return (
-        <NewGroupScreen
-          onBack={handleBackFromNewGroup}
-          onSelectChat={handleSelectFromNewGroup}
-        />
-      );
-    }
+    return <LoginScreen onNavigateToRegister={() => setAuthRoute('register')} />;
+  };
 
-    if (isNewChatOpen) {
-      return (
-        <NewChatScreen
-          onBack={handleBackFromNewChat}
-          onSelectChat={handleSelectFromNewChat}
-          onNavigateToNewGroup={handleNavigateToNewGroup}
-        />
-      );
-    }
+  return (
+    <View style={styles.rootContainer}>
+      {renderContent()}
 
-    return (
-      <RecentChatsScreen
-        onSelectChat={(chat) => setActiveConversation(chat)}
-        onStartNewChat={() => setIsNewChatOpen(true)}
+      {/* Global Terminal Session Replaced Guard Modal */}
+      <SessionAlertModal
+        visible={!!sessionReplacedMessage}
+        message={sessionReplacedMessage}
+        onDismiss={handleDismissSessionAlert}
       />
-    );
-  }
-
-
-
-  if (authRoute === 'register') {
-    return <RegisterScreen onNavigateToLogin={() => setAuthRoute('login')} />;
-  }
-
-  return <LoginScreen onNavigateToRegister={() => setAuthRoute('register')} />;
+    </View>
+  );
 }
 
 export default function App() {
@@ -348,6 +372,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+    backgroundColor: colors.bgBase,
+  },
   splashContainer: {
     flex: 1,
     backgroundColor: colors.bgBase,

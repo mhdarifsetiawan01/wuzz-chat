@@ -20,7 +20,6 @@ import { getUserPublicKey } from '../api/users';
 import { Conversation } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { ChatListItem } from '../components/ChatListItem';
-import { SessionAlertModal } from '../components/SessionAlertModal';
 import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
 import { useAuth } from '../context';
 import { ConnectionState, websocketClient } from '../services/websocket';
@@ -38,7 +37,7 @@ export interface RecentChatsScreenProps {
 }
 
 export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectChat, onStartNewChat }) => {
-  const { user, logout, sessionReplacedMessage, dismissSessionAlert, e2eeKeyPair } = useAuth();
+  const { user, logout, e2eeKeyPair } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -349,13 +348,6 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
           <Text style={styles.fabIcon}>💬</Text>
         </TouchableOpacity>
       )}
-
-      {/* Close Code 4001 Terminal Guard Modal */}
-      <SessionAlertModal
-        visible={!!sessionReplacedMessage}
-        message={sessionReplacedMessage}
-        onDismiss={dismissSessionAlert}
-      />
 
       {/* Push Notification Preferences & Diagnostics Modal */}
       <NotificationSettingsModal

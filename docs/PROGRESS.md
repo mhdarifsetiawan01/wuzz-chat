@@ -3252,5 +3252,48 @@ Mengintegrasikan modul pemindai kamera live native dan verifikasi instan E2EE Sa
 - **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js 16.3.5 Turbopack 0 lint/compile error).
 - **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (100% lulus).
 
+## ✅ Milestone M-Mobile-8.8: Single Active Device Guard & Terminal Reconnect Protection (Mobile) — SELESAI
+
+**Tanggal Selesai:** 26 September 2026 | **Branch:** `dev`
+
+### 1. Ringkasan Fitur & Implementasi Mobile
+Mengimplementasikan proteksi sesi tunggal (*Single Active Device Guard*) dan perlindungan reconnect terminal pada WuzzChat Mobile:
+1. **🛡️ WebSocket Client Resiliency & Terminal Guard (`mobile/src/services/websocket.ts`)**:
+   - Menambahkan flag `public destroyed = false;` dan `this.isTerminated = true;`.
+   - Mengimplementasikan method idempoten `handleSessionReplaced(reason)` untuk mematikan socket secara permanen, membatalkan seluruh timer reconnect (`clearReconnectTimer()`), dan mengubah status koneksi ke `terminated`.
+   - Menangkap trigger ganda: Close Code `4001: SESSION_REPLACED` / `DEVICE_KICKED` dari event `ws.onclose`, serta incoming payload pesan `SESSION_REPLACED` / `session_replaced` / system content dari server.
+   - Men-dispatch event ke `session_replaced` dan `SESSION_REPLACED` listeners serta memanggil `sessionReplacedHandler`.
+   - Memperbarui method `reset()` agar membersihkan flag `destroyed` dan `isTerminated` untuk login baru.
+2. **🔐 Auth Context Session Purge & Storage Coordination (`mobile/src/context/AuthContext.tsx`)**:
+   - Membatalkan langganan push notification (`unsubscribeDevice()`).
+   - Membersihkan kredensial token dan user profile dari `secureStorage` secara aman sembari mempertahankan identitas perangkat permanen (`device_id`).
+   - Menghapus kunci E2EE lokal (`deleteE2EEKeyPair`).
+   - Memperbarui `dismissSessionAlert()` untuk melakukan write-through session clear dan reset socket client.
+3. **📱 Global Root Hoisting Modal & Navigation (`mobile/App.tsx` & `RecentChatsScreen.tsx`)**:
+   - Memindahkan komponen `SessionAlertModal` ke tingkat root `AppNavigator` sehingga dialog peringatan sesi tergantikan tampil di atas layar apapun (`ChatScreen`, `GroupInfoScreen`, `NewChatScreen`, `RecentChatsScreen`).
+   - Saat tombol "Masuk Kembali" diklik: membersihkan pesan peringatan, me-reset seluruh active conversation/group screens, dan mengarahkan pengguna kembali ke `LoginScreen`.
+   - Menghapus deklarasi modal redundan di `RecentChatsScreen.tsx`.
+4. **🧪 Pengujian End-to-End Nyata & Simulasi**:
+   - Menambahkan pengujian server nyata `backend/internal/ws/hub_mobile_eviction_e2e_test.go` yang memverifikasi skenario Android Login ➔ Web Login ➔ Android Evicted with Code 4001.
+   - Menambahkan simulasi pengujian logika klien `frontend/test-mobile-session-guard.mjs`.
+
+### 2. File Dimodifikasi / Dibuat
+- `mobile/src/services/websocket.ts`
+- `mobile/src/context/AuthContext.tsx`
+- `mobile/App.tsx`
+- `mobile/src/screens/RecentChatsScreen.tsx`
+- `backend/internal/ws/hub_mobile_eviction_e2e_test.go` *(baru)*
+- `frontend/test-mobile-session-guard.mjs` *(baru)*
+- `docs/MOBILE_INTEGRATION_GUIDE.md`
+- `docs/PROGRESS.md`
+
+### 3. Bukti Pengujian Otomatis
+- **Mobile TypeScript Typecheck (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+- **Real Server E2E Eviction Test (`go test -v -run TestE2E_MobileEvictedByWebLogin ./...` di `backend/`)**: **PASS 100%**.
+- **Mobile Client Session Guard Test (`node test-mobile-session-guard.mjs` di `frontend/`)**: **PASS 100%**.
+- **Backend Full Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (100% lulus).
+- **Web Frontend Build (`npm run build` di `frontend/`)**: **PASS 100%** (Next.js Turbopack 0 errors).
+
+
 
 

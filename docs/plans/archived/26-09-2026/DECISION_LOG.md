@@ -1,16 +1,15 @@
-# Decision Log — Milestone M-Mobile-8.6
+# Decision Log — Milestone M-Mobile-8.8
 
-## DEC-001: Selection of `expo-camera` (`CameraView`) for In-App Live QR Scanning
-- **Context**: In React Native / Expo 57, the legacy `BarCodeScanner` component is deprecated in favor of `CameraView` from `expo-camera` which natively bundles high-performance Barcode/QR scanning (`barcodeScannerSettings={{ barcodeTypes: ['qr'] }}`).
-- **Decision**: Use `expo-camera`'s `CameraView` with back-facing camera and `enableTorch` support.
-- **Consequences**: Zero native bridging overhead, zero extra native libraries, complete compatibility with Expo Go and development builds.
+## Architectural & Technical Decisions
 
-## DEC-002: Multi-Format QR Decoding & Normalization
-- **Context**: QR codes generated across different platforms (Web, Mobile, External QR generators) might supply URLs (`wuzz-safety://...`, `https://chat.wuzzhub.id/safety/...`), JSON objects, or plain 30-digit numbers with or without spaces.
-- **Decision**: Implement a robust normalizer that strips protocol prefixes and whitespace, extracting only the continuous 30-digit fingerprint string for exact comparison.
-- **Consequences**: Fault-tolerant scanning experience across all clients and custom pairing URLs.
+### DEC-020: Global Root Hoisting for `SessionAlertModal`
+- **Context**: Previously, `SessionAlertModal` was placed inside `RecentChatsScreen.tsx`. If a user was chatting inside `ChatScreen` or browsing `GroupInfoScreen`, or if `isAuthenticated` reverted to `false` upon credential purge, the modal would be unmounted before user interaction.
+- **Decision**: Hoist `SessionAlertModal` to the root view hierarchy inside `AppNavigator` (`mobile/App.tsx`). This ensures the modal overlays any active screen and persists until the user acknowledges the notification.
+- **Consequences**: Upon dismissal, all active subscreen states (`activeConversation`, `activeGroupInfo`, `isNewChatOpen`, `isNewGroupOpen`) are reset to `null` / `false`, and the user is redirected to `LoginScreen`.
 
-## DEC-003: Double-Scan Lock Guard in Scanner Component
-- **Context**: Live camera frames fire `onBarcodeScanned` multiple times per second while focused on a QR code.
-- **Decision**: Introduce a `scannedLock` ref state in `CameraQRScannerModal` that immediately freezes further scan events until dismissed or reset.
-- **Consequences**: Prevents duplicate state dispatches, multiple alert popups, or jarring UI loops.
+### DEC-021: Dual-Trigger Session Replacement Handling (Payload + Close Frame)
+- **Context**: Backend Go Hub sends both a WebSocket system message with `SESSION_REPLACED` content and subsequently closes the connection with Close Code `4001: SESSION_REPLACED` after a 500ms grace period.
+- **Decision**: Handle session replacement on both triggers in `WebSocketClient`:
+  1. Early trigger on incoming message (`onmessage` with `SESSION_REPLACED`).
+  2. Fallback/direct trigger on socket closure (`onclose` with code 4001 or matching reason).
+- **Consequences**: An idempotent guard (`if (this.isTerminated) return;`) prevents duplicate side-effects. The client terminates auto-reconnection immediately on the first event received.

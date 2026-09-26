@@ -1,3 +1,3 @@
 # Implementation Plan — Standby
 
-Belum ada rencana implementasi aktif.
+Belum ada rencana aktif. Menunggu instruksi milestone berikutnya.

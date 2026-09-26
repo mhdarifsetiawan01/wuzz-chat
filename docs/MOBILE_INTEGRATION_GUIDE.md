@@ -452,7 +452,7 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
     ```
   - Backend menerima format fleksibel: field `delete_for_everyone` (bool), `type` (string `"for_everyone"/"for_me"`), `delete_type` (string), atau URL query `?for_everyone=true`.
   - Klien wajib menangani event WebSocket `message_deleted` dari server dan mengganti konten pesan dengan placeholder `🚫 Pesan ini telah dihapus`.
-- [ ] **Single Active Device Guard**: Saat menerima event `SESSION_REPLACED` dari WebSocket, putus koneksi dan arahkan pengguna ke layar login/re-autentikasi secara langsung.
+- [x] **Single Active Device Guard**: Saat menerima event `SESSION_REPLACED` atau Close Code `4001: SESSION_REPLACED` dari WebSocket, putus koneksi secara permanen (`destroyed = true`), tampilkan dialog peringatan modal `SessionAlertModal` di root view, bersihkan token/kredensial lokal, dan arahkan pengguna kembali ke layar login.
 - [ ] **E2EE Key Conflict Handling**: Saat `PUT /api/users/public-key` mengembalikan HTTP 409 (`KEY_ALREADY_REGISTERED`), tampilkan dialog konfirmasi reset kunci, lalu panggil `POST /api/users/public-key/reset`.
 - [ ] **QR Code E2EE Device Transfer**: Implementasi `POST /api/users/transfer/create` (perangkat sumber) dan `POST /api/users/transfer/consume` (perangkat target) menggunakan MLKit Barcode Scanner / AVFoundation — tidak ada batasan permission kamera seperti di PWA WebAPK.
 - [ ] **WebRTC 1-on-1 Voice Call**: Signaling via WebSocket, koneksi P2P via STUN/TURN, UI panggilan masuk & aktif, dan lifecycle cleanup resource audio.

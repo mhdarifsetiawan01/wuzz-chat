@@ -36,6 +36,7 @@ class WebSocketClient {
   private reconnectAttempt = 0;
   private reconnectTimer: any = null;
   private isExplicitlyClosed = false;
+  public destroyed = false;
   private isTerminated = false;
 
   private listeners: Map<string, Set<WebSocketEventListener>> = new Map();
@@ -73,10 +74,58 @@ class WebSocketClient {
   }
 
   /**
+   * Terminal Session Replacement Handler (Single Active Device Guard)
+   * Idempotently terminates reconnection, notifies UI, and broadcasts event.
+   */
+  public handleSessionReplaced(reason: string): void {
+    if (this.isTerminated || this.destroyed) {
+      return;
+    }
+
+    console.warn('[WS] Terminal Session Replaced Guard triggered:', reason);
+    this.isTerminated = true;
+    this.destroyed = true;
+    this.clearReconnectTimer();
+    this.setState('terminated');
+
+    // Safely close socket if still connecting or open
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      try {
+        this.ws.close(4001, reason);
+      } catch {
+        // Ignore errors on socket close
+      }
+      this.ws = null;
+    }
+
+    // Trigger dedicated sessionReplacedHandler
+    if (this.sessionReplacedHandler) {
+      this.sessionReplacedHandler(reason);
+    }
+
+    // Broadcast to type-specific 'session_replaced' and 'SESSION_REPLACED' listeners
+    const payload = {
+      type: 'session_replaced',
+      reason,
+      content: reason,
+      timestamp: new Date().toISOString(),
+    };
+
+    const sessionListeners = this.listeners.get('session_replaced');
+    if (sessionListeners) {
+      sessionListeners.forEach((fn) => fn(payload));
+    }
+    const sessionCapListeners = this.listeners.get('SESSION_REPLACED');
+    if (sessionCapListeners) {
+      sessionCapListeners.forEach((fn) => fn(payload));
+    }
+  }
+
+  /**
    * Connect to WebSocket with token & device_id.
    */
   public connect(token: string, deviceId: string): void {
-    if (this.isTerminated) {
+    if (this.isTerminated || this.destroyed) {
       console.warn('[WS] Client has been terminated due to session replacement. Reset before reconnecting.');
       return;
     }
@@ -90,7 +139,7 @@ class WebSocketClient {
   }
 
   private initSocket(): void {
-    if (!this.token || !this.deviceId || this.isExplicitlyClosed || this.isTerminated) {
+    if (!this.token || !this.deviceId || this.isExplicitlyClosed || this.isTerminated || this.destroyed) {
       return;
     }
 
@@ -139,15 +188,10 @@ class WebSocketClient {
         console.log(`[WS] Socket closed with code ${event.code}, reason: "${event.reason}"`);
 
         // Close Code 4001: SESSION_REPLACED (MANDATORY TERMINAL GUARD)
-        if (event.code === 4001) {
-          console.warn('[WS] Terminal Close Code 4001 received: Account opened on another device.');
-          this.isTerminated = true;
-          this.setState('terminated');
-          this.clearReconnectTimer();
-
-          if (this.sessionReplacedHandler) {
-            this.sessionReplacedHandler(event.reason || 'Sesi Anda telah digantikan oleh login di perangkat baru.');
-          }
+        if (event.code === 4001 || event.reason?.includes('SESSION_REPLACED') || event.reason?.includes('DEVICE_KICKED')) {
+          console.warn(`[WS] Terminal Close Code ${event.code} received: Account opened on another device.`);
+          const reason = event.reason || 'Sesi Anda telah digantikan oleh login di perangkat baru.';
+          this.handleSessionReplaced(reason);
           return;
         }
 
@@ -155,6 +199,7 @@ class WebSocketClient {
         if (event.code === 4003) {
           console.warn('[WS] Terminal Close Code 4003 received: Device mismatch.');
           this.isTerminated = true;
+          this.destroyed = true;
           this.setState('terminated');
           this.clearReconnectTimer();
           return;
@@ -163,7 +208,7 @@ class WebSocketClient {
         this.setState('disconnected');
 
         // Automatically reconnect with exponential backoff if not closed voluntarily
-        if (!this.isExplicitlyClosed && !this.isTerminated) {
+        if (!this.isExplicitlyClosed && !this.isTerminated && !this.destroyed) {
           this.scheduleReconnect();
         }
       };
@@ -174,7 +219,7 @@ class WebSocketClient {
   }
 
   private scheduleReconnect(): void {
-    if (this.isExplicitlyClosed || this.isTerminated) return;
+    if (this.isExplicitlyClosed || this.isTerminated || this.destroyed) return;
 
     this.clearReconnectTimer();
 
@@ -320,6 +365,18 @@ class WebSocketClient {
   private dispatchMessage(message: any): void {
     const type = message?.type || 'unknown';
 
+    // Intercept incoming payload SESSION_REPLACED / system eviction
+    const isSessionReplacedMsg =
+      type === 'SESSION_REPLACED' ||
+      type === 'session_replaced' ||
+      (type === 'system' && typeof message?.content === 'string' && message.content.includes('SESSION_REPLACED'));
+
+    if (isSessionReplacedMsg) {
+      console.warn('[WS] Incoming payload indicates session replacement.');
+      const reason = message?.content || message?.reason || 'Akun Anda sedang aktif di perangkat lain.';
+      this.handleSessionReplaced(reason);
+    }
+
     // Broadcast to type-specific listeners
     const typeListeners = this.listeners.get(type);
     if (typeListeners) {
@@ -352,6 +409,7 @@ class WebSocketClient {
    */
   public reset(): void {
     this.isTerminated = false;
+    this.destroyed = false;
     this.isExplicitlyClosed = false;
     this.reconnectAttempt = 0;
     this.clearReconnectTimer();

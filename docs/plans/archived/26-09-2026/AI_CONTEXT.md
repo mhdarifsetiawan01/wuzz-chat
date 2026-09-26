@@ -1,20 +1,16 @@
-# AI Context — Milestone M-Mobile-8.6: In-App Live Camera QR Scanner & Instant Safety Number Verification
+# AI Context — Milestone M-Mobile-8.8: Single Active Device Guard & Terminal Reconnect Protection
 
-## 1. Project Boundaries & Environment
-- **Workspace Root**: `/home/bms-del112/BMS/personal-project/wuzz-chat`
-- **Target Subsystem**: `mobile/` (React Native Expo 57, TypeScript)
-- **Active Branch**: `dev` (STRICT: main branch is protected)
-- **Engine**: Node.js v20+, Expo SDK 57, React 19, React Native 0.86
+## 🎯 Target Milestone & Objective
+- **Milestone**: M-Mobile-8.8
+- **Goal**: Implement single active device guard & terminal reconnect protection for WuzzChat Mobile client when account is accessed from another device (WebSocket Close Code `4001: SESSION_REPLACED` & event payload `type: "SESSION_REPLACED"` / `session_replaced`).
+- **Target Repository/Path**: `mobile/` (`mobile/src/services/websocket.ts`, `mobile/src/context/AuthContext.tsx`, `mobile/App.tsx`, `mobile/src/screens/RecentChatsScreen.tsx`).
+- **Relevant Docs**: `docs/MOBILE_INTEGRATION_GUIDE.md` (Section 2B, 2C, 7).
 
-## 2. Key References & Dependencies
-- `docs/MOBILE_INTEGRATION_GUIDE.md`: Section 7 Checklist (In-App Live Camera QR Scanner), Section 2 Single Device Identity, Section 3 E2EE Cryptographic Standards.
-- `mobile/src/components/SafetyNumberModal.tsx`: 30-digit fingerprint UI & modal.
-- `mobile/src/components/QRCodeView.tsx` & `mobile/src/services/qrCodeService.ts`: Pure TypeScript QR generator.
-- `mobile/src/services/e2eeService.ts`: `generateSafetyNumber`, `isContactSafetyVerified`, `setContactSafetyVerified`.
-- `expo-camera`: CameraView with `barcodeScannerSettings={{ barcodeTypes: ['qr'] }}` and `onBarcodeScanned`.
-
-## 3. Strict Operating Constraints
-1. **Branch Protection**: Never work on or commit to `main`.
-2. **Token Efficiency**: Line-range reading, diff-chunk editing, concise outputs.
-3. **Server Lifecycle**: AI must kill any test servers before completing response (`fuser -k <port>/tcp`).
-4. **Approval Gate**: Stop after presenting this plan and wait for explicit user approval before modifying code.
+## 🛡️ Active Constraints & Safety Directives
+- **Branch**: `dev` (Strict Dev-Only Work, prohibited from working on `main`).
+- **Protocols**:
+  - `implementation-protocol`: Stage plan, present to user, wait for approval before code modification.
+  - `Slow & Flaky Server Resilience Rule`: Halt auto-reconnect permanently on terminal code 4001 (`destroyed = true`), clean local storage, inform user via modal.
+  - `Token Efficiency Guard`: Range reading, grep search, diff-chunk edits.
+  - `Server Lifecycle Rule`: Do not leave servers running; kill test ports after verification.
+  - `No Commit Before Approval`: Do not commit until explicit user approval ("selesai").

@@ -1,3 +1,7 @@
 # AI Context — Standby
 
-Sistem berada dalam status standby.
+## Active Context Snapshot
+- **Milestone**: None (Standby)
+- **Status**: `STANDBY`
+- **Branch**: `dev`
+- **Target Repository**: None

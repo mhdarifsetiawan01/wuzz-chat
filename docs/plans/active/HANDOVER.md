@@ -1,3 +1,3 @@
-# Handover Notes — Standby
+# Handover — Standby
 
-Belum ada catatan serah terima aktif.
+Belum ada serah terima aktif.

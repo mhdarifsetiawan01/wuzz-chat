@@ -30,7 +30,7 @@ interface AuthContextType {
   login: (credentials: Omit<LoginRequest, 'device_id'>) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
-  dismissSessionAlert: () => void;
+  dismissSessionAlert: () => void | Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -352,8 +352,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [deviceId, user?.id]);
 
-  const dismissSessionAlert = useCallback(() => {
+  const dismissSessionAlert = useCallback(async () => {
     setSessionReplacedMessage(null);
+    try {
+      await secureStorage.clearSession();
+    } catch {
+      // Best-effort cleanup
+    }
+    websocketClient.reset();
   }, []);
 
   return (

@@ -1,28 +1,26 @@
-# Implementation Progress — Milestone M-Mobile-8.6
+# Implementation Progress — Milestone M-Mobile-8.8
 
-## Task Checklist
+## Granular Atomic Task Checklist
 
-### Phase 1: Environment & Camera Integration
-- [x] **Task 1**: Install and verify `expo-camera` dependency in `mobile/package.json`.
-- [x] **Task 2**: Build `mobile/src/components/CameraQRScannerModal.tsx`:
-  - [x] Implement `useCameraPermissions` / permission request flow with friendly denial dialog.
-  - [x] Render `CameraView` with `barcodeScannerSettings={{ barcodeTypes: ['qr'] }}`.
-  - [x] Design Aurora Glassmorphism reticle viewfinder with electric cyan corners (`#00f2fe`).
-  - [x] Implement animated vertical scanning laser beam.
-  - [x] Add torch toggle (flashlight) and modal close button with safe-area spacing.
-  - [x] Implement scan debouncing / lock flag to prevent multiple concurrent callbacks.
+- [x] **Task 1: WebSocket Client Resiliency & Terminal Protection**
+  - [x] Implement `destroyed = false` alongside `isTerminated`.
+  - [x] Implement centralized `handleSessionReplaced(reason)` with idempotent guard.
+  - [x] Intercept Close Code 4001 and incoming payload `type: "SESSION_REPLACED"` / `session_replaced` / system content.
+  - [x] Dispatch event to `session_replaced` listeners.
+  - [x] Ensure `reset()` clears `destroyed` and `isTerminated`.
 
-### Phase 2: Instant Verification Integration in SafetyNumberModal
-- [x] **Task 3**: Update `mobile/src/components/SafetyNumberModal.tsx`:
-  - [x] Add "📷 Pindai Kode QR" button in QR tab and main action area.
-  - [x] Implement QR payload parser supporting `wuzz-safety://`, `wuzz://safety/`, `wuzz:v1:safety`, JSON, and raw 30 digits.
-  - [x] Compare extracted fingerprint against current peer 30-digit safety number.
-  - [x] On match: Trigger success feedback, update `isVerified = true`, call `e2eeService.setContactSafetyVerified(peerId, safetyNumber, true)`, show "Telah Diverifikasi Melalui Pemindaian Kamera" badge.
-  - [x] On mismatch: Show danger alert ("Nomor Keamanan Tidak Cocok / Kemungkinan Man-in-the-Middle").
-  - [x] On invalid QR: Show descriptive warning.
+- [x] **Task 2: Auth Context Session Replacement & Purge Coordination**
+  - [x] Verify `onSessionReplaced` callback in `mobile/src/context/AuthContext.tsx`.
+  - [x] Ensure credentials and keys are purged safely without removing persistent device identity (`device_id`).
+  - [x] Enhance `dismissSessionAlert()` to reset socket client and clean session.
 
-### Phase 3: Documentation & Automated Testing Quality Gate
-- [x] **Task 4**: Run automated TypeScript typecheck `npx tsc --noEmit` in `mobile/`.
-- [x] **Task 5**: Run automated backend tests `go test -v ./...` in `backend/`.
-- [x] **Task 6**: Update `docs/MOBILE_INTEGRATION_GUIDE.md` Section 7 checklist item.
-- [/] **Task 7**: Present results, test evidence, and confirmation question to user.
+- [x] **Task 3: Root Navigator Integration & Global Session Alert UI**
+  - [x] Hoist `SessionAlertModal` into `mobile/App.tsx` at `AppNavigator` root.
+  - [x] Reset all active conversation/group screens and set authRoute to `'login'` upon dismissal.
+  - [x] Remove redundant `SessionAlertModal` from `mobile/src/screens/RecentChatsScreen.tsx`.
+
+- [x] **Task 4: Quality Gate & Documentation Synchronization**
+  - [x] Execute `npx tsc --noEmit` in `mobile/` (Passed: 0 errors).
+  - [x] Execute `go test -v ./...` in `backend/` (Passed: 100% pass).
+  - [x] Execute `npm run build` in `frontend/` (Passed: 0 errors).
+  - [x] Update `docs/MOBILE_INTEGRATION_GUIDE.md` Section 7 checklist.
