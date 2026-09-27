@@ -1,0 +1,328 @@
+/**
+ * WuzzChat Mobile - SQLite Local Storage Service
+ * Milestone M-Mobile-8.18: Offline-First Persistent Storage Layer
+ * 
+ * Performance & Thermal Protections:
+ * - SQLite WAL Mode (PRAGMA journal_mode = WAL) to eliminate read/write locks & disk I/O thrashing.
+ * - PRAGMA synchronous = NORMAL to avoid repetitive costly hardware fsync (prevents battery drain & device overheating).
+ * - Multi-user isolation scoped by user_id to prevent data leakage across accounts.
+ * - Transactional batching via withTransactionAsync.
+ */
+
+import * as SQLite from 'expo-sqlite';
+import { Conversation, Message, normalizeReactions } from '../api/types';
+
+const DB_NAME = 'wuzzchat.db';
+
+let dbInstance: SQLite.SQLiteDatabase | null = null;
+let initPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+
+/**
+ * Initializes and returns the singleton SQLite database instance.
+ * Applies performance PRAGMAs and creates required tables and indexes.
+ */
+export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
+  if (dbInstance) {
+    return dbInstance;
+  }
+
+  if (initPromise) {
+    return initPromise;
+  }
+
+  initPromise = (async () => {
+    try {
+      const db = await SQLite.openDatabaseAsync(DB_NAME);
+
+      // Performance & Thermal Hardening PRAGMAs:
+      // WAL mode permits concurrent reads and non-blocking writes.
+      // synchronous = NORMAL reduces NAND flash write wear and CPU spikes.
+      await db.execAsync(`
+        PRAGMA journal_mode = WAL;
+        PRAGMA synchronous = NORMAL;
+        PRAGMA foreign_keys = ON;
+
+        CREATE TABLE IF NOT EXISTS local_conversations (
+          user_id TEXT NOT NULL,
+          id TEXT NOT NULL,
+          type TEXT,
+          name TEXT,
+          avatar_url TEXT,
+          last_message TEXT,
+          last_message_at TEXT,
+          unread_count INTEGER DEFAULT 0,
+          is_pinned INTEGER DEFAULT 0,
+          peer_id TEXT,
+          peer_public_key TEXT,
+          updated_at TEXT,
+          raw_json TEXT NOT NULL,
+          PRIMARY KEY (user_id, id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_conv_user_sort 
+        ON local_conversations(user_id, is_pinned DESC, updated_at DESC);
+
+        CREATE TABLE IF NOT EXISTS local_messages (
+          user_id TEXT NOT NULL,
+          id TEXT NOT NULL,
+          room_id TEXT NOT NULL,
+          sender_id TEXT NOT NULL,
+          sender_nickname TEXT,
+          content TEXT,
+          type TEXT DEFAULT 'text',
+          status TEXT DEFAULT 'sent',
+          reply_to_id TEXT,
+          media_url TEXT,
+          local_media_uri TEXT,
+          created_at TEXT NOT NULL,
+          raw_json TEXT NOT NULL,
+          PRIMARY KEY (user_id, id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_msg_user_room_created 
+        ON local_messages(user_id, room_id, created_at DESC);
+      `);
+
+      dbInstance = db;
+      return db;
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to initialize SQLite database:', error);
+      initPromise = null;
+      throw error;
+    }
+  })();
+
+  return initPromise;
+}
+
+/**
+ * Retrieve cached conversations from local SQLite for a specific user.
+ * Ordered by pinned conversations first, then latest updated_at descending.
+ * Safe fallback: returns empty array on failure.
+ */
+export async function getStoredConversations(userId: string): Promise<Conversation[]> {
+  if (!userId) return [];
+
+  try {
+    const db = await getDatabase();
+    const rows = await db.getAllAsync<{ raw_json: string }>(
+      `SELECT raw_json FROM local_conversations 
+       WHERE user_id = ? 
+       ORDER BY is_pinned DESC, updated_at DESC 
+       LIMIT 100`,
+      [userId]
+    );
+
+    const conversations: Conversation[] = [];
+    for (const row of rows) {
+      try {
+        const parsed = JSON.parse(row.raw_json) as Conversation;
+        if (parsed && parsed.id) {
+          conversations.push(parsed);
+        }
+      } catch (err) {
+        // Skip corrupted row gracefully
+      }
+    }
+
+    return conversations;
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to getStoredConversations:', error);
+    return [];
+  }
+}
+
+/**
+ * Persists an array of conversations to local SQLite for a specific user.
+ * Wrapped in a single transaction to minimize disk I/O and device heating.
+ */
+export async function saveStoredConversations(
+  userId: string,
+  conversations: Conversation[]
+): Promise<void> {
+  if (!userId || !conversations || conversations.length === 0) return;
+
+  try {
+    const db = await getDatabase();
+
+    await db.withTransactionAsync(async () => {
+      for (const c of conversations) {
+        const convId = c.id || c.room_id;
+        if (!convId) continue;
+
+        const isPinned = c.is_pinned || c.pinned ? 1 : 0;
+        const lastMsg =
+          typeof c.last_message === 'string'
+            ? c.last_message
+            : c.last_message?.content || '';
+        const lastMsgAt =
+          typeof c.last_message === 'object'
+            ? c.last_message?.timestamp || c.last_message?.created_at || ''
+            : '';
+        const updatedAt = c.updated_at || lastMsgAt || new Date().toISOString();
+        const rawJson = JSON.stringify(c);
+
+        await db.runAsync(
+          `INSERT OR REPLACE INTO local_conversations (
+            user_id, id, type, name, avatar_url, last_message, 
+            last_message_at, unread_count, is_pinned, peer_id, 
+            peer_public_key, updated_at, raw_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            userId,
+            convId,
+            c.type || 'direct',
+            c.name || c.title || '',
+            c.avatar_url || c.peer_avatar_url || '',
+            lastMsg,
+            lastMsgAt,
+            c.unread_count || 0,
+            isPinned,
+            c.peer_id || '',
+            c.peer_public_key || '',
+            updatedAt,
+            rawJson,
+          ]
+        );
+      }
+    });
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to saveStoredConversations:', error);
+  }
+}
+
+/**
+ * Optimistically updates the pinned state of a conversation in local SQLite.
+ */
+export async function updateStoredConversationPin(
+  userId: string,
+  roomId: string,
+  isPinned: boolean
+): Promise<void> {
+  if (!userId || !roomId) return;
+
+  try {
+    const db = await getDatabase();
+    await db.runAsync(
+      `UPDATE local_conversations 
+       SET is_pinned = ? 
+       WHERE user_id = ? AND id = ?`,
+      [isPinned ? 1 : 0, userId, roomId]
+    );
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to updateStoredConversationPin:', error);
+  }
+}
+
+/**
+ * Retrieve cached messages for a room from local SQLite.
+ * Returns messages in chronological order (oldest to newest) for timeline display.
+ */
+export async function getStoredMessages(
+  userId: string,
+  roomId: string,
+  limit = 50
+): Promise<Message[]> {
+  if (!userId || !roomId) return [];
+
+  try {
+    const db = await getDatabase();
+    // Query newest first to apply limit, then reverse in memory for timeline display
+    const rows = await db.getAllAsync<{ raw_json: string }>(
+      `SELECT raw_json FROM local_messages 
+       WHERE user_id = ? AND room_id = ? 
+       ORDER BY created_at DESC 
+       LIMIT ?`,
+      [userId, roomId, limit]
+    );
+
+    const messages: Message[] = [];
+    for (const row of rows) {
+      try {
+        const parsed = JSON.parse(row.raw_json) as Message;
+        if (parsed && parsed.id) {
+          parsed.reactions = normalizeReactions(parsed.reactions);
+          messages.push(parsed);
+        }
+      } catch (err) {
+        // Skip corrupted row
+      }
+    }
+
+    // Chronological sort: oldest to newest
+    return messages.reverse();
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to getStoredMessages:', error);
+    return [];
+  }
+}
+
+/**
+ * Persists an array of messages to local SQLite for a specific room.
+ * Uses a single transaction to maintain maximum thermal and battery efficiency.
+ */
+export async function saveStoredMessages(
+  userId: string,
+  roomId: string,
+  messages: Message[]
+): Promise<void> {
+  if (!userId || !roomId || !messages || messages.length === 0) return;
+
+  try {
+    const db = await getDatabase();
+
+    await db.withTransactionAsync(async () => {
+      for (const m of messages) {
+        if (!m.id) continue;
+
+        const createdAt = m.created_at || m.timestamp || new Date().toISOString();
+        const safeReactions = normalizeReactions(m.reactions);
+        const safeMsg = { ...m, reactions: safeReactions };
+        const rawJson = JSON.stringify(safeMsg);
+
+        await db.runAsync(
+          `INSERT OR REPLACE INTO local_messages (
+            user_id, id, room_id, sender_id, sender_nickname, 
+            content, type, status, reply_to_id, media_url, 
+            local_media_uri, created_at, raw_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            userId,
+            m.id,
+            roomId,
+            m.sender_id || '',
+            m.nickname || m.from || '',
+            m.content || '',
+            m.type || 'text',
+            m.status || 'sent',
+            m.reply_to?.id || null,
+            m.media_url || null,
+            (m as any).local_media_uri || null,
+            createdAt,
+            rawJson,
+          ]
+        );
+      }
+    });
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to saveStoredMessages:', error);
+  }
+}
+
+/**
+ * Clears all cached conversations and messages for a specific user.
+ * Used during logout to guarantee user isolation and privacy protection.
+ */
+export async function clearUserCache(userId: string): Promise<void> {
+  if (!userId) return;
+
+  try {
+    const db = await getDatabase();
+    await db.withTransactionAsync(async () => {
+      await db.runAsync(`DELETE FROM local_conversations WHERE user_id = ?`, [userId]);
+      await db.runAsync(`DELETE FROM local_messages WHERE user_id = ?`, [userId]);
+    });
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to clearUserCache:', error);
+  }
+}

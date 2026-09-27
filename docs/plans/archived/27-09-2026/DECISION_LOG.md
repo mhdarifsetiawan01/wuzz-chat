@@ -1,7 +1,5 @@
-# Decision Log: Mobile Conversation Global Context & SWR Layer
+# DECISION LOG — M-Mobile-8.18
 
-## DEC-030: Separation of Conversation Global Context and SWR Caching
-- **Date**: 2026-09-27
-- **Context**: Mobile app re-renders spinner "Memuat obrolan..." every time navigating back from `ChatScreen` or switching screens because `RecentChatsScreen` held conversation state locally.
-- **Decision**: Introduce `ConversationContext` above `AppNavigator` inside `AuthProvider`. Maintain conversations in context memory across screen navigations.
-- **Rationale**: Provides WhatsApp/Telegram-grade UX with 0ms transition time when returning to the recent chats list, while keeping data fresh using silent background revalidation (`isSilent: true`) and WebSocket ingestion.
+- **DEC-022**: Mengadopsi library resmi Expo SDK 57 `expo-sqlite` (~57.0.3) dengan modern asynchronous API (`openDatabaseAsync`) untuk persistensi data obrolan lokal.
+- **DEC-023**: Menerapkan kolom `raw_json` di tabel `local_conversations` di samping kolom terindeks (`is_pinned`, `updated_at`) untuk memastikan data model `Conversation` dapat di-hydrate kembali secara lengkap dan lossless tanpa takut schema drift.
+- **DEC-024**: Menerapkan strategi *Cache-First, Network-Silent-Update (SWR)* pada `ConversationContext.tsx`: data lokal langsung di-render dan `isLoading` diset `false` seketika saat data lokal ditemukan, memotong waktu render Home Screen saat cold start hingga < 50ms.

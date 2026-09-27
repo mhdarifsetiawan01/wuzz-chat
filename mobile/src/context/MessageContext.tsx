@@ -12,7 +12,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Message } from '../api/types';
+import { Message, normalizeReactions } from '../api/types';
 import { useAuth } from './AuthContext';
 import { websocketClient } from '../services/websocket';
 import {
@@ -24,12 +24,14 @@ import {
 } from '../services/crypto';
 import { getUserPublicKey } from '../api/users';
 import { messagesApi } from '../api/messages';
+import { getStoredMessages, saveStoredMessages } from '../services/sqliteStorage';
 
 const MAX_CACHED_MESSAGES_PER_ROOM = 500;
 
 export interface MessageContextType {
   messagesByRoom: Record<string, Message[]>;
   getRoomMessages: (roomId: string) => Message[];
+  hydrateRoomFromLocalDB: (roomId: string) => Promise<Message[]>;
   isRoomLoading: (roomId: string) => boolean;
   isRoomRevalidating: (roomId: string) => boolean;
   hasMoreOlderMessages: (roomId: string) => boolean;
@@ -65,6 +67,12 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const roomKeysCacheRef = useRef<Map<string, Uint8Array>>(new Map());
   const lastHandledMsgIdRef = useRef<string | null>(null);
+
+  // Synchronized ref for messagesByRoom to prevent hook dependency thrashing
+  const messagesByRoomRef = useRef<Record<string, Message[]>>(messagesByRoom);
+  useEffect(() => {
+    messagesByRoomRef.current = messagesByRoom;
+  }, [messagesByRoom]);
 
   // Helper: Derive or retrieve cached AES Key for a direct conversation
   const getRoomAESKey = useCallback(
@@ -114,6 +122,35 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
     [messagesByRoom]
   );
 
+  // Action: Hydrate room messages from local SQLite if memory is empty
+  const hydrateRoomFromLocalDB = useCallback(
+    async (roomId: string): Promise<Message[]> => {
+      if (!roomId || !user?.id) return [];
+      const currentInMemory = messagesByRoomRef.current[roomId];
+      if (currentInMemory && currentInMemory.length > 0) {
+        return currentInMemory;
+      }
+
+      try {
+        const stored = await getStoredMessages(user.id, roomId, 50);
+        if (stored && stored.length > 0) {
+          setMessagesByRoom((prev) => {
+            if (prev[roomId] && prev[roomId].length > 0) return prev;
+            return {
+              ...prev,
+              [roomId]: stored,
+            };
+          });
+          return stored;
+        }
+      } catch (err) {
+        console.warn('[MessageContext] Local SQLite hydration error:', err);
+      }
+      return [];
+    },
+    [user?.id]
+  );
+
   // Query: Check if room is in initial loading state
   const isRoomLoading = useCallback(
     (roomId: string): boolean => {
@@ -150,38 +187,46 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 
   // Mutation: Append a single message to a room
-  const appendMessage = useCallback((roomId: string, message: Message) => {
-    setMessagesByRoom((prev) => {
-      const existing = prev[roomId] || [];
-      // Replace optimistic message if matching request_id exists
-      const reqId = (message as any).request_id;
-      if (reqId) {
-        const idx = existing.findIndex((m) => m.id === reqId || (m as any).request_id === reqId);
-        if (idx !== -1) {
-          const updated = [...existing];
-          updated[idx] = {
-            ...message,
-            id: message.id || updated[idx].id,
-            media_url: updated[idx].media_url || message.media_url,
-          };
-          return {
-            ...prev,
-            [roomId]: updated.slice(-MAX_CACHED_MESSAGES_PER_ROOM),
-          };
+  const appendMessage = useCallback(
+    (roomId: string, message: Message) => {
+      setMessagesByRoom((prev) => {
+        const existing = prev[roomId] || [];
+        // Replace optimistic message if matching request_id exists
+        const reqId = (message as any).request_id;
+        if (reqId) {
+          const idx = existing.findIndex((m) => m.id === reqId || (m as any).request_id === reqId);
+          if (idx !== -1) {
+            const updated = [...existing];
+            updated[idx] = {
+              ...message,
+              id: message.id || updated[idx].id,
+              media_url: updated[idx].media_url || message.media_url,
+            };
+            return {
+              ...prev,
+              [roomId]: updated.slice(-MAX_CACHED_MESSAGES_PER_ROOM),
+            };
+          }
         }
-      }
 
-      // Prevent duplicate by id
-      if (existing.some((m) => m.id === message.id)) {
-        return prev;
-      }
+        // Prevent duplicate by id
+        if (existing.some((m) => m.id === message.id)) {
+          return prev;
+        }
 
-      return {
-        ...prev,
-        [roomId]: [...existing, message].slice(-MAX_CACHED_MESSAGES_PER_ROOM),
-      };
-    });
-  }, []);
+        return {
+          ...prev,
+          [roomId]: [...existing, message].slice(-MAX_CACHED_MESSAGES_PER_ROOM),
+        };
+      });
+
+      // Write-through to SQLite disk
+      if (user?.id) {
+        saveStoredMessages(user.id, roomId, [message]).catch(() => {});
+      }
+    },
+    [user?.id]
+  );
 
   // Mutation: Update a specific message in a room
   const updateMessage = useCallback(
@@ -279,7 +324,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         const mappedOlder: Message[] = rawOlder.map((m: any) => {
           const msgId = m.id || `hist_${Math.random()}`;
-          let content = m.content || '';
+          let content = typeof m.content === 'string' ? m.content : String(m.content || '');
           let isEncrypted = false;
 
           if (isEncryptedMessage(content)) {
@@ -299,7 +344,13 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
             replyToObj = {
               id: m.reply_to.id,
               nickname: m.reply_to.nickname || m.reply_to.from || '',
-              content: m.reply_to.content || '',
+              content: typeof m.reply_to.content === 'string' ? m.reply_to.content : '',
+            };
+          } else if (m.reply_to_id) {
+            replyToObj = {
+              id: m.reply_to_id,
+              nickname: m.reply_to_nickname || '',
+              content: typeof m.reply_to_content === 'string' ? m.reply_to_content : '',
             };
           }
 
@@ -315,7 +366,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
             timestamp: m.timestamp || m.created_at || new Date().toISOString(),
             status: m.status || 'sent',
             reply_to: replyToObj,
-            reactions: m.reactions || [],
+            reactions: normalizeReactions(m.reactions),
             is_deleted: Boolean(m.is_deleted),
             is_pinned: Boolean(m.is_pinned),
             media_url: m.media_url,
@@ -403,7 +454,13 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
             replyToObj = {
               id: m.reply_to.id,
               nickname: m.reply_to.nickname || m.reply_to.from || '',
-              content: m.reply_to.content || '',
+              content: typeof m.reply_to.content === 'string' ? m.reply_to.content : '',
+            };
+          } else if (m.reply_to_id) {
+            replyToObj = {
+              id: m.reply_to_id,
+              nickname: m.reply_to_nickname || '',
+              content: typeof m.reply_to_content === 'string' ? m.reply_to_content : '',
             };
           }
 
@@ -419,7 +476,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
             timestamp: m.timestamp || m.created_at || new Date().toISOString(),
             status: m.status || 'sent',
             reply_to: replyToObj,
-            reactions: m.reactions || [],
+            reactions: normalizeReactions(m.reactions),
             is_deleted: Boolean(m.is_deleted),
             is_pinned: Boolean(m.is_pinned),
             media_url: m.media_url,
@@ -445,6 +502,13 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
           return timeA - timeB;
         });
 
+        // Persist reconciled history to local SQLite disk
+        if (user?.id) {
+          saveStoredMessages(user.id, roomId, merged).catch((err) =>
+            console.warn('[MessageContext] Failed to persist room messages to SQLite:', err)
+          );
+        }
+
         return {
           ...prev,
           [roomId]: merged.slice(-MAX_CACHED_MESSAGES_PER_ROOM),
@@ -455,7 +519,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setRoomLoading((prev) => ({ ...prev, [roomId]: false }));
       setRoomRevalidating((prev) => ({ ...prev, [roomId]: false }));
     },
-    []
+    [user?.id]
   );
 
   // Clear cache for a specific room or all rooms
@@ -552,7 +616,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ? 'sent'
             : 'delivered',
         reply_to: replyToObj,
-        reactions: incoming.reactions || [],
+        reactions: normalizeReactions(incoming.reactions),
         is_deleted: Boolean(incoming.is_deleted),
         is_pinned: Boolean(incoming.is_pinned),
         media_url: incoming.media_url,
@@ -635,8 +699,8 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!targetRoom) return;
 
       const targetId = data.id || data.reaction?.message_id;
-      const reactions = data.reactions;
-      if (targetId && reactions) {
+      const reactions = normalizeReactions(data.reactions);
+      if (targetId && reactions.length > 0) {
         updateMessage(targetRoom, targetId, { reactions });
       }
     });
@@ -759,6 +823,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
       value={{
         messagesByRoom,
         getRoomMessages,
+        hydrateRoomFromLocalDB,
         isRoomLoading,
         isRoomRevalidating,
         hasMoreOlderMessages,

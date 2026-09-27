@@ -207,7 +207,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     );
   }
 
-  const hasCaption = Boolean(message.content && message.content.trim() !== '' && !isE2EE);
+  const hasCaption = Boolean(
+    message.content &&
+      typeof message.content === 'string' &&
+      message.content.trim() !== '' &&
+      !isE2EE
+  );
 
   return (
     <View style={[styles.container, isSelf ? styles.selfContainer : styles.otherContainer]}>
@@ -391,19 +396,24 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </Pressable>
 
         {/* Reaction Pills Row */}
-        {message.reactions && message.reactions.length > 0 && !isDeleted ? (
+        {Array.isArray(message.reactions) && message.reactions.length > 0 && !isDeleted ? (
           <View style={[styles.reactionsRow, isSelf ? styles.selfReactions : styles.otherReactions]}>
             {message.reactions.map((r, i) => {
-              const hasUserReacted = currentUserId && r.users?.includes(currentUserId);
+              const hasUserReacted = Boolean(
+                currentUserId && Array.isArray(r?.users) && r.users.includes(currentUserId)
+              );
+              const emojiStr = typeof r?.emoji === 'string' ? r.emoji : '👍';
+              const countNum = typeof r?.count === 'number' ? r.count : 1;
+
               return (
                 <TouchableOpacity
-                  key={`${r.emoji}_${i}`}
+                  key={`${emojiStr}_${i}`}
                   style={[styles.reactionPill, hasUserReacted ? styles.reactionPillActive : null]}
-                  onPress={() => onReact?.(message.id, r.emoji)}
+                  onPress={() => onReact?.(message.id, emojiStr)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.reactionEmoji}>{r.emoji}</Text>
-                  {r.count > 1 ? <Text style={styles.reactionCount}>{r.count}</Text> : null}
+                  <Text style={styles.reactionEmoji}>{emojiStr}</Text>
+                  {countNum > 1 ? <Text style={styles.reactionCount}>{countNum}</Text> : null}
                 </TouchableOpacity>
               );
             })}

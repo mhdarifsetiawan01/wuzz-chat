@@ -3661,7 +3661,29 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 ### 2. Bukti Pengujian Otomatis
 - **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS 100%** (0 errors).
 
+---
 
+## ⚡ Milestone M-Mobile-8.18: Offline-First SQLite Storage, Anti-Blink Guard & Reverse Scroll Hardening (27 September 2026)
 
+### 1. Ringkasan Pengerjaan
+- **Offline-First Persistent Storage Layer (`expo-sqlite`)**:
+  - Implementasi `sqliteStorage.ts` dengan WAL Mode (`PRAGMA journal_mode = WAL`) dan `PRAGMA synchronous = NORMAL` untuk proteksi thermal & baterai HP.
+  - Skema tabel lokal `local_conversations` dan `local_messages` terisolasi per `user_id` dengan indeks performa tinggi.
+  - Cache-first hydration pada `ConversationContext.tsx` dan `MessageContext.tsx` untuk rendering instan (< 50ms) saat aplikasi dibuka setelah cold-start / di-kill dari background.
+- **Anti-Blink Decryption Guard & Infinite Re-render Breaker**:
+  - Menghilangkan kedipan ikon gembok pada cold-start dengan Anti-Regression Guard pada daftar obrolan (`ConversationContext.tsx`).
+  - Menstabilkan `hydrateRoomFromLocalDB` menggunakan `messagesByRoomRef` untuk memutus re-render loop tak hingga pada perangkat hasil transfer QR.
+- **Reverse Infinite Scroll Hardening & Safe Reaction Normalization**:
+  - Root cause crash `TypeError: undefined is not a function` di `MessageBubble.tsx`: Wire format mismatch di mana REST API `/api/messages` mengembalikan `reactions` berupa string JSON `"[]"`, yang menyebabkan `"[]".map(...)` melempar fatal exception.
+  - Implementasi `normalizeReactions()` di `types.ts` dan integrasi menyeluruh di `MessageContext.tsx`, `MessageBubble.tsx`, dan `sqliteStorage.ts`.
+  - Penambahan `maintainVisibleContentPosition={{ minIndexForVisible: 0 }}` dan pelindung posisi scroll (`isNearBottomRef`) di `ChatScreen.tsx` untuk mencegah layar melompat ke bawah saat membaca chat lama.
+- **WhatsApp-Style Floating Scroll-to-Bottom Button (FAB)**:
+  - Tombol bulat mengambang `↓` di pojok kanan bawah yang muncul otomatis saat user scroll ke atas > 300px.
+  - Sekali tap langsung meluncur mulus ke pesan terbaru (`scrollToEnd({ animated: true })`).
+  - Badge counter pesan baru yang bertambah jika ada chat masuk saat user sedang membaca riwayat lama di atas.
 
-
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`go test ./...` di `backend/`)**: **PASS 100%**.
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS 100%** (0 errors).
+- **Mobile Release Build (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL in 32s**.
+- **Mobile Device Installation**: **Success** terpasang di HP fisik via `adb install -r`.

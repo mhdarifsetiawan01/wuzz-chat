@@ -1,15 +1,13 @@
-# IMPLEMENTATION PROGRESS — M-Mobile-8.19
+# IMPLEMENTATION PROGRESS — M-Mobile-8.18
 
 ## Task Checklist
 
-- [x] T1: Install `@react-navigation/bottom-tabs` via npm → v7.19.2 ✅
-- [x] T2: Update `mobile/src/navigation/types.ts` — tambah `MainTabs` route & `TabParamList` ✅
-- [x] T3: Buat `mobile/src/navigation/MainTabNavigator.tsx` — Custom Aurora Glassmorphic Tab Bar ✅
-- [x] T4: Buat `mobile/src/screens/CallsHistoryScreen.tsx` — Riwayat Panggilan WebRTC ✅
-- [x] T5: Buat `mobile/src/screens/SettingsScreen.tsx` — Profil & Pengaturan ✅
-- [x] T6: Update `mobile/src/screens/index.ts` — tambah export baru ✅
-- [x] T7: Update `mobile/src/navigation/AppNavigator.tsx` — ganti root `Home` → `MainTabs` ✅
-- [x] T8: Update `mobile/src/navigation/index.ts` — tambah export `MainTabNavigator` ✅
-- [x] T9: Jalankan `cd mobile && npx tsc --noEmit` → **0 errors** ✅
+- [x] T1: Install dependensi `expo-sqlite` ~57.0.3 di `mobile/package.json` ✅
+- [x] T2: Buat service layer `mobile/src/services/sqliteStorage.ts` (init database, WAL mode, thermal & battery hardening, multi-user isolation, batch transactions) ✅
+- [x] T3: Daftarkan export `sqliteStorage` di `mobile/src/services/index.ts` ✅
+- [x] T4: Modifikasi `mobile/src/context/ConversationContext.tsx`, `MessageContext.tsx`, & `ChatScreen.tsx` untuk Cache-First Hydration dari SQLite & Write-Through sync ✅
+- [x] T5: Verifikasi typecheck TypeScript: `cd mobile && npx tsc --noEmit` (0 errors) & full test suite (`go test ./...` PASS, `npm run build` PASS) ✅
+- [x] T6: Kompilasi release APK: `cd mobile/android && ./gradlew assembleRelease` (BUILD SUCCESSFUL) ✅
+- [x] T7: Verifikasi cold start & pelaporan hasil ke user ✅
 
-## Status: SELESAI IMPLEMENTASI, MENUNGGU KONFIRMASI USER
+## Status: SELESAI IMPLEMENTASI & TERVERIFIKASI — MENUNGGU KONFIRMASI USER

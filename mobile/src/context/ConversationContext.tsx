@@ -23,6 +23,12 @@ import {
   getCachedPeerPublicKey,
   isEncryptedMessage,
 } from '../services/crypto';
+import {
+  getStoredConversations,
+  saveStoredConversations,
+  updateStoredConversationPin as persistConversationPin,
+} from '../services/sqliteStorage';
+import { secureStorage } from '../services/secureStorage';
 
 export interface ConversationContextType {
   conversations: Conversation[];
@@ -46,11 +52,47 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const isFetchingRef = useRef<boolean>(false);
   const pendingRefreshRef = useRef<boolean>(false);
 
-  // Helper: Decrypt snippet for direct E2EE conversations
+  // Synchronized refs to prevent stale closure race conditions
+  const conversationsRef = useRef<Conversation[]>(conversations);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  const e2eeKeyPairRef = useRef(e2eeKeyPair);
+  useEffect(() => {
+    e2eeKeyPairRef.current = e2eeKeyPair;
+  }, [e2eeKeyPair]);
+
+  // Helper: Decrypt snippet for direct E2EE conversations with Anti-Regression Guard
   const processConversations = useCallback(
     async (data: Conversation[]): Promise<Conversation[]> => {
       const currentUserId = user?.id;
-      const privateKeyHex = e2eeKeyPair?.privateKeyHex;
+      if (!currentUserId || !data || data.length === 0) return data;
+
+      // 1. Resolve private key from synchronized ref or fallback directly to hardware SecureStore
+      let privateKeyHex = e2eeKeyPairRef.current?.privateKeyHex;
+      if (!privateKeyHex) {
+        try {
+          const storedKey = await secureStorage.getE2EEKeyPair(currentUserId);
+          if (storedKey?.privateKeyHex) {
+            privateKeyHex = storedKey.privateKeyHex;
+          }
+        } catch {
+          // ignore read error
+        }
+      }
+
+      // 2. Build existing clean decrypted snippets map to prevent regression to lock icon
+      const existingCleanMap = new Map<string, string>();
+      conversationsRef.current.forEach((c) => {
+        const msg =
+          typeof c.last_message === 'string'
+            ? c.last_message
+            : c.last_message?.content;
+        if (msg && !isEncryptedMessage(msg) && !msg.startsWith('e2ee:') && !msg.startsWith('🔒')) {
+          existingCleanMap.set(c.id, msg);
+        }
+      });
 
       return Promise.all(
         data.map(async (c) => {
@@ -59,7 +101,23 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
               ? c.last_message
               : c.last_message?.content;
 
-          if (!raw || !isEncryptedMessage(raw) || !currentUserId || !privateKeyHex) {
+          // If raw is already decrypted and clean, preserve it
+          if (!raw || (!isEncryptedMessage(raw) && !raw.startsWith('e2ee:') && !raw.startsWith('🔒'))) {
+            return c;
+          }
+
+          // If private key is unavailable right now, check if we already have clean decrypted text in cache
+          if (!privateKeyHex) {
+            const clean = existingCleanMap.get(c.id);
+            if (clean) {
+              if (typeof c.last_message === 'object' && c.last_message !== null) {
+                return {
+                  ...c,
+                  last_message: { ...c.last_message, content: clean },
+                };
+              }
+              return { ...c, last_message: clean };
+            }
             return c;
           }
 
@@ -75,6 +133,12 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
 
           if (!peerId) {
+            const clean = existingCleanMap.get(c.id);
+            if (clean) {
+              return typeof c.last_message === 'object' && c.last_message !== null
+                ? { ...c, last_message: { ...c.last_message, content: clean } }
+                : { ...c, last_message: clean };
+            }
             return c;
           }
 
@@ -94,11 +158,25 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
 
           if (!peerPub) {
+            const clean = existingCleanMap.get(c.id);
+            if (clean) {
+              return typeof c.last_message === 'object' && c.last_message !== null
+                ? { ...c, last_message: { ...c.last_message, content: clean } }
+                : { ...c, last_message: clean };
+            }
             return c;
           }
 
           // 3. Decrypt snippet using cached/derived AES key
-          const plain = decryptSnippet(raw, c.id, peerPub, privateKeyHex);
+          let plain = decryptSnippet(raw, c.id, peerPub, privateKeyHex);
+
+          // If decryption returned placeholder lock icon but we already have clean plaintext, preserve clean plaintext!
+          if (isEncryptedMessage(plain) || plain.startsWith('🔒') || plain.startsWith('e2ee:')) {
+            const clean = existingCleanMap.get(c.id);
+            if (clean) {
+              plain = clean;
+            }
+          }
 
           if (typeof c.last_message === 'object' && c.last_message !== null) {
             return {
@@ -117,7 +195,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         })
       );
     },
-    [user?.id, e2eeKeyPair?.privateKeyHex]
+    [user?.id]
   );
 
   // Helper: Sort conversations (pinned first, then latest timestamp descending)
@@ -176,6 +254,11 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const processed = await processConversations(rawData);
           const sorted = sortConversations(processed);
           setConversations(sorted);
+          if (user?.id) {
+            saveStoredConversations(user.id, sorted).catch((e) =>
+              console.warn('[ConversationContext] Failed to persist conversations to SQLite:', e)
+            );
+          }
         }
         setError(null);
         hasLoadedOnceRef.current = true;
@@ -194,7 +277,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
       }
     },
-    [isAuthenticated, conversations.length, processConversations]
+    [isAuthenticated, user?.id, conversations.length, processConversations]
   );
 
   /**
@@ -215,6 +298,10 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return sortConversations(updated);
       });
 
+      if (user?.id) {
+        persistConversationPin(user.id, roomId, isPinned).catch(() => {});
+      }
+
       try {
         if (isPinned) {
           await conversationsApi.pinConversation(roomId);
@@ -226,16 +313,19 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Rollback on failure
         if (rollbackState.length > 0) {
           setConversations(rollbackState);
+          if (user?.id) {
+            persistConversationPin(user.id, roomId, !isPinned).catch(() => {});
+          }
         }
         throw err;
       }
     },
-    []
+    [user?.id]
   );
 
-  // Synchronize on authentication state changes
+  // Synchronize on authentication state changes (Cache-First Hydration)
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user?.id) {
       setConversations([]);
       hasLoadedOnceRef.current = false;
       setIsLoading(false);
@@ -244,9 +334,38 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       return;
     }
 
-    // Initial fetch when authenticated
-    refreshConversations(false);
-  }, [isAuthenticated]);
+    let isMounted = true;
+
+    const hydrateFromLocalDB = async () => {
+      let hasLocalData = false;
+      try {
+        const localData = await getStoredConversations(user.id);
+        if (isMounted && localData && localData.length > 0) {
+          // Process decryption on local data immediately before setting state
+          const processedLocal = await processConversations(localData);
+          const sorted = sortConversations(processedLocal);
+          setConversations(sorted);
+          hasLoadedOnceRef.current = true;
+          hasLocalData = true;
+          // INSTANT COLD START RENDER: eliminate loading spinner immediately
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.warn('[ConversationContext] Local SQLite hydration error:', err);
+      }
+
+      // Revalidate in background: silent if local data was loaded, or full spinner if first install
+      if (isMounted) {
+        refreshConversations(hasLocalData);
+      }
+    };
+
+    hydrateFromLocalDB();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, user?.id]);
 
   // Re-process cached conversations as soon as E2EE private key is initialized/available
   useEffect(() => {
@@ -266,9 +385,13 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!hasEncrypted) return;
 
     processConversations(conversations).then((processed) => {
-      setConversations(sortConversations(processed));
+      const sorted = sortConversations(processed);
+      setConversations(sorted);
+      if (user?.id) {
+        saveStoredConversations(user.id, sorted).catch(() => {});
+      }
     });
-  }, [e2eeKeyPair?.privateKeyHex, conversations, processConversations]);
+  }, [e2eeKeyPair?.privateKeyHex, conversations, processConversations, user?.id]);
 
   // Centralized WebSocket listener: ingest incoming 'message' events for silent revalidation
   useEffect(() => {

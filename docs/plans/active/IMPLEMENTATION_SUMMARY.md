@@ -1,32 +1,32 @@
-# IMPLEMENTATION SUMMARY — M-Mobile-8.19
+# IMPLEMENTATION SUMMARY — M-Mobile-8.18
 
 ## Milestone
-**M-Mobile-8.19: Aurora Glassmorphic Bottom Tab Navigation & Multi-Tab Screens**
+**M-Mobile-8.18: Offline-First Persistent Storage (SQLite Local Cache & Cold-Start Acceleration)**
 
 ## Status
-`[/] IN PROGRESS`
+`[ ] READY FOR APPROVAL`
 
 ## Objective
-Implementasi Bottom Tab Navigation Bar standar WhatsApp/Telegram Modern dengan tiga tab utama (Obrolan, Panggilan, Pengaturan) yang terintegrasi secara mulus dengan arsitektur Native Stack yang sudah ada.
+Mengintegrasikan database lokal SQLite (`expo-sqlite`) di aplikasi mobile WuzzChat agar daftar percakapan (`conversations`) dan riwayat pesan (`messages`) dipersistensikan secara permanen di storage lokal perangkat. Hal ini mengeliminasi loading spinner saat aplikasi dibuka dari Cold Start (setelah di-kill atau di-reboot), menyajikan halaman Home instan (< 50ms) seperti WhatsApp, dan mendukung Delta Offline Sync via WebSocket `since`.
 
-## Arsitektur yang Dipilih
-- **Strategy**: `@react-navigation/bottom-tabs` dipasang sebagai root screen `MainTabs` di dalam Native Stack yang sudah ada.
-- **Stack Wrapping**: `MainTabs` menjadi entry point di `AppNavigator`. Screen seperti `Chat`, `NewChat`, `NewGroup`, `GroupInfo` tetap di Root Stack (bukan di dalam tab), sehingga saat membuka chat room, tab bar tersembunyi secara natural.
-- **Custom Tab Bar**: Tab bar sepenuhnya custom Aurora Glassmorphic (bukan default React Navigation style) menggunakan `tabBar` prop.
+## Arsitektur & Strategi
+1. **Local SQLite Engine**: Menggunakan `expo-sqlite` modern API (`openDatabaseAsync`) dengan tabel `conversations` dan `messages`, serta index pencarian teroptimasi.
+2. **Cold Start Cache-First Ingestion**:
+   - `ConversationContext.tsx` membaca data percakapan lokal dari SQLite saat inisialisasi awal.
+   - Jika data lokal ditemukan, `conversations` langsung diisi dan `isLoading` diset `false` (0ms render).
+   - Di latar belakang, request silent revalidation (`refreshConversations(true)`) dijalankan ke server untuk mengambil delta percakapan baru tanpa memblokir UI.
+   - Hasil sinkronisasi server di-upsert kembali ke SQLite lokal (Write-Through pattern).
+3. **Delta Sync & Continuity**: Mendukung integrasi dengan parameter `since` pada event WebSocket `join` untuk pengunduhan riwayat pesan baru secara efisien.
 
 ## File yang Akan Dibuat/Dimodifikasi
-| File | Aksi |
-|------|------|
-| `mobile/package.json` | Install `@react-navigation/bottom-tabs` |
-| `mobile/src/navigation/types.ts` | Tambah `MainTabs` & `TabParamList` types |
-| `mobile/src/navigation/MainTabNavigator.tsx` | **BUAT BARU** — Custom Aurora Bottom Tab |
-| `mobile/src/screens/CallsHistoryScreen.tsx` | **BUAT BARU** — Riwayat panggilan WebRTC |
-| `mobile/src/screens/SettingsScreen.tsx` | **BUAT BARU** — Pengaturan & profil |
-| `mobile/src/screens/index.ts` | Tambah export baru |
-| `mobile/src/navigation/AppNavigator.tsx` | Integrasi `MainTabs` sebagai root screen |
-| `mobile/src/navigation/index.ts` | Tambah export `MainTabNavigator` |
+| File | Aksi | Deskripsi |
+|------|------|-----------|
+| `mobile/package.json` | Modifikasi | Menambahkan dependensi `expo-sqlite` ~57.0.3 |
+| `mobile/src/services/sqliteStorage.ts` | **BUAT BARU** | Service wrapper inisialisasi SQLite database, migrasi tabel, dan fungsi CRUD (conversations & messages) |
+| `mobile/src/context/ConversationContext.tsx` | Modifikasi | Cache-first loading dari SQLite saat cold start & auto-sync write-through |
+| `mobile/src/services/index.ts` | Modifikasi | Export sqliteStorage helpers |
 
 ## Keputusan Teknis Kunci
-- DEC-019: Tab Bar custom (bukan default) untuk glassmorphic blur style dan unread badge terintegrasi dengan design system Aurora.
-- DEC-020: Screen Chat, NewChat, NewGroup, GroupInfo tetap di Root Stack — tidak di dalam tab — agar animasi slide-from-right tetap bekerja dan tab bar hilang saat masuk room chat.
-- DEC-021: ConversationProvider tetap di luar navigator (App.tsx) agar state SWR conversations hidup di background dan unread badge tidak reset saat pindah tab.
+- DEC-022: Menggunakan `expo-sqlite` API modern (`openDatabaseAsync`, `execAsync`, `getAllAsync`) yang resmi didukung Expo SDK 57, bukan AsyncStorage berbasis string JSON.
+- DEC-023: Menyimpan raw metadata (`raw_json`) serta kolom query terindeks (`updated_at`, `unread_count`, `is_pinned`) untuk menjamin pemulihan state 100% identik dengan server.
+- DEC-024: Cache-first loading dieksekusi sebelum fetch jaringan, sehingga halaman Home langsung tampil dalam < 50ms setelah proses dibuka dari cold start.

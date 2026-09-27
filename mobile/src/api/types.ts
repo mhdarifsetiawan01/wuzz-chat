@@ -70,11 +70,7 @@ export interface Message {
   file_name?: string;
   file_size?: number;
   media_status?: string;
-  reactions?: {
-    emoji: string;
-    users: string[];
-    count: number;
-  }[];
+  reactions?: ReactionItem[];
   is_deleted?: boolean;
   is_edited?: boolean;
   edited_at?: string;
@@ -82,6 +78,45 @@ export interface Message {
   is_pinned?: boolean;
   pinned_at?: string;
 }
+
+export interface ReactionItem {
+  emoji: string;
+  users: string[];
+  count: number;
+}
+
+/**
+ * Normalizes reactions from any wire format (array, JSON string, null)
+ * into a safe, valid ReactionItem array.
+ */
+export function normalizeReactions(raw: any): ReactionItem[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((r: any) => ({
+      emoji: typeof r?.emoji === 'string' ? r.emoji : '👍',
+      count: typeof r?.count === 'number' ? r.count : (Array.isArray(r?.users) ? r.users.length : 1),
+      users: Array.isArray(r?.users) ? r.users.filter((u: any) => typeof u === 'string') : [],
+    }));
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed === '[]' || trimmed === '{}') return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((r: any) => ({
+          emoji: typeof r?.emoji === 'string' ? r.emoji : '👍',
+          count: typeof r?.count === 'number' ? r.count : (Array.isArray(r?.users) ? r.users.length : 1),
+          users: Array.isArray(r?.users) ? r.users.filter((u: any) => typeof u === 'string') : [],
+        }));
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 
 export interface MediaUploadResponse {
   url: string;

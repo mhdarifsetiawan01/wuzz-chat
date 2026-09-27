@@ -14,3 +14,4 @@ export {
   setContactSafetyVerified,
   isContactSafetyVerified,
 } from './e2eeService';
+export * from './sqliteStorage';
