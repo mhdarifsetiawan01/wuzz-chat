@@ -1,3 +1,6 @@
-# Context Boundaries & System Constraints: Standby
+# AI_CONTEXT.md — Active Context & Boundaries
 
-No active implementation. Standing by for next instruction.
+## Status
+- **Current State**: Standby (No active implementation plan)
+- **Last Completed Milestone**: `M-Mobile-8.17: Room Messages SWR Cache & Reverse Infinite Scroll`
+- **Active Git Branch**: `dev`

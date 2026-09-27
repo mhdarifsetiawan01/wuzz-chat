@@ -116,6 +116,10 @@ func (m *mockMessageRepo) GetRoomHistorySince(roomID, userID string, since time.
 	return []messaging.Message{}, nil
 }
 
+func (m *mockMessageRepo) GetRoomHistoryBefore(roomID, userID string, before time.Time, limit int) ([]messaging.Message, error) {
+	return []messaging.Message{}, nil
+}
+
 func (m *mockMessageRepo) PinMessage(convID, msgID, userID string, durationHours int) (*messaging.PinnedMessage, error) {
 	if m.pinErr != nil {
 		return nil, m.pinErr
@@ -499,6 +503,12 @@ func TestMessageService_ToggleReactionAndHistory(t *testing.T) {
 	histSince, err := svc.GetRoomHistorySince(ctx, "room-1", "user-1", time.Now().Add(-1*time.Hour), 50)
 	if err != nil || histSince == nil {
 		t.Fatalf("unexpected get room history since error: %v", err)
+	}
+
+	// GetRoomHistoryBefore
+	histBefore, err := svc.GetRoomHistoryBefore(ctx, "room-1", "user-1", time.Now(), 50)
+	if err != nil || histBefore == nil {
+		t.Fatalf("unexpected get room history before error: %v", err)
 	}
 
 	// MarkUserMessagesAsDelivered & Read

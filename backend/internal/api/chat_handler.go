@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/authz"
@@ -879,6 +880,76 @@ func (h *ChatHandler) UpdateReceipt(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"status":  req.Status,
 	})
+}
+
+// GetMessages mengambil riwayat pesan dalam suatu ruang obrolan (REST endpoint GET /api/messages).
+// Mendukung query param: room_id (wajib), limit (opsional, default 50), before (opsional cursor timestamp RFC3339/ISO8601).
+func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	roomID := strings.TrimSpace(r.URL.Query().Get("room_id"))
+	if roomID == "" {
+		roomID = strings.TrimSpace(r.URL.Query().Get("conversation_id"))
+	}
+	if roomID == "" {
+		http.Error(w, `{"error":"room_id wajib disertakan"}`, http.StatusBadRequest)
+		return
+	}
+
+	limit := 50
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	var messages []messaging.Message
+	var err error
+
+	beforeStr := strings.TrimSpace(r.URL.Query().Get("before"))
+	if beforeStr != "" {
+		var beforeTime time.Time
+		beforeTime, err = time.Parse(time.RFC3339Nano, beforeStr)
+		if err != nil {
+			beforeTime, err = time.Parse(time.RFC3339, beforeStr)
+		}
+		if err != nil {
+			http.Error(w, `{"error":"format cursor before tidak valid, gunakan RFC3339/ISO8601"}`, http.StatusBadRequest)
+			return
+		}
+
+		if h.service != nil {
+			messages, err = h.service.GetRoomHistoryBefore(r.Context(), roomID, claims.UserID, beforeTime, limit)
+		} else {
+			messages, err = h.messageStore.GetRoomHistoryBefore(roomID, claims.UserID, beforeTime, limit)
+		}
+	} else {
+		if h.service != nil {
+			messages, err = h.service.GetRoomHistory(r.Context(), roomID, claims.UserID, limit)
+		} else {
+			messages, err = h.messageStore.GetRoomHistoryForUser(roomID, claims.UserID, limit)
+		}
+	}
+
+	if err != nil {
+		if strings.Contains(err.Error(), "bukan anggota") {
+			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			return
+		}
+		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+		return
+	}
+
+	if messages == nil {
+		messages = []messaging.Message{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(messages)
 }
 
 

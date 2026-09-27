@@ -75,9 +75,22 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - [ ] **M-Mobile-8.16: React Navigation Native Stack Integration & Fluid Screen Transition (Langkah 2)**:
   - Migrasi `AppNavigator` ke `@react-navigation/native-stack` (`createNativeStackNavigator`).
   - Animasi transisi slide native iOS/Android dan gesture swipe-back tanpa unmounting komponen.
-- [ ] **M-Mobile-8.17: Room Messages SWR Cache & Timeline In-Memory State**:
-  - Caching riwayat pesan per room di memory/context (`messagesByRoom: Record<string, Message[]>`).
-  - Render instan 0ms saat user keluar-masuk ruang obrolan `ChatScreen` tanpa refetch blocking, disertai background sync via WebSocket.
+- [x] **M-Mobile-8.17: Room Messages SWR Cache & Timeline In-Memory State + Reverse Infinite Scroll (27 September 2026)**:
+  - Implementasi `MessageContext.tsx` untuk mengelola state pesan di memori global (`messagesByRoom: Record<string, Message[]>`).
+  - Pola Stale-While-Revalidate (SWR): render instan 0ms saat user membuka ruang obrolan `ChatScreen` tanpa layar kosong / spinner blocking.
+  - Listener WebSocket sentral (`message`, `history`, `ack`, `receipt`, `reaction`, `message_deleted`, `delete_message`, `message_edited`, `message_pinned`, `message_unpinned`) aktif di background.
+  - Rekonsiliasi E2EE: menjaga teks plaintext yang sudah didekripsi sebelumnya saat sync riwayat baru tiba dari server (`DEC-015`).
+  - Fitur **Load Older Messages / Reverse Infinite Scroll**:
+    - Penarikan riwayat lama mundur via cursor timestamp (`before`) dan limit 50 pesan (`GET /api/messages`).
+    - Deteksi otomatis saat user scroll mendekati atas (`contentOffset.y <= 40`) serta tombol manual `↑ Muat Pesan Terdahulu` di `ListHeaderComponent`.
+    - Guard `isPrependingRef` pada `onContentSizeChange` untuk mencegah loncatan scroll ke bawah saat pesan lama disisipkan di atas.
+
+---
+
+## 🎯 Fokus Berikutnya (What's Next)
+- [ ] **M-Mobile-8.16: React Navigation Native Stack Integration & Fluid Screen Transition (Langkah 2)**:
+  - Migrasi `AppNavigator` ke `@react-navigation/native-stack` (`createNativeStackNavigator`).
+  - Animasi transisi slide native iOS/Android dan gesture swipe-back tanpa unmounting komponen.
 - [ ] **M-Mobile-8.18: Offline-First Persistent Storage (SQLite / MMKV Cache)**:
   - Persistensi cache obrolan & riwayat pesan ke disk storage (`expo-sqlite` / MMKV).
   - Akses riwayat obrolan seketika saat aplikasi dibuka dari *Cold Start* tanpa koneksi internet.

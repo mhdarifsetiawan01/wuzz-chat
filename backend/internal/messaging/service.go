@@ -412,6 +412,12 @@ func (s *MessageService) GetRoomHistory(ctx context.Context, roomID, userID stri
 	if strings.TrimSpace(roomID) == "" {
 		return nil, ErrMissingRoomID
 	}
+	if s.convRepo != nil && userID != "" {
+		isMember, err := s.convRepo.IsUserInConversation(roomID, userID)
+		if err != nil || !isMember {
+			return nil, errors.New("Anda bukan anggota dari percakapan ini")
+		}
+	}
 	return s.msgRepo.GetRoomHistoryForUser(roomID, userID, limit)
 }
 
@@ -421,6 +427,20 @@ func (s *MessageService) GetRoomHistorySince(ctx context.Context, roomID, userID
 		return nil, ErrMissingRoomID
 	}
 	return s.msgRepo.GetRoomHistorySince(roomID, userID, since, limit)
+}
+
+// GetRoomHistoryBefore mengambil riwayat pesan yang dibuat sebelum timestamp tertentu (pagination riwayat lama).
+func (s *MessageService) GetRoomHistoryBefore(ctx context.Context, roomID, userID string, before time.Time, limit int) ([]Message, error) {
+	if strings.TrimSpace(roomID) == "" {
+		return nil, ErrMissingRoomID
+	}
+	if s.convRepo != nil && userID != "" {
+		isMember, err := s.convRepo.IsUserInConversation(roomID, userID)
+		if err != nil || !isMember {
+			return nil, errors.New("Anda bukan anggota dari percakapan ini")
+		}
+	}
+	return s.msgRepo.GetRoomHistoryBefore(roomID, userID, before, limit)
 }
 
 // MarkUserMessagesAsDelivered menandai semua pesan 'sent' yang ditujukan ke user menjadi 'delivered'.

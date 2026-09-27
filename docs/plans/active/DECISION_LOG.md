@@ -1,3 +1,3 @@
-# Decision Log: Standby
+# DECISION_LOG.md — Technical Decisions Log
 
-No active technical decisions.
+*Standby — active decisions archived in `docs/plans/archived/`.*

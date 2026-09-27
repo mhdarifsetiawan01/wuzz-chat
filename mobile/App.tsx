@@ -8,7 +8,7 @@ import React, { useCallback, useState } from 'react';
 import './src/services/notificationBackgroundTask';
 import { ActivityIndicator, BackHandler, Linking, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, CallProvider, ConversationProvider, DeviceProvider, useAuth } from './src/context';
+import { AuthProvider, CallProvider, ConversationProvider, DeviceProvider, MessageProvider, useAuth } from './src/context';
 import {
   ChatScreen,
   GroupInfoScreen,
@@ -422,9 +422,11 @@ export default function App() {
       <DeviceProvider>
         <AuthProvider>
           <ConversationProvider>
-            <CallProvider>
-              <AppNavigator />
-            </CallProvider>
+            <MessageProvider>
+              <CallProvider>
+                <AppNavigator />
+              </CallProvider>
+            </MessageProvider>
           </ConversationProvider>
         </AuthProvider>
       </DeviceProvider>

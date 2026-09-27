@@ -1,3 +1,3 @@
-# Implementation Plan: Standby
+# IMPLEMENTATION_PLAN.md
 
-No active implementation plan. Standing by for next instruction.
+*Standby — no active implementation plan in progress.*

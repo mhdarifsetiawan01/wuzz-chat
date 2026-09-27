@@ -210,7 +210,9 @@ func (a *Application) setupRouter() http.Handler {
 			}
 		}))
 		mux.HandleFunc("/api/messages", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodPut {
+			if r.Method == http.MethodGet {
+				auth.RequireJWT()(http.HandlerFunc(a.ChatHandler.GetMessages)).ServeHTTP(w, r)
+			} else if r.Method == http.MethodPut {
 				auth.RequireJWT()(http.HandlerFunc(a.ChatHandler.EditMessage)).ServeHTTP(w, r)
 			} else if r.Method == http.MethodDelete || r.Method == http.MethodPost {
 				auth.RequireJWT()(http.HandlerFunc(a.ChatHandler.DeleteMessage)).ServeHTTP(w, r)

@@ -43,6 +43,9 @@ type MessageRepository interface {
 	// GetRoomHistorySince mengambil riwayat pesan yang lebih baru dari timestamp `since`.
 	GetRoomHistorySince(roomID, userID string, since time.Time, limit int) ([]Message, error)
 
+	// GetRoomHistoryBefore mengambil riwayat pesan yang dibuat sebelum timestamp `before` (pagination riwayat lama).
+	GetRoomHistoryBefore(roomID, userID string, before time.Time, limit int) ([]Message, error)
+
 	// PinMessage menyematkan pesan dalam percakapan (maksimal 3 pesan per percakapan).
 	PinMessage(convID, msgID, userID string, durationHours int) (*PinnedMessage, error)
 

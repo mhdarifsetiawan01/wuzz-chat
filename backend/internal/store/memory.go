@@ -281,6 +281,37 @@ func (s *MemoryMessageStore) GetRoomHistorySince(roomID, userID string, since ti
 	return result, nil
 }
 
+func (s *MemoryMessageStore) GetRoomHistoryBefore(roomID, userID string, before time.Time, limit int) ([]StoredMessage, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	msgs, ok := s.messages[roomID]
+	if !ok || len(msgs) == 0 {
+		return []StoredMessage{}, nil
+	}
+
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+
+	var filtered []StoredMessage
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Timestamp.Before(before) {
+			filtered = append(filtered, msgs[i])
+			if len(filtered) >= limit {
+				break
+			}
+		}
+	}
+
+	result := make([]StoredMessage, len(filtered))
+	for i, m := range filtered {
+		result[len(filtered)-1-i] = m
+	}
+
+	return result, nil
+}
+
 func (s *MemoryMessageStore) GetMessageByID(msgID string) (*StoredMessage, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

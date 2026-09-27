@@ -681,6 +681,34 @@ Melepas sematan (unpin) percakapan dari sidebar per-user.
 
 ### 3.4 Manajemen Pesan
 
+#### 14b. `GET /api/messages?room_id=<room_id>&limit=<50>&before=<timestamp>`
+Mengambil riwayat pesan dalam suatu ruang obrolan dengan dukungan cursor-based pagination mundur (*reverse infinite scroll*).
+- **Autentikasi**: `Bearer <token>`
+- **Query Parameters**:
+  - `room_id` (string, wajib): ID percakapan / room.
+  - `limit` (integer, opsional, default: 50, max: 100): Jumlah pesan yang ditarik.
+  - `before` (string RFC3339/ISO8601, opsional): Cursor batas timestamp untuk memuat pesan terdahulu yang dibuat sebelum timestamp ini.
+- **Validasi Keamanan**:
+  - Verifikasi keanggotaan ruang obrolan: Mengembalikan `403 Forbidden` jika pengguna pemanggil bukan anggota percakapan.
+- **Success Response (200 OK)**:
+  ```json
+  [
+    {
+      "id": "msg-12345",
+      "room_id": "direct_11111111_22222222",
+      "from_id": "user_11111111",
+      "from_nickname": "Alice",
+      "to_id": "user_22222222",
+      "content": "Halo apa kabar?",
+      "status": "read",
+      "created_at": "2026-09-27T10:00:00Z"
+    }
+  ]
+  ```
+- **Error Codes**: `400 Bad Request` (room_id kosong / format cursor tidak valid), `401 Unauthorized`, `403 Forbidden` (bukan anggota percakapan).
+
+---
+
 #### 15. `DELETE /api/messages?id=<msg_id>&delete_for_everyone=<bool>` *(atau `POST /api/messages/delete`)*
 Menghapus pesan spesifik.
 - **Autentikasi**: `Bearer <token>`

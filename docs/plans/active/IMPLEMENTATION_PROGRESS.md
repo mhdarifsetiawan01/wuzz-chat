@@ -1,3 +1,3 @@
-# Implementation Progress: Standby
+# IMPLEMENTATION_PROGRESS.md
 
-No active implementation tasks in progress.
+*Standby — all tasks archived.*

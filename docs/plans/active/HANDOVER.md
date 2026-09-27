@@ -1,3 +1,3 @@
-# Handover Document: Standby
+# HANDOVER.md — Verification Evidence & Task Completion
 
-No active handover. Standing by for next instruction.
+*Standby — last handover archived in `docs/plans/archived/`.*

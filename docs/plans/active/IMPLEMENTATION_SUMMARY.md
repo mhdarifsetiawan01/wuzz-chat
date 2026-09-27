@@ -1,3 +1,3 @@
-# Implementation Summary: Standby
+# IMPLEMENTATION_SUMMARY.md
 
-No active implementation. Standing by for next instruction.
+*Standby — all summaries archived.*

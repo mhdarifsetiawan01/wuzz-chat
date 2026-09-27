@@ -3609,6 +3609,26 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Next.js Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 - **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
 
+---
+
+## ⚡ Milestone M-Mobile-8.17: Room Messages SWR Cache & Reverse Infinite Scroll (27 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **In-Memory Message Cache Layer (`MessageContext.tsx`)**:
+  - Global cache state `messagesByRoom: Record<string, Message[]>`.
+  - Stale-While-Revalidate (SWR): Membuka ruang obrolan `ChatScreen` menghasilkan render 0ms instan tanpa UI flicker atau spinner blocking jika pesan sudah ada di memori.
+  - Rekonsiliasi E2EE: Mempertahankan teks pesan yang telah didekripsi sebelumnya saat riwayat baru disinkronkan di background (`DEC-015`).
+  - Penanganan WebSocket stream terpusat untuk pesan baru, receipts (`read`/`delivered`), reaksi, edit, pin, dan hapus pesan.
+- **Load Older Messages / Reverse Infinite Scroll**:
+  - Backend: Menambahkan `GetRoomHistoryBefore` pada store (`sql.go`, `memory.go`), service, dan handler `GET /api/messages` dengan validasi keanggotaan percakapan.
+  - Mobile: Integrasi deteksi scroll mendekati atas (`contentOffset.y <= 40`) dan fallback tombol/spinner di `ListHeaderComponent`.
+  - Guard `isPrependingRef`: Mencegah scroll snapping otomatis ke bawah saat riwayat lama disisipkan di atas.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%** (termasuk unit test baru `TestChatHandler_GetMessages`).
+- **Frontend Next.js Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+
 
 
 

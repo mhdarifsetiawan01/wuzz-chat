@@ -1,0 +1,31 @@
+# IMPLEMENTATION_PROGRESS.md — Milestone M-Mobile-8.17
+
+## Atomic Tasks Checklist
+- [x] **Task 1: Architecture Design & Tracking Setup**
+  - [x] Setup active documentation in `docs/plans/active/`.
+  - [x] Formulate `DEC-014` and `DEC-015`.
+- [x] **Task 2: Implement `MessageContext.tsx`**
+  - [x] Create `mobile/src/context/MessageContext.tsx` with `messagesByRoom` state.
+  - [x] Implement SWR query methods: `getRoomMessages`, `isRoomLoading`, `isRoomRevalidating`.
+  - [x] Implement mutation methods: `appendMessage`, `updateMessage`, `removeMessage`, `reconcileHistory`.
+  - [x] Centralize WebSocket event handlers for `message`, `history`, `ack`, `receipt`, `reaction`, `message_deleted`, `delete_message`, `message_edited`, `message_pinned`, `message_unpinned`.
+- [x] **Task 3: Export & Nest Provider**
+  - [x] Export `MessageContext`, `MessageProvider`, `useMessages` in `mobile/src/context/index.ts`.
+  - [x] Wrap `<MessageProvider>` in `mobile/App.tsx`.
+- [x] **Task 4: Refactor `ChatScreen.tsx` for SWR Cache Integration**
+  - [x] Replace local message array state with `useMessages()`.
+  - [x] Implement instant 0ms render when messages exist in cache.
+  - [x] Trigger background revalidation upon room join without blocking UI.
+  - [x] Connect optimistic message sending and reactions/edits/deletions with context methods.
+- [x] **Task 6: Backend Pagination Endpoint & Store Support (`DEC-016`)**
+  - [x] Implement `GetRoomHistoryBefore` in `store.MessageStore` (`sql.go` and `memory.go`).
+  - [x] Implement `GetRoomHistoryBefore` in `MessageRepository` and `MessageService`.
+  - [x] Implement `GetMessages` handler in `ChatHandler` and register `GET /api/messages` in `router.go`.
+  - [x] Verify with `go test -v ./...` and `TestChatHandler_GetMessages`.
+- [x] **Task 7: Mobile Reverse Infinite Scroll / Load Older Messages**
+  - [x] Implement `loadOlderMessages(roomId)` and `hasMoreOlderMessages` in `MessageContext.tsx`.
+  - [x] Connect `ChatScreen.tsx` FlatList with top scroll detection / header spinner and scroll jump guard.
+  - [x] Verify with `cd mobile && npx tsc --noEmit`.
+- [x] **Task 8: Automated Quality Gate & Handover**
+  - [x] Run automated tests across backend (`go test ./...`), frontend (`npm run build`), and mobile (`npx tsc --noEmit`).
+  - [x] Update `DECISION_LOG.md`, `IMPLEMENTATION_SUMMARY.md`, and `HANDOVER.md`.

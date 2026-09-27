@@ -31,7 +31,7 @@ import { mediaApi } from '../api/media';
 import { messagesApi } from '../api/messages';
 import { websocketClient } from '../services/websocket';
 import { mediaCache } from '../services/mediaCache';
-import { useAuth, useCall } from '../context';
+import { useAuth, useCall, useMessages } from '../context';
 import {
   deriveRoomAESKey,
   getOrDeriveRoomAESKey,
@@ -86,8 +86,28 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const { user, e2eeKeyPair } = useAuth();
   const { startCall } = useCall();
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const roomId = conversation.id;
+
+  const {
+    getRoomMessages,
+    isRoomLoading,
+    setRoomMessages,
+    reconcileHistory,
+    markRoomLoading,
+    hasMoreOlderMessages,
+    isLoadingOlderMessages,
+    loadOlderMessages,
+  } = useMessages();
+
+  const messages = getRoomMessages(roomId);
+  const isLoading = isRoomLoading(roomId);
+
+  const setMessages = useCallback(
+    (updater: Message[] | ((prev: Message[]) => Message[])) => {
+      setRoomMessages(roomId, updater);
+    },
+    [roomId, setRoomMessages]
+  );
   const [isSending, setIsSending] = useState(false);
   const [stagedMedia, setStagedMedia] = useState<StagedMedia | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
@@ -119,7 +139,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // DEC-012: Direct Link Public Group Preview State
   const [directPreviewGroup, setDirectPreviewGroup] = useState<GroupDetails | null>(null);
 
-  const roomId = conversation.id;
   const currentUserId = user?.id || '';
 
   // Derived: room type flags (immutable ID-based checks — DEC-008)
@@ -158,6 +177,38 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const flatListRef = useRef<FlatList>(null);
   const lastHandledMsgIdRef = useRef<string | null>(null);
   const roomAESKeyRef = useRef<Uint8Array | null>(null);
+  const isPrependingRef = useRef<boolean>(false);
+
+  // Load older messages for reverse infinite scroll
+  const handleLoadOlder = useCallback(async () => {
+    if (isLoadingOlderMessages(roomId) || !hasMoreOlderMessages(roomId)) {
+      return;
+    }
+    isPrependingRef.current = true;
+    try {
+      await loadOlderMessages(roomId);
+    } finally {
+      setTimeout(() => {
+        isPrependingRef.current = false;
+      }, 400);
+    }
+  }, [hasMoreOlderMessages, isLoadingOlderMessages, loadOlderMessages, roomId]);
+
+  // Handle scroll near top
+  const handleScroll = useCallback(
+    (event: any) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+      if (
+        offsetY <= 40 &&
+        hasMoreOlderMessages(roomId) &&
+        !isLoadingOlderMessages(roomId) &&
+        messages.length >= 20
+      ) {
+        handleLoadOlder();
+      }
+    },
+    [handleLoadOlder, hasMoreOlderMessages, isLoadingOlderMessages, messages.length, roomId]
+  );
 
   // Fail-Closed: a forum topic is locked if expired
   const isForumExpired = useMemo(() => {
@@ -248,7 +299,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onBack();
         }
         setIsVerifyingGroup(false);
-        setIsLoading(false);
+        markRoomLoading(roomId, false);
       });
 
     return () => {
@@ -394,11 +445,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       return;
     }
 
-    setIsLoading(true);
+    // Only set loading to true if we don't have cached messages yet! (0ms SWR render)
+    const cached = getRoomMessages(roomId);
+    if (!cached || cached.length === 0) {
+      markRoomLoading(roomId, true);
+    }
 
     // Timeout safety in case history event is empty or room is newly created
     const timeout = setTimeout(() => {
-      setIsLoading(false);
+      markRoomLoading(roomId, false);
     }, 4000);
 
     // Subscribe to 'history' event from WebSocket Hub
@@ -408,59 +463,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       clearTimeout(timeout);
       const rawMessages = data.messages || [];
-      const mapped: Message[] = rawMessages.map((m: any) => {
-        let content = m.content || '';
-        let isEncrypted = false;
-        if (isEncryptedMessage(content)) {
-          isEncrypted = true;
-          if (roomAESKeyRef.current) {
-            try {
-              content = decryptText(roomAESKeyRef.current, content);
-            } catch (err) {
-              console.warn('[ChatScreen] History decrypt error:', err);
-              content = '🔒 Pesan terenkripsi (kunci tidak cocok)';
-            }
-          }
-        }
-        let replyToObj: Message['reply_to'] | undefined = undefined;
-        if (m.reply_to && m.reply_to.id) {
-          replyToObj = {
-            id: m.reply_to.id,
-            nickname: m.reply_to.nickname || m.reply_to.from || '',
-            content: m.reply_to.content || '',
-          };
-        }
-        return {
-          id: m.id || `hist_${Math.random()}`,
-          room_id: m.room || m.room_id || roomId,
-          sender_id: m.sender_id || m.from || '',
-          content,
-          is_encrypted: isEncrypted,
-          from: m.from || m.nickname,
-          nickname: m.nickname || m.from,
-          created_at: m.timestamp || m.created_at || new Date().toISOString(),
-          timestamp: m.timestamp || m.created_at || new Date().toISOString(),
-          status: m.status || 'sent',
-          reply_to: replyToObj,
-          reactions: m.reactions || [],
-          is_deleted: Boolean(m.is_deleted),
-          media_url: m.media_url,
-          media_type: m.media_type,
-          file_name: m.file_name,
-          file_size: m.file_size,
-          media_status: m.media_status,
-        };
-      });
-
-      // Sort chronological
-      mapped.sort((a, b) => {
-        const timeA = new Date(a.timestamp || a.created_at || 0).getTime();
-        const timeB = new Date(b.timestamp || b.created_at || 0).getTime();
-        return timeA - timeB;
-      });
-
-      setMessages(mapped);
-      setIsLoading(false);
+      reconcileHistory(roomId, rawMessages, roomAESKeyRef.current);
 
       // Auto-scroll to bottom once history rendered
       setTimeout(() => {
@@ -491,248 +494,67 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       clearTimeout(timeout);
       unsubscribeHistory();
       unsubscribeWsState();
+      markRoomLoading(roomId, false);
     };
-  }, [roomId, isVerifyingGroup, isAccessDenied, directPreviewGroup]);
+  }, [
+    roomId,
+    isVerifyingGroup,
+    isAccessDenied,
+    directPreviewGroup,
+    getRoomMessages,
+    markRoomLoading,
+    reconcileHistory,
+  ]);
 
 
   // 2. Realtime WebSocket Listeners (Anti-Stale Reprocessing Guard)
   useEffect(() => {
     if (isAccessDenied) return;
 
-    // A. Incoming Message Listener
+    // A. Incoming Message Listener (Active Room: Send read receipt and scroll)
     const unsubscribeMessage = websocketClient.on('message', (incoming: any) => {
       const targetRoom = incoming.room || incoming.room_id;
       if (targetRoom !== roomId) return;
 
       const incomingId = incoming.id || incoming.request_id;
       if (incomingId && incomingId === lastHandledMsgIdRef.current) {
-        return; // Guard anti-duplicate
+        return;
       }
       if (incomingId) {
         lastHandledMsgIdRef.current = incomingId;
       }
 
-      let content = incoming.content || '';
-      let isEncrypted = false;
-      if (isEncryptedMessage(content)) {
-        isEncrypted = true;
-        if (roomAESKeyRef.current) {
-          try {
-            content = decryptText(roomAESKeyRef.current, content);
-          } catch (err) {
-            console.warn('[ChatScreen] Incoming message decrypt error:', err);
-            content = '🔒 Pesan terenkripsi (kunci tidak cocok)';
-          }
-        }
-      }
-
-      let replyToObj: Message['reply_to'] | undefined = undefined;
-      if (incoming.reply_to && incoming.reply_to.id) {
-        replyToObj = {
-          id: incoming.reply_to.id,
-          nickname: incoming.reply_to.nickname || incoming.reply_to.from || '',
-          content: incoming.reply_to.content || '',
-        };
-      }
-
-      const newMsg: Message = {
-        id: incoming.id || `msg_${Date.now()}`,
-        room_id: targetRoom,
-        sender_id: incoming.sender_id || incoming.from || '',
-        content,
-        is_encrypted: isEncrypted,
-        from: incoming.from,
-        nickname: incoming.nickname || incoming.from,
-        created_at: incoming.timestamp || incoming.created_at || new Date().toISOString(),
-        timestamp: incoming.timestamp || incoming.created_at || new Date().toISOString(),
-        status: (incoming.sender_id === currentUserId || incoming.from === currentUserId) ? 'sent' : 'delivered',
-        reply_to: replyToObj,
-        reactions: incoming.reactions || [],
-        is_deleted: Boolean(incoming.is_deleted),
-        media_url: incoming.media_url,
-        media_type: incoming.media_type,
-        file_name: incoming.file_name,
-        file_size: incoming.file_size,
-        media_status: incoming.media_status,
-      };
-
-      setMessages((prev) => {
-        // If an optimistic message with matching request_id exists, replace it
-        if (incoming.request_id) {
-          const existsIndex = prev.findIndex((m) => m.id === incoming.request_id);
-          if (existsIndex !== -1) {
-            const updated = [...prev];
-            updated[existsIndex] = {
-              ...newMsg,
-              id: incoming.id || updated[existsIndex].id,
-              media_url: updated[existsIndex].media_url || incoming.media_url,
-            };
-            return updated;
-          }
-        }
-        // Avoid duplicate by id
-        if (prev.some((m) => m.id === newMsg.id)) {
-          return prev;
-        }
-        return [...prev, newMsg];
-      });
-
-      // Send read receipt for incoming peer message
       if (incoming.sender_id !== currentUserId && incoming.from !== currentUserId) {
         websocketClient.sendReceipt(roomId, 'read');
       }
 
-      // Auto scroll to bottom
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     });
 
-    // B. Server ACK Listener
-    const unsubscribeAck = websocketClient.on('ack', (ack: any) => {
-      const reqId = ack.request_id || ack.id;
-      if (reqId) {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === reqId || (msg as any).request_id === reqId
-              ? { ...msg, status: 'sent', id: ack.id || msg.id }
-              : msg
-          )
-        );
-      }
-    });
-
-    // C. Read / Delivered Receipt Listener
-    const unsubscribeReceipt = websocketClient.on('receipt', (receipt: any) => {
-      const targetRoom = receipt.room || receipt.room_id;
-      if (targetRoom !== roomId) return;
-
-      const newStatus = receipt.status as 'delivered' | 'read' | 'sent';
-      const realMsgId = receipt.id;
-      const reqId = receipt.request_id;
-
-      setMessages((prev) =>
-        prev.map((msg) => {
-          // Reconcile message ID if this is an ACK / receipt of an outgoing message
-          if (reqId && (msg.id === reqId || (msg as any).request_id === reqId)) {
-            return {
-              ...msg,
-              id: realMsgId || msg.id,
-              status: newStatus || 'sent',
-            };
-          }
-          // Update outgoing messages that haven't reached this status yet
-          if (newStatus === 'read' || newStatus === 'delivered') {
-            if (msg.sender_id === currentUserId || msg.status === 'sent') {
-              return { ...msg, status: newStatus };
-            }
-          }
-          return msg;
-        })
-      );
-    });
-
-    // D. Reaction Listener
-    const unsubscribeReaction = websocketClient.on('reaction', (data: any) => {
-      const targetRoom = data.room || data.room_id;
-      if (targetRoom && targetRoom !== roomId) return;
-
-      const targetId = data.id || data.reaction?.message_id;
-      const reactions = data.reactions;
-      if (targetId && reactions) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === targetId ? { ...m, reactions } : m))
-        );
-      }
-    });
-
-    // E. Message Deleted Listener (Supports both message_deleted & delete_message events)
-    const handleWsMessageDeleted = (data: any) => {
-      const targetRoom = data.room || data.room_id;
-      if (targetRoom && targetRoom !== roomId) return;
-
-      const targetId = data.id || data.message_id;
-      if (!targetId) return;
-
-      const deleteType = data.delete_type || data.type || (data.is_deleted ? 'for_everyone' : 'for_everyone');
-      const isForMe = deleteType === 'for_me' || data.delete_for_me === true;
-
-      if (isForMe) {
-        setMessages((prev) => prev.filter((m) => m.id !== targetId));
-      } else {
-        const placeholder = data.content || '🚫 Pesan ini telah dihapus';
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === targetId
-              ? { ...m, is_deleted: true, content: placeholder }
-              : m
-          )
-        );
-      }
-    };
-
-    const unsubscribeDeleted = websocketClient.on('message_deleted', handleWsMessageDeleted);
-    const unsubscribeDeleteMsg = websocketClient.on('delete_message', handleWsMessageDeleted);
-
-    // F. Message Edited Listener
-    const unsubscribeEdited = websocketClient.on('message_edited', (data: any) => {
-      const targetRoom = data.room || data.room_id;
-      if (targetRoom && targetRoom !== roomId) return;
-
-      const targetId = data.id || data.message_id;
-      if (targetId) {
-        let content = data.content || '';
-        if (isEncryptedMessage(content) && roomAESKeyRef.current) {
-          try {
-            content = decryptText(roomAESKeyRef.current, content);
-          } catch {}
-        }
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === targetId
-              ? {
-                  ...m,
-                  content,
-                  is_edited: true,
-                  edited_at: data.edited_at || new Date().toISOString(),
-                }
-              : m
-          )
-        );
-      }
-    });
-
-    // G. Message Pinned Listener
+    // B. Pinned Messages Banner Sync
     const unsubscribePinned = websocketClient.on('message_pinned', (data: any) => {
       const targetRoom = data.room || data.room_id;
-      if (targetRoom && targetRoom !== roomId) return;
+      if (targetRoom !== roomId) return;
 
-      const targetId = data.id || data.message_id;
-      if (targetId) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === targetId ? { ...m, is_pinned: true } : m))
-        );
-        messagesApi
-          .getPinnedMessages(roomId)
-          .then((pins) => {
-            if (pins) {
-              setPinnedMessages(pins);
-            }
-          })
-          .catch(() => {});
-      }
+      messagesApi
+        .getPinnedMessages(roomId)
+        .then((pins) => {
+          if (pins) {
+            setPinnedMessages(pins);
+          }
+        })
+        .catch(() => {});
     });
 
-    // H. Message Unpinned Listener
+    // C. Message Unpinned Listener
     const unsubscribeUnpinned = websocketClient.on('message_unpinned', (data: any) => {
       const targetRoom = data.room || data.room_id;
-      if (targetRoom && targetRoom !== roomId) return;
+      if (targetRoom !== roomId) return;
 
       const targetId = data.id || data.message_id;
       if (targetId) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === targetId ? { ...m, is_pinned: false } : m))
-        );
         setPinnedMessages((prev) =>
           prev.filter((p: any) => (p.message_id || p.id) !== targetId)
         );
@@ -741,16 +563,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     return () => {
       unsubscribeMessage();
-      unsubscribeAck();
-      unsubscribeReceipt();
-      unsubscribeReaction();
-      unsubscribeDeleted();
-      unsubscribeDeleteMsg();
-      unsubscribeEdited();
       unsubscribePinned();
       unsubscribeUnpinned();
     };
-  }, [roomId, currentUserId]);
+  }, [roomId, currentUserId, isAccessDenied]);
 
   // 3. Image Picker Handlers
   const handlePickCamera = async () => {
@@ -1660,7 +1476,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               );
             }}
             contentContainerStyle={styles.listContent}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            onScroll={handleScroll}
+            scrollEventThrottle={32}
+            ListHeaderComponent={
+              isLoadingOlderMessages(roomId) ? (
+                <View style={styles.loadingOlderContainer}>
+                  <ActivityIndicator size="small" color={colors.accentPrimary} />
+                  <Text style={styles.loadingOlderText}>Memuat riwayat pesan terdahulu...</Text>
+                </View>
+              ) : hasMoreOlderMessages(roomId) && messages.length >= 20 ? (
+                <TouchableOpacity
+                  style={styles.loadOlderButton}
+                  onPress={handleLoadOlder}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.loadOlderButtonText}>↑ Muat Pesan Terdahulu</Text>
+                </TouchableOpacity>
+              ) : null
+            }
+            onContentSizeChange={() => {
+              if (!isPrependingRef.current) {
+                flatListRef.current?.scrollToEnd({ animated: false });
+              }
+            }}
           />
         )}
 
@@ -1959,6 +1797,35 @@ const styles = StyleSheet.create({
     color: colors.colorError,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  // Load older messages reverse infinite scroll styles
+  loadingOlderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.md,
+  },
+  loadingOlderText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  loadOlderButton: {
+    alignSelf: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 14,
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    marginVertical: spacing.sm,
+  },
+  loadOlderButtonText: {
+    fontSize: 12,
+    color: colors.accentPrimary,
+    fontWeight: '600',
   },
   listContent: {
     paddingVertical: spacing.md,

@@ -80,6 +80,10 @@ func (r *SQLMessagingRepository) GetRoomHistorySince(roomID, userID string, sinc
 	return r.msgStore.GetRoomHistorySince(roomID, userID, since, limit)
 }
 
+func (r *SQLMessagingRepository) GetRoomHistoryBefore(roomID, userID string, before time.Time, limit int) ([]messaging.Message, error) {
+	return r.msgStore.GetRoomHistoryBefore(roomID, userID, before, limit)
+}
+
 func (r *SQLMessagingRepository) PinMessage(convID, msgID, userID string, durationHours int) (*messaging.PinnedMessage, error) {
 	return r.msgStore.PinMessage(convID, msgID, userID, durationHours)
 }
