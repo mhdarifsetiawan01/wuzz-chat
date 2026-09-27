@@ -47,6 +47,12 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 - **Conversation State Isolation**: Daftar percakapan dikelola secara global melalui `ConversationContext` (Milestone M-Mobile-8.15) dengan pola SWR. Data lokal di memori di-render seketika (0ms) saat user kembali dari ruang obrolan, mengeliminasi blocking spinner ("Memuat obrolan...").
 - **WebSocket Centralized Ingestion**: Event `message` dari server diserap terpusat di context untuk memperbarui cuplikan pesan dan unread badge secara background.
 
+### F. Kebijakan Retensi Penyimpanan Lokal SQLite (Storage Retention & Pruning Roadmap)
+- **RAM vs Disk Separation**: Batas memori aktif `MAX_CACHED_MESSAGES_PER_ROOM = 500` dan hidrasi awal 50 pesan (`LIMIT 50`) mencegah lonjakan penggunaan RAM ponsel.
+- **Rencana Capping & Auto-Pruning Disk**: Membatasi persistensi maksimal 500–1.000 pesan terbaru per room di SQLite lokal. Pesan yang lebih lama dari batas cap otomatis di-prune saat sinkronisasi riwayat baru, dengan fallback pagination REST API saat user scroll ke atas.
+- **Isolasi Media Binary**: SQLite hanya menyimpan pointer string (`media_url` dan `local_media_uri`). File fisik (gambar, video, voice note) disimpan di filesystem cache terpisah dan tidak membebani ukuran database.
+- **Fitur Pembersih Cache & Vacuum**: Rencana penambahan tombol *"Bersihkan Cache Pesan"* dan *"Bersihkan Cache Media"* di `SettingsScreen` (M-Mobile-8.21) serta pemanfaatan `PRAGMA auto_vacuum = INCREMENTAL;` untuk mengembalikan ruang kosong ke OS.
+
 ---
 
 ## 📂 3. Peta Direktori Klien Mobile (`mobile/`)

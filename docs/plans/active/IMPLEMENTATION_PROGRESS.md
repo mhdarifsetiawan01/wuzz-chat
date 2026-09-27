@@ -1,3 +1,3 @@
 # IMPLEMENTATION PROGRESS — Standby
 
-Standby.
+*(Standby)*

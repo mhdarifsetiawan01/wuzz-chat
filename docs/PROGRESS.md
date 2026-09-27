@@ -3717,3 +3717,25 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
 - **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
 
+---
+
+## ⚡ Milestone M-Mobile-8.22: Instant 0ms Group Chat Rendering via SWR & SQLite Local Hydration (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Identifikasi Keanggotaan Terverifikasi (`isKnownGroupMember` di `ChatScreen.tsx`)**:
+  - Deteksi apakah grup obrolan yang dibuka sudah ada di daftar percakapan aktif pengguna via `conversation.my_role`, `conversation.last_message !== undefined`, `conversation.unread_count !== undefined`, `conversation.updated_at`, atau ketersediaan pesan lokal di memori `messages.length > 0`.
+- **Non-Blocking SWR Initialization (`isVerifyingGroup = false`)**:
+  - Mengeliminasi full-screen blocking spinner `ActivityIndicator` saat membuka grup yang sudah ada di lokal. Linimasa chat langsung tampil seketika (0ms) dari memori atau database SQLite lokal (`hydrateRoomFromLocalDB`).
+- **Background Sync & Resilient Offline View**:
+  - `groupsApi.getGroupDetails(roomId)` dan WebSocket `joinRoom` berjalan di latar belakang secara non-blocking.
+  - Memperkuat ketahanan offline: jika jaringan lambat atau terputus, pengguna tetap bisa membaca riwayat pesan offline tanpa interupsi `Alert.alert` atau `onBack()` otomatis.
+  - Proteksi otorisasi DEC-012 (Preview grup publik) dan DEC-013 (403 Forbidden Shield) tetap aktif 100% untuk tautan langsung grup eksternal yang belum diikuti.
+- **Dokumentasi Roadmap Retensi Penyimpanan (M-Mobile-8.23)**:
+  - Pencatatan kebijakan retensi penyimpanan lokal SQLite: RAM capping (`MAX_CACHED_MESSAGES_PER_ROOM = 500`), disk retention cap (500–1.000 pesan per room), auto-pruning saat sync, tombol pembersih cache di halaman Settings, dan `PRAGMA auto_vacuum = INCREMENTAL;`.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS 100% (0 errors)**.
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+
+

@@ -121,10 +121,22 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Perbaikan soft keyboard layout clamping pada `BottomSheetModal.tsx` (`paddingTop: insets.top + spacing.lg`, `maxHeight: '100%'`, `flexShrink: 1`) untuk mencegah overflow melewati status bar.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**, dan instalasi sukses via `adb install -r`.
 
+- [x] **M-Mobile-8.22: Instant 0ms Group Chat Rendering via SWR & SQLite Local Hydration (28 September 2026)**:
+  - Mengeliminasi full-screen blocking spinner `isVerifyingGroup` saat membuka grup obrolan yang sudah dikenal keanggotaannya (`isKnownGroupMember`).
+  - Linimasa obrolan grup kini langsung tampil seketika (0ms) dari memori dan database SQLite lokal (`hydrateRoomFromLocalDB`).
+  - Menjalankan sinkronisasi `getGroupDetails` dan WebSocket `joinRoom` di latar belakang secara non-blocking.
+  - Memperkuat ketahanan offline: jika jaringan lambat atau terputus, pengguna tetap bisa membaca riwayat pesan offline tanpa interupsi `Alert.alert` atau `onBack()`.
+  - Proteksi otorisasi DEC-012 (Preview grup publik) dan DEC-013 (403 Forbidden Shield) tetap aktif 100% untuk link grup luar/unjoined.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors** dan `go test ./...` -> **100% PASS**.
+
 ---
 
 ## Fokus Berikutnya (What's Next)
-- [ ] **M-Mobile-8.21: SettingsScreen — Modals & Interactive Settings** (QR Device Transfer modal, Safety Number E2EE modal, Notification Settings).
+- [ ] **M-Mobile-8.21: SettingsScreen — Modals & Interactive Settings** (QR Device Transfer modal, Safety Number E2EE modal, Notification Settings, serta opsi Pembersih Cache Pesan & Media).
+- [ ] **M-Mobile-8.23: SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum**:
+  - Implementasi retention cap (maksimal 500–1.000 pesan per room di SQLite lokal).
+  - Mekanisme auto-pruning pesan usang saat sinkronisasi riwayat baru tiba dari server.
+  - Penambahan `PRAGMA auto_vacuum = INCREMENTAL;` pada inisialisasi database SQLite untuk mengembalikan ruang disk yang dibersihkan ke sistem operasi.
 - [ ] Refactor & polishing komponen UI mobile agar terus selaras dengan standar `mobile/DESIGN.md`.
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.
 
