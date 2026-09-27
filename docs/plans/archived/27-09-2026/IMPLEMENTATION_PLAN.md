@@ -1,29 +1,52 @@
-# Implementation Plan: Mobile Conversation Global Context & SWR Layer
+# IMPLEMENTATION PLAN — M-Mobile-8.19
+## Aurora Glassmorphic Bottom Tab Navigation & Multi-Tab Screens
 
-## 🎯 Objectives
-Provide a robust global state management and Stale-While-Revalidate (SWR) caching layer for conversations in the mobile app, resolving UX lag and repetitive loading spinners when navigating between `ChatScreen` and `RecentChatsScreen`.
+---
 
-## 📁 Impacted Files
-- `mobile/src/context/ConversationContext.tsx` (NEW)
-- `mobile/src/context/index.ts` (MODIFIED)
-- `mobile/App.tsx` (MODIFIED)
-- `mobile/src/screens/RecentChatsScreen.tsx` (MODIFIED)
+## Objectives
+1. Install `@react-navigation/bottom-tabs` package.
+2. Buat `MainTabNavigator.tsx` dengan custom Aurora tab bar.
+3. Buat `CallsHistoryScreen.tsx` (Tab Panggilan).
+4. Buat `SettingsScreen.tsx` (Tab Pengaturan & Profil).
+5. Modifikasi `AppNavigator.tsx` agar `Home` route diganti menjadi `MainTabs`.
+6. Update `types.ts` dengan tipe baru.
+7. Update index exports.
+8. Verifikasi typecheck `npx tsc --noEmit`.
 
-## 🏗️ Technical Architecture & Workflow
-1. **`ConversationContext` Architecture**:
-   - Manages `conversations: Conversation[]`, `isLoading: boolean`, `isRefreshing: boolean`, and `error: string | null`.
-   - `isLoading` is set to `true` strictly on first boot / initial fetch when `conversations` is empty. Subsequent revalidations use `isSilent = true` (or `isRefreshing = true` if user pulls down).
-   - Encapsulates `decryptSnippet` logic with cached peer public keys to keep the snippet decryption decoupled from individual screen lifecycles.
-   - Subscribes to `websocketClient.on('message')` to invoke `refreshConversations(true)` centrally.
-   - Provides optimistic `updateConversationPin(roomId, isPinned)` with rollback on API failure.
-2. **Provider Hierarchy (`mobile/App.tsx`)**:
-   - `DeviceProvider` -> `AuthProvider` -> `ConversationProvider` -> `CallProvider` -> `AppNavigator`.
-   - Ensures `ConversationProvider` has access to authenticated user credentials and E2EE keypairs.
-3. **Screen Refactoring (`RecentChatsScreen.tsx`)**:
-   - Replaces local `conversations`, `isLoading`, `isRefreshing`, and `fetchConversations` with hook `useConversations()`.
-   - Uses `refreshConversations(true)` on screen mount when cached data already exists, guaranteeing immediate 0ms render.
-   - Cleans up duplicate socket listeners and cryptographic imports.
+---
 
-## 🧪 Verification Strategy
-- Run `cd mobile && npx tsc --noEmit` to verify type safety and interface adherence.
-- Code review to ensure no memory leaks, unclosed listeners, or unexpected state resets.
+## Arsitektur Navigator
+
+```
+NavigationContainer
+└── AppNavigator (Native Stack)
+    ├── MainTabs (Bottom Tab) ← entry point
+    │   ├── Chats tab → RecentChatsScreen
+    │   ├── Calls tab → CallsHistoryScreen
+    │   └── Settings tab → SettingsScreen
+    ├── Chat (slide_from_right) ← meluncur di atas tab bar
+    ├── NewChat (slide_from_right)
+    ├── NewGroup (slide_from_right)
+    └── GroupInfo (slide_from_right)
+```
+
+---
+
+## Target Files
+
+| File | Status |
+|------|--------|
+| `mobile/package.json` | MODIFY — install bottom-tabs |
+| `mobile/src/navigation/types.ts` | MODIFY — tambah TabParamList |
+| `mobile/src/navigation/MainTabNavigator.tsx` | CREATE |
+| `mobile/src/screens/CallsHistoryScreen.tsx` | CREATE |
+| `mobile/src/screens/SettingsScreen.tsx` | CREATE |
+| `mobile/src/screens/index.ts` | MODIFY — tambah exports |
+| `mobile/src/navigation/AppNavigator.tsx` | MODIFY — ganti Home → MainTabs |
+| `mobile/src/navigation/index.ts` | MODIFY — tambah export |
+
+---
+
+## Verification Strategy
+- `cd mobile && npx tsc --noEmit` → 0 errors
+- Mental smoke test Desktop & Mobile flow
