@@ -1711,6 +1711,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onClose={() => setShowContactInfoModal(false)}
           userId={resolvedPeerId}
           currentUserId={currentUserId}
+          roomId={roomId}
           initialDisplayName={conversation.peer_nickname || title}
           initialAvatarUrl={avatarUrl}
           initialUsername={conversation.peer_nickname}

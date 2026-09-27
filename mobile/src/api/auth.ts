@@ -49,4 +49,15 @@ export const authApi = {
       timeoutMs: 30000,
     });
   },
+
+  /**
+   * PUT /api/auth/profile
+   */
+  async updateProfile(payload: { display_name?: string; status?: string; avatar_url?: string }): Promise<User> {
+    return apiClient<User>('/api/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
 };
+

@@ -26,3 +26,6 @@ export * from './DeviceTransferModal';
 export * from './IncomingCallModal';
 export * from './ActiveCallOverlay';
 export * from './BottomSheetModal';
+export * from './E2EEKeyModal';
+export * from './StorageSettingsModal';
+export * from './EditProfileModal';
