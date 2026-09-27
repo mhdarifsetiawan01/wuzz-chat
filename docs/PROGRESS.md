@@ -3687,3 +3687,33 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS 100%** (0 errors).
 - **Mobile Release Build (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL in 32s**.
 - **Mobile Device Installation**: **Success** terpasang di HP fisik via `adb install -r`.
+
+---
+
+## ⚡ Milestone M-Mobile-8.20: CallsHistoryScreen — Integrasi Riwayat Panggilan Real, Dialer & Soft Keyboard Clamping (27 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Skema & SQLite CRUD Persistence (`mobile/src/services/sqliteStorage.ts`)**:
+  - Implementasi tabel `local_call_logs` di database SQLite lokal:
+    - Kolom: `id`, `user_id`, `peer_id`, `peer_username`, `peer_display_name`, `call_type`, `duration_seconds`, `created_at`, `status`.
+    - Indeks teroptimasi: `idx_call_user_created ON local_call_logs(user_id, created_at DESC)`.
+  - Helper functions: `saveCallRecord`, `getCallHistory`, `clearCallHistory`, `deleteCallRecord`, serta integrasi pada `clearUserCache(userId)` saat logout.
+- **Sinkronisasi Lifecycle Panggilan di `CallContext.tsx`**:
+  - Integrasi pencatatan otomatis riwayat panggilan (`incoming`, `outgoing`, `missed`) dengan penghitungan durasi aktif saat tersambung.
+  - Single-Invocation Guard (`loggedCallIdRef`) untuk mencegah duplikasi pencatatan saat penutupan lokal dan WebSocket teardown.
+  - Auto-Resolve Room ID pada `startCall`: mendukung inisiasi panggilan suara bermodalkan `peerId` langsung via `startDirectChat(peerId)`.
+  - Global state management: `callHistory`, `isLoadingHistory`, `refreshCallHistory`, `deleteCallRecord`, `clearAllCallHistory`.
+- **Pembaruan Layar Tab Panggilan (`CallsHistoryScreen.tsx`)**:
+  - Hapus mock data `MOCK_CALLS`, konsumsi data riil SQLite lokal via `useCall()` terisolasi per `user.id`.
+  - Pull-to-refresh (`RefreshControl`), empty state informatif, dialog konfirmasi panggilan balik saat tap, tombol callback 📞, dan long-press konfirmasi hapus catatan panggilan.
+  - FAB bulat membuka BottomSheetModal Contact Picker & Dialer dengan pencarian debounced `/api/users/search` dan daftar kontak obrolan langsung.
+- **Perbaikan Soft Keyboard Clamping (`BottomSheetModal.tsx`)**:
+  - Menambahkan safe area top clamping (`paddingTop: Math.max(insets.top, 24) + spacing.lg`) pada kontainer modal root serta `maxHeight: '100%'` dan `flexShrink: 1` pada kartu modal agar saat keyboard software Android muncul, header modal dan kotak pencarian tidak terdorong melewati status bar.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS 100% (0 errors)**.
+- **Mobile Release Build (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL in 34s**.
+- **Mobile Device Installation (`adb install -r`)**: **Success** terpasang di perangkat fisik.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+

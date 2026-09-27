@@ -59,11 +59,14 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Milestone M-Mobile-7: Voice Notes & Audio Messaging**: **SELESAI ✅** (Perekaman suara WhatsApp-style, expo-audio & expo-file-system, scrubber waveform 24 bar, playback speed 1x/1.5x/2x, single active player, audio snippet "🎙️ Pesan Suara")
 >    - **Milestone M-Mobile-8: Group Chat, Sub-Groups & Notifications**: **SELESAI ✅** (Parent group management, sub-group topics, mentions, message pinning, push notifications & background sync)
 >    - **Milestone M-Mobile-8.5: Contact Profile, Verified Identity & E2EE Safety Number Verification**: **SELESAI ✅** (30-digit deterministic fingerprint, ContactInfoModal, VerifiedBadge rosette, pure JS QRCodeView, local verification persistence)
->    - **Milestone M-Mobile-8.6: In-App Live Camera QR Scanner & Zero-Knowledge Device Transfer (Planning)**: **[ ] TERENCANA** (Integrasi `expo-camera` / `CameraView` barcode scanner untuk pemindaian instan Safety Number 30-digit dan migrasi kunci antar-perangkat via QR Code `POST /api/users/transfer/create` & `/consume`)
+>    - **Milestone M-Mobile-8.10: In-App Live Camera QR Scanner & Zero-Knowledge Device Transfer**: **SELESAI ✅** (Integrasi `expo-camera` / `CameraView` barcode scanner untuk transfer kunci antar-perangkat via QR Code `POST /api/users/transfer/create` & `/consume`)
 >    - **Milestone M-Mobile-8.15: Conversation Global Context & SWR Cache Layer**: **SELESAI ✅** (Penyelesaian loading bolak-balik via SWR Cache di `ConversationContext.tsx`, render instan 0ms saat kembali dari chat, dan WebSocket message sync terpusat)
->    - **Milestone M-Mobile-8.16: React Navigation Native Stack Integration**: **[ ] TERENCANA (Prioritas 2)** (Migrasi `AppNavigator` ke native-stack untuk transisi slide native & swipe gesture tanpa unmounting)
+>    - **Milestone M-Mobile-8.16: React Navigation Native Stack Integration**: **SELESAI ✅** (Migrasi `AppNavigator` ke native-stack untuk transisi slide native & swipe gesture tanpa unmounting, serta unified Action Bottom Sheet)
 >    - **Milestone M-Mobile-8.17: Room Messages SWR Cache & Timeline In-Memory State**: **SELESAI ✅** (Caching riwayat pesan per room di memory/context untuk render instan 0ms saat re-entering chat room tanpa refetch blocking, serta Reverse Infinite Scroll / Load Older Messages)
->    - **Milestone M-Mobile-8.18: Offline-First Persistent Storage (SQLite / MMKV Cache)**: **[ ] TERENCANA** (Persistensi obrolan & riwayat pesan ke disk storage untuk mendukung offline viewing saat cold start)
+>    - **Milestone M-Mobile-8.18: Offline-First Persistent Storage (SQLite Cache & Anti-Blink Guard)**: **SELESAI ✅** (Persistensi obrolan & riwayat pesan ke disk storage `expo-sqlite` WAL mode untuk mendukung offline viewing saat cold start, anti-blink guard, dan FAB scroll-to-bottom)
+>    - **Milestone M-Mobile-8.19: Aurora Glassmorphic Bottom Tab Navigation**: **SELESAI ✅** (Implementasi navigation multi-tab Obrolan, Panggilan, dan Pengaturan dengan Aurora Glassmorphic styling dan unread badges)
+>    - **Milestone M-Mobile-8.20: CallsHistoryScreen — Integrasi Real API & CallContext**: **SELESAI ✅** (Riwayat panggilan WebRTC tersimpan di SQLite, dialer, dan FAB Contact Picker)
+>    - **Milestone M-Mobile-8.21: SettingsScreen — Modals & Interactive Settings**: **[ ] TERENCANA** (Modal QR Device Transfer, Safety Number E2EE, dan preferensi notifikasi)
 
 ---
 

@@ -103,14 +103,28 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Mengatasi masalah race condition tampilan preview pesan terkunci ("🔒 Pesan terenkripsi") saat cold start aplikasi mobile.
   - Menambahkan auto-reprocess hook di `ConversationContext.tsx` untuk mendekripsi ulang daftar obrolan lokal seketika kunci privat E2EE siap dari SecureStorage tanpa memerlukan reload/refresh manual.
 
+- [x] **M-Mobile-8.18: Offline-First SQLite Storage, Anti-Blink Guard & Reverse Scroll Hardening (27 September 2026)**:
+  - Implementasi persistent storage offline `sqliteStorage.ts` dengan WAL Mode (`PRAGMA journal_mode = WAL`) dan indeks performa tinggi.
+  - Skema tabel lokal `local_conversations` dan `local_messages` terisolasi per `user_id`.
+  - Cache-first hydration pada `ConversationContext.tsx` dan `MessageContext.tsx` untuk rendering instan (< 50ms) saat aplikasi dibuka setelah cold-start / di-kill dari background.
+  - Anti-Blink Decryption Guard pada daftar obrolan lokal dan pemutus infinite re-render loop pada perangkat hasil transfer QR (`messagesByRoomRef`).
+  - Normalisasi safe reaction (`normalizeReactions`) untuk mencegah fatal exception saat JSON string reactions diterima dari server.
+  - WhatsApp-style floating scroll-to-bottom button (FAB) `↓` saat scroll > 300px dengan counter pesan baru dan guard posisi scroll (`maintainVisibleContentPosition`).
+  - Verifikasi: `npx tsc --noEmit` -> 0 error, `go test ./...` -> 100% PASS, dan `./gradlew assembleRelease` -> BUILD SUCCESSFUL.
+
+- [x] **M-Mobile-8.20: CallsHistoryScreen — Integrasi Riwayat Panggilan Real & Dialer (27 September 2026)**:
+  - Implementasi tabel `local_call_logs` di SQLite lokal (`sqliteStorage.ts`) dengan indeks `(user_id, created_at DESC)` dan helper CRUD `saveCallRecord`, `getCallHistory`, `clearCallHistory`, `deleteCallRecord`, serta integrasi `clearUserCache(userId)`.
+  - Integrasi otomatis lifecycle panggilan WebRTC di `CallContext.tsx`: pencatatan otomatis panggilan masuk (`incoming`), panggilan keluar (`outgoing`), dan tak terjawab (`missed`) dengan penghitungan durasi aktif dan Single-Invocation Guard (`loggedCallIdRef`).
+  - Fitur Auto-Resolve Room ID pada `startCall` untuk panggilan langsung via `peerId` dengan membuat/mengambil `room_id` resmi via `startDirectChat(peerId)`.
+  - Pembaruan UI `CallsHistoryScreen.tsx`: hapus mock data, integrasi real SQLite call history, pull-to-refresh (`RefreshControl`), empty state informatif, dialog konfirmasi panggilan balik, tombol callback 📞, dan aksi long-press hapus log panggilan.
+  - FAB bulat membuka BottomSheetModal Dialer & Contact Picker dengan pencarian debounced `/api/users/search` dan daftar kontak obrolan aktif.
+  - Perbaikan soft keyboard layout clamping pada `BottomSheetModal.tsx` (`paddingTop: insets.top + spacing.lg`, `maxHeight: '100%'`, `flexShrink: 1`) untuk mencegah overflow melewati status bar.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**, dan instalasi sukses via `adb install -r`.
 
 ---
 
 ## Fokus Berikutnya (What's Next)
-- [ ] **M-Mobile-8.18: Offline-First Persistent Storage (SQLite / MMKV Cache)**:
-  - Persistensi cache obrolan & riwayat pesan ke disk storage (`expo-sqlite` / MMKV).
-  - Akses riwayat obrolan seketika saat aplikasi dibuka dari *Cold Start* tanpa koneksi internet.
-- [ ] **M-Mobile-8.20: CallsHistoryScreen — Integrasi Real API & CallContext** (ganti mock data, FAB contact picker).
-- [ ] **M-Mobile-8.21: SettingsScreen — Edit Profil & NotificationSettingsModal**.
+- [ ] **M-Mobile-8.21: SettingsScreen — Modals & Interactive Settings** (QR Device Transfer modal, Safety Number E2EE modal, Notification Settings).
 - [ ] Refactor & polishing komponen UI mobile agar terus selaras dengan standar `mobile/DESIGN.md`.
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.
+
