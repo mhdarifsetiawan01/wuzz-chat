@@ -3649,6 +3649,19 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Backend Test Suite (`go test -v ./internal/authz/...` di `backend/`)**: **PASS 100%** (0 errors).
 - **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS 100%** (0 errors).
 
+---
+
+## ⚡ Bugfix: E2EE Auto-Decryption on Key Availability in ConversationContext (27 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Masalah**: Pesan berstatus terenkripsi ("🔒 Pesan terenkripsi") muncul saat cold start pada daftar obrolan mobile karena `refreshConversations()` dieksekusi sebelum kunci privat E2EE selesai dimuat dari SecureStorage (`AuthContext`).
+- **Solusi**: Penambahan `useEffect` re-process otomatis di `ConversationContext.tsx` yang memantau ketersediaan `e2eeKeyPair?.privateKeyHex`. Ketika kunci siap, percakapan yang masih mentah `e2ee:...` didekripsi ulang secara lokal (in-place) tanpa request jaringan tambahan.
+- **Defensive Guards**: Proteksi bertingkat pada ketiadaan kunci privat (early return, try-catch, graceful fallback UI) tanpa menyebabkan runtime crash.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS 100%** (0 errors).
+
+
 
 
 
