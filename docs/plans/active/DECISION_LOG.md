@@ -1,3 +1,3 @@
 # Decision Log: Standby
 
-No active technical decisions logged.
+No active technical decisions.

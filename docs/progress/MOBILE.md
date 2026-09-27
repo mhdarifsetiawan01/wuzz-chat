@@ -61,7 +61,20 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+- [x] **M-Mobile-8.15: Conversation Global Context & SWR Cache Layer (27 September 2026)**:
+  - Implementasi `ConversationContext.tsx` untuk mengelola state daftar percakapan global di memori aplikasi (`conversations`, `isLoading`, `isRefreshing`, `error`).
+  - Pola Stale-While-Revalidate (SWR): render instan 0ms saat kembali dari `ChatScreen` ke `RecentChatsScreen` tanpa memunculkan spinner "Memuat obrolan...".
+  - Logika dekripsi snippet E2EE on-the-fly (`decryptSnippet`) dan caching peer public key terpusat di dalam context.
+  - Listener WebSocket `message` tersentralisasi di context untuk memicu `refreshConversations(true)` secara senyap di background.
+  - Optimistic pinning update (`updateConversationPin`) dengan auto re-sorting dan rollback jika API gagal.
+  - Integrasi `<ConversationProvider>` di `mobile/App.tsx` dan refactor `RecentChatsScreen.tsx` untuk mengonsumsi `useConversations()`.
+
+---
+
 ## 🎯 Fokus Berikutnya (What's Next)
+- [ ] **M-Mobile-8.16: React Navigation Native Stack Integration & Fluid Screen Transition (Langkah 2)**:
+  - Migrasi `AppNavigator` ke `@react-navigation/native-stack` (`createNativeStackNavigator`).
+  - Animasi transisi slide native iOS/Android dan gesture swipe-back tanpa unmounting komponen.
 - [ ] Refactor & polishing komponen UI mobile (`ChatScreen.tsx` & komponen lainnya) agar terus selaras dengan standar `mobile/DESIGN.md`.
 - [ ] Implementasi Local Message SQLite Cache (Room / CoreData equivalent) untuk pembacaan riwayat chat saat offline.
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.

@@ -1,10 +1,7 @@
-# Decision Log
+# Decision Log: Mobile Conversation Global Context & SWR Layer
 
-### DEC-020: Mobile Home Screen Alignment with DESIGN.md
-- **Context**: `mobile/src/screens/RecentChatsScreen.tsx` lacked the Search Bar, Filter Tabs, and dynamic insets specified in `mobile/DESIGN.md` Section 3.
-- **Decision**:
-  1. Add real-time search filtering covering chat title, participant names, and decrypted message snippets.
-  2. Add category filter tabs ('all', 'unread', 'groups') with count badges where appropriate.
-  3. Replace `SafeAreaView` with `useSafeAreaInsets()` to dynamically pad header and elevate FAB above system bars.
-  4. Redesign header action cluster to be cleaner and adhere to min 44dp touch targets.
-- **Impact**: Full compliance with `mobile/DESIGN.md` and WhatsApp Single-Screen Flow.
+## DEC-030: Separation of Conversation Global Context and SWR Caching
+- **Date**: 2026-09-27
+- **Context**: Mobile app re-renders spinner "Memuat obrolan..." every time navigating back from `ChatScreen` or switching screens because `RecentChatsScreen` held conversation state locally.
+- **Decision**: Introduce `ConversationContext` above `AppNavigator` inside `AuthProvider`. Maintain conversations in context memory across screen navigations.
+- **Rationale**: Provides WhatsApp/Telegram-grade UX with 0ms transition time when returning to the recent chats list, while keeping data fresh using silent background revalidation (`isSilent: true`) and WebSocket ingestion.

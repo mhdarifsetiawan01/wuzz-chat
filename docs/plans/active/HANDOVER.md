@@ -1,3 +1,3 @@
-# Handover & Verification: Standby
+# Handover Document: Standby
 
-No active task pending handover.
+No active handover. Standing by for next instruction.

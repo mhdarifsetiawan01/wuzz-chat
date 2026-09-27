@@ -16,21 +16,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { conversationsApi } from '../api/conversations';
-import { getUserPublicKey } from '../api/users';
 import { Conversation } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { ChatListItem } from '../components/ChatListItem';
 import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
 import { DeviceTransferModal } from '../components/DeviceTransferModal';
-import { useAuth } from '../context';
+import { useAuth, useConversations } from '../context';
 import { ConnectionState, websocketClient } from '../services/websocket';
-import {
-  cachePeerPublicKey,
-  getCachedPeerPublicKey,
-  decryptSnippet,
-  isEncryptedMessage,
-} from '../services/crypto';
 import { colors, radius, spacing, typography } from '../theme';
 
 export interface RecentChatsScreenProps {
@@ -40,10 +32,14 @@ export interface RecentChatsScreenProps {
 
 export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectChat, onStartNewChat }) => {
   const insets = useSafeAreaInsets();
-  const { user, logout, e2eeKeyPair } = useAuth();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const { user, logout } = useAuth();
+  const {
+    conversations,
+    isLoading,
+    isRefreshing,
+    refreshConversations,
+    updateConversationPin,
+  } = useConversations();
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [isDeviceTransferModalOpen, setIsDeviceTransferModalOpen] = useState<boolean>(false);
   const [wsState, setWsState] = useState<ConnectionState>(websocketClient.getState());
@@ -60,180 +56,53 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchConversations = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
+  const handleChatLongPress = useCallback(
+    (chat: Conversation) => {
+      const roomId = chat.id || chat.room_id || '';
+      if (!roomId) return;
+      const isPinned = Boolean(chat.is_pinned || chat.pinned);
+      const title = chat.title || chat.peer_nickname || chat.name || 'Obrolan';
 
-    try {
-      const data = await conversationsApi.getConversations();
-      if (!data) {
-        setConversations([]);
-        return;
-      }
-
-      // Decrypt last_message for direct E2EE chats if keypair is available
-      const decryptedData = await Promise.all(
-        data.map(async (c) => {
-          const raw =
-            typeof c.last_message === 'string'
-              ? c.last_message
-              : c.last_message?.content;
-
-          if (!raw || !isEncryptedMessage(raw) || !user?.id || !e2eeKeyPair?.privateKeyHex) {
-            return c;
-          }
-
-          // 1. Resolve Peer ID for direct conversation
-          let peerId = c.peer_id || '';
-          if (!peerId && c.id && c.id.startsWith('dm_')) {
-            const parts = c.id.replace(/^dm_/, '').split('_');
-            peerId = parts[0] === user.id ? parts[1] : parts[0];
-          }
-          if (!peerId && c.participants?.length) {
-            const other = c.participants.find((p) => p.id !== user.id);
-            peerId = other?.id || '';
-          }
-
-          if (!peerId) {
-            return c;
-          }
-
-          // 2. Resolve Peer Public Key (cache-first to prevent network spam)
-          let peerPub = c.peer_public_key || getCachedPeerPublicKey(peerId);
-          if (!peerPub) {
-            try {
-              peerPub = (await getUserPublicKey(peerId)) || undefined;
-              if (peerPub) {
-                cachePeerPublicKey(peerId, peerPub);
+      Alert.alert(
+        title,
+        isPinned
+          ? 'Lepas sematan obrolan ini dari daftar teratas?'
+          : 'Sematkan obrolan ini di daftar teratas?',
+        [
+          { text: 'Batal', style: 'cancel' },
+          {
+            text: isPinned ? 'Lepas Sematan' : 'Sematkan 📌',
+            onPress: async () => {
+              try {
+                await updateConversationPin(roomId, !isPinned);
+              } catch (err: any) {
+                Alert.alert('Gagal', err?.message || 'Gagal mengubah status sematan obrolan.');
               }
-            } catch {
-              // ignore fetch failure
-            }
-          } else {
-            cachePeerPublicKey(peerId, peerPub);
-          }
-
-          if (!peerPub) {
-            return c;
-          }
-
-          // 3. Decrypt snippet using cached/derived AES key
-          const plain = decryptSnippet(raw, c.id, peerPub, e2eeKeyPair.privateKeyHex);
-
-          if (typeof c.last_message === 'object' && c.last_message !== null) {
-            return {
-              ...c,
-              last_message: {
-                ...c.last_message,
-                content: plain,
-              },
-            };
-          } else {
-            return {
-              ...c,
-              last_message: plain,
-            };
-          }
-        })
-      );
-
-      // Prioritize pinned chats at the top, then sort by latest activity
-      const sorted = [...decryptedData].sort((a, b) => {
-        const aPinned = a.is_pinned || a.pinned ? 1 : 0;
-        const bPinned = b.is_pinned || b.pinned ? 1 : 0;
-        if (aPinned !== bPinned) return bPinned - aPinned;
-
-        const aTime = new Date(
-          a.updated_at ||
-            (typeof a.last_message === 'object' ? a.last_message?.timestamp || a.last_message?.created_at : undefined) ||
-            0
-        ).getTime();
-        const bTime = new Date(
-          b.updated_at ||
-            (typeof b.last_message === 'object' ? b.last_message?.timestamp || b.last_message?.created_at : undefined) ||
-            0
-        ).getTime();
-        return bTime - aTime;
-      });
-
-      setConversations(sorted);
-    } catch (err) {
-      console.warn('[RecentChatsScreen] Failed to load conversations:', err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [user?.id, e2eeKeyPair?.privateKeyHex]);
-
-  const handleChatLongPress = useCallback((chat: Conversation) => {
-    const roomId = chat.id || chat.room_id || '';
-    if (!roomId) return;
-    const isPinned = Boolean(chat.is_pinned || chat.pinned);
-    const title = chat.title || chat.peer_nickname || chat.name || 'Obrolan';
-
-    Alert.alert(
-      title,
-      isPinned ? 'Lepas sematan obrolan ini dari daftar teratas?' : 'Sematkan obrolan ini di daftar teratas?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: isPinned ? 'Lepas Sematan' : 'Sematkan 📌',
-          onPress: async () => {
-            // Optimistic local update
-            setConversations((prev) => {
-              const updated = prev.map((c) =>
-                (c.id === roomId || c.room_id === roomId)
-                  ? { ...c, is_pinned: !isPinned, pinned: !isPinned }
-                  : c
-              );
-              return [...updated].sort((a, b) => {
-                const aPinned = a.is_pinned || a.pinned ? 1 : 0;
-                const bPinned = b.is_pinned || b.pinned ? 1 : 0;
-                if (aPinned !== bPinned) return bPinned - aPinned;
-                const aTime = new Date(a.updated_at || 0).getTime();
-                const bTime = new Date(b.updated_at || 0).getTime();
-                return bTime - aTime;
-              });
-            });
-
-            try {
-              if (isPinned) {
-                await conversationsApi.unpinConversation(roomId);
-              } else {
-                await conversationsApi.pinConversation(roomId);
-              }
-            } catch (err: any) {
-              console.error('[RecentChatsScreen] Failed to toggle pin:', err);
-              Alert.alert('Gagal', err?.message || 'Gagal mengubah status sematan obrolan.');
-              fetchConversations(true);
-            }
+            },
           },
-        },
-      ]
-    );
-  }, [fetchConversations]);
+        ]
+      );
+    },
+    [updateConversationPin]
+  );
 
   useEffect(() => {
-    fetchConversations();
+    // Stale-While-Revalidate: revalidate silently if conversations already present in context
+    if (conversations.length > 0) {
+      refreshConversations(true);
+    } else {
+      refreshConversations(false);
+    }
 
-    // Subscribe to WebSocket state
+    // Subscribe to WebSocket connection state banner
     const unsubscribeWs = websocketClient.onStateChange((state) => {
       setWsState(state);
     });
 
-    // Refresh conversation list on incoming message or system notification
-    const unsubscribeMsg = websocketClient.on('message', () => {
-      fetchConversations(true);
-    });
-
     return () => {
       unsubscribeWs();
-      unsubscribeMsg();
     };
-  }, [fetchConversations]);
+  }, []);
 
   const handleChatPress = (chat: Conversation) => {
     if (onSelectChat) {
@@ -567,7 +436,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
-              onRefresh={() => fetchConversations(true)}
+              onRefresh={() => refreshConversations(false)}
               tintColor={colors.accentPrimary}
               colors={[colors.accentPrimary]}
             />

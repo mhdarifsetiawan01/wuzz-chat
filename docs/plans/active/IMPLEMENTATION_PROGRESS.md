@@ -1,3 +1,3 @@
 # Implementation Progress: Standby
 
-- [ ] Standing by for next instruction.
+No active implementation tasks in progress.

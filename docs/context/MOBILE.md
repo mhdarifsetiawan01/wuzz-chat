@@ -43,6 +43,10 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 - **Keyboard Resilience**: Gunakan `KeyboardAvoidingView` dengan kalkulasi dynamic safe-area insets agar input bar terangkat presisi tepat di atas virtual keyboard.
 - **Standar Sistem Desain Mobile**: Seluruh perancangan UI/UX wajib mematuhi token dan kaidah di [`mobile/DESIGN.md`](../../mobile/DESIGN.md) (touch target min 44dp, Aurora Dark Mode palette, shadows & elevation).
 
+### E. State Manajemen & Optimistic Cache Layer (Stale-While-Revalidate)
+- **Conversation State Isolation**: Daftar percakapan dikelola secara global melalui `ConversationContext` (Milestone M-Mobile-8.15) dengan pola SWR. Data lokal di memori di-render seketika (0ms) saat user kembali dari ruang obrolan, mengeliminasi blocking spinner ("Memuat obrolan...").
+- **WebSocket Centralized Ingestion**: Event `message` dari server diserap terpusat di context untuk memperbarui cuplikan pesan dan unread badge secara background.
+
 ---
 
 ## 📂 3. Peta Direktori Klien Mobile (`mobile/`)
@@ -58,8 +62,10 @@ mobile/
 │   │   ├── client.ts           # Axios REST client (User-Agent: WuzzChat-Mobile/1.0, X-Device-Platform: android)
 │   │   └── types.ts            # Type definitions API & error response
 │   ├── context/
-│   │   ├── AuthContext.tsx     # Session management, Trusted Device E2EE state, login/logout
-│   │   └── ChatContext.tsx     # Message timeline, active room, unread badges
+│   │   ├── AuthContext.tsx         # Session management, Trusted Device E2EE state, login/logout
+│   │   ├── ConversationContext.tsx # Global conversations cache, SWR, unread counts (M-Mobile-8.15)
+│   │   ├── CallContext.tsx         # WebRTC voice call peer connection & audio manager
+│   │   └── DeviceContext.tsx       # Device identification & platform state
 │   ├── screens/
 │   │   ├── LoginScreen.tsx     # Login/Register UI & Multi-device override confirmation
 │   │   ├── HomeScreen.tsx      # Fullscreen chat list, search, floating action button (+ Chat)

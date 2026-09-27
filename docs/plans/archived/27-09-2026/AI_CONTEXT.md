@@ -1,13 +1,13 @@
-# Context Boundaries & System Constraints
+# Context Boundaries & System Constraints: Mobile Conversation Global Context & SWR Layer
 
-## Target Scope
-- **Component**: Mobile App Home Screen (`mobile/src/screens/RecentChatsScreen.tsx`)
-- **Design System SSOT**: `mobile/DESIGN.md` (Aurora Glassmorphic Dark Mode, Section 3 Layar 1: HomeScreen)
-- **Context Primer**: `docs/context/MOBILE.md`
+## 🎯 Scope of Work
+- **Target Subsystem**: Mobile React Native Expo client (`mobile/`).
+- **Domain Focus**: Conversation list global caching & SWR (Stale-While-Revalidate) layer to eliminate UX blocking spinner ("Memuat obrolan...") when opening the app and switching back from `ChatScreen`.
+- **Primary References**: `PROMPT.md`, `docs/context/MOBILE.md` (Section 2.E), `mobile/DESIGN.md`.
 
-## Operating Constraints
-1. **Branch**: `dev` (strictly non-main).
-2. **Tokens**: Import all colors, radius, spacing, and typography from `@/theme` (`colors.ts`, `spacing.ts`, etc.).
-3. **Safe Area**: Dynamically computed via `useSafeAreaInsets()`.
-4. **Touch Target**: Minimum 44x44 dp for all interactive elements.
-5. **No Live Server Leaks**: Verify with `npx tsc --noEmit`. No servers left hanging.
+## 🛡️ Constraints & Anti-Patterns
+1. **Branch Protection**: Strict dev-only work. Active branch is verified as `dev`. Never touch `main`.
+2. **Zero Live Browser Testing**: Verification via `cd mobile && npx tsc --noEmit` (0 TypeScript errors) and code auditing.
+3. **No Unapproved Git Commit**: Never run `git commit` until user explicitly states "selesai".
+4. **Token Optimization**: Use line-range inspection and chunk editing. Avoid full-file overwrites for existing large files.
+5. **Clean Unmount & Memory Leak Prevention**: Clear WebSocket listeners and timeout handlers on unmount.

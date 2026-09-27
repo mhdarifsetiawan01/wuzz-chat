@@ -60,6 +60,8 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Milestone M-Mobile-8: Group Chat, Sub-Groups & Notifications**: **SELESAI ✅** (Parent group management, sub-group topics, mentions, message pinning, push notifications & background sync)
 >    - **Milestone M-Mobile-8.5: Contact Profile, Verified Identity & E2EE Safety Number Verification**: **SELESAI ✅** (30-digit deterministic fingerprint, ContactInfoModal, VerifiedBadge rosette, pure JS QRCodeView, local verification persistence)
 >    - **Milestone M-Mobile-8.6: In-App Live Camera QR Scanner & Zero-Knowledge Device Transfer (Planning)**: **[ ] TERENCANA** (Integrasi `expo-camera` / `CameraView` barcode scanner untuk pemindaian instan Safety Number 30-digit dan migrasi kunci antar-perangkat via QR Code `POST /api/users/transfer/create` & `/consume`)
+>    - **Milestone M-Mobile-8.15: Conversation Global Context & SWR Cache Layer**: **SELESAI ✅** (Penyelesaian loading bolak-balik via SWR Cache di `ConversationContext.tsx`, render instan 0ms saat kembali dari chat, dan WebSocket message sync terpusat)
+>    - **Milestone M-Mobile-8.16: React Navigation Native Stack Integration**: **[ ] TERENCANA (Prioritas 2)** (Migrasi `AppNavigator` ke native-stack untuk transisi slide native & swipe gesture tanpa unmounting)
 
 ---
 
