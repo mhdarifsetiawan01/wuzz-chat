@@ -3629,6 +3629,26 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Next.js Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 - **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
 
+---
+
+## ⚡ Milestone M-Mobile-8.16: Native Stack Navigation & Aurora Action Bottom Sheet (27 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Native Stack Navigation (`@react-navigation/native-stack`)**:
+  - Migrasi seluruh alur navigasi mobile di `mobile/App.tsx` ke `@react-navigation/native-stack` (`createNativeStackNavigator`).
+  - Arsitektur stack modular, scalable, dan dinamis di `mobile/src/navigation/` (`types.ts`, `navigationRef.ts`, `AppNavigator.tsx`) untuk kemudahan penambahan/pengurangan rute layar di masa mendatang.
+  - Animasi native 60fps (`slide_from_right`) dan gesture swipe-to-back native tanpa unmounting/re-render glitch.
+  - Integrasi ref navigasi global untuk deep-link room invitation dan push notification cold-start/tap response.
+  - Listener navigasi otomatis untuk foreground suppression notifikasi push (`notificationService.setActiveRoomId`).
+- **Aurora Action Bottom Sheet (`BottomSheetModal.tsx`)**:
+  - Komponen reusable `BottomSheetModal` & `ActionMenuItem` dengan animasi spring native slide-up, swipe-down to dismiss via `PanResponder`, dan tap backdrop dismiss.
+  - Penataan ulang header `RecentChatsScreen.tsx`: Tombol menu terpadu `⋮` dan Avatar membuka Bottom Sheet (Buat Grup Baru, Tautkan Perangkat, Profil & E2EE, Notifikasi, dan Keluar Akun).
+  - Safe area inset padding dinamis (`useSafeAreaInsets`) dan token kepatuhan Aurora Dark Mode.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`go test -v ./internal/authz/...` di `backend/`)**: **PASS 100%** (0 errors).
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS 100%** (0 errors).
+
 
 
 

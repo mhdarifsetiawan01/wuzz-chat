@@ -21,6 +21,7 @@ import { Avatar } from '../components/Avatar';
 import { ChatListItem } from '../components/ChatListItem';
 import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
 import { DeviceTransferModal } from '../components/DeviceTransferModal';
+import { BottomSheetModal, ActionMenuItem } from '../components/BottomSheetModal';
 import { useAuth, useConversations } from '../context';
 import { ConnectionState, websocketClient } from '../services/websocket';
 import { colors, radius, spacing, typography } from '../theme';
@@ -28,9 +29,14 @@ import { colors, radius, spacing, typography } from '../theme';
 export interface RecentChatsScreenProps {
   onSelectChat?: (conversation: Conversation) => void;
   onStartNewChat?: () => void;
+  onStartNewGroup?: () => void;
 }
 
-export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectChat, onStartNewChat }) => {
+export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
+  onSelectChat,
+  onStartNewChat,
+  onStartNewGroup,
+}) => {
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const {
@@ -42,6 +48,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
   } = useConversations();
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [isDeviceTransferModalOpen, setIsDeviceTransferModalOpen] = useState<boolean>(false);
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
   const [wsState, setWsState] = useState<ConnectionState>(websocketClient.getState());
 
   // Search & filter tab state (DESIGN.md Section 3: Layar 1)
@@ -179,15 +186,15 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
     });
   }, [conversations, activeFilter, debouncedQuery]);
 
-  const handleProfilePress = () => {
-    if (!user) return;
+  const handleConfirmLogout = () => {
+    setIsActionMenuOpen(false);
     Alert.alert(
-      user.display_name || user.username || 'Profil Pengguna',
-      `Masuk sebagai @${user.username || 'user'}\nID: ${user.id || '-'}`,
+      'Keluar Akun',
+      'Apakah Anda yakin ingin keluar dari akun ini? Kunci E2EE tetap tersimpan dengan aman di perangkat ini.',
       [
-        { text: 'Tutup', style: 'cancel' },
+        { text: 'Batal', style: 'cancel' },
         {
-          text: 'Keluar Akun',
+          text: 'Keluar',
           style: 'destructive',
           onPress: logout,
         },
@@ -294,28 +301,18 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
 
         <View style={styles.headerRight}>
           <TouchableOpacity
-            onPress={() => setIsDeviceTransferModalOpen(true)}
+            onPress={() => setIsActionMenuOpen(true)}
             activeOpacity={0.7}
             style={styles.headerIconButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityLabel="Tautkan Perangkat"
+            accessibilityLabel="Menu Aksi"
           >
-            <Text style={styles.headerIconText}>💻</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setIsNotificationModalOpen(true)}
-            activeOpacity={0.7}
-            style={styles.headerIconButton}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityLabel="Notifikasi"
-          >
-            <Text style={styles.headerIconText}>🔔</Text>
+            <Text style={styles.headerIconText}>⋮</Text>
           </TouchableOpacity>
 
           {user && (
             <TouchableOpacity
-              onPress={handleProfilePress}
+              onPress={() => setIsActionMenuOpen(true)}
               activeOpacity={0.8}
               style={styles.avatarButton}
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
@@ -459,6 +456,70 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
           <Text style={styles.fabIcon}>💬</Text>
         </TouchableOpacity>
       )}
+
+      {/* Aurora Action Bottom Sheet Menu */}
+      <BottomSheetModal
+        visible={isActionMenuOpen}
+        onClose={() => setIsActionMenuOpen(false)}
+        title="Menu & Akun"
+      >
+        {user && (
+          <View style={styles.actionProfileCard}>
+            <Avatar name={user.display_name || user.username} size={48} />
+            <View style={styles.actionProfileInfo}>
+              <Text style={styles.actionProfileName} numberOfLines={1}>
+                {user.display_name || user.username}
+              </Text>
+              <Text style={styles.actionProfileUsername}>@{user.username || 'user'}</Text>
+              <View style={styles.actionE2eeBadge}>
+                <Text style={styles.actionE2eeText}>🛡️ E2EE Terenkripsi Aktif</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.actionMenuList}>
+          {onStartNewGroup && (
+            <ActionMenuItem
+              icon="👥"
+              label="Buat Grup Baru"
+              subtitle="Mulai percakapan grup terenkripsi"
+              onPress={() => {
+                setIsActionMenuOpen(false);
+                onStartNewGroup();
+              }}
+            />
+          )}
+
+          <ActionMenuItem
+            icon="💻"
+            label="Tautkan Perangkat"
+            subtitle="Pindai QR untuk sinkronisasi perangkat"
+            onPress={() => {
+              setIsActionMenuOpen(false);
+              setIsDeviceTransferModalOpen(true);
+            }}
+          />
+
+          <ActionMenuItem
+            icon="🔔"
+            label="Notifikasi & Suara"
+            subtitle="Preferensi pemberitahuan & push FCM"
+            onPress={() => {
+              setIsActionMenuOpen(false);
+              setIsNotificationModalOpen(true);
+            }}
+          />
+
+          <ActionMenuItem
+            icon="🚪"
+            label="Keluar Akun"
+            subtitle="Akhiri sesi di perangkat ini"
+            destructive
+            onPress={handleConfirmLogout}
+          />
+        </View>
+      </BottomSheetModal>
 
       {/* Push Notification Preferences & Diagnostics Modal */}
       <NotificationSettingsModal
@@ -721,6 +782,47 @@ const styles = StyleSheet.create({
   fabIcon: {
     fontSize: 26,
     color: colors.textOnAccent,
+  },
+  actionProfileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.bgElevated,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+  },
+  actionProfileInfo: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  actionProfileName: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  actionProfileUsername: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  actionE2eeBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.tintSuccess10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radius.xs,
+    marginTop: 4,
+  },
+  actionE2eeText: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.colorOnline,
+    fontWeight: '600',
+  },
+  actionMenuList: {
+    paddingBottom: spacing.sm,
   },
 });
 

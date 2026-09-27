@@ -1,24 +1,26 @@
 /**
  * WuzzChat Mobile App Entry Point
  * Expo Managed Workflow (React Native + TypeScript)
+ * Implements @react-navigation/native-stack with 60fps native animations.
  */
 
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { enableScreens } from 'react-native-screens';
+import { NavigationContainer } from '@react-navigation/native';
 import './src/services/notificationBackgroundTask';
-import { ActivityIndicator, BackHandler, Linking, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, CallProvider, ConversationProvider, DeviceProvider, MessageProvider, useAuth } from './src/context';
 import {
-  ChatScreen,
-  GroupInfoScreen,
-  LoginScreen,
-  NewChatScreen,
-  NewGroupScreen,
-  RecentChatsScreen,
-  RegisterScreen,
-} from './src/screens';
-import { Conversation, ConversationItem, GroupDetails } from './src/api/types';
+  AuthProvider,
+  CallProvider,
+  ConversationProvider,
+  DeviceProvider,
+  MessageProvider,
+  useAuth,
+} from './src/context';
+import { LoginScreen, RegisterScreen } from './src/screens';
+import { ConversationItem } from './src/api/types';
 import {
   KeyConflictModal,
   SessionAlertModal,
@@ -26,16 +28,17 @@ import {
   IncomingCallModal,
   ActiveCallOverlay,
 } from './src/components';
+import { AppNavigator as MainAppNavigator, navigationRef } from './src/navigation';
 import { notificationService } from './src/services/notificationService';
-import { websocketClient } from './src/services/websocket';
-import { isEncryptedMessage } from './src/services/crypto';
 import { colors, spacing, typography } from './src/theme';
+
+// Enable native screens for fluid 60fps stack transitions
+enableScreens(true);
 
 type AuthRoute = 'login' | 'register';
 
-function AppNavigator() {
+function AppContent() {
   const {
-    user,
     isAuthenticated,
     isLoading,
     sessionReplacedMessage,
@@ -45,53 +48,24 @@ function AppNavigator() {
     cancelKeyConflict,
   } = useAuth();
   const [authRoute, setAuthRoute] = useState<AuthRoute>('login');
-  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
-  const [isNewChatOpen, setIsNewChatOpen] = useState<boolean>(false);
-  const [isNewGroupOpen, setIsNewGroupOpen] = useState<boolean>(false);
   const [isKeyTransferModalOpen, setIsKeyTransferModalOpen] = useState<boolean>(false);
-  const [activeGroupInfo, setActiveGroupInfo] = useState<GroupDetails | ConversationItem | null>(null);
-  // M-Mobile-8.2C: Tracks the parent group conversation when inside a sub-group
-  // (used for smart back navigation & breadcrumb info)
-  const [forumParentConversation, setForumParentConversation] = useState<Conversation | null>(null);
 
-  // Hardware back button support for Android
-  React.useEffect(() => {
-    const onBackPress = () => {
-      if (activeGroupInfo) {
-        setActiveGroupInfo(null);
-        return true;
-      }
-      if (isNewGroupOpen) {
-        setIsNewGroupOpen(false);
-        return true;
-      }
-      // M-Mobile-8.2C: Smart back — sub-group → navigate to parent group first
-      if (activeConversation && forumParentConversation &&
-          typeof activeConversation.id === 'string' &&
-          activeConversation.id.startsWith('sub_')) {
-        // Pop sub-group → go back to parent group
-        setActiveConversation(forumParentConversation);
-        setForumParentConversation(null);
-        return true;
-      }
-      if (activeConversation) {
-        setActiveConversation(null);
-        setForumParentConversation(null);
-        return true;
-      }
-      if (isNewChatOpen) {
-        setIsNewChatOpen(false);
-        return true;
-      }
-      return false;
-    };
-
-    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => subscription.remove();
-  }, [activeGroupInfo, isNewGroupOpen, activeConversation, isNewChatOpen, forumParentConversation]);
+  // Sync active room ID to notification service for foreground suppression (DEC-015)
+  const handleNavigationStateChange = useCallback(() => {
+    if (!navigationRef.isReady()) return;
+    const currentRoute = navigationRef.getCurrentRoute();
+    if (currentRoute?.name === 'Chat' && currentRoute.params) {
+      const params = currentRoute.params as any;
+      const roomId =
+        params?.conversation?.id || params?.conversation?.room_id || null;
+      notificationService.setActiveRoomId(roomId);
+    } else {
+      notificationService.setActiveRoomId(null);
+    }
+  }, []);
 
   // Deep link listener for direct group links (DEC-012 & DEC-013)
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isAuthenticated) return;
 
     const handleDeepLink = (url: string | null) => {
@@ -103,16 +77,17 @@ function AppNavigator() {
         if (match && match[1]) {
           const roomId = decodeURIComponent(match[1]);
           const isGroupRoom = roomId.startsWith('grp_') || roomId.startsWith('sub_');
-          setActiveGroupInfo(null);
-          setIsNewGroupOpen(false);
-          setIsNewChatOpen(false);
-          setActiveConversation({
+          const targetConv: ConversationItem = {
             id: roomId,
             room_id: roomId,
             title: isGroupRoom ? 'Grup' : 'Obrolan',
             is_group: isGroupRoom,
             type: roomId.startsWith('sub_') ? 'subgroup' : isGroupRoom ? 'group' : 'direct',
-          });
+          } as ConversationItem;
+
+          if (navigationRef.isReady()) {
+            navigationRef.navigate('Chat', { conversation: targetConv });
+          }
         }
       } catch (err) {
         console.warn('[App] Failed to parse deep link URL:', err);
@@ -132,16 +107,8 @@ function AppNavigator() {
     };
   }, [isAuthenticated]);
 
-  // Sync active room ID to notification service for foreground suppression (DEC-015)
-  React.useEffect(() => {
-    const roomId = activeConversation
-      ? (activeConversation.id || activeConversation.room_id || null)
-      : null;
-    notificationService.setActiveRoomId(roomId);
-  }, [activeConversation]);
-
   // Push notification tap & cold start listener
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isAuthenticated) return;
 
     const handleTargetNavigation = (target: {
@@ -151,20 +118,22 @@ function AppNavigator() {
       senderId: string | null;
     }) => {
       if (!target.roomId) return;
-      setActiveGroupInfo(null);
-      setIsNewGroupOpen(false);
-      setIsNewChatOpen(false);
-      setActiveConversation({
+      const targetConv: ConversationItem = {
         id: target.roomId,
         room_id: target.roomId,
         title: target.title || (target.isGroup ? 'Grup' : 'Obrolan'),
         is_group: target.isGroup,
         type: target.roomId.startsWith('sub_') ? 'subgroup' : target.isGroup ? 'group' : 'direct',
-      });
+      } as ConversationItem;
+
+      if (navigationRef.isReady()) {
+        navigationRef.navigate('Chat', { conversation: targetConv });
+      }
     };
 
     // Attach response listener
-    const unsubscribeListener = notificationService.addNotificationResponseListener(handleTargetNavigation);
+    const unsubscribeListener =
+      notificationService.addNotificationResponseListener(handleTargetNavigation);
 
     // Check cold start
     notificationService.checkColdStartNotification(handleTargetNavigation);
@@ -174,132 +143,14 @@ function AppNavigator() {
     };
   }, [isAuthenticated]);
 
-  // Note: Push notifications are handled canonically by FCM HTTP v1 from the backend (DEC-018)
-
-  // Memoized screen event handlers to eliminate infinite re-render cycles
-  const handleBackFromGroupInfo = useCallback(() => {
-    setActiveGroupInfo(null);
-  }, []);
-
-  const handleLeaveSuccess = useCallback(() => {
-    setActiveGroupInfo(null);
-    setActiveConversation(null);
-  }, []);
-
-  const handleGroupUpdated = useCallback((updated: GroupDetails) => {
-    setActiveConversation((prev) => {
-      if (!prev || prev.id !== updated.id) return prev;
-      if (
-        prev.title === updated.title &&
-        prev.description === updated.description &&
-        prev.avatar_url === updated.avatar_url &&
-        prev.member_count === updated.member_count
-      ) {
-        return prev;
-      }
-      return {
-        ...prev,
-        title: updated.title,
-        description: updated.description,
-        avatar_url: updated.avatar_url,
-        member_count: updated.member_count,
-      };
-    });
-  }, []);
-
-  const handleBackFromChat = useCallback(() => {
-    // M-Mobile-8.2C: When backing out of a sub-group, go to parent group first
-    if (
-      activeConversation &&
-      forumParentConversation &&
-      typeof activeConversation.id === 'string' &&
-      activeConversation.id.startsWith('sub_')
-    ) {
-      setActiveConversation(forumParentConversation);
-      setForumParentConversation(null);
-      return;
-    }
-    setActiveConversation(null);
-    setForumParentConversation(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversation, forumParentConversation]);
-
-  const handleOpenGroupInfo = useCallback((grp: GroupDetails | ConversationItem) => {
-    setActiveGroupInfo(grp);
-  }, []);
-
-  /**
-   * M-Mobile-8.2B: Directly enter a sub-group conversation from the forum modal.
-   * Saves the current parent conversation for breadcrumbs & back navigation.
-   */
-  const handleEnterSubGroup = useCallback((subConv: Conversation) => {
-    setForumParentConversation(activeConversation);
-    setActiveConversation(subConv);
-  }, [activeConversation]);
-
-  /**
-   * M-Mobile-8.2C: Smart back from sub-group breadcrumb / back button.
-   * Finds and navigates to the parent group conversation.
-   */
-  const handleNavigateToParent = useCallback((parentGroupId: string) => {
-    // Try to use the saved parent conversation if IDs match
-    if (forumParentConversation && forumParentConversation.id === parentGroupId) {
-      setActiveConversation(forumParentConversation);
-      setForumParentConversation(null);
-      return;
-    }
-    // Fallback: build minimal conversation object for the parent group
-    const parentConv: Conversation = {
-      id: parentGroupId,
-      type: 'group',
-      is_group: true,
-    };
-    setActiveConversation(parentConv);
-    setForumParentConversation(null);
-  }, [forumParentConversation]);
-
-  const handleBackFromNewGroup = useCallback(() => {
-    setIsNewGroupOpen(false);
-  }, []);
-
-  const handleSelectFromNewGroup = useCallback((chat: Conversation) => {
-    setIsNewGroupOpen(false);
-    setIsNewChatOpen(false);
-    setActiveConversation(chat);
-  }, []);
-
-  const handleBackFromNewChat = useCallback(() => {
-    setIsNewChatOpen(false);
-  }, []);
-
-  const handleSelectFromNewChat = useCallback((chat: Conversation) => {
-    setIsNewChatOpen(false);
-    setActiveConversation(chat);
-  }, []);
-
-  const handleNavigateToNewGroup = useCallback(() => {
-    setIsNewChatOpen(false);
-    setIsNewGroupOpen(true);
-  }, []);
-
   const handleDismissSessionAlert = useCallback(async () => {
     await dismissSessionAlert();
     setAuthRoute('login');
-    setActiveConversation(null);
-    setActiveGroupInfo(null);
-    setIsNewGroupOpen(false);
-    setIsNewChatOpen(false);
-    setForumParentConversation(null);
   }, [dismissSessionAlert]);
 
   const handleCancelKeyConflict = useCallback(async () => {
     await cancelKeyConflict();
     setAuthRoute('login');
-    setActiveConversation(null);
-    setActiveGroupInfo(null);
-    setIsNewGroupOpen(false);
-    setIsNewChatOpen(false);
-    setForumParentConversation(null);
   }, [cancelKeyConflict]);
 
   const renderContent = () => {
@@ -316,55 +167,13 @@ function AppNavigator() {
     }
 
     if (isAuthenticated) {
-      if (activeGroupInfo) {
-        const targetGroupId = activeGroupInfo.id || (activeGroupInfo as any).room_id || '';
-        return (
-          <GroupInfoScreen
-            groupId={targetGroupId}
-            onBack={handleBackFromGroupInfo}
-            onLeaveSuccess={handleLeaveSuccess}
-            onGroupUpdated={handleGroupUpdated}
-          />
-        );
-      }
-
-      if (activeConversation) {
-        return (
-          <ChatScreen
-            conversation={activeConversation as unknown as ConversationItem}
-            onBack={handleBackFromChat}
-            onOpenGroupInfo={handleOpenGroupInfo}
-            onNavigateToParent={handleNavigateToParent}
-            parentGroupConversation={forumParentConversation as unknown as ConversationItem}
-            onEnterSubGroup={handleEnterSubGroup}
-          />
-        );
-      }
-
-      if (isNewGroupOpen) {
-        return (
-          <NewGroupScreen
-            onBack={handleBackFromNewGroup}
-            onSelectChat={handleSelectFromNewGroup}
-          />
-        );
-      }
-
-      if (isNewChatOpen) {
-        return (
-          <NewChatScreen
-            onBack={handleBackFromNewChat}
-            onSelectChat={handleSelectFromNewChat}
-            onNavigateToNewGroup={handleNavigateToNewGroup}
-          />
-        );
-      }
-
       return (
-        <RecentChatsScreen
-          onSelectChat={(chat) => setActiveConversation(chat)}
-          onStartNewChat={() => setIsNewChatOpen(true)}
-        />
+        <NavigationContainer
+          ref={navigationRef}
+          onStateChange={handleNavigationStateChange}
+        >
+          <MainAppNavigator />
+        </NavigationContainer>
       );
     }
 
@@ -424,7 +233,7 @@ export default function App() {
           <ConversationProvider>
             <MessageProvider>
               <CallProvider>
-                <AppNavigator />
+                <AppContent />
               </CallProvider>
             </MessageProvider>
           </ConversationProvider>

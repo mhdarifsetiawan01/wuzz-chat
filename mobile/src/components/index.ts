@@ -25,3 +25,4 @@ export * from './KeyConflictModal';
 export * from './DeviceTransferModal';
 export * from './IncomingCallModal';
 export * from './ActiveCallOverlay';
+export * from './BottomSheetModal';
