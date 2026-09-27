@@ -3762,5 +3762,32 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Standalone Android Release APK (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL**.
 - **Instalasi Perangkat (`adb install -r`)**: **Success**.
 
+---
+
+## 📱 Milestone M-Mobile-8.23: In-Chat Search Hardening & Navigation Stability (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Penyelesaian Akar Masalah Pencarian E2EE (*Client-Side Search*)**:
+  - Mengubah arsitektur pencarian dalam obrolan di `mobile/src/screens/ChatScreen.tsx` dari REST API server-side (`messagesApi.searchMessages`) menjadi client-side in-memory search instan (0ms) pada pesan terdekripsi `messages`.
+  - Database backend menyimpan ciphertext E2EE sehingga pencarian SQL server selalu mengembalikan 0 hasil; pencarian lokal menyelesaikan masalah ini secara tuntas sesuai pola WhatsApp dan Signal.
+  - Mendukung pencarian isi pesan (`m.content`) dan nama berkas dokumen (`m.file_name`).
+- **Stabilisasi Layout Bilah Pencarian & Pengalaman Mengetik**:
+  - Menghilangkan layout shift drastis: `searchNavCol` kini selalu terpasang dengan dimensi stabil, mencegah `TextInput` menyusut/melebar yang sebelumnya memicu keyboard flicker dan kursor melompat di Android.
+  - Menambahkan atribut keyboard: `autoCapitalize="none"`, `returnKeyType="search"`, dan handler `onSubmitEditing`.
+- **Perbaikan Navigasi Tombol Panah ▲ dan ▼**:
+  - Tombol tetap aktif saat terdapat 1 hasil pencarian (`disabled={searchResults.length === 0}`), memungkinkan pengguna melompat ke pesan yang dicari dari posisi scroll manapun.
+  - Menggunakan referensi sinkron `currentSearchIndexRef` dan `searchResultsRef` untuk mencegah stale state saat tombol ditekan cepat secara beruntun.
+  - Menghilangkan race condition `onContentSizeChange` yang sebelumnya memicu `scrollToEnd()` dan menarik scroll kembali ke bawah saat tombol `▲` ditekan.
+  - Implementasi 2-step retry pada `onScrollToIndexFailed` di FlatList dengan `info.averageItemLength` dan delay pengukuran.
+  - Integrasi listener `BackHandler` Android untuk menutup bilah pencarian terlebih dahulu sebelum meninggalkan ruang obrolan.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+- **Standalone Android Release APK (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL**.
+- **Instalasi Perangkat (`adb install -r`)**: **Success**.
+
+
 
 

@@ -138,6 +138,16 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
     - **Edit Profil**: Implementasi `EditProfileModal.tsx` untuk mengubah Display Name via API `PUT /api/auth/profile` dan `updateCurrentUser` di `AuthContext`.
   - Menghubungkan tombol panggilan suara (📞) di `ContactInfoModal.tsx` langsung ke `useCall().startCall(...)` dengan room binding dari `ChatScreen.tsx`, mengeliminasi placeholder alert terakhir di aplikasi mobile.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `go test ./...` -> **100% PASS**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**, dan instalasi sukses via `adb install -r`.
+- [x] **M-Mobile-8.23: Audit & Perbaikan Fitur 'Cari Pesan dalam Obrolan' (In-Chat Search Hardening) (28 September 2026)**:
+  - Mengubah arsitektur pencarian dari server-side REST API yang selalu gagal (karena database backend hanya menyimpan ciphertext E2EE) menjadi pencarian instan sisi klien (*0ms client-side in-memory search*) pada pesan terdekripsi `messages`, mendukung pencarian isi pesan (`m.content`) dan nama berkas (`m.file_name`).
+  - Menstabilkan layout bilah pencarian: `searchNavCol` kini selalu terpasang dengan lebar tetap sehingga kotak input `TextInput` tidak bergeser saat mengetik, menghilangkan keyboard flicker, kursor melompat, dan dropped keystrokes pada Android.
+  - Memperbaiki tombol panah navigasi pencarian `▲` dan `▼`:
+    - Mengaktifkan tombol saat hasil pencarian = 1 (`disabled={searchResults.length === 0}`) sehingga pengguna tetap dapat melompat ke pesan yang dicari.
+    - Menggunakan referensi sinkron `currentSearchIndexRef` dan `searchResultsRef` untuk mencegah stale closure saat tombol ditekan cepat berulang kali.
+    - Menghilangkan race condition `onContentSizeChange` yang sebelumnya memicu `scrollToEnd()` dan menarik scroll kembali ke bawah saat tombol `▲` ditekan.
+    - Mengimplementasikan 2-step retry pada `onScrollToIndexFailed` di FlatList dengan `info.averageItemLength` dan delay pengukuran untuk menjamin scroll tepat sasaran.
+  - Integrasi listener tombol fisik Android `BackHandler` untuk menutup bilah pencarian sebelum keluar dari room obrolan.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**, dan instalasi sukses via `adb install -r`.
 
 ---
 
