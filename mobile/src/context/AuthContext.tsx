@@ -33,6 +33,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   dismissSessionAlert: () => void | Promise<void>;
   cancelKeyConflict: () => void | Promise<void>;
+  updateCurrentUser: (updatedUser: User) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -51,6 +52,7 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   dismissSessionAlert: () => {},
   cancelKeyConflict: () => {},
+  updateCurrentUser: async () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -425,6 +427,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user?.id]);
 
+  const updateCurrentUser = useCallback(async (updatedUser: User) => {
+    setUser(updatedUser);
+    await secureStorage.setUserData(updatedUser);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -443,6 +450,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         dismissSessionAlert,
         cancelKeyConflict,
+        updateCurrentUser,
       }}
     >
       {children}

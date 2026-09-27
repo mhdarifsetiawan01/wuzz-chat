@@ -19,6 +19,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import {
+  DeviceTransferModal,
+  NotificationSettingsModal,
+  E2EEKeyModal,
+  StorageSettingsModal,
+  EditProfileModal,
+} from '../components';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Settings Menu Item
@@ -111,8 +118,15 @@ function getInitials(name: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 export const SettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const { user, logout, e2eeStatus } = useAuth();
+  const { user, logout, e2eeStatus, updateCurrentUser } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Modals state
+  const [isDeviceTransferVisible, setIsDeviceTransferVisible] = useState(false);
+  const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
+  const [isE2EEKeysVisible, setIsE2EEKeysVisible] = useState(false);
+  const [isStorageVisible, setIsStorageVisible] = useState(false);
+  const [isEditProfileVisible, setIsEditProfileVisible] = useState(false);
 
   const handleLogout = useCallback(() => {
     Alert.alert(
@@ -138,24 +152,6 @@ export const SettingsScreen: React.FC = () => {
       ]
     );
   }, [logout]);
-
-  const handleDeviceTransfer = useCallback(() => {
-    // TODO: open DeviceTransferModal (QR transfer)
-    Alert.alert('Perangkat Tertaut', 'Fitur ini segera hadir.');
-  }, []);
-
-  const handleNotifications = useCallback(() => {
-    // TODO: open NotificationSettingsModal
-    Alert.alert('Notifikasi & Suara', 'Fitur ini segera hadir.');
-  }, []);
-
-  const handleE2EEKeys = useCallback(() => {
-    // TODO: open Safety Number / Fingerprint view
-    Alert.alert(
-      'Kunci E2EE',
-      `Status: ${e2eeStatus === 'ready' ? '✅ Aktif & Aman' : '⚠️ ' + e2eeStatus}\n\nKunci enkripsi tersimpan aman di Android Keystore perangkat ini.`
-    );
-  }, [e2eeStatus]);
 
   const displayName = user?.display_name ?? 'Pengguna';
   const username = user?.username ?? '';
@@ -205,7 +201,7 @@ export const SettingsScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.editButton}
             activeOpacity={0.75}
-            onPress={() => Alert.alert('Edit Profil', 'Fitur ini segera hadir.')}
+            onPress={() => setIsEditProfileVisible(true)}
           >
             <Text style={styles.editButtonIcon}>✏️</Text>
           </TouchableOpacity>
@@ -218,7 +214,7 @@ export const SettingsScreen: React.FC = () => {
             icon="💻"
             title="Perangkat Tertaut"
             subtitle="Kelola sesi & transfer kunci QR"
-            onPress={handleDeviceTransfer}
+            onPress={() => setIsDeviceTransferVisible(true)}
             tintColor={colors.accentPrimary}
           />
           <View style={styles.itemDivider} />
@@ -226,7 +222,7 @@ export const SettingsScreen: React.FC = () => {
             icon="🔐"
             title="Kunci & Keamanan E2EE"
             subtitle={`Status: ${e2eeStatus === 'ready' ? 'Aktif & Aman ✅' : e2eeStatus}`}
-            onPress={handleE2EEKeys}
+            onPress={() => setIsE2EEKeysVisible(true)}
             tintColor={colors.colorOnline}
           />
         </SettingsSection>
@@ -236,8 +232,18 @@ export const SettingsScreen: React.FC = () => {
             icon="🔔"
             title="Notifikasi & Suara"
             subtitle="FCM v1, nada dering & hening"
-            onPress={handleNotifications}
+            onPress={() => setIsNotificationsVisible(true)}
             tintColor={colors.colorWarning}
+          />
+        </SettingsSection>
+
+        <SettingsSection title="Penyimpanan & Data">
+          <SettingsItem
+            icon="💾"
+            title="Kelola Penyimpanan"
+            subtitle="Ukuran database SQLite & cache media"
+            onPress={() => setIsStorageVisible(true)}
+            tintColor={colors.accentPrimary}
           />
         </SettingsSection>
 
@@ -257,9 +263,44 @@ export const SettingsScreen: React.FC = () => {
           <Text style={styles.footerVersion}>v1.0.0 · Aurora Build</Text>
         </View>
       </ScrollView>
+
+      {/* ── Modals ────────────────────────────────────────────────────── */}
+      <DeviceTransferModal
+        visible={isDeviceTransferVisible}
+        onClose={() => setIsDeviceTransferVisible(false)}
+      />
+
+      <NotificationSettingsModal
+        visible={isNotificationsVisible}
+        onClose={() => setIsNotificationsVisible(false)}
+      />
+
+      <E2EEKeyModal
+        visible={isE2EEKeysVisible}
+        onClose={() => setIsE2EEKeysVisible(false)}
+        userId={user?.id || ''}
+        username={username}
+        displayName={displayName}
+        e2eeStatus={e2eeStatus}
+      />
+
+      <StorageSettingsModal
+        visible={isStorageVisible}
+        onClose={() => setIsStorageVisible(false)}
+        userId={user?.id || ''}
+      />
+
+      <EditProfileModal
+        visible={isEditProfileVisible}
+        onClose={() => setIsEditProfileVisible(false)}
+        currentDisplayName={displayName}
+        currentUsername={username}
+        onProfileUpdated={(updated) => updateCurrentUser(updated)}
+      />
     </View>
   );
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Styles

@@ -129,14 +129,23 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Proteksi otorisasi DEC-012 (Preview grup publik) dan DEC-013 (403 Forbidden Shield) tetap aktif 100% untuk link grup luar/unjoined.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors** dan `go test ./...` -> **100% PASS**.
 
+- [x] **M-Mobile-8.21: SettingsScreen — Modals & Interactive Settings + Direct Call Activation (28 September 2026)**:
+  - Menggantikan seluruh placeholder `Alert.alert('Fitur ini segera hadir')` di `SettingsScreen.tsx` dengan modal interaktif berstandar Aurora Glassmorphic Dark Mode:
+    - **Perangkat Tertaut**: Terhubung langsung ke `DeviceTransferModal` (share QR, camera scan, dan token input manual).
+    - **Kunci & Keamanan E2EE**: Implementasi `E2EEKeyModal.tsx` dengan hardware Keystore status, spesifikasi kriptografi, fingerprint 8-blok dengan salin clipboard, dan QR code identitas profil.
+    - **Penyimpanan & Data**: Section baru dan modal `StorageSettingsModal.tsx` dengan kalkulasi kapasitas lokal SQLite dan media, serta tombol bersihkan cache pesan & media yang aman.
+    - **Notifikasi & Suara**: Terhubung langsung ke `NotificationSettingsModal`.
+    - **Edit Profil**: Implementasi `EditProfileModal.tsx` untuk mengubah Display Name via API `PUT /api/auth/profile` dan `updateCurrentUser` di `AuthContext`.
+  - Menghubungkan tombol panggilan suara (📞) di `ContactInfoModal.tsx` langsung ke `useCall().startCall(...)` dengan room binding dari `ChatScreen.tsx`, mengeliminasi placeholder alert terakhir di aplikasi mobile.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `go test ./...` -> **100% PASS**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**, dan instalasi sukses via `adb install -r`.
+
 ---
 
 ## Fokus Berikutnya (What's Next)
-- [ ] **M-Mobile-8.21: SettingsScreen — Modals & Interactive Settings** (QR Device Transfer modal, Safety Number E2EE modal, Notification Settings, serta opsi Pembersih Cache Pesan & Media).
 - [ ] **M-Mobile-8.23: SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum**:
   - Implementasi retention cap (maksimal 500–1.000 pesan per room di SQLite lokal).
   - Mekanisme auto-pruning pesan usang saat sinkronisasi riwayat baru tiba dari server.
   - Penambahan `PRAGMA auto_vacuum = INCREMENTAL;` pada inisialisasi database SQLite untuk mengembalikan ruang disk yang dibersihkan ke sistem operasi.
-- [ ] Refactor & polishing komponen UI mobile agar terus selaras dengan standar `mobile/DESIGN.md`.
+- [ ] **M-Mobile-8.24: Media Gallery Viewer & Group Media Lifecycle** (tab galeri media per chat & interactive pinch-to-zoom viewer).
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.
 

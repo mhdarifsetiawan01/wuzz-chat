@@ -439,3 +439,81 @@ export async function deleteCallRecord(recordId: string): Promise<void> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Storage Inspection & Maintenance (M-Mobile-8.21)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface StorageStats {
+  conversationCount: number;
+  messageCount: number;
+  callLogCount: number;
+  estimatedSizeBytes: number;
+}
+
+/**
+ * Retrieves aggregate storage stats for the active user.
+ */
+export async function getStorageStats(userId: string): Promise<StorageStats> {
+  if (!userId) {
+    return { conversationCount: 0, messageCount: 0, callLogCount: 0, estimatedSizeBytes: 0 };
+  }
+
+  try {
+    const db = await getDatabase();
+    const convRow = await db.getFirstAsync<{ count: number }>(
+      `SELECT COUNT(*) as count FROM local_conversations WHERE user_id = ?`,
+      [userId]
+    );
+    const msgRow = await db.getFirstAsync<{ count: number }>(
+      `SELECT COUNT(*) as count FROM local_messages WHERE user_id = ?`,
+      [userId]
+    );
+    const callRow = await db.getFirstAsync<{ count: number }>(
+      `SELECT COUNT(*) as count FROM local_call_logs WHERE user_id = ?`,
+      [userId]
+    );
+
+    let estimatedSize = 0;
+    try {
+      const pageCountRow = await db.getFirstAsync<{ page_count: number }>(`PRAGMA page_count;`);
+      const pageSizeRow = await db.getFirstAsync<{ page_size: number }>(`PRAGMA page_size;`);
+      if (pageCountRow && pageSizeRow) {
+        estimatedSize = (pageCountRow.page_count || 0) * (pageSizeRow.page_size || 4096);
+      }
+    } catch {
+      estimatedSize = ((msgRow?.count || 0) * 500) + ((convRow?.count || 0) * 300);
+    }
+
+    return {
+      conversationCount: convRow?.count || 0,
+      messageCount: msgRow?.count || 0,
+      callLogCount: callRow?.count || 0,
+      estimatedSizeBytes: estimatedSize,
+    };
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to getStorageStats:', error);
+    return { conversationCount: 0, messageCount: 0, callLogCount: 0, estimatedSizeBytes: 0 };
+  }
+}
+
+/**
+ * Clears only cached messages for a specific user.
+ * Preserves conversations list and call history so UI remains intact.
+ */
+export async function clearMessageCacheOnly(userId: string): Promise<void> {
+  if (!userId) return;
+
+  try {
+    const db = await getDatabase();
+    await db.runAsync(`DELETE FROM local_messages WHERE user_id = ?`, [userId]);
+    try {
+      await db.runAsync(`PRAGMA incremental_vacuum;`);
+    } catch {
+      // pragma vacuum fallback
+    }
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to clearMessageCacheOnly:', error);
+  }
+}
+
+

@@ -3738,4 +3738,29 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
 - **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
 
+---
+
+## 📱 Milestone M-Mobile-8.21: SettingsScreen Modals & Interactive Settings + Direct Call Activation (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Pembersihan Seluruh Placeholder di SettingsScreen (`SettingsScreen.tsx`)**:
+  - **Perangkat Tertaut**: Terhubung langsung ke `DeviceTransferModal` (dukungan generate QR code dinamis, camera scan via `CameraQRScannerModal`, dan token input manual).
+  - **Kunci & Keamanan E2EE**: Implementasi `E2EEKeyModal.tsx` dengan status hardware Android Keystore, spesifikasi kriptografi (ECDH NIST P-256 + AES-256-GCM + HKDF), sidik jari 8-blok dengan salin clipboard, dan QR code identitas profil.
+  - **Penyimpanan & Data**: Section baru "Penyimpanan & Data" dan modal `StorageSettingsModal.tsx` untuk menghitung kapasitas lokal SQLite (`getStorageStats`), memantau file cache media (`FileSystem.cacheDirectory`), serta menyediakan tombol pembersih cache pesan (`clearMessageCacheOnly`) dan cache media yang aman.
+  - **Notifikasi & Suara**: Terhubung langsung ke `NotificationSettingsModal` (toggle FCM v1, indikator status OS Android, tombol tes alert).
+  - **Edit Profil**: Implementasi `EditProfileModal.tsx` untuk mengubah Display Name akun secara real-time via `PUT /api/auth/profile` dan sinkronisasi `updateCurrentUser` di `AuthContext`.
+- **Aktivasi Langsung Panggilan Suara dari Info Kontak (`ContactInfoModal.tsx`)**:
+  - Mengeliminasi placeholder alert *"Panggilan suara terenkripsi ... akan segera hadir"*.
+  - Mengintegrasikan `useCall().startCall(...)` dengan room binding dari `ChatScreen.tsx`, sehingga mengetuk ikon 📞 di profil kontak langsung memicu panggilan suara WebRTC.
+- **Pembersihan Komprehensif String Placeholder**:
+  - Pencarian global memverifikasi teks *"segera hadir"* kini **0 (nihil)** di seluruh codebase `mobile/src/`.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+- **Standalone Android Release APK (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL**.
+- **Instalasi Perangkat (`adb install -r`)**: **Success**.
+
+
 

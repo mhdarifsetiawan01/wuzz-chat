@@ -28,6 +28,7 @@ import { Avatar } from './Avatar';
 import { VerifiedBadge } from './VerifiedBadge';
 import { SafetyNumberModal } from './SafetyNumberModal';
 import { generateSafetyNumber, isContactSafetyVerified } from '../services/e2eeService';
+import { useCall } from '../context/CallContext';
 import { colors, radius, spacing, typography } from '../theme';
 
 export interface ContactInfoModalProps {
@@ -35,6 +36,7 @@ export interface ContactInfoModalProps {
   onClose: () => void;
   userId: string;
   currentUserId: string;
+  roomId?: string;
   initialDisplayName?: string;
   initialAvatarUrl?: string;
   initialUsername?: string;
@@ -49,6 +51,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
   onClose,
   userId,
   currentUserId,
+  roomId,
   initialDisplayName,
   initialAvatarUrl,
   initialUsername,
@@ -58,6 +61,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
   isOnline = false,
 }) => {
   const insets = useSafeAreaInsets();
+  const { startCall } = useCall();
   const [profile, setProfile] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -158,12 +162,14 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
     }
   };
 
-  const handleVoiceCallPlaceholder = () => {
-    Alert.alert(
-      'Panggilan Suara E2EE',
-      `Panggilan suara terenkripsi dengan ${displayName} akan segera hadir di pembaruan berikutnya.`,
-      [{ text: 'Mengerti', style: 'default' }]
-    );
+  const handleVoiceCall = async () => {
+    onClose();
+    try {
+      await startCall(roomId || '', userId, displayName, avatarUrl);
+    } catch (err: any) {
+      console.warn('[ContactInfoModal] Failed to start voice call:', err);
+      Alert.alert('Gagal Memulai Panggilan', err?.message || 'Tidak dapat memulai panggilan suara.');
+    }
   };
 
   const handleToggleMute = () => {
@@ -245,7 +251,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
               <View style={styles.quickActionsContainer}>
                 <TouchableOpacity
                   style={styles.actionBtn}
-                  onPress={handleVoiceCallPlaceholder}
+                  onPress={handleVoiceCall}
                   activeOpacity={0.75}
                 >
                   <View style={styles.actionIconCircle}>
