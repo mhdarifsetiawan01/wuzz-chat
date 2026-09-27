@@ -3570,5 +3570,25 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
 - **APK Release Packaging & USB Install (`./gradlew assembleRelease` & `adb install`)**: **BUILD SUCCESSFUL & INSTALLED ke device 2706294010BA1U6W**.
 
+---
+
+## 📚 Restrukturisasi & Modularisasi Dokumentasi Proyek (27 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Pemekaran Arsitektur Dokumentasi 3-Tingkat**:
+  1. `docs/domains/`: Spesifikasi Domain Bisnis Vertikal DDD Bounded Contexts (`AUTH_SESSION`, `PROFILE_IDENTITY`, `MESSAGING_CHAT`, `GROUP_FORUM`, `MEDIA_LIFECYCLE`, `WEBRTC_CALLING`, `AI_MEMORY`, `MULTI_TENANT`, `NOTIFICATION_SYNC`).
+  2. `docs/context/`: Panduan Konteks Teknis Platform Horizontal (`BACKEND`, `FRONTEND`, `MOBILE`, `MULTI_TENANT`, `AI_MEMORY`, `ARCHITECTURE`).
+  3. `docs/progress/`: Log Riwayat Pengerjaan & Status per Domain (`BACKEND`, `FRONTEND`, `MOBILE`, `MULTI_TENANT`, `AI_MEMORY`).
+- **Pembersihan Dokumen Usang/Redundan (-113 KB)**:
+  - Menghapus 7 file usang: `PRD-websocket-chat-app.md`, `MODULAR_MONOLITH_DDD.md`, `ARCHITECTURE_AUDIT.md`, `DUAL_MODE_READINESS_AUDIT.md`, `HEADLESS_INTEGRATION_GUIDE.md`, `TENANT_ENGINE_MASTER_PLAN.md`, `GROUP_MEMORY_AI_SPEC.md`.
+  - Mengalihkan seluruh referensi internal ke dokumen domain kanonikal baru.
+- **Master Context Router (`PROMPT.md`)**:
+  - Menyederhanakan `PROMPT.md` menjadi router ramping (~80 baris) dengan tabel pemetaan tugas ke spesifikasi domain, konteks platform, dan log progres.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%**.
+- **Frontend Next.js Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+
 
 

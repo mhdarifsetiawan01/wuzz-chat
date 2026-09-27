@@ -1,5 +1,4 @@
 # Implementation Summary: Standby
 
-- **Objective**: Standby for next milestone / task.
-- **Status**: STANDBY
-- **Branch**: `dev`
+- **Status:** Standby
+- **Active Task:** Awaiting next instruction

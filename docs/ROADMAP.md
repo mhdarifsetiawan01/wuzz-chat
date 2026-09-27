@@ -27,7 +27,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 │ [x] Fase 6: Distributed Scale & Upstash   │ [x] Fase 6: Slim Entrypoint & wire.go (✅) │
 │ [x] Fase 7: E2EE & WebRTC Audio Calling   ├────────────────────────────────────────────┤
 │ [x] Fase 8: Core Parity (Groups, Push)    │ Dokumen Spesifikasi Engine:                │
-│ [x] Fase 10: Group Memory AI (M1–M7)      │ 👉 docs/MODULAR_MONOLITH_DDD.md            │
+│ [x] Fase 10: Group Memory AI (M1–M7)      │ 👉 docs/context/BACKEND.md                 │
 │ [x] Fase 11: Multi-Device (Ph 0,1,2,3,5)  │                                            │
 │ [ ] Fase 11: Passkey / WebAuthn (Ph 4)    │                                            │
 │ [ ] Fase 9: Monetisasi & Avatar Asset     │                                            │
@@ -38,16 +38,16 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 ---
 
 > 📖 **Dokumen Rujukan Spesifikasi Teknis Terkait**:
-> 1. 🔍 **Evolusi Identitas, Autentikasi & Multi-Device (Fase 11)**: [`docs/ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md)
+> 1. 🔍 **Evolusi Identitas, Autentikasi & Multi-Device (Fase 11)**: [`docs/domains/AUTH_SESSION.md`](domains/AUTH_SESSION.md)
 >    - **Phase 0 (Identity & Auth Hardening)**: **SELESAI ✅** (JWT Revocation, Re-Auth Safe Reset Kunci, Ganti Password)
 >    - **Phase 1 (Session Foundation)**: **SELESAI ✅** (Tabel `sessions`, Session Inventory API, Remote Logout, Revoke Others)
 >    - **Phase 2 (Device Registry)**: **SELESAI ✅** (Tabel `devices`, Multi-Device Metadata, Remote Device Revoke, Reconnect Resilience)
 >    - **Phase 3 (Credential Separation)**: **SELESAI ✅** (Tabel `user_credentials`, Abstraksi Multi-Metode Login, Dual-Read/Write)
 >    - **Phase 4 (Passkey / WebAuthn)**: *Siap Dieksekusi* (FIDO2 Biometric Login)
 >    - **Phase 5 (Multi-Device E2EE Continuity)**: **SELESAI ✅** (Master Key Sync via Secure QR Transfer + Active Device Lifecycle)
-> 2. 🏛️ **Transformasi Modular Monolith & DDD Engine (Track B)**: [`docs/MODULAR_MONOLITH_DDD.md`](MODULAR_MONOLITH_DDD.md)
+> 2. 🏛️ **Transformasi Modular Monolith & DDD Engine (Track B)**: [`docs/context/BACKEND.md`](context/BACKEND.md)
 >    - **Fase 1–6 & Post-Audit Hardening (M1–M3)**: **100% SELESAI ✅ & DEPLOYED** (Pemisahan GroupStore, AuthService, MessageService, ForumService, Memory ContextSource, Slim Bootstrap main.go, Zero-risk handler cleanup, dan Mobile Gateway readiness).
-> 3. 🧠 **Group Memory AI Engine (Fase 10)**: [`docs/GROUP_MEMORY_AI_SPEC.md`](GROUP_MEMORY_AI_SPEC.md)
+> 3. 🧠 **Group Memory AI Engine (Fase 10)**: [`docs/domains/AI_MEMORY.md`](domains/AI_MEMORY.md)
 >    - **Milestone M1–M7**: **SELESAI ✅** (SKIP LOCKED Job Queue, AI Service, Review UI, Knowledge Viewer, E2E Notifications)
 > 4. 📱 **Mobile Client Roadmap (Track Mobile Resmi)**:
 >    - **Milestone M-Mobile-1: Auth Layer & Mobile Shell**: **SELESAI ✅** (Login/Register, SecureStore, Dark Mode WhatsApp Aurora)
@@ -350,7 +350,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 ### Fase 10: Group Memory AI — Forum Intelligence & Group Knowledge (Status: ✅ SELESAI)
 *Tujuan: Mewujudkan visi "AI captures. Humans validate. Wuzz remembers." — Mengubah forum diskusi sementara (sub-group) yang kedaluwarsa menjadi memori kolektif grup yang abadi dan terkurasi manusia.*
 
-*Dokumen Spesifikasi Utama: [`docs/GROUP_MEMORY_AI_SPEC.md`](./GROUP_MEMORY_AI_SPEC.md)*
+*Dokumen Spesifikasi Utama: [`docs/domains/AI_MEMORY.md`](domains/AI_MEMORY.md)*
 
 - **Prinsip Arsitektur & Aturan Produk**:
   1. **Strict Group Scoped**: Memori grup terisolasi 100% per grup. Tidak ada memori global atau cross-group leakage.
@@ -413,7 +413,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 
 *Tujuan: Menata ulang arsitektur internal backend Go dari model 1-layer flat menjadi **Pragmatic Modular Monolith (3-Tier: Transport → Application Service → Domain → Infrastructure)** untuk mewujudkan Wuzz Chat sebagai **Reusable Messaging Engine** yang siap pakai untuk produk eksternal (misal: InstaQRIS) dan ekspansi fitur lanjutan.*
 
-*Dokumen Spesifikasi Arsitektur: [`docs/MODULAR_MONOLITH_DDD.md`](./MODULAR_MONOLITH_DDD.md)*
+*Dokumen Spesifikasi Arsitektur: [`docs/context/BACKEND.md`](context/BACKEND.md)*
 
 ```text
 Transport Layer (REST Handler / WebSocket Hub & Client)

@@ -273,15 +273,15 @@ User (UUID PK)
 ┌─────────────────────────────────────────────────────────────┐
 │                    WUZZCHAT MOBILE MATRIX                   │
 ├──────────────────────────────┬──────────────────────────────┤
-│ BACKEND READY (SELESAI ✅)   │ CLIENT APP (BELUM ADA ❌)    │
+│ BACKEND READY (SELESAI ✅)   │ CLIENT APP (SELESAI ✅)      │
 ├──────────────────────────────┼──────────────────────────────┤
-│ • Headless REST API (JSON)   │ • React Native App (Repo)    │
-│ • WebSocket RFC 6455         │ • Android Native Kotlin App  │
-│ • Platform Detection Header  │ • iOS Native Swift App       │
-│ • Multi-Device Gating (409)  │ • Local Key Keystore Wrapper │
-│ • QR Device Transfer API     │ • FCM SDK Listener Service   │
-│ • Pluggable PushProvider     │                              │
-│ • FCM v1 Token Auto-Routing  │                              │
+│ • Headless REST API (JSON)   │ • React Native Expo (`mobile`)│
+│ • WebSocket RFC 6455         │ • Android Standalone APK     │
+│ • Platform Detection Header  │ • iOS Native CocoaPods Ready │
+│ • Multi-Device Gating (409)  │ • Hardware Keystore / Keych. │
+│ • QR Device Transfer API     │ • FCM v1 Background Decrypt  │
+│ • Pluggable PushProvider     │ • WebRTC 1-on-1 Voice Call   │
+│ • FCM v1 Token Auto-Routing  │ • Trusted Device E2EE Sync   │
 └──────────────────────────────┴──────────────────────────────┘
 ```
 
