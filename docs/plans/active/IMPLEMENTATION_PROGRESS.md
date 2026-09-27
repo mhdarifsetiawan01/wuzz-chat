@@ -1,3 +1,3 @@
 # Implementation Progress: Standby
 
-- [ ] Standby for next task
+- [ ] Standing by for next instruction.

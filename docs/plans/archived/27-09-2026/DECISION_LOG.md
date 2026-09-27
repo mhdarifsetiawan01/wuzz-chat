@@ -1,10 +1,10 @@
-# Decision Log: E2EE Background Decryption Push Notification
+# Decision Log
 
-- **DEC-016**: (existing) Implementasi FCM HTTP v1 menggunakan standard Google OAuth2 Service Account assertion token signing via standard Go crypto + `golang-jwt/jwt/v5` tanpa dependensi SDK berat, sehingga performa tetap ultra-ringan dan kompatibel dengan Fly.io deployment.
-- **DEC-017**: (existing) Dual notification pipeline di mobile client: Local Notification dipicu secara real-time saat WebSocket aktif, dan Remote Push (FCM v1) dipicu oleh backend saat client offline / process killed.
-- **DEC-018**: FCM `data-only` payload — semua field dikirim via `data` map (string), field `notification` dan `Android.Notification` dihapus total dari FCM message untuk mencegah OS Android auto-display notifikasi server-side dengan teks placeholder "🔒 Pesan Baru (Terenkripsi)". Dengan ini, HANYA background task mobile yang berhak menampilkan notifikasi ke status bar.
-- **DEC-019**: Background Task menggunakan `expo-task-manager` + `expo-notifications` `registerTaskAsync` + `setNotificationHandler`. Tidak perlu dependensi native baru karena `expo-notifications: ~57.0.21` sudah mencakup background task API. TaskManager task di-define di module-level (side-effect import) agar tersedia sebelum React render.
-- **DEC-020**: Private key diambil dari `expo-secure-store` di dalam background task context (tersedia sejak Expo SDK 50+ dengan `AFTER_FIRST_UNLOCK` keychain policy, kompatibel dengan background task wakeup setelah device unlock pertama).
-- **DEC-021**: Fallback "🔒 Pesan Baru" tetap ditampilkan jika private key tidak ada (perangkat baru, belum transfer kunci via QR, atau device belum unlock pertama kali). Ini adalah perilaku yang aman dan konsisten dengan prinsip Zero-Knowledge.
-- **DEC-022**: User ID disimpan di `SecureStore` saat login (key: `wuzz_current_user_id`) sehingga background task — yang tidak punya akses ke React Context/state — dapat mengidentifikasi pemilik kunci E2EE yang benar.
-- **DEC-023**: Untuk Group Chat / Forum Chat, background task menampilkan fallback "🔒 Pesan Grup Baru" karena payload FCM tidak membawa kunci sesi grup. Dekripsi grup memerlukan key agreement multiparty yang diimplementasikan di milestone terpisah.
+### DEC-020: Mobile Home Screen Alignment with DESIGN.md
+- **Context**: `mobile/src/screens/RecentChatsScreen.tsx` lacked the Search Bar, Filter Tabs, and dynamic insets specified in `mobile/DESIGN.md` Section 3.
+- **Decision**:
+  1. Add real-time search filtering covering chat title, participant names, and decrypted message snippets.
+  2. Add category filter tabs ('all', 'unread', 'groups') with count badges where appropriate.
+  3. Replace `SafeAreaView` with `useSafeAreaInsets()` to dynamically pad header and elevate FAB above system bars.
+  4. Redesign header action cluster to be cleaner and adhere to min 44dp touch targets.
+- **Impact**: Full compliance with `mobile/DESIGN.md` and WhatsApp Single-Screen Flow.

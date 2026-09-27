@@ -52,11 +52,18 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Aturan tata letak *WhatsApp Single-Screen Flow* (Screen 1: HomeScreen ⇄ Screen 2: ChatScreen) dengan penanganan hardware back button & safe area insets.
   - Standar ergonomi sentuh (target sentuh minimal 44 × 44 dp), gestur swipe-to-reply, dan virtual keyboard resilience (`softwareKeyboardLayoutMode: "resize"`).
   - Spesifikasi blueprint komponen utama: `MessageBubble`, `ChatInputBar`, `VoiceNotePlayer`, dan `BottomSheetCard`.
+- [x] **M-Mobile-8.14: Penyelarasan Halaman Home (`RecentChatsScreen.tsx`) dengan `mobile/DESIGN.md` (27 September 2026)**:
+  - Implementasi Debounced Search Bar (250ms) dengan fitur pencarian real-time pada nama obrolan, kontak, username partisipan, dan cuplikan pesan terakhir, dilengkapi tombol clear (✕).
+  - Implementasi Filter Tabs (Pill Chips): "Semua", "Belum Dibaca" (dengan badge unread), dan "Grup" (dengan tag hitungan grup).
+  - Penataan ulang Header menjadi lebih bersih dan ergonomis: tombol transfer perangkat (💻) dan notifikasi (🔔) dengan touch target min 40–44dp, serta penyederhanaan aksi profil pengguna via dialog akun & logout.
+  - Integrasi dynamic safe area insets (`useSafeAreaInsets()`) pada header dan posisi FAB, serta proteksi padding bawah FlatList.
+  - Contextual Empty States responsif terhadap pencarian dan filter aktif.
 
 ---
 
 ## 🎯 Fokus Berikutnya (What's Next)
-- [ ] Refactor & polishing komponen UI mobile (`screens/` & `components/`) agar 100% selaras dengan standar `mobile/DESIGN.md`.
+- [ ] Refactor & polishing komponen UI mobile (`ChatScreen.tsx` & komponen lainnya) agar terus selaras dengan standar `mobile/DESIGN.md`.
 - [ ] Implementasi Local Message SQLite Cache (Room / CoreData equivalent) untuk pembacaan riwayat chat saat offline.
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.
+
 

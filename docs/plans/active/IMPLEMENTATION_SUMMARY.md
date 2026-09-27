@@ -1,3 +1,3 @@
 # Implementation Summary: Standby
 
-Standing by for next instruction.
+No active implementation. Standing by for next instruction.

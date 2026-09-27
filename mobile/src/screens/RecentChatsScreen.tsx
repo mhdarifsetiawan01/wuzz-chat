@@ -3,7 +3,7 @@
  * WhatsApp-Grade Recent Conversations Screen with Pull-to-Refresh & Live WebSocket updates.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,10 +11,11 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { conversationsApi } from '../api/conversations';
 import { getUserPublicKey } from '../api/users';
 import { Conversation } from '../api/types';
@@ -38,6 +39,7 @@ export interface RecentChatsScreenProps {
 }
 
 export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectChat, onStartNewChat }) => {
+  const insets = useSafeAreaInsets();
   const { user, logout, e2eeKeyPair } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -45,6 +47,18 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [isDeviceTransferModalOpen, setIsDeviceTransferModalOpen] = useState<boolean>(false);
   const [wsState, setWsState] = useState<ConnectionState>(websocketClient.getState());
+
+  // Search & filter tab state (DESIGN.md Section 3: Layar 1)
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [debouncedQuery, setDebouncedQuery] = useState<string>('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'groups'>('all');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim().toLowerCase());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const fetchConversations = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
@@ -242,9 +256,159 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
     }
   };
 
+  // Tab counts for badges
+  const unreadCount = useMemo(() => {
+    return conversations.filter((c) => Number(c.unread_count || 0) > 0).length;
+  }, [conversations]);
+
+  const groupsCount = useMemo(() => {
+    return conversations.filter(
+      (c) =>
+        c.is_group === true ||
+        c.type === 'group' ||
+        c.type === 'subgroup' ||
+        (typeof c.id === 'string' && (c.id.startsWith('grp_') || c.id.startsWith('sub_')))
+    ).length;
+  }, [conversations]);
+
+  // Real-time filtered conversations (Filter Tabs + Debounced Search)
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((c) => {
+      // 1. Tab category filter
+      if (activeFilter === 'unread') {
+        const unread = Number(c.unread_count || 0);
+        if (unread <= 0) return false;
+      } else if (activeFilter === 'groups') {
+        const isGroup =
+          c.is_group === true ||
+          c.type === 'group' ||
+          c.type === 'subgroup' ||
+          (typeof c.id === 'string' && (c.id.startsWith('grp_') || c.id.startsWith('sub_')));
+        if (!isGroup) return false;
+      }
+
+      // 2. Debounced search query
+      if (debouncedQuery) {
+        const title = (c.title || c.peer_nickname || c.name || '').toLowerCase();
+        const snippet = (
+          typeof c.last_message === 'string'
+            ? c.last_message
+            : c.last_message?.content || ''
+        ).toLowerCase();
+        const participantMatch = c.participants?.some(
+          (p) =>
+            p.username?.toLowerCase().includes(debouncedQuery) ||
+            p.display_name?.toLowerCase().includes(debouncedQuery)
+        );
+
+        if (!title.includes(debouncedQuery) && !snippet.includes(debouncedQuery) && !participantMatch) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [conversations, activeFilter, debouncedQuery]);
+
+  const handleProfilePress = () => {
+    if (!user) return;
+    Alert.alert(
+      user.display_name || user.username || 'Profil Pengguna',
+      `Masuk sebagai @${user.username || 'user'}\nID: ${user.id || '-'}`,
+      [
+        { text: 'Tutup', style: 'cancel' },
+        {
+          text: 'Keluar Akun',
+          style: 'destructive',
+          onPress: logout,
+        },
+      ]
+    );
+  };
+
+  const renderEmptyState = () => {
+    if (debouncedQuery) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>🔍</Text>
+          <Text style={styles.emptyTitle}>Tidak Ada Hasil</Text>
+          <Text style={styles.emptySubtitle}>
+            Tidak ada obrolan yang cocok dengan &quot;{searchQuery}&quot;. Periksa kembali kata kunci atau ejaan Anda.
+          </Text>
+          <TouchableOpacity
+            style={styles.clearFilterBtn}
+            onPress={() => setSearchQuery('')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.clearFilterBtnText}>Hapus Pencarian</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (activeFilter === 'unread') {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>✅</Text>
+          <Text style={styles.emptyTitle}>Semua Sudah Dibaca</Text>
+          <Text style={styles.emptySubtitle}>
+            Bagus! Tidak ada obrolan dengan pesan baru yang belum Anda baca.
+          </Text>
+          <TouchableOpacity
+            style={styles.clearFilterBtn}
+            onPress={() => setActiveFilter('all')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.clearFilterBtnText}>Lihat Semua Chat</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (activeFilter === 'groups') {
+      return (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>👥</Text>
+          <Text style={styles.emptyTitle}>Belum Ada Grup</Text>
+          <Text style={styles.emptySubtitle}>
+            Anda belum bergabung atau memiliki obrolan grup percakapan.
+          </Text>
+          {onStartNewChat && (
+            <TouchableOpacity
+              style={styles.startChatBtn}
+              onPress={onStartNewChat}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.startChatBtnText}>+ Buat Obrolan Baru</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyIcon}>💬</Text>
+        <Text style={styles.emptyTitle}>Belum Ada Obrolan</Text>
+        <Text style={styles.emptySubtitle}>
+          Daftar kontak dan pesan baru Anda akan muncul di sini. Tarik ke bawah untuk memuat ulang.
+        </Text>
+        {onStartNewChat && (
+          <TouchableOpacity
+            style={styles.startChatBtn}
+            onPress={onStartNewChat}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.startChatBtnText}>+ Mulai Chat Baru</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      {/* WhatsApp Header */}
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Brand Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.brandTitle}>WuzzChat</Text>
@@ -280,29 +444,103 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
             <Text style={styles.headerIconText}>🔔</Text>
           </TouchableOpacity>
 
-          {onStartNewChat && (
+          {user && (
             <TouchableOpacity
-              onPress={onStartNewChat}
-              activeOpacity={0.7}
-              style={styles.headerIconButton}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={handleProfilePress}
+              activeOpacity={0.8}
+              style={styles.avatarButton}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityLabel="Profil Pengguna"
             >
-              <Text style={styles.headerIconText}>✏️</Text>
+              <Avatar name={user.display_name || user.username} size={36} />
             </TouchableOpacity>
           )}
-          {user && (
-            <View style={styles.userProfileWrapper}>
-              <Avatar name={user.display_name || user.username} size={36} />
-              <TouchableOpacity
-                onPress={logout}
-                activeOpacity={0.7}
-                style={styles.logoutButton}
-              >
-                <Text style={styles.logoutText}>Keluar</Text>
-              </TouchableOpacity>
-            </View>
+        </View>
+      </View>
+
+      {/* Search Bar (Debounced) - DESIGN.md Section 3 */}
+      <View style={styles.searchBarContainer}>
+        <View style={styles.searchInputWrapper}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Cari obrolan atau kontak..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              style={styles.clearSearchButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Hapus pencarian"
+            >
+              <Text style={styles.clearSearchIcon}>✕</Text>
+            </TouchableOpacity>
           )}
         </View>
+      </View>
+
+      {/* Filter Tabs (Semua, Belum Dibaca, Grup) - DESIGN.md Section 3 */}
+      <View style={styles.filterTabsContainer}>
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'all' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('all')}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              activeFilter === 'all' && styles.filterChipTextActive,
+            ]}
+          >
+            Semua
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'unread' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('unread')}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              activeFilter === 'unread' && styles.filterChipTextActive,
+            ]}
+          >
+            Belum Dibaca
+          </Text>
+          {unreadCount > 0 && (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{unreadCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterChip, activeFilter === 'groups' && styles.filterChipActive]}
+          onPress={() => setActiveFilter('groups')}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.filterChipText,
+              activeFilter === 'groups' && styles.filterChipTextActive,
+            ]}
+          >
+            Grup
+          </Text>
+          {groupsCount > 0 && (
+            <View style={styles.filterCountTag}>
+              <Text style={styles.filterCountTagText}>{groupsCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Main Conversation List */}
@@ -313,7 +551,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
         </View>
       ) : (
         <FlatList
-          data={conversations}
+          data={filteredConversations}
           keyExtractor={(item, index) => item.id || item.room_id || String(index)}
           renderItem={({ item }) => (
             <ChatListItem
@@ -322,6 +560,10 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
               onLongPress={handleChatLongPress}
             />
           )}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: Math.max(insets.bottom + 88, 100) },
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -330,33 +572,20 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
               colors={[colors.accentPrimary]}
             />
           }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>💬</Text>
-              <Text style={styles.emptyTitle}>Belum Ada Obrolan</Text>
-              <Text style={styles.emptySubtitle}>
-                Daftar kontak dan pesan baru Anda akan muncul di sini. Tarik ke bawah untuk memuat ulang.
-              </Text>
-              {onStartNewChat && (
-                <TouchableOpacity
-                  style={styles.startChatBtn}
-                  onPress={onStartNewChat}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.startChatBtnText}>+ Mulai Chat Baru</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          }
+          ListEmptyComponent={renderEmptyState}
         />
       )}
 
       {/* WhatsApp Floating Action Button (FAB) */}
       {onStartNewChat && (
         <TouchableOpacity
-          style={styles.fab}
+          style={[
+            styles.fab,
+            { bottom: Math.max(insets.bottom + spacing.lg, spacing.xl) },
+          ]}
           onPress={onStartNewChat}
           activeOpacity={0.8}
+          accessibilityLabel="Mulai Chat Baru"
         >
           <Text style={styles.fabIcon}>💬</Text>
         </TouchableOpacity>
@@ -374,12 +603,12 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({ onSelectCh
         initialMode="share"
         onClose={() => setIsDeviceTransferModalOpen(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: colors.bgBase,
   },
@@ -424,23 +653,130 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
   },
-  userProfileWrapper: {
+  headerIconButton: {
+    borderRadius: radius.full,
+    backgroundColor: colors.bgElevated,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 40,
+    height: 40,
+  },
+  headerIconText: {
+    fontSize: 18,
+  },
+  avatarButton: {
+    borderRadius: radius.full,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 2,
+  },
+  searchBarContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+    backgroundColor: colors.bgBase,
+  },
+  searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  logoutButton: {
-    marginLeft: spacing.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-    backgroundColor: colors.tintError10,
+    backgroundColor: colors.bgInput,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.colorError,
+    borderColor: colors.borderDefault,
+    paddingHorizontal: spacing.md,
+    height: 44,
   },
-  logoutText: {
+  searchIcon: {
+    fontSize: 16,
+    marginRight: spacing.sm,
+    color: colors.textMuted,
+  },
+  searchInput: {
+    flex: 1,
+    ...typography.body,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+    height: '100%',
+  },
+  clearSearchButton: {
+    padding: spacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clearSearchIcon: {
+    fontSize: 14,
+    color: colors.textMuted,
+    fontWeight: 'bold',
+  },
+  filterTabsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    backgroundColor: colors.bgBase,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: radius.full,
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    minHeight: 34,
+  },
+  filterChipActive: {
+    backgroundColor: colors.tintAccent20,
+    borderColor: colors.borderFocus,
+  },
+  filterChipText: {
     ...typography.captionBold,
-    color: colors.colorError,
+    color: colors.textSecondary,
+  },
+  filterChipTextActive: {
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  filterBadge: {
+    marginLeft: 6,
+    backgroundColor: colors.unreadBadgeBg,
+    borderRadius: radius.full,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textOnAccent,
+  },
+  filterCountTag: {
+    marginLeft: 6,
+    backgroundColor: colors.bgSurface,
+    borderRadius: radius.full,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 0.5,
+    borderColor: colors.borderDefault,
+  },
+  filterCountTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  listContent: {
+    flexGrow: 1,
   },
   centerContainer: {
     flex: 1,
@@ -454,7 +790,7 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    paddingTop: 100,
+    paddingTop: 80,
     paddingHorizontal: spacing.xxl,
     alignItems: 'center',
   },
@@ -466,25 +802,13 @@ const styles = StyleSheet.create({
     ...typography.h3,
     color: colors.textPrimary,
     marginBottom: spacing.xs,
+    textAlign: 'center',
   },
   emptySubtitle: {
     ...typography.bodySecondary,
     color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
-  },
-  headerIconButton: {
-    padding: spacing.xs,
-    marginRight: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: colors.bgElevated,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 36,
-    height: 36,
-  },
-  headerIconText: {
-    fontSize: 16,
   },
   startChatBtn: {
     marginTop: spacing.lg,
@@ -497,10 +821,22 @@ const styles = StyleSheet.create({
     ...typography.button,
     color: colors.textOnAccent,
   },
+  clearFilterBtn: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.full,
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+  },
+  clearFilterBtnText: {
+    ...typography.captionBold,
+    color: colors.textSecondary,
+  },
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    bottom: spacing.xl,
     width: 58,
     height: 58,
     borderRadius: 29,
@@ -518,4 +854,5 @@ const styles = StyleSheet.create({
     color: colors.textOnAccent,
   },
 });
+
 
