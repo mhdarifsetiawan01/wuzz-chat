@@ -20,6 +20,7 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -152,8 +153,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Message[]>([]);
   const [currentSearchIndex, setCurrentSearchIndex] = useState<number>(0);
-  const [isSearchLoading, setIsSearchLoading] = useState<boolean>(false);
+  const currentSearchIndexRef = useRef<number>(0);
+  const searchResultsRef = useRef<Message[]>([]);
   const searchTimerRef = useRef<any>(null);
+  const searchInputRef = useRef<TextInput>(null);
 
   // DEC-013: Authorization Shield State (403 Forbidden interceptor)
   const [isAccessDenied, setIsAccessDenied] = useState<boolean>(false);
@@ -1182,9 +1185,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   }, [pinnedMessages, messages]);
 
   const handleJumpToMessage = useCallback(
-    (messageId: string) => {
+    (messageId: string, showAlert = true) => {
       const index = messages.findIndex((m) => m.id === messageId);
       if (index !== -1 && flatListRef.current) {
+        // Crucial: Disarm near-bottom auto-scroll so list doesn't snap back to bottom
+        isNearBottomRef.current = false;
+
+        setHighlightedMessageId(messageId);
+        setTimeout(() => {
+          setHighlightedMessageId((current) => (current === messageId ? null : current));
+        }, 2500);
+
         try {
           flatListRef.current.scrollToIndex({
             index,
@@ -1197,11 +1208,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             animated: true,
           });
         }
-        setHighlightedMessageId(messageId);
-        setTimeout(() => {
-          setHighlightedMessageId(null);
-        }, 2000);
-      } else {
+      } else if (showAlert) {
         Alert.alert('Pesan Tidak Ditemukan', 'Pesan mungkin berada di riwayat sebelumnya.');
       }
     },
@@ -1213,6 +1220,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setIsSearching(true);
     setSearchQuery('');
     setSearchResults([]);
+    searchResultsRef.current = [];
+    currentSearchIndexRef.current = 0;
     setCurrentSearchIndex(0);
   }, []);
 
@@ -1223,9 +1232,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setIsSearching(false);
     setSearchQuery('');
     setSearchResults([]);
+    searchResultsRef.current = [];
+    currentSearchIndexRef.current = 0;
     setCurrentSearchIndex(0);
     setHighlightedMessageId(null);
   }, []);
+
+  // Android hardware back button closes search mode before leaving the room
+  useEffect(() => {
+    if (!isSearching) return;
+    const onHardwareBack = () => {
+      handleCloseSearch();
+      return true;
+    };
+    const backSub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
+    return () => backSub.remove();
+  }, [isSearching, handleCloseSearch]);
 
   const handleSearchQueryChange = useCallback(
     (query: string) => {
@@ -1234,59 +1256,96 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         clearTimeout(searchTimerRef.current);
       }
 
-      if (!query.trim()) {
+      const q = query.trim().toLowerCase();
+      if (!q) {
+        searchResultsRef.current = [];
+        currentSearchIndexRef.current = 0;
         setSearchResults([]);
         setCurrentSearchIndex(0);
+        setHighlightedMessageId(null);
         return;
       }
 
-      searchTimerRef.current = setTimeout(async () => {
-        setIsSearchLoading(true);
-        try {
-          const results = await messagesApi.searchMessages(roomId, query.trim());
-          const decResults = (results || []).map((r) => {
-            if (isEncryptedMessage(r.content) && roomAESKeyRef.current) {
-              try {
-                return {
-                  ...r,
-                  content: decryptText(roomAESKeyRef.current, r.content),
-                  is_encrypted: true,
-                };
-              } catch {
-                return r;
-              }
-            }
-            return r;
-          });
-          setSearchResults(decResults);
-          setCurrentSearchIndex(0);
-          if (decResults.length > 0) {
-            handleJumpToMessage(decResults[0].id);
-          }
-        } catch (err) {
-          console.warn('[ChatScreen] Search failed:', err);
-        } finally {
-          setIsSearchLoading(false);
-        }
-      }, 300);
+      // Fast, synchronous client-side search over decrypted messages (WhatsApp & Web pattern)
+      // Reverse order so index 0 is the newest match (most recent in timeline)
+      const matches = messages
+        .filter(
+          (m) =>
+            !m.is_deleted &&
+            ((m.content && m.content.toLowerCase().includes(q)) ||
+              (m.file_name && m.file_name.toLowerCase().includes(q)))
+        )
+        .reverse();
+
+      searchResultsRef.current = matches;
+      currentSearchIndexRef.current = 0;
+      setSearchResults(matches);
+      setCurrentSearchIndex(0);
+
+      if (matches.length > 0) {
+        setHighlightedMessageId(matches[0].id);
+        // Debounce list scroll so active typing is never interrupted by viewport jumping
+        searchTimerRef.current = setTimeout(() => {
+          handleJumpToMessage(matches[0].id, false);
+        }, 500);
+      } else {
+        setHighlightedMessageId(null);
+      }
     },
-    [roomId, handleJumpToMessage]
+    [messages, handleJumpToMessage]
   );
 
+  // Re-sync search results if messages change while search is active (e.g. older messages loaded)
+  useEffect(() => {
+    if (isSearching && searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      const matches = messages
+        .filter(
+          (m) =>
+            !m.is_deleted &&
+            ((m.content && m.content.toLowerCase().includes(q)) ||
+              (m.file_name && m.file_name.toLowerCase().includes(q)))
+        )
+        .reverse();
+      searchResultsRef.current = matches;
+      setSearchResults(matches);
+    }
+  }, [isSearching, searchQuery, messages]);
+
   const handleSearchPrev = useCallback(() => {
-    if (searchResults.length === 0) return;
-    const newIndex =
-      (currentSearchIndex - 1 + searchResults.length) % searchResults.length;
-    setCurrentSearchIndex(newIndex);
-    handleJumpToMessage(searchResults[newIndex].id);
-  }, [searchResults, currentSearchIndex, handleJumpToMessage]);
+    const total = searchResultsRef.current.length;
+    if (total === 0) return;
+    // Up arrow (▲): navigate to earlier/older matching message in history
+    const nextIndex = total === 1 ? 0 : (currentSearchIndexRef.current + 1) % total;
+    currentSearchIndexRef.current = nextIndex;
+    setCurrentSearchIndex(nextIndex);
+    const targetMsg = searchResultsRef.current[nextIndex];
+    if (targetMsg) {
+      handleJumpToMessage(targetMsg.id, false);
+    }
+  }, [handleJumpToMessage]);
 
   const handleSearchNext = useCallback(() => {
-    if (searchResults.length === 0) return;
-    const newIndex = (currentSearchIndex + 1) % searchResults.length;
-    setCurrentSearchIndex(newIndex);
-    handleJumpToMessage(searchResults[newIndex].id);
-  }, [searchResults, currentSearchIndex, handleJumpToMessage]);
+    const total = searchResultsRef.current.length;
+    if (total === 0) return;
+    // Down arrow (▼): navigate to later/newer matching message in history
+    const nextIndex = total === 1 ? 0 : (currentSearchIndexRef.current - 1 + total) % total;
+    currentSearchIndexRef.current = nextIndex;
+    setCurrentSearchIndex(nextIndex);
+    const targetMsg = searchResultsRef.current[nextIndex];
+    if (targetMsg) {
+      handleJumpToMessage(targetMsg.id, false);
+    }
+  }, [handleJumpToMessage]);
+
+  const handleSearchSubmit = useCallback(() => {
+    const total = searchResultsRef.current.length;
+    if (total === 0) return;
+    const targetMsg = searchResultsRef.current[currentSearchIndexRef.current];
+    if (targetMsg) {
+      handleJumpToMessage(targetMsg.id, false);
+    }
+  }, [handleJumpToMessage]);
 
   // DEC-013: Render Authorization Shield if access is denied (403 Forbidden)
   if (isAccessDenied) {
@@ -1328,6 +1387,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
             <View style={styles.searchHeaderInputContainer}>
               <TextInput
+                ref={searchInputRef}
                 style={styles.searchHeaderInput}
                 placeholder="Cari pesan dalam obrolan..."
                 placeholderTextColor={colors.textMuted}
@@ -1335,12 +1395,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 onChangeText={handleSearchQueryChange}
                 autoFocus
                 autoCorrect={false}
+                autoCapitalize="none"
+                returnKeyType="search"
+                onSubmitEditing={handleSearchSubmit}
               />
-              {isSearchLoading ? (
-                <ActivityIndicator size="small" color={colors.accentPrimary} style={{ marginRight: 6 }} />
-              ) : searchQuery.length > 0 ? (
+              {searchQuery.length > 0 ? (
                 <TouchableOpacity
-                  onPress={() => handleSearchQueryChange('')}
+                  onPress={() => {
+                    handleSearchQueryChange('');
+                    searchInputRef.current?.focus();
+                  }}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={styles.searchClearIcon}>✕</Text>
@@ -1348,31 +1412,60 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               ) : null}
             </View>
 
-            {searchResults.length > 0 && (
-              <View style={styles.searchNavCol}>
-                <Text style={styles.searchCounterText}>
-                  {currentSearchIndex + 1}/{searchResults.length}
+            <View style={styles.searchNavCol}>
+              {searchQuery.trim().length > 0 ? (
+                <Text
+                  style={[
+                    styles.searchCounterText,
+                    searchResults.length === 0 && styles.searchCounterEmpty,
+                  ]}
+                >
+                  {searchResults.length > 0
+                    ? `${currentSearchIndex + 1}/${searchResults.length}`
+                    : '0/0'}
                 </Text>
-                <View style={styles.searchNavButtons}>
-                  <TouchableOpacity
-                    style={styles.searchNavBtn}
-                    onPress={handleSearchPrev}
-                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                    activeOpacity={0.7}
+              ) : null}
+              <View style={styles.searchNavButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.searchNavBtn,
+                    searchResults.length === 0 && styles.searchNavBtnDisabled,
+                  ]}
+                  onPress={handleSearchPrev}
+                  disabled={searchResults.length === 0}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.searchNavIcon,
+                      searchResults.length === 0 && styles.searchNavIconDisabled,
+                    ]}
                   >
-                    <Text style={styles.searchNavIcon}>▲</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.searchNavBtn}
-                    onPress={handleSearchNext}
-                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                    activeOpacity={0.7}
+                    ▲
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.searchNavBtn,
+                    searchResults.length === 0 && styles.searchNavBtnDisabled,
+                  ]}
+                  onPress={handleSearchNext}
+                  disabled={searchResults.length === 0}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.searchNavIcon,
+                      searchResults.length === 0 && styles.searchNavIconDisabled,
+                    ]}
                   >
-                    <Text style={styles.searchNavIcon}>▼</Text>
-                  </TouchableOpacity>
-                </View>
+                    ▼
+                  </Text>
+                </TouchableOpacity>
               </View>
-            )}
+            </View>
           </View>
         ) : (
           <View style={[styles.header, isSubGroup && styles.headerTall]}>
@@ -1543,6 +1636,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             ref={flatListRef}
             data={messages}
             keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
+            onScrollToIndexFailed={(info) => {
+              isNearBottomRef.current = false;
+              // 1. Instantly jump near target offset to trigger FlatList to mount items
+              flatListRef.current?.scrollToOffset({
+                offset: Math.max(0, (info.averageItemLength || 75) * info.index),
+                animated: false,
+              });
+              // 2. Retry scrollToIndex once layout is measured so target is cleanly centered
+              setTimeout(() => {
+                flatListRef.current?.scrollToIndex({
+                  index: info.index,
+                  animated: true,
+                  viewPosition: 0.5,
+                });
+              }, 80);
+            }}
             renderItem={({ item }) => {
               const isSelf =
                 item.sender_id === currentUserId ||
@@ -1595,8 +1705,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 return;
               }
 
-              // Only auto-scroll to bottom if user was already at the bottom and not prepending history
-              if (isNearBottomRef.current && !isPrependingRef.current) {
+              // Only auto-scroll to bottom if user was already at the bottom, not prepending history, and not searching
+              if (isNearBottomRef.current && !isPrependingRef.current && !isSearching) {
                 flatListRef.current?.scrollToEnd({ animated: false });
               }
             }}
@@ -1886,23 +1996,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: colors.accentPrimary,
+    minWidth: 26,
+    textAlign: 'center',
+  },
+  searchCounterEmpty: {
+    color: colors.textMuted,
   },
   searchNavButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
   },
   searchNavBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
+  searchNavBtnDisabled: {
+    opacity: 0.35,
+  },
   searchNavIcon: {
     fontSize: 11,
     color: colors.textPrimary,
+  },
+  searchNavIconDisabled: {
+    color: colors.textMuted,
   },
   // M-Mobile-8.2B: Fail-Closed expired banner
   expiredBanner: {
