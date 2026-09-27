@@ -1,52 +1,87 @@
-# IMPLEMENTATION PLAN — M-Mobile-8.19
-## Aurora Glassmorphic Bottom Tab Navigation & Multi-Tab Screens
+# IMPLEMENTATION PLAN — M-Mobile-8.18: Offline-First SQLite Storage
+
+## 🎯 1. Ringkasan & Tujuan
+Mengubah arsitektur WuzzChat Mobile dari *Network-First (In-Memory Only)* menjadi *Local-First (Offline-First Persistent Storage)* menggunakan SQLite lokal (`expo-sqlite`). Menghilangkan loading spinner pada Home Screen saat cold start dan menyajikan obrolan instan seperti WhatsApp.
 
 ---
 
-## Objectives
-1. Install `@react-navigation/bottom-tabs` package.
-2. Buat `MainTabNavigator.tsx` dengan custom Aurora tab bar.
-3. Buat `CallsHistoryScreen.tsx` (Tab Panggilan).
-4. Buat `SettingsScreen.tsx` (Tab Pengaturan & Profil).
-5. Modifikasi `AppNavigator.tsx` agar `Home` route diganti menjadi `MainTabs`.
-6. Update `types.ts` dengan tipe baru.
-7. Update index exports.
-8. Verifikasi typecheck `npx tsc --noEmit`.
+## 🏗️ 2. Skema Database SQLite Lokal (`wuzzchat.db`)
 
----
-
-## Arsitektur Navigator
-
-```
-NavigationContainer
-└── AppNavigator (Native Stack)
-    ├── MainTabs (Bottom Tab) ← entry point
-    │   ├── Chats tab → RecentChatsScreen
-    │   ├── Calls tab → CallsHistoryScreen
-    │   └── Settings tab → SettingsScreen
-    ├── Chat (slide_from_right) ← meluncur di atas tab bar
-    ├── NewChat (slide_from_right)
-    ├── NewGroup (slide_from_right)
-    └── GroupInfo (slide_from_right)
+### A. Tabel `local_conversations`
+```sql
+CREATE TABLE IF NOT EXISTS local_conversations (
+    id TEXT PRIMARY KEY,
+    type TEXT,
+    name TEXT,
+    avatar_url TEXT,
+    last_message TEXT,
+    last_message_at TEXT,
+    unread_count INTEGER DEFAULT 0,
+    is_pinned INTEGER DEFAULT 0,
+    peer_id TEXT,
+    peer_public_key TEXT,
+    updated_at TEXT,
+    raw_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_conversations_updated ON local_conversations(is_pinned DESC, updated_at DESC);
 ```
 
+### B. Tabel `local_messages`
+```sql
+CREATE TABLE IF NOT EXISTS local_messages (
+    id TEXT PRIMARY KEY,
+    room_id TEXT NOT NULL,
+    sender_id TEXT NOT NULL,
+    sender_nickname TEXT,
+    content TEXT,
+    type TEXT DEFAULT 'text',
+    status TEXT DEFAULT 'sent',
+    reply_to_id TEXT,
+    media_url TEXT,
+    local_media_uri TEXT,
+    created_at TEXT NOT NULL,
+    raw_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_messages_room_created ON local_messages(room_id, created_at DESC);
+```
+
 ---
 
-## Target Files
+## 🔄 3. Alur Eksekusi (Lifecycle & Hydration)
 
-| File | Status |
-|------|--------|
-| `mobile/package.json` | MODIFY — install bottom-tabs |
-| `mobile/src/navigation/types.ts` | MODIFY — tambah TabParamList |
-| `mobile/src/navigation/MainTabNavigator.tsx` | CREATE |
-| `mobile/src/screens/CallsHistoryScreen.tsx` | CREATE |
-| `mobile/src/screens/SettingsScreen.tsx` | CREATE |
-| `mobile/src/screens/index.ts` | MODIFY — tambah exports |
-| `mobile/src/navigation/AppNavigator.tsx` | MODIFY — ganti Home → MainTabs |
-| `mobile/src/navigation/index.ts` | MODIFY — tambah export |
+```mermaid
+sequenceDiagram
+    participant User as User (Open App)
+    participant CC as ConversationContext
+    participant DB as Local SQLite (wuzzchat.db)
+    participant UI as HomeScreen / ChatList
+    participant API as Backend Server
+
+    User->>CC: Cold Start (App Launch)
+    CC->>DB: getStoredConversations()
+    alt Data Ada di Local DB
+        DB-->>CC: Array[Conversation] (< 30ms)
+        CC->>UI: setConversations(localData) & setIsLoading(false)
+        UI-->>User: Tampilan Home Instan (0ms Spinner)
+        CC->>API: refreshConversations(isSilent = true)
+        API-->>CC: Fresh Server Data
+        CC->>DB: saveStoredConversations(freshData)
+        CC->>UI: Update Chat List (Reactivity)
+    else Data Kosong (First Install / New User)
+        DB-->>CC: []
+        CC->>UI: setIsLoading(true)
+        CC->>API: refreshConversations(isSilent = false)
+        API-->>CC: Server Data
+        CC->>DB: saveStoredConversations(serverData)
+        CC->>UI: setConversations(data) & setIsLoading(false)
+    end
+```
 
 ---
 
-## Verification Strategy
-- `cd mobile && npx tsc --noEmit` → 0 errors
-- Mental smoke test Desktop & Mobile flow
+## 🧪 4. Strategi Pengujian & Verifikasi
+1. **Linter & Typecheck Gate**: `cd mobile && npx tsc --noEmit` wajib 0 error.
+2. **Cold Start Simulation**:
+   - Memastikan pembacaan local database berhasil mengembalikan data sebelum network response tiba.
+   - Memastikan `isLoading` langsung `false` jika data lokal tersedia.
+3. **Build Native Release APK**: `cd mobile/android && ./gradlew assembleRelease` berhasil lolos tanpa error kompilasi native C++/Java/Android Gradle.

@@ -501,6 +501,11 @@ Sebelum merilis aplikasi Android / iOS ke App Store / Play Store:
   - **Isolasi Multi-User pada 1 Perangkat Fisik**: Kunci privat & publik disimpan dengan kunci berawalan `wuzz_e2ee_priv_${userId}` dan `wuzz_e2ee_pub_${userId}`. Jika beberapa pengguna bergantian login dan logout di satu HP yang sama, kunci masing-masing user tetap terisolasi penuh, tidak saling menimpa, dan tidak menimbulkan konflik otorisasi saat berganti sesi.
   - **Penanganan Konflik E2EE (HTTP 409)**: Modal konflik (`KeyConflictModal`) HANYA dimunculkan jika user baru pertama kali login di HP dan akun sudah aktif di perangkat lain, ATAU jika kunci akun di server telah di-reset dari perangkat lain (kunci lokal lama otomatis dibersihkan untuk siap menerima transfer QR).
 
+- [x] **Offline-First SQLite Storage & Scroll Hardening (Milestone 8.18)**:
+  - **Local Persistence Layer (`expo-sqlite`)**: Integrasi SQLite lokal dengan WAL mode & synchronous NORMAL untuk rendering instan (< 50ms) daftar obrolan dan pesan tanpa cold-start loading screen.
+  - **Reverse Infinite Scroll Resilience**: Normalisasi format `reactions` (`ReactionItem[]`) untuk mencegah fatal exception pada pesan riwayat lama REST API, serta penggunaan `maintainVisibleContentPosition={{ minIndexForVisible: 0 }}` untuk mencegah lonjakan layar saat riwayat lama dimuat.
+  - **Floating Scroll-to-Bottom FAB**: Tombol bulat mengambang `↓` yang muncul saat user scroll ke atas > 300px dengan badge counter pesan baru yang otomatis hilang saat kembali ke pesan terbaru.
+
 ---
 
 *Dokumentasi ini adalah bagian resmi dari arsitektur Wuzz Chat dan wajib dijadikan acuan utama dalam pengembangan klien mobile.*

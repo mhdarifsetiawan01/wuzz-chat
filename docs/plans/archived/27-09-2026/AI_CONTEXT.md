@@ -1,13 +1,14 @@
-# Context Boundaries & System Constraints: Mobile Conversation Global Context & SWR Layer
+# AI_CONTEXT.md — Active Implementation Context
 
-## 🎯 Scope of Work
-- **Target Subsystem**: Mobile React Native Expo client (`mobile/`).
-- **Domain Focus**: Conversation list global caching & SWR (Stale-While-Revalidate) layer to eliminate UX blocking spinner ("Memuat obrolan...") when opening the app and switching back from `ChatScreen`.
-- **Primary References**: `PROMPT.md`, `docs/context/MOBILE.md` (Section 2.E), `mobile/DESIGN.md`.
-
-## 🛡️ Constraints & Anti-Patterns
-1. **Branch Protection**: Strict dev-only work. Active branch is verified as `dev`. Never touch `main`.
-2. **Zero Live Browser Testing**: Verification via `cd mobile && npx tsc --noEmit` (0 TypeScript errors) and code auditing.
-3. **No Unapproved Git Commit**: Never run `git commit` until user explicitly states "selesai".
-4. **Token Optimization**: Use line-range inspection and chunk editing. Avoid full-file overwrites for existing large files.
-5. **Clean Unmount & Memory Leak Prevention**: Clear WebSocket listeners and timeout handlers on unmount.
+- **Milestone**: M-Mobile-8.18: Offline-First Persistent Storage (SQLite / Local Cache)
+- **Target Repository/Dir**: `mobile/`
+- **Tech Stack**:
+  - React Native 0.86.3 / React 19 / Expo SDK 57
+  - Local Database: `expo-sqlite` ~57.0.3 (Modern Async API: `openDatabaseAsync`, WAL mode)
+  - State Management: `ConversationContext.tsx`, `ChatScreen.tsx`
+  - Backend Synchronization: Go WebSocket Hub (`join` with `since` parameter delta sync)
+- **Active Constraints**:
+  - Dilarang bekerja di branch `main` (tetap di `dev`).
+  - No commit sebelum user menyatakan "selesai".
+  - Verifikasi typecheck `npx tsc --noEmit` wajib 0 error.
+  - Kompatibel dengan skema E2EE dan Zero-Knowledge push decryption yang sudah ada.

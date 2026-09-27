@@ -90,6 +90,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const {
     getRoomMessages,
+    hydrateRoomFromLocalDB,
     isRoomLoading,
     setRoomMessages,
     reconcileHistory,
@@ -108,6 +109,28 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     },
     [roomId, setRoomMessages]
   );
+
+  // Synchronized callback refs to prevent room mount effect from looping/thrashing
+  const getRoomMessagesRef = useRef(getRoomMessages);
+  useEffect(() => {
+    getRoomMessagesRef.current = getRoomMessages;
+  }, [getRoomMessages]);
+
+  const hydrateRoomFromLocalDBRef = useRef(hydrateRoomFromLocalDB);
+  useEffect(() => {
+    hydrateRoomFromLocalDBRef.current = hydrateRoomFromLocalDB;
+  }, [hydrateRoomFromLocalDB]);
+
+  const markRoomLoadingRef = useRef(markRoomLoading);
+  useEffect(() => {
+    markRoomLoadingRef.current = markRoomLoading;
+  }, [markRoomLoading]);
+
+  const reconcileHistoryRef = useRef(reconcileHistory);
+  useEffect(() => {
+    reconcileHistoryRef.current = reconcileHistory;
+  }, [reconcileHistory]);
+
   const [isSending, setIsSending] = useState(false);
   const [stagedMedia, setStagedMedia] = useState<StagedMedia | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
@@ -178,26 +201,55 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const lastHandledMsgIdRef = useRef<string | null>(null);
   const roomAESKeyRef = useRef<Uint8Array | null>(null);
   const isPrependingRef = useRef<boolean>(false);
+  const isLoadingOlderRef = useRef<boolean>(false);
+  const isNearBottomRef = useRef<boolean>(true);
+  const hasInitialScrolledRef = useRef<boolean>(false);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState<boolean>(false);
+  const [unreadWhileScrolled, setUnreadWhileScrolled] = useState<number>(0);
+
+  const handleScrollToBottom = useCallback(() => {
+    isNearBottomRef.current = true;
+    setShowScrollBottomBtn(false);
+    setUnreadWhileScrolled(0);
+    flatListRef.current?.scrollToEnd({ animated: true });
+  }, []);
 
   // Load older messages for reverse infinite scroll
   const handleLoadOlder = useCallback(async () => {
-    if (isLoadingOlderMessages(roomId) || !hasMoreOlderMessages(roomId)) {
+    if (isLoadingOlderRef.current || isLoadingOlderMessages(roomId) || !hasMoreOlderMessages(roomId)) {
       return;
     }
+    isLoadingOlderRef.current = true;
     isPrependingRef.current = true;
     try {
       await loadOlderMessages(roomId);
     } finally {
+      isLoadingOlderRef.current = false;
       setTimeout(() => {
         isPrependingRef.current = false;
       }, 400);
     }
   }, [hasMoreOlderMessages, isLoadingOlderMessages, loadOlderMessages, roomId]);
 
-  // Handle scroll near top
+  // Handle scroll and track if user is near bottom
   const handleScroll = useCallback(
     (event: any) => {
-      const offsetY = event.nativeEvent.contentOffset.y;
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const offsetY = contentOffset?.y ?? 0;
+
+      // Track if user is near the bottom (<= 150px from bottom)
+      const distanceFromBottom = (contentSize?.height ?? 0) - (offsetY + (layoutMeasurement?.height ?? 0));
+      const nearBottom = distanceFromBottom <= 150;
+      isNearBottomRef.current = nearBottom;
+
+      // Show scroll-to-bottom FAB when user scrolled up more than 300px
+      const shouldShowBtn = distanceFromBottom > 300;
+      setShowScrollBottomBtn(shouldShowBtn);
+      if (nearBottom) {
+        setUnreadWhileScrolled(0);
+      }
+
+      // Trigger older messages fetch when scrolling near top
       if (
         offsetY <= 40 &&
         hasMoreOlderMessages(roomId) &&
@@ -437,6 +489,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // 1. Load History & Join Room on Mount (Clean History State Sync via WebSocket)
   useEffect(() => {
+    hasInitialScrolledRef.current = false;
+    isNearBottomRef.current = true;
+    setShowScrollBottomBtn(false);
+    setUnreadWhileScrolled(0);
+
     // DEC-013 / DEC-012: Suppress WebSocket join & false timeout if:
     // 1. Still verifying group pre-flight
     // 2. Access is denied (HTTP 403 Forbidden)
@@ -445,15 +502,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       return;
     }
 
-    // Only set loading to true if we don't have cached messages yet! (0ms SWR render)
-    const cached = getRoomMessages(roomId);
+    // Only set loading to true if we don't have cached messages in memory or local SQLite! (0ms SWR render)
+    const cached = getRoomMessagesRef.current(roomId);
     if (!cached || cached.length === 0) {
-      markRoomLoading(roomId, true);
+      hydrateRoomFromLocalDBRef.current(roomId).then((localMsgs) => {
+        if (!localMsgs || localMsgs.length === 0) {
+          markRoomLoadingRef.current(roomId, true);
+        }
+      });
     }
 
     // Timeout safety in case history event is empty or room is newly created
     const timeout = setTimeout(() => {
-      markRoomLoading(roomId, false);
+      markRoomLoadingRef.current(roomId, false);
     }, 4000);
 
     // Subscribe to 'history' event from WebSocket Hub
@@ -463,7 +524,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       clearTimeout(timeout);
       const rawMessages = data.messages || [];
-      reconcileHistory(roomId, rawMessages, roomAESKeyRef.current);
+      reconcileHistoryRef.current(roomId, rawMessages, roomAESKeyRef.current);
 
       // Auto-scroll to bottom once history rendered
       setTimeout(() => {
@@ -494,16 +555,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       clearTimeout(timeout);
       unsubscribeHistory();
       unsubscribeWsState();
-      markRoomLoading(roomId, false);
+      markRoomLoadingRef.current(roomId, false);
     };
   }, [
     roomId,
     isVerifyingGroup,
     isAccessDenied,
     directPreviewGroup,
-    getRoomMessages,
-    markRoomLoading,
-    reconcileHistory,
   ]);
 
 
@@ -528,9 +586,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         websocketClient.sendReceipt(roomId, 'read');
       }
 
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      if (isNearBottomRef.current) {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      } else {
+        setUnreadWhileScrolled((prev) => prev + 1);
+      }
     });
 
     // B. Pinned Messages Banner Sync
@@ -754,6 +816,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       setMessages((prev) => [...prev, optimisticMsg]);
       setStagedMedia(null);
       setReplyingTo(null);
+      isNearBottomRef.current = true;
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 50);
@@ -826,6 +889,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       setMessages((prev) => [...prev, optimisticMsg]);
       setReplyingTo(null);
+      isNearBottomRef.current = true;
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 50);
@@ -1494,12 +1558,40 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 </TouchableOpacity>
               ) : null
             }
+            maintainVisibleContentPosition={{
+              minIndexForVisible: 0,
+            }}
             onContentSizeChange={() => {
-              if (!isPrependingRef.current) {
+              if (!hasInitialScrolledRef.current && messages.length > 0) {
+                hasInitialScrolledRef.current = true;
+                flatListRef.current?.scrollToEnd({ animated: false });
+                return;
+              }
+
+              // Only auto-scroll to bottom if user was already at the bottom and not prepending history
+              if (isNearBottomRef.current && !isPrependingRef.current) {
                 flatListRef.current?.scrollToEnd({ animated: false });
               }
             }}
           />
+        )}
+
+        {/* Floating Scroll to Bottom Button */}
+        {showScrollBottomBtn && (
+          <TouchableOpacity
+            style={styles.scrollToBottomFab}
+            onPress={handleScrollToBottom}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.scrollToBottomIcon}>↓</Text>
+            {unreadWhileScrolled > 0 && (
+              <View style={styles.scrollToBottomBadge}>
+                <Text style={styles.scrollToBottomBadgeText}>
+                  {unreadWhileScrolled > 99 ? '99+' : unreadWhileScrolled}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         )}
 
         {/* Chat Input Bar — disabled when forum topic is expired (Fail-Closed Lock) */}
@@ -1858,5 +1950,49 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  scrollToBottomFab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 74,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 5,
+    elevation: 6,
+    zIndex: 30,
+  },
+  scrollToBottomIcon: {
+    fontSize: 20,
+    color: colors.textPrimary,
+    fontWeight: '700',
+    marginTop: -2,
+  },
+  scrollToBottomBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: colors.accentPrimary,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: colors.bgBase,
+  },
+  scrollToBottomBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#ffffff',
   },
 });
