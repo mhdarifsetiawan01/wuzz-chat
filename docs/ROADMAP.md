@@ -62,6 +62,8 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Milestone M-Mobile-8.6: In-App Live Camera QR Scanner & Zero-Knowledge Device Transfer (Planning)**: **[ ] TERENCANA** (Integrasi `expo-camera` / `CameraView` barcode scanner untuk pemindaian instan Safety Number 30-digit dan migrasi kunci antar-perangkat via QR Code `POST /api/users/transfer/create` & `/consume`)
 >    - **Milestone M-Mobile-8.15: Conversation Global Context & SWR Cache Layer**: **SELESAI ✅** (Penyelesaian loading bolak-balik via SWR Cache di `ConversationContext.tsx`, render instan 0ms saat kembali dari chat, dan WebSocket message sync terpusat)
 >    - **Milestone M-Mobile-8.16: React Navigation Native Stack Integration**: **[ ] TERENCANA (Prioritas 2)** (Migrasi `AppNavigator` ke native-stack untuk transisi slide native & swipe gesture tanpa unmounting)
+>    - **Milestone M-Mobile-8.17: Room Messages SWR Cache & Timeline In-Memory State**: **[ ] TERENCANA** (Caching riwayat pesan per room di memory/context untuk render instan 0ms saat re-entering chat room tanpa refetch blocking)
+>    - **Milestone M-Mobile-8.18: Offline-First Persistent Storage (SQLite / MMKV Cache)**: **[ ] TERENCANA** (Persistensi obrolan & riwayat pesan ke disk storage untuk mendukung offline viewing saat cold start)
 
 ---
 

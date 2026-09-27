@@ -75,8 +75,13 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - [ ] **M-Mobile-8.16: React Navigation Native Stack Integration & Fluid Screen Transition (Langkah 2)**:
   - Migrasi `AppNavigator` ke `@react-navigation/native-stack` (`createNativeStackNavigator`).
   - Animasi transisi slide native iOS/Android dan gesture swipe-back tanpa unmounting komponen.
+- [ ] **M-Mobile-8.17: Room Messages SWR Cache & Timeline In-Memory State**:
+  - Caching riwayat pesan per room di memory/context (`messagesByRoom: Record<string, Message[]>`).
+  - Render instan 0ms saat user keluar-masuk ruang obrolan `ChatScreen` tanpa refetch blocking, disertai background sync via WebSocket.
+- [ ] **M-Mobile-8.18: Offline-First Persistent Storage (SQLite / MMKV Cache)**:
+  - Persistensi cache obrolan & riwayat pesan ke disk storage (`expo-sqlite` / MMKV).
+  - Akses riwayat obrolan seketika saat aplikasi dibuka dari *Cold Start* tanpa koneksi internet.
 - [ ] Refactor & polishing komponen UI mobile (`ChatScreen.tsx` & komponen lainnya) agar terus selaras dengan standar `mobile/DESIGN.md`.
-- [ ] Implementasi Local Message SQLite Cache (Room / CoreData equivalent) untuk pembacaan riwayat chat saat offline.
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.
 
 
