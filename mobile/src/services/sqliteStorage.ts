@@ -81,6 +81,21 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
         CREATE INDEX IF NOT EXISTS idx_msg_user_room_created 
         ON local_messages(user_id, room_id, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS local_call_logs (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          peer_id TEXT NOT NULL,
+          peer_username TEXT,
+          peer_display_name TEXT,
+          call_type TEXT NOT NULL,
+          duration_seconds INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          status TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_call_user_created 
+        ON local_call_logs(user_id, created_at DESC);
       `);
 
       dbInstance = db;
@@ -321,8 +336,106 @@ export async function clearUserCache(userId: string): Promise<void> {
     await db.withTransactionAsync(async () => {
       await db.runAsync(`DELETE FROM local_conversations WHERE user_id = ?`, [userId]);
       await db.runAsync(`DELETE FROM local_messages WHERE user_id = ?`, [userId]);
+      await db.runAsync(`DELETE FROM local_call_logs WHERE user_id = ?`, [userId]);
     });
   } catch (error) {
     console.warn('[sqliteStorage] Failed to clearUserCache:', error);
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Local Call Logs Storage (M-Mobile-8.20)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface LocalCallRecord {
+  id: string;
+  user_id: string;
+  peer_id: string;
+  peer_username: string;
+  peer_display_name: string;
+  call_type: 'incoming' | 'outgoing' | 'missed';
+  duration_seconds: number;
+  created_at: number;
+  status: string;
+}
+
+/**
+ * Save or update a call log record in local SQLite.
+ */
+export async function saveCallRecord(record: LocalCallRecord): Promise<void> {
+  if (!record || !record.id || !record.user_id) return;
+
+  try {
+    const db = await getDatabase();
+    await db.runAsync(
+      `INSERT OR REPLACE INTO local_call_logs (
+        id, user_id, peer_id, peer_username, peer_display_name,
+        call_type, duration_seconds, created_at, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        record.id,
+        record.user_id,
+        record.peer_id,
+        record.peer_username || '',
+        record.peer_display_name || '',
+        record.call_type,
+        record.duration_seconds || 0,
+        record.created_at || Date.now(),
+        record.status || 'completed',
+      ]
+    );
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to saveCallRecord:', error);
+  }
+}
+
+/**
+ * Retrieve call history records for a specific user, sorted from newest to oldest.
+ */
+export async function getCallHistory(
+  userId: string,
+  limit: number = 100
+): Promise<LocalCallRecord[]> {
+  if (!userId) return [];
+
+  try {
+    const db = await getDatabase();
+    const rows = await db.getAllAsync<LocalCallRecord>(
+      `SELECT * FROM local_call_logs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?`,
+      [userId, limit]
+    );
+    return rows || [];
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to getCallHistory:', error);
+    return [];
+  }
+}
+
+/**
+ * Clears all call history for a specific user.
+ */
+export async function clearCallHistory(userId: string): Promise<void> {
+  if (!userId) return;
+
+  try {
+    const db = await getDatabase();
+    await db.runAsync(`DELETE FROM local_call_logs WHERE user_id = ?`, [userId]);
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to clearCallHistory:', error);
+  }
+}
+
+/**
+ * Delete a specific call record by its primary key ID.
+ */
+export async function deleteCallRecord(recordId: string): Promise<void> {
+  if (!recordId) return;
+
+  try {
+    const db = await getDatabase();
+    await db.runAsync(`DELETE FROM local_call_logs WHERE id = ?`, [recordId]);
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to deleteCallRecord:', error);
+  }
+}
+

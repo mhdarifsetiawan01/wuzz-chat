@@ -126,7 +126,14 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
       onRequestClose={handleDismiss}
       statusBarTranslucent
     >
-      <View style={styles.modalRoot}>
+      <View
+        style={[
+          styles.modalRoot,
+          {
+            paddingTop: Math.max(insets.top, 24) + spacing.lg,
+          },
+        ]}
+      >
         {/* Backdrop */}
         <TouchableWithoutFeedback onPress={handleDismiss}>
           <Animated.View
@@ -237,6 +244,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderDefault,
     borderBottomWidth: 0,
+    maxHeight: '100%',
+    flexShrink: 1,
     ...shadows.modal,
   },
   dragHandleContainer: {
@@ -280,6 +289,7 @@ const styles = StyleSheet.create({
   sheetBody: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
+    flexShrink: 1,
   },
   menuItem: {
     flexDirection: 'row',

@@ -13,19 +13,31 @@ import React, {
   useState,
 } from 'react';
 import { Alert } from 'react-native';
+import { useAuth } from './AuthContext';
 import {
   CallSession,
   CallStatus,
   WebRTCAudioSession,
   callAudioManager,
   websocketClient,
+  LocalCallRecord,
+  saveCallRecord,
+  getCallHistory,
+  clearCallHistory as clearCallHistoryStorage,
+  deleteCallRecord as deleteCallRecordStorage,
 } from '../services';
+import { startDirectChat } from '../api/users';
 
 interface CallContextType {
   activeCall: CallSession | null;
   callDuration: number;
   isMuted: boolean;
   isSpeaker: boolean;
+  callHistory: LocalCallRecord[];
+  isLoadingHistory: boolean;
+  refreshCallHistory: () => Promise<void>;
+  deleteCallRecord: (recordId: string) => Promise<void>;
+  clearAllCallHistory: () => Promise<void>;
   startCall: (
     roomId: string,
     peerId: string,
@@ -42,18 +54,116 @@ interface CallContextType {
 const CallContext = createContext<CallContextType | undefined>(undefined);
 
 export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [activeCall, setActiveCall] = useState<CallSession | null>(null);
   const [callDuration, setCallDuration] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isSpeaker, setIsSpeaker] = useState<boolean>(false);
+  const [callHistory, setCallHistory] = useState<LocalCallRecord[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
 
   const activeCallRef = useRef<CallSession | null>(null);
   activeCallRef.current = activeCall;
+
+  const callDurationRef = useRef<number>(0);
+  callDurationRef.current = callDuration;
+
+  const loggedCallIdRef = useRef<string | null>(null);
 
   const webrtcSessionRef = useRef<WebRTCAudioSession | null>(null);
   const pendingOfferSdpRef = useRef<string | null>(null);
   const earlyIceCandidatesRef = useRef<string[]>([]);
   const durationTimerRef = useRef<any>(null);
+
+  // Load call history from SQLite
+  const refreshCallHistory = useCallback(async () => {
+    if (!user?.id) {
+      setCallHistory([]);
+      return;
+    }
+    setIsLoadingHistory(true);
+    try {
+      const records = await getCallHistory(user.id);
+      setCallHistory(records);
+    } catch (err) {
+      console.warn('[CallContext] Failed to load call history:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    refreshCallHistory();
+  }, [refreshCallHistory]);
+
+  const deleteCallRecord = useCallback(async (recordId: string) => {
+    await deleteCallRecordStorage(recordId);
+    setCallHistory((prev) => prev.filter((r) => r.id !== recordId));
+  }, []);
+
+  const clearAllCallHistory = useCallback(async () => {
+    if (!user?.id) return;
+    await clearCallHistoryStorage(user.id);
+    setCallHistory([]);
+  }, [user?.id]);
+
+  // Record call to local SQLite (Single Invocation Guard DEC-M33)
+  const recordCallLog = useCallback(
+    async (
+      session: CallSession | null,
+      finalStatus: string,
+      durationOverride?: number
+    ) => {
+      if (!session || !user?.id) return;
+
+      const sessionStartTime = session.startTime || 0;
+      const callKey = `${session.room}_${session.isCaller ? 'out' : 'in'}_${sessionStartTime || session.peerId}`;
+      if (loggedCallIdRef.current === callKey) {
+        return;
+      }
+      loggedCallIdRef.current = callKey;
+
+      let callType: 'incoming' | 'outgoing' | 'missed';
+      if (session.isCaller) {
+        callType = 'outgoing';
+      } else if (session.status === 'connected' || finalStatus === 'completed') {
+        callType = 'incoming';
+      } else {
+        callType = 'missed';
+      }
+
+      let finalDuration = 0;
+      if (callType !== 'missed') {
+        if (typeof durationOverride === 'number' && durationOverride > 0) {
+          finalDuration = durationOverride;
+        } else if (sessionStartTime > 0) {
+          finalDuration = Math.max(0, Math.floor((Date.now() - sessionStartTime) / 1000));
+        } else {
+          finalDuration = callDurationRef.current;
+        }
+      }
+
+      const record: LocalCallRecord = {
+        id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+        user_id: user.id,
+        peer_id: session.peerId,
+        peer_username: session.peerNickname,
+        peer_display_name: session.peerNickname,
+        call_type: callType,
+        duration_seconds: finalDuration,
+        created_at: sessionStartTime || Date.now(),
+        status: finalStatus,
+      };
+
+      try {
+        await saveCallRecord(record);
+        setCallHistory((prev) => [record, ...prev.filter((r) => r.id !== record.id)]);
+      } catch (e) {
+        console.warn('[CallContext] Failed to save call record:', e);
+      }
+    },
+    [user?.id]
+  );
 
   // Clean up timer on unmount or call end
   const clearDurationTimer = useCallback(() => {
@@ -98,6 +208,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /**
    * Start an outgoing 1-on-1 voice call
+   * DEC-M34: Supports automatic room resolution if roomId is omitted or empty.
    */
   const startCall = useCallback(
     async (
@@ -118,9 +229,27 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 2. Clean previous state if any
       cleanupCallSession();
+      loggedCallIdRef.current = null;
+
+      // Auto-resolve room ID if empty
+      let targetRoomId = roomId;
+      if (!targetRoomId) {
+        try {
+          const directRes = await startDirectChat(peerId);
+          if (directRes?.room_id) {
+            targetRoomId = directRes.room_id;
+          } else {
+            throw new Error('No room_id returned from startDirectChat');
+          }
+        } catch (err: any) {
+          console.error('[CallContext] Failed to resolve room for call:', err);
+          Alert.alert('Gagal Memulai Panggilan', 'Tidak dapat membuat sesi percakapan dengan kontak.');
+          return false;
+        }
+      }
 
       const newCall: CallSession = {
-        room: roomId,
+        room: targetRoomId,
         peerId,
         peerNickname,
         peerAvatar,
@@ -140,21 +269,22 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         const offerSdp = await session.createOffer((candidateJson) => {
-          websocketClient.sendIceCandidate(roomId, candidateJson);
+          websocketClient.sendIceCandidate(targetRoomId, candidateJson);
         });
 
         // 4. Send SDP Offer via WebSocket signaling
-        websocketClient.sendCallOffer(roomId, offerSdp, peerId);
+        websocketClient.sendCallOffer(targetRoomId, offerSdp, peerId);
         return true;
       } catch (err) {
         console.error('[CallContext] Failed to start call:', err);
+        recordCallLog(newCall, 'failed', 0);
         cleanupCallSession();
         setActiveCall({ ...newCall, status: 'ended' });
         setTimeout(() => setActiveCall(null), 1500);
         return false;
       }
     },
-    [cleanupCallSession]
+    [cleanupCallSession, recordCallLog]
   );
 
   /**
@@ -204,11 +334,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
     } catch (err) {
       console.error('[CallContext] Failed to accept call:', err);
+      recordCallLog(current, 'failed', 0);
       cleanupCallSession();
       setActiveCall((prev) => (prev ? { ...prev, status: 'ended' } : null));
       setTimeout(() => setActiveCall(null), 1500);
     }
-  }, [cleanupCallSession, isSpeaker]);
+  }, [cleanupCallSession, isSpeaker, recordCallLog]);
 
   /**
    * Reject incoming call
@@ -217,11 +348,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const current = activeCallRef.current;
     if (current) {
       websocketClient.sendCallReject(current.room);
+      recordCallLog(current, 'rejected', 0);
     }
     cleanupCallSession();
     setActiveCall((prev) => (prev ? { ...prev, status: 'ended' } : null));
     setTimeout(() => setActiveCall(null), 1000);
-  }, [cleanupCallSession]);
+  }, [cleanupCallSession, recordCallLog]);
 
   /**
    * Hang up / End active or outgoing call
@@ -230,11 +362,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const current = activeCallRef.current;
     if (current) {
       websocketClient.sendCallEnd(current.room);
+      const finalStatus =
+        current.status === 'connected'
+          ? 'completed'
+          : current.isCaller
+          ? 'cancelled'
+          : 'missed';
+      recordCallLog(current, finalStatus, callDurationRef.current);
     }
     cleanupCallSession();
     setActiveCall((prev) => (prev ? { ...prev, status: 'ended' } : null));
     setTimeout(() => setActiveCall(null), 1000);
-  }, [cleanupCallSession]);
+  }, [cleanupCallSession, recordCallLog]);
 
   /**
    * Toggle Microphone Mute
@@ -268,6 +407,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      loggedCallIdRef.current = null;
       pendingOfferSdpRef.current = msg.sdp || null;
       setActiveCall({
         room: msg.room || '',
@@ -314,18 +454,36 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const unsubReject = websocketClient.on('call_reject', () => {
+      const current = activeCallRef.current;
+      if (current) {
+        recordCallLog(current, 'rejected', 0);
+      }
       cleanupCallSession();
       setActiveCall((prev) => (prev ? { ...prev, status: 'ended' } : null));
       setTimeout(() => setActiveCall(null), 1500);
     });
 
     const unsubEnd = websocketClient.on('call_end', () => {
+      const current = activeCallRef.current;
+      if (current) {
+        const finalStatus =
+          current.status === 'connected'
+            ? 'completed'
+            : current.isCaller
+            ? 'cancelled'
+            : 'missed';
+        recordCallLog(current, finalStatus, callDurationRef.current);
+      }
       cleanupCallSession();
       setActiveCall((prev) => (prev ? { ...prev, status: 'ended' } : null));
       setTimeout(() => setActiveCall(null), 1200);
     });
 
     const unsubBusy = websocketClient.on('call_busy', () => {
+      const current = activeCallRef.current;
+      if (current) {
+        recordCallLog(current, 'busy', 0);
+      }
       cleanupCallSession();
       setActiveCall((prev) => (prev ? { ...prev, status: 'ended' } : null));
       Alert.alert('Pengguna Sedang Sibuk', 'Kontak sedang berada dalam panggilan lain.');
@@ -340,7 +498,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubEnd();
       unsubBusy();
     };
-  }, [cleanupCallSession, isSpeaker]);
+  }, [cleanupCallSession, isSpeaker, recordCallLog]);
 
   return (
     <CallContext.Provider
@@ -349,6 +507,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         callDuration,
         isMuted,
         isSpeaker,
+        callHistory,
+        isLoadingHistory,
+        refreshCallHistory,
+        deleteCallRecord,
+        clearAllCallHistory,
         startCall,
         acceptCall,
         rejectCall,
