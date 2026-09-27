@@ -309,18 +309,6 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
           >
             <Text style={styles.headerIconText}>⋮</Text>
           </TouchableOpacity>
-
-          {user && (
-            <TouchableOpacity
-              onPress={() => setIsActionMenuOpen(true)}
-              activeOpacity={0.8}
-              style={styles.avatarButton}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              accessibilityLabel="Profil Pengguna"
-            >
-              <Avatar name={user.display_name || user.username} size={36} />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
