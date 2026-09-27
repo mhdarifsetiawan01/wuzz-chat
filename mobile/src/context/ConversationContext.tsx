@@ -248,6 +248,28 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     refreshConversations(false);
   }, [isAuthenticated]);
 
+  // Re-process cached conversations as soon as E2EE private key is initialized/available
+  useEffect(() => {
+    if (!e2eeKeyPair?.privateKeyHex || conversations.length === 0) return;
+
+    let hasEncrypted = false;
+    for (const c of conversations) {
+      const raw =
+        typeof c.last_message === 'string'
+          ? c.last_message
+          : c.last_message?.content;
+      if (raw && isEncryptedMessage(raw)) {
+        hasEncrypted = true;
+        break;
+      }
+    }
+    if (!hasEncrypted) return;
+
+    processConversations(conversations).then((processed) => {
+      setConversations(sortConversations(processed));
+    });
+  }, [e2eeKeyPair?.privateKeyHex, conversations, processConversations]);
+
   // Centralized WebSocket listener: ingest incoming 'message' events for silent revalidation
   useEffect(() => {
     if (!isAuthenticated) return;
