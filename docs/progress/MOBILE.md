@@ -89,13 +89,23 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
     - Deteksi otomatis saat user scroll mendekati atas (`contentOffset.y <= 40`) serta tombol manual `↑ Muat Pesan Terdahulu` di `ListHeaderComponent`.
     - Guard `isPrependingRef` pada `onContentSizeChange` untuk mencegah loncatan scroll ke bawah saat pesan lama disisipkan di atas.
 
+- [x] **M-Mobile-8.19: Aurora Glassmorphic Bottom Tab Navigation & Multi-Tab Screens (27 September 2026)**:
+  - Install `@react-navigation/bottom-tabs` v7.19.2.
+  - Implementasi `MainTabNavigator.tsx` dengan custom Aurora Glassmorphic tab bar: glassmorphic `bgSurface`, `borderSubtle`, safe-area insets, active pill `tintAccent20`, label aktif `accentPrimary`, label non-aktif `textMuted`.
+  - **Live Unread Badge** pada tab Obrolan terhubung ke `useConversations()` — badge real-time tanpa refresh.
+  - Arsitektur **Stack-Over-Tab**: `MainTabs` sebagai root entry di `AppNavigator`. Screen `Chat`, `NewChat`, `NewGroup`, `GroupInfo` tetap di Root Stack — slide ATAS tab bar secara natural.
+  - `CompositeNavigationProp` pada `ChatsTabScreen` agar tab screen bisa navigate ke Root Stack dengan type-safe.
+  - Buat `CallsHistoryScreen.tsx`: riwayat panggilan WebRTC (masuk / keluar / tak terjawab), timestamp relatif, FAB inisiasi panggilan baru.
+  - Buat `SettingsScreen.tsx`: avatar 56dp initials + online dot, nama + `@username`, badge E2EE Terenkripsi, menu Perangkat Tertaut, Kunci E2EE, Notifikasi, Keluar Akun (dengan konfirmasi aman).
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors** dan `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**.
+
 ---
 
-## 🎯 Fokus Berikutnya (What's Next)
+## Fokus Berikutnya (What's Next)
 - [ ] **M-Mobile-8.18: Offline-First Persistent Storage (SQLite / MMKV Cache)**:
   - Persistensi cache obrolan & riwayat pesan ke disk storage (`expo-sqlite` / MMKV).
   - Akses riwayat obrolan seketika saat aplikasi dibuka dari *Cold Start* tanpa koneksi internet.
-- [ ] Refactor & polishing komponen UI mobile (`ChatScreen.tsx` & komponen lainnya) agar terus selaras dengan standar `mobile/DESIGN.md`.
+- [ ] **M-Mobile-8.20: CallsHistoryScreen — Integrasi Real API & CallContext** (ganti mock data, FAB contact picker).
+- [ ] **M-Mobile-8.21: SettingsScreen — Edit Profil & NotificationSettingsModal**.
+- [ ] Refactor & polishing komponen UI mobile agar terus selaras dengan standar `mobile/DESIGN.md`.
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.
-
-

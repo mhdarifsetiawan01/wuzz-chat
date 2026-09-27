@@ -5,4 +5,6 @@ export * from './ChatScreen';
 export * from './NewChatScreen';
 export * from './NewGroupScreen';
 export * from './GroupInfoScreen';
+export * from './CallsHistoryScreen';
+export * from './SettingsScreen';
 

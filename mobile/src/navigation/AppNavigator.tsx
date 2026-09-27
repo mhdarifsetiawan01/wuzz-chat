@@ -1,21 +1,25 @@
 /**
- * WuzzChat Mobile UI - AppNavigator
+ * WuzzChat Mobile UI - AppNavigator (Root Native Stack)
  * Native Stack Navigator using @react-navigation/native-stack.
  * Provides 60fps native animations (slide_from_right) & gesture swipe-to-back.
- * Modular, scalable, and easy to add or remove screens in the future.
+ *
+ * Architecture (M-Mobile-8.19):
+ *  Root Stack entry = MainTabs (Bottom Tab Navigator).
+ *  Full-screen screens (Chat, NewChat, NewGroup, GroupInfo) sit in Root Stack,
+ *  so they slide OVER the tab bar naturally — no tabBarStyle toggling needed.
  */
 
 import React from 'react';
 import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { RootStackParamList } from './types';
-import { Conversation, ConversationItem } from '../api/types';
+import { ConversationItem } from '../api/types';
 import {
   ChatScreen,
   GroupInfoScreen,
   NewChatScreen,
   NewGroupScreen,
-  RecentChatsScreen,
 } from '../screens';
+import { MainTabNavigator } from './MainTabNavigator';
 import { colors } from '../theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -32,25 +36,17 @@ const defaultScreenOptions: NativeStackNavigationOptions = {
 export const AppNavigator: React.FC = () => {
   return (
     <Stack.Navigator
-      initialRouteName="Home"
+      initialRouteName="MainTabs"
       screenOptions={defaultScreenOptions}
     >
-      {/* 1. Home / Recent Conversations List */}
-      <Stack.Screen name="Home">
-        {({ navigation }) => (
-          <RecentChatsScreen
-            onSelectChat={(chat) =>
-              navigation.navigate('Chat', {
-                conversation: chat as ConversationItem,
-              })
-            }
-            onStartNewChat={() => navigation.navigate('NewChat')}
-            onStartNewGroup={() => navigation.navigate('NewGroup')}
-          />
-        )}
-      </Stack.Screen>
+      {/* 1. Main Tabs — Bottom Tab Navigator (Chats | Calls | Settings) */}
+      <Stack.Screen
+        name="MainTabs"
+        component={MainTabNavigator}
+        options={{ animation: 'none' }}
+      />
 
-      {/* 2. Active Chat Room (Direct, Group, or Sub-group) */}
+      {/* 2. Active Chat Room — slides over tab bar (tab bar hidden naturally) */}
       <Stack.Screen
         name="Chat"
         options={{
@@ -97,7 +93,7 @@ export const AppNavigator: React.FC = () => {
         )}
       </Stack.Screen>
 
-      {/* 3. New Chat / Contact Discovery Screen */}
+      {/* 3. New Chat / Contact Discovery */}
       <Stack.Screen
         name="NewChat"
         options={{
@@ -150,7 +146,7 @@ export const AppNavigator: React.FC = () => {
           <GroupInfoScreen
             groupId={route.params.groupId}
             onBack={() => navigation.goBack()}
-            onLeaveSuccess={() => navigation.navigate('Home')}
+            onLeaveSuccess={() => navigation.navigate('MainTabs')}
           />
         )}
       </Stack.Screen>

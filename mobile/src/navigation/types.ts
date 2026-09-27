@@ -2,25 +2,52 @@
  * WuzzChat Mobile Navigation - Type Definitions
  * Scalable & dynamic RootStackParamList for native stack navigation.
  * Easy to extend with new routes in the future.
+ *
+ * Architecture (M-Mobile-8.19):
+ *  RootStack → MainTabs (Bottom Tab entry) → individual tab screens
+ *           → Chat, NewChat, NewGroup, GroupInfo (full-screen stack screens)
  */
 
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { BottomTabNavigationProp, BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { RouteProp } from '@react-navigation/native';
-import { Conversation, ConversationItem } from '../api/types';
+import { ConversationItem } from '../api/types';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Bottom Tab Param List (the 3 main tabs)
+// ─────────────────────────────────────────────────────────────────────────────
+export type TabParamList = {
+  Chats: undefined;
+  Calls: undefined;
+  Settings: undefined;
+};
+
+export type TabNavigationProp<T extends keyof TabParamList> =
+  BottomTabNavigationProp<TabParamList, T>;
+
+export type TabScreenProps<T extends keyof TabParamList> =
+  BottomTabScreenProps<TabParamList, T>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Root Stack Param List (wraps tabs + full-screen stacks)
+// ─────────────────────────────────────────────────────────────────────────────
 export type RootStackParamList = {
-  Home: undefined;
+  /** Entry point: the bottom tab container */
+  MainTabs: undefined;
+  /** Full-screen chat room — rendered over the tab bar */
   Chat: {
     conversation: ConversationItem;
     parentGroupConversation?: ConversationItem | null;
   };
+  /** Contact discovery */
   NewChat: undefined;
+  /** Group creation wizard */
   NewGroup: undefined;
+  /** Group info & management */
   GroupInfo: {
     groupId: string;
   };
   // Future screens can be added here easily:
-  // Settings: undefined;
   // UserProfile: { userId: string };
   // MediaGallery: { roomId: string };
 };
