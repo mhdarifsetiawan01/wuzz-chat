@@ -1,3 +1,3 @@
-# AI_CONTEXT.md — Standby
+# AI CONTEXT — Standby
 
-Standby.
+*(Standby)*

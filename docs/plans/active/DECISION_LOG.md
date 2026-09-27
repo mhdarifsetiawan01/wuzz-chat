@@ -1,3 +1,3 @@
 # DECISION LOG — Standby
 
-Standby.
+*(Standby)*

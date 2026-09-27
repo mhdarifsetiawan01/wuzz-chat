@@ -177,8 +177,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     isSubGroup;
   const isDirect = !isGroup;
 
-  // Pre-flight check state for groups (suppress premature websocket join & timers)
-  const [isVerifyingGroup, setIsVerifyingGroup] = useState<boolean>(isGroup);
+  // DEC-020 / SWR: Check if this group is already an established/known conversation
+  // (opened from chat list, has role, has last_message/history, or cached in SQLite/memory)
+  const isKnownGroupMember = useMemo(() => {
+    if (!isGroup) return true;
+    return Boolean(
+      conversation.my_role ||
+      conversation.last_message !== undefined ||
+      conversation.unread_count !== undefined ||
+      conversation.updated_at ||
+      (messages && messages.length > 0)
+    );
+  }, [
+    isGroup,
+    conversation.my_role,
+    conversation.last_message,
+    conversation.unread_count,
+    conversation.updated_at,
+    messages,
+  ]);
+
+  // Pre-flight check state for groups (only blocks UI if group is an unverified direct link)
+  const [isVerifyingGroup, setIsVerifyingGroup] = useState<boolean>(
+    isGroup && !isKnownGroupMember
+  );
 
   // M-Mobile-8.2B: Sub-group / forum topic state
   const [parentGroupDetails, setParentGroupDetails] = useState<GroupDetails | null>(null);
@@ -310,7 +332,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       return;
     }
     let mounted = true;
-    setIsVerifyingGroup(true);
+    if (!isKnownGroupMember) {
+      setIsVerifyingGroup(true);
+    }
 
     groupsApi
       .getGroupDetails(roomId)
@@ -346,9 +370,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         if (isForbidden) {
           setIsAccessDenied(true);
           setAccessDeniedError(err?.detail || err?.message || 'Akses ditolak: Anda bukan anggota grup ini');
-        } else {
+        } else if (!isKnownGroupMember) {
           Alert.alert('Gagal Memuat Grup', err?.detail || err?.message || 'Grup tidak dapat diakses.');
           onBack();
+        } else {
+          // Resilient SWR: if network failed on an already known group, keep viewing cached messages
+          console.warn('[ChatScreen] Could not refresh group details in background, keeping local view');
         }
         setIsVerifyingGroup(false);
         markRoomLoading(roomId, false);
@@ -357,7 +384,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     return () => {
       mounted = false;
     };
-  }, [isGroup, roomId, onBack]);
+  }, [isGroup, roomId, onBack, isKnownGroupMember]);
 
   // M-Mobile-8.2C: Fetch parent group info for breadcrumb when in a sub-group
   useEffect(() => {

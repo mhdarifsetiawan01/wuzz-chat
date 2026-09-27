@@ -66,7 +66,9 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Milestone M-Mobile-8.18: Offline-First Persistent Storage (SQLite Cache & Anti-Blink Guard)**: **SELESAI ✅** (Persistensi obrolan & riwayat pesan ke disk storage `expo-sqlite` WAL mode untuk mendukung offline viewing saat cold start, anti-blink guard, dan FAB scroll-to-bottom)
 >    - **Milestone M-Mobile-8.19: Aurora Glassmorphic Bottom Tab Navigation**: **SELESAI ✅** (Implementasi navigation multi-tab Obrolan, Panggilan, dan Pengaturan dengan Aurora Glassmorphic styling dan unread badges)
 >    - **Milestone M-Mobile-8.20: CallsHistoryScreen — Integrasi Real API & CallContext**: **SELESAI ✅** (Riwayat panggilan WebRTC tersimpan di SQLite, dialer, dan FAB Contact Picker)
->    - **Milestone M-Mobile-8.21: SettingsScreen — Modals & Interactive Settings**: **[ ] TERENCANA** (Modal QR Device Transfer, Safety Number E2EE, dan preferensi notifikasi)
+>    - **Milestone M-Mobile-8.21: SettingsScreen — Modals & Interactive Settings**: **[ ] TERENCANA** (Modal QR Device Transfer, Safety Number E2EE, preferensi notifikasi, serta tombol pembersih cache obrolan & media)
+>    - **Milestone M-Mobile-8.22: Instant 0ms Group Chat Rendering via SWR & SQLite Local Hydration**: **SELESAI ✅** (Eliminasi blocking spinner pada grup obrolan aktif, hidrasi instan 0ms dari memori & SQLite, background sync non-blocking, dan penguatan ketahanan offline)
+>    - **Milestone M-Mobile-8.23: SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum**: **[ ] TERENCANA** (Batas retensi 500–1.000 pesan per room di SQLite lokal, auto-pruning pesan usang saat sync, dan pemanfaatan `PRAGMA auto_vacuum = INCREMENTAL`)
 
 ---
 
