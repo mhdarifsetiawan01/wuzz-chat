@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Wuzz Chat",
+    "name": "WuzzChat",
     "slug": "wuzz-chat",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,7 +16,7 @@
       "package": "com.wuzzchat.mobile",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0462E8",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

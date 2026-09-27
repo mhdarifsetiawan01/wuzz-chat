@@ -149,6 +149,13 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Integrasi listener tombol fisik Android `BackHandler` untuk menutup bilah pencarian sebelum keluar dari room obrolan.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**, dan instalasi sukses via `adb install -r`.
 
+- [x] **M-Mobile-8.24: Modifikasi Identitas Aplikasi 'WuzzChat' & Android Adaptive Icons (28 September 2026)**:
+  - Mengubah nama aplikasi saat terinstal di perangkat HP menjadi `WuzzChat` (tanpa spasi) secara konsisten pada `app.json` dan native Android `strings.xml`.
+  - Mengadopsi ikon aplikasi resmi (latar belakang biru pekat `#0462E8`, double chat bubble putih berbentuk W, dan aksen petir kuning di tengah).
+  - Skalasi presisi foreground adaptif di dalam safe zone 66dp (~61.1%) agar logo tidak terpotong oleh launcher bulat (Pixel) maupun squircle (Samsung OneUI).
+  - Generate 6 asset bundle Expo di `mobile/assets/` (`icon.png`, `android-icon-*.png`, `favicon.png`, `splash-icon.png`) dan 25 file `.webp` native di `mobile/android/app/src/main/res/mipmap-*` (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) serta `splashscreen_logo.png` di `drawable-*`.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL in 15s**, dan instalasi sukses via `adb install -r`.
+
 ---
 
 ## Fokus Berikutnya (What's Next)
