@@ -1,3 +1,3 @@
 # Implementation Plan: Standby
 
-Standby for next milestone / task.
+No active implementation plan. Standing by for next instruction.

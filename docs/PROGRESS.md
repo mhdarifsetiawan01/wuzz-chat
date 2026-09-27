@@ -3590,5 +3590,25 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Next.js Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
 - **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
 
+---
+
+## 🎨 Spesifikasi Desain Antarmuka Mobile: mobile/DESIGN.md (27 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Penyusunan `mobile/DESIGN.md`**: Dokumen acuan kanonikal (*blueprint & living document*) untuk antarmuka React Native.
+  - Skema warna JS object (`colors.ts`), token spacing, radius, dan elevasi/shadow multi-platform.
+  - Aturan layout *WhatsApp Single-Screen Flow* (HomeScreen ⇄ ChatScreen) dan hirarki penanganan hardware back button.
+  - Standar aksesibilitas dan ergonomi sentuh (minimal 44 × 44 dp), gestur swipe-to-reply, dan virtual keyboard resilience.
+  - Spesifikasi blueprint komponen utama: `MessageBubble`, `ChatInputBar`, `VoiceNotePlayer`, dan `BottomSheetCard`.
+- **Pembaruan Konteks**:
+  - Memperbarui rujukan di `docs/context/MOBILE.md` dan `docs/progress/MOBILE.md`.
+  - Mencatat keputusan arsitektur pada `docs/plans/active/DECISION_LOG.md` (DEC-044).
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`go test -v ./...` di `backend/`)**: **PASS 100%**.
+- **Frontend Next.js Build (`npm run build` di `frontend/`)**: **PASS 100%** (0 errors).
+- **Mobile TypeScript Gate (`npx tsc --noEmit` di `mobile/`)**: **PASS 100%** (0 errors).
+
+
 
 

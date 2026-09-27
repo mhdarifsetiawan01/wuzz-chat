@@ -41,6 +41,7 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 ### D. Single-Screen Navigation & Keyboard Handling
 - **Hardware BackHandler**: Intersepsi tombol Back fisik Android untuk menutup modal, bottom sheet, atau kembali dari ruang obrolan ke daftar chat (`activeRoomId = ''`).
 - **Keyboard Resilience**: Gunakan `KeyboardAvoidingView` dengan kalkulasi dynamic safe-area insets agar input bar terangkat presisi tepat di atas virtual keyboard.
+- **Standar Sistem Desain Mobile**: Seluruh perancangan UI/UX wajib mematuhi token dan kaidah di [`mobile/DESIGN.md`](../../mobile/DESIGN.md) (touch target min 44dp, Aurora Dark Mode palette, shadows & elevation).
 
 ---
 
@@ -48,6 +49,7 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 
 ```text
 mobile/
+├── DESIGN.md                   # Standar resmi sistem desain mobile (Aurora Dark Mode)
 ├── App.tsx                     # Entrypoint, Navigation Container, Global Modals
 ├── app.json                    # Konfigurasi Expo & Android Permissions (Camera, Audio, Notifications)
 ├── google-services.json        # Kredensial client Firebase FCM Android

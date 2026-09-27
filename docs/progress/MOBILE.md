@@ -45,8 +45,18 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - [x] **Multi-Device Quota Override Confirmation**: Dialog konfirmasi ramah saat kuota 2 perangkat tercapai untuk menimpa (*override*) sesi lama.
 - [x] **Keyboard Resilience**: Layout form login dan chat input bar terdorong secara mulus tanpa menutupi area ketik saat virtual keyboard Android muncul.
 
+### 6. Desain Sistem & Spesifikasi Antarmuka Mobile (27 September 2026)
+- [x] **M-Mobile-8.13: Mobile Design Specification (`mobile/DESIGN.md`)**:
+  - Penetapan standar kanonikal antarmuka React Native berbasis tema *Aurora Glassmorphic Dark Mode* (`#090d16` base).
+  - Skema warna JS object (`colors.ts`), token spacing, radius, dan multi-platform elevation & shadow.
+  - Aturan tata letak *WhatsApp Single-Screen Flow* (Screen 1: HomeScreen ⇄ Screen 2: ChatScreen) dengan penanganan hardware back button & safe area insets.
+  - Standar ergonomi sentuh (target sentuh minimal 44 × 44 dp), gestur swipe-to-reply, dan virtual keyboard resilience (`softwareKeyboardLayoutMode: "resize"`).
+  - Spesifikasi blueprint komponen utama: `MessageBubble`, `ChatInputBar`, `VoiceNotePlayer`, dan `BottomSheetCard`.
+
 ---
 
 ## 🎯 Fokus Berikutnya (What's Next)
+- [ ] Refactor & polishing komponen UI mobile (`screens/` & `components/`) agar 100% selaras dengan standar `mobile/DESIGN.md`.
 - [ ] Implementasi Local Message SQLite Cache (Room / CoreData equivalent) untuk pembacaan riwayat chat saat offline.
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.
+

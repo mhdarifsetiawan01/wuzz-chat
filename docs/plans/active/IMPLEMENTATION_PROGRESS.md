@@ -1,3 +1,3 @@
 # Implementation Progress: Standby
 
-Standby for next milestone / task.
+- [ ] Standby for next task
