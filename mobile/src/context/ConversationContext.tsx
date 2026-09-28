@@ -23,6 +23,7 @@ import {
   decryptSnippet,
   getCachedPeerPublicKey,
   isEncryptedMessage,
+  extractDMPeerId,
 } from '../services/crypto';
 import {
   getStoredConversations,
@@ -179,8 +180,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           // 1. Resolve Peer ID for direct conversation
           let peerId = c.peer_id || '';
           if (!peerId && c.id && c.id.startsWith('dm_')) {
-            const parts = c.id.replace(/^dm_/, '').split('_');
-            peerId = parts[0] === currentUserId ? parts[1] : parts[0];
+            peerId = extractDMPeerId(c.id, currentUserId);
           }
           if (!peerId && c.participants?.length) {
             const other = c.participants.find((p) => p.id !== currentUserId);

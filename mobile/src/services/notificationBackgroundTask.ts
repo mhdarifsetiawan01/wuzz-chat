@@ -186,7 +186,7 @@ if (modules && modules.TaskManager && typeof modules.TaskManager.defineTask === 
                 data: { ...notificationData, is_locally_decrypted: true },
                 sound: 'default',
                 badge: 1,
-                ...(Platform.OS === 'android' ? { channelId } : {}),
+                ...(Platform.OS === 'android' ? { channelId, color: '#0462E8' } : {}),
               },
               trigger: null, // tampilkan seketika (0ms)
             });

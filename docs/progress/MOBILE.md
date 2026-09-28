@@ -174,8 +174,16 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Menambahkan fungsi persistensi `updateStoredConversationUnread` di `sqliteStorage.ts` dan fungsi REST fallback `updateReceipt` di `messages.ts`.
   - Mengintegrasikan `useFocusEffect` di `RecentChatsScreen.tsx` untuk background revalidation otomatis.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
+- [x] **M-Mobile-8.28: Android Status Bar Notification Icon, Instant Decrypt & Anti-Loop Sync (28 September 2026)**:
+  - Mengganti template logo default Expo pada Small Icon status bar dengan siluet resmi WuzzChat monokromatik (`mobile/assets/notification-icon.png` dan 5 varian native `drawable-*/notification_icon.png`).
+  - Menyelaraskan warna aksen notifikasi (`notification_icon_color` & channel lights) menjadi `#0462E8` (biru WuzzChat).
+  - Menyelesaikan bug pesan tertahan di status `Pesan terenkripsi (sedang menyinkronkan kunci...)` saat chat dibuka via notifikasi bar melalui fungsi `extractDMPeerId` yang menangani format multi-tenant `dm_<tenant>_<userA>_<userB>`.
+  - Memperkaya `handleTargetNavigation` di `App.tsx` dan `extractTargetRoom` di `notificationService.ts` untuk menyertakan `peer_id` dan `peer_public_key` secara langsung.
+  - Menyelesaikan bug auto-redirect looping saat menekan tombol `← Back` ke Home via `handledResponseIdentifiers` Set dan penggunaan `conversationsRef`/`userRef` di `App.tsx`.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
 
 ---
+
 
 
 ## Fokus Berikutnya (What's Next)

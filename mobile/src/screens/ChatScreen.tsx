@@ -41,6 +41,7 @@ import {
   encryptText,
   decryptText,
   isEncryptedMessage,
+  extractDMPeerId,
 } from '../services/crypto';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/MessageBubble';
@@ -319,8 +320,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const resolvedPeerId = useMemo(() => {
     if (conversation.peer_id) return conversation.peer_id;
     if (roomId.startsWith('dm_')) {
-      const parts = roomId.replace(/^dm_/, '').split('_');
-      return parts[0] === currentUserId ? parts[1] : parts[0];
+      return extractDMPeerId(roomId, currentUserId);
     }
     if (conversation.participants?.length) {
       const other = conversation.participants.find((p) => p.id !== currentUserId);
@@ -437,8 +437,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     async function resolvePeerAndKey() {
       let peerId = conversation.peer_id || '';
       if (!peerId && roomId.startsWith('dm_')) {
-        const parts = roomId.replace(/^dm_/, '').split('_');
-        peerId = parts[0] === currentUserId ? parts[1] : parts[0];
+        peerId = extractDMPeerId(roomId, currentUserId);
       }
       if (!peerId && conversation.participants?.length) {
         const other = conversation.participants.find((p) => p.id !== currentUserId);

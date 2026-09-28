@@ -3880,5 +3880,31 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
 - **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
 
+---
+
+## 📱 Milestone M-Mobile-8.28: Android Status Bar Notification Icon, Instant Decrypt & Anti-Loop Sync (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Small Notification Icon Status Bar Android (DEC-016)**:
+  - Mengganti template logo Expo default lama dengan siluet resmi WuzzChat monokromatik (`#FFFFFF` dengan alpha channel transparan) berukuran 512x512 di `mobile/assets/notification-icon.png`.
+  - Meregenerasi seluruh file resource native Android di `mobile/android/app/src/main/res/drawable-*/notification_icon.png` (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`).
+  - Menyelaraskan warna aksen notifikasi di `mobile/app.json`, `colors.xml`, `notificationService.ts`, dan `notificationBackgroundTask.ts` dari hijau `#10B981` menjadi biru brand WuzzChat `#0462E8`.
+- **Multi-Tenant DM Peer ID Parsing (`extractDMPeerId`) (DEC-017)**:
+  - Menyelesaikan bug pesan tertahan di status `Pesan terenkripsi (sedang menyinkronkan kunci...)` saat chat dibuka dari notifikasi bar.
+  - Menambahkan helper `extractDMPeerId` di `mobile/src/services/crypto.ts` untuk mengabaikan prefix tenant (`default`) pada format `dm_<tenant>_<userA>_<userB>` dan mengekstrak UUID user lawan bicara secara presisi.
+  - Memperbarui `ChatScreen.tsx`, `MessageContext.tsx`, dan `ConversationContext.tsx` untuk menggunakan `extractDMPeerId`.
+- **Enriched Notification Tap Navigation & Anti-Loop Guard (DEC-018)**:
+  - Memperluas `extractTargetRoom` di `notificationService.ts` untuk menyertakan `senderPublicKey`.
+  - Memperkaya `handleTargetNavigation` di `mobile/App.tsx` untuk memprioritaskan percakapan yang sudah tersimpan di cache atau menyertakan `peer_id` dan `peer_public_key` langsung dari paket notifikasi FCM.
+  - Menambahkan guard `handledResponseIdentifiers` Set di `notificationService.ts` untuk memastikan respons notifikasi hanya dieksekusi 1 kali seumur sesi.
+  - Menggunakan `conversationsRef` dan `userRef` di `App.tsx` untuk mendecouple state `conversations` dari dependency array effect notifikasi, mencegah loop auto-redirect saat tombol `← Back` ditekan.
+
+### 2. Bukti Pengujian Otomatis
+- **Visual & Pixel Validation**: Mode RGBA, 100% pure white (`#FFFFFF`) dengan anti-aliased alpha transparan di seluruh 6 file PNG ikon (`non_white_count=0`).
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+
+
 
 
