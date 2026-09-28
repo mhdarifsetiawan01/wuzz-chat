@@ -1,9 +1,6 @@
-# IMPLEMENTATION PROGRESS
+# Implementation Progress — Mobile Device Limit Override Selection
 
-## Tasks Checklist
-- [x] Task 1: Update `mobile/app.json` (name: "WuzzChat", backgroundColor: "#0462E8")
-- [x] Task 2: Update native Android strings & colors (`strings.xml`, `colors.xml`)
-- [x] Task 3: Generate Expo asset bundle (`icon.png`, `android-icon-*.png`, `favicon.png`, `splash-icon.png`)
-- [x] Task 4: Generate native Android mipmap webp files (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) & splashscreen logos
-- [x] Task 5: Automated verification (Image verification script, XML check, `npm run build`, `go test ./...`)
-
+- [x] Task 1: Update API client dan types (`mobile/src/api/types.ts` & `mobile/src/api/client.ts`) untuk mendukung `active_devices` pada `ApiError`.
+- [x] Task 2: Buat komponen `mobile/src/components/DeviceLimitModal.tsx` dengan theme tokens dan styling native yang responsif.
+- [x] Task 3: Hubungkan modal ke `mobile/src/screens/LoginScreen.tsx` untuk menangani error 409 `DEVICE_LIMIT_REACHED`.
+- [x] Task 4: Eksekusi pengujian automated (TypeScript typecheck di `mobile/`, `npm run build` di `frontend/`, `go test ./...` di `backend/`).

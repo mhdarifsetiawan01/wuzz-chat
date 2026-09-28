@@ -60,6 +60,10 @@ sequenceDiagram
 
 1. **Login & Token Storage**:
    - Simpan token JWT di secure storage perangkat (**EncryptedSharedPreferences** di Android, **Keychain** di iOS).
+   - **Batas Kuota Perangkat (Device Limit Gating)**:
+     - Akun dibatasi maksimal 2 perangkat aktif bersamaan. Jika perangkat ke-3 mencoba login, server mengembalikan status **HTTP 409 Conflict (`DEVICE_LIMIT_REACHED`)** beserta daftar `active_devices`.
+     - Klien mobile menampilkan modal interaktif ([DeviceLimitModal](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/components/DeviceLimitModal.tsx)) yang memungkinkan pengguna memilih perangkat mana yang ingin dikeluarkan.
+     - Login ulang dikirimkan dengan parameter `{ confirm_override: true, kick_device_id: "<selected_device_id>" }`. Perangkat yang dipilih akan seketika di-kick via WebSocket event `SESSION_REPLACED` (Close Code `4001`).
 2. **Push Notification Registration (FCM / APNs via FCM Bridging)**:
    - Setelah login, ambil token perangkat via `FirebaseMessaging.getInstance().getToken()` (Android) atau via Firebase Messaging di iOS.
    - Daftarkan token ke backend Go (mendukung raw device token FCM atau WebPush URL):

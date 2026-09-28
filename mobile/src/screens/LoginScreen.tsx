@@ -5,7 +5,6 @@
 
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -15,7 +14,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Input } from '../components';
+import { ActiveDeviceItem } from '../api/types';
+import { Button, DeviceLimitModal, Input } from '../components';
 import { useAuth } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -29,6 +29,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Device limit override state
+  const [isDeviceLimitModalOpen, setIsDeviceLimitModalOpen] = useState(false);
+  const [activeDevices, setActiveDevices] = useState<ActiveDeviceItem[]>([]);
+  const [isOverriding, setIsOverriding] = useState(false);
+  const [deviceLimitError, setDeviceLimitError] = useState<string | null>(null);
 
   const handleLogin = async () => {
     if (!username.trim()) {
@@ -50,44 +56,39 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
       });
     } catch (err: any) {
       if (err?.code === 'DEVICE_LIMIT_REACHED' || err?.status === 409) {
-        Alert.alert(
-          'Batas Perangkat Tercapai',
-          'Akun Anda saat ini sudah aktif di perangkat lain. Apakah Anda ingin menimpa sesi perangkat lama dan melanjutkan masuk di HP ini?',
-          [
-            {
-              text: 'Batal',
-              style: 'cancel',
-            },
-            {
-              text: 'Ganti Sesi & Masuk',
-              onPress: async () => {
-                setIsLoading(true);
-                setErrorMessage(null);
-                try {
-                  await login({
-                    username: username.trim().toLowerCase(),
-                    password,
-                    confirm_override: true,
-                  });
-                } catch (overrideErr: any) {
-                  setErrorMessage(
-                    overrideErr?.detail ||
-                    overrideErr?.message ||
-                    'Gagal menimpa sesi perangkat lama. Silakan coba lagi.'
-                  );
-                } finally {
-                  setIsLoading(false);
-                }
-              },
-            },
-          ]
-        );
+        const devices: ActiveDeviceItem[] =
+          err?.active_devices || err?.data?.active_devices || [];
+        setActiveDevices(devices);
+        setDeviceLimitError(null);
+        setIsDeviceLimitModalOpen(true);
         return;
       }
 
       setErrorMessage(err?.detail || err?.message || 'Login gagal. Periksa username dan password Anda.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleConfirmKickDevice = async (kickDeviceId: string) => {
+    setIsOverriding(true);
+    setDeviceLimitError(null);
+    try {
+      await login({
+        username: username.trim().toLowerCase(),
+        password,
+        confirm_override: true,
+        kick_device_id: kickDeviceId,
+      });
+      setIsDeviceLimitModalOpen(false);
+    } catch (overrideErr: any) {
+      setDeviceLimitError(
+        overrideErr?.detail ||
+          overrideErr?.message ||
+          'Gagal mengeluarkan perangkat lama. Silakan coba lagi.'
+      );
+    } finally {
+      setIsOverriding(false);
     }
   };
 
@@ -157,6 +158,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal Dialog Batas Perangkat Tercapai */}
+      <DeviceLimitModal
+        visible={isDeviceLimitModalOpen}
+        activeDevices={activeDevices}
+        isLoading={isOverriding}
+        errorMessage={deviceLimitError}
+        onClose={() => {
+          if (!isOverriding) {
+            setIsDeviceLimitModalOpen(false);
+          }
+        }}
+        onConfirm={handleConfirmKickDevice}
+      />
     </SafeAreaView>
   );
 };

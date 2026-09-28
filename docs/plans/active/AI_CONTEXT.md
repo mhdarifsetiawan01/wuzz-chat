@@ -1,3 +1,2 @@
-# AI CONTEXT — Standby
-
-*(Standby)*
+# AI Context — Standby
+Standby.

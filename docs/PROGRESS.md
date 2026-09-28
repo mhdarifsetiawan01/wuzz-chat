@@ -3811,3 +3811,28 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
 - **Standalone Android Release APK (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL in 15s**.
 - **Instalasi Perangkat (`adb install -r`)**: **Success (Performing Streamed Install -> Success)** terpasang dan teruji di HP fisik.
+
+---
+
+## 📱 Milestone M-Mobile-8.24: Device Limit Selection Modal & Custom Kick Device on 409 Conflict (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Ekspansi REST API Client & Types (`mobile/src/api/types.ts` & `client.ts`)**:
+  - Menambahkan tipe `ActiveDeviceItem` (`id`, `name`, `platform`, `user_agent`, `last_seen_at`, `created_at`).
+  - Memperluas `ApiError` agar menyimpan data `active_devices` yang dikembalikan dari respons HTTP 409 `DEVICE_LIMIT_REACHED`.
+- **Implementasi Komponen `DeviceLimitModal.tsx` (`mobile/src/components/DeviceLimitModal.tsx`)**:
+  - Modal interaktif React Native yang dirancang selaras dengan `frontend/app/login/DeviceLimitModal.tsx` dan Design System WuzzChat:
+    - User-agent parser (`parseUserAgent`) untuk deteksi platform dan ikon perangkat (📱/💻/🖥️/🐧).
+    - Format keaktifan perangkat (`formatRelativeTime`).
+    - Badge indikator "Paling Lama" pada perangkat tertua (default seleksi FIFO).
+    - Pilihan radio button / tap item seleksi untuk menentukan spesifik perangkat mana yang ingin dikeluarkan.
+    - Tombol "Batal" dan "Keluarkan & Masuk" dengan indikator status loading.
+- **Integrasi LoginScreen (`mobile/src/screens/LoginScreen.tsx`)**:
+  - Menggantikan dialog pop-up `Alert.alert` biner dengan `DeviceLimitModal`.
+  - Mengirim parameter `{ confirm_override: true, kick_device_id: selectedId }` ke endpoint login backend, memungkinkan pengguna secara fleksibel menentukan perangkat yang ingin di-kick alih-alih selalu otomatis menendang perangkat terlama.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+

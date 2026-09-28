@@ -223,11 +223,22 @@ export interface CreateGroupResponse {
   message?: string;
 }
 
+export interface ActiveDeviceItem {
+  id: string;
+  name: string;
+  platform: string;
+  user_agent?: string;
+  last_seen_at?: string;
+  created_at?: string;
+}
+
 export interface ApiError {
   status: number;
   title: string;
   detail: string;
   code?: string;
+  data?: any;
+  active_devices?: ActiveDeviceItem[];
 }
 
 // ─── Sub-Groups / Forum Topics (Milestone 8.2B) ────────────────────────────
