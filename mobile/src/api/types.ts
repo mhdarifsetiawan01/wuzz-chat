@@ -53,9 +53,10 @@ export interface Message {
   content: string;
   from?: string;
   nickname?: string;
-  type?: 'text' | 'image' | 'file' | 'audio' | 'system';
+  type?: 'text' | 'image' | 'video' | 'file' | 'audio' | 'system';
   created_at?: string;
   timestamp?: string;
+  local_media_uri?: string;
   status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
   reply_to?: {
     id: string;

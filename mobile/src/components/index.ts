@@ -30,3 +30,5 @@ export * from './E2EEKeyModal';
 export * from './StorageSettingsModal';
 export * from './EditProfileModal';
 export * from './DeviceLimitModal';
+export * from './MediaViewerModal';
+export * from './ChatMediaGalleryModal';

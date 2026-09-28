@@ -44,6 +44,7 @@ export interface ContactInfoModalProps {
   peerPublicKeyJWK?: string;
   myPublicKeyJWK?: string;
   isOnline?: boolean;
+  onOpenMediaGallery?: () => void;
 }
 
 export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
@@ -59,6 +60,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
   peerPublicKeyJWK,
   myPublicKeyJWK,
   isOnline = false,
+  onOpenMediaGallery,
 }) => {
   const insets = useSafeAreaInsets();
   const { startCall } = useCall();
@@ -287,6 +289,31 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                   <Text style={styles.actionLabel}>{isMuted ? 'Dibisukan' : 'Bisukan'}</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Milestone M-Mobile-8.30: Media, Berkas & Dokumen Navigation Card */}
+              {onOpenMediaGallery && (
+                <TouchableOpacity
+                  style={styles.mediaGalleryCard}
+                  onPress={() => {
+                    onClose();
+                    onOpenMediaGallery();
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.mediaGalleryLeft}>
+                    <View style={styles.mediaGalleryIconCircle}>
+                      <Text style={styles.mediaGalleryIcon}>🖼️</Text>
+                    </View>
+                    <View style={styles.mediaGalleryTextCol}>
+                      <Text style={styles.mediaGalleryTitle}>Media & Berkas</Text>
+                      <Text style={styles.mediaGallerySubtitle}>
+                        Lihat foto, video, dan dokumen lampiran
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.mediaGalleryArrow}>›</Text>
+                </TouchableOpacity>
+              )}
 
               {/* Status / Bio Card */}
               <View style={styles.infoBox}>
@@ -608,5 +635,51 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  mediaGalleryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.bgCard,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    marginBottom: spacing.md,
+  },
+  mediaGalleryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  mediaGalleryIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.full,
+    backgroundColor: colors.tintAccent10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  mediaGalleryIcon: {
+    fontSize: 20,
+  },
+  mediaGalleryTextCol: {
+    flex: 1,
+  },
+  mediaGalleryTitle: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  mediaGallerySubtitle: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  mediaGalleryArrow: {
+    fontSize: 20,
+    color: colors.textMuted,
+    marginLeft: spacing.sm,
   },
 });

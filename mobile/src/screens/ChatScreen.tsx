@@ -53,6 +53,7 @@ import { AuthorizationShield } from '../components/AuthorizationShield';
 import { ForwardMessageModal } from '../components/ForwardMessageModal';
 import { PinnedMessagesBanner } from '../components/PinnedMessagesBanner';
 import { ContactInfoModal } from '../components/ContactInfoModal';
+import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -224,6 +225,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // Milestone M-Mobile-8.5: Contact Profile & Verified Identity modal
   const [showContactInfoModal, setShowContactInfoModal] = useState(false);
+
+  // Milestone M-Mobile-8.30: Room Media & Document Gallery modal
+  const [showMediaGallery, setShowMediaGallery] = useState(false);
 
   // WebRTC 1-on-1 Voice Calling Handler
   const handleVoiceCall = useCallback(async () => {
@@ -1588,6 +1592,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 <Text style={styles.headerIconText}>🔍</Text>
               </TouchableOpacity>
 
+              {/* Milestone M-Mobile-8.30: Media Gallery Button */}
+              <TouchableOpacity
+                style={styles.headerIconButton}
+                onPress={() => setShowMediaGallery(true)}
+                hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.headerIconText}>🖼️</Text>
+              </TouchableOpacity>
+
               {isParentGroup && (
                 // 🏛️ Forum button — only on parent groups, not sub-groups
                 <TouchableOpacity
@@ -1841,8 +1855,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           peerPublicKeyJWK={peerPublicKey || conversation.peer_public_key}
           myPublicKeyJWK={e2eeKeyPair?.publicKeyJWK}
           isOnline={true}
+          onOpenMediaGallery={() => setShowMediaGallery(true)}
         />
       )}
+
+      {/* Milestone M-Mobile-8.30: Conversation Media & Document Gallery */}
+      <ChatMediaGalleryModal
+        visible={showMediaGallery}
+        roomId={roomId}
+        userId={currentUserId}
+        roomTitle={title}
+        onClose={() => setShowMediaGallery(false)}
+      />
     </View>
   );
 };

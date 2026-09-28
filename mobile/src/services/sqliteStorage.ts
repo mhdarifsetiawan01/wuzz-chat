@@ -83,6 +83,9 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
         CREATE INDEX IF NOT EXISTS idx_msg_user_room_created 
         ON local_messages(user_id, room_id, created_at DESC);
 
+        CREATE INDEX IF NOT EXISTS idx_msg_user_room_media 
+        ON local_messages(user_id, room_id, type, created_at DESC);
+
         CREATE TABLE IF NOT EXISTS local_call_logs (
           id TEXT PRIMARY KEY,
           user_id TEXT NOT NULL,
@@ -318,6 +321,59 @@ export async function getStoredMessages(
     return messages.reverse();
   } catch (error) {
     console.warn('[sqliteStorage] Failed to getStoredMessages:', error);
+    return [];
+  }
+}
+
+/**
+ * Milestone M-Mobile-8.30: Retrieve media and attachment messages for a room.
+ * Filters messages that have a valid media_url or local_media_uri, ordered by created_at DESC.
+ * Optionally filters by mediaType ('image' | 'video' | 'file').
+ */
+export async function getRoomMediaMessages(
+  userId: string,
+  roomId: string,
+  mediaType?: 'image' | 'video' | 'file'
+): Promise<Message[]> {
+  if (!userId || !roomId) return [];
+
+  try {
+    const db = await getDatabase();
+    let query = `
+      SELECT raw_json FROM local_messages 
+      WHERE user_id = ? AND room_id = ? 
+        AND (media_url IS NOT NULL OR local_media_uri IS NOT NULL)
+    `;
+    const params: any[] = [userId, roomId];
+
+    if (mediaType === 'image') {
+      query += ` AND (type = 'image' OR media_url LIKE '%.jpg%' OR media_url LIKE '%.jpeg%' OR media_url LIKE '%.png%' OR media_url LIKE '%.webp%' OR media_url LIKE '%.gif%')`;
+    } else if (mediaType === 'video') {
+      query += ` AND (type = 'video' OR media_url LIKE '%.mp4%' OR media_url LIKE '%.mov%' OR media_url LIKE '%.webm%')`;
+    } else if (mediaType === 'file') {
+      query += ` AND (type = 'file' OR type = 'audio' OR (type != 'image' AND type != 'video'))`;
+    }
+
+    query += ` ORDER BY created_at DESC`;
+
+    const rows = await db.getAllAsync<{ raw_json: string }>(query, params);
+
+    const messages: Message[] = [];
+    for (const row of rows) {
+      try {
+        const parsed = JSON.parse(row.raw_json) as Message;
+        if (parsed && parsed.id) {
+          parsed.reactions = normalizeReactions(parsed.reactions);
+          messages.push(parsed);
+        }
+      } catch (err) {
+        // Skip corrupted row
+      }
+    }
+
+    return messages;
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to getRoomMediaMessages:', error);
     return [];
   }
 }
