@@ -23,6 +23,7 @@ import { Message } from '../api/types';
 import { AudioPlayerBubble } from './AudioPlayerBubble';
 import { getAvatarColor } from './Avatar';
 import { mediaCache } from '../services/mediaCache';
+import { MediaViewerModal } from './MediaViewerModal';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -38,6 +39,7 @@ export interface MessageBubbleProps {
   onLongPress?: (message: Message) => void;
   onPressQuote?: (messageId: string) => void;
   onReact?: (messageId: string, emoji: string) => void;
+  onPressMedia?: (message: Message, uri: string) => void;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -52,6 +54,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onLongPress,
   onPressQuote,
   onReact,
+  onPressMedia,
 }) => {
   const insets = useSafeAreaInsets();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -316,7 +319,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <View style={styles.imageContainer}>
                   <TouchableOpacity
                     activeOpacity={0.88}
-                    onPress={() => setIsFullscreen(true)}
+                    onPress={() => {
+                      if (onPressMedia && effectiveMediaUrl) {
+                        onPressMedia(message, effectiveMediaUrl);
+                      } else {
+                        setIsFullscreen(true);
+                      }
+                    }}
                     style={styles.imageTouchable}
                   >
                     <Image
@@ -421,44 +430,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         ) : null}
       </Animated.View>
 
-      {/* Fullscreen Image Lightbox Modal */}
+      {/* Fullscreen Interactive Pinch-to-Zoom Media Viewer */}
       {isImage && effectiveMediaUrl ? (
-        <Modal
+        <MediaViewerModal
           visible={isFullscreen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setIsFullscreen(false)}
-        >
-          <View style={[styles.fullscreenBackdrop, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-            <View style={styles.fullscreenHeader}>
-              <Text style={styles.fullscreenTitle} numberOfLines={1}>
-                {message.file_name || 'Foto'}
-              </Text>
-              <TouchableOpacity
-                style={styles.fullscreenCloseBtn}
-                onPress={() => setIsFullscreen(false)}
-                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.fullscreenCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Pressable style={styles.fullscreenBody} onPress={() => setIsFullscreen(false)}>
-              <Image
-                source={{ uri: effectiveMediaUrl }}
-                style={styles.fullscreenImage}
-                resizeMode="contain"
-              />
-            </Pressable>
-
-            {hasCaption ? (
-              <View style={styles.fullscreenCaptionBox}>
-                <Text style={styles.fullscreenCaptionText}>{message.content}</Text>
-              </View>
-            ) : null}
-          </View>
-        </Modal>
+          mediaUrl={effectiveMediaUrl}
+          fileName={message.file_name}
+          caption={hasCaption ? message.content : undefined}
+          senderName={senderName || message.nickname || message.from}
+          timestamp={message.created_at || message.timestamp}
+          onClose={() => setIsFullscreen(false)}
+        />
       ) : null}
     </View>
   );

@@ -25,6 +25,7 @@ import { searchUsers } from '../api/users';
 import { GroupDetails, GroupMember, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { SubGroupListModal } from '../components/SubGroupListModal';
+import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme';
 
@@ -61,6 +62,8 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // M-Mobile-8.2B: Forum modal state (inline fallback if no onOpenForum prop)
   const [showForumModal, setShowForumModal] = useState(false);
+  // Milestone M-Mobile-8.30: Media Gallery Modal state
+  const [showMediaGallery, setShowMediaGallery] = useState(false);
 
   const onGroupUpdatedRef = useRef(onGroupUpdated);
   useEffect(() => {
@@ -474,6 +477,16 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
             </TouchableOpacity>
           )}
 
+          {/* Milestone M-Mobile-8.30: Media & Berkas Grup */}
+          <TouchableOpacity
+            style={styles.actionCardButton}
+            onPress={() => setShowMediaGallery(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.actionCardIcon}>🖼️</Text>
+            <Text style={styles.actionCardText}>Media & Berkas Grup</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.actionCardButton, styles.leaveCardButton]}
             onPress={handleLeaveGroup}
@@ -692,6 +705,15 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Milestone M-Mobile-8.30: Group Media & Document Gallery */}
+      <ChatMediaGalleryModal
+        visible={showMediaGallery}
+        roomId={groupId}
+        userId={currentUser?.id || ''}
+        roomTitle={group?.title || 'Grup'}
+        onClose={() => setShowMediaGallery(false)}
+      />
     </SafeAreaView>
   );
 };

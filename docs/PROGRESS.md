@@ -3929,6 +3929,38 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
 - **Backend Test Suite (`go test -v ./...`)**: **PASS 100%**.
 
+---
+
+## 📱 Milestone M-Mobile-8.30: Interactive Media Viewer (Pinch-to-Zoom) & Room Media Gallery (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Fullscreen Interactive Media Viewer (`MediaViewerModal.tsx`)**:
+  - Mengembangkan modal penampil media interaktif fullscreen dengan latar belakang hitam pekat (`rgba(0,0,0,0.95)`).
+  - Mendukung gesture **Pinch-to-Zoom** (skala dinamis hingga 4x) dan **Pan 2D** mulus menggunakan `PanResponder` dan multi-touch tracking cross-platform (Android & iOS).
+  - Mendukung **Double-Tap Zoom Toggle** (1x <-> 2.5x) dengan spring physics.
+  - Mendukung **Swipe-Down to Dismiss** dengan deteksi kecepatan/jarak vertikal dan tombol tutup `✕` yang presisi.
+  - Fitur **Cinematic Mode** (fade header dan caption footer pada tap tunggal).
+  - Tombol aksi native share menggunakan `Share.share` dari React Native.
+- **Integrasi Thumbnail Media di Obrolan (`MessageBubble.tsx`)**:
+  - Menghubungkan tap thumbnail gambar secara instan ke `MediaViewerModal` menggantikan lightbox modal sederhana terdahulu.
+  - Fallback visual terkelola jika gambar masih dalam proses unduh atau gagal dimuat.
+- **Query Khusus Media di SQLite (`sqliteStorage.ts`)**:
+  - Mengimplementasikan `getRoomMediaMessages(userId, roomId, mediaType?)` untuk mengambil pesan dengan `media_url` atau `local_media_uri` terurut `created_at DESC`.
+  - Menambahkan composite index `idx_msg_user_room_media ON local_messages(user_id, room_id, type, created_at DESC)` untuk optimasi query media berkecepatan tinggi.
+- **Conversation Media & Document Gallery (`ChatMediaGalleryModal.tsx`)**:
+  - Menyediakan tab switcher terpadu: **Media (Foto & Video)** dalam 3-column grid dengan badge video dan **Dokumen / Berkas** dalam format list informatif dengan ukuran berkas, tanggal, dan tombol aksi share.
+  - Tapping item di galeri langsung membuka `MediaViewerModal`.
+- **Integrasi Terpadu UI Akses Galeri**:
+  - Tombol aksi `🖼️` di header `ChatScreen.tsx`.
+  - Kartu navigasi *"Media & Berkas"* di `ContactInfoModal.tsx`.
+  - Kartu aksi *"Media & Berkas Grup"* di `GroupInfoScreen.tsx`.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+
+
 
 
 

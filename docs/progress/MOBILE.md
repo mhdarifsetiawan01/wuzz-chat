@@ -191,8 +191,19 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+- [x] **M-Mobile-8.30: Interactive Media Viewer (Pinch-to-Zoom) & Room Media Gallery (28 September 2026)**:
+  - Mengembangkan komponen penampil media interaktif fullscreen `MediaViewerModal.tsx` dengan dukungan **Pinch-to-Zoom** (skala dinamis hingga 4x), **Pan 2D** mulus, **Double-Tap Zoom Toggle** (1x <-> 2.5x), **Swipe-Down to Dismiss** dengan spring back physics, **Cinematic Mode** (fade header/footer pada tap tunggal), serta lembar aksi native share (`Share.share`).
+  - Mengintegrasikan pembukaan `MediaViewerModal` secara instan dari tap thumbnail gambar di `MessageBubble.tsx` dengan fallback visual graceful saat gambar masih diunduh atau gagal dimuat.
+  - Mengimplementasikan query khusus `getRoomMediaMessages(userId, roomId, mediaType?)` di `mobile/src/services/sqliteStorage.ts` beserta penambahan indeks `idx_msg_user_room_media` untuk retrieval media dan berkas secara efisien terurut `created_at DESC`.
+  - Mengembangkan modal galeri media percakapan `ChatMediaGalleryModal.tsx` dengan tab **Media (Foto & Video)** dalam format 3-column grid dan tab **Dokumen / Berkas** dalam format list informatif (nama berkas, ukuran, tanggal, dan aksi share).
+  - Menyediakan akses terpadu ke galeri media percakapan dari tombol header obrolan `🖼️` di `ChatScreen.tsx`, kartu navigasi di profil kontak `ContactInfoModal.tsx`, dan kartu aksi di profil grup `GroupInfoScreen.tsx`.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
+
+---
+
 ## Fokus Berikutnya (What's Next)
-- [ ] **M-Mobile-8.30: Media Gallery Viewer & Group Media Lifecycle** (tab galeri media per chat & interactive pinch-to-zoom viewer).
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.
+- [ ] Integrasi video player stream inline/fullscreen di mobile (`expo-video` / `av`).
+
 
 
