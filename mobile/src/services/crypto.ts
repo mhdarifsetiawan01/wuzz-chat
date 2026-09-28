@@ -305,3 +305,34 @@ export function decryptSnippet(
     return '🔒 Pesan terenkripsi';
   }
 }
+
+/**
+ * Extracts the other user's ID (peer ID) from a direct message room ID.
+ * Handles both multi-tenant formats (dm_<tenant>_<userA>_<userB>) and legacy formats (dm_<userA>_<userB>).
+ */
+export function extractDMPeerId(roomId: string, currentUserId?: string): string {
+  if (!roomId || !roomId.startsWith('dm_')) return '';
+  const parts = roomId.replace(/^dm_/, '').split('_');
+  if (parts.length === 0) return '';
+
+  // If format is dm_<tenant>_<userA>_<userB> (3 or more parts)
+  if (parts.length >= 3) {
+    const candidates = parts.slice(1);
+    if (currentUserId) {
+      const match = candidates.find((id) => id !== currentUserId);
+      if (match) return match;
+    }
+    return candidates[0] || '';
+  }
+
+  // If format is dm_<userA>_<userB> (2 parts)
+  if (parts.length === 2) {
+    if (currentUserId) {
+      return parts[0] === currentUserId ? parts[1] : parts[0];
+    }
+    return parts[0];
+  }
+
+  return parts.find((p) => p !== currentUserId && p !== 'default') || '';
+}
+

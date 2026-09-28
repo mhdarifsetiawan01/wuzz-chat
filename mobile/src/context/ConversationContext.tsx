@@ -13,6 +13,7 @@ import React, {
   useState,
 } from 'react';
 import { conversationsApi } from '../api/conversations';
+import { messagesApi } from '../api/messages';
 import { getUserPublicKey } from '../api/users';
 import { Conversation } from '../api/types';
 import { useAuth } from './AuthContext';
@@ -22,11 +23,13 @@ import {
   decryptSnippet,
   getCachedPeerPublicKey,
   isEncryptedMessage,
+  extractDMPeerId,
 } from '../services/crypto';
 import {
   getStoredConversations,
   saveStoredConversations,
   updateStoredConversationPin as persistConversationPin,
+  updateStoredConversationUnread,
 } from '../services/sqliteStorage';
 import { secureStorage } from '../services/secureStorage';
 
@@ -35,8 +38,11 @@ export interface ConversationContextType {
   isLoading: boolean;
   isRefreshing: boolean;
   error: string | null;
+  activeRoomId: string | null;
   refreshConversations: (isSilent?: boolean) => Promise<void>;
   updateConversationPin: (roomId: string, isPinned: boolean) => Promise<void>;
+  markConversationAsRead: (roomId: string) => void;
+  setActiveRoomId: (roomId: string | null) => void;
 }
 
 const ConversationContext = createContext<ConversationContextType | undefined>(undefined);
@@ -47,6 +53,8 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeRoomId, setActiveRoomIdState] = useState<string | null>(null);
+  const activeRoomIdRef = useRef<string | null>(null);
 
   const hasLoadedOnceRef = useRef<boolean>(false);
   const isFetchingRef = useRef<boolean>(false);
@@ -57,6 +65,54 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     conversationsRef.current = conversations;
   }, [conversations]);
+
+  /**
+   * Optimistically resets unread count for a conversation and sends read receipt.
+   * Conforms to M-Mobile-8.23 and Mobile Lifecycle Rule.
+   */
+  const markConversationAsRead = useCallback(
+    (roomId: string) => {
+      if (!roomId) return;
+
+      setConversations((prev) => {
+        let changed = false;
+        const updated = prev.map((c) => {
+          if (c.id === roomId || c.room_id === roomId) {
+            if ((c.unread_count || 0) > 0) {
+              changed = true;
+              return { ...c, unread_count: 0 };
+            }
+          }
+          return c;
+        });
+
+        if (changed) {
+          conversationsRef.current = updated;
+          if (user?.id) {
+            updateStoredConversationUnread(user.id, roomId, 0).catch(() => {});
+          }
+          return updated;
+        }
+        return prev;
+      });
+
+      // Dispatch read receipt across WebSocket and REST fallback
+      websocketClient.sendReceipt(roomId, 'read');
+      messagesApi.updateReceipt(roomId, 'read').catch(() => {});
+    },
+    [user?.id]
+  );
+
+  const setActiveRoomId = useCallback(
+    (roomId: string | null) => {
+      activeRoomIdRef.current = roomId;
+      setActiveRoomIdState(roomId);
+      if (roomId) {
+        markConversationAsRead(roomId);
+      }
+    },
+    [markConversationAsRead]
+  );
 
   const e2eeKeyPairRef = useRef(e2eeKeyPair);
   useEffect(() => {
@@ -124,8 +180,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           // 1. Resolve Peer ID for direct conversation
           let peerId = c.peer_id || '';
           if (!peerId && c.id && c.id.startsWith('dm_')) {
-            const parts = c.id.replace(/^dm_/, '').split('_');
-            peerId = parts[0] === currentUserId ? parts[1] : parts[0];
+            peerId = extractDMPeerId(c.id, currentUserId);
           }
           if (!peerId && c.participants?.length) {
             const other = c.participants.find((p) => p.id !== currentUserId);
@@ -251,6 +306,15 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (!rawData) {
           setConversations([]);
         } else {
+          // If a room is currently active, ensure its unread_count remains 0 (anti-race condition)
+          const currentActive = activeRoomIdRef.current;
+          if (currentActive) {
+            rawData.forEach((c) => {
+              if (c.id === currentActive || c.room_id === currentActive) {
+                c.unread_count = 0;
+              }
+            });
+          }
           const processed = await processConversations(rawData);
           const sorted = sortConversations(processed);
           setConversations(sorted);
@@ -393,19 +457,30 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
   }, [e2eeKeyPair?.privateKeyHex, conversations, processConversations, user?.id]);
 
-  // Centralized WebSocket listener: ingest incoming 'message' events for silent revalidation
+  // Centralized WebSocket listener: ingest incoming 'message' and 'receipt' events for silent revalidation
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const unsubscribeMsg = websocketClient.on('message', () => {
+    const unsubscribeMsg = websocketClient.on('message', (incoming?: any) => {
+      const targetRoom = incoming?.room || incoming?.room_id;
+      if (targetRoom && targetRoom === activeRoomIdRef.current) {
+        // Active room incoming message: immediately mark as read
+        markConversationAsRead(targetRoom);
+      }
       // Ingest live incoming message event and revalidate in background
+      refreshConversations(true);
+    });
+
+    const unsubscribeReceipt = websocketClient.on('receipt', () => {
+      // Ingest read / delivered receipt updates
       refreshConversations(true);
     });
 
     return () => {
       unsubscribeMsg();
+      unsubscribeReceipt();
     };
-  }, [isAuthenticated, refreshConversations]);
+  }, [isAuthenticated, refreshConversations, markConversationAsRead]);
 
   return (
     <ConversationContext.Provider
@@ -414,8 +489,11 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         isLoading,
         isRefreshing,
         error,
+        activeRoomId,
         refreshConversations,
         updateConversationPin,
+        markConversationAsRead,
+        setActiveRoomId,
       }}
     >
       {children}

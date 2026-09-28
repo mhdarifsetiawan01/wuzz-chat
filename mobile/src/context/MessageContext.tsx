@@ -21,6 +21,7 @@ import {
   getCachedPeerPublicKey,
   getOrDeriveRoomAESKey,
   isEncryptedMessage,
+  extractDMPeerId,
 } from '../services/crypto';
 import { getUserPublicKey } from '../api/users';
 import { messagesApi } from '../api/messages';
@@ -85,8 +86,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return roomKeysCacheRef.current.get(roomId)!;
       }
 
-      const parts = roomId.replace(/^dm_/, '').split('_');
-      const peerId = parts[0] === user.id ? parts[1] : parts[0];
+      const peerId = extractDMPeerId(roomId, user.id);
       if (!peerId) return null;
 
       let peerPubKey = getCachedPeerPublicKey(peerId);

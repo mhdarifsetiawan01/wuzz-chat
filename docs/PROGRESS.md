@@ -3859,4 +3859,52 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Gradle Release APK Build (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL**.
 - **Gradle Release AAB Bundle (`./gradlew bundleRelease`)**: **BUILD SUCCESSFUL**.
 
+---
+
+## 📱 Milestone M-Mobile-8.27: Mobile Instant Unread Reset & Return-to-Home Sync (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Optimistic Unread Reset (`mobile/src/context/ConversationContext.tsx`)**:
+  - Menambahkan method `markConversationAsRead(roomId)` untuk langsung mereset state lokal `unread_count` menjadi 0 seketika saat room obrolan ditekan atau dibuka (0ms latency).
+  - Melacak `activeRoomId` di context agar pesan incoming di background/foreground tidak menimpa unread badge saat pengguna sedang berada di dalam room tersebut.
+- **SQLite Local Storage Sync (`mobile/src/services/sqliteStorage.ts`)**:
+  - Menambahkan fungsi `updateStoredConversationUnread(userId, roomId, unreadCount = 0)` untuk memastikan persistensi lokal di tabel `local_conversations` (kolom `unread_count` dan payload `raw_json`) tetap sinkron saat aplikasi dimatikan/cold start.
+- **REST Fallback Receipt Update (`mobile/src/api/messages.ts`)**:
+  - Menambahkan fungsi `updateReceipt(roomId, status, messageId)` sebagai fallback tangguh pengiriman status tanda terima (`read`) ke backend melalui endpoint `PUT /api/messages/receipt`.
+- **Seamless Return-to-Home Synchronization (`mobile/src/screens/RecentChatsScreen.tsx` & `ChatScreen.tsx`)**:
+  - Mengintegrasikan `useFocusEffect` pada `RecentChatsScreen` agar saat pengguna menekan tombol `← Back` dari obrolan, layar Home secara senyap melakukan revalidasi daftar obrolan (`refreshConversations(true)`).
+  - Memastikan badge unread pada tab navigation dan daftar percakapan langsung bersih tanpa perlu refresh manual.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+
+---
+
+## 📱 Milestone M-Mobile-8.28: Android Status Bar Notification Icon, Instant Decrypt & Anti-Loop Sync (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Small Notification Icon Status Bar Android (DEC-016)**:
+  - Mengganti template logo Expo default lama dengan siluet resmi WuzzChat monokromatik (`#FFFFFF` dengan alpha channel transparan) berukuran 512x512 di `mobile/assets/notification-icon.png`.
+  - Meregenerasi seluruh file resource native Android di `mobile/android/app/src/main/res/drawable-*/notification_icon.png` (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`).
+  - Menyelaraskan warna aksen notifikasi di `mobile/app.json`, `colors.xml`, `notificationService.ts`, dan `notificationBackgroundTask.ts` dari hijau `#10B981` menjadi biru brand WuzzChat `#0462E8`.
+- **Multi-Tenant DM Peer ID Parsing (`extractDMPeerId`) (DEC-017)**:
+  - Menyelesaikan bug pesan tertahan di status `Pesan terenkripsi (sedang menyinkronkan kunci...)` saat chat dibuka dari notifikasi bar.
+  - Menambahkan helper `extractDMPeerId` di `mobile/src/services/crypto.ts` untuk mengabaikan prefix tenant (`default`) pada format `dm_<tenant>_<userA>_<userB>` dan mengekstrak UUID user lawan bicara secara presisi.
+  - Memperbarui `ChatScreen.tsx`, `MessageContext.tsx`, dan `ConversationContext.tsx` untuk menggunakan `extractDMPeerId`.
+- **Enriched Notification Tap Navigation & Anti-Loop Guard (DEC-018)**:
+  - Memperluas `extractTargetRoom` di `notificationService.ts` untuk menyertakan `senderPublicKey`.
+  - Memperkaya `handleTargetNavigation` di `mobile/App.tsx` untuk memprioritaskan percakapan yang sudah tersimpan di cache atau menyertakan `peer_id` dan `peer_public_key` langsung dari paket notifikasi FCM.
+  - Menambahkan guard `handledResponseIdentifiers` Set di `notificationService.ts` untuk memastikan respons notifikasi hanya dieksekusi 1 kali seumur sesi.
+  - Menggunakan `conversationsRef` dan `userRef` di `App.tsx` untuk mendecouple state `conversations` dari dependency array effect notifikasi, mencegah loop auto-redirect saat tombol `← Back` ditekan.
+
+### 2. Bukti Pengujian Otomatis
+- **Visual & Pixel Validation**: Mode RGBA, 100% pure white (`#FFFFFF`) dengan anti-aliased alpha transparan di seluruh 6 file PNG ikon (`non_white_count=0`).
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+
+
+
 

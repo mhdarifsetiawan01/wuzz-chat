@@ -32,7 +32,7 @@ import { mediaApi } from '../api/media';
 import { messagesApi } from '../api/messages';
 import { websocketClient } from '../services/websocket';
 import { mediaCache } from '../services/mediaCache';
-import { useAuth, useCall, useMessages } from '../context';
+import { useAuth, useCall, useConversations, useMessages } from '../context';
 import {
   deriveRoomAESKey,
   getOrDeriveRoomAESKey,
@@ -41,6 +41,7 @@ import {
   encryptText,
   decryptText,
   isEncryptedMessage,
+  extractDMPeerId,
 } from '../services/crypto';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/MessageBubble';
@@ -86,8 +87,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const insets = useSafeAreaInsets();
   const { user, e2eeKeyPair } = useAuth();
   const { startCall } = useCall();
+  const { markConversationAsRead, setActiveRoomId } = useConversations();
 
   const roomId = conversation.id;
+
+  // Register active room and optimistically reset unread count (M-Mobile-8.23)
+  useEffect(() => {
+    if (roomId) {
+      setActiveRoomId(roomId);
+      markConversationAsRead(roomId);
+    }
+    return () => {
+      setActiveRoomId(null);
+    };
+  }, [roomId, markConversationAsRead, setActiveRoomId]);
 
   const {
     getRoomMessages,
@@ -307,8 +320,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const resolvedPeerId = useMemo(() => {
     if (conversation.peer_id) return conversation.peer_id;
     if (roomId.startsWith('dm_')) {
-      const parts = roomId.replace(/^dm_/, '').split('_');
-      return parts[0] === currentUserId ? parts[1] : parts[0];
+      return extractDMPeerId(roomId, currentUserId);
     }
     if (conversation.participants?.length) {
       const other = conversation.participants.find((p) => p.id !== currentUserId);
@@ -425,8 +437,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     async function resolvePeerAndKey() {
       let peerId = conversation.peer_id || '';
       if (!peerId && roomId.startsWith('dm_')) {
-        const parts = roomId.replace(/^dm_/, '').split('_');
-        peerId = parts[0] === currentUserId ? parts[1] : parts[0];
+        peerId = extractDMPeerId(roomId, currentUserId);
       }
       if (!peerId && conversation.participants?.length) {
         const other = conversation.participants.find((p) => p.id !== currentUserId);
@@ -614,6 +625,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       if (incoming.sender_id !== currentUserId && incoming.from !== currentUserId) {
         websocketClient.sendReceipt(roomId, 'read');
+        markConversationAsRead(roomId);
       }
 
       if (isNearBottomRef.current) {

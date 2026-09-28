@@ -19,6 +19,9 @@ export const MENTION_NOTIFICATION_CHANNEL_ID = 'wuzz_chat_mentions';
 // State to track active room opened in foreground for suppression (DEC-015)
 let currentActiveRoomId: string | null = null;
 
+// Track handled notification responses to prevent loop/double navigation
+const handledResponseIdentifiers = new Set<string>();
+
 /**
  * Detects if currently executing inside the Expo Go mobile client.
  */
@@ -128,7 +131,7 @@ export const notificationService = {
         name: 'Pesan WuzzChat',
         importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#10B981',
+        lightColor: '#0462E8',
         sound: 'default',
         enableLights: true,
         enableVibrate: true,
@@ -405,7 +408,7 @@ export const notificationService = {
           data: { ...(data || {}), is_locally_decrypted: true },
           sound: 'default',
           badge: 1,
-          ...(Platform.OS === 'android' ? { channelId: DEFAULT_NOTIFICATION_CHANNEL_ID } : {}),
+          ...(Platform.OS === 'android' ? { channelId: DEFAULT_NOTIFICATION_CHANNEL_ID, color: '#0462E8' } : {}),
         },
         trigger: null, // show immediately
       });
@@ -424,6 +427,7 @@ export const notificationService = {
       isGroup: boolean;
       title: string | null;
       senderId: string | null;
+      senderPublicKey?: string | null;
     }) => void
   ): () => void {
     try {
@@ -434,6 +438,17 @@ export const notificationService = {
 
       const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
         try {
+          const respId =
+            response?.notification?.request?.identifier ||
+            (response?.notification?.request?.content?.data as any)?.message_id ||
+            response?.actionIdentifier;
+          if (respId && handledResponseIdentifiers.has(respId)) {
+            return;
+          }
+          if (respId) {
+            handledResponseIdentifiers.add(respId);
+          }
+
           const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
           const target = this.extractTargetRoom(data);
           onResponse(target);
@@ -462,6 +477,7 @@ export const notificationService = {
       isGroup: boolean;
       title: string | null;
       senderId: string | null;
+      senderPublicKey?: string | null;
     }) => void
   ): Promise<void> {
     try {
@@ -472,6 +488,17 @@ export const notificationService = {
 
       const response = await Notifications.getLastNotificationResponseAsync();
       if (!response) return;
+
+      const respId =
+        response?.notification?.request?.identifier ||
+        (response?.notification?.request?.content?.data as any)?.message_id ||
+        response?.actionIdentifier;
+      if (respId && handledResponseIdentifiers.has(respId)) {
+        return;
+      }
+      if (respId) {
+        handledResponseIdentifiers.add(respId);
+      }
 
       const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
       const target = this.extractTargetRoom(data);
@@ -491,18 +518,20 @@ export const notificationService = {
     isGroup: boolean;
     senderId: string | null;
     title: string | null;
+    senderPublicKey: string | null;
   } {
     if (!notificationData) {
-      return { roomId: null, isGroup: false, senderId: null, title: null };
+      return { roomId: null, isGroup: false, senderId: null, title: null, senderPublicKey: null };
     }
 
     const roomId = notificationData.room_id || null;
     const senderId = notificationData.sender_id || null;
+    const senderPublicKey = notificationData.sender_public_key || null;
     const title = notificationData.sender_nickname || null;
     const isGroup = Boolean(
       roomId && (roomId.startsWith('grp_') || roomId.startsWith('sub_'))
     );
 
-    return { roomId, isGroup, senderId, title };
+    return { roomId, isGroup, senderId, title, senderPublicKey };
   },
 };

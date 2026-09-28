@@ -43,8 +43,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
-          "color": "#10B981"
+          "icon": "./assets/notification-icon.png",
+          "color": "#0462E8"
         }
       ],
       "./plugins/withAndroidEdgeToEdgeKeyboard",

@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Conversation } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { ChatListItem } from '../components/ChatListItem';
@@ -45,6 +46,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     isRefreshing,
     refreshConversations,
     updateConversationPin,
+    markConversationAsRead,
   } = useConversations();
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [isDeviceTransferModalOpen, setIsDeviceTransferModalOpen] = useState<boolean>(false);
@@ -111,7 +113,18 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     };
   }, []);
 
+  // Revalidate conversations silently whenever RecentChatsScreen regains focus (e.g. returning from ChatScreen)
+  useFocusEffect(
+    useCallback(() => {
+      refreshConversations(true);
+    }, [refreshConversations])
+  );
+
   const handleChatPress = (chat: Conversation) => {
+    const roomId = chat.id || chat.room_id;
+    if (roomId) {
+      markConversationAsRead(roomId);
+    }
     if (onSelectChat) {
       onSelectChat(chat);
     }

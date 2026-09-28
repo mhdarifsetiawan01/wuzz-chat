@@ -5,7 +5,7 @@
  */
 
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { enableScreens } from 'react-native-screens';
 import { NavigationContainer } from '@react-navigation/native';
 import './src/services/notificationBackgroundTask';
@@ -18,9 +18,15 @@ import {
   DeviceProvider,
   MessageProvider,
   useAuth,
+  useConversations,
 } from './src/context';
-import { LoginScreen, RegisterScreen } from './src/screens';
+import {
+  cachePeerPublicKey,
+  getCachedPeerPublicKey,
+  extractDMPeerId,
+} from './src/services/crypto';
 import { ConversationItem } from './src/api/types';
+import { LoginScreen, RegisterScreen } from './src/screens';
 import {
   KeyConflictModal,
   SessionAlertModal,
@@ -40,6 +46,7 @@ type AuthRoute = 'login' | 'register';
 function AppContent() {
   const {
     isAuthenticated,
+    user,
     isLoading,
     sessionReplacedMessage,
     dismissSessionAlert,
@@ -47,6 +54,7 @@ function AppContent() {
     resetE2EEKeys,
     cancelKeyConflict,
   } = useAuth();
+  const { conversations } = useConversations();
   const [authRoute, setAuthRoute] = useState<AuthRoute>('login');
   const [isKeyTransferModalOpen, setIsKeyTransferModalOpen] = useState<boolean>(false);
 
@@ -107,6 +115,16 @@ function AppContent() {
     };
   }, [isAuthenticated]);
 
+  const conversationsRef = useRef(conversations);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
   // Push notification tap & cold start listener
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -116,15 +134,40 @@ function AppContent() {
       isGroup: boolean;
       title: string | null;
       senderId: string | null;
+      senderPublicKey?: string | null;
     }) => {
       if (!target.roomId) return;
-      const targetConv: ConversationItem = {
+
+      const currentConversations = conversationsRef.current;
+      const currentUser = userRef.current;
+
+      const existingConv = currentConversations.find(
+        (c: ConversationItem) => c.id === target.roomId || c.room_id === target.roomId
+      );
+
+      const peerId =
+        existingConv?.peer_id ||
+        target.senderId ||
+        extractDMPeerId(target.roomId, currentUser?.id);
+
+      const peerPublicKey =
+        existingConv?.peer_public_key ||
+        target.senderPublicKey ||
+        (peerId ? getCachedPeerPublicKey(peerId) : undefined);
+
+      if (peerId && peerPublicKey) {
+        cachePeerPublicKey(peerId, peerPublicKey);
+      }
+
+      const targetConv: ConversationItem = existingConv || ({
         id: target.roomId,
         room_id: target.roomId,
         title: target.title || (target.isGroup ? 'Grup' : 'Obrolan'),
         is_group: target.isGroup,
         type: target.roomId.startsWith('sub_') ? 'subgroup' : target.isGroup ? 'group' : 'direct',
-      } as ConversationItem;
+        peer_id: peerId || undefined,
+        peer_public_key: peerPublicKey || undefined,
+      } as ConversationItem);
 
       if (navigationRef.isReady()) {
         navigationRef.navigate('Chat', { conversation: targetConv });
