@@ -79,6 +79,8 @@ export async function apiClient<T>(
         title: data?.title || data?.error || 'Request Error',
         detail: data?.detail || data?.message || data?.error || `Server merespons dengan status ${response.status}`,
         code: data?.code,
+        data,
+        active_devices: data?.active_devices,
       };
       throw error;
     }

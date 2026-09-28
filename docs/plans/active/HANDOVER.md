@@ -1,3 +1,2 @@
-# HANDOVER — Standby
-
-*(Standby)*
+# Handover Document — Standby
+Standby.
