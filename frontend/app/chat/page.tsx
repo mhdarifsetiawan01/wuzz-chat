@@ -628,6 +628,11 @@ function ChatPageContent() {
     }
   }, [user?.id, roomId])
 
+  const resolvePeerKeyAndDecryptRef = useRef(resolvePeerKeyAndDecrypt)
+  useEffect(() => {
+    resolvePeerKeyAndDecryptRef.current = resolvePeerKeyAndDecrypt
+  }, [resolvePeerKeyAndDecrypt])
+
   // Handler konfirmasi reset kunci keamanan E2EE pada perangkat ini
   const handleConfirmDeviceReset = useCallback(async (password: string) => {
     if (!user?.id) return
@@ -1125,7 +1130,7 @@ function ChatPageContent() {
                 },
               })
               if (otherUsers[0].id) {
-                resolvePeerKeyAndDecrypt(otherUsers[0].id)
+                resolvePeerKeyAndDecryptRef.current(otherUsers[0].id)
               }
             } else if (otherUsers.length > 1) {
               dispatch({ type: 'SET_PEER_NICKNAME', payload: `${otherUsers.length} Peserta` })
@@ -1586,7 +1591,7 @@ function ChatPageContent() {
       if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthLoading, user?.id, user?.display_name, user?.username, e2eeVerified, deviceConflict.isOpen, resolvePeerKeyAndDecrypt])
+  }, [isAuthLoading, user?.id, user?.display_name, user?.username, e2eeVerified, deviceConflict.isOpen])
 
   // Muat detail judul percakapan / kontak & kunci E2EE lawan bicara saat room berubah
   useEffect(() => {
@@ -1598,14 +1603,20 @@ function ChatPageContent() {
       return
     }
 
-    // Resolusi instan dari roomId jika berbentuk dm_userA_userB
+    // Resolusi instan dari roomId jika berbentuk dm_userA_userB atau dm_tenant_userA_userB
     if (roomId.startsWith('dm_')) {
       const parts = roomId.replace('dm_', '').split('_')
+      let potentialPeerId = ''
       if (parts.length === 2) {
-        const potentialPeerId = parts[0] === user.id ? parts[1] : parts[0]
-        if (potentialPeerId) {
-          dispatch({ type: 'SET_PEER_INFO', payload: { userId: potentialPeerId } })
-          resolvePeerKeyAndDecrypt(potentialPeerId)
+        potentialPeerId = parts[0] === user.id ? parts[1] : parts[0]
+      } else if (parts.length >= 3) {
+        const uA = parts[parts.length - 2]
+        const uB = parts[parts.length - 1]
+        potentialPeerId = uA === user.id ? uB : uA
+      }
+      if (potentialPeerId) {
+        dispatch({ type: 'SET_PEER_INFO', payload: { userId: potentialPeerId } })
+        resolvePeerKeyAndDecrypt(potentialPeerId)
           // Selalu periksa data profil terbaru dari server
           apiRequest<User>(`/api/users/profile?id=${encodeURIComponent(potentialPeerId)}`).then(({ data: profile }) => {
             if (profile) {
@@ -1619,7 +1630,6 @@ function ChatPageContent() {
               })
             }
           }).catch(() => {})
-        }
       }
     }
 
