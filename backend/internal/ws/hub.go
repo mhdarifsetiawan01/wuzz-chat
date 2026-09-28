@@ -346,6 +346,18 @@ func (h *Hub) Register(c *Client) {
 		}
 	}
 
+	if kickClient != nil {
+		for rID, room := range h.rooms {
+			if room[kickClient.SessionKey] == kickClient || room[kickClient.ID] == kickClient {
+				delete(room, kickClient.SessionKey)
+				delete(room, kickClient.ID)
+				if len(room) == 0 {
+					delete(h.rooms, rID)
+				}
+			}
+		}
+	}
+
 	devs[devKey] = c
 	h.clients[c.SessionKey] = c
 	h.mu.Unlock()
@@ -360,10 +372,7 @@ func (h *Hub) Register(c *Client) {
 					Content:   "SESSION_REPLACED: Akun Anda dibuka dari perangkat lain.",
 					Timestamp: time.Now().UTC(),
 				}
-				select {
-				case old.send <- kickMsg:
-				default:
-				}
+				old.SafeSend(kickMsg)
 				// Berikan grace period flush 500ms agar pesan system sampai ke jaringan klien lambat/medium
 				time.Sleep(500 * time.Millisecond)
 				if old.conn != nil {
@@ -401,15 +410,16 @@ func (h *Hub) JoinRoom(c *Client, roomID string) {
 		cKey = c.ID
 	}
 
-	var oldRoomID string
+	var oldRooms []string
 	h.mu.Lock()
-	// Jika client sebelumnya ada di room lain, bersihkan dulu
-	if c.RoomID != "" && c.RoomID != roomID {
-		oldRoomID = c.RoomID
-		if room, ok := h.rooms[c.RoomID]; ok {
+	// Jika client sebelumnya ada di room lain, bersihkan dulu dari seluruh room lain
+	for rID, room := range h.rooms {
+		if rID != roomID && (room[cKey] == c || room[c.ID] == c) {
 			delete(room, cKey)
+			delete(room, c.ID)
+			oldRooms = append(oldRooms, rID)
 			if len(room) == 0 {
-				delete(h.rooms, c.RoomID)
+				delete(h.rooms, rID)
 			}
 		}
 	}
@@ -423,9 +433,9 @@ func (h *Hub) JoinRoom(c *Client, roomID string) {
 	log.Printf("[Hub %s] client %s (%s - device: %s) bergabung ke room '%s' | member room=%d", h.nodeID[:8], c.ID, c.Nickname, c.DeviceID, roomID, len(h.rooms[roomID]))
 	h.mu.Unlock()
 
-	// Broadcast update user list untuk room lama jika ada perpindahan
-	if oldRoomID != "" {
-		h.BroadcastRoomUsers(oldRoomID)
+	// Broadcast update user list untuk room-room lama
+	for _, oldR := range oldRooms {
+		h.BroadcastRoomUsers(oldR)
 	}
 
 	// Broadcast update user list ke seluruh anggota di room baru
@@ -434,7 +444,6 @@ func (h *Hub) JoinRoom(c *Client, roomID string) {
 
 // Unregister menghapus client dari registry dan room-nya.
 func (h *Hub) Unregister(c *Client) {
-	roomID := c.RoomID
 	cKey := c.SessionKey
 	if cKey == "" {
 		cKey = c.ID
@@ -449,7 +458,7 @@ func (h *Hub) Unregister(c *Client) {
 	var remainingDevsCount int
 	if exists {
 		delete(h.clients, cKey)
-		close(c.send)
+		c.CloseSend()
 	}
 
 	if devs, ok := h.userClients[c.ID]; ok {
@@ -460,12 +469,15 @@ func (h *Hub) Unregister(c *Client) {
 		}
 	}
 
-	// Hapus dari room
-	if roomID != "" {
-		if room, ok := h.rooms[roomID]; ok {
+	// Hapus client dari SEMUA room yang pernah diikutinya
+	var affectedRooms []string
+	for rID, room := range h.rooms {
+		if room[cKey] == c || room[c.ID] == c {
 			delete(room, cKey)
+			delete(room, c.ID)
+			affectedRooms = append(affectedRooms, rID)
 			if len(room) == 0 {
-				delete(h.rooms, roomID)
+				delete(h.rooms, rID)
 			}
 		}
 	}
@@ -484,9 +496,9 @@ func (h *Hub) Unregister(c *Client) {
 
 	log.Printf("[Hub %s] client keluar: id=%s device=%s | sisa_koneksi=%d", h.nodeID[:8], c.ID, c.DeviceID, h.count())
 
-	// Perbarui daftar user aktif di room (presence)
-	if roomID != "" {
-		h.BroadcastRoomUsers(roomID)
+	// Perbarui daftar user aktif di seluruh room yang terdampak
+	for _, rID := range affectedRooms {
+		h.BroadcastRoomUsers(rID)
 	}
 }
 
@@ -536,10 +548,8 @@ func (h *Hub) BroadcastRoomUsers(roomID string) {
 		}
 
 		for _, target := range clients {
-			select {
-			case target.send <- msg:
-			default:
-				log.Printf("[Hub %s] buffer penuh saat broadcast room_users ke client %s", h.nodeID[:8], target.ID)
+			if !target.SafeSend(msg) {
+				log.Printf("[Hub %s] buffer penuh atau koneksi tertutup saat broadcast room_users ke client %s", h.nodeID[:8], target.ID)
 			}
 		}
 	}
@@ -723,10 +733,8 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
 
 	// Kirim pesan ke semua penerima lokal
 	for target := range targetMap {
-		select {
-		case target.send <- msg:
-		default:
-			log.Printf("[Hub %s] buffer penuh untuk client %s di room %s, pesan di-drop", h.nodeID[:8], target.ID, roomID)
+		if !target.SafeSend(msg) {
+			log.Printf("[Hub %s] buffer penuh atau koneksi tertutup untuk client %s di room %s, pesan di-drop", h.nodeID[:8], target.ID, roomID)
 		}
 	}
 }
@@ -887,9 +895,7 @@ func (h *Hub) sendRoomHistory(c *Client, roomID string, sinceStr ...string) {
 			Timestamp: time.Now().UTC(),
 			Messages:  []Message{},
 		}
-		select {
-		case c.send <- historyMsg:
-		default:
+		if !c.SafeSend(historyMsg) {
 			log.Printf("[Hub %s] buffer penuh saat mengirim error history ke client %s (session %s)", h.nodeID[:8], c.ID, c.SessionKey)
 		}
 		return
@@ -960,9 +966,7 @@ func (h *Hub) sendRoomHistory(c *Client, roomID string, sinceStr ...string) {
 		Messages:  msgs,
 	}
 
-	select {
-	case c.send <- historyMsg:
-	default:
+	if !c.SafeSend(historyMsg) {
 		log.Printf("[Hub %s] buffer penuh saat mengirim history ke client %s (session %s)", h.nodeID[:8], c.ID, c.SessionKey)
 	}
 }
@@ -999,10 +1003,7 @@ func (h *Hub) notifyClient(clientID string, msg Message) {
 	if !ok || c == nil {
 		return
 	}
-	select {
-	case c.send <- msg:
-	default:
-	}
+	c.SafeSend(msg)
 }
 
 // NotifyUser mengirimkan pesan WebSocket langsung ke satu user (seluruh perangkat aktifnya).
@@ -1019,9 +1020,7 @@ func (h *Hub) NotifyUser(userID string, msg Message) {
 		if c.getTenantID() != msgTenant {
 			continue
 		}
-		select {
-		case c.send <- msg:
-		default:
+		if !c.SafeSend(msg) {
 			log.Printf("[Hub %s] buffer penuh untuk user %s (%s), pesan di-drop", h.nodeID[:8], userID, c.DeviceID)
 		}
 	}
@@ -1053,9 +1052,7 @@ func (h *Hub) NotifyUsers(userIDs []string, msg Message) {
 	h.mu.RUnlock()
 
 	for _, c := range targets {
-		select {
-		case c.send <- msg:
-		default:
+		if !c.SafeSend(msg) {
 			log.Printf("[Hub %s] buffer penuh untuk client %s (%s), notifikasi di-drop", h.nodeID[:8], c.ID, c.DeviceID)
 		}
 	}
@@ -1206,10 +1203,7 @@ func (h *Hub) kickClientByUserIDLocal(userID, exceptDeviceID, reason string, ten
 				TenantID:  c.getTenantID(),
 				Timestamp: time.Now().UTC(),
 			}
-			select {
-			case c.send <- kickMsg:
-			default:
-			}
+			c.SafeSend(kickMsg)
 			time.Sleep(500 * time.Millisecond)
 			if c.conn != nil {
 				closeMsg := websocket.FormatCloseMessage(4001, reason)
@@ -1307,10 +1301,7 @@ func (h *Hub) kickClientByDeviceIDLocal(userID, deviceID, reason string, tenantI
 			TenantID:  c.getTenantID(),
 			Timestamp: time.Now().UTC(),
 		}
-		select {
-		case c.send <- kickMsg:
-		default:
-		}
+		c.SafeSend(kickMsg)
 		time.Sleep(500 * time.Millisecond)
 		if c.conn != nil {
 			closeMsg := websocket.FormatCloseMessage(4001, reason)

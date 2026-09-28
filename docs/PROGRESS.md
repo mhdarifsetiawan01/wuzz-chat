@@ -3960,6 +3960,26 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
 - **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
 
+---
+
+## 🛠️ Milestone 8.31: Fix WebSocket Closed Channel Panic & Room Reconnect Loop (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Backend Channel Protection & Thread-Safety (`backend/internal/ws/client.go` & `hub.go`)**:
+  - Mengimplementasikan `sendMu sync.Mutex` dan `closed bool` pada `Client` struct, serta method `SafeSend(msg Message) bool`, `CloseSend()`, dan `IsClosed() bool`.
+  - Mengganti seluruh operasi raw send channel (`c.send <- msg` dan `target.send <- msg`) di `hub.go` dan `client.go` dengan `SafeSend` untuk menjamin tidak pernah terjadi `panic: send on closed channel`.
+  - Memperbaiki `Unregister`, `JoinRoom`, dan `Register`: membersihkan client dari SEMUA room di `h.rooms` saat client berpindah atau terputus, mencegah timbulnya *zombie client pointer* di dalam room.
+  - Menghapus penugasan prematur `c.RoomID = targetRoom` di `client.go` sebelum `JoinRoom` dieksekusi agar `oldRoomID` dapat terdeteksi dan dibersihkan secara benar.
+  - Menambahkan unit test `TestHub_NoPanicOnClosedClientInRoomAndProperRoomCleanup` di `backend/internal/ws/hub_test.go`.
+- **Frontend WebSocket Lifecycle Stabilization (`frontend/app/chat/page.tsx`)**:
+  - Memutus dependensi `resolvePeerKeyAndDecrypt` dari `useEffect` inisialisasi WebSocket menggunakan `resolvePeerKeyAndDecryptRef`. WebSocket kini tetap persisten (Single Connection Lifecycle) saat user berganti-ganti chat room.
+  - Memperluas parsing ID percakapan direct message untuk mendukung format multi-tenant (`dm_<tenant>_<userA>_<userB>`).
+
+### 2. Bukti Pengujian Otomatis
+- **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors, 0 warnings)**.
+- **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
+
+
 
 
 

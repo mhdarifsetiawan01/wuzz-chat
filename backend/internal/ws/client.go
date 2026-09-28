@@ -35,6 +35,9 @@ type Client struct {
 	conn        *websocket.Conn
 	send        chan Message
 
+	sendMu sync.Mutex
+	closed bool
+
 	// Rate Limiter per koneksi client (Anti-flood)
 	rateMu        sync.Mutex
 	msgTimestamps []time.Time
@@ -59,6 +62,47 @@ func (c *Client) getTenantID() string {
 		return c.TenantID
 	}
 	return "default"
+}
+
+// SafeSend mengirimkan pesan ke channel send dengan jaminan anti-panic saat channel ditutup.
+func (c *Client) SafeSend(msg Message) bool {
+	if c == nil {
+		return false
+	}
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	if c.closed {
+		return false
+	}
+	select {
+	case c.send <- msg:
+		return true
+	default:
+		return false
+	}
+}
+
+// CloseSend menutup channel send secara aman (idempotent) di bawah mutex.
+func (c *Client) CloseSend() {
+	if c == nil {
+		return
+	}
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	if !c.closed {
+		c.closed = true
+		close(c.send)
+	}
+}
+
+// IsClosed mengembalikan status apakah client telah ditutup.
+func (c *Client) IsClosed() bool {
+	if c == nil {
+		return true
+	}
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	return c.closed
 }
 
 // getSenderKey mengembalikan sessionKey unik per perangkat klien, atau fallback ke ID.
@@ -183,8 +227,6 @@ func (c *Client) onJoin(msg Message) {
 		return
 	}
 
-	c.RoomID = targetRoom
-
 	// Gabungkan client ke room di Hub (otomatis mem-broadcast TypeRoomUsers untuk presence)
 	c.hub.JoinRoom(c, targetRoom)
 
@@ -288,17 +330,14 @@ func (c *Client) onMessage(msg Message) {
 		if msg.RequestID != "" {
 			c.sendAck(msg.RequestID, "ok", "")
 		}
-		select {
-		case c.send <- Message{
+		c.SafeSend(Message{
 			ID:        msg.ID,
 			RequestID: msg.RequestID,
 			Type:      TypeReceipt,
 			Room:      targetRoom,
 			Status:    StatusSent,
 			Timestamp: time.Now().UTC(),
-		}:
-		default:
-		}
+		})
 		return
 	}
 
@@ -340,8 +379,7 @@ func (c *Client) onMessage(msg Message) {
 	c.hub.BroadcastRoom(targetRoom, msg, c.getSenderKey())
 
 	// Kirim balik konfirmasi receipt awal (sent atau delivered) ke sender
-	select {
-	case c.send <- Message{
+	c.SafeSend(Message{
 		ID:        msg.ID,
 		RequestID: msg.RequestID,
 		Type:      TypeReceipt,
@@ -349,9 +387,7 @@ func (c *Client) onMessage(msg Message) {
 		Status:    initialStatus,
 		TenantID:  c.getTenantID(),
 		Timestamp: time.Now().UTC(),
-	}:
-	default:
-	}
+	})
 
 	// Kirim balik paket transport ACK jika request_id disertakan oleh klien
 	if msg.RequestID != "" {
@@ -517,15 +553,12 @@ func (c *Client) isAuthorizedForRoom(roomID string) bool {
 
 // sendError mengirimkan pesan error sistem ke client ini sendiri.
 func (c *Client) sendError(errMsg string) {
-	select {
-	case c.send <- Message{
+	c.SafeSend(Message{
 		Type:      TypeSystem,
 		From:      "server",
 		Content:   "ERROR: " + errMsg,
 		Timestamp: time.Now().UTC(),
-	}:
-	default:
-	}
+	})
 }
 
 // sendAck mengirimkan konfirmasi transport level (TypeAck) kembali ke client ini.
@@ -543,10 +576,7 @@ func (c *Client) sendAck(requestID string, status string, errMsg string) {
 	if errMsg != "" {
 		ackMsg.Content = errMsg
 	}
-	select {
-	case c.send <- ackMsg:
-	default:
-	}
+	c.SafeSend(ackMsg)
 }
 
 // allowRateLimit memeriksa apakah pengiriman pesan client memenuhi kuota sliding window rate limit.

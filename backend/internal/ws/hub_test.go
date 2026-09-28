@@ -671,3 +671,78 @@ func TestHub_UUIDPurification_NoNickCollision(t *testing.T) {
 	}
 }
 
+func TestHub_NoPanicOnClosedClientInRoomAndProperRoomCleanup(t *testing.T) {
+	hub := NewHub(store.NewMemoryClientStore(), store.NewMemoryMessageStore())
+
+	clientA := &Client{
+		ID:         "user-a",
+		DeviceID:   "dev-a",
+		SessionKey: "user-a:dev-a",
+		Username:   "Alice",
+		Nickname:   "Alice",
+		send:       make(chan Message, 10),
+		hub:        hub,
+	}
+
+	clientB := &Client{
+		ID:         "user-b",
+		DeviceID:   "dev-b",
+		SessionKey: "user-b:dev-b",
+		Username:   "Bob",
+		Nickname:   "Bob",
+		send:       make(chan Message, 10),
+		hub:        hub,
+	}
+
+	hub.Register(clientA)
+	hub.Register(clientB)
+
+	// Client A joins room 1
+	hub.JoinRoom(clientA, "room-1")
+	if len(hub.rooms["room-1"]) != 1 {
+		t.Fatalf("expected 1 client in room-1, got %d", len(hub.rooms["room-1"]))
+	}
+
+	// Client A switches to room 2
+	hub.JoinRoom(clientA, "room-2")
+	// Verify room-1 has no ghost clients
+	if len(hub.rooms["room-1"]) != 0 {
+		t.Fatalf("expected 0 clients in room-1 after switch, got %d", len(hub.rooms["room-1"]))
+	}
+	if len(hub.rooms["room-2"]) != 1 {
+		t.Fatalf("expected 1 client in room-2, got %d", len(hub.rooms["room-2"]))
+	}
+
+	// Unregister client A (closing its channel)
+	hub.Unregister(clientA)
+
+	// Verify room-2 has 0 clients
+	if len(hub.rooms["room-2"]) != 0 {
+		t.Fatalf("expected 0 clients in room-2 after unregister, got %d", len(hub.rooms["room-2"]))
+	}
+
+	// Deliberately insert a closed client to room-3 and verify BroadcastRoomUsers does NOT panic
+	clientAClosed := &Client{
+		ID:         "user-closed",
+		SessionKey: "user-closed",
+		send:       make(chan Message, 1),
+		closed:     true,
+	}
+	close(clientAClosed.send)
+
+	hub.mu.Lock()
+	hub.rooms["room-3"] = map[string]*Client{
+		"user-closed": clientAClosed,
+	}
+	hub.mu.Unlock()
+
+	// Should not panic!
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("BroadcastRoomUsers panicked on closed client: %v", r)
+		}
+	}()
+	hub.BroadcastRoomUsers("room-3")
+}
+
+
