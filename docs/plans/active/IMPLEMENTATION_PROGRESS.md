@@ -1,5 +1,2 @@
-# Implementation Progress — Standby
+# IMPLEMENTATION PROGRESS — Standby
 Standby.
-
-
-

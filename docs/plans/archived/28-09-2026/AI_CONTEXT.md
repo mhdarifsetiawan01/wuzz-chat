@@ -1,13 +1,12 @@
-# AI Context — Mobile Device Limit Override Selection
+# AI Context — Milestone M-Mobile-Release-Opt1
 
-## Boundaries & Scope
-- **Target Subsystem**: Mobile React Native (`mobile/`)
-- **Impacted Files**:
-  - `mobile/src/api/types.ts`: Menambahkan tipe data `ActiveDeviceItem` dan memperluas `ApiError`.
-  - `mobile/src/api/client.ts`: Memastikan `active_devices` dari payload error diteruskan ke `ApiError`.
-  - `mobile/src/components/DeviceLimitModal.tsx`: Komponen modal React Native baru untuk pemilihan perangkat yang ingin di-kick.
-  - `mobile/src/screens/LoginScreen.tsx`: Integrasi `DeviceLimitModal` menggantikan `Alert.alert` sederhana.
-- **Constraints**:
-  - Wajib mematuhi Mobile Theme (`colors`, `spacing`, `radius`, `typography`) dari `frontend/DESIGN.md`.
-  - Anti-magic numbers: Gunakan token terdaftar di `mobile/src/theme/`.
-  - TypeScript strict: 0 lint / typecheck error (`npx tsc --noEmit`).
+## Boundaries & Constraints
+- **Scope**: Optimasi Release APK Android (Langkah B: Minifikasi R8, Langkah C: Resource Shrinking, Langkah D: Hermes runtime optimization).
+- **Excluded**: Langkah A (ABI Split / arsitektur universal tetap dipertahankan 4 ABI), Release Keystore (tetap menggunakan debug signing atas permintaan pengguna).
+- **Target Files**:
+  - `mobile/android/gradle.properties`
+  - `mobile/android/app/proguard-rules.pro`
+- **Verification**:
+  - `cd mobile && npx tsc --noEmit`
+  - `cd mobile/android && ./gradlew assembleRelease`
+  - Analisis perbandingan ukuran APK baru vs 151 MB sebelumnya.

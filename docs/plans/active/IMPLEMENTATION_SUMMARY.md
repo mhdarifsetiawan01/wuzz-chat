@@ -5,5 +5,3 @@
 
 ## Active Milestone
 Tidak ada milestone aktif. Sistem dalam status standby menunggu tugas berikutnya.
-
-

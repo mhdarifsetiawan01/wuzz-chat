@@ -1,4 +1,2 @@
-# Implementation Plan — Standby
+# IMPLEMENTATION PLAN — Standby
 Standby.
-
-
