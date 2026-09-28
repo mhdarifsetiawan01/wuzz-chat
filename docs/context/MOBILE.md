@@ -99,12 +99,19 @@ mobile/
    ```bash
    cd mobile && npx tsc --noEmit
    ```
-2. **Build Standalone Release APK**:
+2. **Build Standalone Release APK (ABI Splits ~47 MB & ~35 MB)**:
    ```bash
    cd mobile/android && ./gradlew assembleRelease
    ```
-   *Output APK berlokasi di*: `mobile/android/app/build/outputs/apk/release/app-release.apk`
-3. **Instalasi USB Debugging ke HP Fisik**:
+   *Output APK berlokasi di*: `mobile/android/app/build/outputs/apk/release/`
+   - `app-arm64-v8a-release.apk` (47 MB — untuk 95%+ smartphone modern)
+   - `app-armeabi-v7a-release.apk` (35 MB — cadangan HP lawas 32-bit)
+3. **Build Android App Bundle untuk Google Play Store (Single .aab ~50 MB)**:
    ```bash
-   adb install -r mobile/android/app/build/outputs/apk/release/app-release.apk
+   cd mobile/android && ./gradlew bundleRelease
+   ```
+   *Output AAB*: `mobile/android/app/build/outputs/bundle/release/app-release.aab`
+4. **Instalasi USB Debugging ke HP Fisik Modern**:
+   ```bash
+   adb install -r mobile/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk
    ```

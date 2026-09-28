@@ -1,4 +1,2 @@
-# Decision Log — Standby
+# DECISION LOG — Standby
 Standby.
-
-

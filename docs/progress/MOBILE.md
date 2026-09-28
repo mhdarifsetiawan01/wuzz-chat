@@ -162,6 +162,16 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Mempertahankan perilaku native `adjustResize` pada Android 10 (API 29) s/d Android 14 (API 34) untuk mencegah *double padding*.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `go test ./...` -> **100% PASS**, `npm run build` -> **0 errors**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL in 1m 18s**, dan instalasi sukses via `adb install -r`.
 
+- [x] **M-Mobile-8.26: Optimasi Biner Release APK & AAB Android (R8, Resource Shrinking & ABI Splits) (28 September 2026)**:
+  - Memangkas ukuran APK rilis secara drastis dari **151 MB** menjadi **47 MB (-68.8%)** untuk `app-arm64-v8a-release.apk` dan **35 MB (-76.8%)** untuk `app-armeabi-v7a-release.apk`.
+  - Mengaktifkan R8 code minification (`android.enableMinifyInReleaseBuilds=true`) memangkas ukuran uncompressed DEX sebesar **58.6%** (dari 38.37 MB ke 15.89 MB) dan mengurangi multidex dari 4 ke 3 file.
+  - Mengaktifkan resource shrinking (`android.enableShrinkResourcesInReleaseBuilds=true`) untuk membuang aset dan XML yang tidak terpakai.
+  - Menerapkan ABI Splits terpisah untuk arsitektur fisik (`arm64-v8a` dan `armeabi-v7a`) serta membuang bloat library native emulator Intel x86/x86_64 (~74 MB).
+  - Menambahkan keep-rules ProGuard untuk WebRTC, Expo Modules, dan JNI native methods.
+  - Mengintegrasikan Expo Config Plugin `mobile/plugins/withAndroidReleaseOptimization.js` agar konfigurasi persisten terhadap `npx expo prebuild`.
+  - Mendukung build bundle resmi Google Play Store (`./gradlew bundleRelease`) yang otomatis menghasilkan 1 file `app-release.aab` utuh (50 MB).
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**, `./gradlew bundleRelease` -> **BUILD SUCCESSFUL**.
+
 ---
 
 ## Fokus Berikutnya (What's Next)

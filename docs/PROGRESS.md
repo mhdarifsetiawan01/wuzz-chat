@@ -3836,3 +3836,27 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
 - **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
 
+---
+
+## 📱 Milestone M-Mobile-8.26: Optimasi Biner Release APK & AAB Android (R8, Resource Shrinking & ABI Splits) (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Penyusutan Ukuran APK Ekstrem (-68.8% s/d -76.8%)**:
+  - Memangkas ukuran APK rilis dari **151 MB** menjadi **47 MB** (`app-arm64-v8a-release.apk`) dan **35 MB** (`app-armeabi-v7a-release.apk`).
+- **R8 Code Minifier & Tree-Shaking**:
+  - Mengaktifkan `android.enableMinifyInReleaseBuilds=true` memangkas ukuran uncompressed DEX sebesar **58.6%** (dari 38.37 MB ke 15.89 MB) dan mengurangi multidex dari 4 ke 3 file.
+- **Resource Shrinking & Clean ProGuard Rules**:
+  - Mengaktifkan `android.enableShrinkResourcesInReleaseBuilds=true` dan menambahkan keep-rules proteksi di `proguard-rules.pro` untuk `org.webrtc.**`, `expo.modules.**`, dan JNI native methods.
+- **ABI Splits Terpisah untuk Arsitektur Fisik**:
+  - Konfigurasi `splits.abi` dengan `include "armeabi-v7a", "arm64-v8a"`, membuang total ~74 MB native library emulator Intel PC (`x86` dan `x86_64`).
+- **Expo Config Plugin Terintegrasi (`mobile/plugins/withAndroidReleaseOptimization.js` & `mobile/app.json`)**:
+  - Menjaga konfigurasi R8, ProGuard, dan ABI Splits tetap persisten terhadap `npx expo prebuild`.
+- **Dukungan Build Google Play Store (Single AAB Bundle)**:
+  - Conditional task guard yang memastikan `./gradlew bundleRelease` menghasilkan tepat **1 file `app-release.aab`** utuh (50 MB) siap upload ke Play Console.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Gradle Release APK Build (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL**.
+- **Gradle Release AAB Bundle (`./gradlew bundleRelease`)**: **BUILD SUCCESSFUL**.
+
+

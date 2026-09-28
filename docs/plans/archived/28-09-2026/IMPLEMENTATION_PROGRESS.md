@@ -1,6 +1,8 @@
-# Implementation Progress — Mobile Device Limit Override Selection
+# IMPLEMENTATION PROGRESS — Milestone M-Mobile-Release-Opt2
 
-- [x] Task 1: Update API client dan types (`mobile/src/api/types.ts` & `mobile/src/api/client.ts`) untuk mendukung `active_devices` pada `ApiError`.
-- [x] Task 2: Buat komponen `mobile/src/components/DeviceLimitModal.tsx` dengan theme tokens dan styling native yang responsif.
-- [x] Task 3: Hubungkan modal ke `mobile/src/screens/LoginScreen.tsx` untuk menangani error 409 `DEVICE_LIMIT_REACHED`.
-- [x] Task 4: Eksekusi pengujian automated (TypeScript typecheck di `mobile/`, `npm run build` di `frontend/`, `go test ./...` di `backend/`).
+## Tasks
+- [x] Task 1: Update `mobile/android/gradle.properties` (`reactNativeArchitectures=armeabi-v7a,arm64-v8a`).
+- [x] Task 2: Update `mobile/android/app/build.gradle` dengan konfigurasi `splits.abi`.
+- [x] Task 3: Update `mobile/plugins/withAndroidReleaseOptimization.js` agar konfigurasi persisten di Expo.
+- [x] Task 4: Eksekusi build `./gradlew assembleRelease` (BUILD SUCCESSFUL dalam 2m 14s).
+- [x] Task 5: Inspeksi & komparasi ukuran 2 file APK rilis (`app-arm64-v8a-release.apk` 47MB, `app-armeabi-v7a-release.apk` 35MB).

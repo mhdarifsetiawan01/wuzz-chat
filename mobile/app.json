@@ -47,7 +47,8 @@
           "color": "#10B981"
         }
       ],
-      "./plugins/withAndroidEdgeToEdgeKeyboard"
+      "./plugins/withAndroidEdgeToEdgeKeyboard",
+      "./plugins/withAndroidReleaseOptimization"
     ]
   }
 }
