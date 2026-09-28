@@ -40,7 +40,9 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 
 ### D. Single-Screen Navigation & Keyboard Handling
 - **Hardware BackHandler**: Intersepsi tombol Back fisik Android untuk menutup modal, bottom sheet, atau kembali dari ruang obrolan ke daftar chat (`activeRoomId = ''`).
-- **Keyboard Resilience**: Gunakan `KeyboardAvoidingView` dengan kalkulasi dynamic safe-area insets agar input bar terangkat presisi tepat di atas virtual keyboard.
+- **Keyboard Resilience**:
+  - Android 15 (API 35) & Android 16 (API 36+): Listener `WindowInsetsCompat.Type.ime()` di `MainActivity.kt` mengangkat padding dasar root view dinamis saat keyboard muncul, mengatasi hilangnya `adjustResize` otomatis akibat mandatory edge-to-edge.
+  - Android 10 (API 29) s/d Android 14 (API 34): `adjustResize` native di `AndroidManifest.xml` tetap berjalan tanpa listener tambahan untuk mencegah *double padding*.
 - **Standar Sistem Desain Mobile**: Seluruh perancangan UI/UX wajib mematuhi token dan kaidah di [`mobile/DESIGN.md`](../../mobile/DESIGN.md) (touch target min 44dp, Aurora Dark Mode palette, shadows & elevation).
 
 ### E. State Manajemen & Optimistic Cache Layer (Stale-While-Revalidate)

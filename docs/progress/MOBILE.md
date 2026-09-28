@@ -156,6 +156,12 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Generate 6 asset bundle Expo di `mobile/assets/` (`icon.png`, `android-icon-*.png`, `favicon.png`, `splash-icon.png`) dan 25 file `.webp` native di `mobile/android/app/src/main/res/mipmap-*` (`mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, `xxxhdpi`) serta `splashscreen_logo.png` di `drawable-*`.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL in 15s**, dan instalasi sukses via `adb install -r`.
 
+- [x] **M-Mobile-8.25: Universal Mobile Keyboard Resilience & Multi-Android Version Support (28 September 2026)**:
+  - Menyelesaikan masalah keyboard virtual yang menutupi tombol login di `LoginScreen` dan input pesan `ChatInputBar` di `ChatScreen` pada Android 15 & 16.
+  - Mengimplementasikan listener insets native `WindowInsetsCompat.Type.ime()` di `MainActivity.kt` dengan guard versi OS `Build.VERSION.SDK_INT >= 35`.
+  - Mempertahankan perilaku native `adjustResize` pada Android 10 (API 29) s/d Android 14 (API 34) untuk mencegah *double padding*.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `go test ./...` -> **100% PASS**, `npm run build` -> **0 errors**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL in 1m 18s**, dan instalasi sukses via `adb install -r`.
+
 ---
 
 ## Fokus Berikutnya (What's Next)
