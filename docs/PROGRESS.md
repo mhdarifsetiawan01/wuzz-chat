@@ -3859,4 +3859,26 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Gradle Release APK Build (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL**.
 - **Gradle Release AAB Bundle (`./gradlew bundleRelease`)**: **BUILD SUCCESSFUL**.
 
+---
+
+## 📱 Milestone M-Mobile-8.27: Mobile Instant Unread Reset & Return-to-Home Sync (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Optimistic Unread Reset (`mobile/src/context/ConversationContext.tsx`)**:
+  - Menambahkan method `markConversationAsRead(roomId)` untuk langsung mereset state lokal `unread_count` menjadi 0 seketika saat room obrolan ditekan atau dibuka (0ms latency).
+  - Melacak `activeRoomId` di context agar pesan incoming di background/foreground tidak menimpa unread badge saat pengguna sedang berada di dalam room tersebut.
+- **SQLite Local Storage Sync (`mobile/src/services/sqliteStorage.ts`)**:
+  - Menambahkan fungsi `updateStoredConversationUnread(userId, roomId, unreadCount = 0)` untuk memastikan persistensi lokal di tabel `local_conversations` (kolom `unread_count` dan payload `raw_json`) tetap sinkron saat aplikasi dimatikan/cold start.
+- **REST Fallback Receipt Update (`mobile/src/api/messages.ts`)**:
+  - Menambahkan fungsi `updateReceipt(roomId, status, messageId)` sebagai fallback tangguh pengiriman status tanda terima (`read`) ke backend melalui endpoint `PUT /api/messages/receipt`.
+- **Seamless Return-to-Home Synchronization (`mobile/src/screens/RecentChatsScreen.tsx` & `ChatScreen.tsx`)**:
+  - Mengintegrasikan `useFocusEffect` pada `RecentChatsScreen` agar saat pengguna menekan tombol `← Back` dari obrolan, layar Home secara senyap melakukan revalidasi daftar obrolan (`refreshConversations(true)`).
+  - Memastikan badge unread pada tab navigation dan daftar percakapan langsung bersih tanpa perlu refresh manual.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
+
+
 

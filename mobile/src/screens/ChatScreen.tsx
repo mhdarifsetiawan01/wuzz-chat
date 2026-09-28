@@ -32,7 +32,7 @@ import { mediaApi } from '../api/media';
 import { messagesApi } from '../api/messages';
 import { websocketClient } from '../services/websocket';
 import { mediaCache } from '../services/mediaCache';
-import { useAuth, useCall, useMessages } from '../context';
+import { useAuth, useCall, useConversations, useMessages } from '../context';
 import {
   deriveRoomAESKey,
   getOrDeriveRoomAESKey,
@@ -86,8 +86,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const insets = useSafeAreaInsets();
   const { user, e2eeKeyPair } = useAuth();
   const { startCall } = useCall();
+  const { markConversationAsRead, setActiveRoomId } = useConversations();
 
   const roomId = conversation.id;
+
+  // Register active room and optimistically reset unread count (M-Mobile-8.23)
+  useEffect(() => {
+    if (roomId) {
+      setActiveRoomId(roomId);
+      markConversationAsRead(roomId);
+    }
+    return () => {
+      setActiveRoomId(null);
+    };
+  }, [roomId, markConversationAsRead, setActiveRoomId]);
 
   const {
     getRoomMessages,
@@ -614,6 +626,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       if (incoming.sender_id !== currentUserId && incoming.from !== currentUserId) {
         websocketClient.sendReceipt(roomId, 'read');
+        markConversationAsRead(roomId);
       }
 
       if (isNearBottomRef.current) {

@@ -155,6 +155,25 @@ export const messagesApi = {
       }),
     });
   },
+
+  /**
+   * POST /api/messages/receipt
+   * Updates message receipt status (delivered / read) via REST endpoint as a resilient fallback.
+   */
+  async updateReceipt(
+    roomId: string,
+    status: 'delivered' | 'read' = 'read',
+    messageId?: string
+  ): Promise<void> {
+    return apiClient<void>('/api/messages/receipt', {
+      method: 'POST',
+      body: JSON.stringify({
+        room_id: roomId,
+        status,
+        ...(messageId ? { message_id: messageId } : {}),
+      }),
+    });
+  },
 };
 
 /**

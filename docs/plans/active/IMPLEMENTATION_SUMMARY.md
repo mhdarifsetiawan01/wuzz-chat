@@ -1,7 +1,3 @@
-# IMPLEMENTATION SUMMARY — Standby
+# Implementation Summary — Standby Mode
 
-## Status
-`[ ] IDLE`
-
-## Active Milestone
-Tidak ada milestone aktif. Sistem dalam status standby menunggu tugas berikutnya.
+Status: Standby. Ready for next task.

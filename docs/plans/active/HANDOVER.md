@@ -1,2 +1,3 @@
-# HANDOVER — Standby
-Standby.
+# Handover — Standby Mode
+
+Status: Standby. Ready for next task.

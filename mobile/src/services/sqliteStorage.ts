@@ -230,6 +230,55 @@ export async function updateStoredConversationPin(
 }
 
 /**
+ * Optimistically updates the unread count of a conversation in local SQLite.
+ * Updates both the unread_count indexed column and the embedded raw_json.
+ */
+export async function updateStoredConversationUnread(
+  userId: string,
+  roomId: string,
+  unreadCount = 0
+): Promise<void> {
+  if (!userId || !roomId) return;
+
+  try {
+    const db = await getDatabase();
+    const row = await db.getFirstAsync<{ raw_json: string }>(
+      `SELECT raw_json FROM local_conversations WHERE user_id = ? AND id = ?`,
+      [userId, roomId]
+    );
+
+    let newRawJson: string | null = null;
+    if (row?.raw_json) {
+      try {
+        const parsed = JSON.parse(row.raw_json);
+        parsed.unread_count = unreadCount;
+        newRawJson = JSON.stringify(parsed);
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+
+    if (newRawJson) {
+      await db.runAsync(
+        `UPDATE local_conversations 
+         SET unread_count = ?, raw_json = ? 
+         WHERE user_id = ? AND id = ?`,
+        [unreadCount, newRawJson, userId, roomId]
+      );
+    } else {
+      await db.runAsync(
+        `UPDATE local_conversations 
+         SET unread_count = ? 
+         WHERE user_id = ? AND id = ?`,
+        [unreadCount, userId, roomId]
+      );
+    }
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to updateStoredConversationUnread:', error);
+  }
+}
+
+/**
  * Retrieve cached messages for a room from local SQLite.
  * Returns messages in chronological order (oldest to newest) for timeline display.
  */

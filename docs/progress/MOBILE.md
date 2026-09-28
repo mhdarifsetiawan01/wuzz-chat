@@ -168,11 +168,15 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Mengaktifkan resource shrinking (`android.enableShrinkResourcesInReleaseBuilds=true`) untuk membuang aset dan XML yang tidak terpakai.
   - Menerapkan ABI Splits terpisah untuk arsitektur fisik (`arm64-v8a` dan `armeabi-v7a`) serta membuang bloat library native emulator Intel x86/x86_64 (~74 MB).
   - Menambahkan keep-rules ProGuard untuk WebRTC, Expo Modules, dan JNI native methods.
-  - Mengintegrasikan Expo Config Plugin `mobile/plugins/withAndroidReleaseOptimization.js` agar konfigurasi persisten terhadap `npx expo prebuild`.
-  - Mendukung build bundle resmi Google Play Store (`./gradlew bundleRelease`) yang otomatis menghasilkan 1 file `app-release.aab` utuh (50 MB).
-  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**, `./gradlew bundleRelease` -> **BUILD SUCCESSFUL**.
+- [x] **M-Mobile-8.27: Mobile Instant Unread Reset & Return-to-Home Sync (28 September 2026)**:
+  - Menyelesaikan masalah unread badge yang tidak langsung hilang saat room obrolan dibuka atau saat pengguna kembali ke Home (`RecentChatsScreen`).
+  - Menambahkan method `markConversationAsRead` dan `activeRoomId` guard di `ConversationContext.tsx` untuk 0ms optimistic reset.
+  - Menambahkan fungsi persistensi `updateStoredConversationUnread` di `sqliteStorage.ts` dan fungsi REST fallback `updateReceipt` di `messages.ts`.
+  - Mengintegrasikan `useFocusEffect` di `RecentChatsScreen.tsx` untuk background revalidation otomatis.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
 
 ---
+
 
 ## Fokus Berikutnya (What's Next)
 - [ ] **M-Mobile-8.23: SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum**:
