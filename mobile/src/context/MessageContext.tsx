@@ -25,7 +25,12 @@ import {
 } from '../services/crypto';
 import { getUserPublicKey } from '../api/users';
 import { messagesApi } from '../api/messages';
-import { getStoredMessages, saveStoredMessages } from '../services/sqliteStorage';
+import {
+  getStoredMessages,
+  saveStoredMessages,
+  pruneRoomMessages,
+  MAX_LOCAL_MESSAGES_PER_ROOM,
+} from '../services/sqliteStorage';
 
 const MAX_CACHED_MESSAGES_PER_ROOM = 500;
 
@@ -133,6 +138,10 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       try {
         const stored = await getStoredMessages(user.id, roomId, 50);
+
+        // Silent background pruning to enforce MAX_LOCAL_MESSAGES_PER_ROOM retention cap
+        pruneRoomMessages(user.id, roomId, MAX_LOCAL_MESSAGES_PER_ROOM).catch(() => {});
+
         if (stored && stored.length > 0) {
           setMessagesByRoom((prev) => {
             if (prev[roomId] && prev[roomId].length > 0) return prev;

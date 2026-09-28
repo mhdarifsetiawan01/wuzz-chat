@@ -182,15 +182,17 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Menyelesaikan bug auto-redirect looping saat menekan tombol `← Back` ke Home via `handledResponseIdentifiers` Set dan penggunaan `conversationsRef`/`userRef` di `App.tsx`.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
 
+- [x] **M-Mobile-8.29: SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum (28 September 2026)**:
+  - Mengonfigurasi `PRAGMA auto_vacuum = INCREMENTAL;` pada inisialisasi SQLite database dan eksekusi `PRAGMA incremental_vacuum;` (dengan fallback aman ke `VACUUM;`) untuk mengembalikan ruang disk kosong fisik ke OS Android/iOS.
+  - Menerapkan batasan retensi lokal `MAX_LOCAL_MESSAGES_PER_ROOM = 500` dan query pruning efisien `pruneRoomMessages` di `mobile/src/services/sqliteStorage.ts`.
+  - Mengintegrasikan pembersihan auto-pruning secara asinkron/non-blocking saat penyimpanan pesan batch (`saveStoredMessages`), hidrasi room obrolan dari SQLite (`hydrateRoomFromLocalDB`), serta sinkronisasi riwayat pesan di `MessageContext.tsx` tanpa memblokir UI thread dan menjaga reverse infinite scroll pagination.
+  - Memperbarui `StorageSettingsModal.tsx` dengan kartu informasi kebijakan retensi 500 pesan per room dan memastikan tombol *"Bersihkan Cache Pesan"* menjalankan pembersihan dan incremental vacuum secara tuntas.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
+
 ---
 
-
-
 ## Fokus Berikutnya (What's Next)
-- [ ] **M-Mobile-8.23: SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum**:
-  - Implementasi retention cap (maksimal 500–1.000 pesan per room di SQLite lokal).
-  - Mekanisme auto-pruning pesan usang saat sinkronisasi riwayat baru tiba dari server.
-  - Penambahan `PRAGMA auto_vacuum = INCREMENTAL;` pada inisialisasi database SQLite untuk mengembalikan ruang disk yang dibersihkan ke sistem operasi.
-- [ ] **M-Mobile-8.24: Media Gallery Viewer & Group Media Lifecycle** (tab galeri media per chat & interactive pinch-to-zoom viewer).
+- [ ] **M-Mobile-8.30: Media Gallery Viewer & Group Media Lifecycle** (tab galeri media per chat & interactive pinch-to-zoom viewer).
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.
+
 

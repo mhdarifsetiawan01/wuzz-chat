@@ -1,16 +1,11 @@
-# IMPLEMENTATION SUMMARY — Milestone M-Mobile-Release-Opt2
+# Implementation Summary — M-Mobile-8.29 SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum
 
-## Status
-`[x] COMPLETED`
-
-## Active Milestone
-**M-Mobile-Release-Opt2**: Implementasi Langkah A (ABI Splits untuk Menghasilkan 2 APK Fisik: `arm64-v8a` & `armeabi-v7a`).
-
-## Progress Overview
-- [x] Optimasi R8 Minifier & Resource Shrinking (DEX terpangkas 58.6%).
-- [x] Konfigurasi `reactNativeArchitectures=armeabi-v7a,arm64-v8a` di `gradle.properties`.
-- [x] Konfigurasi `splits { abi { enable true ... } }` di `mobile/android/app/build.gradle`.
-- [x] Integrasi ke Expo config plugin `withAndroidReleaseOptimization.js`.
-- [x] Build testing `./gradlew assembleRelease` sukses menghasilkan 2 file APK rilis:
-  - `app-arm64-v8a-release.apk` (47 MB)
-  - `app-armeabi-v7a-release.apk` (35 MB)
+## Executive Snapshot
+- **Milestone**: M-Mobile-8.29
+- **Domain**: React Native Expo Mobile Storage Layer
+- **Status**: IN_PROGRESS
+- **Key Deliverables**:
+  1. Auto-vacuum configuration (`PRAGMA auto_vacuum = INCREMENTAL;` & `PRAGMA incremental_vacuum;`) in `sqliteStorage.ts`.
+  2. Retention capping (`MAX_LOCAL_MESSAGES_PER_ROOM = 500`) and efficient pruning query (`pruneRoomMessages`).
+  3. Non-blocking background pruning integration upon batch message saving, room hydration, and history reception in `MessageContext.tsx` & `sqliteStorage.ts`.
+  4. Updated storage inspection & maintenance UI in `StorageSettingsModal.tsx` displaying the 500 messages/room retention policy and ensuring full incremental vacuum execution.
