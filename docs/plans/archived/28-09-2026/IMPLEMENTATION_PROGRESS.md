@@ -1,8 +1,8 @@
-# IMPLEMENTATION PROGRESS — Milestone M-Mobile-Release-Opt2
+# Implementation Progress — M-Mobile-8.29
 
-## Tasks
-- [x] Task 1: Update `mobile/android/gradle.properties` (`reactNativeArchitectures=armeabi-v7a,arm64-v8a`).
-- [x] Task 2: Update `mobile/android/app/build.gradle` dengan konfigurasi `splits.abi`.
-- [x] Task 3: Update `mobile/plugins/withAndroidReleaseOptimization.js` agar konfigurasi persisten di Expo.
-- [x] Task 4: Eksekusi build `./gradlew assembleRelease` (BUILD SUCCESSFUL dalam 2m 14s).
-- [x] Task 5: Inspeksi & komparasi ukuran 2 file APK rilis (`app-arm64-v8a-release.apk` 47MB, `app-armeabi-v7a-release.apk` 35MB).
+- [x] Task 1: Update `mobile/src/services/sqliteStorage.ts` with `auto_vacuum = INCREMENTAL;`, `MAX_LOCAL_MESSAGES_PER_ROOM`, `pruneRoomMessages()`, and auto-pruning triggers.
+- [x] Task 2: Integrate silent background pruning in `mobile/src/context/MessageContext.tsx` during room hydration and history sync.
+- [x] Task 3: Update `mobile/src/components/StorageSettingsModal.tsx` to display retention cap info and ensure full vacuum execution.
+- [x] Task 4: Run automated tests (`mobile` tsc, `frontend` build, `backend` test).
+- [x] Task 5: Sync Tier 1 documentation (`docs/progress/MOBILE.md` & `docs/PROGRESS.md`).
+- [ ] Task 6: Review and prepare final report for user confirmation.

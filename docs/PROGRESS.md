@@ -3905,6 +3905,31 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
 - **Backend Test Suite (`go test ./...`)**: **PASS 100%**.
 
+---
+
+## 📱 Milestone M-Mobile-8.29: SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum (28 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **SQLite Incremental Auto-Vacuum Configuration (`sqliteStorage.ts`)**:
+  - Mengonfigurasi `PRAGMA auto_vacuum = INCREMENTAL;` pada inisialisasi basis data `getDatabase()` bersama `PRAGMA journal_mode = WAL;` dan `PRAGMA synchronous = NORMAL;`.
+  - Menerapkan pemanggilan `PRAGMA incremental_vacuum;` (dengan fallback aman ke `VACUUM;`) pada fungsi pembersihan cache `clearMessageCacheOnly` dan proses pruning agar blok memori fisik yang kosong dikembalikan secara langsung ke sistem operasi Android/iOS.
+- **Storage Retention Capping (500 Pesan per Room) (`sqliteStorage.ts`)**:
+  - Menetapkan konstanta `MAX_LOCAL_MESSAGES_PER_ROOM = 500`.
+  - Mengimplementasikan fungsi `pruneRoomMessages(userId, roomId, keepLimit)` dengan query `DELETE ... WHERE id NOT IN (SELECT id ... ORDER BY created_at DESC LIMIT ?)` yang memanfaatkan composite index `idx_msg_user_room_created`.
+  - Mengembalikan jumlah baris yang dibersihkan (`changes`) dan secara otomatis menjalankan `incremental_vacuum` jika ada baris pesan yang dihapus.
+- **Silent Non-Blocking Background Integration (`sqliteStorage.ts` & `MessageContext.tsx`)**:
+  - Mengintegrasikan pembersihan auto-pruning pada penyimpanan batch `saveStoredMessages` dan hidrasi room obrolan dari SQLite `hydrateRoomFromLocalDB`.
+  - Memastikan proses pruning berjalan sepenuhnya asinkron (`.catch(() => {})`) tanpa memblokir thread UI, mempertahankan state memori aktif `messagesByRoom` (maksimal 500 pesan), dan tidak mengganggu pagination pesan lama (*reverse infinite scroll* via REST API).
+- **Pembaruan UI & Kebijakan Retensi (`StorageSettingsModal.tsx`)**:
+  - Menambahkan kartu visual kebijakan retensi otomatis 500 pesan terbaru per room dengan gaya Aurora Dark Mode.
+  - Memastikan tombol *"Bersihkan Cache Pesan"* menjalankan pembersihan tuntas dan memicu incremental vacuum serta sinkronisasi ulang statistik penyimpanan.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Frontend Turbopack Build (`npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`go test -v ./...`)**: **PASS 100%**.
+
+
 
 
 

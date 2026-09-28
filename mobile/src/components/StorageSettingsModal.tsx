@@ -21,6 +21,7 @@ import {
   getStorageStats,
   clearMessageCacheOnly,
   StorageStats,
+  MAX_LOCAL_MESSAGES_PER_ROOM,
 } from '../services/sqliteStorage';
 import { colors, radius, shadows, spacing, typography } from '../theme';
 import { Button } from './Button';
@@ -273,6 +274,21 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
                   <Text style={styles.detailLabel}>Cache Berkas & Media</Text>
                 </View>
                 <Text style={styles.detailValue}>{formatBytes(mediaCacheBytes)}</Text>
+              </View>
+            </View>
+
+            {/* Storage Retention Policy Card */}
+            <View style={styles.card}>
+              <View style={styles.actionLeft}>
+                <View style={[styles.actionIconBox, { backgroundColor: colors.tintAccent10 }]}>
+                  <Text style={styles.actionIconText}>⚡</Text>
+                </View>
+                <View style={styles.actionTextBox}>
+                  <Text style={styles.actionTitle}>Kebijakan Retensi Otomatis</Text>
+                  <Text style={styles.actionSubtitle}>
+                    SQLite lokal secara otomatis membatasi maksimal {MAX_LOCAL_MESSAGES_PER_ROOM} pesan terbaru per ruang obrolan demi efisiensi memori. Pesan usang otomatis dibersihkan dan ruang kosong dikembalikan ke OS via Incremental Auto-Vacuum.
+                  </Text>
+                </View>
               </View>
             </View>
 

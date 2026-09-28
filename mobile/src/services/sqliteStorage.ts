@@ -38,6 +38,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
       // WAL mode permits concurrent reads and non-blocking writes.
       // synchronous = NORMAL reduces NAND flash write wear and CPU spikes.
       await db.execAsync(`
+        PRAGMA auto_vacuum = INCREMENTAL;
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
         PRAGMA foreign_keys = ON;
@@ -322,6 +323,55 @@ export async function getStoredMessages(
 }
 
 /**
+ * Retention cap constant: maximum local messages preserved per room in SQLite.
+ * Balances offline readability with storage footprint and query performance.
+ */
+export const MAX_LOCAL_MESSAGES_PER_ROOM = 500;
+
+/**
+ * Prunes older messages in a specific room exceeding keepLimit (default: MAX_LOCAL_MESSAGES_PER_ROOM).
+ * Efficiently retains the latest messages ordered by created_at DESC and removes the rest.
+ * Runs incremental vacuum if rows were pruned to immediately return reclaimed pages to OS.
+ * Returns the number of pruned rows.
+ */
+export async function pruneRoomMessages(
+  userId: string,
+  roomId: string,
+  keepLimit: number = MAX_LOCAL_MESSAGES_PER_ROOM
+): Promise<number> {
+  if (!userId || !roomId || keepLimit <= 0) return 0;
+
+  try {
+    const db = await getDatabase();
+    const result = await db.runAsync(
+      `DELETE FROM local_messages 
+       WHERE user_id = ? AND room_id = ? 
+         AND id NOT IN (
+           SELECT id FROM local_messages 
+           WHERE user_id = ? AND room_id = ? 
+           ORDER BY created_at DESC 
+           LIMIT ?
+         )`,
+      [userId, roomId, userId, roomId, keepLimit]
+    );
+
+    const changes = result.changes || 0;
+    if (changes > 0) {
+      try {
+        await db.runAsync(`PRAGMA incremental_vacuum;`);
+      } catch {
+        // ignore incremental_vacuum error if not applicable
+      }
+    }
+
+    return changes;
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to pruneRoomMessages:', error);
+    return 0;
+  }
+}
+
+/**
  * Persists an array of messages to local SQLite for a specific room.
  * Uses a single transaction to maintain maximum thermal and battery efficiency.
  */
@@ -368,6 +418,9 @@ export async function saveStoredMessages(
         );
       }
     });
+
+    // Non-blocking background pruning to enforce MAX_LOCAL_MESSAGES_PER_ROOM retention cap
+    pruneRoomMessages(userId, roomId, MAX_LOCAL_MESSAGES_PER_ROOM).catch(() => {});
   } catch (error) {
     console.warn('[sqliteStorage] Failed to saveStoredMessages:', error);
   }
@@ -558,7 +611,11 @@ export async function clearMessageCacheOnly(userId: string): Promise<void> {
     try {
       await db.runAsync(`PRAGMA incremental_vacuum;`);
     } catch {
-      // pragma vacuum fallback
+      try {
+        await db.runAsync(`VACUUM;`);
+      } catch {
+        // ignore vacuum fallback error
+      }
     }
   } catch (error) {
     console.warn('[sqliteStorage] Failed to clearMessageCacheOnly:', error);
