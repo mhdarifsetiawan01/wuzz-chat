@@ -2047,7 +2047,10 @@ Digunakan untuk negosiasi panggilan suara/video tanpa menyentuh database chat:
 - `ice_candidate`: Pertukaran kandidat koneksi jaringan STUN/TURN.
 - `call_reject`: Panggilan ditolak penerima.
 - `call_end`: Panggilan diputus atau dibatalkan.
-- `call_busy`: Penerima sedang berada pada panggilan lain.
+- `call_busy`: Penerima sedang berada pada panggilan lain atau panggilan telah dijawab oleh perangkat lain milik penerima (DEC-M34).
+
+> 🔒 **Multi-Device Race Condition Protection (DEC-M34)**:
+> Backend Hub bertindak sebagai wasit status panggilan atomik in-memory (`ActiveCallState`). Jika user penerima memiliki multi-device dan dua perangkat menjawab secara bersamaan, hanya perangkat pertama yang disahkan dan `call_answer`-nya diteruskan ke pemanggil. Perangkat kedua secara otomatis menerima `call_busy` (*"Panggilan sudah dijawab di perangkat lain"*) untuk mencegah tabrakan WebRTC `InvalidStateError` di sisi pemanggil.
 
 Contoh payload `call_offer`:
 ```json

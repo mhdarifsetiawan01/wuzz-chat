@@ -4060,6 +4060,33 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
 - **Android APK Build & Install (`cd mobile/android && ./gradlew assembleRelease && adb install`)**: **BUILD SUCCESSFUL, Streamed Install Success**.
 
+---
+
+## 📞 Multi-Device WebRTC Calling, Simultaneous Answer Race Condition Guard & E2E Validation (29 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Penyelesaian Masalah Multi-Device Panggilan Masuk**:
+  - Ketika User B login di 2 perangkat mobile yang sama-sama running on background, panggilan masuk dari User A (Frontend Web) membunyikan nada dering FCM di KEDUA perangkat secara bersamaan.
+  - Jika salah satu perangkat menolak (`call_reject`), User A di Web langsung menerima sinyal penolakan seketika, dan perangkat kedua otomatis menerima silent push `call_cancelled` untuk menghentikan dering.
+  - Jika salah satu perangkat mengangkat (`call_answer`), audio dua arah WebRTC terhubung dengan User A, dan perangkat kedua otomatis berhenti berdering (notifikasi di-dismiss).
+- **Proteksi Race Condition Jawaban Simultan (DEC-M34)**:
+  - Mengimplementasikan `ActiveCallState` in-memory dengan mutex terisolasi `activeCallsMu` di `backend/internal/ws/hub.go`.
+  - Mengunci status panggilan saat `TypeCallAnswer` pertama tiba (*first-device wins*). Jawaban kedua yang tiba di milidetik yang sama langsung ditolak (*dropped*) dan perangkat kedua dikirimi `TypeCallBusy` (*"Panggilan sudah dijawab di perangkat lain"*).
+  - Menghindarkan Web browser User A dari `InvalidStateError` akibat *duplicate SDP answer*.
+  - Menyertakan **Auto-TTL Eviction** (> 2 jam) jika map aktif melebihi 500 entri untuk menjamin nol kebocoran memori (*leak-free*).
+- **Penyempurnaan Mobile React Native**:
+  - [`mobile/src/services/notificationBackgroundTask.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/services/notificationBackgroundTask.ts): Menyelaraskan identifier panggilan berbasis `room_id` agar pembatalan `call_cancelled` membersihkan semua varian identifier notifikasi.
+  - [`mobile/src/context/CallContext.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/context/CallContext.tsx): Mengawal `rejectCall` dengan `ensureConnected(3000)` dan menambahkan penutupan modal otomatis pada perangkat kedua saat panggilan dijawab di perangkat lain.
+- **Pengujian Otomatis End-to-End ([`backend/internal/ws/e2e_push_notification_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/e2e_push_notification_test.go))**:
+  - `TestE2E_MultiDevice_WebToMobileCalling_BackgroundPush`: PASS (0.89s).
+  - `TestE2E_MultiDevice_WebToMobileCalling_Device1Answers`: PASS (0.70s).
+  - `TestE2E_MultiDevice_WebToMobileCalling_RaceConditionSimultaneousAnswer`: PASS (1.49s).
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
+- **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+
 
 
 
