@@ -199,6 +199,14 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Menyediakan akses terpadu ke galeri media percakapan dari tombol header obrolan `🖼️` di `ChatScreen.tsx`, kartu navigasi di profil kontak `ContactInfoModal.tsx`, dan kartu aksi di profil grup `GroupInfoScreen.tsx`.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
 
+- [x] **M-Mobile-8.31: Fix Force Close on Document Tab in ChatMediaGalleryModal (numColumns Invariant Violation) (29 September 2026)**:
+  - Menyelesaikan bug kritis *force close* saat tab **Dokumen** diklik ketika terdapat item dokumen lampiran (`fileList.length > 0`).
+  - Mengidentifikasi akar masalah pada rekonsiliasi FlatList React Native: tab Media (3 kolom) dan Dokumen (1 kolom) berada di conditional slot JSX yang sama tanpa `key` unik, memicu fatal runtime error `Invariant Violation: Changing numColumns on the fly is not supported`.
+  - Menambahkan key pembeda eksplisit `key="gallery-media-grid"` dan `key="gallery-files-list"` pada masing-masing FlatList agar React melakukan remounting bersih tanpa konflik kolom.
+  - Memperkuat `keyExtractor` dengan fallback `media_${index}` dan `file_${index}` serta memvalidasi `formatFileSize` dan `formatDate` (handling `isNaN` sebelum `toLocaleDateString`).
+  - Menjadikan seluruh card dokumen dapat disentuh (`TouchableOpacity`) untuk mempermudah pembagian dan pembukaan berkas.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
+
 ---
 
 ## Fokus Berikutnya (What's Next)
