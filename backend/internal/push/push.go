@@ -614,6 +614,15 @@ func (s *Service) NotifyIncomingCall(
 			strings.ToLower(callerID):       true,
 			strings.ToLower(callerNickname): true,
 		}
+		if callerUser, err := us.GetUserByID(callerID); err == nil && callerUser != nil {
+			skipMap[strings.ToLower(callerUser.ID)] = true
+			skipMap[strings.ToLower(callerUser.Username)] = true
+			skipMap[strings.ToLower(callerUser.DisplayName)] = true
+		} else if callerUser, err := us.GetUserByUsernameOrDisplayName(callerID); err == nil && callerUser != nil {
+			skipMap[strings.ToLower(callerUser.ID)] = true
+			skipMap[strings.ToLower(callerUser.Username)] = true
+			skipMap[strings.ToLower(callerUser.DisplayName)] = true
+		}
 		for _, oID := range onlineUserIDs {
 			if oID != "" {
 				skipMap[strings.ToLower(oID)] = true
@@ -627,10 +636,10 @@ func (s *Service) NotifyIncomingCall(
 			}
 
 			if user, err := us.GetUserByUsernameOrDisplayName(memberName); err == nil && user != nil {
-				if !skipMap[strings.ToLower(user.ID)] {
+				if !skipMap[strings.ToLower(user.ID)] && !skipMap[strings.ToLower(user.Username)] {
 					targetUserIDs = append(targetUserIDs, user.ID)
 				}
-			} else {
+			} else if !skipMap[strings.ToLower(memberName)] {
 				targetUserIDs = append(targetUserIDs, memberName)
 			}
 		}

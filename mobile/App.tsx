@@ -158,6 +158,13 @@ function AppContent() {
 
       // Tangani event panggilan suara masuk
       if (target.isCall) {
+        if (
+          target.senderId &&
+          currentUser?.id &&
+          (target.senderId === currentUser.id || target.senderId === currentUser.username)
+        ) {
+          return;
+        }
         triggerIncomingCall({
           room: target.roomId,
           peerId: peerId || target.senderId || 'Peer',

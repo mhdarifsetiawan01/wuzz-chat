@@ -192,6 +192,18 @@ if (modules && modules.TaskManager && typeof modules.TaskManager.defineTask === 
 
           // 2. Tangani panggilan suara masuk (call_incoming)
           if (notifType === 'call_incoming') {
+            const currentUserId = await secureStorage.getCurrentUserId();
+            const userData = await secureStorage.getUserData<{ id?: string; username?: string }>();
+            const callerId = String(notificationData.caller_id || '');
+            if (
+              (currentUserId && callerId === currentUserId) ||
+              (userData?.id && callerId === userData.id) ||
+              (userData?.username && callerId === userData.username)
+            ) {
+              console.log('[notificationBackgroundTask] Mengabaikan notifikasi panggilan masuk dari akun sendiri:', callerId);
+              return;
+            }
+
             const callerName = notificationData.caller_nickname || 'Pengguna WuzzChat';
             const roomId = notificationData.room_id || '';
             const callId = notificationData.call_id || '';

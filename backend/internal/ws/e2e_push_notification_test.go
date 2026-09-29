@@ -807,3 +807,147 @@ dev2Loop:
 	t.Logf("Status Device 2 menerima call_busy: %v", busyReceivedOnDev2)
 	t.Log("🎉 PENGUJIAN RACE CONDITION SIMULTANEOUS ANSWER LULUS 100%! ZERO RACE CONDITION!")
 }
+
+// TestE2E_MultiDevice_CallerSecondaryDevicesDoNotRingWhenCalling menguji skenario penting:
+// User B login di 2 device (Device 1 dan Device 2).
+// User B menelpon User A menggunakan Device 1.
+// Device 2 milik User B (penelepon) TIDAK BOLEH berdering dan TIDAK BOLEH menerima call_offer atau push notification!
+func TestE2E_MultiDevice_CallerSecondaryDevicesDoNotRingWhenCalling(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "test_caller_secondary.db")
+	sqlStore, err := store.NewSQLMessageStore("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("Gagal inisialisasi SQL store: %v", err)
+	}
+	defer sqlStore.Close()
+
+	userStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+	clientStore := store.NewMemoryClientStore()
+
+	pushSvc := push.NewService(userStore)
+	mockRecorder := &mockCallPushRecorder{}
+	pushSvc.SetProvider(mockRecorder)
+
+	hub := ws.NewHub(clientStore, sqlStore)
+	hub.SetUserStore(userStore)
+	hub.SetPushService(pushSvc)
+
+	notificationHandler := api.NewNotificationHandler(pushSvc, userStore)
+
+	// Registrasi User A dan User B
+	userA, _ := userStore.Register("usera_callee", "User A Callee", "pass123")
+	userB, _ := userStore.Register("userb_caller", "User B Caller", "pass123")
+
+	tokenA, _ := auth.GenerateToken(userA.ID, userA.Username, userA.DisplayName)
+	tokenB, _ := auth.GenerateToken(userB.ID, userB.Username, userB.DisplayName)
+
+	// User B mendaftarkan push notification untuk Device 2
+	claimsB, _ := auth.ValidateToken(tokenB)
+	subPayloadB := api.PushSubscribeRequest{Platform: "android", Endpoint: "fcm:token_caller_device_b2"}
+	bodyBytesB, _ := json.Marshal(subPayloadB)
+	reqB := httptest.NewRequest(http.MethodPost, "/api/notifications/subscribe", bytes.NewReader(bodyBytesB))
+	reqB = reqB.WithContext(auth.SetUserContext(context.Background(), claimsB))
+	wB := httptest.NewRecorder()
+	notificationHandler.Subscribe(wB, reqB)
+
+	// User A mendaftarkan push notification untuk Device A
+	claimsA, _ := auth.ValidateToken(tokenA)
+	subPayloadA := api.PushSubscribeRequest{Platform: "android", Endpoint: "fcm:token_callee_device_a"}
+	bodyBytesA, _ := json.Marshal(subPayloadA)
+	reqA := httptest.NewRequest(http.MethodPost, "/api/notifications/subscribe", bytes.NewReader(bodyBytesA))
+	reqA = reqA.WithContext(auth.SetUserContext(context.Background(), claimsA))
+	wA := httptest.NewRecorder()
+	notificationHandler.Subscribe(wA, reqA)
+
+	roomID, _ := userStore.GetOrCreateDirectConversation(userA.ID, userB.ID)
+
+	server := httptest.NewServer(ws.NewHandler(hub, cors.NewCORSValidator([]string{"*"})))
+	defer server.Close()
+
+	wsURL := "ws" + server.URL[4:] + "/ws?token="
+
+	// Device 1 milik User B (Penelepon) terhubung
+	wsBDev1, _, err := websocket.DefaultDialer.Dial(wsURL+tokenB+"&device_id=dev_1", nil)
+	if err != nil {
+		t.Fatalf("Gagal koneksi WS User B Dev 1: %v", err)
+	}
+	defer wsBDev1.Close()
+	_ = wsBDev1.WriteJSON(ws.Message{Type: ws.TypeJoin, Room: roomID})
+
+	// Device 2 milik User B juga terhubung via WebSocket
+	wsBDev2, _, err := websocket.DefaultDialer.Dial(wsURL+tokenB+"&device_id=dev_2", nil)
+	if err != nil {
+		t.Fatalf("Gagal koneksi WS User B Dev 2: %v", err)
+	}
+	defer wsBDev2.Close()
+	_ = wsBDev2.WriteJSON(ws.Message{Type: ws.TypeJoin, Room: roomID})
+
+	bDev2Msgs := make(chan ws.Message, 20)
+	go func() {
+		for {
+			var msg ws.Message
+			if err := wsBDev2.ReadJSON(&msg); err != nil {
+				return
+			}
+			bDev2Msgs <- msg
+		}
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+
+	// User B menelpon User A dari Device 1
+	_ = wsBDev1.WriteJSON(ws.Message{
+		ID:       "call_offer_self_check",
+		Type:     ws.TypeCallOffer,
+		Room:     roomID,
+		From:     userB.ID,
+		Nickname: userB.DisplayName,
+		SDP:      "v=0\r\no=- 998877 2 IN IP4 127.0.0.1\r\n",
+	})
+
+	time.Sleep(200 * time.Millisecond)
+
+	// 1. Verifikasi Device 2 milik User B TIDAK menerima pesan TypeCallOffer via WebSocket
+	receivedOfferOnDev2 := false
+	drainTimeout := time.After(300 * time.Millisecond)
+drainDev2:
+	for {
+		select {
+		case msg := <-bDev2Msgs:
+			if msg.Type == ws.TypeCallOffer {
+				receivedOfferOnDev2 = true
+			}
+		case <-drainTimeout:
+			break drainDev2
+		}
+	}
+
+	if receivedOfferOnDev2 {
+		t.Fatalf("BUG TERDETEKSI: Device 2 milik penelepon menerima sinyal TypeCallOffer dari perangkatnya sendiri!")
+	}
+	t.Log("✅ Langkah 1 Berhasil: Device 2 milik penelepon TIDAK menerima TypeCallOffer via WebSocket!")
+
+	// 2. Verifikasi Device 2 milik User B TIDAK menerima push notification FCM call_incoming
+	notifs := mockRecorder.GetNotifications()
+	pushToCallerDev2 := false
+	pushToCalleeA := false
+
+	for _, n := range notifs {
+		if n.Sub.Endpoint == "fcm:token_caller_device_b2" {
+			pushToCallerDev2 = true
+		}
+		if n.Sub.Endpoint == "fcm:token_callee_device_a" {
+			pushToCalleeA = true
+		}
+	}
+
+	if pushToCallerDev2 {
+		t.Fatalf("BUG TERDETEKSI: Device 2 milik penelepon menerima push notification call_incoming!")
+	}
+	t.Log("✅ Langkah 2 Berhasil: Device 2 milik penelepon TIDAK menerima push notification!")
+
+	if !pushToCalleeA {
+		t.Fatalf("Penerima sah (User A) seharusnya menerima push notification!")
+	}
+	t.Log("✅ Langkah 3 Berhasil: Hanya penerima sah (User A) yang menerima dering panggilan!")
+	t.Log("🎉 PENGUJIAN ANTI-SELF-CALLING MULTI-DEVICE 100% LULUS DAN TUNTAS!")
+}

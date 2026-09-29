@@ -722,6 +722,11 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
 			if client.getTenantID() != msgTenant {
 				continue
 			}
+			// Sinyal WebRTC P2P (Offer, Answer, ICE Candidate) tidak boleh dikirimkan ke perangkat lain milik pengirim sendiri
+			if (msg.Type == TypeCallOffer || msg.Type == TypeCallAnswer || msg.Type == TypeIceCandidate) &&
+				(client.ID == msg.From || client.Username == msg.From || client.Nickname == msg.From) {
+				continue
+			}
 			targetMap[client] = true
 		}
 	}
@@ -736,6 +741,11 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
 					continue
 				}
 				if client.getTenantID() != msgTenant {
+					continue
+				}
+				// Sinyal WebRTC P2P (Offer, Answer, ICE Candidate) tidak boleh dikirimkan ke perangkat lain milik pengirim sendiri
+				if (msg.Type == TypeCallOffer || msg.Type == TypeCallAnswer || msg.Type == TypeIceCandidate) &&
+					(client.ID == msg.From || client.Username == msg.From || client.Nickname == msg.From) {
 					continue
 				}
 				targetMap[client] = true
