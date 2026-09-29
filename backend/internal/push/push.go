@@ -752,20 +752,14 @@ func (s *Service) NotifyCallCancelled(
 			return
 		}
 
-		skipMap := map[string]bool{
-			strings.ToLower(callerID): true,
-		}
-
 		var targetUserIDs []string
 		for _, memberName := range memberUsernames {
-			if memberName == "" || skipMap[strings.ToLower(memberName)] {
+			if memberName == "" {
 				continue
 			}
 
 			if user, err := us.GetUserByUsernameOrDisplayName(memberName); err == nil && user != nil {
-				if !skipMap[strings.ToLower(user.ID)] {
-					targetUserIDs = append(targetUserIDs, user.ID)
-				}
+				targetUserIDs = append(targetUserIDs, user.ID)
 			} else {
 				targetUserIDs = append(targetUserIDs, memberName)
 			}

@@ -847,7 +847,7 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 		if ps != nil {
 			ps.NotifyIncomingCall(msg.ID, roomID, msg.From, msg.Nickname, "", msg.SDP, onlineIDs)
 		}
-	} else if msg.Type == TypeCallEnd {
+	} else if msg.Type == TypeCallEnd || msg.Type == TypeCallReject || msg.Type == TypeCallAnswer {
 		h.mu.RLock()
 		ps := h.pushService
 		var onlineIDs []string
