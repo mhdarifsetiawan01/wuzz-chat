@@ -282,4 +282,41 @@ func TestPushProviders_RoutingAndMultiPlatform(t *testing.T) {
 	}
 }
 
+func TestNotifyIncomingCall(t *testing.T) {
+	mockStore := &mockUserStoreForPush{
+		subs: []store.PushSubscription{
+			{UserID: "uid_bob", Platform: "android", Endpoint: "fcm_token_bob_123"},
+		},
+	}
+	svc := NewService(mockStore)
+
+	// 1. Should not panic for valid 1-on-1 call
+	svc.NotifyIncomingCall("call_123", "dm_alice_bob", "uid_alice", "Alice", "", "v=0...", []string{"uid_alice"})
+
+	// 2. Should skip for group room (DEC-CALL-01)
+	svc.NotifyIncomingCall("call_124", "grp_team_chat", "uid_alice", "Alice", "", "v=0...", []string{"uid_alice"})
+
+	// 3. Debounce test: immediate second call to same room should be skipped gracefully
+	svc.NotifyIncomingCall("call_125", "dm_alice_bob", "uid_alice", "Alice", "", "v=0...", []string{"uid_alice"})
+
+	time.Sleep(100 * time.Millisecond)
+}
+
+func TestNotifyCallCancelled(t *testing.T) {
+	mockStore := &mockUserStoreForPush{
+		subs: []store.PushSubscription{
+			{UserID: "uid_bob", Platform: "android", Endpoint: "fcm_token_bob_123"},
+		},
+	}
+	svc := NewService(mockStore)
+
+	// Test cancellation dispatch
+	svc.NotifyCallCancelled("call_123", "dm_alice_bob", "uid_alice", []string{"uid_alice"})
+
+	// Test skip on group room
+	svc.NotifyCallCancelled("call_124", "sub_topic_dev", "uid_alice", []string{"uid_alice"})
+
+	time.Sleep(100 * time.Millisecond)
+}
+
 

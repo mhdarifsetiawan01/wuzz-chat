@@ -20,6 +20,7 @@ import {
 import {
   DEFAULT_NOTIFICATION_CHANNEL_ID,
   MENTION_NOTIFICATION_CHANNEL_ID,
+  CALL_NOTIFICATION_CHANNEL_ID,
 } from './notificationService';
 
 export const BACKGROUND_NOTIFICATION_TASK = 'WUZZ_BACKGROUND_NOTIFICATION_DECRYPT';
@@ -174,7 +175,52 @@ if (modules && modules.TaskManager && typeof modules.TaskManager.defineTask === 
             data ||
             {};
 
-          // Ambil payload notifikasi
+          const notifType = notificationData.type;
+
+          // 1. Tangani pembatalan panggilan masuk (call_cancelled)
+          if (notifType === 'call_cancelled') {
+            const callIdentifier = 'call_' + (notificationData.call_id || notificationData.room_id || '');
+            if (modules.Notifications && typeof modules.Notifications.dismissNotificationAsync === 'function') {
+              await modules.Notifications.dismissNotificationAsync(callIdentifier);
+              console.log('[notificationBackgroundTask] Dismissed call notification:', callIdentifier);
+            }
+            return;
+          }
+
+          // 2. Tangani panggilan suara masuk (call_incoming)
+          if (notifType === 'call_incoming') {
+            const callerName = notificationData.caller_nickname || 'Pengguna WuzzChat';
+            const callIdentifier = 'call_' + (notificationData.call_id || notificationData.room_id || `${Date.now()}`);
+
+            if (modules.Notifications && typeof modules.Notifications.scheduleNotificationAsync === 'function') {
+              await modules.Notifications.scheduleNotificationAsync({
+                identifier: callIdentifier,
+                content: {
+                  title: '📞 Panggilan Suara Masuk',
+                  body: `${callerName} memanggil Anda...`,
+                  data: {
+                    ...notificationData,
+                    is_call: true,
+                    is_locally_decrypted: true,
+                  },
+                  sound: 'default',
+                  badge: 1,
+                  priority: 'max',
+                  ...(Platform.OS === 'android'
+                    ? {
+                        channelId: CALL_NOTIFICATION_CHANNEL_ID,
+                        color: '#10B981',
+                      }
+                    : {}),
+                },
+                trigger: null, // tampilkan seketika (0ms)
+              });
+              console.log('[notificationBackgroundTask] Incoming call notification posted:', callerName);
+            }
+            return;
+          }
+
+          // 3. Tangani pesan teks biasa / media E2EE
           const { title, body, channelId } = await decryptNotificationPayload(notificationData);
 
           // Tampilkan notifikasi lokal di status bar Android

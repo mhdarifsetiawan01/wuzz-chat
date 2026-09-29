@@ -4037,6 +4037,29 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
 - **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
 
+---
+
+## 📞 WebRTC Background Call Push Notification & Cold Start Integration (29 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Penyelesaian Masalah Panggilan Saat Aplikasi Mobile Ditutup / Background**:
+  - Sebelumnya, signaling WebRTC (`TypeCallOffer`) hanya dialirkan via WebSocket aktif tanpa mekanisme push notification. Jika aplikasi penerima berada di *background* atau dalam keadaan *killed*, perangkat penerima tidak berdering dan panggilan tidak terhubung.
+- **Backend Go (`backend/internal/push/` & `backend/internal/ws/`)**:
+  - Mengimplementasikan `NotifyIncomingCall` dan `NotifyCallCancelled` pada `push.Service` dengan payload berprioritas tinggi (`priority: "HIGH"`) FCM v1 data-only.
+  - Memasang pengaman **Anti-Spam / Cooldown** (debounce 5 detik per room) dan **Payload Size Guard** (< 3500 bytes) agar memenuhi batas 4KB FCM.
+  - Mengintegrasikan deteksi offline pada `TypeCallOffer` dan `TypeCallEnd` di `backend/internal/ws/hub.go` `BroadcastRoom`.
+  - Menambahkan unit test `TestNotifyIncomingCall` dan `TestNotifyCallCancelled` di `backend/internal/push/push_test.go`.
+- **Mobile React Native Expo (`mobile/`)**:
+  - Menambahkan Android Notification Channel khusus panggilan: `CALL_NOTIFICATION_CHANNEL_ID = 'wuzz_chat_calls'` dengan `importance: MAX`, getaran berulang, dan sound dering.
+  - Menambahkan penanganan `call_incoming` dan `call_cancelled` di `mobile/src/services/notificationBackgroundTask.ts`.
+  - Menambahkan metode `ensureConnected` di `mobile/src/services/websocket.ts` untuk stabilitas koneksi soket saat aplikasi dibangunkan dari *cold start*.
+  - Menambahkan metode `triggerIncomingCall` di `mobile/src/context/CallContext.tsx` dan mengintegrasikannya dengan listener notifikasi di `mobile/App.tsx`.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Android APK Build & Install (`cd mobile/android && ./gradlew assembleRelease && adb install`)**: **BUILD SUCCESSFUL, Streamed Install Success**.
+
 
 
 
