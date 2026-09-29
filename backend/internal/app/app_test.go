@@ -1,6 +1,8 @@
 package app
 
 import (
+	"bufio"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -51,3 +53,61 @@ func TestApplication_HealthCheck(t *testing.T) {
 		t.Errorf("expected application/json content-type, got %s", contentType)
 	}
 }
+
+type dummyHijackWriter struct {
+	*httptest.ResponseRecorder
+	hijacked bool
+	flushed  bool
+}
+
+func (d *dummyHijackWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	d.hijacked = true
+	return nil, nil, nil
+}
+
+func (d *dummyHijackWriter) Flush() {
+	d.flushed = true
+}
+
+func TestRequestLoggerMiddleware_HijackAndFlush(t *testing.T) {
+	handler := requestLoggerMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Fatalf("expected response writer to implement http.Hijacker")
+		}
+		_, _, _ = hj.Hijack()
+
+		fl, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatalf("expected response writer to implement http.Flusher")
+		}
+		fl.Flush()
+
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte("short and stout"))
+	}))
+
+	rec := &dummyHijackWriter{
+		ResponseRecorder: httptest.NewRecorder(),
+	}
+
+	req, _ := http.NewRequest("GET", "/test-log", nil)
+	req.Header.Set("X-Forwarded-For", "203.0.113.195, 70.41.3.18")
+	req.Header.Set("User-Agent", "WuzzChat-Test-Agent/1.0")
+
+	handler.ServeHTTP(rec, req)
+
+	if !rec.hijacked {
+		t.Errorf("expected Hijack to be called on underlying writer")
+	}
+	if !rec.flushed {
+		t.Errorf("expected Flush to be called on underlying writer")
+	}
+	if rec.Code != http.StatusTeapot {
+		t.Errorf("expected status 418, got %d", rec.Code)
+	}
+	if rec.Body.String() != "short and stout" {
+		t.Errorf("expected body 'short and stout', got %q", rec.Body.String())
+	}
+}
+

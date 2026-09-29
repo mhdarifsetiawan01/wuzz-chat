@@ -1,8 +1,12 @@
 package app
 
 import (
+	"bufio"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/api"
@@ -334,5 +338,82 @@ func (a *Application) setupRouter() http.Handler {
 		handler = tenantMw.Handler(handler)
 	}
 
+	// Bungkus dengan request logger middleware di level terluar agar seluruh request tercatat
+	handler = requestLoggerMiddleware(handler)
+
 	return handler
 }
+
+// responseWriterRecorder membungkus http.ResponseWriter untuk mencatat HTTP status code dan bytes written.
+// Mendukung http.Hijacker dan http.Flusher agar kompatibel dengan WebSocket upgrade (/ws) dan streaming.
+type responseWriterRecorder struct {
+	http.ResponseWriter
+	statusCode   int
+	bytesWritten int64
+}
+
+func (r *responseWriterRecorder) WriteHeader(statusCode int) {
+	r.statusCode = statusCode
+	r.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (r *responseWriterRecorder) Write(b []byte) (int, error) {
+	if r.statusCode == 0 {
+		r.statusCode = http.StatusOK
+	}
+	n, err := r.ResponseWriter.Write(b)
+	r.bytesWritten += int64(n)
+	return n, err
+}
+
+func (r *responseWriterRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := r.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, fmt.Errorf("http.Hijacker tidak didukung oleh underlying response writer")
+}
+
+func (r *responseWriterRecorder) Flush() {
+	if fl, ok := r.ResponseWriter.(http.Flusher); ok {
+		fl.Flush()
+	}
+}
+
+// requestLoggerMiddleware mencatat seluruh lalu lintas HTTP yang masuk ke server backend.
+func requestLoggerMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &responseWriterRecorder{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK, // default jika handler tidak memanggil WriteHeader
+		}
+
+		next.ServeHTTP(rec, r)
+
+		duration := time.Since(start)
+
+		// Ambil client IP canonical
+		ip := r.Header.Get("CF-Connecting-IP")
+		if ip == "" {
+			if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+				if parts := strings.Split(xff, ","); len(parts) > 0 {
+					ip = strings.TrimSpace(parts[0])
+				}
+			}
+		}
+		if ip == "" {
+			ip = r.Header.Get("X-Real-IP")
+		}
+		if ip == "" {
+			ip = r.RemoteAddr
+		}
+
+		ua := r.UserAgent()
+		if len(ua) > 60 {
+			ua = ua[:60] + "..."
+		}
+
+		log.Printf("[HTTP] %s %s %d %v | IP: %s | UA: %s", r.Method, r.URL.Path, rec.statusCode, duration.Round(time.Millisecond), ip, ua)
+	})
+}
+

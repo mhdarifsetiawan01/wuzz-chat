@@ -4180,6 +4180,32 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Mobile TypeScript**: `npx tsc --noEmit` -> **0 errors**.
 - **Frontend Next.js**: `npm run build` -> **Compiled successfully (0 errors)**.
 
+---
+
+## 🪵 Implementasi HTTP Request Logger & Auth Lifecycle Logging di VPS Backend (30 September 2026)
+
+### 1. Deskripsi & Rincian Perubahan
+- **Latar Belakang Masalah**: Pengguna melaporkan bahwa saat mencoba login dari aplikasi mobile Android yang baru di-build, login tidak berhasil dan sama sekali tidak memunculkan log di terminal backend VPS (`journalctl -u wuzz-chat`).
+- **Akar Masalah (Diagnosis)**:
+  1. Backend Go `setupRouter()` di [`backend/internal/app/router.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/app/router.go) tidak memiliki middleware HTTP request logging. Hanya event WebSocket dan system error yang dicetak ke stdout/stderr.
+  2. Method `Login` dan `Register` di [`backend/internal/api/auth_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/auth_handler.go) tidak memiliki logging sama sekali untuk percobaan login, kegagalan 401, maupun konflik limit perangkat 409.
+- **Solusi & Implementasi**:
+  1. **HTTP Request Logger Middleware (`backend/internal/app/router.go`)**:
+     - Membungkus seluruh HTTP handler dengan `requestLoggerMiddleware`.
+     - Mengimplementasikan `responseWriterRecorder` dengan dukungan `http.Hijacker` dan `http.Flusher` untuk memastikan protokol WebSocket Upgrade (`/ws`) tetap berfungsi normal tanpa regresi.
+     - Mencatat method, path, status code, durasi eksekusi, client IP (mendukung Cloudflare `CF-Connecting-IP`, `X-Forwarded-For`, `X-Real-IP`), dan User-Agent.
+  2. **Auth Lifecycle Logging (`backend/internal/api/auth_handler.go`)**:
+     - Menambahkan logging terstruktur untuk `Register` (attempt, success, fail).
+     - Menambahkan logging terstruktur untuk `Login` (attempt, failure/invalid credentials, conflict/device limit reached, success).
+  3. **Unit Testing (`backend/internal/app/app_test.go`)**:
+     - Menambahkan unit test `TestRequestLoggerMiddleware_HijackAndFlush` untuk memverifikasi pencatatan status code, IP extraction, serta kompatibilitas antarmuka `http.Hijacker` dan `http.Flusher`.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Go**: `go test -v ./internal/app/... ./internal/api/...` -> **PASS 100%**.
+- **Backend Suite**: `go test ./...` -> **PASS 100%**.
+- **Mobile TypeScript**: `npx tsc --noEmit` -> **PASS (0 errors)**.
+
+
 
 
 

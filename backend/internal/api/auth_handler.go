@@ -200,6 +200,9 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if platform == "" {
 		platform = strings.TrimSpace(r.Header.Get("X-Device-Platform"))
 	}
+	clientIP := getClientIP(r)
+	log.Printf("[Auth] 📝 Register attempt: username=%q display_name=%q ip=%s platform=%q", req.Username, req.DisplayName, clientIP, platform)
+
 	res, err := h.authSvc.Register(authz.RegisterInput{
 		Ctx:         r.Context(),
 		Username:    req.Username,
@@ -208,9 +211,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		DeviceID:    req.DeviceID,
 		Platform:    platform,
 		UserAgent:   r.UserAgent(),
-		IP:          getClientIP(r),
+		IP:          clientIP,
 	})
 	if err != nil {
+		log.Printf("[Auth] ❌ Register failed: username=%q err=%v ip=%s", req.Username, err, clientIP)
 		if errors.Is(err, store.ErrUserExists) {
 			http.Error(w, `{"error":"Username sudah digunakan, silakan pilih username lain"}`, http.StatusConflict)
 			return
@@ -221,6 +225,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, _ := h.userStore.GetUserByID(res.UserID)
+	log.Printf("[Auth] ✅ Register success: username=%q user_id=%s ip=%s", req.Username, res.UserID, clientIP)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(AuthResponse{
@@ -249,6 +254,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		platform = strings.TrimSpace(r.Header.Get("X-Device-Platform"))
 	}
 
+	clientIP := getClientIP(r)
+	log.Printf("[Auth] 🔑 Login attempt: username=%q device_id=%q platform=%q override=%v kick=%q ip=%s", req.Username, req.DeviceID, platform, req.ConfirmOverride, req.KickDeviceID, clientIP)
+
 	res, conflict, err := h.authSvc.Login(authz.LoginInput{
 		Ctx:             r.Context(),
 		Username:        req.Username,
@@ -258,9 +266,10 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		ConfirmOverride: req.ConfirmOverride,
 		KickDeviceID:    req.KickDeviceID,
 		UserAgent:       r.UserAgent(),
-		IP:              getClientIP(r),
+		IP:              clientIP,
 	})
 	if conflict != nil {
+		log.Printf("[Auth] ⚠️ Login conflict: username=%q reached max devices (2) from ip=%s", req.Username, clientIP)
 		var activeDevices []store.Device
 		if h.deviceStore != nil {
 			user, _ := h.userStore.GetUserByUsernameWithContext(r.Context(), strings.TrimSpace(req.Username))
@@ -280,10 +289,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
+		log.Printf("[Auth] ❌ Login failed: username=%q err=%v ip=%s", req.Username, err, clientIP)
 		http.Error(w, `{"error":"Username atau password salah"}`, http.StatusUnauthorized)
 		return
 	}
 	user, _ := h.userStore.GetUserByID(res.UserID)
+	log.Printf("[Auth] ✅ Login success: username=%q user_id=%s device_id=%q ip=%s", req.Username, res.UserID, req.DeviceID, clientIP)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(AuthResponse{
 		Token: res.Token,
