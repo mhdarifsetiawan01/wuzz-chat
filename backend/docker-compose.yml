@@ -8,6 +8,11 @@ services:
     env_file: .env
     volumes:
       - uploads:/app/uploads
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   uploads:
