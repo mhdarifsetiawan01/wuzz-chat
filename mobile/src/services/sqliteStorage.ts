@@ -89,6 +89,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
         CREATE TABLE IF NOT EXISTS local_call_logs (
           id TEXT PRIMARY KEY,
           user_id TEXT NOT NULL,
+          room_id TEXT,
           peer_id TEXT NOT NULL,
           peer_username TEXT,
           peer_display_name TEXT,
@@ -101,6 +102,13 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
         CREATE INDEX IF NOT EXISTS idx_call_user_created 
         ON local_call_logs(user_id, created_at DESC);
       `);
+
+      // Safe schema migration for local_call_logs.room_id (backward-compatibility)
+      try {
+        await db.runAsync('ALTER TABLE local_call_logs ADD COLUMN room_id TEXT;');
+      } catch {
+        // Column already exists, safe to ignore
+      }
 
       dbInstance = db;
       return db;
@@ -508,6 +516,7 @@ export async function clearUserCache(userId: string): Promise<void> {
 export interface LocalCallRecord {
   id: string;
   user_id: string;
+  room_id?: string;
   peer_id: string;
   peer_username: string;
   peer_display_name: string;
@@ -527,12 +536,13 @@ export async function saveCallRecord(record: LocalCallRecord): Promise<void> {
     const db = await getDatabase();
     await db.runAsync(
       `INSERT OR REPLACE INTO local_call_logs (
-        id, user_id, peer_id, peer_username, peer_display_name,
+        id, user_id, room_id, peer_id, peer_username, peer_display_name,
         call_type, duration_seconds, created_at, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.id,
         record.user_id,
+        record.room_id || '',
         record.peer_id,
         record.peer_username || '',
         record.peer_display_name || '',

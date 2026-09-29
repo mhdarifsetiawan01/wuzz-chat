@@ -154,6 +154,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const record: LocalCallRecord = {
         id: `call_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
         user_id: user.id,
+        room_id: session.room,
         peer_id: session.peerId,
         peer_username: session.peerNickname,
         peer_display_name: session.peerNickname,
@@ -239,26 +240,48 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       cleanupCallSession();
       loggedCallIdRef.current = null;
 
-      // Auto-resolve room ID if empty
+      // Auto-resolve room ID if empty, with resilient room vs user ID detection
       let targetRoomId = roomId;
+      let effectivePeerId = peerId;
+
       if (!targetRoomId) {
-        try {
-          const directRes = await startDirectChat(peerId);
-          if (directRes?.room_id) {
-            targetRoomId = directRes.room_id;
-          } else {
-            throw new Error('No room_id returned from startDirectChat');
+        if (effectivePeerId && (effectivePeerId.startsWith('conv_') || effectivePeerId.startsWith('dm_'))) {
+          // Backward compatibility: If peerId was accidentally stored as roomId in past bugged sessions
+          targetRoomId = effectivePeerId;
+        } else if (effectivePeerId) {
+          try {
+            const directRes = await startDirectChat(effectivePeerId);
+            if (directRes?.room_id) {
+              targetRoomId = directRes.room_id;
+            } else {
+              throw new Error('No room_id returned from startDirectChat');
+            }
+          } catch (err: any) {
+            console.error('[CallContext] Failed to resolve room for call:', err);
+            Alert.alert('Gagal Memulai Panggilan', 'Tidak dapat membuat sesi percakapan dengan kontak.');
+            return false;
           }
-        } catch (err: any) {
-          console.error('[CallContext] Failed to resolve room for call:', err);
-          Alert.alert('Gagal Memulai Panggilan', 'Tidak dapat membuat sesi percakapan dengan kontak.');
-          return false;
         }
       }
 
+      if (!targetRoomId) {
+        Alert.alert('Gagal Memulai Panggilan', 'Identitas percakapan tidak valid.');
+        return false;
+      }
+
+      // Ensure socket is active before initiating signaling
+      try {
+        await websocketClient.ensureConnected(4000);
+      } catch (wsErr) {
+        console.warn('[CallContext] ensureConnected warning before startCall:', wsErr);
+      }
+
+      // Register presence in room on Hub so signaling events are properly routed
+      websocketClient.joinRoom(targetRoomId);
+
       const newCall: CallSession = {
         room: targetRoomId,
-        peerId,
+        peerId: effectivePeerId,
         peerNickname,
         peerAvatar,
         mediaType: 'audio',
@@ -281,7 +304,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         // 4. Send SDP Offer via WebSocket signaling
-        websocketClient.sendCallOffer(targetRoomId, offerSdp, peerId);
+        websocketClient.sendCallOffer(targetRoomId, offerSdp, effectivePeerId);
         return true;
       } catch (err) {
         console.error('[CallContext] Failed to start call:', err);

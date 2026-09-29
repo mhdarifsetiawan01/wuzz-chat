@@ -229,14 +229,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // Milestone M-Mobile-8.30: Room Media & Document Gallery modal
   const [showMediaGallery, setShowMediaGallery] = useState(false);
 
-  // WebRTC 1-on-1 Voice Calling Handler
-  const handleVoiceCall = useCallback(async () => {
-    if (isGroup) return;
-    const peerId = (conversation as any).peer_user_id || (conversation as any).user_id || conversation.id;
-    const peerNickname = conversation.title || 'Pengguna';
-    const peerAvatar = conversation.avatar_url;
-    await startCall(roomId, peerId, peerNickname, peerAvatar);
-  }, [conversation, isGroup, roomId, startCall]);
   const [peerPublicKey, setPeerPublicKey] = useState<string | undefined>(conversation.peer_public_key);
 
   const flatListRef = useRef<FlatList>(null);
@@ -332,6 +324,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
     return '';
   }, [conversation.peer_id, conversation.participants, roomId, currentUserId]);
+
+  // WebRTC 1-on-1 Voice Calling Handler (DEC-CALL-03: Real Contact User ID)
+  const handleVoiceCall = useCallback(async () => {
+    if (isGroup) return;
+    const peerId = resolvedPeerId || conversation.peer_id || '';
+    const peerNickname = title || conversation.name || conversation.peer_nickname || 'Pengguna';
+    const peerAvatar = avatarUrl || conversation.avatar_url || conversation.peer_avatar_url;
+    await startCall(roomId, peerId, peerNickname, peerAvatar);
+  }, [isGroup, resolvedPeerId, conversation, title, avatarUrl, startCall, roomId]);
 
   // Helper deterministik untuk mendapatkan nama pengirim pesan (human-readable, anti-raw UUID)
   const getMessageSenderName = useCallback(

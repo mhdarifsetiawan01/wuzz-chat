@@ -64,13 +64,18 @@ function formatTimestamp(timestampMs: number): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Call List Item
+// Call List Item & Grouping
 // ─────────────────────────────────────────────────────────────────────────────
+export interface GroupedCallRecord extends LocalCallRecord {
+  call_count: number;
+  raw_ids: string[];
+}
+
 interface CallListItemProps {
-  item: LocalCallRecord;
-  onPress: (item: LocalCallRecord) => void;
-  onLongPress: (item: LocalCallRecord) => void;
-  onCallback: (item: LocalCallRecord) => void;
+  item: GroupedCallRecord;
+  onPress: (item: GroupedCallRecord) => void;
+  onLongPress: (item: GroupedCallRecord) => void;
+  onCallback: (item: GroupedCallRecord) => void;
 }
 
 const CallListItem = React.memo<CallListItemProps>(
@@ -92,6 +97,7 @@ const CallListItem = React.memo<CallListItemProps>(
         <View style={styles.callInfo}>
           <Text style={styles.contactName} numberOfLines={1}>
             {displayName}
+            {item.call_count > 1 ? ` (${item.call_count})` : ''}
           </Text>
           <View style={styles.callMeta}>
             <Text style={styles.callTypeIcon}>{meta.icon}</Text>
@@ -168,18 +174,74 @@ export const CallsHistoryScreen: React.FC = () => {
     setIsRefreshing(false);
   }, [refreshCallHistory]);
 
-  // Initiate call to a history peer
+  // Consecutive call grouping (DEC-CALL-04: WhatsApp-style aggregation)
+  const groupedCallHistory = useMemo<GroupedCallRecord[]>(() => {
+    if (!callHistory || callHistory.length === 0) return [];
+
+    const groups: GroupedCallRecord[] = [];
+    let currentGroup: GroupedCallRecord | null = null;
+
+    for (const record of callHistory) {
+      const peerIdentifier = record.peer_id || record.peer_username || record.peer_display_name;
+      const currentPeerIdentifier = currentGroup
+        ? currentGroup.peer_id || currentGroup.peer_username || currentGroup.peer_display_name
+        : null;
+
+      if (
+        currentGroup &&
+        peerIdentifier === currentPeerIdentifier &&
+        currentGroup.call_type === record.call_type
+      ) {
+        currentGroup.call_count += 1;
+        currentGroup.raw_ids.push(record.id);
+        if (record.duration_seconds) {
+          currentGroup.duration_seconds += record.duration_seconds;
+        }
+      } else {
+        currentGroup = {
+          ...record,
+          call_count: 1,
+          raw_ids: [record.id],
+        };
+        groups.push(currentGroup);
+      }
+    }
+
+    return groups;
+  }, [callHistory]);
+
+  // Initiate call to a history peer with robust room & peer resolution
   const handleInitiateCall = useCallback(
-    async (item: LocalCallRecord) => {
-      const displayName = item.peer_display_name || item.peer_username || 'Kontak';
-      await startCall('', item.peer_id, displayName);
+    async (item: GroupedCallRecord | LocalCallRecord) => {
+      // Cari direct conversation terkait dari daftar conversations
+      const conv = conversations.find(
+        (c) =>
+          !c.is_group &&
+          (c as any).type !== 'group' &&
+          (c.id === item.room_id ||
+            c.id === item.peer_id ||
+            c.peer_id === item.peer_id ||
+            (c as any).room_id === item.room_id)
+      );
+
+      const targetRoomId = item.room_id || conv?.id || '';
+      const targetPeerId = conv?.peer_id || item.peer_id;
+      const displayName =
+        item.peer_display_name ||
+        conv?.name ||
+        conv?.peer_nickname ||
+        item.peer_username ||
+        'Kontak';
+      const avatarUrl = conv?.avatar_url || conv?.peer_avatar_url;
+
+      await startCall(targetRoomId, targetPeerId, displayName, avatarUrl);
     },
-    [startCall]
+    [conversations, startCall]
   );
 
   // Tap on item: Prompt confirmation
   const handleItemPress = useCallback(
-    (item: LocalCallRecord) => {
+    (item: GroupedCallRecord) => {
       const displayName = item.peer_display_name || item.peer_username || 'Kontak';
       Alert.alert(
         'Panggilan Suara',
@@ -196,19 +258,24 @@ export const CallsHistoryScreen: React.FC = () => {
     [handleInitiateCall]
   );
 
-  // Long press on item: Delete confirmation
+  // Long press on item: Delete confirmation (removes all records in the group)
   const handleItemLongPress = useCallback(
-    (item: LocalCallRecord) => {
+    (item: GroupedCallRecord) => {
       const displayName = item.peer_display_name || item.peer_username || 'Kontak';
+      const countMsg = item.call_count > 1 ? ` (${item.call_count} panggilan)` : '';
       Alert.alert(
         'Hapus Riwayat Panggilan',
-        `Hapus catatan panggilan dengan ${displayName}?`,
+        `Hapus catatan panggilan dengan ${displayName}${countMsg}?`,
         [
           { text: 'Batal', style: 'cancel' },
           {
             text: 'Hapus',
             style: 'destructive',
-            onPress: () => deleteCallRecord(item.id),
+            onPress: async () => {
+              for (const id of item.raw_ids) {
+                await deleteCallRecord(id);
+              }
+            },
           },
         ]
       );
@@ -272,7 +339,7 @@ export const CallsHistoryScreen: React.FC = () => {
     [startCall]
   );
 
-  const renderItem: ListRenderItem<LocalCallRecord> = useCallback(
+  const renderItem: ListRenderItem<GroupedCallRecord> = useCallback(
     ({ item }) => (
       <CallListItem
         item={item}
@@ -284,7 +351,7 @@ export const CallsHistoryScreen: React.FC = () => {
     [handleItemPress, handleItemLongPress, handleInitiateCall]
   );
 
-  const keyExtractor = useCallback((item: LocalCallRecord) => item.id, []);
+  const keyExtractor = useCallback((item: GroupedCallRecord) => item.id, []);
 
   const ListEmpty = useMemo(
     () => (
@@ -304,7 +371,7 @@ export const CallsHistoryScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Panggilan</Text>
-        {callHistory.length > 0 && (
+        {groupedCallHistory.length > 0 && (
           <TouchableOpacity
             style={styles.clearHeaderBtn}
             onPress={handleClearAll}
@@ -316,7 +383,7 @@ export const CallsHistoryScreen: React.FC = () => {
       </View>
 
       {/* Loading Indicator for Initial Load */}
-      {isLoadingHistory && callHistory.length === 0 ? (
+      {isLoadingHistory && groupedCallHistory.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accentPrimary} />
           <Text style={styles.loadingText}>Memuat riwayat panggilan...</Text>
@@ -324,13 +391,13 @@ export const CallsHistoryScreen: React.FC = () => {
       ) : (
         /* Call History List */
         <FlatList
-          data={callHistory}
+          data={groupedCallHistory}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           ListEmptyComponent={ListEmpty}
           contentContainerStyle={[
             styles.listContent,
-            callHistory.length === 0 && styles.listContentEmpty,
+            groupedCallHistory.length === 0 && styles.listContentEmpty,
           ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           showsVerticalScrollIndicator={false}

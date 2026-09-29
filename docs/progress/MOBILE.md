@@ -218,7 +218,16 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Ketika server merespons dengan HTTP 409 (`DEVICE_LIMIT_REACHED`) atau 401, `setIsLoading(false)` dipanggil di blok `finally`, menyebabkan `App.tsx` me-mount komponen `LoginScreen` baru dari awal dengan state bersih (`isDeviceLimitModalOpen: false`, input kosong), sehingga dialog popup tidak pernah muncul.
   - Memperbaiki `AuthContext.tsx` dengan menghapus mutasi `setIsLoading` global di dalam `login()` dan `register()`, membatasi `isLoading` hanya untuk proses pemeriksaan sesi awal (*cold start*). `LoginScreen` dan `RegisterScreen` mengelola status loading tombol secara lokal tanpa memicu unmount tree.
   - Re-bundle & compile ulang release APK (`./gradlew assembleRelease`) dan instalasi langsung ke perangkat Android fisik via `adb install -r`.
-  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, build release APK -> **BUILD SUCCESSFUL (40s)**, dan teruji di perangkat fisik.
+- [x] **M-Mobile-8.34: Fix WebRTC Call Log Resolution, Callback Dialer & Consecutive Grouping (30 September 2026)**:
+  - Menyelesaikan bug panggilan tidak masuk saat dipanggil balik dari tab **Panggilan / Log Panggilan** (`CallsHistoryScreen.tsx`):
+    - Memperbaiki `handleVoiceCall` di `ChatScreen.tsx` yang sebelumnya menggunakan fallback `conversation.id` (Room ID) untuk `peerId`, sehingga catatan riwayat panggilan menyimpan Room ID alih-alih User ID kontak yang sah.
+    - Menambahkan kolom `room_id TEXT` pada skema tabel SQLite `local_call_logs` dan `LocalCallRecord` di `sqliteStorage.ts` dengan migrasi otomatis non-destruktif (`ALTER TABLE local_call_logs ADD COLUMN room_id TEXT`).
+    - Menyimpan `room_id: session.room` pada `recordCallLog` dan menambahkan proteksi `ensureConnected(4000)` serta pendaftaran `websocketClient.joinRoom(targetRoomId)` pada `startCall` di `CallContext.tsx`.
+    - Memperbaiki `handleInitiateCall` di `CallsHistoryScreen.tsx` agar mencari `conversations` yang ada untuk mendapatkan `room_id` dan `peer_id` kontak yang valid, dilengkapi *backward-compatible recovery* jika log lama mencatat Room ID.
+  - Implementasi *Consecutive Call Grouping* (agregasi panggilan beruntun bergaya WhatsApp):
+    - Mengelompokkan panggilan beruntun ke/dari kontak yang sama dengan tipe yang sama menjadi 1 baris di UI dengan badge counter (misal: `Budi Santoso (5)`), menampilkan timestamp dan durasi terkini.
+    - Aksi hapus log (long press) membersihkan seluruh entri terkait dalam grup tersebut.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `go test ./...` -> **100% PASS**, `npm run build` -> **0 errors**, dan `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**.
 
 ---
 

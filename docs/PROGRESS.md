@@ -4230,6 +4230,41 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Android Release Build**: `./gradlew assembleRelease` -> **BUILD SUCCESSFUL (0 errors)**.
 - **Device Deployment**: `adb install -r ...` -> **Success**.
 
+---
+
+## 📞 Fix WebRTC Call Log Resolution, Callback Dialer & Consecutive Grouping di Mobile (30 September 2026)
+
+### 1. Deskripsi & Rincian Perubahan
+- **Latar Belakang Masalah**: 
+  1. Pengguna bertanya mengapa panggilan 5 kali ke kontak yang sama menghasilkan 5 baris log di tab panggilan.
+  2. Saat tombol telepon/panggil balik pada salah satu baris log tersebut diklik, panggilan tidak terhubung ke tujuan ("tidak masuk"). Panggilan hanya bisa terhubung jika ditelepon dari dalam ruang obrolan (chat room).
+- **Akar Masalah (Diagnosis)**:
+  1. Di `ChatScreen.tsx`, handler panggilan suara `handleVoiceCall` menggunakan fallback `peerId = (conversation as any).peer_user_id || (conversation as any).user_id || conversation.id`. Karena `peer_user_id` tidak ada, nilai `peerId` jatuh ke `conversation.id` (yaitu Room ID, misal `conv_01J...`, bukan User ID lawan bicara). Akibatnya, catatan riwayat panggilan menyimpan Room ID di kolom `peer_id`.
+  2. Di `CallsHistoryScreen.tsx`, fungsi callback `handleInitiateCall` memanggil `startCall('', item.peer_id, displayName)`. Backend menolak `startDirectChat` karena ID tersebut adalah Room ID, bukan User ID.
+  3. Skema tabel SQLite `local_call_logs` dan antarmuka `LocalCallRecord` di `sqliteStorage.ts` belum memiliki kolom `room_id`.
+  4. Pada `CallContext.tsx`, `startCall` dari luar chat room tidak mendaftarkan koneksi WebSocket ke room (`joinRoom`) dan tidak memverifikasi kesiapan soket (`ensureConnected`), sehingga paket offer SDP tidak ter-routing dengan tepat di Hub server.
+- **Solusi & Implementasi**:
+  1. **Resolusi Identitas Kontak Sah (`mobile/src/screens/ChatScreen.tsx`)**:
+     - Menggunakan `resolvedPeerId || conversation.peer_id || ''` dan `title || conversation.name || conversation.peer_nickname || 'Pengguna'` agar `peer_id` yang dicatat ke SQLite adalah User UUID lawan bicara yang valid.
+  2. **Dukungan `room_id` pada SQLite (`mobile/src/services/sqliteStorage.ts`)**:
+     - Menambahkan kolom `room_id TEXT` pada DDL `local_call_logs` serta migrasi otomatis non-destruktif (`ALTER TABLE local_call_logs ADD COLUMN room_id TEXT;`).
+     - Menyimpan `record.room_id` pada `saveCallRecord`.
+  3. **Penguatan Lifecycle Panggilan & Routing Hub (`mobile/src/context/CallContext.tsx`)**:
+     - Menyimpan `room_id: session.room` pada `recordCallLog`.
+     - Menambahkan `ensureConnected(4000)`, backward-compatible recovery untuk room ID lama, dan pendaftaran `websocketClient.joinRoom(targetRoomId)` sebelum mengirim offer SDP.
+  4. **Pencocokan Percakapan di Dialer (`mobile/src/screens/CallsHistoryScreen.tsx`)**:
+     - Menghubungkan `handleInitiateCall` ke daftar `conversations` untuk resolusi `targetRoomId` dan `targetPeerId` yang presisi.
+  5. **Pengelompokan Panggilan Beruntun (*Consecutive Call Grouping*)**:
+     - Mengelompokkan panggilan berurutan dengan kontak & tipe yang sama menjadi 1 baris di UI bergaya WhatsApp dengan badge counter `(x)` (misal: `Budi Santoso (5)`).
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `npx tsc --noEmit` -> **PASS (0 errors)**.
+- **Go Backend Tests**: `go test -v ./internal/ws/... ./internal/messaging/...` -> **PASS (100% tests passed)**.
+- **Web Frontend Build**: `npm run build` -> **Compiled successfully (0 errors)**.
+- **Android Release Build**: `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**.
+- **Physical Device Install**: `adb install -r ...` -> **Success**.
+
+
 
 
 
