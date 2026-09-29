@@ -20,6 +20,7 @@ import {
   WebRTCAudioSession,
   callAudioManager,
   websocketClient,
+  notificationService,
   LocalCallRecord,
   saveCallRecord,
   getCallHistory,
@@ -391,11 +392,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /**
    * Reject incoming call
    */
-  const rejectCall = useCallback(() => {
+  const rejectCall = useCallback(async () => {
     const current = activeCallRef.current;
     if (current) {
+      try {
+        await websocketClient.ensureConnected(3000);
+      } catch (err) {
+        console.warn('[CallContext] ensureConnected before reject failed:', err);
+      }
       websocketClient.sendCallReject(current.room);
       recordCallLog(current, 'rejected', 0);
+      notificationService.dismissNotification('call_' + current.room);
     }
     cleanupCallSession();
     setActiveCall((prev) => (prev ? { ...prev, status: 'ended' } : null));
@@ -471,23 +478,31 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const unsubAnswer = websocketClient.on('call_answer', (msg: any) => {
-      callAudioManager.stopAllCallTones();
-      if (msg.sdp && webrtcSessionRef.current) {
-        webrtcSessionRef.current.handleAnswer(msg.sdp).catch((err) => {
-          console.warn('[CallContext] Error handling remote answer SDP:', err);
-        });
-      }
+      const current = activeCallRef.current;
+      if (current && current.isCaller) {
+        callAudioManager.stopAllCallTones();
+        if (msg.sdp && webrtcSessionRef.current) {
+          webrtcSessionRef.current.handleAnswer(msg.sdp).catch((err) => {
+            console.warn('[CallContext] Error handling remote answer SDP:', err);
+          });
+        }
 
-      callAudioManager.startCallAudioSession(isSpeaker);
-      setActiveCall((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'connected',
-              startTime: Date.now(),
-            }
-          : null
-      );
+        callAudioManager.startCallAudioSession(isSpeaker);
+        setActiveCall((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'connected',
+                startTime: Date.now(),
+              }
+            : null
+        );
+      } else if (current && !current.isCaller && current.status === 'incoming_ringing') {
+        // Panggilan telah dijawab di perangkat lain milik akun yang sama
+        callAudioManager.stopAllCallTones();
+        cleanupCallSession();
+        setActiveCall(null);
+      }
     });
 
     const unsubCandidate = websocketClient.on('ice_candidate', (msg: any) => {

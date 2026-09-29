@@ -179,10 +179,13 @@ if (modules && modules.TaskManager && typeof modules.TaskManager.defineTask === 
 
           // 1. Tangani pembatalan panggilan masuk (call_cancelled)
           if (notifType === 'call_cancelled') {
-            const callIdentifier = 'call_' + (notificationData.call_id || notificationData.room_id || '');
+            const roomId = notificationData.room_id || '';
+            const callId = notificationData.call_id || '';
             if (modules.Notifications && typeof modules.Notifications.dismissNotificationAsync === 'function') {
-              await modules.Notifications.dismissNotificationAsync(callIdentifier);
-              console.log('[notificationBackgroundTask] Dismissed call notification:', callIdentifier);
+              if (roomId) await modules.Notifications.dismissNotificationAsync('call_' + roomId);
+              if (callId) await modules.Notifications.dismissNotificationAsync('call_' + callId);
+              if (callId) await modules.Notifications.dismissNotificationAsync(callId);
+              console.log('[notificationBackgroundTask] Dismissed call notification for room:', roomId, 'callId:', callId);
             }
             return;
           }
@@ -190,7 +193,9 @@ if (modules && modules.TaskManager && typeof modules.TaskManager.defineTask === 
           // 2. Tangani panggilan suara masuk (call_incoming)
           if (notifType === 'call_incoming') {
             const callerName = notificationData.caller_nickname || 'Pengguna WuzzChat';
-            const callIdentifier = 'call_' + (notificationData.call_id || notificationData.room_id || `${Date.now()}`);
+            const roomId = notificationData.room_id || '';
+            const callId = notificationData.call_id || '';
+            const callIdentifier = 'call_' + (roomId || callId || `${Date.now()}`);
 
             if (modules.Notifications && typeof modules.Notifications.scheduleNotificationAsync === 'function') {
               await modules.Notifications.scheduleNotificationAsync({

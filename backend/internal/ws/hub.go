@@ -57,6 +57,16 @@ type RealtimeMessageManager interface {
 	GetRoomHistorySince(roomID, userID string, since time.Time, limit int) ([]store.StoredMessage, error)
 }
 
+// ActiveCallState mencatat status panggilan WebRTC aktif di room untuk mencegah race condition multi-device (DEC-M34).
+type ActiveCallState struct {
+	CallID     string
+	RoomID     string
+	CallerID   string
+	Status     string // "ringing", "answered", "ended"
+	AnsweredBy string // sessionKey / sender client ID yang pertama kali menjawab
+	CreatedAt  time.Time
+}
+
 // Hub adalah pusat kendali: menyimpan semua client aktif dan room,
 // serta bertanggung jawab merutingkan pesan dan broadcast ke room.
 type Hub struct {
@@ -68,6 +78,8 @@ type Hub struct {
 	roomMembersMu    sync.RWMutex                  // Mutex terisolasi untuk membership cache
 	dedupHistory     map[string]int64              // msgID -> unixTimestamp (idempotency deduplication cache)
 	dedupMu          sync.RWMutex                  // Mutex terisolasi untuk deduplication cache
+	activeCalls      map[string]*ActiveCallState   // roomID -> *ActiveCallState (race condition guard DEC-M34)
+	activeCallsMu    sync.RWMutex                  // Mutex terisolasi untuk call state tracking
 	maxActiveDevices int                           // batas perangkat aktif bersamaan per user
 	mu               sync.RWMutex
 	clientStore      store.ClientStore
@@ -86,6 +98,7 @@ func NewHub(cs store.ClientStore, ms RealtimeMessageManager) *Hub {
 		rooms:            make(map[string]map[string]*Client),
 		roomMembersCache: make(map[string][]string),
 		dedupHistory:     make(map[string]int64),
+		activeCalls:      make(map[string]*ActiveCallState),
 		maxActiveDevices: DefaultMaxActiveDevicesPerUser,
 		clientStore:      cs,
 		messageStore:     ms,
@@ -767,6 +780,68 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 			}
 		}
 		msg.Mentions = validMentions
+	}
+
+	// 0. Proteksi Race Condition WebRTC Call State (DEC-M34): Mencegah dua device menjawab bersamaan
+	if msg.Type == TypeCallOffer {
+		h.activeCallsMu.Lock()
+		if len(h.activeCalls) > 500 {
+			now := time.Now()
+			for rID, cState := range h.activeCalls {
+				if now.Sub(cState.CreatedAt) > 2*time.Hour {
+					delete(h.activeCalls, rID)
+				}
+			}
+		}
+		h.activeCalls[roomID] = &ActiveCallState{
+			CallID:    msg.ID,
+			RoomID:    roomID,
+			CallerID:  msg.From,
+			Status:    "ringing",
+			CreatedAt: time.Now(),
+		}
+		h.activeCallsMu.Unlock()
+	} else if msg.Type == TypeCallAnswer {
+		h.activeCallsMu.Lock()
+		call, exists := h.activeCalls[roomID]
+		if exists && call.Status == "answered" && call.AnsweredBy != "" && call.AnsweredBy != senderID {
+			h.activeCallsMu.Unlock()
+			log.Printf("⚠️ [Hub %s] Race condition prevented: room %s call sudah dijawab oleh %s, menolak duplicate answer dari %s",
+				h.nodeID[:8], roomID, safePrefix(call.AnsweredBy, 8), safePrefix(senderID, 8))
+			// Kirim sinyal call_busy langsung ke perangkat kedua yang terlambat
+			h.mu.RLock()
+			if c, ok := h.findClientLocked(senderID); ok && c != nil {
+				busyMsg := Message{
+					Type:      TypeCallBusy,
+					Room:      roomID,
+					Content:   "Panggilan sudah dijawab di perangkat lain",
+					Timestamp: time.Now().UTC(),
+				}
+				c.SafeSend(busyMsg)
+			}
+			h.mu.RUnlock()
+			return
+		}
+
+		if exists {
+			call.Status = "answered"
+			if senderID != "" {
+				call.AnsweredBy = senderID
+			}
+		} else {
+			h.activeCalls[roomID] = &ActiveCallState{
+				CallID:     msg.ID,
+				RoomID:     roomID,
+				Status:     "answered",
+				AnsweredBy: senderID,
+				CreatedAt:  time.Now(),
+			}
+		}
+		h.activeCallsMu.Unlock()
+	} else if msg.Type == TypeCallEnd || msg.Type == TypeCallReject {
+		h.activeCallsMu.Lock()
+		delete(h.activeCalls, roomID)
+		h.activeCallsMu.Unlock()
 	}
 
 	// 1. Broadcast ke client lokal yang terhubung di instance server ini
