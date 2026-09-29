@@ -722,8 +722,9 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
 			if client.getTenantID() != msgTenant {
 				continue
 			}
-			// Sinyal WebRTC P2P (Offer, Answer, ICE Candidate) tidak boleh dikirimkan ke perangkat lain milik pengirim sendiri
-			if (msg.Type == TypeCallOffer || msg.Type == TypeCallAnswer || msg.Type == TypeIceCandidate) &&
+			// Sinyal WebRTC P2P (Offer, ICE Candidate) tidak boleh dikirimkan ke perangkat lain milik pengirim sendiri
+			// Catatan: TypeCallAnswer HARUS dikirim ke perangkat sekunder callee agar dapat menutup modal dering panggilan masuk.
+			if (msg.Type == TypeCallOffer || msg.Type == TypeIceCandidate) &&
 				(client.ID == msg.From || client.Username == msg.From || client.Nickname == msg.From) {
 				continue
 			}
@@ -743,8 +744,9 @@ func (h *Hub) broadcastLocal(roomID string, msg Message, senderKey string) {
 				if client.getTenantID() != msgTenant {
 					continue
 				}
-				// Sinyal WebRTC P2P (Offer, Answer, ICE Candidate) tidak boleh dikirimkan ke perangkat lain milik pengirim sendiri
-				if (msg.Type == TypeCallOffer || msg.Type == TypeCallAnswer || msg.Type == TypeIceCandidate) &&
+				// Sinyal WebRTC P2P (Offer, ICE Candidate) tidak boleh dikirimkan ke perangkat lain milik pengirim sendiri
+				// Catatan: TypeCallAnswer HARUS dikirim ke perangkat sekunder callee agar dapat menutup modal dering panggilan masuk.
+				if (msg.Type == TypeCallOffer || msg.Type == TypeIceCandidate) &&
 					(client.ID == msg.From || client.Username == msg.From || client.Nickname == msg.From) {
 					continue
 				}
@@ -848,7 +850,18 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 			}
 		}
 		h.activeCallsMu.Unlock()
-	} else if msg.Type == TypeCallEnd || msg.Type == TypeCallReject {
+	} else if msg.Type == TypeCallReject {
+		h.activeCallsMu.Lock()
+		call, exists := h.activeCalls[roomID]
+		if exists && call.Status == "answered" {
+			h.activeCallsMu.Unlock()
+			log.Printf("⚠️ [Hub %s] Mengabaikan call_reject di room %s karena panggilan sudah aktif/dijawab oleh %s (pengirim reject: %s)",
+				h.nodeID[:8], roomID, safePrefix(call.AnsweredBy, 8), safePrefix(senderID, 8))
+			return
+		}
+		delete(h.activeCalls, roomID)
+		h.activeCallsMu.Unlock()
+	} else if msg.Type == TypeCallEnd {
 		h.activeCallsMu.Lock()
 		delete(h.activeCalls, roomID)
 		h.activeCallsMu.Unlock()

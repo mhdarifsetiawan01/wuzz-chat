@@ -1498,12 +1498,21 @@ function ChatPageContent() {
 
         case 'call_answer': {
           stopCallSounds()
-          if (msg.sdp && webrtcAudioRef.current) {
-            webrtcAudioRef.current.handleAnswer(msg.sdp).catch((err: unknown) => {
-              console.error('[WebRTC] Gagal proses remote answer:', err)
-            })
+          if (activeCall?.isCaller) {
+            if (msg.sdp && webrtcAudioRef.current) {
+              webrtcAudioRef.current.handleAnswer(msg.sdp).catch((err: unknown) => {
+                console.error('[WebRTC] Gagal proses remote answer:', err)
+              })
+            }
+            setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: Date.now() } : null))
+          } else if (activeCall && !activeCall.isCaller && activeCall.status === 'incoming_ringing') {
+            // Panggilan telah dijawab di perangkat lain milik akun yang sama
+            if (webrtcAudioRef.current) {
+              webrtcAudioRef.current.cleanup()
+              webrtcAudioRef.current = null
+            }
+            setActiveCall(null)
           }
-          setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: Date.now() } : null))
           break
         }
 
@@ -1521,6 +1530,10 @@ function ChatPageContent() {
         }
 
         case 'call_reject': {
+          if (activeCall?.status === 'connected') {
+            console.log('[WebRTC] Mengabaikan call_reject karena panggilan sudah aktif (connected)')
+            break
+          }
           stopCallSounds()
           earlyIceCandidatesRef.current = []
           if (webrtcAudioRef.current) {

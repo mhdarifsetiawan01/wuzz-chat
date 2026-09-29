@@ -205,6 +205,12 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Menambahkan key pembeda eksplisit `key="gallery-media-grid"` dan `key="gallery-files-list"` pada masing-masing FlatList agar React melakukan remounting bersih tanpa konflik kolom.
   - Memperkuat `keyExtractor` dengan fallback `media_${index}` dan `file_${index}` serta memvalidasi `formatFileSize` dan `formatDate` (handling `isNaN` sebelum `toLocaleDateString`).
   - Menjadikan seluruh card dokumen dapat disentuh (`TouchableOpacity`) untuk mempermudah pembagian dan pembukaan berkas.
+- [x] **M-Mobile-8.32: Multi-Device WebRTC Calling & Call Reject Teardown Shield (30 September 2026)**:
+  - Menyelesaikan bug pemutusan panggilan tak terduga saat akun penerima login di 2 perangkat: ketika User B mengangkat di Device 1 lalu Device 2 menolak/menutup panggilan, sesi panggilan Device 1 ikut terputus.
+  - Memperbaiki filtering `broadcastLocal` di backend Go agar event `call_answer` tetap diteruskan ke perangkat sekunder Callee, sehingga Device 2 seketika berhenti berdering, membersihkan push notification (`notificationService.dismissNotification`), dan menutup modal panggilan masuk secara otomatis.
+  - Menambahkan guard pada backend Go (`hub.go`): jika panggilan di suatu room sudah berstatus `"answered"`, backend mengabaikan sinyal `call_reject` terlambat dari perangkat sekunder sehingga sesi panggilan aktif tidak dihapus dan sinyal tolak tidak disebarkan ke anggota room.
+  - Memperkuat listener `call_reject` pada mobile (`CallContext.tsx`) dan web frontend (`page.tsx`) dengan guard `if (current.status === 'connected') return;` untuk memproteksi panggilan yang sedang aktif terhubung dari sinyal penolakan terlambat.
+  - Menambahkan automated unit test Go `TestHub_MultiDeviceCallRejectAfterAnswer` di `backend/internal/ws/hub_test.go`.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
 
 ---

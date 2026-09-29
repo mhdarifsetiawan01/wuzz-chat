@@ -745,4 +745,166 @@ func TestHub_NoPanicOnClosedClientInRoomAndProperRoomCleanup(t *testing.T) {
 	hub.BroadcastRoomUsers("room-3")
 }
 
+func TestHub_MultiDeviceCallRejectAfterAnswer(t *testing.T) {
+	cs := store.NewMemoryClientStore()
+	ms := store.NewMemoryMessageStore()
+	hub := NewHub(cs, ms)
+
+	cAlice := &Client{
+		ID:         "user-alice",
+		DeviceID:   "dev-alice",
+		SessionKey: "user-alice:dev-alice",
+		Nickname:   "Alice",
+		Username:   "alice",
+		send:       make(chan Message, 10),
+		hub:        hub,
+	}
+	cBob1 := &Client{
+		ID:         "user-bob",
+		DeviceID:   "dev-bob-1",
+		SessionKey: "user-bob:dev-bob-1",
+		Nickname:   "Bob",
+		Username:   "bob",
+		send:       make(chan Message, 10),
+		hub:        hub,
+	}
+	cBob2 := &Client{
+		ID:         "user-bob",
+		DeviceID:   "dev-bob-2",
+		SessionKey: "user-bob:dev-bob-2",
+		Nickname:   "Bob",
+		Username:   "bob",
+		send:       make(chan Message, 10),
+		hub:        hub,
+	}
+
+	hub.Register(cAlice)
+	hub.Register(cBob1)
+	hub.Register(cBob2)
+	defer hub.Unregister(cAlice)
+	defer hub.Unregister(cBob1)
+	defer hub.Unregister(cBob2)
+
+	roomID := "dm_alice_bob"
+	hub.JoinRoom(cAlice, roomID)
+	hub.JoinRoom(cBob1, roomID)
+	hub.JoinRoom(cBob2, roomID)
+
+	// Flush any presence messages
+	drain := func(c *Client) {
+		for len(c.send) > 0 {
+			<-c.send
+		}
+	}
+	drain(cAlice)
+	drain(cBob1)
+	drain(cBob2)
+
+	// 1. Alice sends call_offer to room
+	cAlice.onCallSignaling(Message{
+		Type: TypeCallOffer,
+		Room: roomID,
+		SDP:  "v=0\r\no=alice...",
+	})
+
+	// Verify both Bob1 and Bob2 receive call_offer
+	select {
+	case msg := <-cBob1.send:
+		if msg.Type != TypeCallOffer {
+			t.Fatalf("expected call_offer on Bob1, got %v", msg.Type)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("timed out waiting for call_offer on Bob1")
+	}
+
+	select {
+	case msg := <-cBob2.send:
+		if msg.Type != TypeCallOffer {
+			t.Fatalf("expected call_offer on Bob2, got %v", msg.Type)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("timed out waiting for call_offer on Bob2")
+	}
+
+	// 2. Bob answers using Device 1 (cBob1)
+	cBob1.onCallSignaling(Message{
+		Type: TypeCallAnswer,
+		Room: roomID,
+		SDP:  "v=0\r\no=bob...",
+	})
+
+	// Verify Alice receives call_answer
+	select {
+	case msg := <-cAlice.send:
+		if msg.Type != TypeCallAnswer {
+			t.Fatalf("expected call_answer on Alice, got %v", msg.Type)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("timed out waiting for call_answer on Alice")
+	}
+
+	// Verify Bob Device 2 ALSO receives call_answer (so it can silence ringtone and close incoming call modal)
+	select {
+	case msg := <-cBob2.send:
+		if msg.Type != TypeCallAnswer {
+			t.Fatalf("expected call_answer on Bob2 to dismiss modal, got %v", msg.Type)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("timed out waiting for call_answer on Bob2")
+	}
+
+	// 3. Bob Device 2 sends call_reject (e.g. late user touch or network race)
+	cBob2.onCallSignaling(Message{
+		Type: TypeCallReject,
+		Room: roomID,
+	})
+
+	// Verify neither Alice nor Bob1 receives call_reject (the active call is shielded!)
+	select {
+	case msg := <-cAlice.send:
+		t.Fatalf("Alice should NOT receive call_reject after call is answered, got %v", msg.Type)
+	case <-time.After(100 * time.Millisecond):
+		// OK!
+	}
+
+	select {
+	case msg := <-cBob1.send:
+		t.Fatalf("Bob1 should NOT receive call_reject after call is answered, got %v", msg.Type)
+	case <-time.After(100 * time.Millisecond):
+		// OK!
+	}
+
+	// Verify activeCalls in Hub remains "answered"
+	hub.activeCallsMu.RLock()
+	activeCall, exists := hub.activeCalls[roomID]
+	if !exists || activeCall.Status != "answered" {
+		hub.activeCallsMu.RUnlock()
+		t.Fatalf("expected active call in room to remain answered, exists=%v", exists)
+	}
+	hub.activeCallsMu.RUnlock()
+
+	// 4. Bob1 finally ends the call with call_end
+	cBob1.onCallSignaling(Message{
+		Type: TypeCallEnd,
+		Room: roomID,
+	})
+
+	select {
+	case msg := <-cAlice.send:
+		if msg.Type != TypeCallEnd {
+			t.Fatalf("expected call_end on Alice, got %v", msg.Type)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("timed out waiting for call_end on Alice")
+	}
+
+	hub.activeCallsMu.RLock()
+	_, existsAfterEnd := hub.activeCalls[roomID]
+	hub.activeCallsMu.RUnlock()
+	if existsAfterEnd {
+		t.Fatalf("expected active call in room to be deleted after call_end")
+	}
+}
+
+
 

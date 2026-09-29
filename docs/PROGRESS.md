@@ -4163,6 +4163,23 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
 - **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
 
+---
+
+## 🏆 Milestone: Multi-Device WebRTC Calling & Call Reject Teardown Shield (30 September 2026)
+
+### 1. Deskripsi & Rincian Perubahan
+- **Masalah**: Ketika User B login di 2 perangkat, User A menelepon User B, lalu User B mengangkat di Device 1. Saat Device 2 menolak/menutup panggilan, sesi panggilan di Device 1 ikut terputus. Selain itu, Device 2 terus berdering meskipun Device 1 sudah mengangkat.
+- **Solusi**:
+  1. **Deliver `call_answer` ke Secondary Devices (`backend/internal/ws/hub.go`)**: Mengeluarkan `TypeCallAnswer` dari filter pemblokiran di `broadcastLocal` sehingga Device 2 seketika menerima notifikasi bahwa panggilan sudah diangkat di perangkat lain, mematikan dering, membersihkan push notification (`notificationService.dismissNotification`), dan menutup modal panggilan masuk.
+  2. **Active Call State Guard against Reject (`backend/internal/ws/hub.go`)**: Jika status panggilan di backend sudah `"answered"`, backend mengabaikan sinyal `call_reject` dari perangkat lain (drop & return early tanpa menghapus activeCall dan tanpa meneruskan sinyal reject ke room).
+  3. **Connected Status Guard (`mobile/src/context/CallContext.tsx` & `frontend/app/chat/page.tsx`)**: Menambahkan pengecekan `if (current.status === 'connected') return;` pada handler `call_reject` agar panggilan yang sedang aktif berbicara terlindungi 100% dari sinyal reject perangkat lain.
+  4. **Unit Test Otomatis (`backend/internal/ws/hub_test.go`)**: Menambahkan test `TestHub_MultiDeviceCallRejectAfterAnswer` yang memvalidasi alur multi-device answer & late reject protection.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Go**: `go test -v ./internal/ws -run TestHub_MultiDeviceCallRejectAfterAnswer` -> **PASS (0.20s)**, dan `go test -v ./...` -> **100% PASS**.
+- **Mobile TypeScript**: `npx tsc --noEmit` -> **0 errors**.
+- **Frontend Next.js**: `npm run build` -> **Compiled successfully (0 errors)**.
+
 
 
 

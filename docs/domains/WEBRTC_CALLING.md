@@ -20,6 +20,9 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Panggilan Suara Real-Tim
 6. **Background & Cold-Start Call Push Notification (FCM v1)**:
    - Jika penerima tidak terhubung ke WebSocket (aplikasi di-background atau ditutup), backend otomatis memicu High-Priority Push Notification ke token FCM penerima (`type: "call_incoming"`).
    - Dilengkapi proteksi anti-spam (cooldown 5 detik per room), payload size guard (< 3500 bytes), serta sinyal pembatalan instan (`type: "call_cancelled"`).
+7. **Multi-Device Signaling & Active Session Shielding (DEC-CALL-01 & DEC-CALL-02)**:
+   - **Answer Delivery**: Event `call_answer` diteruskan ke seluruh perangkat sekunder Callee agar perangkat lain otomatis mematikan nada dering dan menutup modal panggilan masuk seketika saat panggilan dijawab di salah satu perangkat.
+   - **Reject Shielding**: Ketika sesi panggilan di backend sudah berstatus `"answered"`, backend mengabaikan sinyal `call_reject` terlambat dan tidak menyebarkannya ke anggota room. Klien mobile dan web juga memproteksi status `connected` dari event `call_reject`.
 
 ---
 

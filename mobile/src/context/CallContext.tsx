@@ -525,6 +525,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Panggilan telah dijawab di perangkat lain milik akun yang sama
         callAudioManager.stopAllCallTones();
         cleanupCallSession();
+        notificationService.dismissNotification('call_' + current.room);
         setActiveCall(null);
       }
     });
@@ -542,6 +543,11 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubReject = websocketClient.on('call_reject', () => {
       const current = activeCallRef.current;
       if (current) {
+        // Jika panggilan sudah aktif terhubung, abaikan reject terlambat dari perangkat lain
+        if (current.status === 'connected') {
+          console.log('[CallContext] Mengabaikan call_reject karena panggilan sudah aktif (connected)');
+          return;
+        }
         recordCallLog(current, 'rejected', 0);
       }
       cleanupCallSession();
