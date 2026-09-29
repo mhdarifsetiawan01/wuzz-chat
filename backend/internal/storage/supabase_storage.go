@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -213,6 +214,8 @@ func (s *SupabaseStorage) CreateSignedUploadURL(ctx context.Context, filename st
 	}
 
 	publicURL := fmt.Sprintf("%s/storage/v1/object/public/%s/%s", s.supabaseURL, s.bucket, objectKey)
+
+	log.Printf("☁️ [SupabaseStorage] Pre-signed upload URL di-mint: bucket=%s, objectKey=%s", s.bucket, objectKey)
 
 	return &SignedUploadResult{
 		SignedURL: signedURL,

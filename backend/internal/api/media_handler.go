@@ -227,6 +227,12 @@ func (h *MediaHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 7. Berikan respon sukses
+	userTagLegacy := "anonymous"
+	if claims, ok := auth.GetUserFromContext(r.Context()); ok && claims != nil && claims.Username != "" {
+		userTagLegacy = fmt.Sprintf("%s (%s)", claims.Username, claims.UserID)
+	}
+	log.Printf("⚠️ [LegacyUpload] User=%s mengunggah via relay VPS (1x Egress): %s (%d bytes) -> %s", userTagLegacy, header.Filename, header.Size, publicURL)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(MediaUploadResponse{
@@ -324,6 +330,14 @@ func (h *MediaHandler) CreateSignedUploadURL(w http.ResponseWriter, r *http.Requ
 	}
 
 	// 6. Respon sukses dengan tiket upload
+	userTag := "anonymous"
+	if claims, ok := auth.GetUserFromContext(r.Context()); ok && claims != nil && claims.Username != "" {
+		userTag = fmt.Sprintf("%s (%s)", claims.Username, claims.UserID)
+	}
+
+	log.Printf("🎟️ [DirectUpload] Tiket signed upload diterbitkan untuk user=%s | file=%s (%d bytes, %s) | key=%s | provider=%s",
+		userTag, req.FileName, req.FileSize, req.MIMEType, res.ObjectKey, h.storage.DriverName())
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(SignedUploadURLResponse{
