@@ -333,6 +333,28 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     return '';
   }, [conversation.peer_id, conversation.participants, roomId, currentUserId]);
 
+  // Helper deterministik untuk mendapatkan nama pengirim pesan (human-readable, anti-raw UUID)
+  const getMessageSenderName = useCallback(
+    (msg?: Message | null) => {
+      if (!msg) return '';
+      const isSelf =
+        msg.sender_id === currentUserId ||
+        msg.from === currentUserId ||
+        (Boolean(user?.username) && msg.from === user?.username);
+
+      if (isSelf) return 'Anda';
+      if (isDirect) return title;
+      if (
+        msg.nickname &&
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(msg.nickname)
+      ) {
+        return msg.nickname;
+      }
+      return 'Pengguna';
+    },
+    [currentUserId, user?.username, isDirect, title]
+  );
+
   // Breadcrumb parent name (M-Mobile-8.2C)
   const parentGroupName = useMemo(() => {
     if (!isSubGroup) return null;
@@ -831,7 +853,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const replyPayload = replyingTo
         ? {
             id: replyingTo.id,
-            nickname: replyingTo.nickname || replyingTo.from || (replyingTo.sender_id === currentUserId ? 'Anda' : title),
+            nickname: getMessageSenderName(replyingTo),
             content: replyingTo.media_type === 'audio'
               ? '🎙️ Pesan Suara'
               : replyingTo.media_url
@@ -905,7 +927,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const replyPayload = replyingTo
         ? {
             id: replyingTo.id,
-            nickname: replyingTo.nickname || replyingTo.from || (replyingTo.sender_id === currentUserId ? 'Anda' : title),
+            nickname: getMessageSenderName(replyingTo),
             content: replyingTo.media_type === 'audio'
               ? '🎙️ Pesan Suara'
               : replyingTo.media_url
@@ -1768,6 +1790,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onPickGallery={isForumExpired ? undefined : handlePickGallery}
           onCancelStagedMedia={handleCancelStagedMedia}
           replyTo={replyingTo}
+          replySenderName={getMessageSenderName(replyingTo)}
           onCancelReply={() => setReplyingTo(null)}
           editingMessage={editingMessage}
           onSaveEdit={handleSaveEdit}
