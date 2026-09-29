@@ -259,6 +259,19 @@ class WebSocketClient {
   }
 
   /**
+   * Helper to wait until WebSocket is in OPEN state, useful during cold-start or rapid actions.
+   */
+  public async ensureConnected(timeoutMs = 5000): Promise<boolean> {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) return true;
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) return true;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return this.ws ? this.ws.readyState === WebSocket.OPEN : false;
+  }
+
+  /**
    * Send 'join' event to subscribe to a room's realtime stream
    */
   public joinRoom(roomId: string, since?: string): boolean {

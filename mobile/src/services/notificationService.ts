@@ -15,6 +15,7 @@ import { BACKGROUND_NOTIFICATION_TASK } from './notificationBackgroundTask';
 // Android default notification channel IDs
 export const DEFAULT_NOTIFICATION_CHANNEL_ID = 'wuzz_chat_messages';
 export const MENTION_NOTIFICATION_CHANNEL_ID = 'wuzz_chat_mentions';
+export const CALL_NOTIFICATION_CHANNEL_ID = 'wuzz_chat_calls';
 
 // State to track active room opened in foreground for suppression (DEC-015)
 let currentActiveRoomId: string | null = null;
@@ -74,8 +75,8 @@ try {
         }
 
         // Suppress remote raw FCM push: Jangan biarkan OS menampilkan notifikasi mentah sebelum didekripsi
-        // Hanya notifikasi lokal yang memiliki is_locally_decrypted yang diizinkan untuk di-display
-        const isRemoteRawPush = data && !data.is_locally_decrypted && (Boolean(data.encrypted_content) || Boolean(data.room_id));
+        // Hanya notifikasi lokal yang memiliki is_locally_decrypted atau is_call yang diizinkan untuk di-display
+        const isRemoteRawPush = data && !data.is_locally_decrypted && !data.is_call && (Boolean(data.encrypted_content) || Boolean(data.room_id));
         if (isRemoteRawPush) {
           return {
             shouldShowAlert: false,
@@ -148,8 +149,35 @@ export const notificationService = {
         enableVibrate: true,
         showBadge: true,
       });
+
+      await Notifications.setNotificationChannelAsync(CALL_NOTIFICATION_CHANNEL_ID, {
+        name: 'Panggilan Masuk WuzzChat',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 1000, 500, 1000, 500, 1000],
+        lightColor: '#10B981',
+        sound: 'default',
+        enableLights: true,
+        enableVibrate: true,
+        showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: true,
+      });
     } catch (err) {
       console.warn('[NotificationService] initChannels skipped or failed:', err);
+    }
+  },
+
+  /**
+   * Dismisses a specific notification by identifier or tag (e.g. when a call is cancelled/ended).
+   */
+  async dismissNotification(identifier: string): Promise<void> {
+    try {
+      const Notifications = getExpoNotificationsModule();
+      if (Notifications && typeof Notifications.dismissNotificationAsync === 'function') {
+        await Notifications.dismissNotificationAsync(identifier);
+      }
+    } catch (err) {
+      console.warn('[NotificationService] dismissNotification failed:', err);
     }
   },
 
@@ -428,6 +456,10 @@ export const notificationService = {
       title: string | null;
       senderId: string | null;
       senderPublicKey?: string | null;
+      isCall?: boolean;
+      callId?: string | null;
+      callerNickname?: string | null;
+      sdp?: string | null;
     }) => void
   ): () => void {
     try {
@@ -478,6 +510,10 @@ export const notificationService = {
       title: string | null;
       senderId: string | null;
       senderPublicKey?: string | null;
+      isCall?: boolean;
+      callId?: string | null;
+      callerNickname?: string | null;
+      sdp?: string | null;
     }) => void
   ): Promise<void> {
     try {
@@ -519,19 +555,27 @@ export const notificationService = {
     senderId: string | null;
     title: string | null;
     senderPublicKey: string | null;
+    isCall?: boolean;
+    callId?: string | null;
+    callerNickname?: string | null;
+    sdp?: string | null;
   } {
     if (!notificationData) {
       return { roomId: null, isGroup: false, senderId: null, title: null, senderPublicKey: null };
     }
 
     const roomId = notificationData.room_id || null;
-    const senderId = notificationData.sender_id || null;
+    const senderId = notificationData.sender_id || notificationData.caller_id || null;
     const senderPublicKey = notificationData.sender_public_key || null;
-    const title = notificationData.sender_nickname || null;
+    const title = notificationData.sender_nickname || notificationData.caller_nickname || null;
     const isGroup = Boolean(
       roomId && (roomId.startsWith('grp_') || roomId.startsWith('sub_'))
     );
+    const isCall = notificationData.type === 'call_incoming' || Boolean(notificationData.is_call);
+    const callId = notificationData.call_id || null;
+    const callerNickname = notificationData.caller_nickname || title;
+    const sdp = notificationData.sdp || null;
 
-    return { roomId, isGroup, senderId, title, senderPublicKey };
+    return { roomId, isGroup, senderId, title, senderPublicKey, isCall, callId, callerNickname, sdp };
   },
 };

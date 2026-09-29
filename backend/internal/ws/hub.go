@@ -833,6 +833,34 @@ func (h *Hub) BroadcastRoom(roomID string, msg Message, senderID string) {
 		if ps != nil {
 			ps.NotifyOfflineRecipients(msg.ID, roomID, msg.From, msg.Nickname, msg.Content, msg.MediaType, onlineIDs, msg.Mentions)
 		}
+	} else if msg.Type == TypeCallOffer {
+		h.mu.RLock()
+		ps := h.pushService
+		var onlineIDs []string
+		if room, ok := h.rooms[roomID]; ok {
+			for _, c := range room {
+				onlineIDs = append(onlineIDs, c.ID, c.Nickname, c.Username)
+			}
+		}
+		h.mu.RUnlock()
+
+		if ps != nil {
+			ps.NotifyIncomingCall(msg.ID, roomID, msg.From, msg.Nickname, "", msg.SDP, onlineIDs)
+		}
+	} else if msg.Type == TypeCallEnd {
+		h.mu.RLock()
+		ps := h.pushService
+		var onlineIDs []string
+		if room, ok := h.rooms[roomID]; ok {
+			for _, c := range room {
+				onlineIDs = append(onlineIDs, c.ID, c.Nickname, c.Username)
+			}
+		}
+		h.mu.RUnlock()
+
+		if ps != nil {
+			ps.NotifyCallCancelled(msg.ID, roomID, msg.From, onlineIDs)
+		}
 	}
 
 	// 3. Publish event ke Redis Message Broker untuk disinkronkan ke instance Go lainnya

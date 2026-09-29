@@ -28,6 +28,9 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Notifikasi Latar Belakan
 - **Interface `PushProvider`**: Abstraksi pengiriman notifikasi (`SendNotification(ctx, token, payload)`).
 - **FCM v1 Provider (`fcm.go`)**: Berkomunikasi langsung dengan endpoint Google OAuth2 ADC HTTP v1.
 - **Web Push Provider (`webpush.go`)**: Menandatangani payload dengan kunci VAPID ECC NIST P-256.
+- **Voice Call Notification Dispatch (`push.go`)**:
+  - `NotifyIncomingCall`: High-Priority FCM push dengan payload `call_incoming` (SDP offer, caller metadata) saat callee offline.
+  - `NotifyCallCancelled`: Silent push dengan payload `call_cancelled` untuk menghentikan dering di perangkat callee.
 
 ---
 

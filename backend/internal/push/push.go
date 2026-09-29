@@ -34,6 +34,7 @@ type Service struct {
 	deliveryCallback func(msgID, roomID, recipientUserID string)
 	webpushProvider  PushProvider
 	fcmProvider      PushProvider
+	lastCallPushTime map[string]time.Time
 	mu               sync.RWMutex
 }
 
@@ -83,12 +84,13 @@ func NewService(userStore store.UserStore) *Service {
 	fcmCredentials := strings.TrimSpace(os.Getenv("FCM_CREDENTIALS"))
 
 	return &Service{
-		vapidPublicKey:  pubKey,
-		vapidPrivateKey: privKey,
-		vapidSubject:    subject,
-		userStore:       userStore,
-		webpushProvider: NewVAPIDWebPushProvider(pubKey, privKey, subject),
-		fcmProvider:     NewFCMv1PushProvider(fcmProjectID, fcmCredentials),
+		vapidPublicKey:   pubKey,
+		vapidPrivateKey:  privKey,
+		vapidSubject:     subject,
+		userStore:        userStore,
+		webpushProvider:  NewVAPIDWebPushProvider(pubKey, privKey, subject),
+		fcmProvider:      NewFCMv1PushProvider(fcmProjectID, fcmCredentials),
+		lastCallPushTime: make(map[string]time.Time),
 	}
 }
 
@@ -533,6 +535,281 @@ func (s *Service) NotifyMemoryEvent(userIDs []string, title, body, tag string, d
 				defer wg.Done()
 				if err := s.SendWebPush(ctx, subscription, payloadBytes); err != nil {
 					log.Printf("⚠️ [Push] Gagal mengirim push NotifyMemoryEvent ke endpoint %s: %v", safePrefix(subscription.Endpoint, 24), err)
+				}
+			}(sub)
+		}
+		wg.Wait()
+	}()
+}
+
+// NotifyIncomingCall mengirimkan push notification prioritas tinggi untuk panggilan suara WebRTC (1-on-1).
+// Memiliki proteksi debounce 5 detik dan payload size guard < 3500 bytes.
+func (s *Service) NotifyIncomingCall(
+	callID string,
+	roomID string,
+	callerID string,
+	callerNickname string,
+	callerAvatar string,
+	sdpOffer string,
+	onlineUserIDs []string,
+) {
+	if roomID == "" {
+		return
+	}
+
+	// Proteksi Obrolan 1-on-1: Jangan kirim push pemicu panggilan untuk grup massal
+	if strings.HasPrefix(roomID, "grp_") || strings.HasPrefix(roomID, "sub_") {
+		return
+	}
+
+	s.mu.Lock()
+	now := time.Now()
+	if s.lastCallPushTime == nil {
+		s.lastCallPushTime = make(map[string]time.Time)
+	}
+	// Anti-Spam: Debounce 5 detik per roomID
+	if lastTime, exists := s.lastCallPushTime[roomID]; exists && now.Sub(lastTime) < 5*time.Second {
+		s.mu.Unlock()
+		log.Printf("ℹ️ [Push] NotifyIncomingCall untuk room %s dilewati (cooldown aktif)", roomID)
+		return
+	}
+	s.lastCallPushTime[roomID] = now
+	us := s.userStore
+	s.mu.Unlock()
+
+	if us == nil {
+		return
+	}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ [Push] Recovered from panic in NotifyIncomingCall: %v", r)
+			}
+		}()
+
+		// Dapatkan seluruh ID / Username anggota percakapan
+		memberUsernames, err := us.GetConversationMemberUsernames(roomID)
+		if err != nil {
+			log.Printf("⚠️ [Push] Error GetConversationMemberUsernames for call in room %s: %v", roomID, err)
+		}
+
+		// Fallback untuk direct conversation jika formatnya dm_userA_userB dan belum ada di relational table
+		if len(memberUsernames) == 0 && strings.HasPrefix(roomID, "dm_") {
+			rawParts := strings.TrimPrefix(roomID, "dm_")
+			parts := strings.Split(rawParts, "_")
+			for _, p := range parts {
+				if p != "" {
+					memberUsernames = append(memberUsernames, p)
+				}
+			}
+		}
+
+		if len(memberUsernames) == 0 {
+			return
+		}
+
+		// Lookup map untuk pengirim dan user yang sedang online
+		skipMap := map[string]bool{
+			strings.ToLower(callerID):       true,
+			strings.ToLower(callerNickname): true,
+		}
+		for _, oID := range onlineUserIDs {
+			if oID != "" {
+				skipMap[strings.ToLower(oID)] = true
+			}
+		}
+
+		var targetUserIDs []string
+		for _, memberName := range memberUsernames {
+			if memberName == "" || skipMap[strings.ToLower(memberName)] {
+				continue
+			}
+
+			if user, err := us.GetUserByUsernameOrDisplayName(memberName); err == nil && user != nil {
+				if !skipMap[strings.ToLower(user.ID)] {
+					targetUserIDs = append(targetUserIDs, user.ID)
+				}
+			} else {
+				targetUserIDs = append(targetUserIDs, memberName)
+			}
+		}
+
+		if len(targetUserIDs) == 0 {
+			return
+		}
+
+		subs, err := us.GetPushSubscriptionsForRecipients(targetUserIDs)
+		if err != nil || len(subs) == 0 {
+			return
+		}
+
+		if callID == "" {
+			callID = fmt.Sprintf("call_%d_%s", time.Now().UnixMilli(), safePrefix(callerID, 6))
+		}
+
+		title := "📞 Panggilan Suara Masuk"
+		callerName := callerNickname
+		if callerName == "" {
+			callerName = "Pengguna WuzzChat"
+		}
+		body := fmt.Sprintf("%s memanggil Anda...", callerName)
+
+		// Guard FCM payload size: jika SDP > 3500 bytes, kirim wake-up signal tanpa raw SDP besar
+		sdpToSend := sdpOffer
+		if len(sdpToSend) > 3500 {
+			log.Printf("⚠️ [Push] SDP Offer terlalu besar (%d bytes), dikirim via WebSocket saat aplikasi terbuka", len(sdpToSend))
+			sdpToSend = ""
+		}
+
+		payloadObj := NotificationPayload{
+			Title: title,
+			Body:  body,
+			Icon:  "/favicon.ico",
+			Badge: "/favicon.ico",
+			Tag:   "call-" + roomID,
+			Data: map[string]interface{}{
+				"type":            "call_incoming",
+				"call_id":         callID,
+				"room_id":          roomID,
+				"caller_id":       callerID,
+				"caller_nickname": callerName,
+				"caller_avatar":   callerAvatar,
+				"sdp":             sdpToSend,
+				"media_type":      "audio",
+			},
+			Timestamp: time.Now().UnixMilli(),
+		}
+
+		payloadBytes, err := json.Marshal(payloadObj)
+		if err != nil {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cancel()
+
+		var wg sync.WaitGroup
+		for _, sub := range subs {
+			wg.Add(1)
+			go func(subscription store.PushSubscription) {
+				defer wg.Done()
+				if err := s.SendWebPush(ctx, subscription, payloadBytes); err != nil {
+					log.Printf("⚠️ [Push] Gagal mengirim push panggilan ke endpoint %s: %v", safePrefix(subscription.Endpoint, 24), err)
+				}
+			}(sub)
+		}
+		wg.Wait()
+	}()
+}
+
+// NotifyCallCancelled mengirimkan push notification silent untuk membatalkan/dismiss dering panggilan masuk.
+func (s *Service) NotifyCallCancelled(
+	callID string,
+	roomID string,
+	callerID string,
+	onlineUserIDs []string,
+) {
+	if roomID == "" {
+		return
+	}
+
+	if strings.HasPrefix(roomID, "grp_") || strings.HasPrefix(roomID, "sub_") {
+		return
+	}
+
+	s.mu.RLock()
+	us := s.userStore
+	s.mu.RUnlock()
+
+	if us == nil {
+		return
+	}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("❌ [Push] Recovered from panic in NotifyCallCancelled: %v", r)
+			}
+		}()
+
+		memberUsernames, err := us.GetConversationMemberUsernames(roomID)
+		if err != nil {
+			log.Printf("⚠️ [Push] Error GetConversationMemberUsernames for call cancel in room %s: %v", roomID, err)
+		}
+
+		if len(memberUsernames) == 0 && strings.HasPrefix(roomID, "dm_") {
+			rawParts := strings.TrimPrefix(roomID, "dm_")
+			parts := strings.Split(rawParts, "_")
+			for _, p := range parts {
+				if p != "" {
+					memberUsernames = append(memberUsernames, p)
+				}
+			}
+		}
+
+		if len(memberUsernames) == 0 {
+			return
+		}
+
+		skipMap := map[string]bool{
+			strings.ToLower(callerID): true,
+		}
+
+		var targetUserIDs []string
+		for _, memberName := range memberUsernames {
+			if memberName == "" || skipMap[strings.ToLower(memberName)] {
+				continue
+			}
+
+			if user, err := us.GetUserByUsernameOrDisplayName(memberName); err == nil && user != nil {
+				if !skipMap[strings.ToLower(user.ID)] {
+					targetUserIDs = append(targetUserIDs, user.ID)
+				}
+			} else {
+				targetUserIDs = append(targetUserIDs, memberName)
+			}
+		}
+
+		if len(targetUserIDs) == 0 {
+			return
+		}
+
+		subs, err := us.GetPushSubscriptionsForRecipients(targetUserIDs)
+		if err != nil || len(subs) == 0 {
+			return
+		}
+
+		payloadObj := NotificationPayload{
+			Title: "Panggilan Berakhir",
+			Body:  "Panggilan telah dibatalkan",
+			Icon:  "/favicon.ico",
+			Badge: "/favicon.ico",
+			Tag:   "call-" + roomID,
+			Data: map[string]interface{}{
+				"type":      "call_cancelled",
+				"call_id":   callID,
+				"room_id":    roomID,
+				"caller_id": callerID,
+			},
+			Timestamp: time.Now().UnixMilli(),
+		}
+
+		payloadBytes, err := json.Marshal(payloadObj)
+		if err != nil {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var wg sync.WaitGroup
+		for _, sub := range subs {
+			wg.Add(1)
+			go func(subscription store.PushSubscription) {
+				defer wg.Done()
+				if err := s.SendWebPush(ctx, subscription, payloadBytes); err != nil {
+					log.Printf("⚠️ [Push] Gagal mengirim push pembatalan panggilan ke endpoint %s: %v", safePrefix(subscription.Endpoint, 24), err)
 				}
 			}(sub)
 		}

@@ -18,6 +18,7 @@ import {
   DeviceProvider,
   MessageProvider,
   useAuth,
+  useCall,
   useConversations,
 } from './src/context';
 import {
@@ -55,6 +56,7 @@ function AppContent() {
     cancelKeyConflict,
   } = useAuth();
   const { conversations } = useConversations();
+  const { triggerIncomingCall } = useCall();
   const [authRoute, setAuthRoute] = useState<AuthRoute>('login');
   const [isKeyTransferModalOpen, setIsKeyTransferModalOpen] = useState<boolean>(false);
 
@@ -135,6 +137,10 @@ function AppContent() {
       title: string | null;
       senderId: string | null;
       senderPublicKey?: string | null;
+      isCall?: boolean;
+      callId?: string | null;
+      callerNickname?: string | null;
+      sdp?: string | null;
     }) => {
       if (!target.roomId) return;
 
@@ -149,6 +155,17 @@ function AppContent() {
         existingConv?.peer_id ||
         target.senderId ||
         extractDMPeerId(target.roomId, currentUser?.id);
+
+      // Tangani event panggilan suara masuk
+      if (target.isCall) {
+        triggerIncomingCall({
+          room: target.roomId,
+          peerId: peerId || target.senderId || 'Peer',
+          peerNickname: target.callerNickname || target.title || 'Pengguna WuzzChat',
+          sdp: target.sdp,
+        });
+        return;
+      }
 
       const peerPublicKey =
         existingConv?.peer_public_key ||

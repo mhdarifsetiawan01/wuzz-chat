@@ -44,6 +44,13 @@ interface CallContextType {
     peerNickname: string,
     peerAvatar?: string
   ) => Promise<boolean>;
+  triggerIncomingCall: (callInfo: {
+    room: string;
+    peerId: string;
+    peerNickname: string;
+    peerAvatar?: string;
+    sdp?: string | null;
+  }) => void;
   acceptCall: () => Promise<void>;
   rejectCall: () => void;
   endCall: () => void;
@@ -288,6 +295,43 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   /**
+   * Trigger incoming call from notification / external event (cold-start / background push)
+   */
+  const triggerIncomingCall = useCallback(
+    (callInfo: {
+      room: string;
+      peerId: string;
+      peerNickname: string;
+      peerAvatar?: string;
+      sdp?: string | null;
+    }) => {
+      const current = activeCallRef.current;
+      if (current && current.status !== 'idle' && current.status !== 'ended') {
+        return;
+      }
+
+      loggedCallIdRef.current = null;
+      if (callInfo.sdp) {
+        pendingOfferSdpRef.current = callInfo.sdp;
+      }
+      setActiveCall({
+        room: callInfo.room,
+        peerId: callInfo.peerId || 'Peer',
+        peerNickname: callInfo.peerNickname || 'Pengguna WuzzChat',
+        peerAvatar: callInfo.peerAvatar,
+        mediaType: 'audio',
+        isCaller: false,
+        status: 'incoming_ringing',
+        isMuted: false,
+        isSpeaker: false,
+      });
+
+      callAudioManager.playIncomingRingtone();
+    },
+    []
+  );
+
+  /**
    * Accept an incoming voice call
    */
   const acceptCall = useCallback(async () => {
@@ -316,6 +360,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const answerSdp = await session.createAnswer(offerSdp, (candidateJson) => {
         websocketClient.sendIceCandidate(current.room, candidateJson);
       });
+
+      // Ensure socket is connected before sending answer
+      await websocketClient.ensureConnected(4000);
 
       // Send SDP Answer to caller
       websocketClient.sendCallAnswer(current.room, answerSdp);
@@ -513,6 +560,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         deleteCallRecord,
         clearAllCallHistory,
         startCall,
+        triggerIncomingCall,
         acceptCall,
         rejectCall,
         endCall,
