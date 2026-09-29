@@ -42,6 +42,9 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - [x] **Multi-User Mention Popover**: Autocomplete `@username` dengan navigasi keyboard dan tap-friendly mobile.
 - [x] **Shared Media Hub Group**: Media grup bertahan selama TTL 7 hari tanpa terhapus dini oleh ACK download salah satu anggota.
 
+### 5. WebRTC Voice Calling Resilience
+- [x] **Anti-Stale Closure Signaling Handlers (`page.tsx`)**: Mengganti pembacaan state `activeCall` dengan `activeCallRef.current` pada handler WebSocket `call_answer` dan `call_reject`, serta mengisi `activeCallRef.current` secara sinkron saat inisiasi panggilan untuk memastikan transisi layar panggilan keluar dari "Memanggil..." ke layar aktif ("00:01", "00:02"...) terpicu seketika saat penerima mengangkat di mobile.
+
 ---
 
 ## 🎯 Fokus Berikutnya (What's Next)

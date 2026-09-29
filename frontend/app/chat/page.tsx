@@ -1498,19 +1498,16 @@ function ChatPageContent() {
 
         case 'call_answer': {
           stopCallSounds()
-          if (activeCall?.isCaller) {
+          const currentCall = activeCallRef.current
+          if (webrtcAudioRef.current || currentCall?.isCaller) {
             if (msg.sdp && webrtcAudioRef.current) {
               webrtcAudioRef.current.handleAnswer(msg.sdp).catch((err: unknown) => {
                 console.error('[WebRTC] Gagal proses remote answer:', err)
               })
             }
             setActiveCall(prev => (prev ? { ...prev, status: 'connected', startTime: Date.now() } : null))
-          } else if (activeCall && !activeCall.isCaller && activeCall.status === 'incoming_ringing') {
+          } else if (currentCall && !currentCall.isCaller && currentCall.status === 'incoming_ringing') {
             // Panggilan telah dijawab di perangkat lain milik akun yang sama
-            if (webrtcAudioRef.current) {
-              webrtcAudioRef.current.cleanup()
-              webrtcAudioRef.current = null
-            }
             setActiveCall(null)
           }
           break
@@ -1530,7 +1527,8 @@ function ChatPageContent() {
         }
 
         case 'call_reject': {
-          if (activeCall?.status === 'connected') {
+          const currentCall = activeCallRef.current
+          if (currentCall?.status === 'connected') {
             console.log('[WebRTC] Mengabaikan call_reject karena panggilan sudah aktif (connected)')
             break
           }
@@ -1980,14 +1978,16 @@ function ChatPageContent() {
 
     const peerName = state.peerNickname || 'Teman Obrolan'
     const targetPeerId = state.peerUserId || activePeerRef.current?.id || peerName
-    setActiveCall({
+    const callInfo: ActiveCallInfo = {
       room: roomId,
       peerId: targetPeerId,
       peerNickname: peerName,
       mediaType: 'audio',
       isCaller: true,
       status: 'outgoing_ringing',
-    })
+    }
+    activeCallRef.current = callInfo
+    setActiveCall(callInfo)
     setIsCallMuted(false)
     playOutgoingRing()
 
