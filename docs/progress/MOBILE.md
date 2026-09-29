@@ -212,6 +212,13 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Memperkuat listener `call_reject` pada mobile (`CallContext.tsx`) dan web frontend (`page.tsx`) dengan guard `if (current.status === 'connected') return;` untuk memproteksi panggilan yang sedang aktif terhubung dari sinyal penolakan terlambat.
   - Menambahkan automated unit test Go `TestHub_MultiDeviceCallRejectAfterAnswer` di `backend/internal/ws/hub_test.go`.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
+- [x] **M-Mobile-8.33: Fix Unmount on Auth Error to Preserve Device Limit Modal & Login State (30 September 2026)**:
+  - Mengatasi bug kritis di mana dialog modal batas kuota perangkat (`DeviceLimitModal` HTTP 409) dan pesan error kredensial tidak muncul saat login gagal di mobile.
+  - Mengidentifikasi akar masalah: fungsi `login()` dan `register()` di `mobile/src/context/AuthContext.tsx` memanggil `setIsLoading(true)` pada context global. Hal ini menyebabkan `App.tsx` merender splash screen dan meng-unmount `LoginScreen`.
+  - Ketika server merespons dengan HTTP 409 (`DEVICE_LIMIT_REACHED`) atau 401, `setIsLoading(false)` dipanggil di blok `finally`, menyebabkan `App.tsx` me-mount komponen `LoginScreen` baru dari awal dengan state bersih (`isDeviceLimitModalOpen: false`, input kosong), sehingga dialog popup tidak pernah muncul.
+  - Memperbaiki `AuthContext.tsx` dengan menghapus mutasi `setIsLoading` global di dalam `login()` dan `register()`, membatasi `isLoading` hanya untuk proses pemeriksaan sesi awal (*cold start*). `LoginScreen` dan `RegisterScreen` mengelola status loading tombol secara lokal tanpa memicu unmount tree.
+  - Re-bundle & compile ulang release APK (`./gradlew assembleRelease`) dan instalasi langsung ke perangkat Android fisik via `adb install -r`.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, build release APK -> **BUILD SUCCESSFUL (40s)**, dan teruji di perangkat fisik.
 
 ---
 

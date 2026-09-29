@@ -4205,6 +4205,32 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Backend Suite**: `go test ./...` -> **PASS 100%**.
 - **Mobile TypeScript**: `npx tsc --noEmit` -> **PASS (0 errors)**.
 
+---
+
+## 📱 Fix Unmount on Auth Error to Preserve Device Limit Modal & Login State di Mobile (30 September 2026)
+
+### 1. Deskripsi & Rincian Perubahan
+- **Latar Belakang Masalah**: Pengguna melaporkan bahwa saat login di aplikasi Android mencapai batas kuota perangkat (HTTP 409 `DEVICE_LIMIT_REACHED`), dialog modal konfirmasi (`DeviceLimitModal`) tidak muncul dan layar login kembali kosong seperti di-refresh.
+- **Akar Masalah (Diagnosis)**:
+  1. `login()` dan `register()` pada `mobile/src/context/AuthContext.tsx` memanggil `setIsLoading(true)` pada context global.
+  2. Komponen root `mobile/App.tsx` merespons `isLoading === true` dengan menampilkan splash screen container (`if (isLoading) return <SplashScreen />`). Ini menyebabkan seluruh tree `LoginScreen` di-unmount dari memori.
+  3. Saat API merespons dengan HTTP 409 (atau error kredensial 401), blok `finally` di `AuthContext.tsx` mengeksekusi `setIsLoading(false)`.
+  4. Akibatnya, `App.tsx` me-mount komponen `LoginScreen` baru dari awal dengan initial state (`isDeviceLimitModalOpen: false`, field username/password kosong), sehingga modal dialog ter-reset sebelum sempat dilihat pengguna.
+- **Solusi & Implementasi**:
+  1. **Hapus Mutasi Global `setIsLoading` dari Auth Action (`mobile/src/context/AuthContext.tsx`)**:
+     - Menghapus pemanggilan `setIsLoading(true)` dan `setIsLoading(false)` pada fungsi `login()` dan `register()`.
+     - `isLoading` pada `AuthContext` kini secara eksklusif hanya digunakan untuk pengecekan cold-start token/session awal (`checkExistingAuth()`).
+     - Komponen `LoginScreen` dan `RegisterScreen` sudah memiliki local state `loading` masing-masing untuk menampilkan spinner tombol tanpa meng-unmount layar.
+  2. **Re-compilation & Installation**:
+     - Build ulang APK rilis Android via `./gradlew assembleRelease` (sukses dalam 40 detik).
+     - Install langsung ke perangkat fisik terhubung via ADB (`adb install -r app/build/outputs/apk/release/app-arm64-v8a-release.apk`).
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `npx tsc --noEmit` -> **PASS (0 errors)**.
+- **Android Release Build**: `./gradlew assembleRelease` -> **BUILD SUCCESSFUL (0 errors)**.
+- **Device Deployment**: `adb install -r ...` -> **Success**.
+
+
 
 
 

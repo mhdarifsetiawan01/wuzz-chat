@@ -281,7 +281,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(
     async (credentials: Omit<LoginRequest, 'device_id'>) => {
-      setIsLoading(true);
       try {
         const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
         const response = await authApi.login({
@@ -310,8 +309,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         websocketClient.connect(response.token, currentDeviceId);
       } catch (err) {
         throw err;
-      } finally {
-        setIsLoading(false);
       }
     },
     [deviceId, initE2EEForUser]
@@ -319,7 +316,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = useCallback(
     async (payload: RegisterRequest) => {
-      setIsLoading(true);
       try {
         const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
         const response = await authApi.register(payload);
@@ -345,8 +341,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         websocketClient.connect(response.token, currentDeviceId);
       } catch (err) {
         throw err;
-      } finally {
-        setIsLoading(false);
       }
     },
     [deviceId, initE2EEForUser]
