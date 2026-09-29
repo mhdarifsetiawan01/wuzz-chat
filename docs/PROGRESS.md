@@ -4087,6 +4087,28 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
 - **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
 
+---
+
+## 🐛 Fix Multi-Device Self-Calling Echo Bug on WebRTC Calling (29 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Penyelesaian Bug Self-Calling Penelepon**:
+  - Ditemukan isu ketika User B login di 2 device dan melakukan panggilan ke User A menggunakan Device 1, Device 2 milik User B justru ikut berdering dan menampilkan notifikasi panggilan masuk dari akun sendiri.
+- **Perbaikan 3-Lapis (Triple-Layer Defense)**:
+  1. **Backend WebSocket ([`backend/internal/ws/hub.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go))**:
+     - Memfilter pengiriman sinyal WebRTC (`TypeCallOffer`, `TypeCallAnswer`, `TypeIceCandidate`) pada `broadcastLocal` agar perangkat lain milik pengirim itu sendiri (`client.ID == msg.From || client.Username == msg.From`) tidak pernah menerima sinyal tersebut.
+  2. **Backend Push Notification ([`backend/internal/push/push.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/push/push.go))**:
+     - Menyaring seluruh identitas penelepon (ID, Username, Display Name) ke dalam `skipMap` pada `NotifyIncomingCall`, memastikan push notifikasi dering hanya ditujukan ke penerima sah (User A) dan tidak pernah dikirim ke perangkat penelepon lain.
+  3. **Mobile Client Guards ([`mobile/src/context/CallContext.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/context/CallContext.tsx), [`mobile/App.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/App.tsx), [`mobile/src/services/notificationBackgroundTask.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/services/notificationBackgroundTask.ts))**:
+     - Mengabaikan sinyal dan notifikasi panggilan masuk jika `caller_id` / `peerId` sama dengan ID atau username akun yang sedang aktif.
+- **Pengujian Otomatis**:
+  - Menambahkan `TestE2E_MultiDevice_CallerSecondaryDevicesDoNotRingWhenCalling` di [`backend/internal/ws/e2e_push_notification_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/e2e_push_notification_test.go) (PASS 0.83s).
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
+- **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+
 
 
 

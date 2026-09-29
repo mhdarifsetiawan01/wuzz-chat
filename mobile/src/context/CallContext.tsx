@@ -306,6 +306,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       peerAvatar?: string;
       sdp?: string | null;
     }) => {
+      // Abaikan panggilan masuk jika diinisiasi oleh akun sendiri
+      if (
+        callInfo.peerId &&
+        user?.id &&
+        (callInfo.peerId === user.id ||
+          callInfo.peerId === user.username ||
+          (user.username && callInfo.peerNickname === user.username))
+      ) {
+        console.log('[CallContext] Mengabaikan triggerIncomingCall dari akun sendiri');
+        return;
+      }
+
       const current = activeCallRef.current;
       if (current && current.status !== 'idle' && current.status !== 'ended') {
         return;
@@ -454,6 +466,18 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   useEffect(() => {
     const unsubOffer = websocketClient.on('call_offer', (msg: any) => {
+      // Abaikan panggilan masuk jika diinisiasi oleh akun sendiri (misal dari device lain milik user yang sama)
+      if (
+        msg.from &&
+        user?.id &&
+        (msg.from === user.id ||
+          msg.from === user.username ||
+          (user.username && msg.nickname === user.username))
+      ) {
+        console.log('[CallContext] Mengabaikan call_offer dari akun sendiri:', msg.from);
+        return;
+      }
+
       const current = activeCallRef.current;
       if (current && current.status !== 'idle' && current.status !== 'ended') {
         // Already in a call: send busy signal back
