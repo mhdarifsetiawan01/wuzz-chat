@@ -967,7 +967,7 @@ Mengunggah berkas gambar, audio, dokumen, atau video.
 
 #### 24. `POST /api/media/ack`
 Mengirim konfirmasi unduhan berkas oleh penerima pesan. 
-- **Direct Message (1-on-1)**: Memicu backend untuk menghapus berkas fisik secara instan dari Supabase Storage (*WhatsApp Store-and-Forward Lifecycle*, $0 storage cost).
+- **Direct Message (1-on-1)**: Status pesan diubah menjadi `'downloaded'`, dan berkas fisik dipertahankan selama masa retensi tenggang 24 jam (Multi-Device Grace Period) agar perangkat lain (Web/Mobile) dapat mengunduh secara independen sebelum dibersihkan oleh `PurgeWorker`.
 - **Obrolan Grup & Forum Topics (`grp_...`, `sub_...`)**: Konfirmasi unduhan dicatat tanpa menghapus berkas fisik (*Shared Media Hub*), menjamin berkas tetap tersedia bagi seluruh anggota grup hingga masa TTL (7 hari) berakhir.
 - **Autentikasi**: `Bearer <token>` (Dilengkapi proteksi validasi Anti-IDOR keanggotaan room)
 - **Request Body**:
@@ -981,7 +981,7 @@ Mengirim konfirmasi unduhan berkas oleh penerima pesan.
   ```json
   {
     "status": "acknowledged",
-    "media_status": "active" // "expired" untuk DM setelah file dihapus, "active" untuk Grup/Forum
+    "media_status": "downloaded" // "downloaded" untuk DM (file dipertahankan 24 jam), "active" untuk Grup/Forum
   }
   ```
 

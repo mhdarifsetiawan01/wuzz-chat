@@ -4019,6 +4019,25 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
 - **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
 
+---
+
+## 📦 Multi-Device Media Sharing: 24-Hour Grace Period Retention (29 September 2026)
+
+### 1. Ringkasan Pengerjaan & Keputusan Arsitektur (`DEC-036`)
+- **Penyelesaian Masalah Media Multi-Device (DM 1-on-1)**:
+  - Pada arsitektur Store-and-Forward sebelumnya, konfirmasi unduhan (`POST /api/media/ack`) langsung memicu penghapusan fisik file dari Supabase Storage secara instan (0ms). Akibatnya, saat akun penerima memiliki lebih dari 1 perangkat aktif (Web & Mobile), perangkat kedua yang baru dibuka mendapatkan respon HTTP 404 dan tidak dapat melihat media.
+  - Mengubah logika `AcknowledgeMediaDownload` di `backend/internal/store/sql.go` dan `backend/internal/store/memory.go`: panggilan ACK pada DM kini memperbarui status menjadi `media_status = 'downloaded'` dan mengembalikan `canDelete = false`, membiarkan file fisik tetap aman di server storage.
+- **Pembersihan Otomatis Pasca-24 Jam oleh PurgeWorker**:
+  - Menetapkan masa tenggang (*Grace Period*) 24 jam (`MEDIA_RETENTION_DAYS = 1`) di `backend/internal/shared/config/config.go`.
+  - Memperbarui query `GetExpiredMediaMessages` agar memindai status `'active'` maupun `'downloaded'`, sehingga file fisik tetap dibersihkan tuntas setelah 24 jam untuk menjaga biaya storage server tetap $0 long-term cost.
+  - Memperbarui rangkaian pengujian unit dan E2E di `media_handler_test.go`, `chat_and_media_e2e_test.go`, `purge_worker_test.go`, dan `config_test.go`.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`cd backend && go test -v ./...`)**: **PASS 100%**.
+- **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+
+
 
 
 

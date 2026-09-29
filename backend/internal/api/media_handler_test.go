@@ -380,14 +380,14 @@ func TestMediaHandler_AcknowledgeDownload_SharedMediaHub_GroupAndSubGroup(t *tes
 		t.Fatalf("Ekspektasi 200 OK untuk ACK DM, dapat: %d", rrDM.Code)
 	}
 
-	// Verifikasi file fisik DM HARUS TERHAPUS (Store-and-Forward)
-	if _, statErr := os.Stat(dmFilePath); !os.IsNotExist(statErr) {
-		t.Fatalf("File fisik DM harus dihapus setelah penerima ACK!")
+	// Verifikasi file fisik DM TIDAK langsung dihapus seketika (Multi-Device 24h Grace Period)
+	if _, statErr := os.Stat(dmFilePath); os.IsNotExist(statErr) {
+		t.Fatalf("File fisik DM tidak boleh langsung dihapus seketika agar device lain dapat mengunduh!")
 	}
-	// Verifikasi status pesan DM di DB menjadi 'expired'
+	// Verifikasi status pesan DM di DB menjadi 'downloaded' (belum expired)
 	msgDMInDB, _ := msgStore.GetMessageByID("msg-dm-media-1")
-	if msgDMInDB.MediaStatus != "expired" {
-		t.Fatalf("Ekspektasi media_status pesan DM berubah menjadi 'expired', dapat: %s", msgDMInDB.MediaStatus)
+	if msgDMInDB.MediaStatus != "downloaded" {
+		t.Fatalf("Ekspektasi media_status pesan DM berubah menjadi 'downloaded', dapat: %s", msgDMInDB.MediaStatus)
 	}
 }
 

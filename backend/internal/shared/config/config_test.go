@@ -23,8 +23,8 @@ func TestConfig_Defaults(t *testing.T) {
 	if cfg.Port != "8080" {
 		t.Errorf("expected Port '8080', got '%s'", cfg.Port)
 	}
-	if cfg.MediaRetentionDays != 7 {
-		t.Errorf("expected MediaRetentionDays 7, got %d", cfg.MediaRetentionDays)
+	if cfg.MediaRetentionDays != 1 {
+		t.Errorf("expected MediaRetentionDays 1, got %d", cfg.MediaRetentionDays)
 	}
 	if cfg.AuthRateLimitIP != 100 {
 		t.Errorf("expected AuthRateLimitIP 100, got %d", cfg.AuthRateLimitIP)

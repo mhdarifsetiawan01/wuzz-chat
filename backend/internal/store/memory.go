@@ -519,8 +519,8 @@ func (s *MemoryMessageStore) AcknowledgeMediaDownload(msgID string) (string, str
 					return m.MediaURL, status, false, nil
 				}
 
-				s.messages[roomID][i].MediaStatus = "expired"
-				return m.MediaURL, "expired", true, nil
+				s.messages[roomID][i].MediaStatus = "downloaded"
+				return m.MediaURL, "downloaded", false, nil
 			}
 		}
 	}
@@ -540,7 +540,7 @@ func (s *MemoryMessageStore) GetExpiredMediaMessages(retentionDays int) ([]Store
 
 	for _, msgs := range s.messages {
 		for _, m := range msgs {
-			if m.MediaURL != "" && (m.MediaStatus == "" || m.MediaStatus == "active") && m.Timestamp.Before(cutoff) {
+			if m.MediaURL != "" && (m.MediaStatus == "" || m.MediaStatus == "active" || m.MediaStatus == "downloaded") && m.Timestamp.Before(cutoff) {
 				expired = append(expired, m)
 			}
 		}

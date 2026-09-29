@@ -46,16 +46,39 @@ func TestPurgeWorker_PurgeOnce(t *testing.T) {
 		t.Fatalf("Gagal simpan pesan di memStore: %v", err)
 	}
 
-	worker := NewPurgeWorker(ls, memStore, 7, 1*time.Hour)
+	// Simpan pesan kedua dengan status 'downloaded' tanggal 2 hari lalu (batas retensi 1 hari / 24 jam)
+	mediaURL2, err := ls.Upload(context.Background(), strings.NewReader("dummy media 2"), "photo2.png", "image/png")
+	if err != nil {
+		t.Fatalf("Gagal upload dummy file 2: %v", err)
+	}
+	msg2 := store.StoredMessage{
+		ID:          "msg-downloaded-old",
+		RoomID:      "room-test",
+		FromID:      "user-1",
+		Nickname:    "Arif",
+		ToID:        "user-2",
+		Content:     "Foto downloaded lama",
+		MediaURL:    mediaURL2,
+		MediaType:   "image",
+		MediaStatus: "downloaded",
+		Timestamp:   time.Now().AddDate(0, 0, -2),
+	}
+	if err := memStore.Save(msg2); err != nil {
+		t.Fatalf("Gagal simpan pesan 2 di memStore: %v", err)
+	}
+
+	worker := NewPurgeWorker(ls, memStore, 1, 1*time.Hour)
 	purged := worker.PurgeOnce(context.Background())
 
-	if purged != 1 {
-		t.Errorf("Ekspektasi 1 pesan terpurge, dapat: %d", purged)
+	if purged != 2 {
+		t.Errorf("Ekspektasi 2 pesan terpurge (active & downloaded), dapat: %d", purged)
 	}
 
 	// Pastikan status pesan di memStore sekarang 'expired'
 	history, _ := memStore.GetRoomHistory("room-test", 10)
-	if len(history) != 1 || history[0].MediaStatus != "expired" {
-		t.Errorf("Ekspektasi media_status 'expired', dapat: %+v", history)
+	for _, h := range history {
+		if h.MediaStatus != "expired" {
+			t.Errorf("Ekspektasi pesan %s berstatus 'expired', dapat: %s", h.ID, h.MediaStatus)
+		}
 	}
 }

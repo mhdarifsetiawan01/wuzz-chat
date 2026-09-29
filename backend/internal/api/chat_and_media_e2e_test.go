@@ -137,9 +137,9 @@ func TestE2E_Tahap2AndTahap3_FullFlow(t *testing.T) {
 			t.Errorf("Expected HTTP 200 OK for Bob ACK, got %d (body: %s)", recBob.Code, recBob.Body.String())
 		}
 
-		// Verifikasi file fisik telah terhapus dari storage setelah ACK sah
-		if _, err := os.Stat(dummyFilePath); !os.IsNotExist(err) {
-			t.Errorf("File should have been deleted after valid ACK, but still exists")
+		// Verifikasi file fisik tetap ada di storage setelah ACK sah (Multi-Device 24h Grace Period)
+		if _, err := os.Stat(dummyFilePath); os.IsNotExist(err) {
+			t.Errorf("File should be retained for 24h grace period, but was deleted")
 		}
 
 		// Skenario 2C: Non-existent message ID -> 404
