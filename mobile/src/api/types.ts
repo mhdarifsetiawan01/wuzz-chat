@@ -127,6 +127,19 @@ export interface MediaUploadResponse {
   mime_type: string;
 }
 
+export interface SignedUploadTicketRequest {
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+}
+
+export interface SignedUploadTicketResponse {
+  signed_url: string;
+  public_url: string;
+  object_key: string;
+  token: string;
+}
+
 export interface MediaAckRequest {
   message_id: string;
   room_id?: string;

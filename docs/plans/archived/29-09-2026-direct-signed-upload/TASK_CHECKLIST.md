@@ -1,3 +1,3 @@
-# Handover Document — Standby Mode
+# Task Checklist — Standby Mode
 
 Status: Standby. Ready for next task.

@@ -7,13 +7,38 @@ import { toByteArray } from 'base64-js';
 import { File } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import { apiClient } from './client';
-import { MediaUploadResponse, MediaAckResponse } from './types';
+import { MediaUploadResponse, MediaAckResponse, SignedUploadTicketResponse } from './types';
+
+function classifyMediaType(mimeType: string, filename: string): string {
+  const lowerMIME = (mimeType || '').toLowerCase();
+  const lowerExt = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')).toLowerCase() : '';
+
+  if (
+    lowerMIME.startsWith('image/') ||
+    ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg'].includes(lowerExt)
+  ) {
+    return 'image';
+  }
+  if (
+    lowerMIME.startsWith('audio/') ||
+    ['.mp3', '.wav', '.ogg', '.webm', '.m4a', '.aac'].includes(lowerExt)
+  ) {
+    return 'audio';
+  }
+  if (
+    lowerMIME.startsWith('video/') ||
+    ['.mp4', '.webm', '.mov', '.avi'].includes(lowerExt)
+  ) {
+    return 'video';
+  }
+  return 'document';
+}
 
 export const mediaApi = {
   /**
-   * POST /api/media/upload
-   * Uploads an image, video, audio, or document file via multipart/form-data.
-   * Adheres to Slow & Flaky Server Resilience Rule (60-second timeout guard).
+   * Uploads an image, video, audio, or document file.
+   * Priority: Direct Signed Upload to Supabase Storage (0 MB Egress VPS).
+   * Fallback: POST /api/media/upload on VPS.
    */
   async uploadMedia(
     uri: string,
@@ -24,7 +49,6 @@ export const mediaApi = {
     const cleanFileName = fileName || `media_${Date.now()}`;
     const cleanMimeType = mimeType || 'application/octet-stream';
 
-    const formData = new FormData();
     let bytes: Uint8Array | null = null;
 
     if (base64) {
@@ -55,6 +79,68 @@ export const mediaApi = {
         }
       }
     }
+
+    // =========================================================================
+    // 1. Direct Signed Upload ke Supabase Storage (0 MB Egress VPS)
+    // =========================================================================
+    try {
+      const fileSize = bytes ? bytes.length : 0;
+      const ticket = await apiClient<SignedUploadTicketResponse>('/api/media/signed-upload-url', {
+        method: 'POST',
+        body: JSON.stringify({
+          file_name: cleanFileName,
+          file_size: fileSize,
+          mime_type: cleanMimeType,
+        }),
+        timeoutMs: 15000,
+      });
+
+      if (ticket?.signed_url && ticket?.public_url) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+        try {
+          let putBody: any = bytes;
+          if (!putBody && uri) {
+            const fileRes = await fetch(uri);
+            if (fileRes.ok) {
+              putBody = await fileRes.blob();
+            }
+          }
+
+          if (putBody) {
+            const directRes = await fetch(ticket.signed_url, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': cleanMimeType,
+              },
+              body: putBody,
+              signal: controller.signal,
+            });
+
+            if (directRes.ok) {
+              return {
+                url: ticket.public_url,
+                file_name: cleanFileName,
+                file_size: fileSize,
+                media_type: classifyMediaType(cleanMimeType, cleanFileName),
+                mime_type: cleanMimeType,
+              };
+            }
+            console.warn('[mediaApi] Direct upload ke Supabase gagal (status %d), mencoba fallback ke VPS...', directRes.status);
+          }
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      }
+    } catch (signedErr) {
+      console.warn('[mediaApi] Direct signed upload tidak tersedia/gagal, fallback ke VPS upload:', signedErr);
+    }
+
+    // =========================================================================
+    // 2. Graceful Fallback: VPS Multipart Upload (/api/media/upload)
+    // =========================================================================
+    const formData = new FormData();
 
     if (bytes) {
       // Menggunakan objek part dengan method bytes() yang didukung penuh oleh Expo WinterCG fetch (convertFormDataAsync).

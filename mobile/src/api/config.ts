@@ -5,7 +5,7 @@
 
 import { Platform } from 'react-native';
 
-const LIVE_PRODUCTION_URL = 'https://wuzz-chat-backend.fly.dev';
+const LIVE_PRODUCTION_URL = 'https://chat-api.wuzzhub.id';
 const LOCAL_ANDROID_URL = 'http://10.0.2.2:8080';
 const LOCAL_IOS_URL = 'http://localhost:8080';
 
@@ -24,7 +24,7 @@ export function getBaseApiUrl(): string {
 
 export function getBaseWsUrl(): string {
   if (USE_LIVE_BACKEND) {
-    return 'wss://wuzz-chat-backend.fly.dev/ws';
+    return 'wss://chat-api.wuzzhub.id/ws';
   }
   if (Platform.OS === 'android') {
     return 'ws://10.0.2.2:8080/ws';

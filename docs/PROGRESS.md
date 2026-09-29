@@ -4109,6 +4109,62 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
 - **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
 
+---
+
+## 🚀 Migrasi Production Backend ke VPS & Pembaruan Mobile Endpoint (29 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Ekstraksi Environment Variables Fly.io**:
+  - Mengambil seluruh runtime environment variables & secrets dari instance Fly.io (`wuzz-chat-backend`) via `fly ssh console` untuk setup environment di server VPS baru.
+  - Memastikan seluruh konfigurasi (Postgres Supabase, Upstash Redis, Supabase Storage, Web Push VAPID, Groq AI, dan FCM Service Account) siap dipasang pada VPS.
+- **Verifikasi Konektivitas VPS**:
+  - Menguji `https://chat-api.wuzzhub.id/health` (HTTP 200 OK via Nginx Ubuntu).
+  - Menguji CORS preflight `OPTIONS /api/auth/login` (HTTP 200 OK dengan origin `chat.wuzzhub.id`).
+  - Menguji WebSocket upgrade `wss://chat-api.wuzzhub.id/ws` (HTTP 101 Switching Protocols terverifikasi dengan JWT handshake).
+- **Pembaruan Konfigurasi Mobile**:
+  - Mengarahkan `LIVE_PRODUCTION_URL` di [`mobile/src/api/config.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/api/config.ts) ke `https://chat-api.wuzzhub.id` dan WebSocket ke `wss://chat-api.wuzzhub.id/ws`.
+  - Berhasil di-build dan di-install release APK via `./gradlew assembleRelease` dan `adb install`.
+- **Sinkronisasi Dokumentasi**:
+  - Memperbarui tabel endpoint di [`docs/MOBILE_INTEGRATION_GUIDE.md`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/docs/MOBILE_INTEGRATION_GUIDE.md).
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
+- **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Mobile Release APK Build (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL**.
+
+---
+
+## ⚡ Implementasi Direct Signed Upload ke Supabase Storage (0 MB Egress VPS) (29 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Arsitektur 0 MB Egress VPS untuk Media Upload**:
+  - Mengubah alur unggah berkas media dari client (Web Next.js & Mobile React Native) agar mengunggah langsung (*direct upload*) ke Supabase Storage via Pre-signed Upload URL.
+  - Server VPS Go kini hanya bertugas mengotentikasi user dan menerbitkan tiket upload bertanda tangan berukuran beberapa byte JSON, mengeliminasi 100% konsumsi egress VPS saat upload.
+- **Backend (Golang)**:
+  - **Storage Layer ([`backend/internal/storage/storage.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/storage.go))**: Menambahkan struct `SignedUploadResult` dan method `CreateSignedUploadURL(ctx context.Context, filename string, contentType string) (*SignedUploadResult, error)` pada interface `MediaStorage`.
+  - **Supabase Storage ([`backend/internal/storage/supabase_storage.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/supabase_storage.go))**: Mengimplementasikan `CreateSignedUploadURL` yang menghubungi REST API Supabase Storage `POST /storage/v1/object/upload/sign/{bucket}/{objectKey}`, menghasilkan signed upload URL lengkap dengan token otorisasi dan public CDN URL. Mendukung multi-tenant prefixing.
+  - **Local Storage ([`backend/internal/storage/local_storage.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/local_storage.go))**: Mengembalikan `ErrSignedUploadNotSupported` agar client otomatis fallback ke endpoint VPS saat driver lokal aktif.
+  - **Endpoint Handler ([`backend/internal/api/media_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/media_handler.go))**: Membuat handler `CreateSignedUploadURL` dengan validasi ukuran berkas (`MAX_UPLOAD_SIZE_MB`), pemblokiran ekstensi berbahaya (`.exe`, `.sh`, `.bat`, dll), dan dynamic feature toggle.
+  - **Router ([`backend/internal/app/router.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/app/router.go))**: Mendaftarkan `POST /api/media/signed-upload-url` dilindungi middleware `auth.RequireJWT()`.
+  - **Graceful Fallback & Store-and-Forward**: Endpoint legacy `POST /api/media/upload`, ACK `/api/media/ack`, dan `PurgeWorker` tetap berjalan tanpa hambatan.
+- **Frontend Next.js ([`frontend/lib/api.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/api.ts))**:
+  - Memperbarui fungsi `uploadMedia` untuk meminta tiket pre-signed URL dari backend, lalu mengeksekusi `PUT` biner langsung ke Supabase Storage dengan timeout 60 detik.
+  - Menyediakan fallback transparan ke `POST /api/media/upload` jika signed URL tidak didukung atau mengalami kegagalan.
+- **Mobile Expo ([`mobile/src/api/media.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/api/media.ts), [`mobile/src/api/types.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/api/types.ts))**:
+  - Menambahkan tipe `SignedUploadTicketRequest` dan `SignedUploadTicketResponse`.
+  - Mengarahkan alur `uploadMedia` mobile untuk meminta signed upload ticket dan melakukan direct `PUT` ke Supabase CDN dengan automatic fallback ke VPS.
+- **Pengujian Otomatis**:
+  - Menambahkan unit test `TestSupabaseStorage_CreateSignedUploadURL` di [`backend/internal/storage/storage_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/storage_test.go).
+  - Menambahkan unit test `TestMediaHandler_CreateSignedUploadURL_*` di [`backend/internal/api/media_handler_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/media_handler_test.go).
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
+- **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+
+
+
 
 
 

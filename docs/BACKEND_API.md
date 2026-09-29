@@ -965,7 +965,36 @@ Mengunggah berkas gambar, audio, dokumen, atau video.
 
 ---
 
-#### 24. `POST /api/media/ack`
+#### 24. `POST /api/media/signed-upload-url`
+Menerbitkan tiket URL upload bertanda tangan (*pre-signed upload URL*) berbatas waktu untuk unggah berkas langsung ke Supabase Storage (0 MB Egress VPS).
+- **Autentikasi**: `Bearer <token>`
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "file_name": "foto_liburan.jpg",
+    "file_size": 1048576,
+    "mime_type": "image/jpeg"
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "signed_url": "https://xyz.supabase.co/storage/v1/object/upload/sign/chat-media/uuid.jpg?token=eyJhbGciOi...",
+    "public_url": "https://xyz.supabase.co/storage/v1/object/public/chat-media/uuid.jpg",
+    "object_key": "uuid.jpg",
+    "token": "eyJhbGciOi..."
+  }
+  ```
+- **Error Codes**:
+  - `400 Bad Request`: Format body tidak valid, `file_name` kosong, ukuran melebihi `MAX_UPLOAD_SIZE_MB`, atau ekstensi berbahaya (`.exe`, `.sh`, `.bat`, dll).
+  - `403 Forbidden`: Fitur unggah media dinonaktifkan administrator.
+  - `501 Not Implemented`: Driver storage aktif adalah `local` (klien otomatis menggunakan fallback `POST /api/media/upload`).
+  - `500 Internal Server Error`: Kegagalan komunikasi dengan provider storage Supabase.
+
+---
+
+#### 25. `POST /api/media/ack`
 Mengirim konfirmasi unduhan berkas oleh penerima pesan. 
 - **Direct Message (1-on-1)**: Status pesan diubah menjadi `'downloaded'`, dan berkas fisik dipertahankan selama masa retensi tenggang 24 jam (Multi-Device Grace Period) agar perangkat lain (Web/Mobile) dapat mengunduh secara independen sebelum dibersihkan oleh `PurgeWorker`.
 - **Obrolan Grup & Forum Topics (`grp_...`, `sub_...`)**: Konfirmasi unduhan dicatat tanpa menghapus berkas fisik (*Shared Media Hub*), menjamin berkas tetap tersedia bagi seluruh anggota grup hingga masa TTL (7 hari) berakhir.

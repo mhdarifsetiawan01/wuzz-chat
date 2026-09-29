@@ -134,6 +134,13 @@ export interface MediaUploadResponse {
   mime_type: string
 }
 
+export interface SignedUploadTicketResponse {
+  signed_url: string
+  public_url: string
+  object_key: string
+  token: string
+}
+
 // Status koneksi WebSocket
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting'
 

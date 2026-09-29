@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,4 +53,45 @@ func TestLocalStorage_UploadAndDelete(t *testing.T) {
 	if _, err := os.Stat(diskPath); !os.IsNotExist(err) {
 		t.Fatalf("File seharusnya sudah terhapus dari disk: %s", diskPath)
 	}
+
+	// 3. Test CreateSignedUploadURL on LocalStorage
+	_, errSigned := ls.CreateSignedUploadURL(context.Background(), "test.png", "image/png")
+	if errSigned != ErrSignedUploadNotSupported {
+		t.Fatalf("Ekspektasi ErrSignedUploadNotSupported, dapat: %v", errSigned)
+	}
 }
+
+func TestSupabaseStorage_CreateSignedUploadURL(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/storage/v1/object/upload/sign/") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if r.Header.Get("apikey") != "test-service-key" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"url":"/storage/v1/object/upload/sign/chat-media/uuid-123.jpg?token=mocktoken123","token":"mocktoken123"}`))
+	}))
+	defer mockServer.Close()
+
+	sbStorage := NewSupabaseStorage(mockServer.URL, "test-service-key", "chat-media")
+	res, err := sbStorage.CreateSignedUploadURL(context.Background(), "avatar.jpg", "image/jpeg")
+	if err != nil {
+		t.Fatalf("CreateSignedUploadURL gagal: %v", err)
+	}
+
+	if !strings.Contains(res.SignedURL, mockServer.URL) || !strings.Contains(res.SignedURL, "token=mocktoken123") {
+		t.Errorf("Format SignedURL salah: %s", res.SignedURL)
+	}
+	if !strings.Contains(res.PublicURL, "/storage/v1/object/public/chat-media/") {
+		t.Errorf("Format PublicURL salah: %s", res.PublicURL)
+	}
+	if res.Token != "mocktoken123" {
+		t.Errorf("Ekspektasi token mocktoken123, dapat: %s", res.Token)
+	}
+}
+
+

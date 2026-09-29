@@ -110,6 +110,11 @@ func (l *LocalStorage) Delete(ctx context.Context, fileKey string) error {
 	return nil
 }
 
+// CreateSignedUploadURL mengembalikan ErrSignedUploadNotSupported karena LocalStorage hanya mendukung direct stream ke VPS.
+func (l *LocalStorage) CreateSignedUploadURL(ctx context.Context, filename string, contentType string) (*SignedUploadResult, error) {
+	return nil, ErrSignedUploadNotSupported
+}
+
 // DriverName mengembalikan identifier driver.
 func (l *LocalStorage) DriverName() string {
 	return "local"

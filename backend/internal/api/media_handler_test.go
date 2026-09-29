@@ -2,7 +2,9 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -390,5 +392,161 @@ func TestMediaHandler_AcknowledgeDownload_SharedMediaHub_GroupAndSubGroup(t *tes
 		t.Fatalf("Ekspektasi media_status pesan DM berubah menjadi 'downloaded', dapat: %s", msgDMInDB.MediaStatus)
 	}
 }
+
+type mockSupabaseStorage struct {
+	signedResult *storage.SignedUploadResult
+	err          error
+}
+
+func (m *mockSupabaseStorage) Upload(ctx context.Context, file io.Reader, filename string, contentType string) (string, error) {
+	return "https://example.com/mock.png", nil
+}
+
+func (m *mockSupabaseStorage) CreateSignedUploadURL(ctx context.Context, filename string, contentType string) (*storage.SignedUploadResult, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.signedResult, nil
+}
+
+func (m *mockSupabaseStorage) Delete(ctx context.Context, fileKey string) error {
+	return nil
+}
+
+func (m *mockSupabaseStorage) DriverName() string {
+	return "supabase"
+}
+
+func TestMediaHandler_CreateSignedUploadURL_LocalStorage_NotSupported(t *testing.T) {
+	tempDir, _ := os.MkdirTemp("", "wuzz_test_media_*")
+	defer os.RemoveAll(tempDir)
+
+	ls, _ := storage.NewLocalStorage(tempDir, "/uploads")
+	handler := NewMediaHandler(ls, nil)
+
+	body, _ := json.Marshal(SignedUploadURLRequest{
+		FileName: "photo.jpg",
+		FileSize: 1024,
+		MIMEType: "image/jpeg",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/media/signed-upload-url", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+
+	handler.CreateSignedUploadURL(rr, req)
+
+	if rr.Code != http.StatusNotImplemented {
+		t.Fatalf("Ekspektasi 501 Not Implemented untuk LocalStorage, dapat: %d", rr.Code)
+	}
+}
+
+func TestMediaHandler_CreateSignedUploadURL_Validation(t *testing.T) {
+	mockSB := &mockSupabaseStorage{
+		signedResult: &storage.SignedUploadResult{
+			SignedURL: "https://mock.supabase.co/signed/upload",
+			PublicURL: "https://mock.supabase.co/public/upload",
+			ObjectKey: "uuid-123.jpg",
+			Token:     "mock-token",
+		},
+	}
+	handler := NewMediaHandler(mockSB, nil)
+
+	// 1. Ekstensi Berbahaya (.exe)
+	bodyExe, _ := json.Marshal(SignedUploadURLRequest{
+		FileName: "virus.exe",
+		FileSize: 1024,
+		MIMEType: "application/x-msdownload",
+	})
+	reqExe := httptest.NewRequest(http.MethodPost, "/api/media/signed-upload-url", bytes.NewReader(bodyExe))
+	rrExe := httptest.NewRecorder()
+	handler.CreateSignedUploadURL(rrExe, reqExe)
+	if rrExe.Code != http.StatusBadRequest {
+		t.Errorf("Ekspektasi 400 Bad Request untuk .exe, dapat: %d", rrExe.Code)
+	}
+
+	// 2. Ukuran melebihi MAX_UPLOAD_SIZE_MB (default 25 MB)
+	bodyLarge, _ := json.Marshal(SignedUploadURLRequest{
+		FileName: "huge_video.mp4",
+		FileSize: 30 * 1024 * 1024, // 30 MB
+		MIMEType: "video/mp4",
+	})
+	reqLarge := httptest.NewRequest(http.MethodPost, "/api/media/signed-upload-url", bytes.NewReader(bodyLarge))
+	rrLarge := httptest.NewRecorder()
+	handler.CreateSignedUploadURL(rrLarge, reqLarge)
+	if rrLarge.Code != http.StatusBadRequest {
+		t.Errorf("Ekspektasi 400 Bad Request untuk file melebihi limit, dapat: %d", rrLarge.Code)
+	}
+
+	// 3. Filename kosong
+	bodyEmpty, _ := json.Marshal(SignedUploadURLRequest{
+		FileName: "",
+		FileSize: 1024,
+		MIMEType: "image/png",
+	})
+	reqEmpty := httptest.NewRequest(http.MethodPost, "/api/media/signed-upload-url", bytes.NewReader(bodyEmpty))
+	rrEmpty := httptest.NewRecorder()
+	handler.CreateSignedUploadURL(rrEmpty, reqEmpty)
+	if rrEmpty.Code != http.StatusBadRequest {
+		t.Errorf("Ekspektasi 400 Bad Request untuk nama file kosong, dapat: %d", rrEmpty.Code)
+	}
+
+	// 4. Feature toggle dinonaktifkan
+	handler.SetEnabled(false)
+	bodyValid, _ := json.Marshal(SignedUploadURLRequest{
+		FileName: "good.png",
+		FileSize: 1024,
+		MIMEType: "image/png",
+	})
+	reqDisabled := httptest.NewRequest(http.MethodPost, "/api/media/signed-upload-url", bytes.NewReader(bodyValid))
+	rrDisabled := httptest.NewRecorder()
+	handler.CreateSignedUploadURL(rrDisabled, reqDisabled)
+	if rrDisabled.Code != http.StatusForbidden {
+		t.Errorf("Ekspektasi 403 Forbidden saat toggle nonaktif, dapat: %d", rrDisabled.Code)
+	}
+}
+
+func TestMediaHandler_CreateSignedUploadURL_Supabase_Success(t *testing.T) {
+	mockSB := &mockSupabaseStorage{
+		signedResult: &storage.SignedUploadResult{
+			SignedURL: "https://mock.supabase.co/signed/upload?token=tok123",
+			PublicURL: "https://mock.supabase.co/public/uuid.png",
+			ObjectKey: "uuid.png",
+			Token:     "tok123",
+		},
+	}
+	handler := NewMediaHandler(mockSB, nil)
+
+	body, _ := json.Marshal(SignedUploadURLRequest{
+		FileName: "screenshot.png",
+		FileSize: 2048,
+		MIMEType: "image/png",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/media/signed-upload-url", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+
+	handler.CreateSignedUploadURL(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("Ekspektasi 200 OK, dapat: %d", rr.Code)
+	}
+
+	var res SignedUploadURLResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &res); err != nil {
+		t.Fatalf("Gagal unmarshal respon: %v", err)
+	}
+
+	if res.SignedURL != "https://mock.supabase.co/signed/upload?token=tok123" {
+		t.Errorf("SignedURL salah: %s", res.SignedURL)
+	}
+	if res.PublicURL != "https://mock.supabase.co/public/uuid.png" {
+		t.Errorf("PublicURL salah: %s", res.PublicURL)
+	}
+	if res.ObjectKey != "uuid.png" {
+		t.Errorf("ObjectKey salah: %s", res.ObjectKey)
+	}
+	if res.Token != "tok123" {
+		t.Errorf("Token salah: %s", res.Token)
+	}
+}
+
 
 
