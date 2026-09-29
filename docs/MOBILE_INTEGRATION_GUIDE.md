@@ -24,7 +24,7 @@ Backend **Wuzz Chat** (Golang) dan Database (Supabase PostgreSQL) dibangun denga
 ### A. Konfigurasi Endpoint Server
 | Environment | REST API Base URL | WebSocket Endpoint |
 |---|---|---|
-| **Production (Live)** | `https://wuzz-chat-backend.fly.dev` | `wss://wuzz-chat-backend.fly.dev/ws?token=<JWT>&device_id=<DEVICE_ID>` |
+| **Production (Live VPS)** | `https://chat-api.wuzzhub.id` | `wss://chat-api.wuzzhub.id/ws?token=<JWT>&device_id=<DEVICE_ID>` |
 | **Local Development** | `http://10.0.2.2:8080` (Android Emulator) / `http://localhost:8080` (iOS Sim) | `ws://10.0.2.2:8080/ws?token=<JWT>&device_id=<DEVICE_ID>` |
 
 > 💡 **Header Standar Request Mobile**:

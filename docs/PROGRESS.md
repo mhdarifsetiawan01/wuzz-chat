@@ -4109,6 +4109,31 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
 - **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
 
+---
+
+## 🚀 Migrasi Production Backend ke VPS & Pembaruan Mobile Endpoint (29 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Ekstraksi Environment Variables Fly.io**:
+  - Mengambil seluruh runtime environment variables & secrets dari instance Fly.io (`wuzz-chat-backend`) via `fly ssh console` untuk setup environment di server VPS baru.
+  - Memastikan seluruh konfigurasi (Postgres Supabase, Upstash Redis, Supabase Storage, Web Push VAPID, Groq AI, dan FCM Service Account) siap dipasang pada VPS.
+- **Verifikasi Konektivitas VPS**:
+  - Menguji `https://chat-api.wuzzhub.id/health` (HTTP 200 OK via Nginx Ubuntu).
+  - Menguji CORS preflight `OPTIONS /api/auth/login` (HTTP 200 OK dengan origin `chat.wuzzhub.id`).
+  - Menguji WebSocket upgrade `wss://chat-api.wuzzhub.id/ws` (HTTP 101 Switching Protocols terverifikasi dengan JWT handshake).
+- **Pembaruan Konfigurasi Mobile**:
+  - Mengarahkan `LIVE_PRODUCTION_URL` di [`mobile/src/api/config.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/api/config.ts) ke `https://chat-api.wuzzhub.id` dan WebSocket ke `wss://chat-api.wuzzhub.id/ws`.
+  - Berhasil di-build dan di-install release APK via `./gradlew assembleRelease` dan `adb install`.
+- **Sinkronisasi Dokumentasi**:
+  - Memperbarui tabel endpoint di [`docs/MOBILE_INTEGRATION_GUIDE.md`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/docs/MOBILE_INTEGRATION_GUIDE.md).
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
+- **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Mobile Release APK Build (`./gradlew assembleRelease`)**: **BUILD SUCCESSFUL**.
+
+
 
 
 
