@@ -25,6 +25,21 @@ type MediaUploadResponse struct {
 	MIMEType  string `json:"mime_type"`
 }
 
+// SignedUploadURLRequest adalah struktur request JSON untuk meminta tiket direct signed upload.
+type SignedUploadURLRequest struct {
+	FileName string `json:"file_name"`
+	FileSize int64  `json:"file_size"`
+	MIMEType string `json:"mime_type"`
+}
+
+// SignedUploadURLResponse adalah struktur response JSON tiket direct signed upload.
+type SignedUploadURLResponse struct {
+	SignedURL string `json:"signed_url"`
+	PublicURL string `json:"public_url"`
+	ObjectKey string `json:"object_key"`
+	Token     string `json:"token"`
+}
+
 // AppConfigResponse adalah struktur JSON konfigurasi publik untuk frontend.
 type AppConfigResponse struct {
 	MediaUploadEnabled   bool   `json:"media_upload_enabled"`
@@ -220,6 +235,102 @@ func (h *MediaHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		FileSize:  header.Size,
 		MediaType: mediaType,
 		MIMEType:  finalMIME,
+	})
+}
+
+// CreateSignedUploadURL menerbitkan tiket signed URL berbatas waktu untuk direct upload dari client ke Supabase Storage (0 MB Egress VPS).
+func (h *MediaHandler) CreateSignedUploadURL(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 1. Validasi Dynamic Toggle
+	if !h.enabled {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Fitur unggah media sedang dinonaktifkan oleh administrator.",
+		})
+		return
+	}
+
+	if h.storage == nil {
+		http.Error(w, `{"error":"Media storage engine tidak terkonfigurasi"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// 2. Decode JSON body
+	var req SignedUploadURLRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.FileName) == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Request body tidak valid atau field 'file_name' kosong",
+		})
+		return
+	}
+
+	// 3. Validasi batas ukuran file (MAX_UPLOAD_SIZE_MB)
+	maxBytes := h.maxFileSizeMB * 1024 * 1024
+	if req.FileSize > maxBytes {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": fmt.Sprintf("Ukuran file (%d byte) melebihi batas maksimal (%d MB)", req.FileSize, h.maxFileSizeMB),
+		})
+		return
+	}
+
+	// 4. Validasi Ekstensi Berbahaya
+	ext := strings.ToLower(filepath.Ext(req.FileName))
+	dangerousExts := map[string]bool{
+		".exe": true, ".bat": true, ".cmd": true, ".sh": true, ".msi": true,
+		".php": true, ".py": true, ".pl": true, ".cgi": true, ".jsp": true,
+	}
+	if dangerousExts[ext] {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Tipe file yang dapat dieksekusi (.exe, .sh, .bat, script) dilarang demi keamanan sistem.",
+		})
+		return
+	}
+
+	if req.MIMEType == "" {
+		req.MIMEType = "application/octet-stream"
+	}
+
+	// 5. Mint signed upload URL dari storage provider
+	res, err := h.storage.CreateSignedUploadURL(r.Context(), req.FileName, req.MIMEType)
+	if err != nil {
+		if err == storage.ErrSignedUploadNotSupported {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotImplemented)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error": "Direct signed upload tidak didukung oleh storage driver aktif (gunakan fallback /api/media/upload)",
+				"code":  "NOT_SUPPORTED",
+			})
+			return
+		}
+
+		log.Printf("[MediaHandler] Gagal membuat signed upload URL (%s): %v", req.FileName, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Gagal membuat signed upload URL: " + err.Error(),
+		})
+		return
+	}
+
+	// 6. Respon sukses dengan tiket upload
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(SignedUploadURLResponse{
+		SignedURL: res.SignedURL,
+		PublicURL: res.PublicURL,
+		ObjectKey: res.ObjectKey,
+		Token:     res.Token,
 	})
 }
 

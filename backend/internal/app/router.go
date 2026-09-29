@@ -62,6 +62,9 @@ func (a *Application) setupRouter() http.Handler {
 		mux.HandleFunc("/api/media/upload", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(a.MediaHandler.Upload)).ServeHTTP(w, r)
 		}))
+		mux.HandleFunc("/api/media/signed-upload-url", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(a.MediaHandler.CreateSignedUploadURL)).ServeHTTP(w, r)
+		}))
 		mux.HandleFunc("/api/media/ack", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(a.MediaHandler.AcknowledgeDownload)).ServeHTTP(w, r)
 		}))

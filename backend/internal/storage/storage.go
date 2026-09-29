@@ -9,10 +9,24 @@ import (
 	"strings"
 )
 
+// SignedUploadResult berisi tiket URL upload bertanda tangan dan metadata object.
+type SignedUploadResult struct {
+	SignedURL string `json:"signed_url"`
+	PublicURL string `json:"public_url"`
+	ObjectKey string `json:"object_key"`
+	Token     string `json:"token"`
+}
+
+// ErrSignedUploadNotSupported menandakan bahwa storage driver aktif tidak mendukung direct signed upload.
+var ErrSignedUploadNotSupported = fmt.Errorf("signed upload not supported by current storage driver")
+
 // MediaStorage mendefinisikan interface tunggal untuk seluruh provider penyimpanan media.
 type MediaStorage interface {
 	// Upload menyimpan file ke storage dan mengembalikan public URL yang dapat diakses browser.
 	Upload(ctx context.Context, file io.Reader, filename string, contentType string) (publicURL string, err error)
+
+	// CreateSignedUploadURL membuat tiket upload bertanda tangan untuk direct upload dari client.
+	CreateSignedUploadURL(ctx context.Context, filename string, contentType string) (*SignedUploadResult, error)
 
 	// Delete menghapus file dari storage berdasarkan nama/key file.
 	Delete(ctx context.Context, fileKey string) error

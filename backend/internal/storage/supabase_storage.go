@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -142,9 +144,88 @@ func (s *SupabaseStorage) Delete(ctx context.Context, fileKey string) error {
 	return nil
 }
 
+// CreateSignedUploadURL membuat tiket upload bertanda tangan (pre-signed URL) langsung ke Supabase Storage via REST API.
+// Endpoint: POST /storage/v1/object/upload/sign/{bucket}/{objectKey}
+func (s *SupabaseStorage) CreateSignedUploadURL(ctx context.Context, filename string, contentType string) (*SignedUploadResult, error) {
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext == "" || len(ext) > 10 {
+		ext = ".bin"
+	}
+
+	uniqueName := fmt.Sprintf("%s%s", uuid.New().String(), ext)
+
+	// Cek apakah ada tenant non-default
+	var objectKey string
+	if t, ok := tenantshared.FromContext(ctx); ok && t.TenantID() != "" && t.TenantID() != "default" {
+		objectKey = fmt.Sprintf("%s/%s", t.TenantID(), uniqueName)
+	} else {
+		objectKey = uniqueName
+	}
+
+	uploadSignURL := fmt.Sprintf("%s/storage/v1/object/upload/sign/%s/%s", s.supabaseURL, s.bucket, objectKey)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uploadSignURL, bytes.NewReader([]byte("{}")))
+	if err != nil {
+		return nil, fmt.Errorf("gagal membuat request upload/sign supabase: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+s.serviceKey)
+	req.Header.Set("apikey", s.serviceKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("gagal menghubungi supabase storage untuk create signed upload url: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("supabase storage menolak pembuatan signed upload url (status %d): %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var signResp struct {
+		URL   string `json:"url"`
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&signResp); err != nil {
+		return nil, fmt.Errorf("gagal decode respon signed upload url supabase: %w", err)
+	}
+
+	signedURL := signResp.URL
+	if strings.HasPrefix(signedURL, "/") {
+		if strings.HasPrefix(signedURL, "/storage/v1") {
+			signedURL = s.supabaseURL + signedURL
+		} else {
+			signedURL = s.supabaseURL + "/storage/v1" + signedURL
+		}
+	} else if !strings.HasPrefix(signedURL, "http://") && !strings.HasPrefix(signedURL, "https://") {
+		signedURL = fmt.Sprintf("%s/storage/v1/%s", s.supabaseURL, strings.TrimPrefix(signedURL, "/"))
+	}
+
+	// Pastikan query token tersemat jika token dikembalikan terpisah
+	if signResp.Token != "" && !strings.Contains(signedURL, "token=") {
+		if strings.Contains(signedURL, "?") {
+			signedURL = signedURL + "&token=" + signResp.Token
+		} else {
+			signedURL = signedURL + "?token=" + signResp.Token
+		}
+	}
+
+	publicURL := fmt.Sprintf("%s/storage/v1/object/public/%s/%s", s.supabaseURL, s.bucket, objectKey)
+
+	return &SignedUploadResult{
+		SignedURL: signedURL,
+		PublicURL: publicURL,
+		ObjectKey: objectKey,
+		Token:     signResp.Token,
+	}, nil
+}
+
 // DriverName mengembalikan identifier driver.
 func (s *SupabaseStorage) DriverName() string {
 	return "supabase"
 }
 
 var _ MediaStorage = (*SupabaseStorage)(nil)
+

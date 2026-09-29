@@ -76,9 +76,102 @@ export async function apiRequest<T>(
   }
 }
 
+function classifyMediaType(mimeType: string, filename: string): 'image' | 'audio' | 'video' | 'document' {
+  const lowerMIME = (mimeType || '').toLowerCase()
+  const lowerExt = filename.includes('.') ? filename.slice(filename.lastIndexOf('.')).toLowerCase() : ''
+
+  if (
+    lowerMIME.startsWith('image/') ||
+    ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg'].includes(lowerExt)
+  ) {
+    return 'image'
+  }
+  if (
+    lowerMIME.startsWith('audio/') ||
+    ['.mp3', '.wav', '.ogg', '.webm', '.m4a', '.aac'].includes(lowerExt)
+  ) {
+    return 'audio'
+  }
+  if (
+    lowerMIME.startsWith('video/') ||
+    ['.mp4', '.webm', '.mov', '.avi'].includes(lowerExt)
+  ) {
+    return 'video'
+  }
+  return 'document'
+}
+
 export async function uploadMedia(file: File): Promise<{ data?: MediaUploadResponse; error?: string }> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') : null
+
+  // =========================================================================
+  // 1. Direct Signed Upload (0 MB Egress VPS) ke Supabase Storage
+  // =========================================================================
   try {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') : null
+    const ticketController = new AbortController()
+    const ticketTimeout = setTimeout(() => ticketController.abort(), 15000)
+
+    let ticketData: { signed_url?: string; public_url?: string } | null = null
+    try {
+      const ticketRes = await fetch(`${API_BASE}/api/media/signed-upload-url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          file_name: file.name,
+          file_size: file.size,
+          mime_type: file.type || 'application/octet-stream',
+        }),
+        signal: ticketController.signal,
+      })
+
+      if (ticketRes.ok) {
+        ticketData = await ticketRes.json().catch(() => null)
+      }
+    } finally {
+      clearTimeout(ticketTimeout)
+    }
+
+    if (ticketData?.signed_url && ticketData?.public_url) {
+      const uploadController = new AbortController()
+      const uploadTimeout = setTimeout(() => uploadController.abort(), 60000)
+
+      try {
+        const directRes = await fetch(ticketData.signed_url, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+          },
+          body: file,
+          signal: uploadController.signal,
+        })
+
+        if (directRes.ok) {
+          return {
+            data: {
+              url: ticketData.public_url,
+              file_name: file.name,
+              file_size: file.size,
+              media_type: classifyMediaType(file.type, file.name),
+              mime_type: file.type || 'application/octet-stream',
+            },
+          }
+        }
+        console.warn('[uploadMedia] Direct upload ke Supabase gagal (status %d), mencoba fallback ke VPS...', directRes.status)
+      } finally {
+        clearTimeout(uploadTimeout)
+      }
+    }
+  } catch (err: any) {
+    console.warn('[uploadMedia] Direct signed upload gagal atau tidak tersedia, fallback ke VPS upload:', err?.message)
+  }
+
+  // =========================================================================
+  // 2. Graceful Fallback: VPS Multipart Upload (/api/media/upload)
+  // =========================================================================
+  try {
     const formData = new FormData()
     formData.append('file', file)
 
