@@ -48,7 +48,7 @@ Sebelum mengeksekusi tugas, AI **HANYA PERLU MEMBACA** dokumen primer yang relev
      - Frontend: `npm run build` di `frontend/` (0 errors TypeScript & Turbopack).
      - Backend: `go test -v ./...` di `backend/` (100% PASS).
      - Mobile: `npx tsc --noEmit` di `mobile/` (jika mengubah kode mobile).
-5. **Peringatan Deployment Backend**: Setiap perubahan kode di `backend/`, wajib sertakan peringatan bahwa server live Fly.io perlu di-deploy ulang (`fly deploy --remote-only`).
+5. **Peringatan Deployment Backend**: Setiap perubahan kode di `backend/`, wajib sertakan instruksi deployment ke VPS: `ssh deploy@<VPS_IP> ./deploy-chat.sh`. AI **DILARANG KERAS** mengeksekusi deploy secara mandiri tanpa konfirmasi/izin eksplisit dari pengguna.
 6. **Ketahanan Jaringan Lambat & Flaky Server**: Selalu asumsikan latensi 200–800ms+, soket putus, atau timeout. Terapkan `AbortController`, Optimistic UI, dan Write-Through local storage.
 7. **Kepatuhan Design System**: Frontend web wajib mematuhi token CSS di `frontend/app/globals.css` dan panduan `frontend/DESIGN.md` (anti raw hex, anti magic z-index `99999`, unified modal primitives).
 

@@ -394,7 +394,7 @@ Panduan wajib bagi AI Coding Agent yang bekerja pada repositori ini:
    - Dilarang melakukan `git commit` sebelum pengguna menyatakan secara eksplisit bahwa tugas **"selesai"**.
    - Dilarang melakukan `git push` tanpa instruksi tertulis terpisah.
 6. **Patuhi Backend Deployment Notification**:
-   - Setiap perubahan pada kode backend Go (`backend/...`), wajib sertakan kotak peringatan deployment Fly.io (`fly deploy --remote-only`) dalam laporan akhir.
+   - Setiap perubahan pada kode backend Go (`backend/...`), wajib sertakan instruksi deployment ke VPS (`ssh deploy@<VPS_IP> ./deploy-chat.sh`) dalam laporan akhir.
 
 ---
 

@@ -92,8 +92,11 @@ Pastikan seluruh unit & integration test lolos 100% tanpa race condition (`go te
 
 ---
 
-## ⚠️ 5. Peringatan Deployment Fly.io
+## ⚠️ 5. Peringatan Deployment Backend (VPS)
 Setiap kali ada perubahan pada direktori `backend/`:
-1. AI wajib menyertakan peringatan deployment ke pengguna.
-2. Deployment dieksekusi via `fly deploy --remote-only` hanya setelah persetujuan eksplisit.
-3. Verifikasi ketersediaan server dengan `curl -sI https://wuzz-chat-backend.fly.dev/health` (harus HTTP 200 OK).
+1. AI wajib menyertakan peringatan deployment ke pengguna dengan instruksi:
+   ```bash
+   ssh deploy@<VPS_IP> ./deploy-chat.sh
+   ```
+2. Eksekusi deployment hanya dilakukan setelah ada konfirmasi/persetujuan eksplisit dari pengguna.
+3. Verifikasi ketersediaan server setelah deploy (status HTTP 200 OK).
