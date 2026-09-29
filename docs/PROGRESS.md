@@ -3979,6 +3979,31 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors, 0 warnings)**.
 - **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
 
+---
+
+## 🛠️ Perbaikan UI Quoted Reply Sender & Anti-UUID Leak (29 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Mobile Quoted Reply Banner (`mobile/src/components/ChatInputBar.tsx`)**:
+  - Menambahkan prop `replySenderName?: string` ke `ChatInputBarProps`.
+  - Mengeliminasi pembacaan keliru terhadap `replyTo.from` (yang berisi User ID UUID pengirim).
+  - Menambahkan guard regex anti-UUID agar string identifier mentah tidak pernah bocor ke tampilan pengguna.
+- **Mobile Chat Screen Resolution (`mobile/src/screens/ChatScreen.tsx`)**:
+  - Mengimplementasikan helper `getMessageSenderName`: mengembalikan `"Anda"` untuk pesan sendiri, nama lawan bicara (`title`) untuk obrolan 1-on-1, atau nama anggota non-UUID untuk obrolan grup.
+  - Mengoper `replySenderName` ke `ChatInputBar`.
+  - Memperbaiki payload `reply_to` saat pengiriman teks & audio agar data tersimpan di backend selalu bersih dari UUID.
+- **Mobile Bubble Quoted Card (`mobile/src/components/MessageBubble.tsx`)**:
+  - Menambahkan regex filter anti-UUID pada tampilan nama pengirim di kartu pesan kutipan.
+- **Web Frontend Consistency (`frontend/app/chat/MessageInput.tsx`)**:
+  - Menyesuaikan banner preview agar menampilkan `"Membalas ke Anda"` saat membalas pesan sendiri.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Android APK Build & Install (`cd mobile/android && ./gradlew assembleRelease && adb install`)**: **BUILD SUCCESSFUL (1m 10s), Streamed Install Success**.
+- **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
+
+
 
 
 

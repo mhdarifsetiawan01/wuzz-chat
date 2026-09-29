@@ -53,6 +53,7 @@ export interface ChatInputBarProps {
   onPickGallery?: () => void;
   onCancelStagedMedia?: () => void;
   replyTo?: Message | null;
+  replySenderName?: string;
   onCancelReply?: () => void;
   editingMessage?: Message | null;
   onSaveEdit?: (messageId: string, newContent: string) => void;
@@ -82,6 +83,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onPickGallery,
   onCancelStagedMedia,
   replyTo,
+  replySenderName,
   onCancelReply,
   editingMessage,
   onSaveEdit,
@@ -346,7 +348,14 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
           <View style={styles.replyAccentBar} />
           <View style={styles.replyInfo}>
             <Text style={styles.replySender} numberOfLines={1}>
-              Membalas ke {replyTo.from || replyTo.nickname || 'Pengguna'}
+              Membalas ke{' '}
+              {replySenderName ||
+                (replyTo.nickname &&
+                !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                  replyTo.nickname
+                )
+                  ? replyTo.nickname
+                  : 'Pengguna')}
             </Text>
             <Text style={styles.replySnippet} numberOfLines={1}>
               {replyTo.media_type === 'audio'

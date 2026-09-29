@@ -292,7 +292,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   <View style={styles.quoteAccentBar} />
                   <View style={styles.quoteContent}>
                     <Text style={styles.quoteSender} numberOfLines={1}>
-                      {message.reply_to.nickname || 'Pengguna'}
+                      {message.reply_to.nickname &&
+                      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                        message.reply_to.nickname
+                      )
+                        ? message.reply_to.nickname
+                        : 'Pengguna'}
                     </Text>
                     <Text style={styles.quoteText} numberOfLines={2}>
                       {message.reply_to.media_type === 'audio'

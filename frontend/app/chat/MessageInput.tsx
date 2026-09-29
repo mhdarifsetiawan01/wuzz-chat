@@ -452,25 +452,40 @@ export function MessageInput({
       )}
 
       {/* Quoted Message Preview Banner */}
-      {replyTo && (
-        <div className="reply-preview-bar" aria-label="Membalas pesan">
-          <div className="reply-preview-content">
-            <span className="reply-preview-label">
-              Membalas ke <strong className="reply-preview-sender">{replyTo.nickname || 'Pengguna'}</strong>
-            </span>
-            <span className="reply-preview-snippet">{replyTo.content}</span>
+      {replyTo && (() => {
+        const isSelf = Boolean(
+          currentUserId &&
+            (replyTo.sender_id === currentUserId || replyTo.from === currentUserId)
+        )
+        const senderName = isSelf
+          ? 'Anda'
+          : replyTo.nickname &&
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              replyTo.nickname
+            )
+          ? replyTo.nickname
+          : 'Pengguna'
+
+        return (
+          <div className="reply-preview-bar" aria-label="Membalas pesan">
+            <div className="reply-preview-content">
+              <span className="reply-preview-label">
+                Membalas ke <strong className="reply-preview-sender">{senderName}</strong>
+              </span>
+              <span className="reply-preview-snippet">{replyTo.content}</span>
+            </div>
+            <button
+              type="button"
+              className="reply-preview-cancel"
+              onClick={onCancelReply}
+              title="Batal membalas"
+              aria-label="Batal membalas"
+            >
+              ✕
+            </button>
           </div>
-          <button
-            type="button"
-            className="reply-preview-cancel"
-            onClick={onCancelReply}
-            title="Batal membalas"
-            aria-label="Batal membalas"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Staged Media Preview Bar */}
       {stagedMedia && (
