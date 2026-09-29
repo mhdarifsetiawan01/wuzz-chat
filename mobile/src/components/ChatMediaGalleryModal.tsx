@@ -123,10 +123,11 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
 
   // Format file size helper
   const formatFileSize = (bytes?: number) => {
-    if (!bytes || bytes <= 0) return '';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    const numBytes = typeof bytes === 'number' ? bytes : Number(bytes);
+    if (!numBytes || isNaN(numBytes) || numBytes <= 0) return '';
+    if (numBytes < 1024) return `${numBytes} B`;
+    if (numBytes < 1024 * 1024) return `${(numBytes / 1024).toFixed(1)} KB`;
+    return `${(numBytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   // Format date helper
@@ -134,6 +135,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
     if (!isoString) return '';
     try {
       const d = new Date(isoString);
+      if (isNaN(d.getTime())) return '';
       return d.toLocaleDateString('id-ID', {
         day: 'numeric',
         month: 'short',
@@ -185,12 +187,17 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
 
   // Render individual document list item
   const renderFileItem = ({ item }: { item: Message }) => {
-    const fileName = item.file_name || 'Berkas Dokumen';
+    const fileName =
+      typeof item.file_name === 'string' && item.file_name.trim()
+        ? item.file_name
+        : 'Berkas Dokumen';
     const dateStr = formatDate(item.created_at || item.timestamp);
     const sizeStr = formatFileSize(item.file_size);
-    const details = [sizeStr, dateStr, item.nickname || item.from]
-      .filter(Boolean)
-      .join(' • ');
+    const sender =
+      typeof (item.nickname || item.from) === 'string'
+        ? item.nickname || item.from
+        : '';
+    const details = [sizeStr, dateStr, sender].filter(Boolean).join(' • ');
 
     const isAudio =
       item.type === 'audio' ||
@@ -198,7 +205,11 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
       /\.(m4a|aac|mp3|wav|ogg)$/i.test(fileName);
 
     return (
-      <View style={styles.fileCard}>
+      <TouchableOpacity
+        style={styles.fileCard}
+        onPress={() => handleShareFile(item)}
+        activeOpacity={0.7}
+      >
         <View style={styles.fileIconContainer}>
           <Text style={styles.fileIconText}>{isAudio ? '🎵' : '📄'}</Text>
         </View>
@@ -220,7 +231,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         >
           <Text style={styles.fileActionIcon}>📤</Text>
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -299,8 +310,9 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
             </View>
           ) : (
             <FlatList
+              key="gallery-media-grid"
               data={mediaList}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item, index) => item.id || `media_${index}`}
               renderItem={renderMediaItem}
               numColumns={NUM_COLUMNS}
               contentContainerStyle={styles.gridListContent}
@@ -318,8 +330,9 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
           </View>
         ) : (
           <FlatList
+            key="gallery-files-list"
             data={fileList}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item, index) => item.id || `file_${index}`}
             renderItem={renderFileItem}
             contentContainerStyle={[styles.fileListContent, { paddingBottom: insets.bottom + 16 }]}
             showsVerticalScrollIndicator={false}

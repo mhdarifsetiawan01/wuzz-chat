@@ -4003,6 +4003,23 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
 - **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
 
+---
+
+## 🛠️ Perbaikan Force Close Tab Dokumen pada ChatMediaGalleryModal (29 September 2026)
+
+### 1. Ringkasan Pengerjaan
+- **Pencegahan Invariant Violation React Native (`mobile/src/components/ChatMediaGalleryModal.tsx`)**:
+  - Menetapkan `key="gallery-media-grid"` pada FlatList Media (3 kolom) dan `key="gallery-files-list"` pada FlatList Dokumen (1 kolom) untuk mencegah mutasi `numColumns` on-the-fly yang memicu force close saat berpindah tab.
+  - Memperkuat `keyExtractor` dengan fallback `media_${index}` dan `file_${index}` untuk memastikan integritas string key di seluruh kondisi data.
+  - Memvalidasi `formatFileSize` untuk data non-numeric/NaN dan `formatDate` dengan pengecekan `isNaN(d.getTime())` sebelum formatting tanggal.
+  - Menjadikan seluruh card dokumen dapat disentuh (`TouchableOpacity`) dengan feedback visual saat ditekan.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Gate (`cd mobile && npx tsc --noEmit`)**: **PASS (0 errors)**.
+- **Frontend Turbopack Build (`cd frontend && npm run build`)**: **Compiled successfully (0 errors)**.
+- **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
+
+
 
 
 
