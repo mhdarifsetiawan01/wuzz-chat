@@ -7,11 +7,12 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Pengelolaan Berkas, Foto
 ## 📋 1. Aturan Bisnis & Invarian (*Business Invariants*)
 
 1. **Arsitektur Dual Media (1-on-1 vs Grup/Forum)**:
-   - **Obrolan 1-on-1 (WhatsApp Store-and-Forward / $0 Server Storage Cost)**:
+   - **Obrolan 1-on-1 (WhatsApp Store-and-Forward dengan 24h Multi-Device Grace Period / $0 Long-term Cost)**:
      - Berkas di server hanya bersifat persinggahan sementara.
-     - Begitu penerima selesai mengunduh berkas, klien mengirimkan panggilan konfirmasi `POST /api/media/ack`.
-     - Server **langsung menghapus berkas fisik** dari Supabase S3 Storage dan mengubah status di basis data menjadi `'expired'`.
-     - File tetap dapat dibuka di kedua perangkat karena tersimpan di cache lokal (`IndexedDB` di Web / internal storage di Mobile).
+     - Saat salah satu perangkat mengunduh berkas, klien mengirimkan konfirmasi `POST /api/media/ack`. Status pesan beralih menjadi `'downloaded'`.
+     - Berkas fisik **TIDAK langsung dihapus seketika (0ms)**, melainkan dipertahankan selama masa retensi tenggang **24 jam (1 hari)** agar perangkat kedua (Multi-Device: Web atau HP lain) memiliki waktu luang untuk mengunduh berkas ke penyimpanan lokal masing-masing secara independen.
+     - Setelah 24 jam terlewati, goroutine latar belakang `PurgeWorker` secara otomatis menghapus berkas fisik dari storage Supabase S3 dan memperbarui status di database menjadi `'expired'`.
+     - Berkas tetap dapat diakses di perangkat yang telah mengunduh karena tersimpan di cache lokal (`IndexedDB` di Web / internal SQLite/filesystem di Mobile).
    - **Obrolan Grup & Topik Forum (Shared Media Hub / TTL 7 Hari)**:
      - Panggilan ACK unduhan dari salah satu anggota **DILARANG** menghapus berkas dari server.
      - Berkas dipertahankan selama masa retensi TTL (7 hari) agar seluruh anggota grup dapat mengunduh secara bergantian.

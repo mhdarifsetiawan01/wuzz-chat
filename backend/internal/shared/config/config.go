@@ -50,7 +50,7 @@ func Load() (*Config, error) {
 		JWTSecret:          getEnv("JWT_SECRET", "your_super_secret_jwt_key_wuzz_chat_2026"),
 
 		UploadDir:          getEnv("UPLOAD_DIR", "./uploads"),
-		MediaRetentionDays: getEnvInt("MEDIA_RETENTION_DAYS", 7),
+		MediaRetentionDays: getEnvInt("MEDIA_RETENTION_DAYS", 1), // 24 jam (1 hari) untuk multi-device media sharing grace period
 
 		AuthRateLimitIP:   getEnvInt("AUTH_RATE_LIMIT_IP", 100),
 		AuthRateLimitUser: getEnvInt("AUTH_RATE_LIMIT_USER", 15),

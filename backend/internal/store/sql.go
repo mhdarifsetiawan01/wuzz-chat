@@ -1675,19 +1675,20 @@ func (s *SQLMessageStore) AcknowledgeMediaDownload(msgID string) (string, string
 		return urlStr, statusStr, false, nil
 	}
 
-	// Untuk Direct Message (1-on-1), terapkan Store-and-Forward instan
+	// Untuk Direct Message (1-on-1), tandai sebagai 'downloaded' dan pertahankan file
+	// selama masa retensi 24 jam agar device lain (multi-device) dapat mengunduhnya.
 	var queryUpdate string
 	if s.driverName == "postgres" {
-		queryUpdate = `UPDATE messages SET media_status = 'expired' WHERE id = $1`
+		queryUpdate = `UPDATE messages SET media_status = 'downloaded' WHERE id = $1 AND COALESCE(media_status, 'active') = 'active'`
 	} else {
-		queryUpdate = `UPDATE messages SET media_status = 'expired' WHERE id = ?`
+		queryUpdate = `UPDATE messages SET media_status = 'downloaded' WHERE id = ? AND COALESCE(media_status, 'active') = 'active'`
 	}
 	_, err := s.db.Exec(queryUpdate, msgID)
 	if err != nil {
 		return urlStr, statusStr, false, err
 	}
 
-	return urlStr, "expired", true, nil
+	return urlStr, "downloaded", false, nil
 }
 
 // GetExpiredMediaMessages mengambil daftar pesan dengan media aktif yang sudah melewati batas retensi hari.
@@ -1704,7 +1705,7 @@ func (s *SQLMessageStore) GetExpiredMediaMessages(retentionDays int) ([]StoredMe
 		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
 		FROM messages
 		WHERE media_url IS NOT NULL AND media_url != '' 
-		  AND COALESCE(media_status, 'active') = 'active'
+		  AND COALESCE(media_status, 'active') IN ('active', 'downloaded')
 		  AND created_at < NOW() - ($1 || ' days')::INTERVAL
 		ORDER BY created_at ASC
 		LIMIT 100`
@@ -1715,7 +1716,7 @@ func (s *SQLMessageStore) GetExpiredMediaMessages(retentionDays int) ([]StoredMe
 		       COALESCE(media_url, ''), COALESCE(media_type, ''), COALESCE(file_name, ''), COALESCE(file_size, 0), COALESCE(media_status, 'active'), created_at
 		FROM messages
 		WHERE media_url IS NOT NULL AND media_url != '' 
-		  AND COALESCE(media_status, 'active') = 'active'
+		  AND COALESCE(media_status, 'active') IN ('active', 'downloaded')
 		  AND created_at < datetime('now', '-' || ? || ' days')
 		ORDER BY created_at ASC
 		LIMIT 100`
