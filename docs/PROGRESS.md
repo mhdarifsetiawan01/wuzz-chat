@@ -4403,3 +4403,21 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 
 
 
+
+---
+
+## 📅 Sesi Pengerjaan 30 September 2026 — Bug Fix: Like Race Condition & Komentar Infinite Scroll
+
+### 1. Rangkuman Pengerjaan
+1. **Fix Race Condition Rapid-Tap Like (`mobile/src/context/FeedContext.tsx`)**:
+   - **Root Cause**: Tidak ada guard per-postId, tap like berkali-kali bisa menjalankan request paralel yang datang tidak berurutan → counter rusak, rollback ke nilai salah.
+   - **Fix**: `likeInFlightRef` (`useRef<Set<string>>`) sebagai per-post lock — klik diabaikan saat request masih in-flight. Functional `setPosts(prev => ...)` updater memastikan capture `prevLiked`/`prevCount` selalu dari state terkini. Hapus `posts` dari `useCallback` deps untuk eliminasi stale closure. Server selalu jadi sumber kebenaran setelah sukses.
+
+2. **Komentar Infinite Scroll (`mobile/src/components/PostCommentsModal.tsx`)**:
+   - **Root Cause**: Modal hanya load 20 komentar pertama tanpa pagination — ribuan komentar tidak pernah terlihat user.
+   - **Fix**: Cursor-based infinite scroll via `FlatList.onEndReached` (threshold 30%), state `hasMore` & `nextCursorRef`, guard `isLoadingMoreRef` cegah double-fetch, deduplication by `id`, footer dinamis (spinner / end marker), header count dari `post.comments_count`, dan full reset state antar postingan.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (Code 0)**.
+- **Backend**: Tidak ada perubahan kode backend pada sesi ini.

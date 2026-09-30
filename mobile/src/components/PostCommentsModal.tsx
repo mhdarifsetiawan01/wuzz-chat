@@ -9,7 +9,7 @@
  * - Resilient error handling with user feedback
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -61,27 +61,71 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
 
   const [comments, setComments] = useState<FeedComment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Cursor untuk pagination — diisi dengan created_at komentar terakhir
+  const nextCursorRef = useRef<string | undefined>(undefined);
+  // Guard agar onEndReached tidak trigger ganda saat sudah in-flight
+  const isLoadingMoreRef = useRef(false);
+
+  // Reset & load pertama kali saat modal dibuka
   useEffect(() => {
     if (visible && post?.id) {
-      loadComments(post.id);
+      setComments([]);
+      setHasMore(false);
+      nextCursorRef.current = undefined;
+      loadFirstPage(post.id);
     } else {
       setComments([]);
       setCommentText('');
+      setHasMore(false);
+      nextCursorRef.current = undefined;
     }
   }, [visible, post?.id]);
 
-  const loadComments = async (postId: string) => {
+  const loadFirstPage = async (postId: string) => {
     setIsLoading(true);
     try {
-      const res = await feedApi.getComments(postId);
+      const res = await feedApi.getComments(postId, { limit: 20 });
       setComments(res.comments || []);
+      setHasMore(res.has_more ?? false);
+      nextCursorRef.current = res.next_cursor;
     } catch (err) {
       console.warn('[PostCommentsModal] Error loading comments:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /**
+   * Dipanggil oleh FlatList.onEndReached saat user scroll ke bawah.
+   * Guard isLoadingMoreRef mencegah request ganda jika onEndReached
+   * terpanggil berkali-kali sebelum response kembali.
+   */
+  const loadMoreComments = async () => {
+    if (!post?.id || !hasMore || isLoadingMoreRef.current) return;
+
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    try {
+      const res = await feedApi.getComments(post.id, {
+        before: nextCursorRef.current,
+        limit: 20,
+      });
+      // Deduplicate: hindari komentar yang sudah ada (edge case network retry)
+      const existingIds = new Set(comments.map((c) => c.id));
+      const fresh = (res.comments || []).filter((c) => !existingIds.has(c.id));
+      setComments((prev) => [...prev, ...fresh]);
+      setHasMore(res.has_more ?? false);
+      nextCursorRef.current = res.next_cursor;
+    } catch (err) {
+      console.warn('[PostCommentsModal] Error loading more comments:', err);
+    } finally {
+      setIsLoadingMore(false);
+      isLoadingMoreRef.current = false;
     }
   };
 
@@ -98,6 +142,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
     setIsSubmitting(true);
     try {
       const newComment = await feedApi.createComment(post.id, trimmed);
+      // Tampilkan komentar baru di paling bawah (kronologis)
       setComments((prev) => [...prev, newComment]);
       setCommentText('');
 
@@ -113,6 +158,28 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
   };
 
   if (!post) return null;
+
+  /** Footer FlatList: spinner load-more atau teks "Semua komentar sudah ditampilkan" */
+  const renderListFooter = () => {
+    if (isLoadingMore) {
+      return (
+        <View style={styles.footerLoader}>
+          <ActivityIndicator size="small" color={colors.accentPrimary} />
+          <Text style={styles.footerLoaderText}>Memuat komentar lainnya...</Text>
+        </View>
+      );
+    }
+    if (!hasMore && comments.length > 0) {
+      return (
+        <Text style={styles.footerEnd}>— Semua komentar sudah ditampilkan —</Text>
+      );
+    }
+    return null;
+  };
+
+  // Label header: tampilkan total dari post jika lebih besar dari yang dimuat
+  const headerCount =
+    post.comments_count > comments.length ? post.comments_count : comments.length;
 
   return (
     <Modal
@@ -132,7 +199,9 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
           <View style={styles.header}>
             <View style={styles.headerIndicator} />
             <View style={styles.headerRow}>
-              <Text style={styles.headerTitle}>Komentar ({comments.length})</Text>
+              <Text style={styles.headerTitle}>
+                Komentar {headerCount > 0 ? `(${headerCount})` : ''}
+              </Text>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
                 <Text style={styles.closeText}>✕</Text>
               </TouchableOpacity>
@@ -168,6 +237,9 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
               data={comments}
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.listContent}
+              onEndReached={loadMoreComments}
+              onEndReachedThreshold={0.3}
+              ListFooterComponent={renderListFooter}
               renderItem={({ item }) => (
                 <View style={styles.commentItem}>
                   <Avatar
@@ -226,6 +298,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
     </Modal>
   );
 };
+
 
 const styles = StyleSheet.create({
   overlay: {
@@ -412,5 +485,23 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '700',
+  },
+  footerLoader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+  },
+  footerLoaderText: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  footerEnd: {
+    textAlign: 'center',
+    fontSize: 11,
+    color: '#cbd5e1',
+    paddingVertical: 16,
+    fontStyle: 'italic',
   },
 });

@@ -67,6 +67,9 @@ export const FeedProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const exploreSeedRef = useRef<string>(generateExploreSeed());
   const exploreOffsetRef = useRef<number>(0);
   const isMountedRef = useRef<boolean>(true);
+  // Guard per-postId untuk mencegah race condition rapid-tap like.
+  // Selama request in-flight untuk suatu postId, klik berikutnya diabaikan.
+  const likeInFlightRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -290,45 +293,63 @@ export const FeedProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isLoadingMore, hasMore, userId, activeTab, posts]);
 
   /**
-   * 0ms Optimistic UI for toggling Like on a post
+   * 0ms Optimistic UI for toggling Like on a post.
+   * 
+   * Fix race condition:
+   * - Per-post in-flight lock: jika request sedang berjalan untuk postId ini,
+   *   klik berikutnya langsung diabaikan hingga request selesai.
+   * - Functional setPosts updater: selalu membaca state terkini, bukan snapshot
+   *   closure lama, sehingga rollback selalu akurat.
+   * - 'posts' dihapus dari dependency array untuk mencegah stale closure inflight.
    */
   const toggleLike = useCallback(
     async (postId: string) => {
       if (!userId) return;
 
-      const targetPost = posts.find((p) => p.id === postId);
-      if (!targetPost) return;
+      // Guard: Jika masih ada request in-flight untuk postId ini, abaikan klik.
+      // Ini mencegah race condition saat user tap berkali-kali dengan cepat.
+      if (likeInFlightRef.current.has(postId)) return;
+      likeInFlightRef.current.add(postId);
 
-      const prevLiked = targetPost.is_liked;
-      const prevCount = targetPost.likes_count;
-      const newLiked = !prevLiked;
-      const newCount = newLiked ? prevCount + 1 : Math.max(0, prevCount - 1);
+      // Baca state terkini via functional updater pattern untuk dapat snapshot akurat.
+      let prevLiked = false;
+      let prevCount = 0;
+      let newLiked = false;
+      let newCount = 0;
 
-      // 1. Optimistic local state update (0ms instant animation)
-      setPosts((prev) =>
-        prev.map((p) =>
+      setPosts((prev) => {
+        const target = prev.find((p) => p.id === postId);
+        if (!target) return prev;
+
+        prevLiked = target.is_liked;
+        prevCount = target.likes_count;
+        newLiked = !prevLiked;
+        newCount = newLiked ? prevCount + 1 : Math.max(0, prevCount - 1);
+
+        // 1. Optimistic UI update (0ms instant animation)
+        return prev.map((p) =>
           p.id === postId ? { ...p, is_liked: newLiked, likes_count: newCount } : p
-        )
-      );
+        );
+      });
 
-      // 2. Optimistic local SQLite update
+      // 2. Optimistic SQLite update
       await updateStoredFeedPostLike(userId, postId, newLiked, newCount);
 
-      // 3. Network call with rollback on failure
+      // 3. Network call — sinkronisasi dengan server, rollback jika gagal
       try {
         const res = await feedApi.toggleLike(postId);
-        if (res.likes_count !== newCount || res.liked !== newLiked) {
-          setPosts((prev) =>
-            prev.map((p) =>
-              p.id === postId
-                ? { ...p, is_liked: res.liked, likes_count: res.likes_count }
-                : p
-            )
-          );
-          await updateStoredFeedPostLike(userId, postId, res.liked, res.likes_count);
-        }
+        // Server adalah sumber kebenaran: selalu sinkronkan dengan respons server
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId
+              ? { ...p, is_liked: res.liked, likes_count: res.likes_count }
+              : p
+          )
+        );
+        await updateStoredFeedPostLike(userId, postId, res.liked, res.likes_count);
       } catch (err) {
-        console.warn('[FeedContext] Like toggle failed, rolling back:', err);
+        console.warn('[FeedContext] Like toggle failed, rolling back to pre-tap state:', err);
+        // Rollback ke kondisi sebelum tap (prevLiked/prevCount di-capture dari functional updater)
         setPosts((prev) =>
           prev.map((p) =>
             p.id === postId ? { ...p, is_liked: prevLiked, likes_count: prevCount } : p
@@ -336,9 +357,12 @@ export const FeedProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
         await updateStoredFeedPostLike(userId, postId, prevLiked, prevCount);
         Alert.alert('Gagal Menyukai', 'Koneksi terputus. Silakan coba beberapa saat lagi.');
+      } finally {
+        // Lepas lock agar klik berikutnya bisa diproses kembali
+        likeInFlightRef.current.delete(postId);
       }
     },
-    [userId, posts]
+    [userId]
   );
 
   /**
