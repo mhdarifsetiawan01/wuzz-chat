@@ -23,6 +23,7 @@ export interface CallSession {
   startTime?: number;
   isMuted?: boolean;
   isSpeaker?: boolean;
+  endReason?: string;
 }
 
 export interface IceServerConfig {

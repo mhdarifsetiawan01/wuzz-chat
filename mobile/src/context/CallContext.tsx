@@ -586,8 +586,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    const unsubReject = websocketClient.on('call_reject', () => {
+    const unsubReject = websocketClient.on('call_reject', (msg?: any) => {
       const current = activeCallRef.current;
+      const reason = msg?.content || '';
       if (current) {
         // Jika panggilan sudah aktif terhubung, abaikan reject terlambat dari perangkat lain
         if (current.status === 'connected') {
@@ -597,8 +598,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         recordCallLog(current, 'rejected', 0);
       }
       cleanupCallSession();
-      setActiveCall((prev) => (prev ? { ...prev, status: 'ended' } : null));
-      setTimeout(() => setActiveCall(null), 1500);
+      setActiveCall((prev) => (prev ? {
+        ...prev,
+        status: 'ended',
+        endReason: reason || 'Panggilan Ditolak',
+      } : null));
+      setTimeout(() => setActiveCall(null), 2500);
     });
 
     const unsubEnd = websocketClient.on('call_end', () => {

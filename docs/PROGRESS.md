@@ -4508,6 +4508,30 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Backend Test Suite**: `cd backend && go test ./...` → **PASS (100%, Code 0)**.
 - **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (0 errors, Code 0)**.
 
+---
+
+## 📅 Sesi Pengerjaan 01 Oktober 2026 (Lanjutan 2) — In-Chat Private Call Guard & Multi-Tier Connection Cache Optimization
+
+### 1. Rangkuman Perbaikan & Solusi
+1. **Pre-Call Guard di Layar Obrolan (`mobile/src/screens/ChatScreen.tsx`)**:
+   - Menghubungkan deteksi status relasi pertemanan via `checkConnectionStatus(resolvedPeerId)`.
+   - Mengunci tombol panggilan jika lawan bicara menggunakan akun privat dan belum berteman (`isCallRestricted`). Menampilkan indikator gembok visual `🔒` pada tombol telepon di header.
+   - Menggantikan panggilan WebRTC yang akan mati sia-sia dengan memunculkan `PrivateAccountNoticeModal` berikon `📞` ("Panggilan Dibatasi") dan tombol aksi langsung "+ Tambah Teman".
+   - Menyertakan banner edukatif halus di atas linimasa chat (`"🔒 Akun ini privat. Tambah teman untuk mengaktifkan panggilan suara & video."`) dengan tombol aksi cepat `[+ Teman]`.
+2. **Penanganan Alasan Reject pada Panggilan (`CallContext.tsx`, `ActiveCallOverlay.tsx`, `webrtcService.ts`)**:
+   - Menambahkan properti `endReason?: string` pada struct `CallSession`.
+   - Menangkap pesan alasan dari server (`msg?.content`) saat event `call_reject` diterima dan menampilkannya di overlay panggilan sebelum ditutup.
+3. **Multi-Tier Connection Status Caching (`mobile/src/context/ConnectionContext.tsx`)**:
+   - **Tingkat 1 (Local Fast-Path 0ms)**: Jika lawan bicara sudah ada di daftar `friends` lokal (SQLite / SWR state), fungsi langsung mengembalikan status `accepted` tanpa mengirim request ke server sama sekali.
+   - **Tingkat 2 (In-Memory Cache TTL 2 Menit)**: Hasil pengecekan status untuk non-teman disimpan di RAM ponsel dengan TTL 120 detik untuk mengeliminasi request redundan saat pengguna bolak-balik antara Chat dan Home.
+   - **Tingkat 3 (Dynamic Invalidation)**: Cache otomatis direset seketika saat ada aksi tambah teman, respon pertemanan, atau unfriend.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Backend Test Suite**: `cd backend && go test ./internal/ws/... ./internal/api/...` → **PASS (100%, Code 0)**.
+- **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (0 errors, Code 0)**.
+
+
 
 
 

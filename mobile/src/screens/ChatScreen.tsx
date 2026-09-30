@@ -25,7 +25,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
-import { Conversation, ConversationItem, GroupDetails, Message, PinnedMessage } from '../api/types';
+import { Conversation, ConversationItem, GroupDetails, Message, PinnedMessage, ConnectionStatusResponse } from '../api/types';
 import { getUserPublicKey } from '../api/users';
 import { groupsApi } from '../api/groups';
 import { mediaApi } from '../api/media';
@@ -33,6 +33,7 @@ import { messagesApi } from '../api/messages';
 import { websocketClient } from '../services/websocket';
 import { mediaCache } from '../services/mediaCache';
 import { useAuth, useCall, useConversations, useMessages } from '../context';
+import { useConnection } from '../context/ConnectionContext';
 import {
   deriveRoomAESKey,
   getOrDeriveRoomAESKey,
@@ -55,8 +56,9 @@ import { PinnedMessagesBanner } from '../components/PinnedMessagesBanner';
 import { ContactInfoModal } from '../components/ContactInfoModal';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { VerifiedBadge } from '../components/VerifiedBadge';
+import { PrivateAccountNoticeModal } from '../components/PrivateAccountNoticeModal';
 import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
+import { radius, spacing } from '../theme/spacing';
 
 export interface ChatScreenProps {
   conversation: ConversationItem;
@@ -92,6 +94,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const { user, e2eeKeyPair } = useAuth();
   const { startCall } = useCall();
   const { markConversationAsRead, setActiveRoomId } = useConversations();
+  const { checkConnectionStatus, sendFriendRequest } = useConnection();
+
+  const [peerConnStatus, setPeerConnStatus] = useState<ConnectionStatusResponse | null>(null);
+  const [showPrivateNoticeModal, setShowPrivateNoticeModal] = useState<boolean>(false);
+  const [isAddingFriend, setIsAddingFriend] = useState<boolean>(false);
 
   const roomId = conversation.id;
 
@@ -328,14 +335,90 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     return '';
   }, [conversation.peer_id, conversation.participants, roomId, currentUserId]);
 
+  // Load connection status with peer for 1-on-1 Direct Chat (Milestone M-Mobile-10)
+  useEffect(() => {
+    if (!isDirect || !resolvedPeerId) return;
+    let isMounted = true;
+    checkConnectionStatus(resolvedPeerId)
+      .then((status) => {
+        if (isMounted) setPeerConnStatus(status);
+      })
+      .catch((err) => {
+        console.warn('[ChatScreen] Failed to fetch peer connection status:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [isDirect, resolvedPeerId, checkConnectionStatus]);
+
+  const isCallRestricted = Boolean(
+    isDirect &&
+      peerConnStatus &&
+      peerConnStatus.is_private_account &&
+      peerConnStatus.status !== 'accepted'
+  );
+
+  const handleAddFriendFromChat = useCallback(async () => {
+    const peerId = resolvedPeerId || conversation.peer_id || '';
+    if (!peerId) return;
+    setIsAddingFriend(true);
+    try {
+      const res = await sendFriendRequest(peerId);
+      setPeerConnStatus({
+        status: res.status === 'accepted' ? 'accepted' : 'pending',
+        direction: res.status === 'accepted' ? '' : 'outgoing',
+        connection_id: res.id,
+        is_private_account: true,
+        can_message: res.status === 'accepted',
+        can_call: res.status === 'accepted',
+      });
+    } catch (err) {
+      console.warn('[ChatScreen] Failed to send friend request:', err);
+    } finally {
+      setIsAddingFriend(false);
+    }
+  }, [resolvedPeerId, conversation.peer_id, sendFriendRequest]);
+
   // WebRTC 1-on-1 Voice Calling Handler (DEC-CALL-03: Real Contact User ID)
   const handleVoiceCall = useCallback(async () => {
     if (isGroup) return;
     const peerId = resolvedPeerId || conversation.peer_id || '';
     const peerNickname = title || conversation.name || conversation.peer_nickname || 'Pengguna';
     const peerAvatar = avatarUrl || conversation.avatar_url || conversation.peer_avatar_url;
+
+    // Guard Akun Privat & Pertemanan
+    if (isCallRestricted || (peerConnStatus && !peerConnStatus.can_call)) {
+      setShowPrivateNoticeModal(true);
+      return;
+    }
+
+    // Jika peerConnStatus belum termuat, lakukan pengecekan langsung sebelum menelpon
+    if (!peerConnStatus && peerId) {
+      try {
+        const status = await checkConnectionStatus(peerId);
+        setPeerConnStatus(status);
+        if (status.is_private_account && status.status !== 'accepted') {
+          setShowPrivateNoticeModal(true);
+          return;
+        }
+      } catch {
+        // Lanjutkan jika offline / gagal fetch
+      }
+    }
+
     await startCall(roomId, peerId, peerNickname, peerAvatar);
-  }, [isGroup, resolvedPeerId, conversation, title, avatarUrl, startCall, roomId]);
+  }, [
+    isGroup,
+    resolvedPeerId,
+    conversation,
+    title,
+    avatarUrl,
+    isCallRestricted,
+    peerConnStatus,
+    checkConnectionStatus,
+    startCall,
+    roomId,
+  ]);
 
   // Helper deterministik untuk mendapatkan nama pengirim pesan (human-readable, anti-raw UUID)
   const getMessageSenderName = useCallback(
@@ -1599,12 +1682,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             {/* Voice Call Button (1-on-1 Direct Chat Only) */}
             {isDirect && (
               <TouchableOpacity
-                style={styles.headerIconButton}
+                style={[
+                  styles.headerIconButton,
+                  isCallRestricted && styles.headerIconButtonRestricted,
+                ]}
                 onPress={handleVoiceCall}
                 hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
                 activeOpacity={0.75}
               >
                 <Text style={styles.headerIconText}>📞</Text>
+                {isCallRestricted && (
+                  <View style={styles.headerCallLockBadge}>
+                    <Text style={styles.headerCallLockBadgeText}>🔒</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             )}
 
@@ -1667,6 +1758,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onUnpinMessage={handleUnpinMessage}
           canUnpin={true}
         />
+
+        {/* Private Account Connection Banner in Direct Chat */}
+        {isCallRestricted && (
+          <View style={styles.privatePeerBanner}>
+            <Text style={styles.privatePeerBannerIcon}>🔒</Text>
+            <Text style={styles.privatePeerBannerText} numberOfLines={2}>
+              {peerConnStatus?.status === 'pending'
+                ? 'Permintaan pertemanan sedang menunggu persetujuan.'
+                : 'Akun ini privat. Tambah teman untuk mengaktifkan panggilan suara & video.'}
+            </Text>
+            {peerConnStatus?.status === 'none' && (
+              <TouchableOpacity
+                style={styles.privatePeerBannerBtn}
+                onPress={handleAddFriendFromChat}
+                disabled={isAddingFriend}
+                activeOpacity={0.8}
+              >
+                {isAddingFriend ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.privatePeerBannerBtnText}>+ Teman</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* M-Mobile-8.2B: Fail-Closed Read-Only Banner for expired forum topics */}
         {isForumExpired && (
@@ -1900,6 +2017,25 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         roomTitle={title}
         onClose={() => setShowMediaGallery(false)}
       />
+
+      {/* Milestone M-Mobile-10: Private Account Notice Modal for Restricted Calls */}
+      {isDirect && (
+        <PrivateAccountNoticeModal
+          visible={showPrivateNoticeModal}
+          onClose={() => setShowPrivateNoticeModal(false)}
+          targetUser={{
+            id: resolvedPeerId || conversation.peer_id || '',
+            display_name: title || conversation.name || 'Pengguna',
+            avatar_url: avatarUrl || conversation.avatar_url,
+          }}
+          mode="call"
+          title="Panggilan Dibatasi"
+          description={`${title || 'Pengguna'} mengaktifkan akun privat. Panggilan suara dan video hanya dapat dilakukan oleh teman terhubung.`}
+          connectionStatus={peerConnStatus?.status || 'none'}
+          isAddingFriend={isAddingFriend}
+          onAddFriend={handleAddFriendFromChat}
+        />
+      )}
     </View>
   );
 };
@@ -2212,5 +2348,57 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  headerIconButtonRestricted: {
+    opacity: 0.9,
+  },
+  headerCallLockBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: colors.bgSurface,
+    borderRadius: radius.full,
+    width: 14,
+    height: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+  },
+  headerCallLockBadgeText: {
+    fontSize: 8,
+  },
+  privatePeerBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.tintAccent10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.tintAccent20,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  privatePeerBannerIcon: {
+    fontSize: 14,
+  },
+  privatePeerBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  privatePeerBannerBtn: {
+    backgroundColor: colors.accentPrimary,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
+    borderRadius: radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 28,
+  },
+  privatePeerBannerBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

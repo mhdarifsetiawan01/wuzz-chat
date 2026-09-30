@@ -53,7 +53,7 @@ export const ActiveCallOverlay: React.FC = () => {
       case 'connected':
         return formatCallDuration(callDuration);
       case 'ended':
-        return 'Panggilan Berakhir';
+        return activeCall.endReason || 'Panggilan Berakhir';
       default:
         return '';
     }

@@ -77,6 +77,9 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
   const isMountedRef = useRef<boolean>(true);
+  const statusCacheRef = useRef<Map<string, { data: ConnectionStatusResponse; expiresAt: number }>>(
+    new Map()
+  );
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -237,6 +240,9 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
       // Always re-sync pending requests to update badges
       await fetchPendingRequests();
 
+      // Invalidate connection status cache for this user
+      statusCacheRef.current.delete(targetUserId);
+
       return conn;
     },
     [refreshFriends, fetchPendingRequests]
@@ -263,6 +269,9 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
           await refreshFriends();
         }
 
+        // Invalidate status cache on friend request response
+        statusCacheRef.current.clear();
+
         return result;
       } catch (error) {
         // Rollback optimistic update on network failure
@@ -287,6 +296,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 
       try {
         await connectionsApi.unfriend(targetUserId);
+        statusCacheRef.current.delete(targetUserId);
       } catch (error) {
         // Rollback on failure
         setFriends(prevFriends);
@@ -299,12 +309,45 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({
 
   /**
    * Check connection status with a specific user.
+   * Optimized with:
+   * 1. Local Fast-Path: Returns accepted immediately if peer is already in local friends (0ms, 0 network).
+   * 2. In-Memory Cache (TTL 2 minutes): Prevents redundant HTTP calls when repeatedly switching chats.
    */
   const checkConnectionStatus = useCallback(
     async (targetUserId: string): Promise<ConnectionStatusResponse> => {
-      return connectionsApi.getConnectionStatus(targetUserId);
+      if (!targetUserId) {
+        throw new Error('targetUserId is required');
+      }
+
+      // 1. Fast-Path Lokal: Jika sudah ada di friends lokal, status pasti 'accepted'
+      const localFriend = friends.find((f) => f.id === targetUserId);
+      if (localFriend) {
+        return {
+          status: 'accepted',
+          direction: '',
+          connection_id: localFriend.connection_id,
+          is_private_account: Boolean(localFriend.is_private_account),
+          can_message: true,
+          can_call: true,
+        };
+      }
+
+      // 2. In-Memory Cache (TTL 2 Menit)
+      const now = Date.now();
+      const cached = statusCacheRef.current.get(targetUserId);
+      if (cached && cached.expiresAt > now) {
+        return cached.data;
+      }
+
+      // 3. Network Fetch
+      const res = await connectionsApi.getConnectionStatus(targetUserId);
+      statusCacheRef.current.set(targetUserId, {
+        data: res,
+        expiresAt: now + 120_000, // 2 minutes TTL
+      });
+      return res;
     },
-    []
+    [friends]
   );
 
   const value = {
