@@ -320,12 +320,13 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateProfileRequest struct {
-	DisplayName   string          `json:"display_name"`
-	StatusMessage string          `json:"status_message"`
-	AvatarURL     string          `json:"avatar_url"`
-	Bio           string          `json:"bio"`
-	Role          string          `json:"role"`
-	Metadata      json.RawMessage `json:"metadata"`
+	DisplayName      string          `json:"display_name"`
+	StatusMessage    string          `json:"status_message"`
+	AvatarURL        string          `json:"avatar_url"`
+	Bio              string          `json:"bio"`
+	Role             string          `json:"role"`
+	Metadata         json.RawMessage `json:"metadata"`
+	IsPrivateAccount *bool           `json:"is_private_account,omitempty"`
 }
 
 func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
@@ -356,6 +357,13 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, `{"error":"Gagal memperbarui profil"}`, http.StatusInternalServerError)
 		return
+	}
+
+	if req.IsPrivateAccount != nil {
+		userWithPrivacy, err := h.userStore.SetPrivateAccount(claims.UserID, *req.IsPrivateAccount)
+		if err == nil && userWithPrivacy != nil {
+			updatedUser = userWithPrivacy
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

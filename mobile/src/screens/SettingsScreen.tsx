@@ -17,7 +17,11 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
+import { useConnection } from '../context/ConnectionContext';
 import { colors, radius, shadows, spacing, typography } from '../theme';
 import {
   DeviceTransferModal,
@@ -120,7 +124,9 @@ function getInitials(name: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 export const SettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, logout, e2eeStatus, updateCurrentUser } = useAuth();
+  const { friends, pendingCount } = useConnection();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Modals state
@@ -234,6 +240,20 @@ export const SettingsScreen: React.FC = () => {
           />
         </SettingsSection>
 
+        <SettingsSection title="Sosial & Jaringan">
+          <SettingsItem
+            icon="👥"
+            title="Teman & Permintaan"
+            subtitle={
+              pendingCount > 0
+                ? `${pendingCount} Permintaan Baru Masuk`
+                : `${friends.length} Teman Terhubung`
+            }
+            onPress={() => navigation.navigate('FriendsList')}
+            tintColor={colors.accentPrimary}
+          />
+        </SettingsSection>
+
         <SettingsSection title="Preferensi">
           <SettingsItem
             icon="🔔"
@@ -305,6 +325,7 @@ export const SettingsScreen: React.FC = () => {
         currentAvatarUrl={user?.avatar_url}
         currentBio={user?.bio}
         currentRole={user?.role}
+        currentIsPrivateAccount={user?.is_private_account}
         currentMetadata={user?.metadata}
         onProfileUpdated={(updated) => updateCurrentUser(updated)}
       />

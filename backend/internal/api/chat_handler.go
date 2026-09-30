@@ -10,6 +10,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/authz"
 	authzinfra "github.com/bms-del112/wuzz-chat/internal/authz/infra"
+	"github.com/bms-del112/wuzz-chat/internal/connection"
 	"github.com/bms-del112/wuzz-chat/internal/messaging"
 	messaginginfra "github.com/bms-del112/wuzz-chat/internal/messaging/infra"
 	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
@@ -23,6 +24,7 @@ type ChatHandler struct {
 	service      *messaging.MessageService
 	authSvc      *authz.AuthService
 	hub          *ws.Hub
+	connSvc      *connection.ConnectionService
 }
 
 func NewChatHandler(us store.UserStore, ms store.MessageStore) *ChatHandler {
@@ -80,6 +82,11 @@ func (h *ChatHandler) SetHub(hub *ws.Hub) {
 	if h.service != nil {
 		h.service.SetBroadcaster(hub)
 	}
+}
+
+// SetConnectionService menyuntikkan ConnectionService untuk validasi pertemanan pada akun privat.
+func (h *ChatHandler) SetConnectionService(connSvc *connection.ConnectionService) {
+	h.connSvc = connSvc
 }
 
 // SearchUsers mencari user lain untuk diajak chat.
@@ -152,6 +159,23 @@ func (h *ChatHandler) StartDirectChat(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.TargetUserID == "" {
 		http.Error(w, `{"error":"target_user_id wajib diisi"}`, http.StatusBadRequest)
 		return
+	}
+
+	// Guard Akun Privat (Milestone M-Mobile-10)
+	// Jika akun target bersifat privat, inisiasi direct chat HANYA boleh jika sudah saling berteman (status accepted).
+	if h.userStore != nil && h.connSvc != nil && claims.UserID != req.TargetUserID {
+		targetUser, err := h.userStore.GetUserByID(req.TargetUserID)
+		if err == nil && targetUser != nil && targetUser.IsPrivateAccount {
+			isFriend, err := h.connSvc.IsFriend(r.Context(), claims.TenantID, claims.UserID, req.TargetUserID)
+			if err != nil || !isFriend {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"error": "Akun ini privat. Anda harus berteman terlebih dahulu untuk mengirim pesan.",
+				})
+				return
+			}
+		}
 	}
 
 	roomID, err := h.service.StartDirectChat(r.Context(), claims.UserID, req.TargetUserID)

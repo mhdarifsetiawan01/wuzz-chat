@@ -26,6 +26,7 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
    - [Health Check](#39-health-check)
    - [Manajemen Grup & Discovery](#310-manajemen-grup--discovery)
    - [Community Social Feed](#311-community-social-feed)
+   - [User Connections & Friendlist Engine](#312-user-connections--friendlist-engine)
 4. [Protokol WebSocket & Event Catalog](#4-protokol-websocket--event-catalog)
 5. [Spesifikasi Standar E2EE (End-to-End Encryption)](#5-spesifikasi-standar-e2ee-end-to-end-encryption)
 6. [Siklus Hidup Media (Store-and-Forward)](#6-siklus-hidup-media-store-and-forward)
@@ -1934,6 +1935,158 @@ Menghapus postingan komunitas beserta cascade pembersihan seluruh likes dan kome
   {
     "status": "success",
     "message": "Postingan berhasil dihapus"
+  }
+  ```
+
+---
+
+### 3.12 User Connections & Friendlist Engine
+
+Modul ini mengelola pertemanan antar pengguna (*user connections*), daftar teman dengan *cursor-based pagination*, respon permohonan, proteksi IDOR, serta *gatekeeper* akun privat (*private profile*) untuk inisiasi Direct Message (DM) dan Panggilan WebRTC.
+
+#### 3.12.1 Mengirim Permohonan Pertemanan (Send Request)
+- **Method**: `POST`
+- **Path**: `/api/connections/request`
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "target_user_id": "usr_998877",
+    "source_type": "in_app_request"
+  }
+  ```
+  *Keterangan*: `source_type` dapat bernilai `in_app_request` atau `phone_contact`.
+- **Aturan Bisnis & Validasi**:
+  - Dilarang mengirim pertemanan ke diri sendiri (`400 Bad Request`).
+  - Target user harus berada pada tenant yang sama (`404 Not Found`).
+  - **Bilateral Mutual Request (Auto-Handshake)**: Jika target user sebelumnya telah mengirimkan permohonan pertemanan yang berstatus `pending`, sistem otomatis mengubah status menjadi `accepted` (keduanya langsung berteman).
+  - **Decline Cooldown**: Jika permohonan sebelumnya ditolak, pengirim wajib menunggu jeda cooldown (default: 48 jam) sebelum dapat mengirim ulang (`429 Too Many Requests`).
+  - **Anti-Spam Sliding Limit**: Maksimal 30 request/menit dan kuota 100 request/hari per user (`429 Too Many Requests`).
+- **Success Response (200 OK / 201 Created)**:
+  ```json
+  {
+    "id": "conn_12345",
+    "tenant_id": "default",
+    "requester_id": "usr_current",
+    "receiver_id": "usr_998877",
+    "status": "pending",
+    "source_type": "in_app_request",
+    "created_at": "2026-10-01T00:00:00Z",
+    "updated_at": "2026-10-01T00:00:00Z"
+  }
+  ```
+
+#### 3.12.2 Merespon Permohonan Pertemanan (Respond Request)
+- **Method**: `POST`
+- **Path**: `/api/connections/respond`
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "connection_id": "conn_12345",
+    "action": "accept"
+  }
+  ```
+  *Keterangan*: `action` bernilai `"accept"` atau `"decline"`.
+- **Proteksi IDOR Zero-Trust**: Hanya penerima asli (`receiver_id == claims.UserID`) yang diizinkan merespon permohonan. Pihak lain ditolak dengan `403 Forbidden`.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "id": "conn_12345",
+    "tenant_id": "default",
+    "requester_id": "usr_sender",
+    "receiver_id": "usr_current",
+    "status": "accepted",
+    "source_type": "in_app_request",
+    "created_at": "2026-10-01T00:00:00Z",
+    "updated_at": "2026-10-01T00:01:00Z"
+  }
+  ```
+
+#### 3.12.3 Mengambil Daftar Teman Terhubung (Get Friends List)
+- **Method**: `GET`
+- **Path**: `/api/connections/friends`
+- **Query Params**:
+  - `cursor` (*opsional*): String token base64 URL-safe dari `next_cursor` sebelumnya untuk *infinite scroll*.
+  - `limit` (*opsional*): Jumlah data per halaman (default: 50, max: 100).
+- **Performa Database**: Menggunakan *Cursor-Based Index-Seek* $O(1)$ pada komposit indeks `(updated_at DESC, id DESC)`, tanpa pemindaian `OFFSET` yang membebani disk/RAM.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "friends": [
+      {
+        "id": "usr_998877",
+        "username": "budi_santoso",
+        "display_name": "Budi Santoso",
+        "avatar_url": "https://storage.wuzzhub.id/avatars/budi.jpg",
+        "status_message": "Available",
+        "bio": "Software Engineer",
+        "role": "member",
+        "is_verified": true,
+        "is_private_account": false,
+        "connection_id": "conn_12345",
+        "connected_at": "2026-10-01T00:01:00Z"
+      }
+    ],
+    "next_cursor": "eyJ1cGRhdGVkX2F0IjoxNzU5MjU...",
+    "has_more": false
+  }
+  ```
+
+#### 3.12.4 Mengambil Daftar Permohonan Tertunda (Get Pending Requests)
+- **Method**: `GET`
+- **Path**: `/api/connections/pending`
+- **Query Params**:
+  - `direction` (*opsional*): Filter arah permohonan: `"incoming"` (masuk), `"outgoing"` (terkirim), atau `"all"` (default: `"all"`).
+- **Success Response (200 OK)**:
+  ```json
+  [
+    {
+      "id": "conn_12345",
+      "requester_id": "usr_sender",
+      "receiver_id": "usr_current",
+      "direction": "incoming",
+      "status": "pending",
+      "source_type": "in_app_request",
+      "peer_id": "usr_sender",
+      "peer_username": "andi_setiawan",
+      "peer_display_name": "Andi Setiawan",
+      "peer_avatar_url": "https://storage.wuzzhub.id/avatars/andi.jpg",
+      "peer_is_verified": false,
+      "created_at": "2026-10-01T00:00:00Z",
+      "updated_at": "2026-10-01T00:00:00Z"
+    }
+  ]
+  ```
+
+#### 3.12.5 Mengecek Status Koneksi & Izin Interaksi (Get Connection Status)
+- **Method**: `GET`
+- **Path**: `/api/connections/status/{targetUserId}`
+- **Autentikasi**: `Bearer <token>`
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "accepted",
+    "direction": "",
+    "connection_id": "conn_12345",
+    "is_private_account": true,
+    "can_message": true,
+    "can_call": true
+  }
+  ```
+  *Keterangan*:
+  - Jika target berstatus privat (`is_private_account: true`) dan belum berteman (`status !== 'accepted'`), field `can_message` dan `can_call` otomatis bernilai `false`.
+  - Percobaan inisiasi obrolan via `POST /api/chat/direct` akan ditolak dengan `403 Forbidden` (`Target user has a private profile. You must be friends to initiate direct chat`).
+  - Sinyal panggilan `TypeCallOffer` pada WebSocket akan otomatis ditolak dengan `TypeCallReject`.
+
+#### 3.12.6 Menghapus Relasi Pertemanan (Unfriend)
+- **Method**: `DELETE`
+- **Path**: `/api/connections/{targetUserId}`
+- **Autentikasi**: `Bearer <token>`
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "message": "Pertemanan berhasil dihapus"
   }
   ```
 

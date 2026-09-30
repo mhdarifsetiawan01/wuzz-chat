@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"strings"
@@ -522,6 +523,26 @@ func (c *Client) onCallSignaling(msg Message) {
 	if !c.isAuthorizedForRoom(targetRoom) {
 		c.sendError("Akses ditolak: Anda bukan anggota percakapan ini")
 		return
+	}
+
+	// Guard Akun Privat untuk WebRTC Call Offer (Milestone M-Mobile-10)
+	if msg.Type == TypeCallOffer && c.hub.privacyChecker != nil {
+		allowed, reason := c.hub.privacyChecker.IsCallAllowed(context.Background(), c.getTenantID(), c.ID, targetRoom)
+		if !allowed {
+			log.Printf("[Security] Panggilan dari user %s ke room %s ditolak: %s", c.ID, targetRoom, reason)
+			c.sendError(reason)
+			rejectMsg := Message{
+				ID:        msg.ID,
+				Type:      TypeCallReject,
+				Room:      targetRoom,
+				From:      c.ID,
+				Nickname:  c.Nickname,
+				Content:   reason,
+				Timestamp: time.Now().UTC(),
+			}
+			c.SafeSend(rejectMsg)
+			return
+		}
 	}
 
 	msg.Room = targetRoom

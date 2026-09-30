@@ -39,6 +39,7 @@ export interface User {
   system_role?: 'wuzz_admin' | 'wuzz_moderator' | 'user' | string;
   metadata?: UserMetadata;
   is_verified?: boolean;
+  is_private_account?: boolean;
   public_key?: string;
   created_at?: string;
   last_seen?: string;
@@ -51,6 +52,7 @@ export interface UpdateProfileRequest {
   bio?: string;
   role?: string;
   metadata?: UserMetadata;
+  is_private_account?: boolean;
 }
 
 export interface StartDirectChatRequest {
@@ -497,4 +499,67 @@ export interface CreateFeedPostRequest {
 export interface CreateFeedCommentRequest {
   content: string;
 }
+
+// =========================================================================
+// USER CONNECTIONS & FRIENDLIST (Milestone M-Mobile-10)
+// =========================================================================
+export type ConnectionStatus = 'none' | 'pending' | 'accepted' | 'declined' | 'blocked';
+export type ConnectionSourceType = 'in_app_request' | 'phone_contact';
+
+export interface UserConnection {
+  id: string;
+  tenant_id: string;
+  requester_id: string;
+  receiver_id: string;
+  status: ConnectionStatus;
+  source_type: ConnectionSourceType;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FriendItem {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  status_message?: string;
+  bio?: string;
+  role?: string;
+  is_verified?: boolean;
+  is_private_account?: boolean;
+  connection_id: string;
+  connected_at: string;
+}
+
+export interface PendingRequestItem {
+  id: string;
+  requester_id: string;
+  receiver_id: string;
+  direction: 'incoming' | 'outgoing';
+  status: ConnectionStatus;
+  source_type: ConnectionSourceType;
+  peer_id: string;
+  peer_username: string;
+  peer_display_name: string;
+  peer_avatar_url?: string;
+  peer_is_verified?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FriendsListResponse {
+  friends: FriendItem[];
+  next_cursor?: string;
+  has_more: boolean;
+}
+
+export interface ConnectionStatusResponse {
+  status: ConnectionStatus;
+  direction?: 'incoming' | 'outgoing' | '';
+  connection_id?: string;
+  is_private_account: boolean;
+  can_message: boolean;
+  can_call: boolean;
+}
+
 

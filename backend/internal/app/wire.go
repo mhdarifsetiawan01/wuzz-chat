@@ -14,6 +14,8 @@ import (
 	authzinfra "github.com/bms-del112/wuzz-chat/internal/authz/infra"
 	authzworker "github.com/bms-del112/wuzz-chat/internal/authz/worker"
 	"github.com/bms-del112/wuzz-chat/internal/broker"
+	"github.com/bms-del112/wuzz-chat/internal/connection"
+	connectioninfra "github.com/bms-del112/wuzz-chat/internal/connection/infra"
 	"github.com/bms-del112/wuzz-chat/internal/feed"
 	feedinfra "github.com/bms-del112/wuzz-chat/internal/feed/infra"
 	"github.com/bms-del112/wuzz-chat/internal/group"
@@ -76,6 +78,8 @@ type Application struct {
 	ProvisioningHandler *api.ProvisioningHandler
 	OpenAPIHandler     *api.OpenAPIHandler
 	FeedHandler        *api.FeedHandler
+	ConnectionHandler  *api.ConnectionHandler
+	ConnectionService  *connection.ConnectionService
 	WsHandler          *ws.Handler
 }
 
@@ -114,6 +118,7 @@ func New(cfg *config.Config) (*Application, error) {
 	var tenantRepo tenant.TenantRepository
 	var tenantSvc tenant.TenantService
 	var feedRepo feed.FeedRepository
+	var connRepo connection.ConnectionRepository
 
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
@@ -134,6 +139,7 @@ func New(cfg *config.Config) (*Application, error) {
 		tenantSvc = tenant.NewTenantService(sqlTenantRepo)
 
 		feedRepo = feedinfra.NewSQLFeedRepository(sqlStore.DB(), sqlStore.DriverName())
+		connRepo = connectioninfra.NewSQLConnectionRepository(sqlStore.DB(), sqlStore.DriverName())
 	}
 
 	app.UserStore = userStore
@@ -240,6 +246,13 @@ func New(cfg *config.Config) (*Application, error) {
 		app.FeedHandler = api.NewFeedHandlerWithService(feedSvc)
 	}
 
+	// Inisialisasi User Connections & Friendlist Engine (Milestone M-Mobile-10)
+	if connRepo != nil {
+		connSvc := connection.NewConnectionService(connRepo, userStore, cfg.Connection)
+		app.ConnectionService = connSvc
+		app.ConnectionHandler = api.NewConnectionHandlerWithService(connSvc)
+	}
+
 	// -------------------------------------------------------------------------
 	// TAHAP 5: Background Workers
 	// -------------------------------------------------------------------------
@@ -305,6 +318,11 @@ func New(cfg *config.Config) (*Application, error) {
 	hub.SetBroker(messageBroker)
 	app.Hub = hub
 
+	if app.ConnectionService != nil {
+		pcc := connection.NewPrivacyCallChecker(userStore, app.ConnectionService)
+		hub.SetPrivacyCallChecker(pcc)
+	}
+
 	if app.TransferHandler != nil {
 		app.TransferHandler.SetHub(hub)
 	}
@@ -316,6 +334,9 @@ func New(cfg *config.Config) (*Application, error) {
 	}
 	if app.ChatHandler != nil {
 		app.ChatHandler.SetHub(hub)
+		if app.ConnectionService != nil {
+			app.ChatHandler.SetConnectionService(app.ConnectionService)
+		}
 	}
 	if app.GroupHandler != nil {
 		app.GroupHandler.SetHub(hub)

@@ -19,6 +19,7 @@ import {
   NewChatScreen,
   NewGroupScreen,
   UserProfileScreen,
+  FriendsListScreen,
 } from '../screens';
 import { MainTabNavigator } from './MainTabNavigator';
 import { colors } from '../theme';
@@ -114,6 +115,7 @@ export const AppNavigator: React.FC = () => {
               })
             }
             onNavigateToNewGroup={() => navigation.replace('NewGroup')}
+            onNavigateToFriends={() => navigation.navigate('FriendsList')}
           />
         )}
       </Stack.Screen>
@@ -174,6 +176,31 @@ export const AppNavigator: React.FC = () => {
             onBack={() => navigation.goBack()}
             onStartChat={(conv) => {
               navigation.navigate('Chat', { conversation: conv });
+            }}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* 7. Friends List Screen (Milestone M-Mobile-10) */}
+      <Stack.Screen
+        name="FriendsList"
+        options={{
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+        }}
+      >
+        {({ route, navigation }) => (
+          <FriendsListScreen
+            initialTab={route.params?.initialTab}
+            onBack={() => navigation.goBack()}
+            onOpenUserProfile={(peerUserId) => {
+              navigation.navigate('UserProfile', { userId: peerUserId });
+            }}
+            onStartChat={(conv) => {
+              navigation.navigate('Chat', { conversation: conv });
+            }}
+            onNavigateToNewChat={() => {
+              navigation.navigate('NewChat');
             }}
           />
         )}

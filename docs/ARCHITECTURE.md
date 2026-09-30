@@ -60,6 +60,7 @@ erDiagram
         text avatar_url
         varchar status_message
         boolean is_verified "Akun centang biru terverifikasi"
+        boolean is_private_account "Akun privat (hanya teman yang bisa DM & call)"
         text public_key "ECDH P-256 Public Key JWK"
         integer key_version "Key generation/rotation counter (default 1)"
         text active_device_id "Current device holding active E2EE session"
@@ -69,6 +70,18 @@ erDiagram
 
     USERS ||--o{ SESSIONS : has_sessions
     USERS ||--o{ DEVICES : has_devices
+    USERS ||--o{ USER_CONNECTIONS : connects_with
+
+    USER_CONNECTIONS {
+        varchar id PK "conn_<UUIDv4>"
+        varchar tenant_id FK "Tenant scoping"
+        uuid requester_id FK "Pengirim permohonan"
+        uuid receiver_id FK "Penerima permohonan"
+        varchar status "pending / accepted / declined / blocked"
+        varchar source_type "in_app_request / phone_contact"
+        timestamp created_at
+        timestamp updated_at
+    }
 
     SESSIONS {
         varchar id PK "JTI dari JWT"

@@ -1,4 +1,4 @@
-# Implementation Progress — Active Task
-Status: STANDBY
+# Implementation Progress — Standby
 
-Menunggu task atau milestone baru dari pengguna.
+- **Milestone**: None (Standby)
+- **Status**: Idle

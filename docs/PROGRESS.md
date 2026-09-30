@@ -4459,4 +4459,34 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Backend Test Suite**: `cd backend && go test ./...` → **PASS (100%)**.
 - **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (Code 0)**.
 
+---
+
+## 📅 Sesi Pengerjaan 01 Oktober 2026 — Milestone M-Mobile-10: Private Profile, Scalable User Connections & Friendlist Engine
+
+### 1. Rangkuman Pengerjaan
+1. **Backend Go Engine & Database Schema**:
+   - Kolom `is_private_account BOOLEAN DEFAULT FALSE` pada tabel `users` (PostgreSQL & SQLite non-destructive migration).
+   - Tabel `user_connections` dengan canonical uniqueness expression index (`LEAST/GREATEST` untuk PostgreSQL, `MIN/MAX` untuk SQLite) dan composite index kursor `(requester_id/receiver_id, updated_at, id)`.
+   - Domain struct anti-hardcode `ConfigConnection` dengan environment variables override (`CONNECTION_*`).
+   - Package `backend/internal/connection/` (`entity.go`, `repository.go`, `infra/sql_repository.go`, `service.go`): Anti-spam sliding rate limiter, mutual request bilateral auto-handshake, decline cooldown guard, IDOR zero-trust check, dan O(1) in-memory friend status cache dengan dynamic invalidation.
+   - REST API Handlers di `backend/internal/api/connection_handler.go` (`/api/connections/request`, `/api/connections/respond`, `/api/connections/friends`, `/api/connections/pending`, `/api/connections/status/{targetUserId}`, `DELETE /api/connections/{targetUserId}`).
+   - Guard privasi akun privat pada pembuatan direct chat (`chat_handler.go`) dan panggilan WebRTC signaling (`ws/client.go` & `ws/hub.go`).
+2. **Mobile Client Types, SWR Context & Offline SQLite Storage**:
+   - Tipe data TypeScript `UserConnection`, `FriendItem`, `PendingRequestItem`, dan client `mobile/src/api/connections.ts`.
+   - Tabel `local_friends` pada SQLite lokal via `mobile/src/services/sqliteStorage.ts` dengan multi-user isolation dan transactional batching.
+   - Context `ConnectionContext.tsx`: Pola SWR (Stale-While-Revalidate) memuat data teman < 50ms dari SQLite pada cold start dan background network sync, 0ms optimistic UI untuk aksi pertemanan, dan real-time pending request count badge.
+3. **Mobile UI Screens & Modals**:
+   - `FriendsListScreen.tsx`: Tab "Teman" dengan filter pencarian instan dan cursor infinite scroll virtualized (`maxToRenderPerBatch={10}`, `windowSize={7}`), serta Tab "Permintaan" dengan sub-tab Masuk/Terkirim ber-badge notifikasi.
+   - Registrasi navigasi `FriendsList` pada Native Stack `AppNavigator.tsx`.
+   - `UserProfileScreen.tsx`: Dynamic connection status action buttons (Tambah Teman, Menunggu Konfirmasi, Terima/Tolak, Terhubung) dan private account guard dialog.
+   - `EditProfileModal.tsx`: Switch toggle *"🔒 Akun Privat"* yang tersinkronisasi ke API profil.
+   - `SettingsScreen.tsx`: Menu navigasi *"👥 Teman & Permintaan"* dengan counter permintaan baru.
+   - `NewChatScreen.tsx`: Akses cepat daftar teman dan deteksi akun privat pada kontak.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Backend Test Suite**: `cd backend && go test -count=1 ./internal/connection/... ./internal/api/...` & `go test ./...` → **PASS (100%, Code 0)**.
+- **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (0 errors, Code 0)**.
+
+
 

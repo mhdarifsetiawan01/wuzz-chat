@@ -49,6 +49,9 @@ func (m *mockUserStoreForPush) UpdateProfile(userID, displayName, statusMessage,
 func (m *mockUserStoreForPush) UpdateProfileExtended(userID, displayName, statusMessage, avatarURL, bio, role string, metadata json.RawMessage) (*store.User, error) {
 	return nil, nil
 }
+func (m *mockUserStoreForPush) SetPrivateAccount(userID string, isPrivate bool) (*store.User, error) {
+	return nil, nil
+}
 func (m *mockUserStoreForPush) UpdatePublicKey(userID, publicKey string) error {
 	return nil
 }

@@ -8,6 +8,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   BackHandler,
   Keyboard,
   SectionList,
@@ -24,12 +25,14 @@ import { Conversation, GroupDetails, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { GroupPreviewModal } from '../components/GroupPreviewModal';
 import { useAuth } from '../context/AuthContext';
+import { useConnection } from '../context/ConnectionContext';
 import { colors, radius, spacing, typography } from '../theme';
 
 export interface NewChatScreenProps {
   onBack: () => void;
   onSelectChat: (conversation: Conversation) => void;
   onNavigateToNewGroup?: () => void;
+  onNavigateToFriends?: () => void;
 }
 
 interface UserSection {
@@ -50,8 +53,10 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
   onBack,
   onSelectChat,
   onNavigateToNewGroup,
+  onNavigateToFriends,
 }) => {
   const { user: currentUser } = useAuth();
+  const { friends, sendFriendRequest } = useConnection();
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [userResults, setUserResults] = useState<User[]>([]);
@@ -137,6 +142,31 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
 
     Keyboard.dismiss();
     console.log('[NewChatScreen] handleSelectUser clicked:', targetUser.username, targetUser.id);
+
+    // Private account check
+    const isFriend = friends.some((f) => f.id === targetUser.id);
+    if (targetUser.is_private_account && !isFriend) {
+      Alert.alert(
+        'Akun Privat',
+        `${targetUser.display_name || targetUser.username} menggunakan akun privat. Kirim permintaan pertemanan untuk dapat mengirim pesan langsung.`,
+        [
+          { text: 'Batal', style: 'cancel' },
+          {
+            text: 'Tambah Teman',
+            onPress: async () => {
+              try {
+                await sendFriendRequest(targetUser.id);
+                Alert.alert('Terkirim', 'Permintaan pertemanan telah dikirim.');
+              } catch (err: any) {
+                Alert.alert('Gagal', err?.message || 'Gagal mengirim permintaan pertemanan.');
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     setStartingUserId(targetUser.id);
     setErrorMessage(null);
 
@@ -157,7 +187,30 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
       }
     } catch (err: any) {
       console.warn('[NewChatScreen] Failed to start conversation:', err);
-      setErrorMessage(err?.message || 'Gagal memulai percakapan');
+      const isPrivateError =
+        err?.message?.toLowerCase().includes('private') || err?.status === 403;
+      if (isPrivateError) {
+        Alert.alert(
+          'Akun Privat',
+          `${targetUser.display_name || targetUser.username} menggunakan akun privat. Anda harus berteman terlebih dahulu.`,
+          [
+            { text: 'Batal', style: 'cancel' },
+            {
+              text: 'Tambah Teman',
+              onPress: async () => {
+                try {
+                  await sendFriendRequest(targetUser.id);
+                  Alert.alert('Terkirim', 'Permintaan pertemanan telah dikirim.');
+                } catch (reqErr: any) {
+                  Alert.alert('Gagal', reqErr?.message || 'Gagal mengirim permintaan.');
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        setErrorMessage(err?.message || 'Gagal memulai percakapan');
+      }
     } finally {
       setStartingUserId(null);
     }
@@ -208,6 +261,11 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
             </Text>
             {item.is_verified && (
               <Text style={styles.verifiedBadge}>✓</Text>
+            )}
+            {item.is_private_account && (
+              <Text style={{ fontSize: 13, marginLeft: 2 }}>
+                🔒
+              </Text>
             )}
             {isMe && (
               <Text style={styles.meBadge}> (Anda)</Text>
@@ -376,21 +434,51 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
         contentContainerStyle={styles.listContent}
         keyboardShouldPersistTaps="always"
         ListHeaderComponent={
-          onNavigateToNewGroup && !isSearchActive ? (
-            <TouchableOpacity
-              style={styles.newGroupItem}
-              onPress={onNavigateToNewGroup}
-              activeOpacity={0.7}
-            >
-              <View style={styles.newGroupIconWrapper}>
-                <Text style={styles.newGroupIcon}>👥</Text>
-              </View>
-              <View style={styles.newGroupInfo}>
-                <Text style={styles.newGroupTitle}>Grup Baru</Text>
-                <Text style={styles.newGroupSubtitle}>Buat obrolan grup bersama rekan</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
+          !isSearchActive ? (
+            <View>
+              {onNavigateToNewGroup && (
+                <TouchableOpacity
+                  style={styles.newGroupItem}
+                  onPress={onNavigateToNewGroup}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.newGroupIconWrapper}>
+                    <Text style={styles.newGroupIcon}>👥</Text>
+                  </View>
+                  <View style={styles.newGroupInfo}>
+                    <Text style={styles.newGroupTitle}>Grup Baru</Text>
+                    <Text style={styles.newGroupSubtitle}>Buat obrolan grup bersama rekan</Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </TouchableOpacity>
+              )}
+
+              {onNavigateToFriends && (
+                <TouchableOpacity
+                  style={styles.newGroupItem}
+                  onPress={onNavigateToFriends}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.newGroupIconWrapper,
+                      { backgroundColor: colors.tintAccent10 },
+                    ]}
+                  >
+                    <Text style={styles.newGroupIcon}>🤝</Text>
+                  </View>
+                  <View style={styles.newGroupInfo}>
+                    <Text style={styles.newGroupTitle}>Daftar Teman</Text>
+                    <Text style={styles.newGroupSubtitle}>
+                      {friends.length > 0
+                        ? `${friends.length} teman terhubung`
+                        : 'Kelola koneksi & permintaan'}
+                    </Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ) : null
         }
         ListEmptyComponent={

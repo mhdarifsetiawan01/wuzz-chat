@@ -54,6 +54,10 @@ export type RootStackParamList = {
     username?: string;
     initialUser?: import('../api/types').User;
   };
+  /** Friends list & pending connection requests */
+  FriendsList?: {
+    initialTab?: 'friends' | 'requests';
+  };
 };
 
 export type RootStackNavigationProp<T extends keyof RootStackParamList> =

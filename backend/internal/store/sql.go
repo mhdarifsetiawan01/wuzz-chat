@@ -106,6 +106,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 			system_role VARCHAR(32) NOT NULL DEFAULT 'user',
 			avatar_url TEXT DEFAULT '',
 			metadata TEXT DEFAULT '{}',
+			is_private_account BOOLEAN DEFAULT FALSE,
 			public_key TEXT DEFAULT '',
 			key_version INTEGER DEFAULT 1,
 			active_device_id TEXT DEFAULT '',
@@ -457,6 +458,21 @@ func (s *SQLMessageStore) autoMigrate() error {
 			created_at TIMESTAMP NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_feed_comments_tenant_post ON feed_comments(tenant_id, post_id, created_at ASC);`,
+
+		// Tabel User Connections (Milestone M-Mobile-10)
+		`CREATE TABLE IF NOT EXISTS user_connections (
+			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			requester_id VARCHAR(64) NOT NULL,
+			receiver_id VARCHAR(64) NOT NULL,
+			status VARCHAR(20) NOT NULL DEFAULT 'pending',
+			source_type VARCHAR(20) NOT NULL DEFAULT 'in_app_request',
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_conn_requester_cursor ON user_connections(tenant_id, requester_id, status, updated_at DESC, id DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_conn_receiver_cursor ON user_connections(tenant_id, receiver_id, status, updated_at DESC, id DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_conn_receiver_pending ON user_connections(tenant_id, receiver_id, status, created_at DESC) WHERE status = 'pending';`,
 	}
 
 	for _, query := range migrations {
@@ -538,6 +554,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_tenant_ext ON users(tenant_id, external_user_id);`)
 		_, _ = s.db.Exec(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_push_subs_tenant_user ON push_subscriptions(tenant_id, user_id);`)
+
+		// Auto-migration Milestone M-Mobile-10: User Connections & Private Profile (PostgreSQL)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_private_account BOOLEAN DEFAULT FALSE;`)
+		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_canonical_connection ON user_connections (tenant_id, LEAST(requester_id, receiver_id), GREATEST(requester_id, receiver_id));`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -612,6 +632,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE feed_posts ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0;`)
 		_, _ = s.db.Exec(`ALTER TABLE feed_posts ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_feed_posts_tenant_pinned ON feed_posts(tenant_id, is_pinned DESC, created_at DESC);`)
+
+		// Auto-migration Milestone M-Mobile-10: User Connections & Private Profile (SQLite)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN is_private_account BOOLEAN DEFAULT 0;`)
+		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_canonical_connection ON user_connections (tenant_id, MIN(requester_id, receiver_id), MAX(requester_id, receiver_id));`)
 	}
 
 	// Auto-seeder tenant default (Milestone 1)

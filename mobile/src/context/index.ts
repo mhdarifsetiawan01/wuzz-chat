@@ -4,3 +4,4 @@ export * from './CallContext';
 export * from './ConversationContext';
 export * from './MessageContext';
 export * from './FeedContext';
+export * from './ConnectionContext';

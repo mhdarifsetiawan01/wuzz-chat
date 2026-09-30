@@ -18,13 +18,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, ConversationItem } from '../api/types';
+import { User, ConversationItem, ConnectionStatusResponse } from '../api/types';
 import { getUserProfile, startDirectChat } from '../api/users';
 import { Avatar } from '../components/Avatar';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { EditProfileModal } from '../components/EditProfileModal';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
+import { useConnection } from '../context/ConnectionContext';
 import { colors, radius, shadows, spacing, typography } from '../theme';
 
 export interface UserProfileScreenProps {
@@ -45,12 +46,20 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const insets = useSafeAreaInsets();
   const { user: currentUser, updateCurrentUser } = useAuth();
   const { startCall } = useCall();
+  const {
+    checkConnectionStatus,
+    sendFriendRequest,
+    respondFriendRequest,
+    unfriend,
+  } = useConnection();
 
   const [user, setUser] = useState<User | null>(initialUser || null);
+  const [connStatus, setConnStatus] = useState<ConnectionStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(!initialUser);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isStartingChat, setIsStartingChat] = useState<boolean>(false);
+  const [isConnActionLoading, setIsConnActionLoading] = useState<boolean>(false);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
 
   const targetIdentifier = userId || username || initialUser?.id || initialUser?.username || '';
@@ -70,6 +79,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setUser(data);
       if (isSelf && updateCurrentUser) {
         updateCurrentUser(data);
+      } else if (!isSelf && data?.id) {
+        try {
+          const status = await checkConnectionStatus(data.id);
+          setConnStatus(status);
+        } catch (err) {
+          console.warn('[UserProfileScreen] Failed to fetch connection status:', err);
+        }
       }
     } catch (err: any) {
       console.warn('[UserProfileScreen] Failed to fetch profile:', err);
@@ -80,7 +96,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [targetIdentifier, user, isSelf, updateCurrentUser]);
+  }, [targetIdentifier, user, isSelf, updateCurrentUser, checkConnectionStatus]);
 
   useEffect(() => {
     fetchProfile();
@@ -103,10 +119,133 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     }
   }, []);
 
+  const handleSendFriendRequest = useCallback(async () => {
+    if (!user) return;
+    setIsConnActionLoading(true);
+    try {
+      const res = await sendFriendRequest(user.id);
+      if (res.status === 'accepted') {
+        setConnStatus({
+          status: 'accepted',
+          direction: '',
+          connection_id: res.id,
+          is_private_account: Boolean(user.is_private_account),
+          can_message: true,
+          can_call: true,
+        });
+        Alert.alert('Terhubung!', `Kamu dan ${user.display_name} sekarang berteman.`);
+      } else {
+        setConnStatus({
+          status: 'pending',
+          direction: 'outgoing',
+          connection_id: res.id,
+          is_private_account: Boolean(user.is_private_account),
+          can_message: false,
+          can_call: false,
+        });
+        Alert.alert('Permintaan Terkirim', `Permintaan pertemanan telah dikirim ke ${user.display_name}.`);
+      }
+    } catch (err: any) {
+      Alert.alert('Gagal Mengirim Permintaan', err?.message || 'Terjadi kesalahan sistem.');
+    } finally {
+      setIsConnActionLoading(false);
+    }
+  }, [user, sendFriendRequest]);
+
+  const handleAcceptRequest = useCallback(async () => {
+    if (!connStatus?.connection_id) return;
+    setIsConnActionLoading(true);
+    try {
+      await respondFriendRequest(connStatus.connection_id, 'accept');
+      setConnStatus({
+        status: 'accepted',
+        direction: '',
+        connection_id: connStatus.connection_id,
+        is_private_account: Boolean(user?.is_private_account),
+        can_message: true,
+        can_call: true,
+      });
+      Alert.alert('Permintaan Diterima', `Kamu dan ${user?.display_name} sekarang berteman.`);
+    } catch (err: any) {
+      Alert.alert('Gagal', err?.message || 'Gagal menerima permintaan.');
+    } finally {
+      setIsConnActionLoading(false);
+    }
+  }, [connStatus, user, respondFriendRequest]);
+
+  const handleDeclineRequest = useCallback(async () => {
+    if (!connStatus?.connection_id) return;
+    setIsConnActionLoading(true);
+    try {
+      await respondFriendRequest(connStatus.connection_id, 'decline');
+      setConnStatus({
+        status: 'none',
+        direction: '',
+        is_private_account: Boolean(user?.is_private_account),
+        can_message: !user?.is_private_account,
+        can_call: !user?.is_private_account,
+      });
+    } catch (err: any) {
+      Alert.alert('Gagal', err?.message || 'Gagal menolak permintaan.');
+    } finally {
+      setIsConnActionLoading(false);
+    }
+  }, [connStatus, user, respondFriendRequest]);
+
+  const handleUnfriendUser = useCallback(async () => {
+    if (!user) return;
+    Alert.alert(
+      'Hapus Pertemanan',
+      `Hapus ${user.display_name} dari daftar teman?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: async () => {
+            setIsConnActionLoading(true);
+            try {
+              await unfriend(user.id);
+              setConnStatus({
+                status: 'none',
+                direction: '',
+                is_private_account: Boolean(user.is_private_account),
+                can_message: !user.is_private_account,
+                can_call: !user.is_private_account,
+              });
+            } catch (err: any) {
+              Alert.alert('Gagal', err?.message || 'Gagal menghapus pertemanan.');
+            } finally {
+              setIsConnActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [user, unfriend]);
+
   const handleSendMessage = useCallback(async () => {
     if (!user) return;
     if (isSelf) {
       setShowEditModal(true);
+      return;
+    }
+
+    // Check private account requirement
+    if (user.is_private_account && connStatus?.status !== 'accepted') {
+      Alert.alert(
+        'Akun Privat',
+        `${user.display_name} menggunakan akun privat. Kamu harus berteman terlebih dahulu untuk dapat mengirim pesan langsung.`,
+        [
+          { text: 'Batal', style: 'cancel' },
+          connStatus?.status === 'none'
+            ? {
+                text: 'Tambah Teman',
+                onPress: handleSendFriendRequest,
+              }
+            : { text: 'OK' },
+        ]
+      );
       return;
     }
 
@@ -142,11 +281,20 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     } finally {
       setIsStartingChat(false);
     }
-  }, [user, isSelf, onStartChat]);
+  }, [user, isSelf, connStatus, handleSendFriendRequest, onStartChat]);
 
   const handleStartCall = useCallback(async () => {
     if (!user) return;
     if (isSelf) return;
+
+    // Check private account requirement
+    if (user.is_private_account && connStatus?.status !== 'accepted') {
+      Alert.alert(
+        'Panggilan Dibatasi',
+        `${user.display_name} menggunakan akun privat. Hanya teman terhubung yang dapat melakukan panggilan.`
+      );
+      return;
+    }
 
     // Check call policy
     const callPolicy = user.metadata?.privacy?.allow_calls;
@@ -165,7 +313,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       console.warn('[UserProfileScreen] Failed to initiate call:', err);
       Alert.alert('Panggilan Gagal', 'Tidak dapat menghubungi pengguna saat ini.');
     }
-  }, [user, isSelf, startCall]);
+  }, [user, isSelf, connStatus, startCall]);
 
   const metadata = user?.metadata || {};
   const socialLinks = metadata.social_links || {};
@@ -273,9 +421,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               </View>
             ) : null}
 
-            {/* Quick Actions */}
-            <View style={styles.actionsRow}>
-              {isSelf ? (
+            {/* Quick Actions & Privacy Awareness */}
+            {isSelf ? (
+              <View style={styles.actionsRow}>
                 <TouchableOpacity
                   style={[styles.primaryActionBtn, { flex: 1 }]}
                   onPress={() => setShowEditModal(true)}
@@ -284,8 +432,69 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <Text style={styles.actionIcon}>✏️</Text>
                   <Text style={styles.primaryActionText}>Edit Profil</Text>
                 </TouchableOpacity>
-              ) : (
-                <>
+              </View>
+            ) : user.is_private_account && connStatus?.status !== 'accepted' ? (
+              <View style={styles.privateProfileActionsContainer}>
+                {/* Private Account Notice Banner */}
+                <View style={styles.privateNoticeCard}>
+                  <Text style={styles.privateNoticeIcon}>🔒</Text>
+                  <Text style={styles.privateNoticeText}>
+                    Akun ini privat. DM dan panggilan hanya dapat diinisiasi oleh teman terhubung.
+                  </Text>
+                </View>
+
+                {/* Dynamic Friend Connection Buttons */}
+                <View style={styles.actionsRow}>
+                  {connStatus?.status === 'pending' && connStatus?.direction === 'outgoing' ? (
+                    <View style={[styles.pendingActionBtn, { flex: 1 }]}>
+                      <Text style={styles.pendingActionText}>⏳ Permintaan Terkirim (Menunggu)</Text>
+                    </View>
+                  ) : connStatus?.status === 'pending' && connStatus?.direction === 'incoming' ? (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.primaryActionBtn, { flex: 1 }]}
+                        onPress={handleAcceptRequest}
+                        disabled={isConnActionLoading}
+                        activeOpacity={0.8}
+                      >
+                        {isConnActionLoading ? (
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.primaryActionText}>✓ Terima Pertemanan</Text>
+                        )}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.secondaryActionBtn}
+                        onPress={handleDeclineRequest}
+                        disabled={isConnActionLoading}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.secondaryActionText}>✕ Tolak</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.primaryActionBtn, { flex: 1 }]}
+                      onPress={handleSendFriendRequest}
+                      disabled={isConnActionLoading}
+                      activeOpacity={0.8}
+                    >
+                      {isConnActionLoading ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Text style={styles.actionIcon}>➕</Text>
+                          <Text style={styles.primaryActionText}>Tambah Teman</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ) : (
+              <View style={{ width: '100%' }}>
+                <View style={styles.actionsRow}>
                   <TouchableOpacity
                     style={[styles.primaryActionBtn, { flex: 1 }]}
                     onPress={handleSendMessage}
@@ -310,9 +519,46 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     <Text style={styles.actionIcon}>📞</Text>
                     <Text style={styles.secondaryActionText}>Panggilan</Text>
                   </TouchableOpacity>
-                </>
-              )}
-            </View>
+                </View>
+
+                {/* Connection Status Indicator for public account or accepted friends */}
+                <View style={styles.connectionStatusPillRow}>
+                  {connStatus?.status === 'accepted' ? (
+                    <TouchableOpacity
+                      style={styles.friendStatusPill}
+                      onPress={handleUnfriendUser}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.friendStatusPillText}>👥 Berteman ✓ (Ketuk untuk opsi)</Text>
+                    </TouchableOpacity>
+                  ) : connStatus?.status === 'pending' && connStatus?.direction === 'outgoing' ? (
+                    <View style={styles.pendingStatusPill}>
+                      <Text style={styles.pendingStatusPillText}>⏳ Permintaan Pertemanan Terkirim</Text>
+                    </View>
+                  ) : connStatus?.status === 'pending' && connStatus?.direction === 'incoming' ? (
+                    <View style={styles.incomingRequestPromptRow}>
+                      <Text style={styles.incomingRequestPromptText}>📬 Menerima permintaan:</Text>
+                      <TouchableOpacity
+                        style={styles.miniAcceptBtn}
+                        onPress={handleAcceptRequest}
+                        disabled={isConnActionLoading}
+                      >
+                        <Text style={styles.miniBtnText}>Terima</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.addFriendMiniBtn}
+                      onPress={handleSendFriendRequest}
+                      disabled={isConnActionLoading}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.addFriendMiniBtnText}>+ Tambah Teman</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Section: Bio / Tentang */}
@@ -477,6 +723,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           currentAvatarUrl={currentUser.avatar_url}
           currentBio={user?.bio || currentUser.bio}
           currentRole={user?.role || currentUser.role}
+          currentIsPrivateAccount={user?.is_private_account || currentUser.is_private_account}
           currentMetadata={user?.metadata || currentUser.metadata}
           onProfileUpdated={(updatedUser) => {
             setUser(updatedUser);
@@ -646,6 +893,104 @@ const styles = StyleSheet.create({
   primaryActionText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '600',
+  },
+  privateProfileActionsContainer: {
+    width: '100%',
+    marginTop: spacing.md,
+  },
+  privateNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.tintWarning10,
+    borderWidth: 1,
+    borderColor: `${colors.colorWarning}40`,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    gap: spacing.xs,
+  },
+  privateNoticeIcon: {
+    fontSize: 16,
+  },
+  privateNoticeText: {
+    ...typography.caption,
+    color: colors.colorWarning,
+    flex: 1,
+    lineHeight: 16,
+  },
+  pendingActionBtn: {
+    backgroundColor: colors.bgElevated,
+    height: 44,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  pendingActionText: {
+    ...typography.bodySecondary,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  connectionStatusPillRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+  },
+  friendStatusPill: {
+    backgroundColor: colors.tintAccent10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: `${colors.accentPrimary}30`,
+  },
+  friendStatusPillText: {
+    ...typography.caption,
+    color: colors.accentPrimary,
+    fontWeight: '600',
+  },
+  pendingStatusPill: {
+    backgroundColor: colors.bgElevated,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderRadius: radius.full,
+  },
+  pendingStatusPillText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  incomingRequestPromptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  incomingRequestPromptText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  miniAcceptBtn: {
+    backgroundColor: colors.accentPrimary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+  },
+  miniBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  addFriendMiniBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    backgroundColor: colors.bgCard,
+  },
+  addFriendMiniBtnText: {
+    ...typography.caption,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   secondaryActionBtn: {

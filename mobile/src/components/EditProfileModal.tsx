@@ -13,6 +13,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -35,6 +36,7 @@ export interface EditProfileModalProps {
   currentAvatarUrl?: string;
   currentBio?: string;
   currentRole?: string;
+  currentIsPrivateAccount?: boolean;
   currentMetadata?: UserMetadata;
   onProfileUpdated: (updatedUser: User) => void;
 }
@@ -47,6 +49,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   currentAvatarUrl = '',
   currentBio = '',
   currentRole = '',
+  currentIsPrivateAccount = false,
   currentMetadata = {},
   onProfileUpdated,
 }) => {
@@ -72,6 +75,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [allowCalls, setAllowCalls] = useState<'everyone' | 'friends'>(
     currentMetadata?.privacy?.allow_calls || 'everyone'
   );
+  const [isPrivateAccount, setIsPrivateAccount] = useState<boolean>(
+    Boolean(currentIsPrivateAccount)
+  );
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -91,9 +97,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setTiktok(currentMetadata?.social_links?.tiktok || '');
       setAllowDM(currentMetadata?.privacy?.allow_direct_messages || 'everyone');
       setAllowCalls(currentMetadata?.privacy?.allow_calls || 'everyone');
+      setIsPrivateAccount(Boolean(currentIsPrivateAccount));
       setErrorMessage('');
     }
-  }, [visible, currentDisplayName, currentAvatarUrl, currentBio, currentRole, currentMetadata]);
+  }, [visible, currentDisplayName, currentAvatarUrl, currentBio, currentRole, currentIsPrivateAccount, currentMetadata]);
 
   const handlePickAvatar = () => {
     Alert.alert(
@@ -226,6 +233,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         avatar_url: avatarUrl,
         bio: bio.trim(),
         role: role.trim(),
+        is_private_account: isPrivateAccount,
         metadata: updatedMetadata,
       });
 
@@ -449,6 +457,22 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               {/* Privacy Settings Section */}
               <View style={styles.sectionDivider}>
                 <Text style={styles.sectionHeaderTitle}>Kebijakan Privasi Interaksi</Text>
+              </View>
+
+              {/* Private Account Switch Card */}
+              <View style={styles.switchCard}>
+                <View style={styles.switchInfo}>
+                  <Text style={styles.switchTitle}>🔒 Akun Privat</Text>
+                  <Text style={styles.switchDescription}>
+                    Bila aktif, profil tetap dapat ditemukan namun DM dan Panggilan HANYA dapat diinisiasi oleh teman terhubung.
+                  </Text>
+                </View>
+                <Switch
+                  value={isPrivateAccount}
+                  onValueChange={setIsPrivateAccount}
+                  trackColor={{ false: colors.borderDefault, true: colors.accentPrimary }}
+                  thumbColor="#FFFFFF"
+                />
               </View>
 
               <View style={styles.privacyOptionGroup}>
@@ -783,5 +807,31 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
+  },
+  switchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.bgBase,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    marginBottom: spacing.md,
+    gap: spacing.md,
+  },
+  switchInfo: {
+    flex: 1,
+  },
+  switchTitle: {
+    ...typography.bodySecondary,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  switchDescription: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 16,
   },
 });

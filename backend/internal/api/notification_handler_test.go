@@ -53,6 +53,9 @@ func (m *mockUserStoreForNotificationAPI) UpdateProfile(userID, displayName, sta
 func (m *mockUserStoreForNotificationAPI) UpdateProfileExtended(userID, displayName, statusMessage, avatarURL, bio, role string, metadata json.RawMessage) (*store.User, error) {
 	return nil, nil
 }
+func (m *mockUserStoreForNotificationAPI) SetPrivateAccount(userID string, isPrivate bool) (*store.User, error) {
+	return nil, nil
+}
 func (m *mockUserStoreForNotificationAPI) UpdatePublicKey(userID, publicKey string) error {
 	return nil
 }

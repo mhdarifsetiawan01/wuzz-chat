@@ -34,6 +34,9 @@ type Config struct {
 	TokenCleanupInterval    time.Duration
 	SessionCleanupInterval  time.Duration
 	TransferCleanupInterval time.Duration
+
+	// User Connections & Private Profile Shield (Milestone M-Mobile-10)
+	Connection ConfigConnection
 }
 
 // Load membaca konfigurasi dari file .env (jika tersedia) dan variabel lingkungan sistem (OS Environment).
@@ -62,6 +65,8 @@ func Load() (*Config, error) {
 		TokenCleanupInterval:    1 * time.Hour,
 		SessionCleanupInterval:  1 * time.Hour,
 		TransferCleanupInterval: 10 * time.Minute,
+
+		Connection: LoadConnectionConfig(),
 	}
 
 	return cfg, nil

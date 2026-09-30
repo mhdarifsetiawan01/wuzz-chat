@@ -10,7 +10,7 @@
  */
 
 import * as SQLite from 'expo-sqlite';
-import { Conversation, Message, normalizeReactions, FeedPost } from '../api/types';
+import { Conversation, Message, normalizeReactions, FeedPost, FriendItem } from '../api/types';
 
 const DB_NAME = 'wuzzchat.db';
 
@@ -129,6 +129,26 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
         CREATE INDEX IF NOT EXISTS idx_feed_tab_sort 
         ON local_feed_posts(user_id, feed_tab, is_pinned DESC, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS local_friends (
+          user_id TEXT NOT NULL,
+          id TEXT NOT NULL,
+          username TEXT NOT NULL,
+          display_name TEXT NOT NULL,
+          avatar_url TEXT,
+          status_message TEXT,
+          bio TEXT,
+          role TEXT,
+          is_verified INTEGER DEFAULT 0,
+          is_private_account INTEGER DEFAULT 0,
+          connection_id TEXT NOT NULL,
+          connected_at TEXT NOT NULL,
+          raw_json TEXT NOT NULL,
+          PRIMARY KEY (user_id, id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_friends_user_connected 
+        ON local_friends(user_id, connected_at DESC);
       `);
 
       // Safe schema migration for local_call_logs.room_id (backward-compatibility)
@@ -538,6 +558,7 @@ export async function clearUserCache(userId: string): Promise<void> {
       await db.runAsync(`DELETE FROM local_conversations WHERE user_id = ?`, [userId]);
       await db.runAsync(`DELETE FROM local_messages WHERE user_id = ?`, [userId]);
       await db.runAsync(`DELETE FROM local_call_logs WHERE user_id = ?`, [userId]);
+      await db.runAsync(`DELETE FROM local_friends WHERE user_id = ?`, [userId]);
     });
   } catch (error) {
     console.warn('[sqliteStorage] Failed to clearUserCache:', error);
@@ -968,5 +989,116 @@ export async function clearFeedPosts(userId: string): Promise<void> {
     console.warn('[sqliteStorage] Failed to clearFeedPosts:', error);
   }
 }
+
+/**
+ * =========================================================================
+ * Local Friends Storage Operations (Milestone M-Mobile-10)
+ * =========================================================================
+ */
+
+/**
+ * Persists an array of FriendItem objects in local SQLite database.
+ * Uses transactional batching for zero UI stutter / 60 FPS performance.
+ */
+export async function saveLocalFriends(
+  userId: string,
+  friends: FriendItem[]
+): Promise<void> {
+  if (!userId || !friends || friends.length === 0) return;
+
+  try {
+    const db = await getDatabase();
+    await db.withTransactionAsync(async () => {
+      for (const friend of friends) {
+        await db.runAsync(
+          `INSERT OR REPLACE INTO local_friends (
+            user_id, id, username, display_name, avatar_url,
+            status_message, bio, role, is_verified, is_private_account,
+            connection_id, connected_at, raw_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            userId,
+            friend.id,
+            friend.username,
+            friend.display_name,
+            friend.avatar_url || null,
+            friend.status_message || null,
+            friend.bio || null,
+            friend.role || null,
+            friend.is_verified ? 1 : 0,
+            friend.is_private_account ? 1 : 0,
+            friend.connection_id,
+            friend.connected_at,
+            JSON.stringify(friend),
+          ]
+        );
+      }
+    });
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to saveLocalFriends:', error);
+  }
+}
+
+/**
+ * Retrieves cached friends list for a user, sorted by connection timestamp descending.
+ */
+export async function getLocalFriends(
+  userId: string,
+  limit = 100,
+  offset = 0
+): Promise<FriendItem[]> {
+  if (!userId) return [];
+
+  try {
+    const db = await getDatabase();
+    const rows = await db.getAllAsync<{ raw_json: string }>(
+      `SELECT raw_json FROM local_friends 
+       WHERE user_id = ? 
+       ORDER BY connected_at DESC 
+       LIMIT ? OFFSET ?`,
+      [userId, limit, offset]
+    );
+
+    return rows.map((r) => JSON.parse(r.raw_json) as FriendItem);
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to getLocalFriends:', error);
+    return [];
+  }
+}
+
+/**
+ * Removes a specific friend from local cache upon unfriend event.
+ */
+export async function removeLocalFriend(
+  userId: string,
+  friendId: string
+): Promise<void> {
+  if (!userId || !friendId) return;
+
+  try {
+    const db = await getDatabase();
+    await db.runAsync(
+      `DELETE FROM local_friends WHERE user_id = ? AND id = ?`,
+      [userId, friendId]
+    );
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to removeLocalFriend:', error);
+  }
+}
+
+/**
+ * Clears all cached friends for a specific user.
+ */
+export async function clearLocalFriends(userId: string): Promise<void> {
+  if (!userId) return;
+
+  try {
+    const db = await getDatabase();
+    await db.runAsync(`DELETE FROM local_friends WHERE user_id = ?`, [userId]);
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to clearLocalFriends:', error);
+  }
+}
+
 
 

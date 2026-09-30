@@ -17,6 +17,7 @@ import {
   ConversationProvider,
   DeviceProvider,
   FeedProvider,
+  ConnectionProvider,
   MessageProvider,
   useAuth,
   useCall,
@@ -302,7 +303,9 @@ export default function App() {
             <MessageProvider>
               <CallProvider>
                 <FeedProvider>
-                  <AppContent />
+                  <ConnectionProvider>
+                    <AppContent />
+                  </ConnectionProvider>
                 </FeedProvider>
               </CallProvider>
             </MessageProvider>

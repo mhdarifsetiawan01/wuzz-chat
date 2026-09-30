@@ -45,6 +45,11 @@ type RoomAuthorizationChecker interface {
 	IsConversationExpired(conversationID string) bool
 }
 
+// PrivacyCallChecker memvalidasi kelayakan panggilan WebRTC ke pengguna akun privat.
+type PrivacyCallChecker interface {
+	IsCallAllowed(ctx context.Context, tenantID, callerID, roomID string) (bool, string)
+}
+
 // RealtimeMessageManager mendefinisikan operasi persistensi dan query pesan untuk WebSocket Hub.
 // Interface ini memutus ketergantungan langsung WebSocket Hub ke implementasi store.MessageStore (Milestone 2 Decoupling).
 type RealtimeMessageManager interface {
@@ -85,6 +90,7 @@ type Hub struct {
 	clientStore      store.ClientStore
 	messageStore     RealtimeMessageManager
 	roomAuth         RoomAuthorizationChecker
+	privacyChecker   PrivacyCallChecker
 	pushService      *push.Service
 	broker           broker.MessageBroker
 }
@@ -241,6 +247,13 @@ func (h *Hub) SetRoomAuth(ra RoomAuthorizationChecker) {
 // SetUserStore menyuntikkan UserStore opsional (backward-compatibility wrapper ke SetRoomAuth).
 func (h *Hub) SetUserStore(us store.UserStore) {
 	h.SetRoomAuth(us)
+}
+
+// SetPrivacyCallChecker menyuntikkan PrivacyCallChecker untuk memvalidasi panggilan WebRTC ke profil privat.
+func (h *Hub) SetPrivacyCallChecker(pcc PrivacyCallChecker) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.privacyChecker = pcc
 }
 
 // SetBroker menyuntikkan MessageBroker (Redis / In-Memory) dan mendaftarkan listener cluster.

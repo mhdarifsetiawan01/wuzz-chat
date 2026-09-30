@@ -11,3 +11,4 @@ export * from './subgroups';
 export * from './notifications';
 export * from './transfer';
 export * from './feedApi';
+export * from './connections';

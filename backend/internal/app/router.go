@@ -338,6 +338,18 @@ func (a *Application) setupRouter() http.Handler {
 	}
 
 	// =========================================================================
+	// 9C. USER CONNECTIONS & FRIENDLIST ENGINE (Milestone M-Mobile-10)
+	// =========================================================================
+	if a.ConnectionHandler != nil {
+		mux.HandleFunc("/api/connections", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(a.ConnectionHandler.RouteConnectionRequest)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/connections/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(a.ConnectionHandler.RouteConnectionRequest)).ServeHTTP(w, r)
+		}))
+	}
+
+	// =========================================================================
 	// 10. WEBSOCKET REALTIME CONNECTION
 	// =========================================================================
 	if a.WsHandler != nil {
