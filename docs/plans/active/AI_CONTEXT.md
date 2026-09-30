@@ -1,3 +1,3 @@
-# AI Context — Standby Mode
+# AI Context — Standby
 
-Status: Standby. Ready for next task.
+Standby mode. Silakan inisialisasi untuk milestone berikutnya.

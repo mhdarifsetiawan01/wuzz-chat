@@ -76,6 +76,7 @@ type UserProfile struct {
 	StatusMessage  string          `json:"status_message"`
 	Bio            string          `json:"bio"`
 	Role           string          `json:"role"`
+	SystemRole     string          `json:"system_role"`
 	AvatarURL      string          `json:"avatar_url"`
 	Metadata       json.RawMessage `json:"metadata,omitempty"`
 	IsVerified     bool            `json:"is_verified"`

@@ -4323,6 +4323,40 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Backend Go Test**: `go test -count=1 ./internal/api/... ./internal/store/... ./internal/push/...` -> **PASS (100%)**.
 - **Frontend Next.js Build**: `npm run build` -> **Compiled successfully Turbopack (0 errors)**.
 
+---
+
+## 📅 Sesi Pengerjaan 30 September 2026 — Milestone M-Mobile-9.2: Spesifikasi Domain, Skema DB & Backend Go Engine Community Social Feed
+
+### 1. Rangkuman Pengerjaan
+1. **Spesifikasi Domain DDD (`docs/domains/COMMUNITY_FEED.md`)**:
+   - Definisikan agregat root `FeedPost`, entitas `FeedLike`, dan `FeedComment`.
+   - Invarian bisnis: batasan teks postingan 1–1.000 karakter, maksimal 4 media URL, komentar 1–500 karakter.
+   - Otorisasi berjenjang berbasis prefix `wuzz_`: `user` (default), `wuzz_moderator` (moderasi hapus konten pelanggaran), dan `wuzz_admin` (pembuatan pengumuman resmi, artikel, sponsor, pinning, dan moderasi hapus).
+   - Pengurutan linimasa teroptimasi: `is_pinned DESC, created_at DESC` dengan cursor-based pagination.
+2. **Skema Basis Data Relasional & Migrasi Multi-Tenant (`backend/internal/store/sql.go`)**:
+   - DDL tabel `feed_posts` dengan `post_type`, `is_pinned`, dan `metadata` (JSON).
+   - DDL tabel `feed_likes` dan `feed_comments`.
+   - Indeks komposit: `(tenant_id, is_pinned DESC, created_at DESC)`, `(post_id, user_id)`, `(tenant_id, post_id, created_at ASC)`.
+   - Kolom keamanan `users.system_role VARCHAR(32) NOT NULL DEFAULT 'user'` kompatibel SQLite dan PostgreSQL Supabase.
+3. **Proteksi Anti-Privilege Escalation & Token Auth (`backend/internal/authz/`, `backend/internal/auth/jwt.go`)**:
+   - Injeksi klaim `system_role` pada JWT claims pengguna.
+   - Proteksi ketat: `PUT /api/auth/profile` dan registrasi publik diisolasi dari field `system_role`.
+4. **Modul Domain Engine Modular (`backend/internal/feed/`)**:
+   - `entity.go`: Definisi entitas domain, konstanta `SystemRole` (`wuzz_admin`, `wuzz_moderator`), sentinel errors.
+   - `infra/sql_repository.go`: Query SQL linimasa kursor, sticky pinned, JOIN data author profil publik, atomic counter suka/komentar, dan cascade delete.
+   - `service.go`: Validasi domain, normalisasi role guard (hanya `wuzz_admin` yang bisa pin/pengumuman), otorisasi delete (`wuzz_admin` / `wuzz_moderator` / author).
+   - `service_test.go`: Unit test cakupan penuh untuk validasi, otorisasi role, dan toggle like.
+5. **REST API & Wiring (`backend/internal/api/feed_handler.go`, `router.go`, `wire.go`)**:
+   - Endpoints: `GET /api/feed`, `POST /api/feed`, `POST /api/feed/:id/like`, `GET /api/feed/:id/comments`, `POST /api/feed/:id/comments`, `DELETE /api/feed/:id`.
+   - `feed_handler_test.go`: Integration test lengkap untuk alur feed, likes, komentar, otorisasi delete, serta validasi role moderator vs admin.
+
+### 2. Bukti Pengujian Otomatis
+- **Backend Go Unit & Handler Tests**: `go test -v ./internal/feed/... ./internal/api/...` -> **PASS (100%)**.
+- **Backend Full Suite**: `go test -count=1 ./...` -> **PASS (100% di semua paket)**.
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` -> **PASS (0 errors)**.
+- **Frontend Web Build**: `cd frontend && npm run build` -> **Compiled successfully Next.js Turbopack (0 errors)**.
+
+
 
 
 

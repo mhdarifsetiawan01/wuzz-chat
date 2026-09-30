@@ -23,6 +23,7 @@ type UserClaims struct {
 	Username    string `json:"username"`
 	DisplayName string `json:"display_name"`
 	DeviceID    string `json:"device_id,omitempty"`
+	SystemRole  string `json:"system_role,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -44,10 +45,18 @@ func GenerateToken(userID, username, displayName string) (string, error) {
 	return tokenStr, err
 }
 
-// GenerateSessionToken membuat token JWT sesi penuh dengan tenant_id dan device_id spesifik.
+// GenerateSessionToken membuat token JWT sesi penuh dengan tenant_id dan device_id spesifik (default systemRole: 'user').
 func GenerateSessionToken(userID, username, displayName, tenantID, deviceID string) (string, *UserClaims, error) {
+	return GenerateSessionTokenWithRole(userID, username, displayName, tenantID, deviceID, "user")
+}
+
+// GenerateSessionTokenWithRole membuat token JWT sesi penuh dengan tenant_id, device_id, dan system_role spesifik.
+func GenerateSessionTokenWithRole(userID, username, displayName, tenantID, deviceID, systemRole string) (string, *UserClaims, error) {
 	if tenantID == "" {
 		tenantID = "default"
+	}
+	if systemRole == "" {
+		systemRole = "user"
 	}
 	claims := &UserClaims{
 		UserID:      userID,
@@ -55,6 +64,7 @@ func GenerateSessionToken(userID, username, displayName, tenantID, deviceID stri
 		Username:    username,
 		DisplayName: displayName,
 		DeviceID:    deviceID,
+		SystemRole:  systemRole,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.New().String(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
@@ -74,6 +84,11 @@ func GenerateSessionToken(userID, username, displayName, tenantID, deviceID stri
 // GenerateTokenDetailedWithTenant membuat token JWT baru dengan tenant_id spesifik.
 func GenerateTokenDetailedWithTenant(userID, username, displayName, tenantID string) (string, *UserClaims, error) {
 	return GenerateSessionToken(userID, username, displayName, tenantID, "")
+}
+
+// GenerateTokenDetailedWithTenantAndRole membuat token JWT baru dengan tenant_id dan system_role spesifik.
+func GenerateTokenDetailedWithTenantAndRole(userID, username, displayName, tenantID, systemRole string) (string, *UserClaims, error) {
+	return GenerateSessionTokenWithRole(userID, username, displayName, tenantID, "", systemRole)
 }
 
 // GenerateTokenDetailed membuat token JWT baru dan mengembalikan string token beserta pointer UserClaims (berisi ID JTI dan ExpiresAt).

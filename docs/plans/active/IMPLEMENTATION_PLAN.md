@@ -1,3 +1,3 @@
-# Implementation Plan — Standby Mode
+# Implementation Plan — Standby
 
-Status: Standby. Ready for next task.
+Standby mode. Silakan inisialisasi untuk milestone berikutnya.

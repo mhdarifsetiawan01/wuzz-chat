@@ -74,7 +74,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Milestone M-Backend-Media-24h: Multi-Device Media Sharing (24-Hour Grace Period Retention)**: **SELESAI ✅** (Penyelarasan Store-and-Forward DM dengan 24h grace period pasca-ACK untuk menjamin kelancaran download media di seluruh perangkat aktif)
 >    - **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**: *🚀 Dalam Pengembangan*:
 >      - **Tahap 1 (M-Mobile-9.1: Fondasi Profil & Identitas Publik Mobile)**: **SELESAI ✅** (Kolom `bio`, `role`, dan `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, dan komponen modular `UserProfileScreen.tsx`).
->      - **Tahap 2 (M-Mobile-9.2: Spesifikasi Domain, Skema DB & Backend Go Engine)**: *🔮 Terjadwal* (Domain DDD `COMMUNITY_FEED`, tabel `feed_posts`, `feed_likes`, `feed_comments`, dan REST API Go `/api/feed`).
+>      - **Tahap 2 (M-Mobile-9.2: Spesifikasi Domain, Skema DB & Backend Go Engine)**: **SELESAI ✅** (Domain DDD `COMMUNITY_FEED`, tabel `feed_posts`, `feed_likes`, `feed_comments`, otorisasi RBAC ber-prefix `wuzz_`, dan REST API Go `/api/feed`).
 >      - **Tahap 3 (M-Mobile-9.3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop)**: *🔮 Terjadwal* (Penggantian mock `FeedScreen.tsx` ke real SWR cache, modal buat postingan FAB `+`, thread komentar interaktif, dan fitur "Bagikan ke Obrolan").
 
 ---
@@ -480,7 +480,7 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
   - **Upload Avatar Native**: Integrasi pemilihan gambar dari kamera/galeri di mobile via `expo-image-picker` terunggah langsung via `mediaApi.uploadMedia()`.
   - **Komponen Layar Profil Publik**: Pembuatan komponen `UserProfileScreen.tsx` (avatar 96px, `@username`, display name, role, bio, kartu medsos, verifikasi E2EE, dan tombol aksi interaksi dinamis).
 
-- **Tahap 2: Spesifikasi Domain, Skema DB & Backend Go Engine (Milestone M-Mobile-9.2)**:
+- **Tahap 2: Spesifikasi Domain, Skema DB & Backend Go Engine (Milestone M-Mobile-9.2) [SELESAI ✅]**:
   - **Domain Spesifikasi DDD**: Penyusunan dokumen arsitektur dan invariant di `docs/domains/COMMUNITY_FEED.md`.
   - **Skema Database Relasional**:
     - `feed_posts` (`id UUID PRIMARY KEY`, `user_id UUID REFERENCES users(id)`, `content TEXT`, `media_urls JSONB`, `likes_count INT DEFAULT 0`, `comments_count INT DEFAULT 0`, `created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()`).

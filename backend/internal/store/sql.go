@@ -103,6 +103,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 			status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol',
 			bio VARCHAR(255) DEFAULT '',
 			role VARCHAR(64) DEFAULT '',
+			system_role VARCHAR(32) NOT NULL DEFAULT 'user',
 			avatar_url TEXT DEFAULT '',
 			metadata TEXT DEFAULT '{}',
 			public_key TEXT DEFAULT '',
@@ -418,6 +419,44 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_exchange_tokens_lookup ON exchange_tokens(token, expires_at);`,
 		`CREATE INDEX IF NOT EXISTS idx_exchange_tokens_tenant_user ON exchange_tokens(tenant_id, user_id);`,
+
+		// Tabel Community Social Feed (Milestone M-Mobile-9.2)
+		`CREATE TABLE IF NOT EXISTS feed_posts (
+			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			content TEXT NOT NULL,
+			media_urls TEXT NOT NULL DEFAULT '[]',
+			post_type VARCHAR(32) NOT NULL DEFAULT 'standard',
+			is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
+			metadata TEXT NOT NULL DEFAULT '{}',
+			likes_count INT NOT NULL DEFAULT 0,
+			comments_count INT NOT NULL DEFAULT 0,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_feed_posts_tenant_created ON feed_posts(tenant_id, is_pinned DESC, created_at DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_feed_posts_tenant_user ON feed_posts(tenant_id, user_id);`,
+
+		`CREATE TABLE IF NOT EXISTS feed_likes (
+			post_id VARCHAR(64) NOT NULL,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			created_at TIMESTAMP NOT NULL,
+			PRIMARY KEY (post_id, user_id)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_feed_likes_lookup ON feed_likes(post_id, user_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_feed_likes_tenant_user ON feed_likes(tenant_id, user_id);`,
+
+		`CREATE TABLE IF NOT EXISTS feed_comments (
+			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			post_id VARCHAR(64) NOT NULL,
+			user_id VARCHAR(64) NOT NULL,
+			content TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_feed_comments_tenant_post ON feed_comments(tenant_id, post_id, created_at ASC);`,
 	}
 
 	for _, query := range migrations {
@@ -431,7 +470,12 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(255) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(64) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS system_role VARCHAR(32) NOT NULL DEFAULT 'user';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE feed_posts ADD COLUMN IF NOT EXISTS post_type VARCHAR(32) NOT NULL DEFAULT 'standard';`)
+		_, _ = s.db.Exec(`ALTER TABLE feed_posts ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE;`)
+		_, _ = s.db.Exec(`ALTER TABLE feed_posts ADD COLUMN IF NOT EXISTS metadata TEXT NOT NULL DEFAULT '{}';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_feed_posts_tenant_pinned ON feed_posts(tenant_id, is_pinned DESC, created_at DESC);`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT false;`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS public_key TEXT DEFAULT '';`)
@@ -561,6 +605,13 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_tenant_ext ON users(tenant_id, external_user_id);`)
 		_, _ = s.db.Exec(`ALTER TABLE push_subscriptions ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_push_subs_tenant_user ON push_subscriptions(tenant_id, user_id);`)
+
+		// Auto-migration Milestone M-Mobile-9.2: system_role & feed post types (SQLite)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN system_role VARCHAR(32) NOT NULL DEFAULT 'user';`)
+		_, _ = s.db.Exec(`ALTER TABLE feed_posts ADD COLUMN post_type VARCHAR(32) NOT NULL DEFAULT 'standard';`)
+		_, _ = s.db.Exec(`ALTER TABLE feed_posts ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0;`)
+		_, _ = s.db.Exec(`ALTER TABLE feed_posts ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}';`)
+		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_feed_posts_tenant_pinned ON feed_posts(tenant_id, is_pinned DESC, created_at DESC);`)
 	}
 
 	// Auto-seeder tenant default (Milestone 1)

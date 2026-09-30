@@ -14,6 +14,8 @@ import (
 	authzinfra "github.com/bms-del112/wuzz-chat/internal/authz/infra"
 	authzworker "github.com/bms-del112/wuzz-chat/internal/authz/worker"
 	"github.com/bms-del112/wuzz-chat/internal/broker"
+	"github.com/bms-del112/wuzz-chat/internal/feed"
+	feedinfra "github.com/bms-del112/wuzz-chat/internal/feed/infra"
 	"github.com/bms-del112/wuzz-chat/internal/group"
 	groupinfra "github.com/bms-del112/wuzz-chat/internal/group/infra"
 	groupworker "github.com/bms-del112/wuzz-chat/internal/group/worker"
@@ -73,6 +75,7 @@ type Application struct {
 	TransferHandler    *api.TransferHandler
 	ProvisioningHandler *api.ProvisioningHandler
 	OpenAPIHandler     *api.OpenAPIHandler
+	FeedHandler        *api.FeedHandler
 	WsHandler          *ws.Handler
 }
 
@@ -110,6 +113,7 @@ func New(cfg *config.Config) (*Application, error) {
 	var credentialStore store.CredentialStore
 	var tenantRepo tenant.TenantRepository
 	var tenantSvc tenant.TenantService
+	var feedRepo feed.FeedRepository
 
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
@@ -128,6 +132,8 @@ func New(cfg *config.Config) (*Application, error) {
 		sqlTenantRepo := tenantinfra.NewSQLTenantRepository(sqlStore.DB(), sqlStore.DriverName())
 		tenantRepo = sqlTenantRepo
 		tenantSvc = tenant.NewTenantService(sqlTenantRepo)
+
+		feedRepo = feedinfra.NewSQLFeedRepository(sqlStore.DB(), sqlStore.DriverName())
 	}
 
 	app.UserStore = userStore
@@ -227,6 +233,12 @@ func New(cfg *config.Config) (*Application, error) {
 	app.LinkPreviewHandler = api.NewLinkPreviewHandler(messageBroker)
 	app.OpenAPIHandler = api.NewOpenAPIHandler()
 	app.AuthLimiter = ratelimit.NewDualTierRateLimiter(cfg.AuthRateLimitIP, cfg.AuthRateLimitUser, 1*time.Minute)
+
+	// Inisialisasi Community Social Feed Engine (Milestone M-Mobile-9.2)
+	if feedRepo != nil {
+		feedSvc := feed.NewFeedService(feedRepo)
+		app.FeedHandler = api.NewFeedHandlerWithService(feedSvc)
+	}
 
 	// -------------------------------------------------------------------------
 	// TAHAP 5: Background Workers

@@ -326,6 +326,18 @@ func (a *Application) setupRouter() http.Handler {
 	}
 
 	// =========================================================================
+	// 9B. COMMUNITY SOCIAL FEED (Milestone M-Mobile-9.2)
+	// =========================================================================
+	if a.FeedHandler != nil {
+		mux.HandleFunc("/api/feed", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(a.FeedHandler.HandleFeedRoot)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/feed/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(a.FeedHandler.RouteFeedRequest)).ServeHTTP(w, r)
+		}))
+	}
+
+	// =========================================================================
 	// 10. WEBSOCKET REALTIME CONNECTION
 	// =========================================================================
 	if a.WsHandler != nil {

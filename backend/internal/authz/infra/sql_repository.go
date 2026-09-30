@@ -146,6 +146,7 @@ func toUserProfile(u *store.User) *authz.UserProfile {
 		StatusMessage:  u.StatusMessage,
 		Bio:            u.Bio,
 		Role:           u.Role,
+		SystemRole:     u.SystemRole,
 		AvatarURL:      u.AvatarURL,
 		Metadata:       u.Metadata,
 		IsVerified:     u.IsVerified,

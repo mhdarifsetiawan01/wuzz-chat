@@ -36,6 +36,7 @@ type User struct {
 	StatusMessage  string          `json:"status_message"`
 	Bio            string          `json:"bio"`
 	Role           string          `json:"role"`
+	SystemRole     string          `json:"system_role"`
 	AvatarURL      string          `json:"avatar_url"`
 	Metadata       json.RawMessage `json:"metadata,omitempty"`
 	IsVerified     bool            `json:"is_verified"`
@@ -299,15 +300,15 @@ func (s *SQLUserStore) VerifyPassword(userID, plainPassword string) (bool, error
 func (s *SQLUserStore) GetUserByID(id string) (*User, error) {
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(metadata, '{}'::jsonb), created_at FROM users WHERE id = $1`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(system_role, 'user'), COALESCE(metadata, '{}'::jsonb), created_at FROM users WHERE id = $1`
 	} else {
-		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(metadata, '{}'), created_at FROM users WHERE id = ?`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(system_role, 'user'), COALESCE(metadata, '{}'), created_at FROM users WHERE id = ?`
 	}
 
 	row := s.db.QueryRow(query, id)
 	var u User
 	var rawMeta []byte
-	if err := row.Scan(&u.ID, &u.TenantID, &u.ExternalUserID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.Bio, &u.Role, &rawMeta, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.TenantID, &u.ExternalUserID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.Bio, &u.Role, &u.SystemRole, &rawMeta, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
@@ -326,15 +327,15 @@ func (s *SQLUserStore) GetByExternalIDWithContext(ctx context.Context, externalU
 	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(metadata, '{}'::jsonb), created_at FROM users WHERE tenant_id = $1 AND external_user_id = $2`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(system_role, 'user'), COALESCE(metadata, '{}'::jsonb), created_at FROM users WHERE tenant_id = $1 AND external_user_id = $2`
 	} else {
-		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(metadata, '{}'), created_at FROM users WHERE tenant_id = ? AND external_user_id = ?`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), COALESCE(external_user_id, ''), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(system_role, 'user'), COALESCE(metadata, '{}'), created_at FROM users WHERE tenant_id = ? AND external_user_id = ?`
 	}
 
 	row := s.db.QueryRowContext(ctx, query, tenantID, externalUserID)
 	var u User
 	var rawMeta []byte
-	if err := row.Scan(&u.ID, &u.TenantID, &u.ExternalUserID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.Bio, &u.Role, &rawMeta, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.TenantID, &u.ExternalUserID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.Bio, &u.Role, &u.SystemRole, &rawMeta, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
@@ -473,15 +474,15 @@ func (s *SQLUserStore) GetUserByUsernameWithContext(ctx context.Context, usernam
 	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	var query string
 	if s.driverName == "postgres" {
-		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(metadata, '{}'::jsonb), created_at FROM users WHERE tenant_id = $1 AND LOWER(username) = LOWER($2)`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(system_role, 'user'), COALESCE(metadata, '{}'::jsonb), created_at FROM users WHERE tenant_id = $1 AND LOWER(username) = LOWER($2)`
 	} else {
-		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(metadata, '{}'), created_at FROM users WHERE tenant_id = ? AND LOWER(username) = LOWER(?)`
+		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(system_role, 'user'), COALESCE(metadata, '{}'), created_at FROM users WHERE tenant_id = ? AND LOWER(username) = LOWER(?)`
 	}
 
 	row := s.db.QueryRow(query, tenantID, username)
 	var u User
 	var rawMeta []byte
-	if err := row.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.Bio, &u.Role, &rawMeta, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.Bio, &u.Role, &u.SystemRole, &rawMeta, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
@@ -506,14 +507,14 @@ func (s *SQLUserStore) GetUserByUsernameOrDisplayNameWithContext(ctx context.Con
 	var query string
 	var row *sql.Row
 	if s.driverName == "postgres" {
-		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(metadata, '{}'::jsonb), created_at 
+		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(system_role, 'user'), COALESCE(metadata, '{}'::jsonb), created_at 
 		         FROM users 
 		         WHERE tenant_id = $1 AND (LOWER(username) = LOWER($2) OR LOWER(display_name) = LOWER($2)) 
 		         ORDER BY (CASE WHEN LOWER(username) = LOWER($2) THEN 0 ELSE 1 END), created_at DESC
 		         LIMIT 1`
 		row = s.db.QueryRow(query, tenantID, name)
 	} else {
-		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(metadata, '{}'), created_at 
+		query = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, password_hash, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(system_role, 'user'), COALESCE(metadata, '{}'), created_at 
 		         FROM users 
 		         WHERE tenant_id = ? AND (LOWER(username) = LOWER(?) OR LOWER(display_name) = LOWER(?)) 
 		         ORDER BY (CASE WHEN LOWER(username) = LOWER(?) THEN 0 ELSE 1 END), created_at DESC
@@ -523,7 +524,7 @@ func (s *SQLUserStore) GetUserByUsernameOrDisplayNameWithContext(ctx context.Con
 
 	var u User
 	var rawMeta []byte
-	if err := row.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.Bio, &u.Role, &rawMeta, &u.CreatedAt); err != nil {
+	if err := row.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.Bio, &u.Role, &u.SystemRole, &rawMeta, &u.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrUserNotFound
 		}
@@ -752,12 +753,12 @@ func (s *SQLUserStore) SearchUsersWithContext(ctx context.Context, query, exclud
 	var err error
 
 	if s.driverName == "postgres" {
-		sqlQuery = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(metadata, '{}'::jsonb), created_at FROM users 
+		sqlQuery = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(system_role, 'user'), COALESCE(metadata, '{}'::jsonb), created_at FROM users 
 		            WHERE tenant_id = $1 AND id != $2 AND (LOWER(username) LIKE LOWER($3) OR LOWER(display_name) LIKE LOWER($3)) 
 		            ORDER BY username ASC LIMIT 20`
 		rows, err = s.db.Query(sqlQuery, tenantID, excludeUserID, searchPattern)
 	} else {
-		sqlQuery = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(metadata, '{}'), created_at FROM users 
+		sqlQuery = `SELECT id, COALESCE(tenant_id, 'default'), username, display_name, COALESCE(status_message, 'Tersedia untuk mengobrol'), COALESCE(avatar_url, ''), COALESCE(is_verified, false), COALESCE(public_key, ''), COALESCE(bio, ''), COALESCE(role, ''), COALESCE(system_role, 'user'), COALESCE(metadata, '{}'), created_at FROM users 
 		            WHERE tenant_id = ? AND id != ? AND (LOWER(username) LIKE LOWER(?) OR LOWER(display_name) LIKE LOWER(?)) 
 		            ORDER BY username ASC LIMIT 20`
 		rows, err = s.db.Query(sqlQuery, tenantID, excludeUserID, searchPattern, searchPattern)
@@ -772,7 +773,7 @@ func (s *SQLUserStore) SearchUsersWithContext(ctx context.Context, query, exclud
 	for rows.Next() {
 		var u User
 		var rawMeta []byte
-		if err := rows.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.Bio, &u.Role, &rawMeta, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.TenantID, &u.Username, &u.DisplayName, &u.StatusMessage, &u.AvatarURL, &u.IsVerified, &u.PublicKey, &u.Bio, &u.Role, &u.SystemRole, &rawMeta, &u.CreatedAt); err != nil {
 			continue
 		}
 		if len(rawMeta) == 0 || string(rawMeta) == "null" {

@@ -109,8 +109,8 @@ func (s *AuthService) Register(input RegisterInput) (*RegisterResult, error) {
 		return nil, err
 	}
 
-	// Generate JWT dengan tenant ID
-	tokenStr, claims, err := auth.GenerateTokenDetailedWithTenant(userID, username, displayName, tenantID)
+	// Generate JWT dengan tenant ID dan default systemRole 'user'
+	tokenStr, claims, err := auth.GenerateTokenDetailedWithTenantAndRole(userID, username, displayName, tenantID, "user")
 	if err != nil {
 		return nil, err
 	}
@@ -231,8 +231,13 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, *DeviceConflict, er
 		displayName = username
 	}
 
-	// Generate JWT dengan tenant ID
-	tokenStr, claims, err := auth.GenerateTokenDetailedWithTenant(userID, username, displayName, tenantID)
+	systemRole := "user"
+	if p, err := s.repo.GetUserByID(ctx, userID); err == nil && p != nil && p.SystemRole != "" {
+		systemRole = p.SystemRole
+	}
+
+	// Generate JWT dengan tenant ID dan system_role
+	tokenStr, claims, err := auth.GenerateTokenDetailedWithTenantAndRole(userID, username, displayName, tenantID, systemRole)
 	if err != nil {
 		return nil, nil, err
 	}

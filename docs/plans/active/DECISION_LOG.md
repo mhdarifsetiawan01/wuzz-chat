@@ -1,3 +1,3 @@
-# Decision Log — Standby Mode
+# Decision Log — Standby
 
-Status: Standby. Ready for next task.
+Standby mode. Silakan inisialisasi untuk milestone berikutnya.

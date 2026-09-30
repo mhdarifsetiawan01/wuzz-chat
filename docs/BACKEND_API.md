@@ -25,6 +25,7 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
    - [E2EE Device Key Transfer (QR Code)](#38-e2ee-device-key-transfer-qr-code)
    - [Health Check](#39-health-check)
    - [Manajemen Grup & Discovery](#310-manajemen-grup--discovery)
+   - [Community Social Feed](#311-community-social-feed)
 4. [Protokol WebSocket & Event Catalog](#4-protokol-websocket--event-catalog)
 5. [Spesifikasi Standar E2EE (End-to-End Encryption)](#5-spesifikasi-standar-e2ee-end-to-end-encryption)
 6. [Siklus Hidup Media (Store-and-Forward)](#6-siklus-hidup-media-store-and-forward)
@@ -1795,6 +1796,139 @@ Mengambil detail memori grup terkurasi lengkap beserta butir keputusan, bukti ku
     "snapshot_journey_conf": "",
     "is_journey_lite_removed": true,
     "created_at": "2026-09-20T19:30:00Z"
+  }
+  ```
+
+### 3.11 Community Social Feed
+
+Modul linimasa sosial komunitas publik yang mendukung cursor pagination, reaksi suka (*atomic toggle*), komentar, pengumuman resmi disematkan (*sticky pinning*), serta otorisasi berjenjang berbasis prefix `wuzz_` (`wuzz_admin`, `wuzz_moderator`, `user`).
+
+#### 1. `GET /api/feed?before=<timestamp>&limit=<limit>`
+Mengambil linimasa postingan komunitas dalam tenant aktif dengan pagination berbasis kursor waktu.
+- **Autentikasi**: `Bearer <token>`
+- **Query Params**:
+  - `before`: *(Opsional)* ISO8601 string / timestamp kursor.
+  - `limit`: *(Opsional)* Jumlah item (default 20, max 50).
+- **Pengurutan**: `is_pinned DESC, created_at DESC` (postingan yang disematkan admin otomatis selalu di atas).
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "posts": [
+      {
+        "id": "post-uuid-1",
+        "tenant_id": "default",
+        "content": "Pengumuman Maintenance Server WuzzChat",
+        "media_urls": [],
+        "post_type": "announcement",
+        "is_pinned": true,
+        "metadata": { "cta_text": "Lihat Jadwal", "cta_url": "https://wuzzhub.id/status" },
+        "likes_count": 42,
+        "comments_count": 5,
+        "is_liked": true,
+        "author": {
+          "id": "admin-uuid",
+          "username": "admin_wuzz",
+          "display_name": "Wuzz Admin Official",
+          "avatar_url": "",
+          "role": "Platform Administrator",
+          "is_verified": true
+        },
+        "created_at": "2026-09-30T14:00:00Z",
+        "updated_at": "2026-09-30T14:00:00Z"
+      }
+    ],
+    "next_cursor": "2026-09-30T13:45:00Z",
+    "has_more": false
+  }
+  ```
+
+---
+
+#### 2. `POST /api/feed`
+Membuat postingan komunitas baru.
+- **Autentikasi**: `Bearer <token>`
+- **Aturan Otorisasi**:
+  - `wuzz_admin`: Dapat mempublikasikan `post_type` (`announcement`, `article`, `sponsored`), menyematkan (`is_pinned: true`), dan menyertakan `metadata` kustom.
+  - `wuzz_moderator` / `user`: Hanya dapat mempublikasikan tipe `standard` tanpa pin (`is_pinned: false`, `metadata: {}`). Input khusus dinormalisasi otomatis.
+- **Request Body**:
+  ```json
+  {
+    "content": "Halo Komunitas WuzzChat! Ini postingan pertama saya 🚀",
+    "media_urls": ["https://example.com/image.jpg"],
+    "post_type": "standard",
+    "is_pinned": false,
+    "metadata": {}
+  }
+  ```
+- **Success Response (201 Created)**: Mengembalikan objek `FeedPost` lengkap yang sudah di-JOIN dengan data author.
+
+---
+
+#### 3. `POST /api/feed/:id/like`
+Toggle atomic suka / batal suka pada postingan tertentu.
+- **Autentikasi**: `Bearer <token>`
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "liked": true,
+    "likes_count": 1
+  }
+  ```
+
+---
+
+#### 4. `GET /api/feed/:id/comments?before=<timestamp>&limit=<limit>`
+Mengambil daftar komentar pada postingan terurut kronologis (`created_at ASC`).
+- **Autentikasi**: `Bearer <token>`
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "comments": [
+      {
+        "id": "comment-uuid-1",
+        "tenant_id": "default",
+        "post_id": "post-uuid-1",
+        "content": "Keren sekali fiturnya!",
+        "author": {
+          "id": "user-uuid-2",
+          "username": "budi_wuzz",
+          "display_name": "Budi Santoso",
+          "avatar_url": "",
+          "role": "Software Engineer",
+          "is_verified": true
+        },
+        "created_at": "2026-09-30T14:05:00Z"
+      }
+    ],
+    "next_cursor": "",
+    "has_more": false
+  }
+  ```
+
+---
+
+#### 5. `POST /api/feed/:id/comments`
+Menambahkan komentar baru pada postingan.
+- **Autentikasi**: `Bearer <token>`
+- **Request Body**:
+  ```json
+  {
+    "content": "Komentar teks (1-500 karakter)"
+  }
+  ```
+- **Success Response (201 Created)**: Mengembalikan objek `FeedComment` lengkap.
+
+---
+
+#### 6. `DELETE /api/feed/:id`
+Menghapus postingan komunitas beserta cascade pembersihan seluruh likes dan komentar terkait.
+- **Autentikasi**: `Bearer <token>`
+- **Otorisasi**: Pembuat postingan asli (`user_id == post.user_id`) ATAU staf (`wuzz_admin` / `wuzz_moderator`) dalam tenant yang sama. Pihak lain ditolak dengan `403 Forbidden`.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "success",
+    "message": "Postingan berhasil dihapus"
   }
   ```
 
