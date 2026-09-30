@@ -35,3 +35,5 @@ export * from './ChatMediaGalleryModal';
 export * from './CreatePostModal';
 export * from './PostCommentsModal';
 export * from './SharePostToChatModal';
+export * from './PrivateAccountNoticeModal';
+export * from './ActionConfirmModal';

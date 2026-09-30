@@ -583,6 +583,7 @@ Melihat detail profil publik user lain.
     "avatar_url": "",
     "status_message": "Available",
     "is_verified": false,
+    "is_private_account": false,
     "public_key": "{\"crv\":\"P-256\",\"kty\":\"EC\",...}",
     "key_version": 1,
     "created_at": "2026-09-16T10:00:00Z",

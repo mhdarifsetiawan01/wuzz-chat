@@ -18,11 +18,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, ConversationItem, ConnectionStatusResponse } from '../api/types';
+import { User, ConversationItem, ConnectionStatusResponse, ConnectionStatus } from '../api/types';
 import { getUserProfile, startDirectChat } from '../api/users';
 import { Avatar } from '../components/Avatar';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { EditProfileModal } from '../components/EditProfileModal';
+import { PrivateAccountNoticeModal } from '../components/PrivateAccountNoticeModal';
+import { ActionConfirmModal } from '../components/ActionConfirmModal';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
 import { useConnection } from '../context/ConnectionContext';
@@ -61,9 +63,21 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [isStartingChat, setIsStartingChat] = useState<boolean>(false);
   const [isConnActionLoading, setIsConnActionLoading] = useState<boolean>(false);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
+  const [showUnfriendConfirm, setShowUnfriendConfirm] = useState<boolean>(false);
+  const [noticeModal, setNoticeModal] = useState<{
+    visible: boolean;
+    mode: 'chat' | 'call' | 'general';
+    title?: string;
+    description?: string;
+    connectionStatus?: ConnectionStatus;
+  }>({
+    visible: false,
+    mode: 'chat',
+  });
 
   const targetIdentifier = userId || username || initialUser?.id || initialUser?.username || '';
   const isSelf = Boolean(currentUser && user && currentUser.id === user.id);
+  const isPrivate = Boolean(user?.is_private_account || connStatus?.is_private_account);
 
   const fetchProfile = useCallback(async (isRefresh = false) => {
     if (!targetIdentifier) return;
@@ -112,10 +126,22 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       if (supported) {
         await Linking.openURL(cleanUrl);
       } else {
-        Alert.alert('Tautan Tidak Didukung', `Tidak dapat membuka: ${cleanUrl}`);
+        setNoticeModal({
+          visible: true,
+          mode: 'general',
+          title: 'Tautan Tidak Didukung',
+          description: `Tidak dapat membuka: ${cleanUrl}`,
+          connectionStatus: 'none',
+        });
       }
     } catch {
-      Alert.alert('Gagal Membuka Tautan', 'Periksa kembali URL yang dituju.');
+      setNoticeModal({
+        visible: true,
+        mode: 'general',
+        title: 'Gagal Membuka Tautan',
+        description: 'Periksa kembali tautan yang dituju.',
+        connectionStatus: 'none',
+      });
     }
   }, []);
 
@@ -129,28 +155,47 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           status: 'accepted',
           direction: '',
           connection_id: res.id,
-          is_private_account: Boolean(user.is_private_account),
+          is_private_account: isPrivate,
           can_message: true,
           can_call: true,
         });
-        Alert.alert('Terhubung!', `Kamu dan ${user.display_name} sekarang berteman.`);
+        setNoticeModal({
+          visible: true,
+          mode: 'general',
+          title: 'Terhubung!',
+          description: `Kamu dan ${user.display_name} sekarang telah berteman. Kamu dapat mulai mengirim pesan dan melakukan panggilan.`,
+          connectionStatus: 'accepted',
+        });
       } else {
         setConnStatus({
           status: 'pending',
           direction: 'outgoing',
           connection_id: res.id,
-          is_private_account: Boolean(user.is_private_account),
+          is_private_account: isPrivate,
           can_message: false,
           can_call: false,
         });
-        Alert.alert('Permintaan Terkirim', `Permintaan pertemanan telah dikirim ke ${user.display_name}.`);
+        setNoticeModal({
+          visible: true,
+          mode: 'general',
+          title: 'Permintaan Terkirim',
+          description: `Permintaan pertemanan telah dikirim ke ${user.display_name}. Kamu dapat mengobrol setelah permintaan diterima.`,
+          connectionStatus: 'pending',
+        });
       }
     } catch (err: any) {
-      Alert.alert('Gagal Mengirim Permintaan', err?.message || 'Terjadi kesalahan sistem.');
+      const msg = err?.detail || err?.title || err?.message || 'Terjadi kesalahan sistem saat mengirim permintaan.';
+      setNoticeModal({
+        visible: true,
+        mode: 'general',
+        title: 'Gagal Mengirim Permintaan',
+        description: msg,
+        connectionStatus: connStatus?.status || 'none',
+      });
     } finally {
       setIsConnActionLoading(false);
     }
-  }, [user, sendFriendRequest]);
+  }, [user, isPrivate, connStatus, sendFriendRequest]);
 
   const handleAcceptRequest = useCallback(async () => {
     if (!connStatus?.connection_id) return;
@@ -161,17 +206,30 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         status: 'accepted',
         direction: '',
         connection_id: connStatus.connection_id,
-        is_private_account: Boolean(user?.is_private_account),
+        is_private_account: isPrivate,
         can_message: true,
         can_call: true,
       });
-      Alert.alert('Permintaan Diterima', `Kamu dan ${user?.display_name} sekarang berteman.`);
+      setNoticeModal({
+        visible: true,
+        mode: 'general',
+        title: 'Permintaan Diterima',
+        description: `Kamu dan ${user?.display_name || 'pengguna'} sekarang telah berteman.`,
+        connectionStatus: 'accepted',
+      });
     } catch (err: any) {
-      Alert.alert('Gagal', err?.message || 'Gagal menerima permintaan.');
+      const msg = err?.detail || err?.title || err?.message || 'Gagal menerima permintaan.';
+      setNoticeModal({
+        visible: true,
+        mode: 'general',
+        title: 'Gagal Menerima Permintaan',
+        description: msg,
+        connectionStatus: connStatus?.status || 'none',
+      });
     } finally {
       setIsConnActionLoading(false);
     }
-  }, [connStatus, user, respondFriendRequest]);
+  }, [connStatus, user, isPrivate, respondFriendRequest]);
 
   const handleDeclineRequest = useCallback(async () => {
     if (!connStatus?.connection_id) return;
@@ -181,48 +239,62 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setConnStatus({
         status: 'none',
         direction: '',
-        is_private_account: Boolean(user?.is_private_account),
-        can_message: !user?.is_private_account,
-        can_call: !user?.is_private_account,
+        is_private_account: isPrivate,
+        can_message: !isPrivate,
+        can_call: !isPrivate,
       });
     } catch (err: any) {
-      Alert.alert('Gagal', err?.message || 'Gagal menolak permintaan.');
+      const msg = err?.detail || err?.title || err?.message || 'Gagal menolak permintaan.';
+      setNoticeModal({
+        visible: true,
+        mode: 'general',
+        title: 'Gagal Menolak',
+        description: msg,
+        connectionStatus: connStatus?.status || 'none',
+      });
     } finally {
       setIsConnActionLoading(false);
     }
-  }, [connStatus, user, respondFriendRequest]);
+  }, [connStatus, isPrivate, respondFriendRequest]);
 
-  const handleUnfriendUser = useCallback(async () => {
+  const handleUnfriendUser = useCallback(() => {
     if (!user) return;
-    Alert.alert(
-      'Hapus Pertemanan',
-      `Hapus ${user.display_name} dari daftar teman?`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus',
-          style: 'destructive',
-          onPress: async () => {
-            setIsConnActionLoading(true);
-            try {
-              await unfriend(user.id);
-              setConnStatus({
-                status: 'none',
-                direction: '',
-                is_private_account: Boolean(user.is_private_account),
-                can_message: !user.is_private_account,
-                can_call: !user.is_private_account,
-              });
-            } catch (err: any) {
-              Alert.alert('Gagal', err?.message || 'Gagal menghapus pertemanan.');
-            } finally {
-              setIsConnActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  }, [user, unfriend]);
+    setShowUnfriendConfirm(true);
+  }, [user]);
+
+  const confirmUnfriend = useCallback(async () => {
+    if (!user) return;
+    setIsConnActionLoading(true);
+    try {
+      await unfriend(user.id);
+      setShowUnfriendConfirm(false);
+      setConnStatus({
+        status: 'none',
+        direction: '',
+        is_private_account: isPrivate,
+        can_message: !isPrivate,
+        can_call: !isPrivate,
+      });
+      setNoticeModal({
+        visible: true,
+        mode: 'general',
+        title: 'Pertemanan Dihapus',
+        description: `${user.display_name} telah dihapus dari daftar teman kamu.`,
+        connectionStatus: 'none',
+      });
+    } catch (err: any) {
+      const msg = err?.detail || err?.title || err?.message || 'Gagal menghapus pertemanan.';
+      setNoticeModal({
+        visible: true,
+        mode: 'general',
+        title: 'Gagal Menghapus Pertemanan',
+        description: msg,
+        connectionStatus: connStatus?.status || 'accepted',
+      });
+    } finally {
+      setIsConnActionLoading(false);
+    }
+  }, [user, isPrivate, connStatus, unfriend]);
 
   const handleSendMessage = useCallback(async () => {
     if (!user) return;
@@ -232,30 +304,27 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     }
 
     // Check private account requirement
-    if (user.is_private_account && connStatus?.status !== 'accepted') {
-      Alert.alert(
-        'Akun Privat',
-        `${user.display_name} menggunakan akun privat. Kamu harus berteman terlebih dahulu untuk dapat mengirim pesan langsung.`,
-        [
-          { text: 'Batal', style: 'cancel' },
-          connStatus?.status === 'none'
-            ? {
-                text: 'Tambah Teman',
-                onPress: handleSendFriendRequest,
-              }
-            : { text: 'OK' },
-        ]
-      );
+    if (isPrivate && connStatus?.status !== 'accepted') {
+      setNoticeModal({
+        visible: true,
+        mode: 'chat',
+        title: 'Akun Bersifat Privat',
+        description: `${user.display_name} mengaktifkan mode akun privat. Pesan langsung hanya dapat dikirim setelah kalian saling terhubung sebagai teman.`,
+        connectionStatus: connStatus?.status || 'none',
+      });
       return;
     }
 
     // Check privacy settings
     const dmPolicy = user.metadata?.privacy?.allow_direct_messages;
-    if (dmPolicy === 'friends') {
-      Alert.alert(
-        'Pesan Dibatasi',
-        `${user.display_name} hanya menerima pesan dari pengguna yang terhubung.`
-      );
+    if (dmPolicy === 'friends' && connStatus?.status !== 'accepted') {
+      setNoticeModal({
+        visible: true,
+        mode: 'chat',
+        title: 'Pesan Dibatasi',
+        description: `${user.display_name} hanya menerima pesan langsung dari pengguna yang terhubung sebagai teman.`,
+        connectionStatus: connStatus?.status || 'none',
+      });
       return;
     }
 
@@ -277,32 +346,57 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       onStartChat(conv);
     } catch (err: any) {
       console.warn('[UserProfileScreen] Failed to start direct chat:', err);
-      Alert.alert('Gagal Memulai Obrolan', err?.message || 'Terjadi kesalahan jaringan.');
+      const isForbidden = err?.status === 403;
+      const errorMsg = err?.detail || err?.title || err?.message || 'Tidak dapat memulai percakapan saat ini.';
+
+      if (isForbidden || errorMsg.toLowerCase().includes('privat') || errorMsg.toLowerCase().includes('berteman')) {
+        setNoticeModal({
+          visible: true,
+          mode: 'chat',
+          title: 'Akun Bersifat Privat',
+          description: errorMsg,
+          connectionStatus: connStatus?.status || 'none',
+        });
+      } else {
+        setNoticeModal({
+          visible: true,
+          mode: 'general',
+          title: 'Gagal Memulai Obrolan',
+          description: errorMsg,
+          connectionStatus: connStatus?.status || 'none',
+        });
+      }
     } finally {
       setIsStartingChat(false);
     }
-  }, [user, isSelf, connStatus, handleSendFriendRequest, onStartChat]);
+  }, [user, isSelf, isPrivate, connStatus, onStartChat]);
 
   const handleStartCall = useCallback(async () => {
     if (!user) return;
     if (isSelf) return;
 
     // Check private account requirement
-    if (user.is_private_account && connStatus?.status !== 'accepted') {
-      Alert.alert(
-        'Panggilan Dibatasi',
-        `${user.display_name} menggunakan akun privat. Hanya teman terhubung yang dapat melakukan panggilan.`
-      );
+    if (isPrivate && connStatus?.status !== 'accepted') {
+      setNoticeModal({
+        visible: true,
+        mode: 'call',
+        title: 'Panggilan Dibatasi',
+        description: `${user.display_name} menggunakan akun privat. Hanya teman terhubung yang dapat melakukan panggilan suara atau video.`,
+        connectionStatus: connStatus?.status || 'none',
+      });
       return;
     }
 
     // Check call policy
     const callPolicy = user.metadata?.privacy?.allow_calls;
-    if (callPolicy === 'friends') {
-      Alert.alert(
-        'Panggilan Dibatasi',
-        `${user.display_name} hanya menerima panggilan dari teman terhubung.`
-      );
+    if (callPolicy === 'friends' && connStatus?.status !== 'accepted') {
+      setNoticeModal({
+        visible: true,
+        mode: 'call',
+        title: 'Panggilan Dibatasi',
+        description: `${user.display_name} hanya menerima panggilan dari teman terhubung.`,
+        connectionStatus: connStatus?.status || 'none',
+      });
       return;
     }
 
@@ -311,9 +405,28 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       startCall(res.room_id, user.id, user.display_name, user.avatar_url);
     } catch (err: any) {
       console.warn('[UserProfileScreen] Failed to initiate call:', err);
-      Alert.alert('Panggilan Gagal', 'Tidak dapat menghubungi pengguna saat ini.');
+      const isForbidden = err?.status === 403;
+      const errorMsg = err?.detail || err?.title || err?.message || 'Tidak dapat menghubungi pengguna saat ini.';
+
+      if (isForbidden || errorMsg.toLowerCase().includes('privat') || errorMsg.toLowerCase().includes('berteman')) {
+        setNoticeModal({
+          visible: true,
+          mode: 'call',
+          title: 'Panggilan Dibatasi',
+          description: errorMsg,
+          connectionStatus: connStatus?.status || 'none',
+        });
+      } else {
+        setNoticeModal({
+          visible: true,
+          mode: 'general',
+          title: 'Panggilan Gagal',
+          description: errorMsg,
+          connectionStatus: connStatus?.status || 'none',
+        });
+      }
     }
-  }, [user, isSelf, connStatus, startCall]);
+  }, [user, isSelf, isPrivate, connStatus, startCall]);
 
   const metadata = user?.metadata || {};
   const socialLinks = metadata.social_links || {};
@@ -433,7 +546,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <Text style={styles.primaryActionText}>Edit Profil</Text>
                 </TouchableOpacity>
               </View>
-            ) : user.is_private_account && connStatus?.status !== 'accepted' ? (
+            ) : isPrivate && connStatus?.status !== 'accepted' ? (
               <View style={styles.privateProfileActionsContainer}>
                 {/* Private Account Notice Banner */}
                 <View style={styles.privateNoticeCard}>
@@ -733,6 +846,43 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           }}
         />
       )}
+
+      {/* Private Account Notice Modal */}
+      <PrivateAccountNoticeModal
+        visible={noticeModal.visible}
+        onClose={() => setNoticeModal((prev) => ({ ...prev, visible: false }))}
+        targetUser={
+          user
+            ? {
+                id: user.id,
+                display_name: user.display_name,
+                username: user.username,
+                avatar_url: user.avatar_url,
+              }
+            : null
+        }
+        mode={noticeModal.mode}
+        title={noticeModal.title}
+        description={noticeModal.description}
+        connectionStatus={noticeModal.connectionStatus || connStatus?.status || 'none'}
+        isAddingFriend={isConnActionLoading}
+        onAddFriend={handleSendFriendRequest}
+      />
+
+      {/* Unfriend Confirmation Modal */}
+      <ActionConfirmModal
+        visible={showUnfriendConfirm}
+        onClose={() => setShowUnfriendConfirm(false)}
+        onConfirm={confirmUnfriend}
+        title="Hapus Pertemanan"
+        description={`Apakah kamu yakin ingin menghapus ${user?.display_name || 'pengguna ini'} dari daftar teman kamu?`}
+        confirmTitle="Hapus Teman"
+        cancelTitle="Batal"
+        confirmVariant="danger"
+        isLoading={isConnActionLoading}
+        icon="👤❌"
+        iconBgVariant="danger"
+      />
     </SafeAreaView>
   );
 };

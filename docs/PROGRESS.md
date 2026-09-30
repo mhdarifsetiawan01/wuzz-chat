@@ -4488,5 +4488,26 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Backend Test Suite**: `cd backend && go test -count=1 ./internal/connection/... ./internal/api/...` & `go test ./...` → **PASS (100%, Code 0)**.
 - **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (0 errors, Code 0)**.
 
+---
+
+## 📅 Sesi Pengerjaan 01 Oktober 2026 (Lanjutan) — UI/UX Polish: Private Profile Notice Modal & Friendly Error Handlers
+
+### 1. Rangkuman Perbaikan & Solusi
+1. **Backend Profile Serialization Fix (`backend/internal/authz/entity.go` & `infra/sql_repository.go`)**:
+   - Menambahkan field `IsPrivateAccount bool` ke struct `UserProfile` dan memetakannya dari database di `toUserProfile`.
+   - Mengatasi isu `is_private_account` bernilai `undefined` pada respons `GET /api/users/profile`, yang sebelumnya menyebabkan mobile mendeteksi akun privat sebagai akun publik dan tetap menampilkan tombol "Kirim Pesan".
+2. **Private Account Notice & Action Modals (`mobile/src/components/`)**:
+   - **`PrivateAccountNoticeModal.tsx`**: Menggantikan pop-up native `Alert.alert` kaku dengan dialog modal modern bersudut membulat (`radius.xl`), berlatar belakang redup elegan, dengan ikon visual dinamis 🔒 / 📞, chip user preview (avatar + nama + username), teks penjelasan ramah, serta tombol aksi langsung "+ Tambah Teman" (dengan loading spinner) dan "Nanti Saja".
+   - **`ActionConfirmModal.tsx`**: Komponen konfirmasi aksi berstandar desain WuzzChat untuk menggantikan native alert saat melakukan unfriend atau aksi penting lainnya.
+3. **Resilient Error Extraction & Screen Polish (`mobile/src/screens/UserProfileScreen.tsx`)**:
+   - Menghubungkan deteksi akun privat secara menyeluruh via `isPrivate = Boolean(user?.is_private_account || connStatus?.is_private_account)`.
+   - Mengekstrak pesan kesalahan server dari objek `ApiError` via `err?.detail || err?.title || err?.message` sehingga pesan spesifik dari backend (seperti *"Akun ini privat. Anda harus berteman terlebih dahulu..."*) tidak lagi tertimpa fallback *"Terjadi kesalahan jaringan"*.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Backend Test Suite**: `cd backend && go test ./...` → **PASS (100%, Code 0)**.
+- **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (0 errors, Code 0)**.
+
+
 
 

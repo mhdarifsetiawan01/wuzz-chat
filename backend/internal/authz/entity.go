@@ -79,8 +79,9 @@ type UserProfile struct {
 	SystemRole     string          `json:"system_role"`
 	AvatarURL      string          `json:"avatar_url"`
 	Metadata       json.RawMessage `json:"metadata,omitempty"`
-	IsVerified     bool            `json:"is_verified"`
-	PublicKey      string          `json:"public_key,omitempty"`
+	IsVerified       bool            `json:"is_verified"`
+	IsPrivateAccount bool            `json:"is_private_account"`
+	PublicKey        string          `json:"public_key,omitempty"`
 	KeyVersion     int             `json:"key_version,omitempty"`
 	ActiveDeviceID string          `json:"active_device_id,omitempty"`
 	CreatedAt      time.Time       `json:"created_at"`
