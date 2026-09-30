@@ -32,3 +32,6 @@ export * from './EditProfileModal';
 export * from './DeviceLimitModal';
 export * from './MediaViewerModal';
 export * from './ChatMediaGalleryModal';
+export * from './CreatePostModal';
+export * from './PostCommentsModal';
+export * from './SharePostToChatModal';

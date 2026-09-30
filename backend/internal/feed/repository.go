@@ -14,8 +14,8 @@ type FeedRepository interface {
 	// GetPostByID mengambil postingan tunggal beserta data author dan status like pemanggil.
 	GetPostByID(ctx context.Context, tenantID, postID, currentUserID string) (*FeedPost, error)
 
-	// ListTimeline mengambil daftar postingan linimasa ber-cursor (terurut created_at DESC).
-	ListTimeline(ctx context.Context, tenantID, currentUserID string, before time.Time, limit int) ([]*FeedPost, error)
+	// ListTimeline mengambil daftar postingan linimasa ber-cursor atau acak/explore.
+	ListTimeline(ctx context.Context, tenantID, currentUserID, tab, seed string, before time.Time, offset, limit int) ([]*FeedPost, error)
 
 	// ToggleLike melakukan switch suka/batal suka secara atomic dan mengembalikan state terkini.
 	ToggleLike(ctx context.Context, tenantID, postID, userID string) (liked bool, likesCount int, err error)

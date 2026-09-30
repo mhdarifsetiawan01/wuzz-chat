@@ -1803,13 +1803,18 @@ Mengambil detail memori grup terkurasi lengkap beserta butir keputusan, bukti ku
 
 Modul linimasa sosial komunitas publik yang mendukung cursor pagination, reaksi suka (*atomic toggle*), komentar, pengumuman resmi disematkan (*sticky pinning*), serta otorisasi berjenjang berbasis prefix `wuzz_` (`wuzz_admin`, `wuzz_moderator`, `user`).
 
-#### 1. `GET /api/feed?before=<timestamp>&limit=<limit>`
-Mengambil linimasa postingan komunitas dalam tenant aktif dengan pagination berbasis kursor waktu.
+#### 1. `GET /api/feed?tab=<latest|explore>&before=<timestamp>&offset=<offset>&seed=<seed>&limit=<limit>`
+Mengambil linimasa postingan komunitas dalam tenant aktif dengan dukungan dual tab ("Terbaru" kursor waktu vs "Jelajah" deterministic pseudo-random discovery).
 - **Autentikasi**: `Bearer <token>`
 - **Query Params**:
-  - `before`: *(Opsional)* ISO8601 string / timestamp kursor.
+  - `tab`: *(Opsional)* Mode linimasa: `latest` (default) atau `explore`.
+  - `before`: *(Opsional)* ISO8601 string / timestamp kursor waktu (untuk tab `latest`).
+  - `offset`: *(Opsional)* Integer offset pagination (default `0`, untuk tab `explore`).
+  - `seed`: *(Opsional)* Seed acak (misal Unix timestamp) untuk stabilitas pseudo-random discovery pada tab `explore` agar kartu tidak terduplikasi saat infinite scroll.
   - `limit`: *(Opsional)* Jumlah item (default 20, max 50).
-- **Pengurutan**: `is_pinned DESC, created_at DESC` (postingan yang disematkan admin otomatis selalu di atas).
+- **Pengurutan**:
+  - `latest`: `is_pinned DESC, created_at DESC` (pengumuman disematkan selalu di atas, diikuti postingan terbaru).
+  - `explore`: `is_pinned DESC, md5(id || seed) ASC` (random ordering stabil per sesi).
 - **Success Response (200 OK)**:
   ```json
   {

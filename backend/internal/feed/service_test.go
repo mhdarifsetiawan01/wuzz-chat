@@ -41,7 +41,7 @@ func (m *mockFeedRepository) GetPostByID(ctx context.Context, tenantID, postID, 
 	return &cp, nil
 }
 
-func (m *mockFeedRepository) ListTimeline(ctx context.Context, tenantID, currentUserID string, before time.Time, limit int) ([]*feed.FeedPost, error) {
+func (m *mockFeedRepository) ListTimeline(ctx context.Context, tenantID, currentUserID, tab, seed string, before time.Time, offset, limit int) ([]*feed.FeedPost, error) {
 	var res []*feed.FeedPost
 	for _, p := range m.posts {
 		if p.TenantID == tenantID {
@@ -53,6 +53,9 @@ func (m *mockFeedRepository) ListTimeline(ctx context.Context, tenantID, current
 				res = append(res, &cp)
 			}
 		}
+	}
+	if offset > 0 && offset < len(res) {
+		res = res[offset:]
 	}
 	if len(res) > limit {
 		res = res[:limit]

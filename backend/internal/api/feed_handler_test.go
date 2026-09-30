@@ -299,4 +299,21 @@ func TestFeedHandler_FullFlow(t *testing.T) {
 	if !officialPost.IsPinned || officialPost.PostType != feed.PostTypeAnnouncement {
 		t.Fatalf("Expected pinned announcement, got: %+v", officialPost)
 	}
+
+	// 8. Pengujian Tab Ganda: Tab Explore dengan Seed Acak (GET /api/feed?tab=explore&seed=my_seed_123)
+	reqExplore := httptest.NewRequest(http.MethodGet, "/api/feed?tab=explore&seed=my_seed_123&limit=10", nil)
+	reqExplore = reqExplore.WithContext(auth.SetUserContext(reqExplore.Context(), authorClaims))
+	wExplore := httptest.NewRecorder()
+
+	handler.HandleFeedRoot(wExplore, reqExplore)
+	if wExplore.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK on explore tab, got %d: %s", wExplore.Code, wExplore.Body.String())
+	}
+	var exploreResp feed.FeedTimelineResponse
+	if err := json.Unmarshal(wExplore.Body.Bytes(), &exploreResp); err != nil {
+		t.Fatalf("Failed to parse exploreResp: %v", err)
+	}
+	if len(exploreResp.Posts) == 0 {
+		t.Fatalf("Expected at least 1 post in explore tab, got 0")
+	}
 }

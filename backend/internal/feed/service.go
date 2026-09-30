@@ -106,8 +106,8 @@ func (s *FeedService) GetPostByID(ctx context.Context, tenantID, postID, current
 	return s.repo.GetPostByID(ctx, tenantID, postID, currentUserID)
 }
 
-// ListTimeline mengambil linimasa postingan dengan pagination berbasis cursor waktu.
-func (s *FeedService) ListTimeline(ctx context.Context, tenantID, currentUserID, beforeStr string, limit int) (*FeedTimelineResponse, error) {
+// ListTimeline mengambil linimasa postingan dengan pagination berbasis cursor waktu (tab latest) atau seed-based explore (tab explore).
+func (s *FeedService) ListTimeline(ctx context.Context, tenantID, currentUserID, tab, seed, beforeStr string, offset, limit int) (*FeedTimelineResponse, error) {
 	if tenantID == "" {
 		tenantID = "default"
 	}
@@ -116,6 +116,13 @@ func (s *FeedService) ListTimeline(ctx context.Context, tenantID, currentUserID,
 	}
 	if limit > 50 {
 		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	tab = strings.ToLower(strings.TrimSpace(tab))
+	if tab == "" {
+		tab = "latest"
 	}
 
 	var before time.Time
@@ -130,7 +137,7 @@ func (s *FeedService) ListTimeline(ctx context.Context, tenantID, currentUserID,
 	}
 
 	// Query limit + 1 untuk mengetahui ketersediaan halaman berikutnya (has_more)
-	posts, err := s.repo.ListTimeline(ctx, tenantID, currentUserID, before, limit+1)
+	posts, err := s.repo.ListTimeline(ctx, tenantID, currentUserID, tab, seed, before, offset, limit+1)
 	if err != nil {
 		return nil, err
 	}

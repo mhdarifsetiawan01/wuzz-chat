@@ -4356,6 +4356,43 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` -> **PASS (0 errors)**.
 - **Frontend Web Build**: `cd frontend && npm run build` -> **Compiled successfully Next.js Turbopack (0 errors)**.
 
+---
+
+## 📅 Sesi Pengerjaan 30 September 2026 — Milestone M-Mobile-9.3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop Community Social Feed
+
+### 1. Rangkuman Pengerjaan
+1. **API Client & Contracts (`mobile/src/api/types.ts`, `mobile/src/api/feedApi.ts`)**:
+   - Definisikan tipe antarmuka `FeedPost`, `FeedComment`, `FeedAuthor`, dan `FeedTabKey` (`'latest'` | `'explore'`).
+   - Implementasikan client methods `getTimeline` (dengan param `tab`, `seed`, `before`, `offset`, `limit`), `createPost`, `toggleLike`, `getComments`, `createComment`, dan `deletePost`.
+2. **SQLite Offline Caching Layer & Auto-Pruning (`mobile/src/services/sqliteStorage.ts`)**:
+   - Skema tabel `local_feed_posts` dengan kolom `feed_tab` dan indeks komposit `idx_feed_tab_sort (user_id, feed_tab, is_pinned DESC, created_at DESC)`.
+   - Mengaktifkan WAL mode dan pragma performa SQLite.
+   - Mekanisme **Rolling Window Auto-Pruning Cap**: Setiap kali batch baru disimpan, SQLite otomatis mempertahankan maksimal 50 postingan teratas per tab (`DELETE FROM local_feed_posts ... WHERE id NOT IN (SELECT id ... LIMIT 50)`), menjamin penggunaan storage tetap sangat hemat (< 200 KB per user).
+3. **SWR State Management (`mobile/src/context/FeedContext.tsx`)**:
+   - Cache-first instant rendering: Membaca cache lokal SQLite saat cold start (< 50ms) kemudian melakukan background revalidation ke server.
+   - 0ms Optimistic UI pada interaksi Like dengan atomic rollback jika request jaringan gagal.
+   - Manajemen tab linimasa ganda (`activeTab` `'latest'` vs `'explore'`) dan seed session pseudo-random acak per session untuk mencegah duplikasi konten pada tab Jelajah.
+4. **Komponen Interaktif & Modal (`mobile/src/components/`)**:
+   - `CreatePostModal.tsx`: Modal pembuatan postingan dengan batas karakter 1.000 live counter, pemilih media kamera/galeri via `expo-image-picker` terintegrasi upload media REST, dan kontrol admin (`is_pinned`, `post_type`).
+   - `PostCommentsModal.tsx`: Bottom sheet modal untuk membaca dan menambahkan komentar (maks 500 karakter) dengan pembaruan instan `comments_count`.
+   - `SharePostToChatModal.tsx`: Viral loop akuisisi pengguna untuk meneruskan postingan ke 1–5 ruang obrolan (DM atau Grup) melalui WebSocket realtime dengan preview format `[FEED_POST]`.
+5. **Feed Screen Produksi (`mobile/src/screens/FeedScreen.tsx`)**:
+   - Tab Bar Segmented Pill: `⏱️ Terbaru` dan `🎲 Jelajah`.
+   - Penandaan tipe postingan (`📢 Pengumuman Resmi`, `⭐ Sponsored`, `📰 Artikel`), sticky pinned badge, render media gambar, tombol moderasi hapus untuk admin/author, serta FAB `+` Create Post.
+6. **Backend Query Support untuk Dual Tab & Pseudo-Random Discovery (`backend/internal/`)**:
+   - Pembaruan `sql_repository.go`, `service.go`, dan `feed_handler.go` untuk menerima parameter `tab` dan `seed`.
+   - Implementasi deterministic pseudo-random ordering `is_pinned DESC, md5(p.id || $seed) ASC` (PostgreSQL) / `(p.id || ?) ASC` (SQLite) pada tab `explore`.
+7. **UAT Postingan Sponsored & Admin Role**:
+   - User `semantic` diperbarui menjadi `system_role = 'wuzz_admin'`.
+   - Postingan sampel `sponsored` dengan gambar dan komentar berhasil diuji dan diverifikasi.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript Check**: `cd mobile && npx tsc --noEmit` -> **PASS (0 errors, Code 0)**.
+- **Frontend Web Build**: `cd frontend && npm run build` -> **Compiled successfully Next.js Turbopack (0 errors, Code 0)**.
+- **Backend Full Suite Tests**: `cd backend && go test -v -count=1 ./internal/feed/... ./internal/api/...` -> **PASS (100%)**.
+- **Backend Package All**: `cd backend && go test -count=1 ./...` -> **PASS (100% di semua paket)**.
+
+
 
 
 

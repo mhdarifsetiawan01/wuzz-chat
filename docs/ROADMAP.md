@@ -30,7 +30,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 │ [x] Fase 10: Group Memory AI (M1–M7)      │ 👉 docs/context/BACKEND.md                 │
 │ [x] Fase 11: Multi-Device (Ph 0,1,2,3,5)  │                                            │
 │ [ ] Fase 11: Passkey / WebAuthn (Ph 4)    │                                            │
-│ [ ] Fase 12: Community Feed (Model B)     │                                            │
+│ [x] Fase 12: Community Feed (Model B)     │                                            │
 │ [ ] Fase 9: Monetisasi & Avatar Asset     │                                            │
 │ [ ] Mobile Native Client (Kotlin/Swift)   │                                            │
 └───────────────────────────────────────────┴────────────────────────────────────────────┘
@@ -471,7 +471,7 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
 
 ---
 
-### Fase 12: Community Social Feed & User Acquisition Engine (Model B) (Status: 🔮 TERJADWAL)
+### Fase 12: Community Social Feed & User Acquisition Engine (Model B) (Status: ✅ SELESAI)
 *Tujuan: Membangun linimasa feed publik/komunitas yang interaktif (ala Threads/Twitter) sebagai pintu masuk penemuan konten, interaksi sosial terbuka, dan pertumbuhan pengguna baru (user acquisition).*
 
 - **Tahap 1: Fondasi Profil & Identitas Publik Mobile (Milestone M-Mobile-9.1)**: **SELESAI ✅**
@@ -494,11 +494,11 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
     - `POST /api/feed/:id/comments`: Menambahkan komentar baru.
     - `DELETE /api/feed/:id`: Penghapusan postingan oleh pemilik asli atau admin/moderator.
 
-- **Tahap 3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop (Milestone M-Mobile-9.3)**:
-  - **Arsitektur Feed Cache**: Migrasi `FeedScreen.tsx` dari mock statis `SAMPLE_POSTS` ke SWR Context Layer & persistensi SQLite lokal (`local_feed_posts`) untuk offline reading instan (< 50ms).
-  - **Pembuat Postingan (Create Post)**: Floating Action Button (FAB `+`) yang membuka `CreatePostModal.tsx` dengan dukungan teks, counter karakter, penambahan gambar, dan status pengiriman.
-  - **Interaksi Instan (Optimistic UI)**: Animasi ketuk Like hati (0ms) dengan auto-rollback jika API gagal, serta modal drawer `PostCommentsModal.tsx` untuk membaca dan mengirim komentar.
-  - **Mekanisme Akuisisi Pengguna & Viral Loop**: Tombol "Bagikan ke Obrolan" (Share to Chat) untuk mengirim kartu postingan langsung ke grup atau DM, memicu percakapan dan keterlibatan pengguna lain.
+- **Tahap 3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop (Milestone M-Mobile-9.3) [SELESAI ✅]**:
+  - **Arsitektur Dual Tab & SWR SQLite Cache**: Migrasi `FeedScreen.tsx` dari mock statis `SAMPLE_POSTS` ke SWR Context Layer & persistensi SQLite lokal (`local_feed_posts`) dengan rolling window auto-pruning cap (max 50 posts per tab, < 200 KB) untuk cold-start render instan (< 50ms). Dukungan tab ganda: "⏱️ Terbaru" (kursor waktu) & "🎲 Jelajah" (deterministic pseudo-random discovery via seed).
+  - **Pembuat Postingan (Create Post Modal)**: Floating Action Button (FAB `+`) yang membuka `CreatePostModal.tsx` dengan dukungan teks, live 1.000 char counter, pemilih media kamera/galeri native terintegrasi upload REST, serta kontrol admin (`is_pinned`, `post_type`).
+  - **Interaksi Instan (Optimistic UI)**: Animasi ketuk Like hati 0ms dengan atomic rollback jika server gagal, serta bottom sheet `PostCommentsModal.tsx` untuk membaca dan mengirim komentar dengan sinkronisasi counter live.
+  - **Mekanisme Akuisisi Pengguna & Viral Loop**: Modal `SharePostToChatModal.tsx` untuk meneruskan kartu postingan langsung ke 1–5 ruang obrolan (DM atau Grup) melalui WebSocket dengan preview pesan berformat `[FEED_POST]`.
 
 ---
 

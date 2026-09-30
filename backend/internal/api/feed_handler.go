@@ -118,8 +118,11 @@ func (h *FeedHandler) RouteFeedRequest(w http.ResponseWriter, r *http.Request) {
 
 // listTimeline mengambil linimasa postingan ber-cursor.
 func (h *FeedHandler) listTimeline(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims) {
+	tab := r.URL.Query().Get("tab")
+	seed := r.URL.Query().Get("seed")
 	before := r.URL.Query().Get("before")
 	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
 
 	limit := 20
 	if limitStr != "" {
@@ -128,7 +131,14 @@ func (h *FeedHandler) listTimeline(w http.ResponseWriter, r *http.Request, claim
 		}
 	}
 
-	resp, err := h.feedService.ListTimeline(r.Context(), claims.TenantID, claims.UserID, before, limit)
+	offset := 0
+	if offsetStr != "" {
+		if off, err := strconv.Atoi(offsetStr); err == nil && off >= 0 {
+			offset = off
+		}
+	}
+
+	resp, err := h.feedService.ListTimeline(r.Context(), claims.TenantID, claims.UserID, tab, seed, before, offset, limit)
 	if err != nil {
 		writeFeedError(w, http.StatusInternalServerError, "Gagal mengambil linimasa: "+err.Error())
 		return

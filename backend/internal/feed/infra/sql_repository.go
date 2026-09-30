@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/feed"
@@ -132,17 +133,49 @@ func (r *SQLFeedRepository) GetPostByID(ctx context.Context, tenantID, postID, c
 	return &p, nil
 }
 
-// ListTimeline mengambil linimasa postingan publik ber-cursor (terurut is_pinned DESC, created_at DESC).
-func (r *SQLFeedRepository) ListTimeline(ctx context.Context, tenantID, currentUserID string, before time.Time, limit int) ([]*feed.FeedPost, error) {
+// ListTimeline mengambil linimasa postingan publik ber-cursor (terurut is_pinned DESC, created_at DESC) atau random jika tab == "explore".
+func (r *SQLFeedRepository) ListTimeline(ctx context.Context, tenantID, currentUserID, tab, seed string, before time.Time, offset, limit int) ([]*feed.FeedPost, error) {
 	if limit <= 0 {
 		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if seed == "" {
+		seed = "explore_seed"
 	}
 
 	var query string
 	var rows *sql.Rows
 	var err error
 
-	if before.IsZero() {
+	if strings.ToLower(tab) == "explore" {
+		if r.isPostgres() {
+			query = `SELECT 
+				p.id, p.tenant_id, p.user_id, p.content, p.media_urls, p.post_type, p.is_pinned, p.metadata, p.likes_count, p.comments_count, p.created_at, p.updated_at,
+				u.username, u.display_name, COALESCE(u.avatar_url, ''), COALESCE(u.role, ''), COALESCE(u.is_verified, false),
+				(CASE WHEN l.user_id IS NOT NULL THEN 1 ELSE 0 END) AS is_liked
+			FROM feed_posts p
+			JOIN users u ON p.user_id = u.id
+			LEFT JOIN feed_likes l ON p.id = l.post_id AND l.user_id = $2
+			WHERE p.tenant_id = $1
+			ORDER BY p.is_pinned DESC, md5(p.id || $3)
+			LIMIT $4 OFFSET $5`
+			rows, err = r.db.QueryContext(ctx, query, tenantID, currentUserID, seed, limit, offset)
+		} else {
+			query = `SELECT 
+				p.id, p.tenant_id, p.user_id, p.content, p.media_urls, p.post_type, p.is_pinned, p.metadata, p.likes_count, p.comments_count, p.created_at, p.updated_at,
+				u.username, u.display_name, COALESCE(u.avatar_url, ''), COALESCE(u.role, ''), COALESCE(u.is_verified, false),
+				(CASE WHEN l.user_id IS NOT NULL THEN 1 ELSE 0 END) AS is_liked
+			FROM feed_posts p
+			JOIN users u ON p.user_id = u.id
+			LEFT JOIN feed_likes l ON p.id = l.post_id AND l.user_id = ?
+			WHERE p.tenant_id = ?
+			ORDER BY p.is_pinned DESC, (p.id || ?)
+			LIMIT ? OFFSET ?`
+			rows, err = r.db.QueryContext(ctx, query, currentUserID, tenantID, seed, limit, offset)
+		}
+	} else if before.IsZero() {
 		if r.isPostgres() {
 			query = `SELECT 
 				p.id, p.tenant_id, p.user_id, p.content, p.media_urls, p.post_type, p.is_pinned, p.metadata, p.likes_count, p.comments_count, p.created_at, p.updated_at,

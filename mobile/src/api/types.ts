@@ -36,6 +36,7 @@ export interface User {
   status_message?: string;
   bio?: string;
   role?: string;
+  system_role?: 'wuzz_admin' | 'wuzz_moderator' | 'user' | string;
   metadata?: UserMetadata;
   is_verified?: boolean;
   public_key?: string;
@@ -425,5 +426,75 @@ export interface PinConversationResponse {
   success: boolean;
   room_id: string;
   is_pinned: boolean;
+}
+
+/** Milestone M-Mobile-9.3: Community Social Feed Types */
+export interface FeedAuthor {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  role?: string;
+  system_role?: string;
+  is_verified?: boolean;
+}
+
+export type FeedPostType = 'standard' | 'announcement' | 'article' | 'sponsored' | string;
+export type FeedTabKey = 'latest' | 'explore';
+
+export interface FeedPost {
+  id: string;
+  tenant_id: string;
+  user_id?: string;
+  content: string;
+  media_urls?: string[];
+  post_type: FeedPostType;
+  is_pinned: boolean;
+  metadata?: Record<string, any>;
+  likes_count: number;
+  comments_count: number;
+  is_liked: boolean;
+  author: FeedAuthor;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FeedComment {
+  id: string;
+  tenant_id: string;
+  post_id: string;
+  user_id?: string;
+  content: string;
+  author: FeedAuthor;
+  created_at: string;
+}
+
+export interface FeedTimelineResponse {
+  posts: FeedPost[];
+  next_cursor?: string;
+  has_more: boolean;
+}
+
+export interface FeedCommentsResponse {
+  comments: FeedComment[];
+  next_cursor?: string;
+  has_more: boolean;
+}
+
+export interface FeedLikeResponse {
+  liked: boolean;
+  likes_count: number;
+}
+
+export interface CreateFeedPostRequest {
+  content: string;
+  media_urls?: string[];
+  post_type?: FeedPostType;
+  is_pinned?: boolean;
+  metadata?: Record<string, any>;
+}
+
+export interface CreateFeedCommentRequest {
+  content: string;
 }
 

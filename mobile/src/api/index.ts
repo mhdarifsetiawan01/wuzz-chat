@@ -10,3 +10,4 @@ export * from './groups';
 export * from './subgroups';
 export * from './notifications';
 export * from './transfer';
+export * from './feedApi';

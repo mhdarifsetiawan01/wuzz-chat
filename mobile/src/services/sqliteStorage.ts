@@ -10,7 +10,7 @@
  */
 
 import * as SQLite from 'expo-sqlite';
-import { Conversation, Message, normalizeReactions } from '../api/types';
+import { Conversation, Message, normalizeReactions, FeedPost } from '../api/types';
 
 const DB_NAME = 'wuzzchat.db';
 
@@ -101,11 +101,46 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
         CREATE INDEX IF NOT EXISTS idx_call_user_created 
         ON local_call_logs(user_id, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS local_feed_posts (
+          user_id TEXT NOT NULL,
+          feed_tab TEXT NOT NULL DEFAULT 'latest',
+          id TEXT NOT NULL,
+          tenant_id TEXT,
+          content TEXT,
+          media_urls TEXT,
+          post_type TEXT,
+          is_pinned INTEGER DEFAULT 0,
+          metadata TEXT,
+          likes_count INTEGER DEFAULT 0,
+          comments_count INTEGER DEFAULT 0,
+          is_liked INTEGER DEFAULT 0,
+          author_id TEXT,
+          author_username TEXT,
+          author_display_name TEXT,
+          author_avatar_url TEXT,
+          author_role TEXT,
+          author_is_verified INTEGER DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT,
+          raw_json TEXT NOT NULL,
+          PRIMARY KEY (user_id, feed_tab, id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_feed_tab_sort 
+        ON local_feed_posts(user_id, feed_tab, is_pinned DESC, created_at DESC);
       `);
 
       // Safe schema migration for local_call_logs.room_id (backward-compatibility)
       try {
         await db.runAsync('ALTER TABLE local_call_logs ADD COLUMN room_id TEXT;');
+      } catch {
+        // Column already exists, safe to ignore
+      }
+
+      // Safe schema migration for local_feed_posts.feed_tab
+      try {
+        await db.runAsync("ALTER TABLE local_feed_posts ADD COLUMN feed_tab TEXT NOT NULL DEFAULT 'latest';");
       } catch {
         // Column already exists, safe to ignore
       }
@@ -685,6 +720,252 @@ export async function clearMessageCacheOnly(userId: string): Promise<void> {
     }
   } catch (error) {
     console.warn('[sqliteStorage] Failed to clearMessageCacheOnly:', error);
+  }
+}
+
+/**
+ * Retrieves cached Community Social Feed posts for a specific user.
+ * Sorted by is_pinned DESC, created_at DESC for instant (< 50ms) rendering.
+ */
+export async function getStoredFeedPosts(
+  userId: string,
+  tab: string = 'latest',
+  limit: number = 30
+): Promise<FeedPost[]> {
+  if (!userId) return [];
+
+  try {
+    const db = await getDatabase();
+    const rows = await db.getAllAsync<{ raw_json: string }>(
+      `SELECT raw_json FROM local_feed_posts 
+       WHERE user_id = ? AND feed_tab = ? 
+       ORDER BY is_pinned DESC, created_at DESC 
+       LIMIT ?`,
+      [userId, tab, limit]
+    );
+
+    const posts: FeedPost[] = [];
+    for (const row of rows) {
+      try {
+        const parsed = JSON.parse(row.raw_json) as FeedPost;
+        if (parsed && parsed.id) {
+          posts.push(parsed);
+        }
+      } catch {
+        // Skip corrupted row gracefully
+      }
+    }
+
+    return posts;
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to getStoredFeedPosts:', error);
+    return [];
+  }
+}
+
+/**
+ * Persists an array of Community Social Feed posts to SQLite with Auto-Pruning.
+ * Keeps memory/disk storage footprint strictly capped at max 50 posts per tab (< 200 KB).
+ */
+export async function saveStoredFeedPosts(
+  userId: string,
+  posts: FeedPost[],
+  tab: string = 'latest'
+): Promise<void> {
+  if (!userId || !posts || posts.length === 0) return;
+
+  try {
+    const db = await getDatabase();
+
+    await db.withTransactionAsync(async () => {
+      for (const p of posts) {
+        if (!p.id) continue;
+
+        const isPinned = p.is_pinned ? 1 : 0;
+        const isLiked = p.is_liked ? 1 : 0;
+        const authorVerified = p.author?.is_verified ? 1 : 0;
+        const mediaUrls = JSON.stringify(p.media_urls || []);
+        const metadata = JSON.stringify(p.metadata || {});
+        const rawJson = JSON.stringify(p);
+
+        await db.runAsync(
+          `INSERT OR REPLACE INTO local_feed_posts (
+            user_id, feed_tab, id, tenant_id, content, media_urls, post_type,
+            is_pinned, metadata, likes_count, comments_count, is_liked,
+            author_id, author_username, author_display_name,
+            author_avatar_url, author_role, author_is_verified,
+            created_at, updated_at, raw_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            userId,
+            tab,
+            p.id,
+            p.tenant_id || 'default',
+            p.content || '',
+            mediaUrls,
+            p.post_type || 'standard',
+            isPinned,
+            metadata,
+            p.likes_count || 0,
+            p.comments_count || 0,
+            isLiked,
+            p.author?.id || '',
+            p.author?.username || '',
+            p.author?.display_name || '',
+            p.author?.avatar_url || '',
+            p.author?.role || '',
+            authorVerified,
+            p.created_at || new Date().toISOString(),
+            p.updated_at || new Date().toISOString(),
+            rawJson,
+          ]
+        );
+      }
+
+      // Rolling Window Pruning Cap: keep maximum 50 posts per tab per user
+      await db.runAsync(
+        `DELETE FROM local_feed_posts 
+         WHERE user_id = ? AND feed_tab = ? 
+         AND id NOT IN (
+           SELECT id FROM local_feed_posts 
+           WHERE user_id = ? AND feed_tab = ? 
+           ORDER BY is_pinned DESC, created_at DESC 
+           LIMIT 50
+         )`,
+        [userId, tab, userId, tab]
+      );
+    });
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to saveStoredFeedPosts:', error);
+  }
+}
+
+/**
+ * Optimistically updates the like state and count for a feed post in SQLite.
+ */
+export async function updateStoredFeedPostLike(
+  userId: string,
+  postId: string,
+  isLiked: boolean,
+  likesCount: number
+): Promise<void> {
+  if (!userId || !postId) return;
+
+  try {
+    const db = await getDatabase();
+    // Also update raw_json so subsequent getStoredFeedPosts reflect the change
+    const row = await db.getFirstAsync<{ raw_json: string }>(
+      `SELECT raw_json FROM local_feed_posts WHERE user_id = ? AND id = ?`,
+      [userId, postId]
+    );
+
+    let updatedRawJson = '';
+    if (row?.raw_json) {
+      try {
+        const parsed = JSON.parse(row.raw_json) as FeedPost;
+        parsed.is_liked = isLiked;
+        parsed.likes_count = likesCount;
+        updatedRawJson = JSON.stringify(parsed);
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+
+    if (updatedRawJson) {
+      await db.runAsync(
+        `UPDATE local_feed_posts 
+         SET is_liked = ?, likes_count = ?, raw_json = ? 
+         WHERE user_id = ? AND id = ?`,
+        [isLiked ? 1 : 0, likesCount, updatedRawJson, userId, postId]
+      );
+    } else {
+      await db.runAsync(
+        `UPDATE local_feed_posts 
+         SET is_liked = ?, likes_count = ? 
+         WHERE user_id = ? AND id = ?`,
+        [isLiked ? 1 : 0, likesCount, userId, postId]
+      );
+    }
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to updateStoredFeedPostLike:', error);
+  }
+}
+
+/**
+ * Updates the comments count for a feed post in SQLite.
+ */
+export async function updateStoredFeedPostCommentsCount(
+  userId: string,
+  postId: string,
+  commentsCount: number
+): Promise<void> {
+  if (!userId || !postId) return;
+
+  try {
+    const db = await getDatabase();
+    const row = await db.getFirstAsync<{ raw_json: string }>(
+      `SELECT raw_json FROM local_feed_posts WHERE user_id = ? AND id = ?`,
+      [userId, postId]
+    );
+
+    if (row?.raw_json) {
+      try {
+        const parsed = JSON.parse(row.raw_json) as FeedPost;
+        parsed.comments_count = commentsCount;
+        const updatedRawJson = JSON.stringify(parsed);
+
+        await db.runAsync(
+          `UPDATE local_feed_posts 
+           SET comments_count = ?, raw_json = ? 
+           WHERE user_id = ? AND id = ?`,
+          [commentsCount, updatedRawJson, userId, postId]
+        );
+        return;
+      } catch {
+        // fallback to column update
+      }
+    }
+
+    await db.runAsync(
+      `UPDATE local_feed_posts SET comments_count = ? WHERE user_id = ? AND id = ?`,
+      [commentsCount, userId, postId]
+    );
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to updateStoredFeedPostCommentsCount:', error);
+  }
+}
+
+/**
+ * Removes a deleted feed post from SQLite storage.
+ */
+export async function deleteStoredFeedPost(
+  userId: string,
+  postId: string
+): Promise<void> {
+  if (!userId || !postId) return;
+
+  try {
+    const db = await getDatabase();
+    await db.runAsync(
+      `DELETE FROM local_feed_posts WHERE user_id = ? AND id = ?`,
+      [userId, postId]
+    );
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to deleteStoredFeedPost:', error);
+  }
+}
+
+/**
+ * Clears cached feed posts for a specific user.
+ */
+export async function clearFeedPosts(userId: string): Promise<void> {
+  if (!userId) return;
+
+  try {
+    const db = await getDatabase();
+    await db.runAsync(`DELETE FROM local_feed_posts WHERE user_id = ?`, [userId]);
+  } catch (error) {
+    console.warn('[sqliteStorage] Failed to clearFeedPosts:', error);
   }
 }
 
