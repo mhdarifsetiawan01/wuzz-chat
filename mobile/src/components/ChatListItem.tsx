@@ -23,26 +23,23 @@ function formatChatTime(dateString?: string): string {
   if (isNaN(date.getTime())) return '';
 
   const now = new Date();
-  const isToday =
-    date.getDate() === now.getDate() &&
-    date.getMonth() === now.getMonth() &&
-    date.getFullYear() === now.getFullYear();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
 
-  if (isToday) {
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
+  if (diffSecs < 60) {
+    return 'now';
   }
-
-  const yesterday = new Date();
-  yesterday.setDate(now.getDate() - 1);
-  const isYesterday =
-    date.getDate() === yesterday.getDate() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getFullYear() === yesterday.getFullYear();
-
-  if (isYesterday) {
-    return 'Kemarin';
+  if (diffMins < 60) {
+    return `${diffMins}m ago`;
+  }
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+  if (diffDays < 7) {
+    return `${diffDays}d ago`;
   }
 
   return `${date.getDate()}/${date.getMonth() + 1}`;
@@ -139,12 +136,19 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      style={styles.container}
+      style={[styles.rowContainer, hasUnread && styles.rowUnread]}
       onPress={() => onPress(conversation)}
       onLongPress={onLongPress ? () => onLongPress(conversation) : undefined}
       delayLongPress={300}
     >
-      <Avatar name={displayName} avatarUrl={avatarUrl} size={52} isGroup={isGroup} />
+      <Avatar
+        name={displayName}
+        avatarUrl={avatarUrl}
+        size={54}
+        isGroup={isGroup}
+        shape="circle"
+        unreadCount={unreadCount}
+      />
 
       <View style={styles.content}>
         <View style={styles.topRow}>
@@ -156,6 +160,11 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
               {displayName}
             </Text>
             {conversation.peer_is_verified && <VerifiedBadge size={14} />}
+            {isGroup && (
+              <View style={styles.groupTypeTag}>
+                <Text style={styles.groupTypeTagText}>Group</Text>
+              </View>
+            )}
           </View>
           <Text style={[styles.time, hasUnread && styles.timeUnread]}>
             {timeFormatted}
@@ -170,16 +179,7 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
             {previewText}
           </Text>
 
-          <View style={styles.rightBadges}>
-            {isPinned && <Text style={styles.pinIcon}>📌</Text>}
-            {hasUnread && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadText}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </Text>
-              </View>
-            )}
-          </View>
+          {isPinned && <Text style={styles.pinIcon}>📌</Text>}
         </View>
       </View>
     </TouchableOpacity>
@@ -187,25 +187,28 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
+  rowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.bgBase,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderSubtle,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#f1f5f9',
+  },
+  rowUnread: {
+    backgroundColor: '#fbfdff',
   },
   content: {
     flex: 1,
-    marginLeft: spacing.lg,
+    marginLeft: 14,
     justifyContent: 'center',
   },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   nameContainer: {
     flexDirection: 'row',
@@ -215,16 +218,30 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   name: {
-    ...typography.body,
+    fontSize: 16,
     fontWeight: '600',
+    color: colors.textPrimary,
     flexShrink: 1,
+    letterSpacing: -0.2,
   },
   nameUnread: {
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: '#0f172a',
+  },
+  groupTypeTag: {
+    backgroundColor: colors.tintAccent10,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  groupTypeTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.accentPrimary,
   },
   time: {
-    ...typography.caption,
+    fontSize: 13,
+    fontWeight: '400',
     color: colors.textMuted,
   },
   timeUnread: {
@@ -237,35 +254,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   preview: {
-    ...typography.bodySecondary,
+    fontSize: 14,
+    lineHeight: 20,
     color: colors.textSecondary,
     flex: 1,
     marginRight: spacing.sm,
   },
   previewUnread: {
-    color: colors.textPrimary,
+    color: '#334155',
     fontWeight: '500',
   },
-  rightBadges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   pinIcon: {
-    fontSize: 13,
-  },
-  unreadBadge: {
-    backgroundColor: colors.unreadBadgeBg,
-    borderRadius: radius.full,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  unreadText: {
-    color: colors.unreadBadgeText,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 12,
+    marginLeft: 4,
   },
 });

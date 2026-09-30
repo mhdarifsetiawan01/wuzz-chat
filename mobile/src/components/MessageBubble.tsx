@@ -379,7 +379,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </Text>
                 </View>
               ) : hasCaption ? (
-                <Text style={[styles.messageText, isImage ? styles.captionText : null]}>
+                <Text style={[styles.messageText, !isSelf && styles.messageTextOther, isImage ? styles.captionText : null]}>
                   {message.content}
                 </Text>
               ) : null}
@@ -389,9 +389,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Bubble Footer: Timestamp & Receipt Checkmarks */}
           <View style={[styles.footerRow, isImage && !hasCaption && !isDeleted ? styles.footerOverImage : null]}>
             {message.is_pinned && !isDeleted ? <Text style={styles.pinnedBadgeIcon}>📌</Text> : null}
-            {message.is_edited && !isDeleted ? <Text style={styles.editedLabel}>(diedit)</Text> : null}
+            {message.is_edited && !isDeleted ? <Text style={[styles.editedLabel, !isSelf && styles.editedLabelOther]}>(diedit)</Text> : null}
             {message.is_encrypted && !isDeleted ? <Text style={styles.e2eeLockBadge}>🔒</Text> : null}
-            <Text style={[styles.timeText, isDeleted && styles.timeTextDeleted]}>{timeString}</Text>
+            <Text style={[styles.timeText, !isSelf && styles.timeTextOther, isDeleted && styles.timeTextDeleted]}>{timeString}</Text>
             {isSelf && !isDeleted ? (
               <Text
                 style={[
@@ -601,14 +601,12 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   selfBubble: {
-    backgroundColor: '#1d4ed8', // Dark Royal Blue
+    backgroundColor: '#30AFFF', // Wuzz Identity Blue
     borderBottomRightRadius: 3,
   },
   otherBubble: {
-    backgroundColor: colors.bgCardSolid, // #1e293b
+    backgroundColor: '#334155',
     borderBottomLeftRadius: 3,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
   },
   senderName: {
     fontSize: 12,
@@ -667,7 +665,10 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     lineHeight: 20,
-    color: colors.textPrimary,
+    color: '#ffffff',
+  },
+  messageTextOther: {
+    color: '#ffffff',
   },
   captionText: {
     marginTop: 6,
@@ -736,6 +737,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: 'rgba(255, 255, 255, 0.65)',
   },
+  timeTextOther: {
+    color: 'rgba(255, 255, 255, 0.60)',
+  },
   forwardedRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -757,6 +761,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: 'rgba(255, 255, 255, 0.65)',
   },
+  editedLabelOther: {
+    color: '#94a3b8',
+  },
   pinnedBadgeIcon: {
     fontSize: 10,
   },
@@ -768,7 +775,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.65)',
   },
   receiptRead: {
-    color: '#38bdf8', // Neon Sky Blue
+    color: '#ffffff', // High contrast on #30AFFF bubble
   },
   systemContainer: {
     alignItems: 'center',

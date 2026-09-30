@@ -143,7 +143,7 @@ export const notificationService = {
         name: 'Sebutan & Prioritas',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 500, 250, 500],
-        lightColor: '#3B82F6',
+        lightColor: '#30AFFF',
         sound: 'default',
         enableLights: true,
         enableVibrate: true,

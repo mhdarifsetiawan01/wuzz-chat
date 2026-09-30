@@ -629,9 +629,9 @@ const styles = StyleSheet.create({
   },
   scanSecondaryBtn: {
     flex: 1,
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: colors.tintAccent20,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.4)',
+    borderColor: colors.tintAccent30,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.md,

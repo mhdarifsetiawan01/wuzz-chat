@@ -18,6 +18,7 @@ import { ConversationItem } from '../api/types';
 // ─────────────────────────────────────────────────────────────────────────────
 export type TabParamList = {
   Chats: undefined;
+  Feed: undefined;
   Calls: undefined;
   Settings: undefined;
 };

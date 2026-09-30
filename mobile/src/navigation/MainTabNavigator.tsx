@@ -28,6 +28,7 @@ import { TabParamList, RootStackParamList } from './types';
 import { RecentChatsScreen } from '../screens/RecentChatsScreen';
 import { CallsHistoryScreen } from '../screens/CallsHistoryScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { FeedScreen } from '../screens/FeedScreen';
 import { colors, spacing } from '../theme';
 import { useConversations } from '../context/ConversationContext';
 import { ConversationItem } from '../api/types';
@@ -54,6 +55,7 @@ interface TabConfig {
 
 const TAB_CONFIGS: TabConfig[] = [
   { key: 'Chats',    label: 'Obrolan',    icon: '💬', iconActive: '💬' },
+  { key: 'Feed',     label: 'Feed',       icon: '🌐', iconActive: '🌐' },
   { key: 'Calls',    label: 'Panggilan',  icon: '📞', iconActive: '📞' },
   { key: 'Settings', label: 'Pengaturan', icon: '⚙️',  iconActive: '⚙️'  },
 ];
@@ -187,6 +189,7 @@ export const MainTabNavigator: React.FC = () => {
       }}
     >
       <Tab.Screen name="Chats"    component={ChatsTabScreen} />
+      <Tab.Screen name="Feed"     component={FeedScreen} />
       <Tab.Screen name="Calls"    component={CallsHistoryScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>

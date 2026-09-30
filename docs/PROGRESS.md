@@ -4264,6 +4264,40 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Android Release Build**: `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**.
 - **Physical Device Install**: `adb install -r ...` -> **Success**.
 
+---
+
+## 🎨 Pembaruan Warna Identitas WuzzChat ke #30AFFF & Sinkronisasi Token (30 September 2026)
+
+### 1. Deskripsi & Rincian Perubahan
+- **Latar Belakang & Kebutuhan**:
+  - Pengguna meminta agar warna biru identitas WuzzChat diganti secara menyeluruh menjadi `#30AFFF`.
+- **Rincian Implementasi**:
+  1. **Theme Colors (`mobile/src/theme/colors.ts`)**:
+     - `accentPrimary`: diubah menjadi `#30AFFF`.
+     - `accentHover`: disesuaikan ke `#169de8`.
+     - `borderFocus`: diubah menjadi `#30AFFF`.
+     - `colorVerified` & `unreadBadgeBg`: diubah menjadi `#30AFFF`.
+     - `tintAccent10`, `tintAccent20`, `tintAccent30`: dikonversi menjadi `rgba(48, 175, 255, 0.08 / 0.16 / 0.24)`.
+  2. **Message Bubbles (`mobile/src/components/MessageBubble.tsx`)**:
+     - `selfBubble`: background bubble pesan terkirim diubah ke `#30AFFF`.
+     - `receiptRead`: centang biru tanda telah dibaca diubah ke putih terang (`#ffffff`) dengan kontras tajam di atas bubble `#30AFFF`.
+  3. **Avatar Generator (`mobile/src/components/Avatar.tsx`)**:
+     - Warna biru pada palet `AVATAR_PALETTE` disinkronkan ke `#30AFFF`.
+  4. **Komponen & Layar Mobile**:
+     - Header brand `WuzzChat`: tulisan kata "Wuzz" otomatis mewarisi `#30AFFF`, sedangkan kata "Chat" menggunakan `#f59e0b`.
+     - `ChatListItem.tsx`, `RecentChatsScreen.tsx`, `FeedScreen.tsx`: seluruh hardcoded tint lama diganti menggunakan token `colors.tintAccent10`.
+     - `SafetyNumberModal.tsx`, `ChatInputBar.tsx`, `GroupPreviewModal.tsx`: distandarkan menggunakan token `colors.tintAccent20` dan `colors.tintAccent30`.
+     - `notificationService.ts`: light color notifikasi Android disetel ke `#30AFFF`.
+  5. **Web Design System (`frontend/app/globals.css`)**:
+     - Variabel token `--accent-600` disinkronkan ke `#30AFFF`.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `npx tsc --noEmit` -> **PASS (0 error)**.
+- **Web Frontend Build**: `npm run build` -> **Compiled successfully Next.js Turbopack (0 error)**.
+- **Android Release Build**: `./gradlew assembleRelease` -> **BUILD SUCCESSFUL in 39s**.
+- **Physical Device Install**: `adb install -r ...` -> **Success (Pemasangan Sukses)**.
+
+
 
 
 

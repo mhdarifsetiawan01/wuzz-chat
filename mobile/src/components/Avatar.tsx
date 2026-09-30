@@ -13,16 +13,18 @@ interface AvatarProps {
   size?: number;
   isOnline?: boolean;
   isGroup?: boolean;
+  shape?: 'squircle' | 'circle';
+  unreadCount?: number;
 }
 
 const AVATAR_PALETTE = [
-  '#3b82f6', // blue
-  '#10b981', // emerald
-  '#8b5cf6', // purple
-  '#f59e0b', // amber
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#6366f1', // indigo
+  '#30AFFF', // Wuzz Identity Blue
+  '#0d9488', // Teal
+  '#4f46e5', // Indigo
+  '#f59e0b', // Amber
+  '#ec4899', // Rose
+  '#0284c7', // Sky
+  '#8b5cf6', // Violet
 ];
 
 export function getAvatarColor(name: string): string {
@@ -47,14 +49,18 @@ function getInitials(name: string): string {
 export const Avatar: React.FC<AvatarProps> = ({
   name,
   avatarUrl,
-  size = 48,
+  size = 52,
   isOnline = false,
   isGroup = false,
+  shape = 'circle',
+  unreadCount,
 }) => {
   const [hasImageError, setHasImageError] = React.useState(false);
   const bgColor = isGroup ? colors.accentPrimary : getAvatarColor(name);
   const initials = getInitials(name);
-  const fontSize = Math.floor(size * 0.4);
+  const fontSize = Math.floor(size * 0.38);
+
+  const borderRadius = shape === 'circle' ? size / 2 : Math.round(size * 0.28);
 
   const hasValidHttpUrl =
     !hasImageError &&
@@ -63,12 +69,12 @@ export const Avatar: React.FC<AvatarProps> = ({
     (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://'));
 
   return (
-    <View style={[styles.container, { width: size, height: size, borderRadius: size / 2 }]}>
+    <View style={[styles.container, { width: size, height: size, borderRadius }]}>
       {hasValidHttpUrl ? (
         <Image
           source={{ uri: avatarUrl }}
           onError={() => setHasImageError(true)}
-          style={[styles.image, { width: size, height: size, borderRadius: size / 2 }]}
+          style={[styles.image, { width: size, height: size, borderRadius }]}
         />
       ) : (
         <View
@@ -77,10 +83,8 @@ export const Avatar: React.FC<AvatarProps> = ({
             {
               width: size,
               height: size,
-              borderRadius: size / 2,
+              borderRadius,
               backgroundColor: bgColor,
-              borderWidth: isGroup ? 1.5 : 0,
-              borderColor: isGroup ? colors.colorCyanNeon : 'transparent',
             },
           ]}
         >
@@ -88,20 +92,27 @@ export const Avatar: React.FC<AvatarProps> = ({
         </View>
       )}
 
-      {isOnline && (
+      {/* Unread badge attached to avatar bottom-right (as shown in reference image) */}
+      {unreadCount !== undefined && unreadCount > 0 ? (
+        <View style={styles.unreadBadgeWrapper}>
+          <Text style={styles.unreadBadgeText}>
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Text>
+        </View>
+      ) : isOnline ? (
         <View
           style={[
             styles.onlineDot,
             {
-              width: Math.max(10, size * 0.25),
-              height: Math.max(10, size * 0.25),
+              width: Math.max(10, size * 0.24),
+              height: Math.max(10, size * 0.24),
               borderRadius: radius.full,
             },
           ]}
         />
-      )}
+      ) : null}
 
-      {isGroup && !isOnline && (
+      {isGroup && !isOnline && (!unreadCount || unreadCount <= 0) && (
         <View
           style={[
             styles.groupBadge,
@@ -135,6 +146,31 @@ const styles = StyleSheet.create({
   initialsText: {
     color: '#ffffff',
     fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  unreadBadgeWrapper: {
+    position: 'absolute',
+    bottom: -2,
+    right: -4,
+    backgroundColor: colors.unreadBadgeBg,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderRadius: 12,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  unreadBadgeText: {
+    color: colors.unreadBadgeText,
+    fontSize: 10,
+    fontWeight: '800',
   },
   onlineDot: {
     position: 'absolute',
@@ -142,15 +178,15 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: colors.colorOnline,
     borderWidth: 2,
-    borderColor: colors.bgBase,
+    borderColor: '#ffffff',
   },
   groupBadge: {
     position: 'absolute',
     bottom: -1,
     right: -1,
-    backgroundColor: colors.bgCardSolid,
+    backgroundColor: '#ffffff',
     borderWidth: 1.5,
-    borderColor: colors.accentPrimary,
+    borderColor: colors.borderDefault,
     justifyContent: 'center',
     alignItems: 'center',
   },

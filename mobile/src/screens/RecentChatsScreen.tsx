@@ -8,7 +8,9 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Platform,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -199,6 +201,42 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     });
   }, [conversations, activeFilter, debouncedQuery]);
 
+  const favoriteContacts = useMemo(() => {
+    if (conversations.length > 0) {
+      return conversations.slice(0, 8).map((c) => {
+        const title = c.title || c.peer_nickname || c.name || 'Chat';
+        const firstName = title.trim().split(/\s+/)[0];
+        return {
+          id: c.id || c.room_id || '',
+          name: firstName,
+          fullName: title,
+          avatarUrl: c.avatar_url || c.peer_avatar_url,
+          unreadCount: c.unread_count ?? 0,
+          isOnline: true,
+          conversation: c,
+        };
+      });
+    }
+    // High-fidelity fallback sample matching the user's reference mockup (Kate, Kenneth, Tina, Adam)
+    return [
+      { id: 'fav_1', name: 'Kate', fullName: 'Kate Winslet', avatarUrl: '', unreadCount: 0, isOnline: true },
+      { id: 'fav_2', name: 'Kenneth', fullName: 'Kenneth Cole', avatarUrl: '', unreadCount: 3, isOnline: true },
+      { id: 'fav_3', name: 'Tina', fullName: 'Tina Turner', avatarUrl: '', unreadCount: 0, isOnline: false },
+      { id: 'fav_4', name: 'Adam', fullName: 'Adam Levine', avatarUrl: '', unreadCount: 0, isOnline: true },
+    ];
+  }, [conversations]);
+
+  const handleFavoriteContactPress = useCallback(
+    (item: (typeof favoriteContacts)[number]) => {
+      if ('conversation' in item && item.conversation && onSelectChat) {
+        onSelectChat(item.conversation);
+      } else if (onStartNewChat) {
+        onStartNewChat();
+      }
+    },
+    [onSelectChat, onStartNewChat]
+  );
+
   const handleConfirmLogout = () => {
     setIsActionMenuOpen(false);
     Alert.alert(
@@ -220,16 +258,16 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
       return (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>🔍</Text>
-          <Text style={styles.emptyTitle}>Tidak Ada Hasil</Text>
+          <Text style={styles.emptyTitle}>No Results Found</Text>
           <Text style={styles.emptySubtitle}>
-            Tidak ada obrolan yang cocok dengan &quot;{searchQuery}&quot;. Periksa kembali kata kunci atau ejaan Anda.
+            No conversations matching &quot;{searchQuery}&quot;. Check your spelling or try another keyword.
           </Text>
           <TouchableOpacity
             style={styles.clearFilterBtn}
             onPress={() => setSearchQuery('')}
             activeOpacity={0.8}
           >
-            <Text style={styles.clearFilterBtnText}>Hapus Pencarian</Text>
+            <Text style={styles.clearFilterBtnText}>Clear Search</Text>
           </TouchableOpacity>
         </View>
       );
@@ -239,16 +277,16 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
       return (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>✅</Text>
-          <Text style={styles.emptyTitle}>Semua Sudah Dibaca</Text>
+          <Text style={styles.emptyTitle}>All Caught Up</Text>
           <Text style={styles.emptySubtitle}>
-            Bagus! Tidak ada obrolan dengan pesan baru yang belum Anda baca.
+            You have no unread conversations at this time.
           </Text>
           <TouchableOpacity
             style={styles.clearFilterBtn}
             onPress={() => setActiveFilter('all')}
             activeOpacity={0.8}
           >
-            <Text style={styles.clearFilterBtnText}>Lihat Semua Chat</Text>
+            <Text style={styles.clearFilterBtnText}>Show All Chats</Text>
           </TouchableOpacity>
         </View>
       );
@@ -258,17 +296,17 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
       return (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>👥</Text>
-          <Text style={styles.emptyTitle}>Belum Ada Grup</Text>
+          <Text style={styles.emptyTitle}>No Groups Yet</Text>
           <Text style={styles.emptySubtitle}>
-            Anda belum bergabung atau memiliki obrolan grup percakapan.
+            You haven't joined or created any group conversations yet.
           </Text>
-          {onStartNewChat && (
+          {onStartNewGroup && (
             <TouchableOpacity
               style={styles.startChatBtn}
-              onPress={onStartNewChat}
-              activeOpacity={0.8}
+              onPress={onStartNewGroup}
+              activeOpacity={0.85}
             >
-              <Text style={styles.startChatBtnText}>+ Buat Obrolan Baru</Text>
+              <Text style={styles.startChatBtnText}>+ New Group</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -278,17 +316,17 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>💬</Text>
-        <Text style={styles.emptyTitle}>Belum Ada Obrolan</Text>
+        <Text style={styles.emptyTitle}>No Messages Yet</Text>
         <Text style={styles.emptySubtitle}>
-          Daftar kontak dan pesan baru Anda akan muncul di sini. Tarik ke bawah untuk memuat ulang.
+          Your recent conversations and contacts will appear here.
         </Text>
         {onStartNewChat && (
           <TouchableOpacity
             style={styles.startChatBtn}
             onPress={onStartNewChat}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            <Text style={styles.startChatBtnText}>+ Mulai Chat Baru</Text>
+            <Text style={styles.startChatBtnText}>+ Start a Chat</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -297,42 +335,44 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Brand Header */}
+      {/* Clean Top Header — Reference Image 1 */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.brandTitle}>WuzzChat</Text>
-          <View style={styles.statusRow}>
+        <View style={styles.headerTitleRow}>
+          <Text style={styles.headerTitle}>
+            <Text style={{ color: colors.accentPrimary }}>Wuzz</Text>
+            <Text style={{ color: '#f59e0b' }}>Chat</Text>
+          </Text>
+          <View style={styles.statusDotIndicator}>
             <View
               style={[
                 styles.statusDot,
                 wsState === 'connected' ? styles.statusDotOnline : styles.statusDotOffline,
               ]}
             />
-            <Text style={styles.statusText}>{getStatusText()}</Text>
           </View>
         </View>
 
-        <View style={styles.headerRight}>
+        <View style={styles.headerRightActions}>
           <TouchableOpacity
             onPress={() => setIsActionMenuOpen(true)}
             activeOpacity={0.7}
-            style={styles.headerIconButton}
+            style={styles.headerActionButton}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityLabel="Menu Aksi"
+            accessibilityLabel="Menu"
           >
-            <Text style={styles.headerIconText}>⋮</Text>
+            <Text style={styles.headerActionIcon}>⋮</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Search Bar (Debounced) - DESIGN.md Section 3 */}
+      {/* Clean Search Input */}
       <View style={styles.searchBarContainer}>
         <View style={styles.searchInputWrapper}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Cari obrolan atau kontak..."
-            placeholderTextColor={colors.textMuted}
+            placeholder="Search messages..."
+            placeholderTextColor="#94a3b8"
             value={searchQuery}
             onChangeText={setSearchQuery}
             returnKeyType="search"
@@ -352,12 +392,42 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
         </View>
       </View>
 
-      {/* Filter Tabs (Semua, Belum Dibaca, Grup) - DESIGN.md Section 3 */}
+      {/* FAVORITE CONTACTS Section — Reference Image 1 */}
+      <View style={styles.favoritesSection}>
+        <Text style={styles.favoritesSectionTitle}>FAVORITE CONTACTS</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.favoritesScrollContent}
+        >
+          {favoriteContacts.map((contact, idx) => (
+            <TouchableOpacity
+              key={contact.id || String(idx)}
+              style={styles.favoriteCard}
+              onPress={() => handleFavoriteContactPress(contact)}
+              activeOpacity={0.75}
+            >
+              <Avatar
+                name={contact.fullName || contact.name}
+                avatarUrl={contact.avatarUrl}
+                size={44}
+                shape="circle"
+                unreadCount={contact.unreadCount}
+              />
+              <Text style={styles.favoriteCardName} numberOfLines={1}>
+                {contact.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Filter Tabs (All, Unread, Groups) */}
       <View style={styles.filterTabsContainer}>
         <TouchableOpacity
           style={[styles.filterChip, activeFilter === 'all' && styles.filterChipActive]}
           onPress={() => setActiveFilter('all')}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           <Text
             style={[
@@ -365,14 +435,14 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
               activeFilter === 'all' && styles.filterChipTextActive,
             ]}
           >
-            Semua
+            All
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.filterChip, activeFilter === 'unread' && styles.filterChipActive]}
           onPress={() => setActiveFilter('unread')}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           <Text
             style={[
@@ -380,7 +450,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
               activeFilter === 'unread' && styles.filterChipTextActive,
             ]}
           >
-            Belum Dibaca
+            Unread
           </Text>
           {unreadCount > 0 && (
             <View style={styles.filterBadge}>
@@ -392,7 +462,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
         <TouchableOpacity
           style={[styles.filterChip, activeFilter === 'groups' && styles.filterChipActive]}
           onPress={() => setActiveFilter('groups')}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           <Text
             style={[
@@ -400,7 +470,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
               activeFilter === 'groups' && styles.filterChipTextActive,
             ]}
           >
-            Grup
+            Groups
           </Text>
           {groupsCount > 0 && (
             <View style={styles.filterCountTag}>
@@ -410,52 +480,39 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Main Conversation List */}
+      {/* Main Conversation List (Pure White Rows with subtle dividers) */}
       {isLoading && !isRefreshing ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.accentPrimary} />
-          <Text style={styles.loadingText}>Memuat obrolan...</Text>
+          <Text style={styles.loadingText}>Loading messages...</Text>
         </View>
       ) : (
-        <FlatList
-          data={filteredConversations}
-          keyExtractor={(item, index) => item.id || item.room_id || String(index)}
-          renderItem={({ item }) => (
-            <ChatListItem
-              conversation={item}
-              onPress={handleChatPress}
-              onLongPress={handleChatLongPress}
-            />
-          )}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: Math.max(insets.bottom + 88, 100) },
-          ]}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={() => refreshConversations(false)}
-              tintColor={colors.accentPrimary}
-              colors={[colors.accentPrimary]}
-            />
-          }
-          ListEmptyComponent={renderEmptyState}
-        />
-      )}
-
-      {/* WhatsApp Floating Action Button (FAB) */}
-      {onStartNewChat && (
-        <TouchableOpacity
-          style={[
-            styles.fab,
-            { bottom: Math.max(insets.bottom + spacing.lg, spacing.xl) },
-          ]}
-          onPress={onStartNewChat}
-          activeOpacity={0.8}
-          accessibilityLabel="Mulai Chat Baru"
-        >
-          <Text style={styles.fabIcon}>💬</Text>
-        </TouchableOpacity>
+        <View style={styles.listWrapper}>
+          <FlatList
+            data={filteredConversations}
+            keyExtractor={(item, index) => item.id || item.room_id || String(index)}
+            renderItem={({ item }) => (
+              <ChatListItem
+                conversation={item}
+                onPress={handleChatPress}
+                onLongPress={handleChatLongPress}
+              />
+            )}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: Math.max(insets.bottom + 88, 100) },
+            ]}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={() => refreshConversations(false)}
+                tintColor={colors.accentPrimary}
+                colors={[colors.accentPrimary]}
+              />
+            }
+            ListEmptyComponent={renderEmptyState}
+          />
+        </View>
       )}
 
       {/* Aurora Action Bottom Sheet Menu */}
@@ -534,6 +591,22 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
         initialMode="share"
         onClose={() => setIsDeviceTransferModalOpen(false)}
       />
+
+      {/* FAB — New Chat Bubble (floating bottom-right, above tab bar) */}
+      {onStartNewChat && (
+        <TouchableOpacity
+          style={[
+            styles.fab,
+            { bottom: Math.max(insets.bottom + 56, 72) },
+          ]}
+          onPress={onStartNewChat}
+          activeOpacity={0.82}
+          accessibilityLabel="Mulai obrolan baru"
+          accessibilityRole="button"
+        >
+          <Text style={styles.fabIcon}>💬</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -547,29 +620,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.bgSurface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderDefault,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 6,
+    backgroundColor: colors.bgBase,
   },
-  headerLeft: {
-    flexDirection: 'column',
-  },
-  brandTitle: {
-    ...typography.h2,
-    color: colors.textPrimary,
-  },
-  statusRow: {
+  headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+  },
+  headerTitle: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  statusDotIndicator: {
+    marginLeft: 8,
+    padding: 2,
   },
   statusDot: {
     width: 8,
     height: 8,
-    borderRadius: radius.full,
-    marginRight: 6,
+    borderRadius: 4,
   },
   statusDotOnline: {
     backgroundColor: colors.colorOnline,
@@ -577,134 +650,189 @@ const styles = StyleSheet.create({
   statusDotOffline: {
     backgroundColor: colors.textMuted,
   },
-  statusText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  headerRight: {
+  headerRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 10,
   },
-  headerIconButton: {
-    borderRadius: radius.full,
-    backgroundColor: colors.bgElevated,
+  headerActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    width: 40,
-    height: 40,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
   },
-  headerIconText: {
+  headerActionIcon: {
     fontSize: 18,
+    color: '#475569',
   },
-  avatarButton: {
-    borderRadius: radius.full,
-    width: 40,
-    height: 40,
+  fab: {
+    position: 'absolute',
+    right: 20,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: colors.accentPrimary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 2,
+    elevation: 6,
+    shadowColor: colors.accentPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+  },
+  fabIcon: {
+    fontSize: 26,
   },
   searchBarContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xs,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
     backgroundColor: colors.bgBase,
   },
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.bgInput,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.borderDefault,
-    paddingHorizontal: spacing.md,
-    height: 44,
+    backgroundColor: '#eef2f6',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 42,
   },
   searchIcon: {
-    fontSize: 16,
-    marginRight: spacing.sm,
-    color: colors.textMuted,
+    fontSize: 15,
+    marginRight: 8,
+    color: '#94a3b8',
   },
   searchInput: {
     flex: 1,
-    ...typography.body,
     color: colors.textPrimary,
+    fontSize: 14,
     paddingVertical: 0,
     height: '100%',
   },
   clearSearchButton: {
-    padding: spacing.xs,
+    padding: 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
   clearSearchIcon: {
-    fontSize: 14,
-    color: colors.textMuted,
+    fontSize: 13,
+    color: '#94a3b8',
     fontWeight: 'bold',
+  },
+  favoritesSection: {
+    paddingTop: 10,
+    paddingBottom: 12,
+    backgroundColor: colors.bgBase,
+  },
+  favoritesSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94a3b8',
+    letterSpacing: 0.8,
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  favoritesScrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 4,
+    gap: 12,
+  },
+  favoriteCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    width: 72,
+    paddingVertical: 10,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    borderWidth: Platform.OS === 'ios' ? 0.5 : 0,
+    borderColor: '#edf2f7',
+  },
+  favoriteCardName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: 6,
+    textAlign: 'center',
   },
   filterTabsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+    gap: 8,
     backgroundColor: colors.bgBase,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-    borderRadius: radius.full,
-    backgroundColor: colors.bgElevated,
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    minHeight: 34,
+    borderColor: '#e2e8f0',
+    minHeight: 24,
   },
   filterChipActive: {
-    backgroundColor: colors.tintAccent20,
-    borderColor: colors.borderFocus,
+    backgroundColor: colors.accentPrimary,
+    borderColor: colors.accentPrimary,
   },
   filterChipText: {
-    ...typography.captionBold,
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   filterChipTextActive: {
-    color: colors.textPrimary,
+    color: '#ffffff',
     fontWeight: '700',
   },
   filterBadge: {
     marginLeft: 6,
-    backgroundColor: colors.unreadBadgeBg,
-    borderRadius: radius.full,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 5,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
     justifyContent: 'center',
     alignItems: 'center',
   },
   filterBadgeText: {
     fontSize: 10,
-    fontWeight: '700',
-    color: colors.textOnAccent,
+    fontWeight: '800',
+    color: colors.accentPrimary,
   },
   filterCountTag: {
     marginLeft: 6,
-    backgroundColor: colors.bgSurface,
-    borderRadius: radius.full,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 5,
+    backgroundColor: '#edf2f7',
+    borderRadius: 10,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 0.5,
-    borderColor: colors.borderDefault,
   },
   filterCountTagText: {
     fontSize: 10,
     fontWeight: '600',
-    color: colors.textSecondary,
+    color: '#64748b',
+  },
+  listWrapper: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
   },
   listContent: {
     flexGrow: 1,
@@ -713,86 +841,70 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#ffffff',
   },
   loadingText: {
-    ...typography.bodySecondary,
+    fontSize: 13,
     color: colors.textSecondary,
-    marginTop: spacing.md,
+    marginTop: 12,
   },
   emptyContainer: {
     flex: 1,
-    paddingTop: 80,
-    paddingHorizontal: spacing.xxl,
+    paddingTop: 60,
+    paddingHorizontal: 32,
     alignItems: 'center',
   },
   emptyIcon: {
-    fontSize: 48,
-    marginBottom: spacing.md,
+    fontSize: 40,
+    marginBottom: 12,
   },
   emptyTitle: {
-    ...typography.h3,
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    marginBottom: 6,
     textAlign: 'center',
   },
   emptySubtitle: {
-    ...typography.bodySecondary,
+    fontSize: 13,
     color: colors.textMuted,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 19,
+    maxWidth: 280,
   },
   startChatBtn: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: radius.full,
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
     backgroundColor: colors.accentPrimary,
   },
   startChatBtnText: {
-    ...typography.button,
-    color: colors.textOnAccent,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ffffff',
   },
   clearFilterBtn: {
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.full,
-    backgroundColor: colors.bgElevated,
-    borderWidth: 1,
-    borderColor: colors.borderDefault,
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: '#e2e8f0',
   },
   clearFilterBtnText: {
-    ...typography.captionBold,
-    color: colors.textSecondary,
-  },
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: colors.accentPrimary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-  },
-  fabIcon: {
-    fontSize: 26,
-    color: colors.textOnAccent,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   actionProfileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.bgElevated,
-    borderRadius: radius.lg,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.borderDefault,
+    borderColor: '#e2e8f0',
   },
   actionProfileInfo: {
     marginLeft: spacing.md,
@@ -810,16 +922,15 @@ const styles = StyleSheet.create({
   },
   actionE2eeBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.tintSuccess10,
+    backgroundColor: colors.tintAccent10,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: radius.xs,
+    borderRadius: 6,
     marginTop: 4,
   },
   actionE2eeText: {
-    ...typography.caption,
     fontSize: 11,
-    color: colors.colorOnline,
+    color: colors.accentPrimary,
     fontWeight: '600',
   },
   actionMenuList: {

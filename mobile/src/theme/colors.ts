@@ -4,52 +4,58 @@
  */
 
 export const colors = {
-  // Background & Surface
-  bgBase: '#090d16',
-  bgSurface: 'rgba(15, 23, 42, 0.72)',
-  bgSurfaceHover: 'rgba(30, 41, 59, 0.8)',
-  bgElevated: 'rgba(30, 41, 59, 0.65)',
-  bgOverlay: 'rgba(15, 23, 42, 0.85)',
-  bgCard: 'rgba(30, 41, 59, 0.95)',
-  bgCardSolid: '#1e293b',
-  bgInput: 'rgba(15, 23, 42, 0.6)',
-  bgInputFocused: 'rgba(15, 23, 42, 0.85)',
+  // Background & Surface (Clean Soft-Blue Modern - Image Reference)
+  bgBase: '#f4f7fb',          // Soft Ice-Blue clean canvas
+  bgSurface: '#ffffff',       // Pure clean white cards & list rows
+  bgSurfaceHover: '#edf2f7',  // Pressed row state
+  bgElevated: '#ffffff',      // Header, modals, floating tab bar
+  bgOverlay: 'rgba(15, 23, 42, 0.45)',
+  bgCard: '#ffffff',          // Pure white card surfaces
+  bgCardSolid: '#ffffff',
+  bgInput: '#eef2f6',         // Soft pill input background
+  bgInputFocused: '#e2e8f0',
 
-  // Border & Glass
-  borderSubtle: 'rgba(255, 255, 255, 0.07)',
-  borderDefault: 'rgba(255, 255, 255, 0.12)',
-  borderStrong: 'rgba(147, 197, 253, 0.25)',
-  borderFocus: 'rgba(59, 130, 246, 0.5)',
+  // Border & Dividers
+  borderSubtle: '#f1f5f9',    // Ultra-subtle hairline dividers
+  borderDefault: '#e2e8f0',   // Clean separator line
+  borderStrong: '#cbd5e1',
+  borderFocus: '#30AFFF',
 
-  // Text
-  textPrimary: '#f8fafc',
-  textSecondary: '#94a3b8',
-  textMuted: '#64748b',
-  textInverse: '#090d16',
+  // Text Hierarchy
+  textPrimary: '#0f172a',     // Deep Slate Black (crisp typography)
+  textSecondary: '#64748b',   // Muted Slate (message snippet, timestamps)
+  textMuted: '#94a3b8',       // Section labels, placeholders
+  textInverse: '#ffffff',
   textOnAccent: '#ffffff',
 
-  // Accent & Tints
-  accentPrimary: '#3b82f6',
-  accentHover: '#2563eb',
-  tintAccent10: 'rgba(59, 130, 246, 0.10)',
-  tintAccent20: 'rgba(59, 130, 246, 0.20)',
-  tintAccent30: 'rgba(59, 130, 246, 0.30)',
-  tintError10: 'rgba(239, 68, 68, 0.10)',
-  tintError20: 'rgba(239, 68, 68, 0.20)',
-  tintSuccess10: 'rgba(16, 185, 129, 0.10)',
-  tintWarning10: 'rgba(251, 191, 36, 0.10)',
+  // Accent & Tints (Wuzz Soft Azure / Cobalt - #30AFFF)
+  accentPrimary: '#30AFFF',   // Vibrant Identity Blue (#30AFFF)
+  accentHover: '#169de8',
+  tintAccent10: 'rgba(48, 175, 255, 0.08)',
+  tintAccent20: 'rgba(48, 175, 255, 0.16)',
+  tintAccent30: 'rgba(48, 175, 255, 0.24)',
+  tintError10: 'rgba(239, 68, 68, 0.08)',
+  tintError20: 'rgba(239, 68, 68, 0.16)',
+  tintSuccess10: 'rgba(16, 185, 129, 0.08)',
+  tintWarning10: 'rgba(245, 158, 11, 0.08)',
 
   // Status & Semantic
-  colorOnline: '#34d399',
-  colorError: '#f87171',
-  colorWarning: '#fbbf24',
+  colorOnline: '#10b981',     // Vibrant Emerald green dot
+  colorError: '#ef4444',
+  colorWarning: '#f59e0b',
   colorSuccess: '#10b981',
   colorDanger: '#ef4444',
-  colorVerified: '#38bdf8',
-  colorCyanNeon: '#00f2fe',
+  colorVerified: '#30AFFF',
+  colorCyanNeon: '#0ea5e9',
 
-  // Unread badge & notifications
-  unreadBadgeBg: '#2563eb',
+  // Compatibility & Key Accents
+  monoAmber: '#f59e0b',
+  monoAmberDark: '#d97706',
+  monoIceCyan: '#0ea5e9',
+  monoSteelBlue: '#e2e8f0',
+
+  // Unread badge on avatar (Vibrant Soft-Blue / Violet badge)
+  unreadBadgeBg: '#30AFFF',
   unreadBadgeText: '#ffffff',
 } as const;
 
