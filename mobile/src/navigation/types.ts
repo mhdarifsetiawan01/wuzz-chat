@@ -48,9 +48,12 @@ export type RootStackParamList = {
   GroupInfo: {
     groupId: string;
   };
-  // Future screens can be added here easily:
-  // UserProfile: { userId: string };
-  // MediaGallery: { roomId: string };
+  /** Public user profile screen */
+  UserProfile: {
+    userId?: string;
+    username?: string;
+    initialUser?: import('../api/types').User;
+  };
 };
 
 export type RootStackNavigationProp<T extends keyof RootStackParamList> =

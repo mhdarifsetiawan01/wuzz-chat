@@ -9,7 +9,10 @@
 //	                                      authz/infra/sql_repository.go (implementation)
 package authz
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // --- Login & Register Results ---
 
@@ -67,15 +70,18 @@ type UserSummary struct {
 
 // UserProfile merepresentasikan profil publik lengkap dari seorang pengguna.
 type UserProfile struct {
-	ID             string    `json:"id"`
-	Username       string    `json:"username"`
-	DisplayName    string    `json:"display_name"`
-	StatusMessage  string    `json:"status_message"`
-	AvatarURL      string    `json:"avatar_url"`
-	IsVerified     bool      `json:"is_verified"`
-	PublicKey      string    `json:"public_key,omitempty"`
-	KeyVersion     int       `json:"key_version,omitempty"`
-	ActiveDeviceID string    `json:"active_device_id,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID             string          `json:"id"`
+	Username       string          `json:"username"`
+	DisplayName    string          `json:"display_name"`
+	StatusMessage  string          `json:"status_message"`
+	Bio            string          `json:"bio"`
+	Role           string          `json:"role"`
+	AvatarURL      string          `json:"avatar_url"`
+	Metadata       json.RawMessage `json:"metadata,omitempty"`
+	IsVerified     bool            `json:"is_verified"`
+	PublicKey      string          `json:"public_key,omitempty"`
+	KeyVersion     int             `json:"key_version,omitempty"`
+	ActiveDeviceID string          `json:"active_device_id,omitempty"`
+	CreatedAt      time.Time       `json:"created_at"`
 }
 

@@ -231,9 +231,20 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+### Milestone M-Mobile-9.1: Fondasi Profil & Identitas Publik Mobile Fleksibel & Multi-Tenant (SELESAI - 30/09/2026)
+- **Status**: ✅ **Selesai (Completed & Verified)**.
+- **Implementasi**:
+  - Backend: Kolom `bio`, `role`, dan `metadata JSONB/TEXT` di `users` dengan auto-migration non-destruktif. Struct `User` dan query `UserStore` mendukung pembacaan dan update metadata fleksibel dengan isolasi `tenant_id`. Endpoint `PUT /api/auth/profile` diperbarui untuk menerima field profil publik.
+  - Mobile Contracts & Image Picker: Perluasan tipe `User`, `SocialLinks`, `UserPrivacySettings`, `UserMetadata`, serta integrasi `expo-image-picker` di mobile untuk upload avatar native via `mediaApi.uploadMedia()`.
+  - Modular UI (`UserProfileScreen.tsx`): Komponen layar profil publik modular dengan Avatar 96px, `VerifiedBadge`, role, bio, kartu lokasi & website, grid medsos interaktif (IG, YT, LinkedIn, TikTok), kartu E2EE fingerprint, dan action button pesan/panggilan berbasis policy privasi.
+  - Form Pengeditan Profil (`EditProfileModal.tsx` & `SettingsScreen.tsx`): Form lengkap dengan preview avatar, indikator upload, validasi karakter bio, link sosmed, dan konfigurasi privasi DM/panggilan.
+- **Verifikasi**: `npx tsc --noEmit` -> **0 errors**, `go test ./...` -> **100% PASS**, `npm run build` -> **0 errors**.
+
+---
+
 ## Fokus Berikutnya (What's Next)
 - [ ] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
-  - [ ] **Tahap 1 (M-Mobile-9.1)**: Fondasi Profil & Identitas Publik Mobile (`bio`, `role` di `users`, upload avatar kamera/galeri mobile, `UserProfileScreen.tsx`).
+  - [x] **Tahap 1 (M-Mobile-9.1)**: Fondasi Profil & Identitas Publik Mobile (`bio`, `role`, `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, `UserProfileScreen.tsx`).
   - [ ] **Tahap 2 (M-Mobile-9.2)**: Spesifikasi Domain, Skema DB & Backend Go Engine (`docs/domains/COMMUNITY_FEED.md`, `feed_posts`, `feed_likes`, `feed_comments`, REST API `/api/feed`).
   - [ ] **Tahap 3 (M-Mobile-9.3)**: Integrasi Real Mobile UI, Interaksi & Viral Share Loop (`FeedScreen.tsx` SWR cache, FAB Create Post, Likes/Comments, Share to Chat).
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.

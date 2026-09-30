@@ -36,6 +36,8 @@ export interface GroupInfoScreenProps {
   onGroupUpdated?: (updated: GroupDetails) => void;
   /** M-Mobile-8.2B: Opens SubGroupListModal for this group. */
   onOpenForum?: (groupId: string) => void;
+  /** Opens UserProfileScreen for a specific member */
+  onOpenUserProfile?: (userId: string) => void;
 }
 
 function formatDate(dateStr?: string): string {
@@ -54,6 +56,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   onLeaveSuccess,
   onGroupUpdated,
   onOpenForum,
+  onOpenUserProfile,
 }) => {
   const { user: currentUser } = useAuth();
   const [group, setGroup] = useState<GroupDetails | null>(null);
@@ -354,11 +357,16 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
         disabled={!canManageThisUser}
         activeOpacity={canManageThisUser ? 0.7 : 1}
       >
-        <Avatar
-          name={item.display_name || item.username}
-          avatarUrl={item.avatar_url}
-          size={46}
-        />
+        <TouchableOpacity
+          onPress={() => onOpenUserProfile && item.user_id ? onOpenUserProfile(item.user_id) : undefined}
+          activeOpacity={0.7}
+        >
+          <Avatar
+            name={item.display_name || item.username}
+            avatarUrl={item.avatar_url}
+            size={46}
+          />
+        </TouchableOpacity>
         <View style={styles.memberInfo}>
           <View style={styles.memberNameRow}>
             <Text style={styles.memberDisplayName} numberOfLines={1}>

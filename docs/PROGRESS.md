@@ -4297,11 +4297,31 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Android Release Build**: `./gradlew assembleRelease` -> **BUILD SUCCESSFUL in 39s**.
 - **Physical Device Install**: `adb install -r ...` -> **Success (Pemasangan Sukses)**.
 
+---
 
+## 📅 Sesi Pengerjaan 30 September 2026 — Milestone M-Mobile-9.1: Fondasi Profil & Identitas Publik Mobile Fleksibel & Multi-Tenant
 
+### 1. Rangkuman Pengerjaan
+1. **Backend Go & Database Multi-Tenant (`backend/internal/store/`, `backend/internal/api/`, `backend/internal/authz/`)**:
+   - Auto-migration kolom `bio VARCHAR(255)`, `role VARCHAR(64)`, dan `metadata JSONB` (Postgres) / `TEXT` (SQLite) pada tabel `users`.
+   - Isolasi `tenant_id` ketat pada seluruh query profil di `UserStore`.
+   - Method `UpdateProfileExtended` untuk persistensi display name, avatar, bio, role, dan extensible JSONB metadata.
+   - Endpoint `PUT /api/auth/profile` diperbarui untuk menerima field profil publik lengkap.
+2. **Mobile API Contracts & Types (`mobile/src/api/`)**:
+   - Penambahan interface `SocialLinks`, `UserPrivacySettings`, `UserMetadata`, serta perluasan `User` dan `UpdateProfileRequest`.
+   - Update `updateProfile` API client.
+3. **Layar Profil Publik Modular (`mobile/src/screens/UserProfileScreen.tsx`)**:
+   - Komponen modular profil publik dengan avatar 96px, `VerifiedBadge`, role, bio, kartu info lokasi/website, grid medsos interaktif (IG, YT, LinkedIn, TikTok), kartu E2EE fingerprint, dan action bar dinamis (Kirim Pesan / Panggilan / Edit Profil).
+   - Registrasi rute `UserProfile` pada `RootStackParamList` dan trigger navigasi dari `ChatScreen.tsx` dan `GroupInfoScreen.tsx`.
+4. **Form Pengeditan Profil & Upload Avatar Native (`mobile/src/components/EditProfileModal.tsx`, `mobile/src/screens/SettingsScreen.tsx`)**:
+   - Integrasi `expo-image-picker` native (kamera/galeri) dan upload langsung via `mediaApi.uploadMedia()`.
+   - Form lengkap: avatar, display name, role, bio (textarea counter), lokasi, website, medsos, dan policy privasi interaksi (Semua vs Teman).
+   - Sinkronisasi kartu profil di menu Settings.
 
-
-
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `npx tsc --noEmit` -> **PASS (0 errors)**.
+- **Backend Go Test**: `go test -count=1 ./internal/api/... ./internal/store/... ./internal/push/...` -> **PASS (100%)**.
+- **Frontend Next.js Build**: `npm run build` -> **Compiled successfully Turbopack (0 errors)**.
 
 
 

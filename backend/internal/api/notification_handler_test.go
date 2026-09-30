@@ -50,6 +50,9 @@ func (m *mockUserStoreForNotificationAPI) GetUserByUsernameOrDisplayNameWithCont
 func (m *mockUserStoreForNotificationAPI) UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*store.User, error) {
 	return nil, nil
 }
+func (m *mockUserStoreForNotificationAPI) UpdateProfileExtended(userID, displayName, statusMessage, avatarURL, bio, role string, metadata json.RawMessage) (*store.User, error) {
+	return nil, nil
+}
 func (m *mockUserStoreForNotificationAPI) UpdatePublicKey(userID, publicKey string) error {
 	return nil
 }

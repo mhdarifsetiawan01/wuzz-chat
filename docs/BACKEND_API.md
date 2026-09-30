@@ -228,17 +228,31 @@ Mengambil profil akun user yang sedang aktif.
 ---
 
 #### 4. `PUT /api/auth/profile`
-Memperbarui nama tampilan, status pesan, atau foto avatar profil.
+Memperbarui nama tampilan, status pesan, foto avatar, bio, headline role pekerjaan, atau metadata profil publik dinamis.
 - **Autentikasi**: `Bearer <token>`
 - **Request Body**:
   ```json
   {
     "display_name": "Budi S.",
     "status_message": "Sedang sibuk rapat",
-    "avatar_url": "https://wuzz-chat-backend.fly.dev/uploads/avatar_123.jpg"
+    "avatar_url": "https://chat.wuzzhub.id/uploads/avatar_123.jpg",
+    "bio": "Software Engineer & Open Source Enthusiast",
+    "role": "Frontend Specialist",
+    "metadata": {
+      "location": "Jakarta, Indonesia",
+      "website": "https://budis.dev",
+      "social_links": {
+        "instagram": "https://instagram.com/budis",
+        "linkedin": "https://linkedin.com/in/budis"
+      },
+      "privacy": {
+        "allow_direct_messages": "everyone",
+        "allow_calls": "contacts_only"
+      }
+    }
   }
   ```
-- **Success Response (200 OK)**: Mengembalikan objek `User` yang telah diperbarui.
+- **Success Response (200 OK)**: Mengembalikan objek `User` yang telah diperbarui lengkap dengan field `bio`, `role`, dan `metadata`.
 
 ---
 

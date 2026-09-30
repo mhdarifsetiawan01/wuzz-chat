@@ -8,4 +8,5 @@ export * from './GroupInfoScreen';
 export * from './CallsHistoryScreen';
 export * from './SettingsScreen';
 export * from './FeedScreen';
+export * from './UserProfileScreen';
 

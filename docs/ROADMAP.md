@@ -72,10 +72,10 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Milestone M-Mobile-8.23: SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum**: **SELESAI ✅** (Batas retensi 500–1.000 pesan per room di SQLite lokal, auto-pruning pesan usang saat sync, dan pemanfaatan `PRAGMA auto_vacuum = INCREMENTAL`)
 >    - **Milestone M-Mobile-8.24 s/d M-Mobile-8.31**: **SELESAI ✅** (App Branding WuzzChat & adaptive icons, keyboard resilience Android 15/16, optimasi APK/AAB R8 ABI splits, instant unread reset sync, status bar notification icons, interactive pinch-to-zoom media viewer, room media gallery, dan perbaikan force close dokumen)
 >    - **Milestone M-Backend-Media-24h: Multi-Device Media Sharing (24-Hour Grace Period Retention)**: **SELESAI ✅** (Penyelarasan Store-and-Forward DM dengan 24h grace period pasca-ACK untuk menjamin kelancaran download media di seluruh perangkat aktif)
->    - **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**: *🔮 Terjadwal (Ready to Pick Up)*:
->      - **Tahap 1 (M-Mobile-9.1: Fondasi Profil & Identitas Publik Mobile)**: Kolom `bio` & `role` di skema `users`, upload avatar kustom dari kamera/galeri mobile, dan komponen layar profil publik (`UserProfileScreen.tsx`).
->      - **Tahap 2 (M-Mobile-9.2: Spesifikasi Domain, Skema DB & Backend Go Engine)**: Domain DDD `COMMUNITY_FEED`, tabel `feed_posts`, `feed_likes`, `feed_comments`, dan REST API Go (`/api/feed`).
->      - **Tahap 3 (M-Mobile-9.3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop)**: Penggantian mock `FeedScreen.tsx` ke real SWR cache, modal buat postingan (FAB `+`), thread komentar interaktif, dan fitur "Bagikan ke Obrolan" (Share to Chat).
+>    - **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**: *🚀 Dalam Pengembangan*:
+>      - **Tahap 1 (M-Mobile-9.1: Fondasi Profil & Identitas Publik Mobile)**: **SELESAI ✅** (Kolom `bio`, `role`, dan `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, dan komponen modular `UserProfileScreen.tsx`).
+>      - **Tahap 2 (M-Mobile-9.2: Spesifikasi Domain, Skema DB & Backend Go Engine)**: *🔮 Terjadwal* (Domain DDD `COMMUNITY_FEED`, tabel `feed_posts`, `feed_likes`, `feed_comments`, dan REST API Go `/api/feed`).
+>      - **Tahap 3 (M-Mobile-9.3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop)**: *🔮 Terjadwal* (Penggantian mock `FeedScreen.tsx` ke real SWR cache, modal buat postingan FAB `+`, thread komentar interaktif, dan fitur "Bagikan ke Obrolan").
 
 ---
 
@@ -474,11 +474,11 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
 ### Fase 12: Community Social Feed & User Acquisition Engine (Model B) (Status: 🔮 TERJADWAL)
 *Tujuan: Membangun linimasa feed publik/komunitas yang interaktif (ala Threads/Twitter) sebagai pintu masuk penemuan konten, interaksi sosial terbuka, dan pertumbuhan pengguna baru (user acquisition).*
 
-- **Tahap 1: Fondasi Profil & Identitas Publik Mobile (Milestone M-Mobile-9.1)**:
-  - **Skema Database & User Service**: Penambahan kolom `bio VARCHAR(255)` dan `role VARCHAR(64)` pada tabel `users`.
-  - **REST API Profil**: Pembaruan `PUT /api/auth/profile` dan `GET /api/users/{id}` untuk mendukung pembacaan dan pembaruan bio serta role.
-  - **Upload Avatar Native**: Integrasi pemilihan gambar dari kamera/galeri di mobile via `expo-image-picker` terunggah ke endpoint media.
-  - **Komponen Layar Profil Publik**: Pembuatan komponen `UserProfileScreen.tsx` / `UserProfileModal.tsx` yang dapat dipicu saat avatar diklik dari Feed, pesan chat, atau daftar kontak (menampilkan avatar besar, `@username`, display name, bio, status verified, serta tombol aksi "Kirim Pesan" dan "Panggilan Suara").
+- **Tahap 1: Fondasi Profil & Identitas Publik Mobile (Milestone M-Mobile-9.1)**: **SELESAI ✅**
+  - **Skema Database & User Service**: Penambahan kolom `bio VARCHAR(255)`, `role VARCHAR(64)`, dan `metadata JSONB/TEXT` pada tabel `users` dengan multi-tenant isolation.
+  - **REST API Profil**: Pembaruan `PUT /api/auth/profile` dan `GET /api/users/{id}` untuk mendukung pembacaan dan pembaruan bio, role, dan metadata dinamis.
+  - **Upload Avatar Native**: Integrasi pemilihan gambar dari kamera/galeri di mobile via `expo-image-picker` terunggah langsung via `mediaApi.uploadMedia()`.
+  - **Komponen Layar Profil Publik**: Pembuatan komponen `UserProfileScreen.tsx` (avatar 96px, `@username`, display name, role, bio, kartu medsos, verifikasi E2EE, dan tombol aksi interaksi dinamis).
 
 - **Tahap 2: Spesifikasi Domain, Skema DB & Backend Go Engine (Milestone M-Mobile-9.2)**:
   - **Domain Spesifikasi DDD**: Penyusunan dokumen arsitektur dan invariant di `docs/domains/COMMUNITY_FEED.md`.

@@ -25,6 +25,8 @@ import {
   E2EEKeyModal,
   StorageSettingsModal,
   EditProfileModal,
+  Avatar,
+  VerifiedBadge,
 } from '../components';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,24 +171,33 @@ export const SettingsScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Profile Card ─────────────────────────────────────────────── */}
-        <View style={styles.profileCard}>
+        <TouchableOpacity
+          style={styles.profileCard}
+          activeOpacity={0.85}
+          onPress={() => setIsEditProfileVisible(true)}
+        >
           {/* Avatar */}
           <View style={styles.avatarWrapper}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
-            {/* Online dot */}
-            <View style={styles.onlineDot} />
+            <Avatar
+              name={displayName}
+              avatarUrl={user?.avatar_url}
+              size={56}
+              shape="circle"
+              isOnline
+            />
           </View>
 
           {/* Name & Username */}
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName} numberOfLines={1}>
-              {displayName}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={styles.profileName} numberOfLines={1}>
+                {displayName}
+              </Text>
+              {user?.is_verified && <VerifiedBadge size={16} />}
+            </View>
             {username ? (
               <Text style={styles.profileUsername} numberOfLines={1}>
-                @{username}
+                @{username}{user?.role ? ` · ${user.role}` : ''}
               </Text>
             ) : null}
 
@@ -198,14 +209,10 @@ export const SettingsScreen: React.FC = () => {
           </View>
 
           {/* Edit profile button */}
-          <TouchableOpacity
-            style={styles.editButton}
-            activeOpacity={0.75}
-            onPress={() => setIsEditProfileVisible(true)}
-          >
+          <View style={styles.editButton}>
             <Text style={styles.editButtonIcon}>✏️</Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </TouchableOpacity>
 
         {/* ── Settings Sections ─────────────────────────────────────────── */}
 
@@ -295,6 +302,10 @@ export const SettingsScreen: React.FC = () => {
         onClose={() => setIsEditProfileVisible(false)}
         currentDisplayName={displayName}
         currentUsername={username}
+        currentAvatarUrl={user?.avatar_url}
+        currentBio={user?.bio}
+        currentRole={user?.role}
+        currentMetadata={user?.metadata}
         onProfileUpdated={(updated) => updateCurrentUser(updated)}
       />
     </View>

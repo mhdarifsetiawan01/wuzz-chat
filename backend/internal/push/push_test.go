@@ -2,6 +2,7 @@ package push
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -43,6 +44,9 @@ func (m *mockUserStoreForPush) GetUserByUsernameOrDisplayNameWithContext(ctx con
 	return m.GetUserByUsernameOrDisplayName(name)
 }
 func (m *mockUserStoreForPush) UpdateProfile(userID, displayName, statusMessage, avatarURL string) (*store.User, error) {
+	return nil, nil
+}
+func (m *mockUserStoreForPush) UpdateProfileExtended(userID, displayName, statusMessage, avatarURL, bio, role string, metadata json.RawMessage) (*store.User, error) {
 	return nil, nil
 }
 func (m *mockUserStoreForPush) UpdatePublicKey(userID, publicKey string) error {

@@ -101,7 +101,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 			display_name VARCHAR(128) NOT NULL,
 			password_hash VARCHAR(255) NOT NULL,
 			status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol',
+			bio VARCHAR(255) DEFAULT '',
+			role VARCHAR(64) DEFAULT '',
 			avatar_url TEXT DEFAULT '',
+			metadata TEXT DEFAULT '{}',
 			public_key TEXT DEFAULT '',
 			key_version INTEGER DEFAULT 1,
 			active_device_id TEXT DEFAULT '',
@@ -426,7 +429,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 	// Auto-migration non-destruktif untuk kolom status, reply_to, reactions, media, dan public_key di tabel messages & users
 	if s.driverName == "postgres" {
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(255) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(64) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT false;`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS public_key TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS key_version INTEGER DEFAULT 1;`)
@@ -491,7 +497,10 @@ func (s *SQLMessageStore) autoMigrate() error {
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN bio VARCHAR(255) DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN role VARCHAR(64) DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN metadata TEXT DEFAULT '{}';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN is_verified BOOLEAN DEFAULT false;`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN public_key TEXT DEFAULT '';`)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN key_version INTEGER DEFAULT 1;`)

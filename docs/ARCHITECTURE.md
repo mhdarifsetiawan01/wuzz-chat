@@ -663,6 +663,13 @@ Seksi ini mendokumentasikan desain arsitektur untuk fitur monetisasi (Avatar Pre
 | Business logic kriteria | Manual approval / email domain / subscription tier |
 | Admin Dashboard UI | Panel untuk manajemen akun verified |
 
+### C. Public Profile & Extensible Identity Architecture (M-Mobile-9.1)
+
+**Status Backend & Database**: ✅ **SELESAI DIIMPLEMENTASI** — Kolom `bio VARCHAR(255)`, `role VARCHAR(64)`, dan `metadata JSONB DEFAULT '{}'::jsonb` (PostgreSQL) / `TEXT DEFAULT '{}'` (SQLite) telah aktif pada tabel `users` dengan auto-migration non-destruktif (`sql.go`).
+- **Isolasi Multi-Tenant**: Query pembacaan dan pembaruan profil di `user_store.go` dan `sql_repository.go` mengunci `tenant_id = $tenant_id`.
+- **Extensible JSONB Pattern**: Field baru (seperti `location`, `website`, `social_links`, `privacy`) disimpan di dalam kolom `metadata` tanpa memerlukan migrasi DDL berulang kali.
+- **Status Mobile**: ✅ **SELESAI TERKONEKSI** — Layar modular `UserProfileScreen.tsx`, integrasi native `expo-image-picker` di `EditProfileModal.tsx`, dan sinkronisasi settings di `SettingsScreen.tsx`.
+
 ### B. Avatar Premium Asset System
 
 **Status Backend**: ❌ Belum ada. Perlu membuat tabel dan endpoint baru.

@@ -74,6 +74,8 @@ export interface ChatScreenProps {
   parentGroupConversation?: ConversationItem | null;
   /** M-Mobile-8.2B: Directly enter a sub-group conversation from the forum modal */
   onEnterSubGroup?: (subConv: Conversation) => void;
+  /** Opens UserProfileScreen for the direct chat peer */
+  onOpenUserProfile?: (userId: string) => void;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
@@ -83,6 +85,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onNavigateToParent,
   parentGroupConversation,
   onEnterSubGroup,
+  onOpenUserProfile,
 }) => {
 
   const insets = useSafeAreaInsets();
@@ -1544,7 +1547,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 } else if (isGroup && onOpenGroupInfo) {
                   onOpenGroupInfo(groupDetails || conversation);
                 } else if (isDirect && resolvedPeerId) {
-                  setShowContactInfoModal(true);
+                  if (onOpenUserProfile) {
+                    onOpenUserProfile(resolvedPeerId);
+                  } else {
+                    setShowContactInfoModal(true);
+                  }
                 }
               }}
               disabled={!isGroup && !isDirect}

@@ -320,9 +320,12 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateProfileRequest struct {
-	DisplayName   string `json:"display_name"`
-	StatusMessage string `json:"status_message"`
-	AvatarURL     string `json:"avatar_url"`
+	DisplayName   string          `json:"display_name"`
+	StatusMessage string          `json:"status_message"`
+	AvatarURL     string          `json:"avatar_url"`
+	Bio           string          `json:"bio"`
+	Role          string          `json:"role"`
+	Metadata      json.RawMessage `json:"metadata"`
 }
 
 func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
@@ -346,8 +349,10 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	req.DisplayName = strings.TrimSpace(req.DisplayName)
 	req.StatusMessage = strings.TrimSpace(req.StatusMessage)
 	req.AvatarURL = strings.TrimSpace(req.AvatarURL)
+	req.Bio = strings.TrimSpace(req.Bio)
+	req.Role = strings.TrimSpace(req.Role)
 
-	updatedUser, err := h.userStore.UpdateProfile(claims.UserID, req.DisplayName, req.StatusMessage, req.AvatarURL)
+	updatedUser, err := h.userStore.UpdateProfileExtended(claims.UserID, req.DisplayName, req.StatusMessage, req.AvatarURL, req.Bio, req.Role, req.Metadata)
 	if err != nil {
 		http.Error(w, `{"error":"Gagal memperbarui profil"}`, http.StatusInternalServerError)
 		return

@@ -18,6 +18,7 @@ import {
   GroupInfoScreen,
   NewChatScreen,
   NewGroupScreen,
+  UserProfileScreen,
 } from '../screens';
 import { MainTabNavigator } from './MainTabNavigator';
 import { colors } from '../theme';
@@ -59,6 +60,9 @@ export const AppNavigator: React.FC = () => {
             conversation={route.params.conversation}
             parentGroupConversation={route.params.parentGroupConversation}
             onBack={() => navigation.goBack()}
+            onOpenUserProfile={(peerUserId) => {
+              navigation.navigate('UserProfile', { userId: peerUserId });
+            }}
             onOpenGroupInfo={(grp) => {
               const targetGroupId = grp.id || (grp as any).room_id || '';
               if (targetGroupId) {
@@ -147,6 +151,30 @@ export const AppNavigator: React.FC = () => {
             groupId={route.params.groupId}
             onBack={() => navigation.goBack()}
             onLeaveSuccess={() => navigation.navigate('MainTabs')}
+            onOpenUserProfile={(memberUserId) => {
+              navigation.navigate('UserProfile', { userId: memberUserId });
+            }}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* 6. User Profile Screen (Public / Identity) */}
+      <Stack.Screen
+        name="UserProfile"
+        options={{
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+        }}
+      >
+        {({ route, navigation }) => (
+          <UserProfileScreen
+            userId={route.params.userId}
+            username={route.params.username}
+            initialUser={route.params.initialUser}
+            onBack={() => navigation.goBack()}
+            onStartChat={(conv) => {
+              navigation.navigate('Chat', { conversation: conv });
+            }}
           />
         )}
       </Stack.Screen>

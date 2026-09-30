@@ -3,16 +3,53 @@
  * Derived from docs/openapi.yaml (OpenAPI 3.1.0)
  */
 
+export interface SocialLinks {
+  instagram?: string;
+  youtube?: string;
+  linkedin?: string;
+  tiktok?: string;
+  [key: string]: string | undefined;
+}
+
+export interface UserPrivacySettings {
+  allow_direct_messages?: 'everyone' | 'friends';
+  allow_calls?: 'everyone' | 'friends';
+  [key: string]: any;
+}
+
+export interface UserMetadata {
+  bio?: string;
+  role?: string;
+  location?: string;
+  website?: string;
+  banner_url?: string;
+  social_links?: SocialLinks;
+  privacy?: UserPrivacySettings;
+  [key: string]: any;
+}
+
 export interface User {
   id: string;
   username: string;
   display_name: string;
   avatar_url?: string;
   status_message?: string;
+  bio?: string;
+  role?: string;
+  metadata?: UserMetadata;
   is_verified?: boolean;
   public_key?: string;
   created_at?: string;
   last_seen?: string;
+}
+
+export interface UpdateProfileRequest {
+  display_name?: string;
+  status_message?: string;
+  avatar_url?: string;
+  bio?: string;
+  role?: string;
+  metadata?: UserMetadata;
 }
 
 export interface StartDirectChatRequest {

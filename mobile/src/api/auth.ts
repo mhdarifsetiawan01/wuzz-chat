@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from './client';
-import { AuthTokenResponse, LoginRequest, RegisterRequest, User } from './types';
+import { AuthTokenResponse, LoginRequest, RegisterRequest, UpdateProfileRequest, User } from './types';
 
 export const authApi = {
   /**
@@ -53,7 +53,7 @@ export const authApi = {
   /**
    * PUT /api/auth/profile
    */
-  async updateProfile(payload: { display_name?: string; status?: string; avatar_url?: string }): Promise<User> {
+  async updateProfile(payload: UpdateProfileRequest): Promise<User> {
     return apiClient<User>('/api/auth/profile', {
       method: 'PUT',
       body: JSON.stringify(payload),
