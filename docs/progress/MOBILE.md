@@ -242,6 +242,10 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Menerapkan standardisasi `behavior='height'` pada seluruh dialog modal ber-input (`PostCommentsModal.tsx`, `CreateSubGroupModal.tsx`, `EditProfileModal.tsx`, `KeyConflictModal.tsx`).
   - Mengkodifikasikan aturan baku ini ke dalam Single Source of Truth sistem desain di [mobile/DESIGN.md](../../mobile/DESIGN.md) dan aturan workspace agen di [.agents/AGENTS.md](../../.agents/AGENTS.md).
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**.
+- [x] **BUG FIX (30-Sep-2026): Kontras Teks Tombol Sekunder Modal & Bottom Sheet EditProfileModal Mepet Bawah**:
+  - **Button Secondary Contrast** (`mobile/src/components/Button.tsx`): Menyetel `getTextColor()` untuk `variant === 'secondary'` ke `colors.textPrimary` (`#0f172a`), menyelesaikan masalah teks tidak terbaca (putih di atas putih) pada `KeyConflictModal` (Reset Kunci Baru, Batal/Keluar), `EditProfileModal` (Batal), `E2EEKeyModal`, dan `StorageSettingsModal`.
+  - **EditProfileModal Bottom Sheet Flush** (`mobile/src/components/EditProfileModal.tsx`): Menambahkan `statusBarTranslucent` pada Modal, menjadikan KAV sebagai overlay wrapper utama (`flex: 1, justifyContent: 'flex-end'`) dengan backdrop transparan, mengunci kartu modal agar menempel rapat di tepi bawah layar (`bottom: 0`) dengan safe-area padding `Math.max(insets.bottom, spacing.lg)`, dan `formScroll: { flexShrink: 1 }`.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
 
 ---
 

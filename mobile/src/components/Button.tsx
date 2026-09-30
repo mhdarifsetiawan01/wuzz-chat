@@ -30,8 +30,22 @@ export const Button: React.FC<ButtonProps> = ({
   ...rest
 }) => {
   const getBackgroundColor = () => {
-    if (disabled || isLoading) {
-      return colors.bgElevated;
+    if (disabled) {
+      return colors.bgInput;
+    }
+    if (isLoading) {
+      switch (variant) {
+        case 'primary':
+          return colors.accentPrimary;
+        case 'secondary':
+          return colors.bgSurface;
+        case 'danger':
+          return colors.colorDanger;
+        case 'ghost':
+          return 'transparent';
+        default:
+          return colors.accentPrimary;
+      }
     }
     switch (variant) {
       case 'primary':
@@ -54,6 +68,16 @@ export const Button: React.FC<ButtonProps> = ({
     if (variant === 'ghost') {
       return colors.accentPrimary;
     }
+    if (variant === 'secondary') {
+      return colors.textPrimary;
+    }
+    return colors.textOnAccent;
+  };
+
+  const getSpinnerColor = () => {
+    if (variant === 'secondary' || variant === 'ghost') {
+      return colors.accentPrimary;
+    }
     return colors.textOnAccent;
   };
 
@@ -70,7 +94,7 @@ export const Button: React.FC<ButtonProps> = ({
       {...rest}
     >
       {isLoading ? (
-        <ActivityIndicator color={getTextColor()} size="small" />
+        <ActivityIndicator color={getSpinnerColor()} size="small" />
       ) : (
         <Text style={[typography.button, { color: getTextColor() }]}>{title}</Text>
       )}

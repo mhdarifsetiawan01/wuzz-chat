@@ -244,22 +244,26 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       visible={visible}
       animationType="slide"
       transparent
+      statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardContainer}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.overlay}
+      >
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View
+          style={[
+            styles.card,
+            {
+              paddingBottom: Math.max(insets.bottom, spacing.lg),
+            },
+          ]}
         >
-          <View
-            style={[
-              styles.card,
-              {
-                paddingBottom: Math.max(insets.bottom, spacing.md),
-                maxHeight: '90%',
-              },
-            ]}
-          >
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerLeft}>
@@ -554,7 +558,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </View>
           </View>
         </KeyboardAvoidingView>
-      </View>
     </Modal>
   );
 };
@@ -562,11 +565,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'flex-end',
   },
-  keyboardContainer: {
-    width: '100%',
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
   },
   card: {
     backgroundColor: colors.bgSurface,
@@ -574,8 +577,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.xl,
     borderTopWidth: 1,
     borderColor: colors.borderSubtle,
-    padding: spacing.lg,
-    ...shadows.card,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    maxHeight: '90%',
+    ...shadows.modal,
   },
   header: {
     flexDirection: 'row',
@@ -623,7 +628,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   formScroll: {
-    maxHeight: 460,
+    flexShrink: 1,
   },
   formContent: {
     paddingVertical: spacing.md,

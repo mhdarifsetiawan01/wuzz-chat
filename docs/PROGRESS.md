@@ -4442,3 +4442,21 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
 - **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (Code 0)**.
 
+---
+
+## 📅 Sesi Pengerjaan 30 September 2026 — Bug Fix: Kontras Teks Tombol Sekunder Modal & Bottom Sheet EditProfileModal Mepet Bawah
+
+### 1. Rangkuman Pengerjaan
+1. **Fix Kontras Teks Tombol Secondary pada Modal & Popup (`mobile/src/components/Button.tsx`)**:
+   - **Root Cause**: Tombol dengan `variant="secondary"` memiliki background putih (`colors.bgSurface`), namun `getTextColor()` mengembalikan `colors.textOnAccent` (`#ffffff`), menyebabkan teks tombol putih di atas background putih sehingga tidak terbaca pada `KeyConflictModal` (tombol *Reset Kunci Baru* & *Batal / Keluar*), `EditProfileModal` (tombol *Batal*), `E2EEKeyModal` (*Tutup*), dan `StorageSettingsModal` (*Tutup*).
+   - **Fix**: Mengubah `getTextColor()` untuk `variant === 'secondary'` ke `colors.textPrimary` (`#0f172a`), dan menyetel warna spinner loading sekunder ke `colors.accentPrimary` agar kontras dan terbaca jelas.
+2. **Fix Modal Edit Profil Mengambang / Gap Bawah Tidak Proporsional (`mobile/src/components/EditProfileModal.tsx`)**:
+   - **Root Cause**: Komponen `<Modal>` di Android belum memiliki properti `statusBarTranslucent`, dan `KeyboardAvoidingView` dibungkus di dalam `<View style={styles.overlay}>` tanpa `flex: 1` maupun `justifyContent: 'flex-end'`, menyebabkan dialog window terpotong oleh insets dan mengambang di atas bottom tab bar navigasi.
+   - **Fix**: Menambahkan `statusBarTranslucent` pada `<Modal>`, menjadikan `KeyboardAvoidingView` sebagai overlay container utama (`flex: 1, justifyContent: 'flex-end'`) dengan backdrop transparan `StyleSheet.absoluteFill`, mengunci kartu modal agar menempel rapat di tepi bawah layar (*flush bottom sheet*) dengan `paddingBottom: Math.max(insets.bottom, spacing.lg)`, dan mengubah `formScroll` menjadi `flexShrink: 1` yang dinamis dan adaptif terhadap keyboard.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Backend Test Suite**: `cd backend && go test ./...` → **PASS (100%)**.
+- **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (Code 0)**.
+
+
