@@ -72,10 +72,10 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Milestone M-Mobile-8.23: SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum**: **SELESAI ✅** (Batas retensi 500–1.000 pesan per room di SQLite lokal, auto-pruning pesan usang saat sync, dan pemanfaatan `PRAGMA auto_vacuum = INCREMENTAL`)
 >    - **Milestone M-Mobile-8.24 s/d M-Mobile-8.31**: **SELESAI ✅** (App Branding WuzzChat & adaptive icons, keyboard resilience Android 15/16, optimasi APK/AAB R8 ABI splits, instant unread reset sync, status bar notification icons, interactive pinch-to-zoom media viewer, room media gallery, dan perbaikan force close dokumen)
 >    - **Milestone M-Backend-Media-24h: Multi-Device Media Sharing (24-Hour Grace Period Retention)**: **SELESAI ✅** (Penyelarasan Store-and-Forward DM dengan 24h grace period pasca-ACK untuk menjamin kelancaran download media di seluruh perangkat aktif)
->    - **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**: *🚀 Dalam Pengembangan*:
+>    - **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**: **SELESAI ✅**:
 >      - **Tahap 1 (M-Mobile-9.1: Fondasi Profil & Identitas Publik Mobile)**: **SELESAI ✅** (Kolom `bio`, `role`, dan `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, dan komponen modular `UserProfileScreen.tsx`).
 >      - **Tahap 2 (M-Mobile-9.2: Spesifikasi Domain, Skema DB & Backend Go Engine)**: **SELESAI ✅** (Domain DDD `COMMUNITY_FEED`, tabel `feed_posts`, `feed_likes`, `feed_comments`, otorisasi RBAC ber-prefix `wuzz_`, dan REST API Go `/api/feed`).
->      - **Tahap 3 (M-Mobile-9.3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop)**: *🔮 Terjadwal* (Penggantian mock `FeedScreen.tsx` ke real SWR cache, modal buat postingan FAB `+`, thread komentar interaktif, dan fitur "Bagikan ke Obrolan").
+>      - **Tahap 3 (M-Mobile-9.3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop)**: **SELESAI ✅** (Penggantian mock `FeedScreen.tsx` ke real SWR cache, modal buat postingan FAB `+`, thread komentar interaktif, dan fitur "Bagikan ke Obrolan").
 
 ---
 

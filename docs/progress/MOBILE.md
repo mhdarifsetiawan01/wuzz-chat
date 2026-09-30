@@ -260,13 +260,43 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+### Milestone M-Mobile-9.2: Spesifikasi Domain, Skema DB & Backend Go Engine (SELESAI - 30/09/2026)
+- **Status**: ✅ **Selesai (Completed & Verified)**.
+- **Implementasi**:
+  - Penyusunan spesifikasi domain DDD lengkap di [`docs/domains/COMMUNITY_FEED.md`](../domains/COMMUNITY_FEED.md).
+  - Skema tabel relasional `feed_posts`, `feed_likes`, `feed_comments` dengan isolasi `tenant_id` dan indexing performa tinggi.
+  - REST API Go di `backend/internal/api/`: `GET /api/feed`, `POST /api/feed`, `POST /api/feed/:id/like`, `GET /api/feed/:id/comments`, `POST /api/feed/:id/comments`, `DELETE /api/feed/:id`.
+  - Kontrol otorisasi & moderasi: pemilik asli atau staf dengan peran `wuzz_admin` / `wuzz_moderator`.
+- **Verifikasi**: `go test ./...` -> **100% PASS**.
+
+---
+
+### Milestone M-Mobile-9.3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop (SELESAI - 30/09/2026)
+- **Status**: ✅ **Selesai (Completed & Verified)**.
+- **Implementasi**:
+  - Arsitektur Dual Tab & SWR Cache: Migrasi `FeedScreen.tsx` dari mock statis ke SWR Context Layer (`FeedContext.tsx`) & persistensi SQLite lokal (`local_feed_posts`) dengan rolling window auto-pruning cap (max 50 posts per tab, < 200 KB) untuk cold-start render instan (< 50ms). Tab ganda: "⏱️ Terbaru" (kursor waktu) & "🎲 Jelajah" (deterministic discovery).
+  - Pembuat Postingan (`CreatePostModal.tsx`): FAB `+` dengan live 1.000 char counter, pemilih media kamera/galeri native terintegrasi upload REST, serta kontrol admin (`is_pinned`, `post_type`).
+  - Interaksi Instan (Optimistic UI): Animasi ketuk Like hati 0ms dengan atomic rollback jika server gagal, serta bottom sheet `PostCommentsModal.tsx` untuk membaca dan mengirim komentar dengan sinkronisasi counter live.
+  - Mekanisme Viral Loop (`SharePostToChatModal.tsx`): Meneruskan postingan langsung ke 1–5 ruang obrolan (DM atau Grup) melalui WebSocket dengan preview pesan berformat `[FEED_POST]`.
+- **Verifikasi**: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**.
+
+---
+
+- [x] **BUG FIX (30-Sep-2026): Like Race Condition & Komentar Infinite Scroll**:
+  - **Rapid-Tap Like Guard** (`FeedContext.tsx`): Menambahkan `likeInFlightRef` per-post lock dan functional updater `setPosts(prev => ...)` untuk mencegah race condition tap cepat dan rollback ke state yang salah.
+  - **Komentar Infinite Scroll** (`PostCommentsModal.tsx`): Menambahkan pagination berbasis kursor waktu (`before`), `hasMore`, dan `isLoadingMoreRef` pada `FlatList.onEndReached`.
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**.
+
+---
+
 ## Fokus Berikutnya (What's Next)
-- [ ] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
+- [x] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
   - [x] **Tahap 1 (M-Mobile-9.1)**: Fondasi Profil & Identitas Publik Mobile (`bio`, `role`, `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, `UserProfileScreen.tsx`).
-  - [ ] **Tahap 2 (M-Mobile-9.2)**: Spesifikasi Domain, Skema DB & Backend Go Engine (`docs/domains/COMMUNITY_FEED.md`, `feed_posts`, `feed_likes`, `feed_comments`, REST API `/api/feed`).
-  - [ ] **Tahap 3 (M-Mobile-9.3)**: Integrasi Real Mobile UI, Interaksi & Viral Share Loop (`FeedScreen.tsx` SWR cache, FAB Create Post, Likes/Comments, Share to Chat).
-- [ ] Pengujian build native iOS via Xcode / CocoaPods.
-- [ ] Integrasi video player stream inline/fullscreen di mobile (`expo-video` / `av`).
+  - [x] **Tahap 2 (M-Mobile-9.2)**: Spesifikasi Domain, Skema DB & Backend Go Engine (`docs/domains/COMMUNITY_FEED.md`, `feed_posts`, `feed_likes`, `feed_comments`, REST API `/api/feed`).
+  - [x] **Tahap 3 (M-Mobile-9.3)**: Integrasi Real Mobile UI, Interaksi & Viral Share Loop (`FeedScreen.tsx` SWR cache, FAB Create Post, Likes/Comments, Share to Chat).
+- [ ] Integrasi video player stream inline/fullscreen di mobile (`expo-video` / `expo-av`).
+- [ ] Pengujian build native iOS via Xcode / CocoaPods & APNs background decryptor.
+- [ ] WebRTC 1-on-1 Video Calling (P2P Video track via `RTCView`).
 
 
 

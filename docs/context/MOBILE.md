@@ -58,6 +58,11 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 - **Isolasi Media Binary**: SQLite hanya menyimpan pointer string (`media_url` dan `local_media_uri`). File fisik (gambar, video, voice note) disimpan di filesystem cache terpisah dan tidak membebani ukuran database.
 - **Fitur Pembersih Cache & Vacuum**: Rencana penambahan tombol *"Bersihkan Cache Pesan"* dan *"Bersihkan Cache Media"* di `SettingsScreen` (M-Mobile-8.21) serta pemanfaatan `PRAGMA auto_vacuum = INCREMENTAL;` untuk mengembalikan ruang kosong ke OS.
 
+### G. Community Social Feed & Viral Share Loop (Milestone M-Mobile-9)
+- **SWR FeedContext & Local SQLite Persistensi**: Linimasa postingan dikelola melalui `FeedContext.tsx` dengan SQLite cache lokal (`local_feed_posts`) untuk cold start < 50ms dan rolling cap 50 posts per tab ("⏱️ Terbaru" & "🎲 Jelajah").
+- **Optimistic Interactions**: Like instan 0ms dengan locking per-post (`likeInFlightRef`) dan rollback otomatis jika gagal. Thread komentar ber-pagination kursor waktu (`PostCommentsModal.tsx`).
+- **Viral Share Loop**: Meneruskan kartu postingan (`SharePostToChatModal.tsx`) langsung ke 1–5 ruang obrolan (DM atau Grup) via WebSocket dengan preview pesan `[FEED_POST]`.
+
 ---
 
 ## 📂 3. Peta Direktori Klien Mobile (`mobile/`)
@@ -71,26 +76,43 @@ mobile/
 ├── src/
 │   ├── api/
 │   │   ├── client.ts           # Axios REST client (User-Agent: WuzzChat-Mobile/1.0, X-Device-Platform: android)
-│   │   └── types.ts            # Type definitions API & error response
+│   │   ├── feed.ts             # API client untuk Community Social Feed
+│   │   ├── messages.ts         # API client riwayat obrolan & direct chat
+│   │   └── types.ts            # Type definitions API, User, Feed, & Error response
 │   ├── context/
 │   │   ├── AuthContext.tsx         # Session management, Trusted Device E2EE state, login/logout
 │   │   ├── ConversationContext.tsx # Global conversations cache, SWR, unread counts (M-Mobile-8.15)
+│   │   ├── MessageContext.tsx      # In-memory timeline message cache & reverse scroll pagination
+│   │   ├── FeedContext.tsx         # Community Social Feed SWR cache & like/comment sync
 │   │   ├── CallContext.tsx         # WebRTC voice call peer connection & audio manager
 │   │   └── DeviceContext.tsx       # Device identification & platform state
+│   ├── navigation/
+│   │   ├── AppNavigator.tsx        # Native Stack Navigator (slide_from_right)
+│   │   └── MainTabNavigator.tsx    # Glassmorphic Bottom Tab (Obrolan, Feed, Panggilan, Pengaturan)
 │   ├── screens/
-│   │   ├── LoginScreen.tsx     # Login/Register UI & Multi-device override confirmation
-│   │   ├── HomeScreen.tsx      # Fullscreen chat list, search, floating action button (+ Chat)
-│   │   └── ChatScreen.tsx      # Fullscreen active chat room, timeline, voice notes, attachments
+│   │   ├── LoginScreen.tsx         # Login UI & Multi-device override confirmation
+│   │   ├── RegisterScreen.tsx      # Pendaftaran akun baru
+│   │   ├── RecentChatsScreen.tsx   # Fullscreen chat list, debounced search, pill filters, FAB (+ Chat)
+│   │   ├── ChatScreen.tsx          # Fullscreen active chat room, timeline, voice notes, attachments
+│   │   ├── FeedScreen.tsx          # Community Social Feed timeline (Terbaru & Jelajah)
+│   │   ├── CallsHistoryScreen.tsx  # Riwayat panggilan WebRTC tersimpan di SQLite & dialer
+│   │   ├── SettingsScreen.tsx      # Pengaturan akun, E2EE keys, perangkat tertaut, cache storage
+│   │   └── UserProfileScreen.tsx   # Profil publik modular, avatar, bio, medsos, & E2EE fingerprint
 │   ├── components/
-│   │   ├── ChatInputBar.tsx    # Input teks, tombol mic voice note, panel media picker
-│   │   ├── MessageBubble.tsx   # Bubble chat mobile, receipts centang, quote view
-│   │   ├── IncomingCallModal.tsx # Dialog panggilan masuk Aurora Dark Mode
-│   │   └── ActiveCallOverlay.tsx # Overlay panggilan aktif, mute mic, timer
+│   │   ├── ChatInputBar.tsx        # Input teks, tombol mic voice note, panel media picker
+│   │   ├── MessageBubble.tsx       # Bubble chat mobile, receipts centang, quote view
+│   │   ├── CreatePostModal.tsx     # Modal buat postingan feed komunitas (teks, media, char counter)
+│   │   ├── PostCommentsModal.tsx   # Modal thread komentar feed dengan cursor-based infinite scroll
+│   │   ├── SharePostToChatModal.tsx# Modal bagikan postingan feed ke obrolan chat
+│   │   ├── MediaViewerModal.tsx    # Penampil media fullscreen interaktif (pinch-to-zoom, pan 2D)
+│   │   ├── IncomingCallModal.tsx   # Dialog panggilan masuk Aurora Dark Mode
+│   │   └── ActiveCallOverlay.tsx   # Overlay panggilan aktif, mute mic, timer
 │   └── services/
-│       ├── websocket.ts        # WebSocket service dengan reconnect backoff deterministik
-│       ├── webrtcService.ts    # WebRTC voice call peer connection & audio manager
-│       ├── secureStorage.ts    # Wrapper hardware Keystore / Keychain
-│       ├── notificationService.ts # Registrasi token FCM & foreground handler
+│       ├── websocket.ts            # WebSocket service dengan reconnect backoff deterministik
+│       ├── webrtcService.ts        # WebRTC voice call peer connection & audio manager
+│       ├── sqliteStorage.ts        # Persistensi lokal SQLite (WAL Mode) isolasi per user
+│       ├── secureStorage.ts        # Wrapper hardware Keystore / Keychain
+│       ├── notificationService.ts  # Registrasi token FCM & foreground handler
 │       └── notificationBackgroundTask.ts # Zero-knowledge background push decryptor
 ```
 
