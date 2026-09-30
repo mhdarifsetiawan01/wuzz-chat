@@ -38,12 +38,15 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 - **SDP Sanitization**: Normalisasi SDP DTLS RFC compliant (`setup:actpass` / `setup:active`) untuk mencegah kegagalan negosiasi media antar Android dan Browser.
 - **Audio Routing**: Manajemen switch rute audio antara Loudspeaker dan Earpiece telepon.
 
-### D. Single-Screen Navigation & Keyboard Handling
+### D. Single-Screen Navigation, Modal Architecture & Design Compliance
 - **Hardware BackHandler**: Intersepsi tombol Back fisik Android untuk menutup modal, bottom sheet, atau kembali dari ruang obrolan ke daftar chat (`activeRoomId = ''`).
 - **Keyboard Resilience**:
-  - Android 15 (API 35) & Android 16 (API 36+): Listener `WindowInsetsCompat.Type.ime()` di `MainActivity.kt` mengangkat padding dasar root view dinamis saat keyboard muncul, mengatasi hilangnya `adjustResize` otomatis akibat mandatory edge-to-edge.
-  - Android 10 (API 29) s/d Android 14 (API 34): `adjustResize` native di `AndroidManifest.xml` tetap berjalan tanpa listener tambahan untuk mencegah *double padding*.
-- **Standar Sistem Desain Mobile**: Seluruh perancangan UI/UX wajib mematuhi token dan kaidah di [`mobile/DESIGN.md`](../../mobile/DESIGN.md) (touch target min 44dp, Aurora Dark Mode palette, shadows & elevation).
+  - Android 15 (API 35) & Android 16 (API 36+): KAV pada seluruh modal dialog wajib `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}`.
+  - Sticky header di layar obrolan wajib berada di luar KAV agar tidak terdorong naik saat keyboard muncul di Android lama.
+- **Standar Sistem Desain & Kontras Mobile**:
+  - Seluruh perancangan UI/UX wajib mematuhi token dan kaidah di [`mobile/DESIGN.md`](../../mobile/DESIGN.md).
+  - **Kontras Teks Tombol (Anti White-on-White)**: Tombol berlatar terang (`variant="secondary"`) wajib menggunakan teks gelap `colors.textPrimary` (`#0f172a`), dilarang menggunakan teks putih.
+  - **Bottom Sheet Flush Alignment**: Seluruh modal tipe bottom sheet wajib menyertakan `statusBarTranslucent={true}`, KAV sebagai overlay terluar (`flex: 1, justifyContent: 'flex-end'`), backdrop `StyleSheet.absoluteFill`, kartu menempel rapat di dasar layar (`bottom: 0`) dengan padding aman `Math.max(insets.bottom, spacing.lg)`, dan form scrollable ber-`flexShrink: 1` (dilarang celah mengambang / floating gap).
 
 ### E. State Manajemen & Optimistic Cache Layer (Stale-While-Revalidate)
 - **Conversation State Isolation**: Daftar percakapan dikelola secara global melalui `ConversationContext` (Milestone M-Mobile-8.15) dengan pola SWR. Data lokal di memori di-render seketika (0ms) saat user kembali dari ruang obrolan, mengeliminasi blocking spinner ("Memuat obrolan...").

@@ -21,30 +21,34 @@ Seluruh styling di React Native **WAJIB** mengimpor token dari `@/theme` (`mobil
 
 | Kategori Token | Nama Token | Nilai Warna | Kegunaan |
 |---|---|---|---|
-| **Background** | `colors.bgBase` | `#090d16` | Background kanvas utama aplikasi |
-| | `colors.bgSurface` | `rgba(15, 23, 42, 0.72)` | Panel permukaan transparan & header |
-| | `colors.bgElevated` | `rgba(30, 41, 59, 0.65)` | Kartu item daftar obrolan & input bar |
-| | `colors.bgCard` | `rgba(30, 41, 59, 0.95)` | Modal card & bottom sheet surface |
-| | `colors.bgCardSolid` | `#1e293b` | Surface solid tanpa transparansi |
-| | `colors.bgInput` | `rgba(15, 23, 42, 0.60)` | Input field & search bar |
-| **Border** | `colors.borderSubtle` | `rgba(255, 255, 255, 0.07)` | Pemisah baris list obrolan & divider |
-| | `colors.borderDefault` | `rgba(255, 255, 255, 0.12)` | Border kontainer kartu standar |
-| | `colors.borderStrong` | `rgba(147, 197, 253, 0.25)` | Highlight border aktif / specular edge |
-| | `colors.borderFocus` | `rgba(59, 130, 246, 0.50)` | Border input saat state focused |
-| **Teks** | `colors.textPrimary` | `#f8fafc` | Teks utama, judul, dan isi pesan |
-| | `colors.textSecondary` | `#94a3b8` | Teks sekunder, cuplikan chat, timestamp |
-| | `colors.textMuted` | `#64748b` | Label non-aktif dan placeholder |
-| | `colors.textOnAccent` | `#ffffff` | Teks di atas tombol aksen biru |
-| **Aksen** | `colors.accentPrimary` | `#3b82f6` | Tombol utama, bubble pesan keluar, FAB |
-| | `colors.accentHover` | `#2563eb` | State ditekan (active/pressed) |
-| | `colors.tintAccent10` | `rgba(59, 130, 246, 0.10)` | Background chip, tag, & quote preview |
-| | `colors.tintAccent20` | `rgba(59, 130, 246, 0.20)` | Highlight seleksi & badge |
-| **Status** | `colors.colorOnline` | `#34d399` | Dot indikator pengguna online |
-| | `colors.colorCyanNeon` | `#00f2fe` | Tanda terima centang biru neon (`✓✓`) |
-| | `colors.colorVerified` | `#38bdf8` | Centang biru akun terverifikasi |
-| | `colors.colorError` | `#f87171` | Status error, tombol batal/tolak |
-| | `colors.colorWarning` | `#fbbf24` | Peringatan E2EE & status kedaluwarsa |
-| | `colors.unreadBadgeBg`| `#2563eb` | Badge hitungan pesan belum dibaca |
+| **Background** | `colors.bgBase` | `#f4f7fb` | Kanvas utama aplikasi (Soft Ice-Blue clean canvas) |
+| | `colors.bgSurface` | `#ffffff` | Kartu putih bersih, list obrolan & header |
+| | `colors.bgSurfaceHover` | `#edf2f7` | State baris saat ditekan (pressed) |
+| | `colors.bgElevated` | `#ffffff` | Header, floating tab bar & elevated cards |
+| | `colors.bgCard` | `#ffffff` | Modal card & bottom sheet surface |
+| | `colors.bgCardSolid` | `#ffffff` | Surface solid kartu dialog |
+| | `colors.bgInput` | `#eef2f6` | Input field & pill search bar |
+| | `colors.bgInputFocused` | `#e2e8f0` | Input field saat aktif / focused |
+| | `colors.bgOverlay` | `rgba(15, 23, 42, 0.45)` | Backdrop modal gelap transparan |
+| **Border** | `colors.borderSubtle` | `#f1f5f9` | Garis pemisah ultra-halus (hairline divider) |
+| | `colors.borderDefault` | `#e2e8f0` | Border pemisah kartu standar |
+| | `colors.borderStrong` | `#cbd5e1` | Highlight border aktif |
+| | `colors.borderFocus` | `#30AFFF` | Border input saat state focused |
+| **Teks** | `colors.textPrimary` | `#0f172a` | Teks utama, judul, label field & isi pesan (Deep Slate) |
+| | `colors.textSecondary` | `#64748b` | Teks sekunder, cuplikan chat, timestamp (Muted Slate) |
+| | `colors.textMuted` | `#94a3b8` | Label non-aktif dan placeholder |
+| | `colors.textOnAccent` | `#ffffff` | Teks di atas tombol aksen biru atau badge |
+| **Aksen** | `colors.accentPrimary` | `#30AFFF` | Tombol utama, bubble pesan keluar, FAB (#30AFFF) |
+| | `colors.accentHover` | `#169de8` | State tombol utama saat ditekan |
+| | `colors.tintAccent10` | `rgba(48, 175, 255, 0.08)` | Background chip, tag, & quote preview |
+| | `colors.tintAccent20` | `rgba(48, 175, 255, 0.16)` | Highlight seleksi, active tab & badge |
+| **Status** | `colors.colorOnline` | `#10b981` | Dot indikator pengguna online (Emerald) |
+| | `colors.colorCyanNeon` | `#0ea5e9` | Tanda terima centang biru (`✓✓`) |
+| | `colors.colorVerified` | `#30AFFF` | Centang biru akun terverifikasi |
+| | `colors.colorError` / `colorDanger` | `#ef4444` | Status error, tombol bahaya/hapus |
+| | `colors.colorWarning` | `#f59e0b` | Peringatan E2EE & status kedaluwarsa |
+| | `colors.unreadBadgeBg` | `#30AFFF` | Badge hitungan pesan belum dibaca |
+| | `colors.unreadBadgeText` | `#ffffff` | Teks badge hitungan pesan |
 
 ---
 
@@ -174,25 +178,52 @@ Untuk memastikan konsistensi tampilan di seluruh versi sistem operasi (**Android
   ```
 
 ### B. Aturan Modal Dialog & Bottom Sheet (`<Modal>`)
-- Komponen `<Modal>` di React Native berjalan di sub-window native tersendiri.
-- Pada **Android 16+ (API 35+)**, arsitektur sistem memberlakukan *enforced edge-to-edge layout*. Jika `behavior={undefined}` digunakan, window modal tidak akan dinaikkan saat keyboard terbuka, mengakibatkan input form tertutup total oleh keyboard.
-- ✅ **Formula Baku untuk Seluruh `<Modal>` dengan Input**:
-  ```tsx
-  <Modal visible={visible} transparent animationType="slide">
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.overlay}
+
+Komponen `<Modal>` di React Native berjalan pada sub-window native tersendiri. Agar tampilan modal konsisten di seluruh perangkat Android (Android 11 hingga Android 16+ dengan *enforced edge-to-edge*) dan iOS, wajib mematuhi arsitektur baku berikut:
+
+#### 1. Bottom Sheet Modal (Mepet Bawah / Flush Alignment)
+Bottom Sheet (`EditProfileModal`, `CreatePostModal`, `PostCommentsModal`, `CreateSubGroupModal`, `BottomSheetModal`) **WAJIB menempel rapat di tepi bawah layar fisik HP (`bottom: 0`)**.
+- ❌ **DILARANG KERAS**: Membiarkan kartu bottom sheet melayang (*floating*) atau menyisakan celah/gap hitam di atas navigation bar / tab bar.
+- ✅ **3 Syarat Mutlak Bottom Sheet React Native**:
+  1. `<Modal>` **WAJIB** menyertakan properti `statusBarTranslucent={true}` agar sub-window dialog Android merender penuh *edge-to-edge* melewati window insets sistem.
+  2. `KeyboardAvoidingView` **WAJIB** menjadi container overlay terluar dengan `style={{ flex: 1, justifyContent: 'flex-end' }}`.
+  3. Kontainer kartu modal (`styles.card`) **WAJIB** memiliki padding bawah dinamis: `paddingBottom: Math.max(insets.bottom, spacing.lg)` agar tombol aksi (Batal & Simpan) berada aman di atas gesture navigation bar Android / home indicator iOS tanpa terpotong, namun latar belakang kartu tetap menempel sempurna ke dasar layar.
+  4. Kontainer form yang dapat di-scroll (`formScroll`) **WAJIB** menggunakan `flexShrink: 1` dengan `showsVerticalScrollIndicator={false}`. **DILARANG** menggunakan fixed `maxHeight` (seperti 460) yang memotong input secara kaku.
+
+✅ **Formula Baku Bottom Sheet Modal**:
+```tsx
+<Modal
+  visible={visible}
+  animationType="slide"
+  transparent
+  statusBarTranslucent
+  onRequestClose={onClose}
+>
+  <KeyboardAvoidingView
+    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    style={styles.overlay}
+  >
+    <TouchableOpacity
+      style={styles.backdrop}
+      activeOpacity={1}
+      onPress={onClose}
+    />
+    <View
+      style={[
+        styles.card,
+        { paddingBottom: Math.max(insets.bottom, spacing.lg) },
+      ]}
     >
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={styles.modalCard}>
-        {/* Konten Form / Input */}
-      </View>
-    </KeyboardAvoidingView>
-  </Modal>
-  ```
-- **Kaidah Behavior**:
-  - iOS: `'padding'`
-  - Android: `'height'` (agar kontainer modal secara aktif menyusutkan tingginya sesuai viewport yang tersisa).
+      {/* Header, Scrollable Body (flexShrink: 1), Footer Actions */}
+    </View>
+  </KeyboardAvoidingView>
+</Modal>
+```
+
+#### 2. Center Dialog Modal (Popup Peringatan & Konfirmasi)
+Digunakan untuk dialog peringatan terpusat di tengah layar (`KeyConflictModal`, `DeviceLimitModal`, `SessionAlertModal`):
+- `styles.overlay`: `{ flex: 1, backgroundColor: colors.bgOverlay, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl }`.
+- `styles.card`: `{ width: '100%', maxWidth: 420, maxHeight: '85%', backgroundColor: colors.bgCardSolid, borderRadius: radius.xl, padding: spacing.xxl }`.
 
 ### C. Konfigurasi Android Soft Input Mode (`adjustResize`)
 - File `mobile/android/app/src/main/AndroidManifest.xml` pada tag `<activity android:name=".MainActivity">` **WAJIB** dikunci menggunakan:
@@ -206,22 +237,47 @@ Untuk memastikan konsistensi tampilan di seluruh versi sistem operasi (**Android
     "softwareKeyboardLayoutMode": "resize"
   }
   ```
+
 ---
 
-## 🧩 6. Pola Komponen Primitif Mobile
+## 🎨 6. Standar Baku Kontras Warna Teks & Tombol (*Button & Contrast Rules*)
+
+Untuk mencegah teks tidak terbaca (*white-on-white* atau warna sama dengan tombol), seluruh komponen tombol wajib mematuhi standar rasio kontras WCAG 2.1 AA (minimal 4.5:1 untuk teks biasa, 3:1 untuk tombol dengan teks tebal/bold):
+
+### A. Panduan Varian Tombol (`Button.tsx`)
+
+| Varian Tombol | Background Normal | Border | Warna Teks | Warna Spinner Loading | Kegunaan |
+|---|---|---|---|---|---|
+| `primary` | `colors.accentPrimary` (`#30AFFF`) | Tidak ada | `colors.textOnAccent` (`#ffffff`) | `colors.textOnAccent` (`#ffffff`) | Aksi utama (Simpan, Kirim, Masuk) |
+| `secondary` | `colors.bgSurface` (`#ffffff`) | `1px colors.borderDefault` | **`colors.textPrimary` (`#0f172a`)** | `colors.accentPrimary` (`#30AFFF`) | Aksi sekunder (Batal, Tutup, Reset) |
+| `danger` | `colors.colorDanger` (`#ef4444`) | Tidak ada | `colors.textOnAccent` (`#ffffff`) | `colors.textOnAccent` (`#ffffff`) | Aksi destruktif (Hapus, Keluar) |
+| `ghost` | `'transparent'` | Tidak ada | `colors.accentPrimary` (`#30AFFF`) | `colors.accentPrimary` (`#30AFFF`) | Tautan teks / tombol tanpa border |
+| `disabled` | `colors.bgInput` (`#eef2f6`) | Opsional | `colors.textMuted` (`#94a3b8`) | — | State non-aktif / tidak dapat diklik |
+
+### B. Aturan Ketat Pencegahan Bug Kontras Warna:
+1. **DILARANG KERAS** menggunakan `colors.textOnAccent` (putih) pada tombol berlatar terang (`colors.bgSurface`, `colors.bgCard`, `colors.bgElevated`, atau transparan). Tombol berlatar terang **WAJIB** menggunakan `colors.textPrimary` (`#0f172a`) atau `colors.textSecondary` (`#64748b`).
+2. **Indikator Loading Spinner (`ActivityIndicator`)**:
+   - Tombol gelap/berwarna (`primary`, `danger`): gunakan spinner putih (`#ffffff`).
+   - Tombol terang (`secondary`, `ghost`): gunakan spinner biru aksen (`colors.accentPrimary`).
+3. **State Loading Tombol Primer**:
+   - Saat `isLoading={true}`, background tombol primer **DILARANG** berubah menjadi putih/pucat yang menyamarkan spinner putih. Background harus tetap `colors.accentPrimary` dengan `activeOpacity`.
+
+---
+
+## 🧩 7. Pola Komponen Primitif Mobile
 
 ### A. Bubble Chat (`MessageBubble.tsx`)
 - **Pesan Keluar (*Outgoing / Self*)**:
-  - Background: `colors.accentPrimary` (`#3b82f6`).
+  - Background: `colors.accentPrimary` (`#30AFFF`).
   - Alignment: Kanan (`alignSelf: 'flex-end'`).
   - Radius: `borderTopLeftRadius: 16`, `borderTopRightRadius: 4`, `borderBottomLeftRadius: 16`, `borderBottomRightRadius: 16`.
 - **Pesan Masuk (*Incoming / Peer*)**:
-  - Background: `colors.bgElevated` (`rgba(30, 41, 59, 0.85)`).
+  - Background: `colors.bgSurface` (`#ffffff`).
   - Alignment: Kiri (`alignSelf: 'flex-start'`).
   - Radius: `borderTopLeftRadius: 4`, `borderTopRightRadius: 16`, `borderBottomLeftRadius: 16`, `borderBottomRightRadius: 16`.
   - Dilengkapi mini avatar pengirim deterministik (26dp) pada obrolan grup.
 - **Tanda Terima Neon Cyan**:
-  - Centang ganda (`✓✓`) berwarna `colors.colorCyanNeon` (`#00f2fe`) dengan sudut paralel 45° standar WhatsApp.
+  - Centang ganda (`✓✓`) berwarna `colors.colorCyanNeon` (`#0ea5e9`) dengan sudut paralel 45° standar WhatsApp.
 
 ### B. Chat Input Bar (`ChatInputBar.tsx`)
 - Kapsul pil presisi dengan `borderRadius: radius.xl` (24dp), tinggi fleksibel (min 48dp).
@@ -232,6 +288,3 @@ Untuk memastikan konsistensi tampilan di seluruh versi sistem operasi (**Android
 - Visualizer waveform 24-bar vertikal dengan scrubber progress pendar neon.
 - Tombol toggle kecepatan putar dinamis: `1x`, `1.5x`, `2x`.
 
-### D. Bottom Sheet & Modal Dialog
-- Menggunakan backdrop gelap semi-transparan `colors.bgOverlay` (`rgba(15, 23, 42, 0.85)`).
-- Card container ber-radius atas `borderTopLeftRadius: radius.xl`, `borderTopRightRadius: radius.xl` dengan handle bar abu-abu di bagian atas tengah (lebar 40dp, tinggi 4dp).

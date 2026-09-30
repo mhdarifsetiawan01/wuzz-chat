@@ -148,13 +148,27 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
    - **KAV pada Modal Dialog & Bottom Sheet Wajib `behavior='height'`**: Komponen `<Modal>` React Native berjalan pada sub-window native tersendiri. Pada Android 16+ (API 35+ edge-to-edge), KAV di dalam Modal **WAJIB** menggunakan `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}`. **DILARANG** menggunakan `undefined` untuk Android di dalam Modal karena akan membuat input form tertutup total oleh keyboard.
    - **Kunci `windowSoftInputMode="adjustResize"`**: Pada `AndroidManifest.xml` (`MainActivity`) dan `app.json`, wajib dikunci ke `adjustResize` / `"softwareKeyboardLayoutMode": "resize"`. **DILARANG** menggunakan `adjustPan`.
 
-5. **Definition of Done (DoD) untuk Setiap Perubahan Frontend & Mobile**:
+5. **Standar Baku Kontras Warna Teks & Tombol (Anti Same-Color Contrast Bug)**:
+   - **DILARANG KERAS Teks Sama Warna dengan Tombol**: Seluruh teks tombol wajib memenuhi standar rasio kontras WCAG 2.1 AA (kontras minimal 4.5:1 untuk teks biasa dan 3:1 untuk tombol tebal/bold).
+   - **Tombol Sekunder / Berlatar Terang**: Seluruh tombol dengan `variant="secondary"` atau berlatar putih/terang (`colors.bgSurface`, `colors.bgCard`, `colors.bgElevated`) **WAJIB MENGGUNAKAN TEKS GELAP** `colors.textPrimary` (`#0f172a`) atau `colors.textSecondary` (`#64748b`). **DILARANG KERAS** menggunakan `colors.textOnAccent` (putih) di atas tombol terang.
+   - **Indikator Spinner Loading**: Tombol terang/sekunder saat `isLoading={true}` wajib menggunakan spinner berwarna kontras (`colors.accentPrimary`), bukan putih.
+   - **Latar Belakang Loading Primer**: Saat tombol primer dalam keadaan loading, latar belakangnya **DILARANG** berubah menjadi putih/pucat yang menyamarkan spinner putih.
+
+6. **Standar Baku Bottom Sheet Modal (Flush Bottom & Edge-to-Edge Alignment)**:
+   - **Mepet Bawah Tanpa Celah (*Flush Bottom*)**: Modal bertipe bottom sheet (`EditProfileModal`, `CreatePostModal`, `PostCommentsModal`, `CreateSubGroupModal`, `BottomSheetModal`) **WAJIB MENEMPEL RAPAT DI DASAR LAYAR HP (`bottom: 0`)**. **DILARANG KERAS** membiarkan kartu modal melayang (*floating*) atau menyisakan celah/gap gelap di atas bottom tab bar navigasi.
+   - **Wajib `statusBarTranslucent={true}`**: Komponen `<Modal>` pada React Native Android **WAJIB** menyertakan `statusBarTranslucent={true}` agar sub-window modal merender penuh *edge-to-edge* melewati window insets sistem.
+   - **Hirarki Kontainer KAV**: `KeyboardAvoidingView` **WAJIB** menjadi container overlay terluar dengan `style={{ flex: 1, justifyContent: 'flex-end' }}` didampingi `TouchableOpacity`/`Pressable` backdrop ber-style `StyleSheet.absoluteFill`.
+   - **Safe-Area Bottom Clearance**: Kontainer kartu modal (`styles.card`) **WAJIB** memiliki bantalan bawah dinamis: `paddingBottom: Math.max(insets.bottom, spacing.lg)` agar tombol aksi berada aman di atas gesture navigation bar Android / home indicator iOS tanpa terpotong, namun latar kartu tetap menempel sempurna ke dasar layar.
+   - **Scrollable Form Dinamis**: Komponen ScrollView di dalam modal bottom sheet **WAJIB** menggunakan `flexShrink: 1` dengan `showsVerticalScrollIndicator={false}`. **DILARANG** menggunakan fixed `maxHeight` kaku yang memotong konten.
+
+7. **Definition of Done (DoD) untuk Setiap Perubahan Frontend & Mobile**:
    Setiap perubahan frontend & mobile **TIDAK BOLEH** dinyatakan selesai sebelum lolos verifikasi mental/smoke test pada skenario berikut:
    1. ✅ **Desktop Flow**: Buka chat di laptop, kirim/terima pesan, pastikan 2 kolom tetap sinkron.
    2. ✅ **Mobile Flow 1 (Home Incoming)**: Terima pesan saat di Home HP ➔ Unread badge muncul di list dan bottom nav ➔ Klik chat ➔ Pesan terbaru langsung tampil di bawah ➔ Klik `← Back` ➔ Unread badge hilang sempurna dan centang biru tersinkronisasi.
    3. ✅ **Mobile Flow 2 (Active Room Incoming)**: Terima pesan saat berada di dalam room di HP ➔ Pesan muncul seketika di timeline.
    4. ✅ **Mobile Flow 3 (Keyboard & Header Stability)**: Buka chat di HP (Android 11 maupun Android 16), fokus ke input keyboard ➔ Header chat tetap diam di tempatnya (tidak terdorong hilang), linimasa pesan dan input bar naik tepat di atas keyboard.
    5. ✅ **Mobile Flow 4 (Modal Form Keyboard Clearance)**: Buka modal dialog/bottom sheet ber-input (misal buat postingan, komentar, buat sub-group) ➔ Fokus ke input ➔ Seluruh form dan tombol submit naik secara mulus di atas keyboard tanpa terpotong di Android 11 maupun Android 16+.
+   6. ✅ **Mobile Flow 5 (Bottom Sheet Flush & Button Contrast Clarity)**: Buka modal bottom sheet (Edit Profil, Create Post, dsb.) ➔ Kartu menempel rapat di batas paling bawah layar tanpa gap/celah hitam, tombol aksi memiliki safe-area clearance di atas gesture bar, dan seluruh tombol (primer, sekunder, bahaya) memiliki teks dengan kontras tajam yang 100% terbaca.
 
 ---
 
