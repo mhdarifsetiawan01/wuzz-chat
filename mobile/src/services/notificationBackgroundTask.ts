@@ -219,6 +219,10 @@ if (modules && modules.TaskManager && typeof modules.TaskManager.defineTask === 
                     ...notificationData,
                     is_call: true,
                     is_locally_decrypted: true,
+                    // FIX: Pastikan SDP offer selalu diteruskan ke notifikasi lokal agar
+                    // pendingOfferSdpRef.current tidak null saat user membuka app dari notifikasi.
+                    // Tanpa ini, acceptCall() akan menggunakan fallback SDP dummy → audio tidak nyambung.
+                    sdp: notificationData.sdp || '',
                   },
                   sound: 'default',
                   badge: 1,

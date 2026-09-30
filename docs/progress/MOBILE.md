@@ -32,6 +32,10 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - [x] **M-Mobile-8.5: Contact Profile & Verified Identity**: Safety Number 30-digit deterministic fingerprint, `ContactInfoModal`, centang biru `VerifiedBadge`, pure JS `QRCodeView`.
 - [x] **M-Mobile-8.10: QR Code E2EE Device Transfer**: In-app live camera scanner (`CameraView`), atomic single-use consume di database server, pemindahan kunci antar-perangkat secara aman.
 - [x] **M-Mobile-8.11 & 8.12: WebRTC 1-on-1 Voice Calling**: Signaling via WebSocket (`call_offer`, `call_answer`, `ice_candidate`), STUN/TURN, normalisasi SDP DTLS RFC compliance (`setup:actpass`), `IncomingCallModal` & `ActiveCallOverlay`, manajemen rute audio Loudspeaker vs Earpiece, vibration feedback.
+- [x] **BUG FIX (30-Sep-2026): WebRTC "Halo-Halo Tanpa Suara" — 3 Root Cause Kritis Diperbaiki**:
+  - **Fix A** (`notificationBackgroundTask.ts`): SDP offer kini selalu diteruskan ke notif lokal `call_incoming`. Sebelumnya `sdp` hilang → `createAnswer("")` → fallback SDP dummy → P2P audio gagal.
+  - **Fix B** (`CallContext.tsx`): `joinRoom()` dipanggil **sebelum** `createAnswer()` agar ICE candidates dari caller tidak hilang selama WS reconnect di background.
+  - **Fix C** (`CallContext.tsx` + `callAudioManager.ts`): `WebRTCAudioSession` kini menerima `onRemoteStream` callback → `activateRemoteAudioStream()` → remote audio track terhubung ke native audio output.
 
 ### 4. Zero-Knowledge Background Decryption & FCM v1 Push (Terbaru)
 - [x] **Silent Data-Only Push**: Payload FCM v1 dikirim tanpa blok OS notification, memuat ciphertext dan public key pengirim dengan prioritas `HIGH`.

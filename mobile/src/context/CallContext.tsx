@@ -295,7 +295,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       callAudioManager.playOutgoingRingback();
 
       // 3. Initialize WebRTC session
-      const session = new WebRTCAudioSession();
+      // FIX-C: Pass onRemoteStream callback agar remote audio track terhubung ke native audio output.
+      // Tanpa callback ini, suara dari peer tidak akan terdengar meskipun WebRTC connected.
+      const session = new WebRTCAudioSession(
+        (state) => {
+          console.log('[CallContext] PeerConnection state (caller):', state);
+        },
+        (stream) => {
+          console.log('[CallContext] Remote audio stream received (caller), activating native audio...');
+          callAudioManager.activateRemoteAudioStream(stream);
+        }
+      );
       webrtcSessionRef.current = session;
 
       try {
@@ -388,10 +398,23 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     callAudioManager.stopAllCallTones();
     setActiveCall((prev) => (prev ? { ...prev, status: 'connecting' } : null));
 
-    const session = new WebRTCAudioSession();
+    // FIX-C: Pass onRemoteStream callback agar remote audio track terhubung ke native audio output.
+    const session = new WebRTCAudioSession(
+      (state) => {
+        console.log('[CallContext] PeerConnection state (callee):', state);
+      },
+      (stream) => {
+        console.log('[CallContext] Remote audio stream received (callee), activating native audio...');
+        callAudioManager.activateRemoteAudioStream(stream);
+      }
+    );
     webrtcSessionRef.current = session;
 
     try {
+      // FIX-B: Pastikan B sudah join room di Hub SEBELUM createAnswer() agar ICE candidates
+      // dari caller yang sudah mulai dikirim tidak hilang karena B belum terdaftar di room.
+      websocketClient.joinRoom(current.room);
+
       const offerSdp = pendingOfferSdpRef.current || '';
       const answerSdp = await session.createAnswer(offerSdp, (candidateJson) => {
         websocketClient.sendIceCandidate(current.room, candidateJson);

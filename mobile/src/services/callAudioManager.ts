@@ -211,6 +211,32 @@ class CallAudioManager {
     }
   }
 
+  /**
+   * Activate the remote audio stream received from WebRTC peer.
+   * FIX-C: Mengaktifkan audio track dari remote MediaStream ke native audio output.
+   * Tanpa ini, koneksi WebRTC P2P berhasil tapi suara peer tidak terdengar ("halo-halo tanpa suara").
+   *
+   * react-native-webrtc secara otomatis memutar remote stream ke audio output
+   * jika audio track-nya dalam keadaan enabled = true dan audio session sudah aktif.
+   * Method ini memastikan semua audio track dari remote stream dalam keadaan aktif.
+   */
+  public activateRemoteAudioStream(remoteStream: any): void {
+    if (!remoteStream) return;
+    try {
+      if (typeof remoteStream.getAudioTracks === 'function') {
+        const audioTracks = remoteStream.getAudioTracks();
+        audioTracks.forEach((track: any) => {
+          if (track && !track.enabled) {
+            track.enabled = true;
+          }
+        });
+        console.log(`[CallAudioManager] Remote audio stream activated: ${audioTracks.length} audio track(s) enabled`);
+      }
+    } catch (err) {
+      console.warn('[CallAudioManager] Error activating remote audio stream:', err);
+    }
+  }
+
   constructor() {
     this.ensureTonesGenerated().catch(() => {});
   }
