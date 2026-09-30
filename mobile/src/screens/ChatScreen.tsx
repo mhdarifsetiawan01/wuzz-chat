@@ -1411,252 +1411,254 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <KeyboardAvoidingView
-        style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        {/* Sticky Header — with In-Chat Search mode toggle and Sub-Group breadcrumb */}
-        {isSearching ? (
-          <View style={styles.searchHeaderBar}>
-            <TouchableOpacity
-              style={styles.searchHeaderBackBtn}
-              onPress={handleCloseSearch}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.searchHeaderBackIcon}>←</Text>
-            </TouchableOpacity>
+      {/* Sticky Header — OUTSIDE KeyboardAvoidingView agar tidak terdorong naik oleh keyboard */}
+      {isSearching ? (
+        <View style={styles.searchHeaderBar}>
+          <TouchableOpacity
+            style={styles.searchHeaderBackBtn}
+            onPress={handleCloseSearch}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.searchHeaderBackIcon}>←</Text>
+          </TouchableOpacity>
 
-            <View style={styles.searchHeaderInputContainer}>
-              <TextInput
-                ref={searchInputRef}
-                style={styles.searchHeaderInput}
-                placeholder="Cari pesan dalam obrolan..."
-                placeholderTextColor={colors.textMuted}
-                value={searchQuery}
-                onChangeText={handleSearchQueryChange}
-                autoFocus
-                autoCorrect={false}
-                autoCapitalize="none"
-                returnKeyType="search"
-                onSubmitEditing={handleSearchSubmit}
-              />
-              {searchQuery.length > 0 ? (
-                <TouchableOpacity
-                  onPress={() => {
-                    handleSearchQueryChange('');
-                    searchInputRef.current?.focus();
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.searchClearIcon}>✕</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
+          <View style={styles.searchHeaderInputContainer}>
+            <TextInput
+              ref={searchInputRef}
+              style={styles.searchHeaderInput}
+              placeholder="Cari pesan dalam obrolan..."
+              placeholderTextColor={colors.textMuted}
+              value={searchQuery}
+              onChangeText={handleSearchQueryChange}
+              autoFocus
+              autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="search"
+              onSubmitEditing={handleSearchSubmit}
+            />
+            {searchQuery.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => {
+                  handleSearchQueryChange('');
+                  searchInputRef.current?.focus();
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.searchClearIcon}>✕</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
 
-            <View style={styles.searchNavCol}>
-              {searchQuery.trim().length > 0 ? (
+          <View style={styles.searchNavCol}>
+            {searchQuery.trim().length > 0 ? (
+              <Text
+                style={[
+                  styles.searchCounterText,
+                  searchResults.length === 0 && styles.searchCounterEmpty,
+                ]}
+              >
+                {searchResults.length > 0
+                  ? `${currentSearchIndex + 1}/${searchResults.length}`
+                  : '0/0'}
+              </Text>
+            ) : null}
+            <View style={styles.searchNavButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.searchNavBtn,
+                  searchResults.length === 0 && styles.searchNavBtnDisabled,
+                ]}
+                onPress={handleSearchPrev}
+                disabled={searchResults.length === 0}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                activeOpacity={0.7}
+              >
                 <Text
                   style={[
-                    styles.searchCounterText,
-                    searchResults.length === 0 && styles.searchCounterEmpty,
+                    styles.searchNavIcon,
+                    searchResults.length === 0 && styles.searchNavIconDisabled,
                   ]}
                 >
-                  {searchResults.length > 0
-                    ? `${currentSearchIndex + 1}/${searchResults.length}`
-                    : '0/0'}
+                  ▲
                 </Text>
-              ) : null}
-              <View style={styles.searchNavButtons}>
-                <TouchableOpacity
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.searchNavBtn,
+                  searchResults.length === 0 && styles.searchNavBtnDisabled,
+                ]}
+                onPress={handleSearchNext}
+                disabled={searchResults.length === 0}
+                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                activeOpacity={0.7}
+              >
+                <Text
                   style={[
-                    styles.searchNavBtn,
-                    searchResults.length === 0 && styles.searchNavBtnDisabled,
+                    styles.searchNavIcon,
+                    searchResults.length === 0 && styles.searchNavIconDisabled,
                   ]}
-                  onPress={handleSearchPrev}
-                  disabled={searchResults.length === 0}
-                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                  activeOpacity={0.7}
                 >
-                  <Text
-                    style={[
-                      styles.searchNavIcon,
-                      searchResults.length === 0 && styles.searchNavIconDisabled,
-                    ]}
-                  >
-                    ▲
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.searchNavBtn,
-                    searchResults.length === 0 && styles.searchNavBtnDisabled,
-                  ]}
-                  onPress={handleSearchNext}
-                  disabled={searchResults.length === 0}
-                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.searchNavIcon,
-                      searchResults.length === 0 && styles.searchNavIconDisabled,
-                    ]}
-                  >
-                    ▼
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                  ▼
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
-        ) : (
-          <View style={[styles.header, isSubGroup && styles.headerTall]}>
-            {/* Back button: sub-group → navigate to parent group first */}
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => {
-                if (isSubGroup && onNavigateToParent) {
-                  const parentId =
-                    (groupDetails as any)?.parent_id ||
-                    conversation.parent_id ||
-                    parentGroupConversation?.id;
-                  if (parentId) {
-                    onNavigateToParent(parentId);
-                    return;
-                  }
+        </View>
+      ) : (
+        <View style={[styles.header, isSubGroup && styles.headerTall]}>
+          {/* Back button: sub-group → navigate to parent group first */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => {
+              if (isSubGroup && onNavigateToParent) {
+                const parentId =
+                  (groupDetails as any)?.parent_id ||
+                  conversation.parent_id ||
+                  parentGroupConversation?.id;
+                if (parentId) {
+                  onNavigateToParent(parentId);
+                  return;
                 }
-                onBack();
-              }}
-              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.backIcon}>←</Text>
-            </TouchableOpacity>
+              }
+              onBack();
+            }}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.backIcon}>←</Text>
+          </TouchableOpacity>
 
-            {/* Center: avatar + title + subtitle/breadcrumb */}
-            <TouchableOpacity
-              style={styles.headerInfoTouchable}
-              onPress={() => {
-                if (isSubGroup) {
-                  // Tap header in sub-group → navigate to parent (breadcrumb)
-                  const parentId =
-                    (groupDetails as any)?.parent_id ||
-                    conversation.parent_id ||
-                    parentGroupConversation?.id;
-                  if (parentId && onNavigateToParent) onNavigateToParent(parentId);
-                } else if (isGroup && onOpenGroupInfo) {
-                  onOpenGroupInfo(groupDetails || conversation);
-                } else if (isDirect && resolvedPeerId) {
-                  if (onOpenUserProfile) {
-                    onOpenUserProfile(resolvedPeerId);
-                  } else {
-                    setShowContactInfoModal(true);
-                  }
+          {/* Center: avatar + title + subtitle/breadcrumb */}
+          <TouchableOpacity
+            style={styles.headerInfoTouchable}
+            onPress={() => {
+              if (isSubGroup) {
+                // Tap header in sub-group → navigate to parent (breadcrumb)
+                const parentId =
+                  (groupDetails as any)?.parent_id ||
+                  conversation.parent_id ||
+                  parentGroupConversation?.id;
+                if (parentId && onNavigateToParent) onNavigateToParent(parentId);
+              } else if (isGroup && onOpenGroupInfo) {
+                onOpenGroupInfo(groupDetails || conversation);
+              } else if (isDirect && resolvedPeerId) {
+                if (onOpenUserProfile) {
+                  onOpenUserProfile(resolvedPeerId);
+                } else {
+                  setShowContactInfoModal(true);
                 }
-              }}
-              disabled={!isGroup && !isDirect}
-              activeOpacity={isGroup || isDirect ? 0.75 : 1}
-            >
-              <View style={styles.headerAvatarContainer}>
-                <Avatar
-                  name={title}
-                  avatarUrl={avatarUrl}
-                  size={38}
-                  isGroup={isGroup}
-                  isOnline={isDirect}
-                />
+              }
+            }}
+            disabled={!isGroup && !isDirect}
+            activeOpacity={isGroup || isDirect ? 0.75 : 1}
+          >
+            <View style={styles.headerAvatarContainer}>
+              <Avatar
+                name={title}
+                avatarUrl={avatarUrl}
+                size={38}
+                isGroup={isGroup}
+                isOnline={isDirect}
+              />
+            </View>
+
+            <View style={styles.headerInfo}>
+              <View style={styles.headerTitleContainer}>
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                  {title}
+                </Text>
+                {isDirect && conversation.peer_is_verified && (
+                  <VerifiedBadge size={14} />
+                )}
               </View>
+              <View style={styles.headerStatusRow}>
+                {isDirect && <View style={styles.onlineDot} />}
 
-              <View style={styles.headerInfo}>
-                <View style={styles.headerTitleContainer}>
-                  <Text style={styles.headerTitle} numberOfLines={1}>
-                    {title}
+                {/* M-Mobile-8.2C: Interactive breadcrumb for sub-group rooms */}
+                {isSubGroup ? (
+                  <Text style={styles.headerBreadcrumb} numberOfLines={1}>
+                    {'↖ '}
+                    {parentGroupName ? `${parentGroupName} • ` : ''}
+                    {'Forum'}
+                    {memberCount > 0 ? ` • ${memberCount} anggota` : ''}
                   </Text>
-                  {isDirect && conversation.peer_is_verified && (
-                    <VerifiedBadge size={14} />
-                  )}
-                </View>
-                <View style={styles.headerStatusRow}>
-                  {isDirect && <View style={styles.onlineDot} />}
-
-                  {/* M-Mobile-8.2C: Interactive breadcrumb for sub-group rooms */}
-                  {isSubGroup ? (
-                    <Text style={styles.headerBreadcrumb} numberOfLines={1}>
-                      {'↖ '}
-                      {parentGroupName ? `${parentGroupName} • ` : ''}
-                      {'Forum'}
-                      {memberCount > 0 ? ` • ${memberCount} anggota` : ''}
-                    </Text>
-                  ) : (
-                    <Text style={styles.headerSubtitle} numberOfLines={1}>
-                      {isDirect
-                        ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
-                        : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'}`}
-                    </Text>
-                  )}
-                </View>
+                ) : (
+                  <Text style={styles.headerSubtitle} numberOfLines={1}>
+                    {isDirect
+                      ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
+                      : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'}`}
+                  </Text>
+                )}
               </View>
-            </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
 
-            {/* Right-side buttons */}
-            <View style={styles.headerRightActions}>
-              {/* Voice Call Button (1-on-1 Direct Chat Only) */}
-              {isDirect && (
-                <TouchableOpacity
-                  style={styles.headerIconButton}
-                  onPress={handleVoiceCall}
-                  hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.headerIconText}>📞</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* In-Chat Search Button */}
+          {/* Right-side buttons */}
+          <View style={styles.headerRightActions}>
+            {/* Voice Call Button (1-on-1 Direct Chat Only) */}
+            {isDirect && (
               <TouchableOpacity
                 style={styles.headerIconButton}
-                onPress={handleStartSearch}
+                onPress={handleVoiceCall}
                 hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.headerIconText}>🔍</Text>
+                <Text style={styles.headerIconText}>📞</Text>
               </TouchableOpacity>
+            )}
 
-              {/* Milestone M-Mobile-8.30: Media Gallery Button */}
+            {/* In-Chat Search Button */}
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={handleStartSearch}
+              hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.headerIconText}>🔍</Text>
+            </TouchableOpacity>
+
+            {/* Milestone M-Mobile-8.30: Media Gallery Button */}
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={() => setShowMediaGallery(true)}
+              hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.headerIconText}>🖼️</Text>
+            </TouchableOpacity>
+
+            {isParentGroup && (
+              // 🏛️ Forum button — only on parent groups, not sub-groups
               <TouchableOpacity
-                style={styles.headerIconButton}
-                onPress={() => setShowMediaGallery(true)}
+                style={styles.forumButton}
+                onPress={() => setShowForumModal(true)}
                 hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.headerIconText}>🖼️</Text>
+                <Text style={styles.forumButtonText}>🏛️</Text>
               </TouchableOpacity>
+            )}
 
-              {isParentGroup && (
-                // 🏛️ Forum button — only on parent groups, not sub-groups
-                <TouchableOpacity
-                  style={styles.forumButton}
-                  onPress={() => setShowForumModal(true)}
-                  hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.forumButtonText}>🏛️</Text>
-                </TouchableOpacity>
-              )}
-
-              {isGroup && !isSubGroup && onOpenGroupInfo && (
-                <TouchableOpacity
-                  style={styles.groupInfoButton}
-                  onPress={() => onOpenGroupInfo(groupDetails || conversation)}
-                  hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.groupInfoIcon}>ℹ️</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            {isGroup && !isSubGroup && onOpenGroupInfo && (
+              <TouchableOpacity
+                style={styles.groupInfoButton}
+                onPress={() => onOpenGroupInfo(groupDetails || conversation)}
+                hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.groupInfoIcon}>ℹ️</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
+        </View>
+      )}
+
+      {/* KeyboardAvoidingView hanya menampung konten scrollable + input bar */}
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
 
         {/* Milestone 8.3: Pinned Messages Banner */}
         <PinnedMessagesBanner
