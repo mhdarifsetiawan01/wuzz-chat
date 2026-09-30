@@ -30,6 +30,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 │ [x] Fase 10: Group Memory AI (M1–M7)      │ 👉 docs/context/BACKEND.md                 │
 │ [x] Fase 11: Multi-Device (Ph 0,1,2,3,5)  │                                            │
 │ [ ] Fase 11: Passkey / WebAuthn (Ph 4)    │                                            │
+│ [ ] Fase 12: Community Feed (Model B)     │                                            │
 │ [ ] Fase 9: Monetisasi & Avatar Asset     │                                            │
 │ [ ] Mobile Native Client (Kotlin/Swift)   │                                            │
 └───────────────────────────────────────────┴────────────────────────────────────────────┘
@@ -71,6 +72,10 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >    - **Milestone M-Mobile-8.23: SQLite Storage Retention Cap, Cache Pruning & Auto-Vacuum**: **SELESAI ✅** (Batas retensi 500–1.000 pesan per room di SQLite lokal, auto-pruning pesan usang saat sync, dan pemanfaatan `PRAGMA auto_vacuum = INCREMENTAL`)
 >    - **Milestone M-Mobile-8.24 s/d M-Mobile-8.31**: **SELESAI ✅** (App Branding WuzzChat & adaptive icons, keyboard resilience Android 15/16, optimasi APK/AAB R8 ABI splits, instant unread reset sync, status bar notification icons, interactive pinch-to-zoom media viewer, room media gallery, dan perbaikan force close dokumen)
 >    - **Milestone M-Backend-Media-24h: Multi-Device Media Sharing (24-Hour Grace Period Retention)**: **SELESAI ✅** (Penyelarasan Store-and-Forward DM dengan 24h grace period pasca-ACK untuk menjamin kelancaran download media di seluruh perangkat aktif)
+>    - **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**: *🔮 Terjadwal (Ready to Pick Up)*:
+>      - **Tahap 1 (M-Mobile-9.1: Fondasi Profil & Identitas Publik Mobile)**: Kolom `bio` & `role` di skema `users`, upload avatar kustom dari kamera/galeri mobile, dan komponen layar profil publik (`UserProfileScreen.tsx`).
+>      - **Tahap 2 (M-Mobile-9.2: Spesifikasi Domain, Skema DB & Backend Go Engine)**: Domain DDD `COMMUNITY_FEED`, tabel `feed_posts`, `feed_likes`, `feed_comments`, dan REST API Go (`/api/feed`).
+>      - **Tahap 3 (M-Mobile-9.3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop)**: Penggantian mock `FeedScreen.tsx` ke real SWR cache, modal buat postingan (FAB `+`), thread komentar interaktif, dan fitur "Bagikan ke Obrolan" (Share to Chat).
 
 ---
 
@@ -463,6 +468,37 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
     - Sentralisasi konfigurasi terpadu di `internal/shared/config/`, pengemasan background cleaner worker di `internal/authz/worker/cleaner_worker.go`.
     - Orkestrasi dependency injection dan container perakitan di `internal/app/wire.go`, pemisahan router modular di `internal/app/router.go`.
     - Merampingkan `main.go` menjadi 55 baris dengan Go standard graceful shutdown, 100% lolos full backend & frontend test suite.
+
+---
+
+### Fase 12: Community Social Feed & User Acquisition Engine (Model B) (Status: 🔮 TERJADWAL)
+*Tujuan: Membangun linimasa feed publik/komunitas yang interaktif (ala Threads/Twitter) sebagai pintu masuk penemuan konten, interaksi sosial terbuka, dan pertumbuhan pengguna baru (user acquisition).*
+
+- **Tahap 1: Fondasi Profil & Identitas Publik Mobile (Milestone M-Mobile-9.1)**:
+  - **Skema Database & User Service**: Penambahan kolom `bio VARCHAR(255)` dan `role VARCHAR(64)` pada tabel `users`.
+  - **REST API Profil**: Pembaruan `PUT /api/auth/profile` dan `GET /api/users/{id}` untuk mendukung pembacaan dan pembaruan bio serta role.
+  - **Upload Avatar Native**: Integrasi pemilihan gambar dari kamera/galeri di mobile via `expo-image-picker` terunggah ke endpoint media.
+  - **Komponen Layar Profil Publik**: Pembuatan komponen `UserProfileScreen.tsx` / `UserProfileModal.tsx` yang dapat dipicu saat avatar diklik dari Feed, pesan chat, atau daftar kontak (menampilkan avatar besar, `@username`, display name, bio, status verified, serta tombol aksi "Kirim Pesan" dan "Panggilan Suara").
+
+- **Tahap 2: Spesifikasi Domain, Skema DB & Backend Go Engine (Milestone M-Mobile-9.2)**:
+  - **Domain Spesifikasi DDD**: Penyusunan dokumen arsitektur dan invariant di `docs/domains/COMMUNITY_FEED.md`.
+  - **Skema Database Relasional**:
+    - `feed_posts` (`id UUID PRIMARY KEY`, `user_id UUID REFERENCES users(id)`, `content TEXT`, `media_urls JSONB`, `likes_count INT DEFAULT 0`, `comments_count INT DEFAULT 0`, `created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()`).
+    - `feed_likes` (`post_id UUID`, `user_id UUID`, `created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()`, `PRIMARY KEY (post_id, user_id)`).
+    - `feed_comments` (`id UUID PRIMARY KEY`, `post_id UUID REFERENCES feed_posts(id) ON DELETE CASCADE`, `user_id UUID REFERENCES users(id)`, `content TEXT NOT NULL`, `created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()`).
+  - **REST API Endpoints**:
+    - `GET /api/feed`: Mengambil linimasa postingan dengan pagination cursor-based (`before`, `limit=20`), disertai flag `is_liked` untuk user yang login.
+    - `POST /api/feed`: Membuat postingan teks baru (maks 1.000 karakter) dengan lampiran media opsional.
+    - `POST /api/feed/:id/like` & `DELETE /api/feed/:id/like`: Toggle like idempotent dengan atomic counter adjustment.
+    - `GET /api/feed/:id/comments`: Mengambil daftar komentar pada postingan tertentu.
+    - `POST /api/feed/:id/comments`: Menambahkan komentar baru.
+    - `DELETE /api/feed/:id`: Penghapusan postingan oleh pemilik asli atau admin/moderator.
+
+- **Tahap 3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop (Milestone M-Mobile-9.3)**:
+  - **Arsitektur Feed Cache**: Migrasi `FeedScreen.tsx` dari mock statis `SAMPLE_POSTS` ke SWR Context Layer & persistensi SQLite lokal (`local_feed_posts`) untuk offline reading instan (< 50ms).
+  - **Pembuat Postingan (Create Post)**: Floating Action Button (FAB `+`) yang membuka `CreatePostModal.tsx` dengan dukungan teks, counter karakter, penambahan gambar, dan status pengiriman.
+  - **Interaksi Instan (Optimistic UI)**: Animasi ketuk Like hati (0ms) dengan auto-rollback jika API gagal, serta modal drawer `PostCommentsModal.tsx` untuk membaca dan mengirim komentar.
+  - **Mekanisme Akuisisi Pengguna & Viral Loop**: Tombol "Bagikan ke Obrolan" (Share to Chat) untuk mengirim kartu postingan langsung ke grup atau DM, memicu percakapan dan keterlibatan pengguna lain.
 
 ---
 

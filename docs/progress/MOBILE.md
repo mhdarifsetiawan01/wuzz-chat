@@ -232,6 +232,10 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 ---
 
 ## Fokus Berikutnya (What's Next)
+- [ ] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
+  - [ ] **Tahap 1 (M-Mobile-9.1)**: Fondasi Profil & Identitas Publik Mobile (`bio`, `role` di `users`, upload avatar kamera/galeri mobile, `UserProfileScreen.tsx`).
+  - [ ] **Tahap 2 (M-Mobile-9.2)**: Spesifikasi Domain, Skema DB & Backend Go Engine (`docs/domains/COMMUNITY_FEED.md`, `feed_posts`, `feed_likes`, `feed_comments`, REST API `/api/feed`).
+  - [ ] **Tahap 3 (M-Mobile-9.3)**: Integrasi Real Mobile UI, Interaksi & Viral Share Loop (`FeedScreen.tsx` SWR cache, FAB Create Post, Likes/Comments, Share to Chat).
 - [ ] Pengujian build native iOS via Xcode / CocoaPods.
 - [ ] Integrasi video player stream inline/fullscreen di mobile (`expo-video` / `av`).
 
