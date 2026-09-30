@@ -144,25 +144,68 @@ Aplikasi mobile mengadopsi pola layar tunggal bergantian penuh standar WhatsApp:
 
 ---
 
-## ⌨️ 5. Resiliensi Virtual Keyboard (*Keyboard Avoiding*)
+## ⌨️ 5. Resiliensi Virtual Keyboard & Window Soft Input Mode (*Keyboard Handling SOP*)
 
-Agar input bar obrolan dan form login tidak tertutup oleh keyboard virtual Android atau iOS:
+Untuk memastikan konsistensi tampilan di seluruh versi sistem operasi (**Android 11 lama hingga Android 16+ modern dengan edge-to-edge enforcement**, serta iOS), wajib mematuhi 4 pilar arsitektur keyboard berikut:
 
-1. **Formula Baku di `ChatScreen.tsx`**:
-   ```tsx
-   <KeyboardAvoidingView
-     style={{ flex: 1 }}
-     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-     keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-   >
-     {/* Timeline Obrolan & ChatInputBar */}
-   </KeyboardAvoidingView>
-   ```
-2. **Android Window Soft Input Mode**:
-   - Pada `app.json`, pastikan konfigurasi Android menggunakan:
-     `"softwareKeyboardLayoutMode": "resize"`
-   - Ini memastikan sistem operasi me-resize window secara natural tanpa memerlukan offset manual yang kaku.
+### A. Aturan Isolasi Header Layar Penuh (*Sticky Header Outside KAV*)
+- **HEADER LAYAR WAJIB DITEMPATKAN DI LUAR `KeyboardAvoidingView`**.
+- `KeyboardAvoidingView` **HANYA** membungkus area konten dinamis/scrollable (`FlatList`/`ScrollView`) dan input bar di bawah.
+- ❌ **Anti-Pattern**: Meletakkan `<View style={styles.header}>` di dalam `<KeyboardAvoidingView>`.
+  - *Dampak*: Pada Android versi lama (Android 11/12), saat keyboard virtual terbuka, header terdorong naik keluar dari layar sehingga tombol kembali dan informasi kontak lenyap.
+- ✅ **Pola Struktur Hirarki yang Benar (`ChatScreen.tsx`)**:
+  ```tsx
+  <View style={[styles.root, { paddingTop: insets.top }]}>
+    {/* 1. Header Tetap Diam (Sticky) di Atas */}
+    <View style={styles.header}>
+      <TouchableOpacity onPress={onBack}><Text>←</Text></TouchableOpacity>
+      <Text>{title}</Text>
+    </View>
 
+    {/* 2. KAV Hanya Menangani Konten Linimasa + Input */}
+    <KeyboardAvoidingView
+      style={styles.keyboardContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <FlatList data={messages} ... />
+      <ChatInputBar ... />
+    </KeyboardAvoidingView>
+  </View>
+  ```
+
+### B. Aturan Modal Dialog & Bottom Sheet (`<Modal>`)
+- Komponen `<Modal>` di React Native berjalan di sub-window native tersendiri.
+- Pada **Android 16+ (API 35+)**, arsitektur sistem memberlakukan *enforced edge-to-edge layout*. Jika `behavior={undefined}` digunakan, window modal tidak akan dinaikkan saat keyboard terbuka, mengakibatkan input form tertutup total oleh keyboard.
+- ✅ **Formula Baku untuk Seluruh `<Modal>` dengan Input**:
+  ```tsx
+  <Modal visible={visible} transparent animationType="slide">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.overlay}
+    >
+      <Pressable style={styles.backdrop} onPress={onClose} />
+      <View style={styles.modalCard}>
+        {/* Konten Form / Input */}
+      </View>
+    </KeyboardAvoidingView>
+  </Modal>
+  ```
+- **Kaidah Behavior**:
+  - iOS: `'padding'`
+  - Android: `'height'` (agar kontainer modal secara aktif menyusutkan tingginya sesuai viewport yang tersisa).
+
+### C. Konfigurasi Android Soft Input Mode (`adjustResize`)
+- File `mobile/android/app/src/main/AndroidManifest.xml` pada tag `<activity android:name=".MainActivity">` **WAJIB** dikunci menggunakan:
+  ```xml
+  android:windowSoftInputMode="adjustResize"
+  ```
+- **STRICT PROHIBITION**: DILARANG menggunakan `adjustPan`. `adjustPan` hanya menggeser titik fokus tanpa mengubah ukuran window aplikasi, menyebabkan desinkronisasi insets antara Android lama dan baru.
+- Pada `mobile/app.json`:
+  ```json
+  "android": {
+    "softwareKeyboardLayoutMode": "resize"
+  }
+  ```
 ---
 
 ## 🧩 6. Pola Komponen Primitif Mobile

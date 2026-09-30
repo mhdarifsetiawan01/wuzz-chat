@@ -102,7 +102,7 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.overlay}
         >
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()} accessible={false}>

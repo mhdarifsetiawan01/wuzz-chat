@@ -189,7 +189,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.overlay}
       >
         <Pressable style={styles.backdrop} onPress={onClose} />

@@ -143,11 +143,18 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
    - **Safe Area Inset**: Wajib menyertakan `padding-bottom: max(..., env(safe-area-inset-bottom, 0px))` pada bottom navigation, FAB, dan chat input area.
    - **Sticky Header**: Header (`.status-bar`, `.sidebar-header`) wajib dikunci dengan `position: sticky; top: 0; z-index: 50; flex-shrink: 0;`.
 
-4. **Definition of Done (DoD) untuk Setiap Perubahan Frontend**:
-   Setiap perubahan frontend **TIDAK BOLEH** dinyatakan selesai sebelum lolos verifikasi mental/smoke test pada skenario berikut:
+4. **Standar Penanganan Virtual Keyboard & Isolasi Header (Android 11–16+ & iOS)**:
+   - **Header Layar Wajib di Luar KAV**: Komponen header (beserta safe area inset top) **DILARANG KERAS** dimasukkan ke dalam `KeyboardAvoidingView`. KAV hanya boleh membungkus area konten dinamis/scrollable (`FlatList`/`ScrollView`) dan input bar. Hal ini mutlak untuk mencegah header terdorong naik ke atas dan hilang dari layar saat keyboard muncul pada Android versi lama (Android 11/12).
+   - **KAV pada Modal Dialog & Bottom Sheet Wajib `behavior='height'`**: Komponen `<Modal>` React Native berjalan pada sub-window native tersendiri. Pada Android 16+ (API 35+ edge-to-edge), KAV di dalam Modal **WAJIB** menggunakan `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}`. **DILARANG** menggunakan `undefined` untuk Android di dalam Modal karena akan membuat input form tertutup total oleh keyboard.
+   - **Kunci `windowSoftInputMode="adjustResize"`**: Pada `AndroidManifest.xml` (`MainActivity`) dan `app.json`, wajib dikunci ke `adjustResize` / `"softwareKeyboardLayoutMode": "resize"`. **DILARANG** menggunakan `adjustPan`.
+
+5. **Definition of Done (DoD) untuk Setiap Perubahan Frontend & Mobile**:
+   Setiap perubahan frontend & mobile **TIDAK BOLEH** dinyatakan selesai sebelum lolos verifikasi mental/smoke test pada skenario berikut:
    1. ✅ **Desktop Flow**: Buka chat di laptop, kirim/terima pesan, pastikan 2 kolom tetap sinkron.
    2. ✅ **Mobile Flow 1 (Home Incoming)**: Terima pesan saat di Home HP ➔ Unread badge muncul di list dan bottom nav ➔ Klik chat ➔ Pesan terbaru langsung tampil di bawah ➔ Klik `← Back` ➔ Unread badge hilang sempurna dan centang biru tersinkronisasi.
    3. ✅ **Mobile Flow 2 (Active Room Incoming)**: Terima pesan saat berada di dalam room di HP ➔ Pesan muncul seketika di timeline.
+   4. ✅ **Mobile Flow 3 (Keyboard & Header Stability)**: Buka chat di HP (Android 11 maupun Android 16), fokus ke input keyboard ➔ Header chat tetap diam di tempatnya (tidak terdorong hilang), linimasa pesan dan input bar naik tepat di atas keyboard.
+   5. ✅ **Mobile Flow 4 (Modal Form Keyboard Clearance)**: Buka modal dialog/bottom sheet ber-input (misal buat postingan, komentar, buat sub-group) ➔ Fokus ke input ➔ Seluruh form dan tombol submit naik secara mulus di atas keyboard tanpa terpotong di Android 11 maupun Android 16+.
 
 ---
 

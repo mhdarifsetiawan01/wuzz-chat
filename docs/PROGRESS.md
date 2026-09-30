@@ -4421,3 +4421,24 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
 - **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (Code 0)**.
 - **Backend**: Tidak ada perubahan kode backend pada sesi ini.
+
+---
+
+## 📅 Sesi Pengerjaan 30 September 2026 — Bug Fix: Virtual Keyboard Resilience, Header Push-Up & Modal Soft-Input Standardization
+
+### 1. Rangkuman Pengerjaan
+1. **Fix Header Tergeser Naik Saat Keyboard Terbuka di Android 11 (`mobile/src/screens/ChatScreen.tsx`)**:
+   - **Root Cause**: Komponen sticky header sebelumnya berada di dalam `KeyboardAvoidingView` sehingga saat keyboard virtual muncul, seluruh header terdorong naik dan lenyap dari layar.
+   - **Fix**: Mengeluarkan seluruh blok sticky header ke luar `KeyboardAvoidingView` sehingga posisinya tetap terkunci di bawah status bar.
+2. **Fix Form Modal Tertutup Keyboard di Android 16 (`mobile/src/components/CreatePostModal.tsx`, dkk.)**:
+   - **Root Cause**: Android 16 (API 35+) memberlakukan edge-to-edge layout baru di mana `behavior={undefined}` pada sub-window modal tidak menggeser modal ke atas.
+   - **Fix**: Mengubah behavior KAV pada modal menjadi `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}` pada `CreatePostModal.tsx`, `PostCommentsModal.tsx`, `CreateSubGroupModal.tsx`, `EditProfileModal.tsx`, dan `KeyConflictModal.tsx`.
+3. **Standarisasi Konfigurasi Sistem Desain & Aturan Workspace**:
+   - Menetapkan `android:windowSoftInputMode="adjustResize"` di `mobile/android/app/src/main/AndroidManifest.xml`.
+   - Menambahkan `"softwareKeyboardLayoutMode": "resize"` di `mobile/app.json`.
+   - Mengkodifikasikan 4 pilar arsitektur penanganan keyboard ke dalam [mobile/DESIGN.md](mobile/DESIGN.md) dan [.agents/AGENTS.md](.agents/AGENTS.md).
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (Code 0)**.
+

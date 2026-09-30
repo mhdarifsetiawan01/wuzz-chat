@@ -232,6 +232,16 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
     - Mengelompokkan panggilan beruntun ke/dari kontak yang sama dengan tipe yang sama menjadi 1 baris di UI dengan badge counter (misal: `Budi Santoso (5)`), menampilkan timestamp dan durasi terkini.
     - Aksi hapus log (long press) membersihkan seluruh entri terkait dalam grup tersebut.
   - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `go test ./...` -> **100% PASS**, `npm run build` -> **0 errors**, dan `./gradlew assembleRelease` -> **BUILD SUCCESSFUL**.
+- [x] **M-Mobile-8.35: Virtual Keyboard Resilience, Sticky Header Isolation & Modal Soft-Input Standardization (Android 11–16+ & iOS) (30 September 2026)**:
+  - Menyelesaikan dua bug kritis tampilan saat keyboard virtual terbuka di perangkat Android lama (Android 11) dan Android baru (Android 16 API 36):
+    1. **Android 11 Header Push-Up**: Pada layar obrolan (`ChatScreen.tsx`), header sebelumnya berada di dalam `KeyboardAvoidingView` sehingga saat keyboard muncul dengan mode soft-input bawaan, seluruh header terdorong naik dan hilang dari layar. Diperbaiki dengan mengisolasi header sticky di luar KAV.
+    2. **Android 16 Modal Form Covered**: Pada form buat postingan (`CreatePostModal.tsx`) dan modal-modal lain, arsitektur edge-to-edge Android 16 mengabaikan resize pada sub-window modal jika KAV menggunakan `behavior={undefined}`. Diperbaiki dengan menstandarisasi KAV modal ke `behavior={Platform.OS === 'ios' ? 'padding' : 'height'}`.
+  - Menstandarisasi konfigurasi window soft input mode:
+    - Mengganti `android:windowSoftInputMode="adjustPan"` menjadi `adjustResize` di `mobile/android/app/src/main/AndroidManifest.xml`.
+    - Menambahkan `"softwareKeyboardLayoutMode": "resize"` di `mobile/app.json`.
+  - Menerapkan standardisasi `behavior='height'` pada seluruh dialog modal ber-input (`PostCommentsModal.tsx`, `CreateSubGroupModal.tsx`, `EditProfileModal.tsx`, `KeyConflictModal.tsx`).
+  - Mengkodifikasikan aturan baku ini ke dalam Single Source of Truth sistem desain di [mobile/DESIGN.md](../../mobile/DESIGN.md) dan aturan workspace agen di [.agents/AGENTS.md](../../.agents/AGENTS.md).
+  - Verifikasi: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**.
 
 ---
 
