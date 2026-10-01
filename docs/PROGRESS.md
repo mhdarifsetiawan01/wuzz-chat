@@ -4531,6 +4531,31 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Backend Test Suite**: `cd backend && go test ./internal/ws/... ./internal/api/...` → **PASS (100%, Code 0)**.
 - **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (0 errors, Code 0)**.
 
+---
+
+## 📅 Sesi Pengerjaan 01 Oktober 2026 (Lanjutan 3) — Milestone M-Mobile-11: Dynamic Client App Versioning, Build Tracking & Force Update Gatekeeper
+
+### 1. Rangkuman Perubahan & Solusi
+1. **Mobile App Versioning & Release Automation (`mobile/`)**:
+   - Mendaftarkan `android.versionCode: 1` dan `ios.buildNumber: "1"` di `mobile/app.json`.
+   - Skrip helper rilis otomatis `mobile/scripts/bump-version.js` yang terdaftar di `package.json` (`npm run bump:patch`, `npm run bump:minor`, `npm run bump:major`, `npm run bump:build`) untuk menyinkronkan versi semver dan integer build number tanpa intervensi manual.
+   - Centralized utility `mobile/src/utils/appVersion.ts` untuk ekstraksi metadata dinamis runtime dari `expo-constants` (`X-App-Version`, `X-App-Build`, `X-Client-ID`).
+   - Injeksi canonical version headers pada `mobile/src/api/client.ts` dan interceptor status HTTP `426 Upgrade Required`.
+   - Injeksi query param `app_version` dan `app_build` saat handshake WebSocket di `mobile/src/services/websocket.ts` serta penanganan Terminal Close Code `4426`.
+   - Komponen UI `ForceUpdateModal.tsx` non-dismissible yang menampilkan dialog pembaruan wajib dan tombol langsung ke Google Play Store / App Store.
+2. **Backend Go Version Gatekeeper & Config (`backend/`)**:
+   - Parameter konfigurasi dinamis `MIN_MOBILE_BUILD`, `PLAY_STORE_URL`, dan `APP_STORE_URL` di `backend/internal/shared/config/config.go` dengan fallback aman.
+   - Middleware `backend/internal/api/version_middleware.go` untuk menegakkan ambang batas versi minimal pada seluruh request mobile (HTTP 426) dengan pengecualian transparan untuk browser web.
+   - Pendaftaran `VersionMiddleware` pada router HTTP utama di `backend/internal/app/router.go`.
+   - Pengujian unit dan live socket server di `backend/internal/api/version_middleware_test.go` (100% test pass).
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Backend Test Suite**: `cd backend && go test -v ./...` → **PASS (100%, Code 0)**.
+- **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (0 errors, Code 0)**.
+- **Live Version Middleware Tests**: `go test -v ./internal/api/version_middleware_test.go ./internal/api/version_middleware.go` → **PASS (100%, Code 0)**.
+
+
 
 
 

@@ -1,0 +1,22 @@
+# Implementation Progress — Client App Versioning & Force Update Gatekeeper
+
+- [x] **Task 1: Mobile Version Metadata Registration & Automation**
+  - [x] 1.1 Daftarkan `versionCode: 1` dan `buildNumber: "1"` di `mobile/app.json`.
+  - [x] 1.2 Buat helper script `mobile/scripts/bump-version.js` (dukung `patch`, `minor`, `major`, `build`) dan daftarkan di `mobile/package.json`.
+- [x] **Task 2: Dynamic Client Headers & WebSocket Metadata**
+  - [x] 2.1 Modifikasi `mobile/src/api/client.ts` untuk menyematkan `X-App-Version`, `X-App-Build`, `X-Client-ID`.
+  - [x] 2.2 Modifikasi `mobile/src/services/websocket.ts` untuk query param `app_version` & `app_build` dan handle close code 4426.
+- [x] **Task 3: Backend Config & VersionMiddleware Implementation (Strict Production Mode)**
+  - [x] 3.1 Perbarui `backend/internal/shared/config/config.go` dengan `MinMobileBuild` (default: 1), `PlayStoreURL`, `AppStoreURL`.
+  - [x] 3.2 Buat `backend/internal/api/version_middleware.go` dengan HTTP status 426 handling.
+  - [x] 3.3 Buat unit test `backend/internal/api/version_middleware_test.go` (100% test pass).
+  - [x] 3.4 Pasang `VersionMiddleware` di `backend/internal/app/router.go`.
+- [x] **Task 4: Mobile Force Update Interceptor & Modal**
+  - [x] 4.1 Buat komponen `mobile/src/components/ForceUpdateModal.tsx`.
+  - [x] 4.2 Tambahkan event handler / state global saat `apiClient` menangkap status 426 (`utils/appVersion.ts`).
+  - [x] 4.3 Pasang modal di `mobile/App.tsx`.
+- [x] **Task 5: Automated Verification & Live Proof**
+  - [x] 5.1 Jalankan `go test -v ./...` di backend (100% pass).
+  - [x] 5.2 Jalankan `npx tsc --noEmit` di mobile (0 error).
+  - [x] 5.3 Jalankan `npm run build` di frontend (0 error).
+  - [x] 5.4 Uji skrip bump version (test dry run patch & major pass).

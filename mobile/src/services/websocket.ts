@@ -7,6 +7,7 @@
 
 import { Platform } from 'react-native';
 import { getBaseWsUrl } from '../api/config';
+import { getAppVersionInfo, notifyForceUpdateRequired } from '../utils/appVersion';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'terminated';
 
@@ -151,7 +152,8 @@ class WebSocketClient {
     this.setState(this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting');
 
     const baseUrl = getBaseWsUrl();
-    const wsUrl = `${baseUrl}?token=${encodeURIComponent(this.token)}&device_id=${encodeURIComponent(this.deviceId)}&platform=${Platform.OS === 'ios' ? 'ios' : 'android'}&name=${encodeURIComponent(Platform.OS === 'ios' ? 'Aplikasi WuzzChat di iOS' : 'Aplikasi WuzzChat di Android')}`;
+    const appInfo = getAppVersionInfo();
+    const wsUrl = `${baseUrl}?token=${encodeURIComponent(this.token)}&device_id=${encodeURIComponent(this.deviceId)}&platform=${Platform.OS === 'ios' ? 'ios' : 'android'}&name=${encodeURIComponent(Platform.OS === 'ios' ? 'Aplikasi WuzzChat di iOS' : 'Aplikasi WuzzChat di Android')}&app_version=${encodeURIComponent(appInfo.version)}&app_build=${encodeURIComponent(String(appInfo.buildNumber))}`;
 
     const originHeader = baseUrl.includes('localhost') || baseUrl.includes('10.0.2.2')
       ? 'http://localhost:3000'
@@ -203,6 +205,19 @@ class WebSocketClient {
           this.destroyed = true;
           this.setState('terminated');
           this.clearReconnectTimer();
+          return;
+        }
+
+        if (event.code === 4426) {
+          console.warn('[WS] Terminal Close Code 4426 received: App update required.');
+          this.isTerminated = true;
+          this.destroyed = true;
+          this.setState('terminated');
+          this.clearReconnectTimer();
+          notifyForceUpdateRequired({
+            error: 'APP_UPDATE_REQUIRED',
+            message: event.reason || 'Versi aplikasi Anda sudah tidak didukung. Silakan perbarui aplikasi untuk melanjutkan.',
+          });
           return;
         }
 

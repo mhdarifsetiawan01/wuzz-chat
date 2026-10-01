@@ -1,4 +1,3 @@
-# Handover — Active Task
-Status: STANDBY
+# Handover & Verification Notes
 
-Menunggu task atau milestone baru dari pengguna.
+- **Status**: Standby / Ready for next milestone.

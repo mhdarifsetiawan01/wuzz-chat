@@ -1,4 +1,3 @@
 # Implementation Progress — Standby
 
-- **Milestone**: None (Standby)
-- **Status**: Idle
+- [x] Milestone M-Mobile-11 completed, verified, and archived.

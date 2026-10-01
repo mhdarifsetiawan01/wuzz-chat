@@ -37,6 +37,11 @@ type Config struct {
 
 	// User Connections & Private Profile Shield (Milestone M-Mobile-10)
 	Connection ConfigConnection
+
+	// Client Version Gatekeeper (Force Update Protection)
+	MinMobileBuild int
+	PlayStoreURL   string
+	AppStoreURL    string
 }
 
 // Load membaca konfigurasi dari file .env (jika tersedia) dan variabel lingkungan sistem (OS Environment).
@@ -67,6 +72,10 @@ func Load() (*Config, error) {
 		TransferCleanupInterval: 10 * time.Minute,
 
 		Connection: LoadConnectionConfig(),
+
+		MinMobileBuild: getEnvInt("MIN_MOBILE_BUILD", 1),
+		PlayStoreURL:   getEnv("PLAY_STORE_URL", "https://play.google.com/store/apps/details?id=com.wuzzchat.mobile"),
+		AppStoreURL:    getEnv("APP_STORE_URL", "https://apps.apple.com/app/wuzz-chat/id000000000"),
 	}
 
 	return cfg, nil

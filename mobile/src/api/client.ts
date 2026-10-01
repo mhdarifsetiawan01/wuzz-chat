@@ -8,6 +8,7 @@ import { Platform } from 'react-native';
 import { secureStorage } from '../services/secureStorage';
 import { API_CONFIG, getBaseApiUrl } from './config';
 import { ApiError } from './types';
+import { getAppVersionInfo, notifyForceUpdateRequired } from '../utils/appVersion';
 
 export interface RequestOptions extends RequestInit {
   timeoutMs?: number;
@@ -29,11 +30,16 @@ export async function apiClient<T>(
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const fullUrl = `${baseUrl}${cleanEndpoint}`;
 
+  const appInfo = getAppVersionInfo();
+
   const requestHeaders: Record<string, string> = {
     'Accept': 'application/json',
-    'User-Agent': `WuzzChat-Mobile/1.0 (${Platform.OS === 'ios' ? 'iOS' : 'Android'}; Mobile; React-Native)`,
+    'User-Agent': `WuzzChat-Mobile/${appInfo.version} (${Platform.OS === 'ios' ? 'iOS' : 'Android'}; Mobile; React-Native)`,
     'X-Device-Platform': API_CONFIG.PLATFORM,
     'X-Tenant-ID': API_CONFIG.TENANT_ID,
+    'X-App-Version': appInfo.version,
+    'X-App-Build': String(appInfo.buildNumber),
+    'X-Client-ID': appInfo.clientId,
     ...(headers as Record<string, string>),
   };
 
@@ -74,6 +80,15 @@ export async function apiClient<T>(
     }
 
     if (!response.ok) {
+      if (response.status === 426) {
+        notifyForceUpdateRequired({
+          error: data?.error || 'APP_UPDATE_REQUIRED',
+          message: data?.message || 'Versi aplikasi Anda sudah tidak didukung. Silakan perbarui aplikasi untuk melanjutkan.',
+          min_build: data?.min_build,
+          update_url: data?.update_url,
+        });
+      }
+
       const error: ApiError = {
         status: response.status,
         title: data?.title || data?.error || 'Request Error',

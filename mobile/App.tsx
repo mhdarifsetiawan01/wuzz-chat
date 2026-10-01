@@ -36,6 +36,7 @@ import {
   DeviceTransferModal,
   IncomingCallModal,
   ActiveCallOverlay,
+  ForceUpdateModal,
 } from './src/components';
 import { AppNavigator as MainAppNavigator, navigationRef } from './src/navigation';
 import { notificationService } from './src/services/notificationService';
@@ -289,6 +290,7 @@ function AppContent() {
       {/* Global WebRTC 1-on-1 Voice Calling Modals */}
       <IncomingCallModal />
       <ActiveCallOverlay />
+      <ForceUpdateModal />
     </View>
   );
 }

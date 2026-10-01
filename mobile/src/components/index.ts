@@ -37,3 +37,4 @@ export * from './PostCommentsModal';
 export * from './SharePostToChatModal';
 export * from './PrivateAccountNoticeModal';
 export * from './ActionConfirmModal';
+export * from './ForceUpdateModal';

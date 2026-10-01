@@ -78,6 +78,32 @@ Backend WuzzChat Engine mendukung arsitektur multi-tenant dengan isolasi data pe
   - Pengguna: Composite unique constraint pada `(tenant_id, username)`. Dua tenant berbeda dapat memiliki username yang sama secara terisolasi tanpa tabrakan.
   - Direct Chat (1-on-1): Room ID terisolasi dengan pola deterministik `dm_<tenantID>_<userA>_<userB>`.
   - Grup & Forum: Komunitas dan percakapan publik/privat terfilter ketat berdasarkan `tenant_id`.
+
+### 1.6 Client Metadata & Version Gatekeeper (Force Update Protection)
+Backend WuzzChat menerapkan gerbang proteksi versi aplikasi (*Version Gatekeeper*) di level HTTP middleware terluar:
+- **Header Klien Canonical**:
+  - `X-Device-Platform`: `android` | `ios` | `web`
+  - `X-App-Version`: String semver versi aplikasi klien (misal `1.0.0`).
+  - `X-App-Build`: Integer build number monotonik (`versionCode` di Android / `buildNumber` di iOS, misal `1`).
+  - `X-Client-ID`: Application identifier (misal `com.wuzzchat.mobile`).
+- **WebSocket Handshake Parameters**:
+  - `platform`: `android` | `ios` | `web`
+  - `app_version`: String semver
+  - `app_build`: Integer build number
+- **Penolakan Versi Usang (`HTTP 426 Upgrade Required`)**:
+  Jika request berasal dari mobile (`android`/`ios`) dan nilai build number klien `< MIN_MOBILE_BUILD` (dikonfigurasi via environment variable di backend), server langsung memutus request dan mengembalikan:
+  ```json
+  {
+    "code": 426,
+    "error": "APP_UPDATE_REQUIRED",
+    "message": "Versi aplikasi Anda sudah tidak didukung. Silakan perbarui aplikasi untuk melanjutkan.",
+    "min_build": 2,
+    "client_build": 1,
+    "update_url": "https://play.google.com/store/apps/details?id=com.wuzzchat.mobile"
+  }
+  ```
+- **Pengecualian Web**: Request yang berasal dari browser web (`X-Device-Platform: web`) secara transparan dilewatkan tanpa pemblokiran karena web selalu termutakhirkan saat reload halaman.
+
   - Riwayat Pesan & AI Memory: Pesan dan memori terisolasi penuh per tenant.
 
 ---

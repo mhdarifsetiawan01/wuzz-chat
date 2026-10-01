@@ -357,6 +357,13 @@ func (a *Application) setupRouter() http.Handler {
 	}
 
 	var handler http.Handler = mux
+
+	// Validasi versi aplikasi klien mobile (Force Update Gatekeeper)
+	if a.Config != nil {
+		versionMw := api.NewVersionMiddleware(a.Config.MinMobileBuild, a.Config.PlayStoreURL, a.Config.AppStoreURL)
+		handler = versionMw.Middleware(handler)
+	}
+
 	if a.TenantService != nil {
 		tenantMw := api.NewTenantMiddleware(a.TenantService)
 		handler = tenantMw.Handler(handler)
