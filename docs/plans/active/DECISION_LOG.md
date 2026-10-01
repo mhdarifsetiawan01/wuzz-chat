@@ -1,3 +1,3 @@
-# Decision Log — Standby
+# Active Decision Log
 
-Standby / Idle. Previous decisions logged in archived milestones.
+**Status**: Standby / Idle. Past decisions archived.

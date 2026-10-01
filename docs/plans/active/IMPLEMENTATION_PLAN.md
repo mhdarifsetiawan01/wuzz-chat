@@ -1,4 +1,4 @@
 # Active Implementation Plan
 
 **Status**: Standby / Idle (No Active Milestone).  
-Last archived milestone: `M-Mobile-12: Smart Version Bumper via Conventional Commits & Android Gradle Release Hook` (`docs/plans/archived/01-10-2026-m-mobile-12-smart-version-bumper/`).
+Last archived milestone: `M-Mobile-13: Mobile Link Preview Card & Safe Auto-Linking Engine` (`docs/plans/archived/01-10-2026-m-mobile-13-link-preview-clickable-links/`).

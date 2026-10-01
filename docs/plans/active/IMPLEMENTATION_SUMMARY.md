@@ -1,5 +1,3 @@
-# Implementation Summary — Standby
+# Active Implementation Summary
 
-- **Status**: Standby / Idle
-- **Branch Kerja**: `dev`
-- **Tujuan**: Menunggu instruksi tugas / milestone berikutnya.
+**Status**: Standby / Idle (No Active Milestone).

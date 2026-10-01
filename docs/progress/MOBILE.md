@@ -314,8 +314,29 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+- [x] **FITUR (01-Okt-2026): Pratinjau Tautan Web (Link Preview Card) & Auto-Linking Teks Aman di Mobile**:
+  - **Latar Belakang**: Tautan URL yang dikirim di percakapan (personal maupun grup) sebelumnya hanya dirender sebagai string biasa (tidak bisa diklik), dan belum ada kartu pratinjau thumbnail/judul OpenGraph di aplikasi mobile.
+  - **Implementasi**:
+    1. **Auto-Linking & Sanitasi Tautan (`mobile/src/utils/linkUtils.ts`)**:
+       - Mengurai teks konten pesan menggunakan `URL_REGEX` pendeteksi URL `http/https`, `www.`, serta nama domain umum (`.id`, `.com`, `.net`, dll.).
+       - Menghilangkan tanda baca trailing (`.,;:!?()[]"'`) dari URL yang berada di dalam kalimat.
+       - Membuka tautan eksternal via `safeOpenUrl` langsung ke browser HP menggunakan `Linking.openURL(targetUrl)` di dalam blok `try...catch` aman (membypass gate `canOpenURL` yang bermasalah di Android 11–16+ karena package visibility).
+       - Memperbarui intent queries `<action android:name="android.intent.action.VIEW"/>` untuk skema `http` dan `https` di `AndroidManifest.xml`.
+       - Menjaga kontras WCAG AA tajam (`#e0f2fe` di gelembung pengirim, `#38bdf8` di gelembung lawan bicara).
+    2. **Komponen Kartu Pratinjau (`mobile/src/components/LinkPreviewCard.tsx`)**:
+       - Kartu visual yang menampilkan thumbnail OpenGraph/oEmbed, favicon/globe badge, nama host domain, judul web, dan deskripsi singkat.
+       - Disertai skeleton loader dan penanganan silent error fallback.
+       - Mengikuti pola standar WhatsApp/Telegram: maksimal 1 kartu preview per pesan untuk URL pertama (`extractFirstUrl`).
+    3. **In-Memory Cache Ber-TTL 1 Jam (`mobile/src/api/linkPreview.ts`)**:
+       - Menyimpan hasil scrape di RAM (kapasitas 100 entri) dengan masa berlaku (TTL) 1 Jam (`CACHE_TTL_MS = 3600000`) untuk menjamin scrolling FlatList tetap 60 FPS instan tanpa query berulang, namun otomatis mengambil data terbaru saat cache kedaluwarsa.
+       - Timeout request dibatasi maksimal 8 detik dengan `AbortController`.
+  - **Verifikasi**: `npx tsc --noEmit` -> **0 error**, `go test -v ./internal/api -run TestLinkPreview` -> **100% PASS**, Build APK Release & install via ADB terbukti sukses.
+
+---
+
 ## Fokus Berikutnya (What's Next)
 - [x] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
+
   - [x] **Tahap 1 (M-Mobile-9.1)**: Fondasi Profil & Identitas Publik Mobile (`bio`, `role`, `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, `UserProfileScreen.tsx`).
   - [x] **Tahap 2 (M-Mobile-9.2)**: Spesifikasi Domain, Skema DB & Backend Go Engine (`docs/domains/COMMUNITY_FEED.md`, `feed_posts`, `feed_likes`, `feed_comments`, REST API `/api/feed`).
   - [x] **Tahap 3 (M-Mobile-9.3)**: Integrasi Real Mobile UI, Interaksi & Viral Share Loop (`FeedScreen.tsx` SWR cache, FAB Create Post, Likes/Comments, Share to Chat).

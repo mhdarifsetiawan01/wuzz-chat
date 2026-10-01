@@ -26,6 +26,8 @@ import { mediaCache } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { LinkPreviewCard } from './LinkPreviewCard';
+import { URL_REGEX, sanitizeUrl, safeOpenUrl, extractFirstUrl } from '../utils/linkUtils';
 
 export interface MessageBubbleProps {
   message: Message;
@@ -157,6 +159,56 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   // DEC-034: Media is only expired if the server marked it as expired AND we do not have a local cached file
   const isExpired = Boolean(message.media_status === 'expired' && !cachedMediaUri);
+
+  // DEC-037 & DEC-038: Ekstrak URL pertama untuk LinkPreviewCard jika pesan aktif
+  const previewUrl = !isDeleted && !isE2EE && message.content ? extractFirstUrl(message.content) : null;
+
+  // Render teks pesan dengan deteksi auto-linking aman (http/https/www)
+  const renderMessageTextWithLinks = (
+    content: string,
+    isSelfBubble: boolean,
+    isImageCaption: boolean
+  ) => {
+    if (!content) return null;
+
+    const parts = content.split(URL_REGEX);
+    if (parts.length === 1) {
+      return (
+        <Text style={[styles.messageText, !isSelfBubble && styles.messageTextOther, isImageCaption ? styles.captionText : null]}>
+          {content}
+        </Text>
+      );
+    }
+
+    return (
+      <Text style={[styles.messageText, !isSelfBubble && styles.messageTextOther, isImageCaption ? styles.captionText : null]}>
+        {parts.map((part, index) => {
+          const isUrl = URL_REGEX.test(part);
+          URL_REGEX.lastIndex = 0;
+
+          if (isUrl) {
+            const cleanUrl = sanitizeUrl(part);
+            const trailing = part.slice(cleanUrl.length);
+
+            return (
+              <React.Fragment key={index}>
+                <Text
+                  style={[styles.linkText, isSelfBubble ? styles.linkTextSelf : styles.linkTextOther]}
+                  onPress={() => safeOpenUrl(cleanUrl)}
+                  suppressHighlighting={false}
+                >
+                  {cleanUrl}
+                </Text>
+                {trailing ? <Text>{trailing}</Text> : null}
+              </React.Fragment>
+            );
+          }
+
+          return <Text key={index}>{part}</Text>;
+        })}
+      </Text>
+    );
+  };
 
   // Format timestamp (HH:mm)
   const formatTime = (isoString?: string) => {
@@ -379,12 +431,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </Text>
                 </View>
               ) : hasCaption ? (
-                <Text style={[styles.messageText, !isSelf && styles.messageTextOther, isImage ? styles.captionText : null]}>
-                  {message.content}
-                </Text>
+                renderMessageTextWithLinks(message.content, isSelf, isImage)
+              ) : null}
+
+              {/* Web Link Preview Card (WhatsApp pattern: 1 card per message) */}
+              {previewUrl ? (
+                <LinkPreviewCard url={previewUrl} isSelf={isSelf} />
               ) : null}
             </>
           )}
+
 
           {/* Bubble Footer: Timestamp & Receipt Checkmarks */}
           <View style={[styles.footerRow, isImage && !hasCaption && !isDeleted ? styles.footerOverImage : null]}>
@@ -670,6 +726,17 @@ const styles = StyleSheet.create({
   messageTextOther: {
     color: '#ffffff',
   },
+  linkText: {
+    textDecorationLine: 'underline',
+    fontWeight: '600',
+  },
+  linkTextSelf: {
+    color: '#e0f2fe',
+  },
+  linkTextOther: {
+    color: '#38bdf8',
+  },
+
   captionText: {
     marginTop: 6,
     marginHorizontal: 6,

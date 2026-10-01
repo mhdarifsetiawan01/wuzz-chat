@@ -245,6 +245,10 @@
   - Dituangkan secara permanen ke dalam [`.agents/AGENTS.md`](../.agents/AGENTS.md) agar seluruh modifikasi frontend di masa mendatang wajib memverifikasi kompatibilitas Desktop (2-Kolom Split) dan Mobile (WhatsApp Single-Screen).
 - **Mandatory Backend Change Notification & Fly.io Deployment Warning SOP**:
   - Dituangkan ke dalam [`.agents/AGENTS.md`](../.agents/AGENTS.md) agar setiap modifikasi pada kode backend Go selalu menyertakan peringatan & konfirmasi deployment ulang ke Fly.io demi mencegah desinkronisasi protokol/query dengan frontend produksi.
+- **Mobile Link Preview Card & Safe Auto-Linking Engine (`mobile/`)**:
+  - Integrasi kartu pratinjau thumbnail OpenGraph/oEmbed di React Native (`LinkPreviewCard.tsx`) dengan in-memory cache ber-TTL 1 jam untuk menjaga performa scrolling 60 FPS di FlatList.
+  - Parser auto-linking aman dengan sanitasi trailing punctuation, dukungan domain umum (`.id`, `.com`, dll.), dan pembukaan browser via `safeOpenUrl` yang membypass limitasi package visibility Android 11–16+.
+
 - **Fase 7 (Bagian 1): End-to-End Encryption (E2EE) Signal Protocol / Web Crypto API (SELESAI)**:
   - **Arsitektur Kriptografi Standar Terbuka (Multi-Platform Ready)**:
     - Key Exchange: **ECDH (NIST P-256 / secp256r1)** via Web Crypto API.
