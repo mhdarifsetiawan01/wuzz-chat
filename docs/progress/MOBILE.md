@@ -299,6 +299,21 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+- [x] **BUG FIX (01-Okt-2026): Presisi Layout Android 16 (Edge-to-Edge Navigation Clearance) & Dynamic Versioning Pengaturan**:
+  - **Root Cause**:
+    1. **Android 16 Enforced Edge-to-Edge**: Pada Android 15 & 16 (API 35+), edge-to-edge dipaksakan oleh sistem sehingga `insets.bottom` bertambah (~24-48dp) menampung gesture/3-button navigation bar. Pada `SettingsScreen.tsx`, `scrollContent` hanya menggunakan fixed `paddingBottom: 32dp` (tanpa `insets.bottom`), menyebabkan footer ("WuzzChat · End-to-End" & versi) terhimpit tepat di atas bottom tab bar.
+    2. **Tab Bar Active Dot Drift**: `activeDot` pada `MainTabNavigator.tsx` menggunakan `position: 'absolute', bottom: -4` dari `tabItem`, sehingga saat tab bar bertambah tinggi di Android 16, titik biru bergeser jauh ke bawah menjauhi label "Pengaturan".
+    3. **Hardcoded Version**: String versi di `SettingsScreen.tsx` sebelumnya tertulis statis `v1.0.0 · Aurora Build`, mengabaikan nomor rilis dinamis di `app.json` (`1.1.1`).
+  - **Fix**:
+    1. Menambahkan dynamic bottom padding pada `ScrollView` `SettingsScreen.tsx`: `paddingBottom: Math.max(insets.bottom + 88, 100)` agar konsisten dengan `RecentChatsScreen` dan `FeedScreen`.
+    2. Mengintegrasikan `getAppVersionInfo()` dari `src/utils/appVersion.ts` sehingga versi dan nomor build diambil secara otomatis dari metadata Expo/app.json (`v1.1.1 (Build 3) · Aurora Build`).
+    3. Memperbaiki kontras teks footer dan menghapus `opacity: 0.6` yang menyebabkan teks pudar/sulit dibaca pada latar terang.
+    4. Mengunci `activeDot` pada `MainTabNavigator.tsx` tepat di bawah label teks (`marginTop: 3`) dengan layout stabil tanpa lonjakan antar tab.
+    5. Menghadirkan modal **Tentang WuzzChat** (`AboutWuzzChatModal.tsx`) di bawah section *Preferensi & Info* yang memuat misi WuzzChat (*"mengubah percakapan menjadi pengetahuan yang dapat dicari, dipahami, dan diingat kembali"*), pilar arsitektur (E2EE, Memory, Kinerja), serta menyelaraskan footer branding menjadi: `WuzzChat — Mengubah percakapan menjadi pengetahuan`.
+  - **Verifikasi**: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
+
+---
+
 ## Fokus Berikutnya (What's Next)
 - [x] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
   - [x] **Tahap 1 (M-Mobile-9.1)**: Fondasi Profil & Identitas Publik Mobile (`bio`, `role`, `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, `UserProfileScreen.tsx`).

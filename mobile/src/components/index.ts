@@ -38,3 +38,4 @@ export * from './SharePostToChatModal';
 export * from './PrivateAccountNoticeModal';
 export * from './ActionConfirmModal';
 export * from './ForceUpdateModal';
+export * from './AboutWuzzChatModal';

@@ -4606,7 +4606,27 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 ### 2. Bukti Pengujian Otomatis
 - **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
 - **Frontend Web Build**: `cd frontend && npm run build` → **Next.js 16.3.5 Turbopack Build SUCCESS (8/8 static pages rendered, 0 errors, Code 0)**.
-- **Backend Test Suite**: `cd backend && go test -v ./...` → **PASS (100%, Code 0)**.
+---
+
+## 📅 Sesi Pengerjaan 01 Oktober 2026 (Lanjutan 7) — Presisi Layout Android 16 (Edge-to-Edge), Dynamic Versioning & Branding Visi WuzzChat
+
+### 1. Rangkuman Pengerjaan & Solusi
+1. **Presisi Tata Letak Android 16 (`SettingsScreen.tsx` & `MainTabNavigator.tsx`)**:
+   - **Root Cause**: Android 15 & 16 (API 35+) menerapkan *mandatory Edge-to-Edge*, melaporkan `insets.bottom` tinggi (~24–48dp) untuk bilah gestur/navigasi. `SettingsScreen.tsx` sebelumnya hanya menggunakan padding statis `paddingBottom: 32dp`, menyebabkan footer teks terhimpit tepat di bibir atas tab bar. Selain itu, titik indikator aktif tab bar menggunakan posisi absolut yang melayang turun menjauhi label teks.
+   - **Fix**: Mengubah padding ScrollView menjadi dinamis `Math.max(insets.bottom + 88, 100)` (selaras dengan Beranda & Feed) dan mengunci titik indikator biru (*activeDot*) tepat 3px di bawah teks label tanpa layout jitter.
+2. **Dynamic Versioning & Penataan Footer (`SettingsScreen.tsx`)**:
+   - Mengintegrasikan helper `getAppVersionInfo()` dari `mobile/src/utils/appVersion.ts` menggantikan versi statis/hardcoded `v1.0.0 · Aurora Build`.
+   - Menghapus `opacity: 0.6` yang menyebabkan teks pudar di latar terang, meningkatkan kontras keterbacaan sesuai standar WCAG AA.
+3. **Penyelarasan Visi Branding & Modal "Tentang WuzzChat" (`AboutWuzzChatModal.tsx`)**:
+   - Menghadirkan modal bottom sheet baru **Tentang WuzzChat** pada menu *Preferensi & Info* yang memuat misi WuzzChat (*"mengubah percakapan menjadi pengetahuan yang dapat dicari, dipahami, dan diingat kembali"*), 3 pilar platform (Zero-Knowledge E2EE, Knowledge Memory, Kinerja Real-Time), dan status build rilis.
+   - Menyelaraskan footer halaman Pengaturan dengan identitas brand: `WuzzChat — Mengubah percakapan menjadi pengetahuan`.
+
+### 2. Bukti Pengujian & Kompilasi Rilis
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (0 errors, Code 0)**.
+- **Backend Test Suite**: `cd backend && go test ./...` → **PASS (100%, Code 0)**.
+- **Gradle Release Build & Smart Bumper**: `./gradlew assembleRelease` → **BUILD SUCCESSFUL in 2m 11s** (Auto-bump: 1.1.1 ➔ 1.1.2, Build 3 ➔ 4).
+- **Physical Device Install**: `adb install -r app-arm64-v8a-release.apk` → **Success**.
 
 ---
 

@@ -145,8 +145,8 @@ function AuroraTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               {tabCfg.label}
             </Text>
 
-            {/* Active indicator dot */}
-            {isFocused && <View style={styles.activeDot} />}
+            {/* Active indicator dot — anchored directly under label for precision across all Android versions */}
+            <View style={[styles.activeDot, !isFocused && styles.activeDotInactive]} />
           </TouchableOpacity>
         );
       })}
@@ -248,22 +248,26 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 10,
     fontWeight: '500',
-    letterSpacing: 0.2,
+    letterSpacing: 0,
     marginTop: 1,
+    textAlign: 'center',
   },
   tabLabelActive: {
     color: colors.accentPrimary,
+    fontWeight: '600',
   },
   tabLabelInactive: {
     color: colors.textMuted,
   },
   activeDot: {
-    position: 'absolute',
-    bottom: -4,
     width: 4,
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.accentPrimary,
+    marginTop: 3,
+  },
+  activeDotInactive: {
+    opacity: 0,
   },
   badge: {
     position: 'absolute',

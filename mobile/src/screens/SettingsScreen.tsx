@@ -31,7 +31,9 @@ import {
   EditProfileModal,
   Avatar,
   VerifiedBadge,
+  AboutWuzzChatModal,
 } from '../components';
+import { getAppVersionInfo } from '../utils/appVersion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Settings Menu Item
@@ -135,6 +137,7 @@ export const SettingsScreen: React.FC = () => {
   const [isE2EEKeysVisible, setIsE2EEKeysVisible] = useState(false);
   const [isStorageVisible, setIsStorageVisible] = useState(false);
   const [isEditProfileVisible, setIsEditProfileVisible] = useState(false);
+  const [isAboutVisible, setIsAboutVisible] = useState(false);
 
   const handleLogout = useCallback(() => {
     Alert.alert(
@@ -164,6 +167,7 @@ export const SettingsScreen: React.FC = () => {
   const displayName = user?.display_name ?? 'Pengguna';
   const username = user?.username ?? '';
   const initials = getInitials(displayName);
+  const appVersion = getAppVersionInfo();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -173,7 +177,10 @@ export const SettingsScreen: React.FC = () => {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom + 88, 100) },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Profile Card ─────────────────────────────────────────────── */}
@@ -254,13 +261,21 @@ export const SettingsScreen: React.FC = () => {
           />
         </SettingsSection>
 
-        <SettingsSection title="Preferensi">
+        <SettingsSection title="Preferensi & Info">
           <SettingsItem
             icon="🔔"
             title="Notifikasi & Suara"
             subtitle="FCM v1, nada dering & hening"
             onPress={() => setIsNotificationsVisible(true)}
             tintColor={colors.colorWarning}
+          />
+          <View style={styles.itemDivider} />
+          <SettingsItem
+            icon="💡"
+            title="Tentang WuzzChat"
+            subtitle="Visi, privasi & pengetahuan percakapan"
+            onPress={() => setIsAboutVisible(true)}
+            tintColor={colors.accentPrimary}
           />
         </SettingsSection>
 
@@ -286,8 +301,13 @@ export const SettingsScreen: React.FC = () => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>WuzzChat · End-to-End Encrypted</Text>
-          <Text style={styles.footerVersion}>v1.0.0 · Aurora Build</Text>
+          <Text style={styles.footerBrand}>WuzzChat</Text>
+          <Text style={styles.footerTagline}>
+            Mengubah percakapan menjadi pengetahuan
+          </Text>
+          <Text style={styles.footerVersion}>
+            v{appVersion.version} (Build {appVersion.buildNumber}) · Aurora Build
+          </Text>
         </View>
       </ScrollView>
 
@@ -329,6 +349,11 @@ export const SettingsScreen: React.FC = () => {
         currentMetadata={user?.metadata}
         onProfileUpdated={(updated) => updateCurrentUser(updated)}
       />
+
+      <AboutWuzzChatModal
+        visible={isAboutVisible}
+        onClose={() => setIsAboutVisible(false)}
+      />
     </View>
   );
 };
@@ -354,7 +379,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   scrollContent: {
-    paddingBottom: spacing.xxxl,
+    paddingBottom: spacing.lg,
   },
 
   // ── Profile Card ──────────────────────────────────────────────────────────
@@ -512,16 +537,25 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     paddingTop: spacing.xl,
-    paddingBottom: spacing.xl,
-    gap: spacing.xs,
+    paddingBottom: spacing.md,
+    gap: 2,
   },
-  footerText: {
+  footerBrand: {
+    ...typography.captionBold,
+    fontSize: 13,
+    color: colors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  footerTagline: {
     ...typography.caption,
-    color: colors.textMuted,
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   footerVersion: {
+    ...typography.caption,
     fontSize: 10,
     color: colors.textMuted,
-    opacity: 0.6,
+    marginTop: 2,
   },
 });
