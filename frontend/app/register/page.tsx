@@ -7,6 +7,13 @@ import { useAuth } from '@/lib/auth-context'
 import { apiRequest } from '@/lib/api'
 import { getOrCreateDeviceId } from '@/lib/crypto/keyStore'
 
+// Hanya terima path internal (cegah open redirect), default ke /chat
+function getSafeRedirect(): string {
+  if (typeof window === 'undefined') return '/chat'
+  const target = new URLSearchParams(window.location.search).get('redirect') || ''
+  return target.startsWith('/') && !target.startsWith('//') ? target : '/chat'
+}
+
 export default function RegisterPage() {
   const router = useRouter()
   const { user, isLoading: isAuthLoading, login } = useAuth()
@@ -19,7 +26,7 @@ export default function RegisterPage() {
   // Redirect ke /chat jika sudah login
   useEffect(() => {
     if (!isAuthLoading && user) {
-      router.replace('/chat')
+      router.replace(getSafeRedirect())
     }
   }, [user, isAuthLoading, router])
 
@@ -88,7 +95,7 @@ export default function RegisterPage() {
       login(data.token, data.user)
       // Gunakan router.replace agar halaman register tidak tertinggal di history stack.
       // Jika router.push dipakai, user bisa Back ke register → auto-redirect ke /chat → loop.
-      router.replace('/chat')
+      router.replace(getSafeRedirect())
     }
   }
 
@@ -193,7 +200,7 @@ export default function RegisterPage() {
 
         <div style={{ textAlign: 'center', marginTop: 'var(--space-6)', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
           Sudah punya akun?{' '}
-          <Link href="/login" style={{ color: 'var(--accent-400)', fontWeight: 500 }}>
+          <Link href={typeof window !== 'undefined' && window.location.search ? `/login${window.location.search}` : '/login'} style={{ color: 'var(--accent-400)', fontWeight: 500 }}>
             Masuk di sini
           </Link>
         </div>
