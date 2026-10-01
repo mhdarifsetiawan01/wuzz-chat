@@ -4634,3 +4634,26 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 
 ---
 
+## 📅 Sesi Pengerjaan 01 Oktober 2026 (Lanjutan 8) — Milestone M-Mobile-14: Universal Contact Sharing, Deep Linking Engine & Android Digital Asset Links
+
+### 1. Rangkuman Pengerjaan
+1. **Konfigurasi Scheme & Intent Filters Android / Expo (`mobile/app.json` & `mobile/android/app/src/main/AndroidManifest.xml`)**:
+   - Mendaftarkan custom scheme `wuzzchat://` dan HTTPS universal intent filter `https://chat.wuzzhub.id/` dengan autoVerify untuk prefix `/u`, `/g`, `/sub`, dan `/room`.
+2. **Universal Deep Link Router & Privacy Dispatcher (`mobile/App.tsx`)**:
+   - Mengimplementasikan deep link router untuk tautan profil `/u/:username` dan `wuzzchat://u/:username`.
+   - Mengintegrasikan privacy guard (DEC-043): akun publik atau sudah berteman langsung membuka obrolan chat DM, sementara akun privat dan belum berteman diarahkan ke layar profil pengguna dengan dialog permintaan pertemanan.
+   - Menambahkan deduplication guard (`lastHandledUrlRef`) dengan threshold 1500ms guna mencegah race condition / duplicate simultaneous dispatch antara cold start `getInitialURL` dan warm event `addEventListener`.
+3. **Fitur "Bagikan Profil Saya" di UI Mobile (`SettingsScreen.tsx` & `UserProfileScreen.tsx`)**:
+   - Menambahkan tombol bagikan profil di layar Pengaturan dan Profil Diri Sendiri menggunakan native React Native `Share.share` dengan tautan universal `https://chat.wuzzhub.id/u/{username}`.
+4. **Android Digital Asset Links di Web Frontend (`frontend/public/.well-known/assetlinks.json` & `frontend/next.config.ts`)**:
+   - Menghadirkan file `assetlinks.json` yang memetakan package `com.wuzzchat.mobile` ke SHA-256 fingerprint sertifikat penandatangan aplikasi agar sistem operasi Android 12–16 memverifikasi kepemilikan domain secara resmi dan otomatis membuka aplikasi WuzzChat tanpa terlempar ke web browser.
+   - Mengonfigurasi header `Content-Type: application/json` dan `Cache-Control: public, max-age=86400, stale-while-revalidate=604800` pada `next.config.ts`.
+
+### 2. Bukti Pengujian Otomatis
+- **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (8/8 static pages rendered, 0 errors, Code 0)**.
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Backend Test Suite**: `cd backend && go test ./...` → **PASS (100%, Code 0)**.
+
+---
+
+

@@ -2,20 +2,21 @@
   "expo": {
     "name": "WuzzChat",
     "slug": "wuzz-chat",
-    "version": "1.1.4",
+    "scheme": "wuzzchat",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "6",
+      "buildNumber": "9",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "WuzzChat memerlukan izin akses mikrofon untuk melakukan panggilan suara dan mengirim pesan audio."
       }
     },
     "android": {
       "package": "com.wuzzchat.mobile",
-      "versionCode": 6,
+      "versionCode": 9,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0462E8",
@@ -34,6 +35,50 @@
         "android.permission.BLUETOOTH",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "wuzzchat"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        },
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "chat.wuzzhub.id",
+              "pathPrefix": "/u"
+            },
+            {
+              "scheme": "https",
+              "host": "chat.wuzzhub.id",
+              "pathPrefix": "/g"
+            },
+            {
+              "scheme": "https",
+              "host": "chat.wuzzhub.id",
+              "pathPrefix": "/sub"
+            },
+            {
+              "scheme": "https",
+              "host": "chat.wuzzhub.id",
+              "pathPrefix": "/room"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {

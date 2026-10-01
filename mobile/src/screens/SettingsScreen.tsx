@@ -11,6 +11,7 @@ import React, { useCallback, useState } from 'react';
 import {
   Alert,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -22,6 +23,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
 import { useConnection } from '../context/ConnectionContext';
+import { APP_LINK_CONFIG } from '../api/config';
 import { colors, radius, shadows, spacing, typography } from '../theme';
 import {
   DeviceTransferModal,
@@ -169,6 +171,19 @@ export const SettingsScreen: React.FC = () => {
   const initials = getInitials(displayName);
   const appVersion = getAppVersionInfo();
 
+  const handleShareMyProfile = useCallback(async () => {
+    if (!username) return;
+    try {
+      const shareUrl = APP_LINK_CONFIG.getProfileShareUrl(username);
+      await Share.share({
+        message: `Kontak WuzzChat: ${displayName} (@${username})\n${shareUrl}`,
+        title: `Bagikan Profil WuzzChat: ${displayName}`,
+      });
+    } catch (err) {
+      console.warn('[SettingsScreen] Failed to share profile:', err);
+    }
+  }, [displayName, username]);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
@@ -221,13 +236,46 @@ export const SettingsScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Edit profile button */}
-          <View style={styles.editButton}>
-            <Text style={styles.editButtonIcon}>✏️</Text>
+          {/* Action buttons (Share & Edit) */}
+          <View style={styles.profileCardActions}>
+            <TouchableOpacity
+              style={styles.shareButton}
+              onPress={handleShareMyProfile}
+              activeOpacity={0.7}
+              accessibilityLabel="Bagikan Profil Saya"
+            >
+              <Text style={styles.shareButtonIcon}>↗️</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => setIsEditProfileVisible(true)}
+              activeOpacity={0.7}
+              accessibilityLabel="Edit Profil"
+            >
+              <Text style={styles.editButtonIcon}>✏️</Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
 
         {/* ── Settings Sections ─────────────────────────────────────────── */}
+
+        <SettingsSection title="Akun & Kontak">
+          <SettingsItem
+            icon="↗️"
+            title="Bagikan Tautan Kontak"
+            subtitle={username ? `@${username} · ${APP_LINK_CONFIG.WEB_DOMAIN}/u/${username}` : 'Bagikan profil ke WhatsApp atau aplikasi lain'}
+            onPress={handleShareMyProfile}
+            tintColor={colors.accentPrimary}
+          />
+          <View style={styles.itemDivider} />
+          <SettingsItem
+            icon="✏️"
+            title="Edit Profil"
+            subtitle="Ubah nama tampilan, avatar, dan bio"
+            onPress={() => setIsEditProfileVisible(true)}
+            tintColor={colors.accentPrimary}
+          />
+        </SettingsSection>
 
         <SettingsSection title="Perangkat & Keamanan">
           <SettingsItem
@@ -455,6 +503,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.colorOnline,
   },
+  profileCardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginLeft: spacing.sm,
+  },
+  shareButton: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.full,
+    backgroundColor: colors.tintAccent10,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareButtonIcon: {
+    fontSize: 16,
+  },
   editButton: {
     width: 36,
     height: 36,
@@ -464,7 +531,6 @@ const styles = StyleSheet.create({
     borderColor: colors.borderDefault,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: spacing.sm,
   },
   editButtonIcon: {
     fontSize: 16,

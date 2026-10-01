@@ -29,6 +29,7 @@ import { VerifiedBadge } from './VerifiedBadge';
 import { SafetyNumberModal } from './SafetyNumberModal';
 import { generateSafetyNumber, isContactSafetyVerified } from '../services/e2eeService';
 import { useCall } from '../context/CallContext';
+import { APP_LINK_CONFIG } from '../api/config';
 import { colors, radius, spacing, typography } from '../theme';
 
 export interface ContactInfoModalProps {
@@ -155,8 +156,9 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
 
   const handleShareContact = async () => {
     try {
+      const shareUrl = APP_LINK_CONFIG.getProfileShareUrl(username);
       await Share.share({
-        message: `Kontak WuzzChat: ${displayName} (@${username})\nhttps://chat.wuzzhub.id/u/${username}`,
+        message: `Kontak WuzzChat: ${displayName} (@${username})\n${shareUrl}`,
         title: `Bagikan Kontak ${displayName}`,
       });
     } catch (err) {

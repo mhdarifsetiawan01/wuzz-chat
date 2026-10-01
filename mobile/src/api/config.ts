@@ -37,3 +37,15 @@ export const API_CONFIG = {
   TENANT_ID: 'default',
   PLATFORM: Platform.OS === 'ios' ? 'ios' : 'android',
 } as const;
+
+export const APP_LINK_CONFIG = {
+  WEB_DOMAIN: 'chat.wuzzhub.id',
+  WEB_BASE_URL: 'https://chat.wuzzhub.id',
+  CUSTOM_SCHEME: 'wuzzchat',
+  getProfileShareUrl: (username: string) =>
+    `https://chat.wuzzhub.id/u/${encodeURIComponent(username.replace(/^@/, ''))}`,
+  getGroupShareUrl: (groupId: string) =>
+    `https://chat.wuzzhub.id/g/${encodeURIComponent(groupId)}`,
+  getSubGroupShareUrl: (subGroupId: string) =>
+    `https://chat.wuzzhub.id/sub/${encodeURIComponent(subGroupId)}`,
+} as const;

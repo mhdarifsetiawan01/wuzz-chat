@@ -12,6 +12,7 @@ import {
   Linking,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -20,6 +21,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User, ConversationItem, ConnectionStatusResponse, ConnectionStatus } from '../api/types';
 import { getUserProfile, startDirectChat } from '../api/users';
+import { APP_LINK_CONFIG } from '../api/config';
 import { Avatar } from '../components/Avatar';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { EditProfileModal } from '../components/EditProfileModal';
@@ -296,6 +298,20 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     }
   }, [user, isPrivate, connStatus, unfriend]);
 
+  const handleShareProfile = useCallback(async () => {
+    if (!user?.username) return;
+    try {
+      const shareUrl = APP_LINK_CONFIG.getProfileShareUrl(user.username);
+      const isMine = Boolean(isSelf);
+      await Share.share({
+        message: `Kontak WuzzChat: ${user.display_name} (@${user.username})\n${shareUrl}`,
+        title: isMine ? 'Bagikan Profil Saya' : `Bagikan Kontak ${user.display_name}`,
+      });
+    } catch (err) {
+      console.warn('[UserProfileScreen] Failed to share profile:', err);
+    }
+  }, [user, isSelf]);
+
   const handleSendMessage = useCallback(async () => {
     if (!user) return;
     if (isSelf) {
@@ -458,6 +474,16 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           Profil Pengguna
         </Text>
         <View style={styles.navRightSlot}>
+          {user?.username ? (
+            <TouchableOpacity
+              onPress={handleShareProfile}
+              style={styles.shareHeaderBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="Bagikan Profil"
+            >
+              <Text style={styles.shareHeaderBtnText}>↗️</Text>
+            </TouchableOpacity>
+          ) : null}
           {isSelf && (
             <TouchableOpacity
               onPress={() => setShowEditModal(true)}
@@ -539,11 +565,20 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <View style={styles.actionsRow}>
                 <TouchableOpacity
                   style={[styles.primaryActionBtn, { flex: 1 }]}
+                  onPress={handleShareProfile}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.actionIcon}>↗️</Text>
+                  <Text style={styles.primaryActionText}>Bagikan Profil</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.secondaryActionBtn, { flex: 1 }]}
                   onPress={() => setShowEditModal(true)}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.actionIcon}>✏️</Text>
-                  <Text style={styles.primaryActionText}>Edit Profil</Text>
+                  <Text style={styles.secondaryActionText}>Edit Profil</Text>
                 </TouchableOpacity>
               </View>
             ) : isPrivate && connStatus?.status !== 'accepted' ? (
@@ -922,9 +957,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   navRightSlot: {
-    width: 40,
-    alignItems: 'flex-end',
+    minWidth: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+  },
+  shareHeaderBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.md,
+    backgroundColor: colors.tintAccent10,
+    alignItems: 'center',
     justifyContent: 'center',
+  },
+  shareHeaderBtnText: {
+    fontSize: 16,
   },
   editHeaderBtn: {
     paddingVertical: spacing.xs,

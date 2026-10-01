@@ -67,3 +67,16 @@ CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 - **Komponen Avatar Terpadu**: `UserAvatar.tsx` (merender foto asli, inisial deterministik, dan indikator status online/offline).
 - **Lencana Verifikasi**: `VerifiedBadge.tsx` (icon SVG centang biru standar Twitter/Telegram).
 - **Modal Profil Interaktif**: `ProfileModal.tsx` di Web dan `ProfileScreen.tsx` di Mobile (Avatar Studio tab, setting media cache, tombol logout terkelola).
+
+---
+
+## 🔗 6. Universal Contact Sharing & Deep Linking Engine (M-Mobile-14)
+- **Tautan Kontak Universal**: Menggunakan format `https://chat.wuzzhub.id/u/{username}` dan skema custom `wuzzchat://u/{username}`.
+- **Konfigurasi Domain Terpusat**: Dikelola melalui `APP_LINK_CONFIG` di `mobile/src/api/config.ts` untuk memudahkan pergantian domain secara terpusat (*zero code refactoring*).
+- **Logika Navigasi Cerdas & Privasi**:
+  1. **Akun Publik / Sudah Berteman**: Sistem langsung membuka jendela obrolan (Chat DM) secara instan.
+  2. **Akun Privat & Belum Berteman**: Sistem membuka halaman profil pengguna (`UserProfileScreen`) dan memicu dialog proteksi privat (`PrivateAccountNoticeModal`) untuk mengirim permohonan pertemanan.
+  3. **Akun Diri Sendiri**: Membuka halaman profil pribadi.
+- **Rencana Mendatang (Web Fallback Landing Page)**:
+  - Rute: `frontend/app/u/[username]/page.tsx`.
+  - Fungsi: Menampilkan kartu profil ringkas (avatar, display name, username, verified badge) beserta tombol *"Buka di Aplikasi WuzzChat"* (`intent/custom scheme`) dan tombol fallback *"Lanjutkan di Web"*.
