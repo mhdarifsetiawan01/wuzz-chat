@@ -61,6 +61,15 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // Harus setelah '/:path*' agar Referrer-Policy global tertimpa. Halaman berisi QR kunci E2EE: jangan di-cache, di-index, atau bocor lewat Referer
+        source: '/transfer/share',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, max-age=0' },
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ],
+      },
     ];
   },
 };

@@ -8,5 +8,5 @@ export const APP_DOWNLOAD_URL =
 
 export const IS_WEB_PAUSED = process.env.NEXT_PUBLIC_WEB_PAUSED === 'true'
 
-// Route landing deep link tetap normal saat web dijeda
-export const WEB_PAUSED_EXEMPT_PREFIXES = ['/u', '/g', '/sub', '/room']
+// Route landing deep link dan /transfer/share (kirim kunci E2EE ke aplikasi mobile; halaman penerima /transfer tetap di-gate) tetap normal saat web dijeda
+export const WEB_PAUSED_EXEMPT_PREFIXES = ['/u', '/g', '/sub', '/room', '/transfer/share']

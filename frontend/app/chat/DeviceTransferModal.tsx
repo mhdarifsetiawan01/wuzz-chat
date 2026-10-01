@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import QRCode from 'qrcode'
 import { Html5Qrcode } from 'html5-qrcode'
@@ -19,6 +19,10 @@ interface DeviceTransferModalProps {
   isOpen: boolean
   initialMode?: 'generate' | 'input' | 'scan'
   hideGenerate?: boolean
+  // Hanya mode pengirim (QR): sembunyikan tab pindai/manual agar halaman ini tidak bisa mengimpor kunci
+  generateOnly?: boolean
+  // Aksi tambahan di atas tombol Tutup (dipakai halaman /transfer/share)
+  footerAction?: ReactNode
   currentUserId: string
   disableBackHandler?: boolean
   onClose: () => void
@@ -29,6 +33,8 @@ export function DeviceTransferModal({
   isOpen,
   initialMode = 'generate',
   hideGenerate = false,
+  generateOnly = false,
+  footerAction,
   currentUserId,
   disableBackHandler = false,
   onClose,
@@ -391,7 +397,9 @@ export function DeviceTransferModal({
   useEffect(() => {
     if (isOpen) {
       setIsTransferredOut(false)
-      const resolvedMode = hideGenerate ? (initialMode === 'generate' ? 'scan' : initialMode) : initialMode
+      const resolvedMode = generateOnly
+        ? 'generate'
+        : hideGenerate ? (initialMode === 'generate' ? 'scan' : initialMode) : initialMode
       setMode(resolvedMode)
       setErrorMsg('')
       setSuccessMsg('')
@@ -418,7 +426,7 @@ export function DeviceTransferModal({
         window.scrollTo(0, 0)
       }
     }
-  }, [isOpen, initialMode, hideGenerate])
+  }, [isOpen, initialMode, hideGenerate, generateOnly])
 
   // Listener event pergantian sesi saat QR berhasil dikonsumsi di perangkat baru
   useEffect(() => {
@@ -594,7 +602,7 @@ export function DeviceTransferModal({
       >
         {/* Header Tabs */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {generateOnly ? <div /> : <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {!hideGenerate && (
               <button
                 type="button"
@@ -662,7 +670,7 @@ export function DeviceTransferModal({
             >
               🔑 Masukkan Kode (Manual)
             </button>
-          </div>
+          </div>}
 
           <button
             type="button"
@@ -1164,6 +1172,8 @@ export function DeviceTransferModal({
             )}
           </div>
         )}
+
+        {footerAction}
 
         <div style={{ marginTop: 'var(--space-4)' }}>
           <button
