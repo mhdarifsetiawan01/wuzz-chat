@@ -21,8 +21,58 @@ module.exports = function withAndroidReleaseOptimization(config) {
     return modConfig;
   });
 
-  // 2. Inject ABI Splits into app/build.gradle
+  // 2. Inject ABI Splits & Smart Version Bumper into app/build.gradle
   config = withAppBuildGradle(config, (modConfig) => {
+    if (!modConfig.modResults.contents.includes('smart-bump.js')) {
+      const smartBumpHook = `
+import groovy.json.JsonSlurper
+
+// Auto-detect Release Tasks for Smart Version Bumping
+def isReleaseTask = gradle.startParameter.taskNames.any { taskName ->
+    taskName.toLowerCase().contains("release")
+}
+
+if (isReleaseTask && !project.hasProperty('skipSmartBump')) {
+    println "🚀 [Gradle Smart Version Bumper] Release task terdeteksi! Menjalankan analisis Conventional Commits..."
+    def bumpProcess = ["node", "\${projectRoot}/scripts/smart-bump.js"].execute(null, new File(projectRoot))
+    bumpProcess.waitForProcessOutput(System.out, System.err)
+    if (bumpProcess.exitValue() != 0) {
+        throw new GradleException("❌ Gagal menjalankan smart-bump.js. Build release dihentikan.")
+    }
+}
+
+// Baca app.json secara dinamis sebagai Single Source of Truth
+def getAppConfig(String rootPath) {
+    def appJsonFile = new File(rootPath, "app.json")
+    if (appJsonFile.exists()) {
+        try {
+            def json = new JsonSlurper().parseText(appJsonFile.text)
+            def vName = json?.expo?.version ?: "1.0.0"
+            def vCode = json?.expo?.android?.versionCode ?: 1
+            return [versionName: vName.toString(), versionCode: vCode as Integer]
+        } catch (Exception e) {
+            println "⚠️ Gagal membaca app.json: \${e.message}. Menggunakan default."
+        }
+    }
+    return [versionName: "1.0.0", versionCode: 1]
+}
+
+def appConfig = getAppConfig(projectRoot)
+`;
+      modConfig.modResults.contents = modConfig.modResults.contents.replace(
+        'def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()',
+        `def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()\n${smartBumpHook}`
+      );
+      modConfig.modResults.contents = modConfig.modResults.contents.replace(
+        /versionCode \d+/,
+        'versionCode appConfig.versionCode'
+      );
+      modConfig.modResults.contents = modConfig.modResults.contents.replace(
+        /versionName "[^"]+"/,
+        'versionName appConfig.versionName'
+      );
+    }
+
     if (!modConfig.modResults.contents.includes('splits {')) {
       const splitsBlock = `
     splits {

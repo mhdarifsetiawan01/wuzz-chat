@@ -4555,6 +4555,30 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (0 errors, Code 0)**.
 - **Live Version Middleware Tests**: `go test -v ./internal/api/version_middleware_test.go ./internal/api/version_middleware.go` → **PASS (100%, Code 0)**.
 
+---
+
+## 📅 Sesi Pengerjaan 01 Oktober 2026 (Lanjutan 4) — Milestone M-Mobile-12: Smart Version Bumper via Conventional Commits & Android Gradle Release Hook
+
+### 1. Rangkuman Perubahan & Solusi
+1. **SOP Baku Conventional Commits (`.agents/AGENTS.md`)**:
+   - Menetapkan aturan wajib format commit: `feat:` (Minor), `fix/perf/refactor:` (Patch), `BREAKING CHANGE / !:` (Major), `chore/docs/test:` (Build number only).
+2. **Engine Smart Version Bumper (`mobile/scripts/smart-bump.js`)**:
+   - Membaca `git log` sejak rilis/bump terakhir untuk mendeteksi secara otomatis tipe kenaikan versi SemVer.
+   - Sinkronisasi otomatis ke `mobile/app.json` dan `mobile/package.json`.
+   - Mendukung argumen `--dry-run` dan shortcut script `"bump:smart"` di `mobile/package.json`.
+3. **Android Gradle Single Source of Truth & Auto-Release Hook (`mobile/android/app/build.gradle` & `plugins/withAndroidReleaseOptimization.js`)**:
+   - Menghapus angka statis `versionCode` dan `versionName` di `build.gradle`, menggantikannya dengan parser dinamis `JsonSlurper` dari `app.json`.
+   - Menginjeksi hook otomatis: setiap kali `./gradlew assembleRelease` atau `./gradlew bundleRelease` dieksekusi, Gradle memicu `smart-bump.js` sebelum proses kompilasi rilis dimulai.
+   - Mengintegrasikan hook ke dalam Expo config plugin `withAndroidReleaseOptimization.js` agar permanen saat `npx expo prebuild`.
+
+### 2. Bukti Pengujian Otomatis
+- **Smart Bump Dry Run**: `node mobile/scripts/smart-bump.js --dry-run` → **PASS (Akurat mendeteksi commit Conventional Commits dan merencanakan versi baru)**.
+- **Gradle Release Dry Run**: `cd mobile/android && ./gradlew assembleRelease -m` → **BUILD SUCCESSFUL in 53s**.
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Backend Test Suite**: `cd backend && go test -v ./...` → **PASS (100%, Code 0)**.
+- **Frontend Web Build**: `cd frontend && npm run build` → **Compiled successfully (0 errors, Code 0)**.
+
+
 
 
 

@@ -195,6 +195,49 @@ AI: "Selesai verifikasi. Silakan jalankan sendiri dengan: npm run dev"
 
 ---
 
+## 🏷️ Mandatory Conventional Commits & Semantic Versioning Rule (MANDATORY)
+
+**AI dan Developer WAJIB SELALU menggunakan format pesan Git Commit berstandar Conventional Commits. Format ini secara otomatis dianalisis oleh `smart-bump.js` saat build rilis aplikasi (`./gradlew assembleRelease`) untuk menentukan kenaikan versi (Major, Minor, Patch, Build).**
+
+### Aturan Konkret & Pola Format:
+Format standar: `<type>(<optional scope>): <description>`
+
+1. **`feat` ➔ Memicu Kenaikan MINOR Version (`1.0.0` ➔ `1.1.0`, build +1)**:
+   - Digunakan saat menambahkan fitur fungsionalitas baru ke aplikasi atau backend.
+   - Contoh:
+     - `feat(mobile): tambah panggilan suara webrtc`
+     - `feat(backend): implementasi endpoint search kontak`
+     - `feat: dukung integrasi groq memory worker`
+
+2. **`fix` / `perf` / `refactor` / `style` ➔ Memicu Kenaikan PATCH Version (`1.0.0` ➔ `1.0.1`, build +1)**:
+   - `fix`: Perbaikan bug atau penanganan error.
+   - `perf`: Peningkatan performa / efisiensi kueri / memori.
+   - `refactor`: Perapihan kode tanpa mengubah fungsionalitas.
+   - `style`: Penyesuaian kosmetik UI/CSS.
+   - Contoh:
+     - `fix(mobile): cegah keyboard menutupi modal bottom sheet`
+     - `fix(backend): atasi race condition duplicate answer`
+     - `perf: optimasi cursor pagination query`
+
+3. **`BREAKING CHANGE:` atau `!:` ➔ Memicu Kenaikan MAJOR Version (`1.x.x` ➔ `2.0.0`, build +1)**:
+   - Digunakan jika terjadi perubahan yang merusak kompatibilitas lama (breaking API, perubahan skema database besar, perombakan protokol enkripsi E2EE, atau full redesign).
+   - Contoh:
+     - `feat(auth)!: rombak total sistem autentikasi ke passkeys`
+     - `fix(e2ee)!: upgrade protokol e2ee ke double ratchet v2`
+     - Atau menyertakan footer `BREAKING CHANGE: skema api lama /api/v1 dinonaktifkan.`
+
+4. **`chore` / `docs` / `test` ➔ HANYA Memicu Kenaikan BUILD Number (`versionCode + 1`, versi tetap)**:
+   - Digunakan untuk pembaruan dokumentasi, penambahan unit test, update dependencies, atau task pemeliharaan tanpa perubahan fungsional ke end-user.
+   - Contoh:
+     - `docs: perbarui panduan mobile integration`
+     - `test: tambah e2e race condition calling test`
+     - `chore: update gradle wrapper dependencies`
+
+5. **Dilarang Format Sembarangan**:
+   - Dilarang membuat commit dengan pesan generik seperti `update`, `fix`, `wip`, `commit changes`. Seluruh commit wajib menggunakan awalan tipe yang valid.
+
+---
+
 ## ☁️ Mandatory Backend Change Notification & VPS Deployment Warning Rule (MANDATORY)
 
 **Setiap kali ada perubahan, perbaikan bug, atau penambahan fitur di direktori `backend/`, AI WAJIB memberikan konfirmasi dan peringatan eksplisit kepada pengguna bahwa server backend di VPS perlu di-deploy ulang.**
