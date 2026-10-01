@@ -4589,3 +4589,24 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
   - **Milestone M-Mobile-12: Smart Version Bumper via Conventional Commits & Android Gradle Release Hook**: **SELESAI ✅**
   - **Milestone M-Mobile-13: API Prefix Versioning (`/api/v1`) & Dual-Route Backward Compatibility Layer**: **🔮 PLANNED**
   - **Milestone M-Mobile-14: Client Integrity, HMAC Request Signature & Authorized App Protection (Play Integrity & Anti-Bot Shield)**: **🔮 PLANNED**
+
+---
+
+## 📅 Sesi Pengerjaan 01 Oktober 2026 (Lanjutan 6) — Bug Fix: Universal Android Keyboard Resilience & Input Clipping on Android < 16
+
+### 1. Rangkuman Pengerjaan
+1. **Diagnosis & Solusi WindowInsets Native Universal (`MainActivity.kt` & `withAndroidEdgeToEdgeKeyboard.js`)**:
+   - **Root Cause**: `MainActivity.kt` sebelumnya membatasi listener insets `ViewCompat.setOnApplyWindowInsetsListener` dengan `Build.VERSION.SDK_INT >= 35`. Pada perangkat Android < 16 (Android 11–14 / API 30–34), listener native tidak terpasang dan `adjustResize` bawaan OS dinonaktifkan oleh layout edge-to-edge (translucent system bars).
+   - **Fix**: Menghapus batasan `Build.VERSION.SDK_INT >= 35` di `MainActivity.kt` dan Expo plugin `withAndroidEdgeToEdgeKeyboard.js` agar listener native `WindowInsetsCompat.Type.ime()` aktif universal di seluruh versi Android.
+2. **Standardisasi KAV Screen (`ChatScreen.tsx` & `mobile/DESIGN.md`)**:
+   - **Root Cause**: `KeyboardAvoidingView` di `ChatScreen.tsx` menggunakan `behavior='height'`, yang menghitung offset `frame.y` secara relatif terhadap parent (`styles.root`), menyebabkan defisit `insets.top` (~35dp) sehingga bagian bawah `ChatInputBar` terpotong oleh keyboard.
+   - **Fix**: Mengembalikan `behavior` pada `ChatScreen.tsx` menjadi `Platform.OS === 'ios' ? 'padding' : undefined` (konsisten dengan seluruh screen lain di aplikasi), mempercayakan penyesuaian tinggi keyboard di Android sepenuhnya pada padding native `rootView`.
+   - Menyelaraskan referensi panduan desain pada `mobile/DESIGN.md`.
+
+### 2. Bukti Pengujian Otomatis
+- **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.
+- **Frontend Web Build**: `cd frontend && npm run build` → **Next.js 16.3.5 Turbopack Build SUCCESS (8/8 static pages rendered, 0 errors, Code 0)**.
+- **Backend Test Suite**: `cd backend && go test -v ./...` → **PASS (100%, Code 0)**.
+
+---
+

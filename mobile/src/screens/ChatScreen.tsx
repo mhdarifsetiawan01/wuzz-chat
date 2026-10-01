@@ -1748,7 +1748,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       {/* KeyboardAvoidingView hanya menampung konten scrollable + input bar */}
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
 
         {/* Milestone 8.3: Pinned Messages Banner */}

@@ -169,7 +169,7 @@ Untuk memastikan konsistensi tampilan di seluruh versi sistem operasi (**Android
     {/* 2. KAV Hanya Menangani Konten Linimasa + Input */}
     <KeyboardAvoidingView
       style={styles.keyboardContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <FlatList data={messages} ... />
       <ChatInputBar ... />

@@ -289,6 +289,16 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+- [x] **BUG FIX (01-Okt-2026): Universal Android Keyboard Resilience & Input Clipping on Android < 16**:
+  - **Root Cause**: `MainActivity.kt` & `withAndroidEdgeToEdgeKeyboard.js` membatasi listener insets IME hanya untuk `Build.VERSION.SDK_INT >= 35`. Pada Android < 16 (Android 11–14), listener tidak aktif dan native `adjustResize` tidak jalan karena layout edge-to-edge. Ditambah `KeyboardAvoidingView` di `ChatScreen.tsx` menggunakan `behavior='height'` yang under-calculated sebesar `insets.top` (~35dp), memotong bagian bawah `ChatInputBar`.
+  - **Fix**:
+    1. Mengaktifkan `ViewCompat.setOnApplyWindowInsetsListener` secara universal untuk seluruh versi Android di `MainActivity.kt` dan Expo plugin `withAndroidEdgeToEdgeKeyboard.js`.
+    2. Menstandardisasi `KeyboardAvoidingView` di `ChatScreen.tsx` menjadi `behavior={Platform.OS === 'ios' ? 'padding' : undefined}` agar tidak berkonflik dengan native window insets pada Android.
+    3. Menyelaraskan referensi panduan desain di `mobile/DESIGN.md`.
+  - **Verifikasi**: `npx tsc --noEmit` -> **0 errors**, `npm run build` -> **0 errors**, `go test ./...` -> **100% PASS**.
+
+---
+
 ## Fokus Berikutnya (What's Next)
 - [x] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
   - [x] **Tahap 1 (M-Mobile-9.1)**: Fondasi Profil & Identitas Publik Mobile (`bio`, `role`, `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, `UserProfileScreen.tsx`).

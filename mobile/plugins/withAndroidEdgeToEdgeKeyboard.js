@@ -19,16 +19,15 @@ import androidx.core.view.updatePadding`;
   const onCreateTarget = 'super.onCreate(null)';
   const onCreateReplacement = `super.onCreate(null)
 
-    // Android 15 (API 35) & Android 16 (API 36+): Enforced Edge-to-Edge disables default adjustResize behavior.
-    // We attach an OnApplyWindowInsetsListener to restore resize behavior by applying IME insets as bottom padding.
-    // On Android 10 (API 29) to Android 14 (API 34), adjustResize works natively, so we keep native behavior to avoid double padding.
-    if (Build.VERSION.SDK_INT >= 35) {
-      val rootView = findViewById<View>(android.R.id.content)
-      ViewCompat.setOnApplyWindowInsetsListener(rootView) { v, insets ->
-        val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
-        v.updatePadding(bottom = imeInsets.bottom)
-        insets
-      }
+    // Universal Android Keyboard Resilience (Android 11-16+ & Edge-to-Edge):
+    // Transparent status & navigation bars disable default adjustResize behavior on Android.
+    // We attach an OnApplyWindowInsetsListener on android.R.id.content to dynamically apply
+    // IME insets as bottom padding whenever the software keyboard appears or disappears.
+    val rootView = findViewById<View>(android.R.id.content)
+    ViewCompat.setOnApplyWindowInsetsListener(rootView) { v, insets ->
+      val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+      v.updatePadding(bottom = imeInsets.bottom)
+      insets
     }`;
 
   newContents = newContents.replace(onCreateTarget, onCreateReplacement);
