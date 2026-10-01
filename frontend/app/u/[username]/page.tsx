@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
 import { apiRequest } from '@/lib/api'
 import type { User } from '@/lib/types'
+import { APP_DOWNLOAD_URL } from '@/lib/app-download'
 
 function ProfileLinkContent() {
   const router = useRouter()
@@ -94,6 +95,7 @@ function ProfileLinkContent() {
             </>
           )}
           <a className="btn-secondary" href={appLink}>Buka di Aplikasi WuzzChat</a>
+          <a className="btn-secondary" href={APP_DOWNLOAD_URL} rel="noopener noreferrer">Belum punya aplikasi? Download</a>
         </div>
       </div>
     </main>

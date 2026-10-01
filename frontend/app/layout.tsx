@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
+import WebPausedGate from './WebPausedGate'
 
 export const metadata: Metadata = {
   title: 'Wuzz Chat — Remember More Than Messages',
@@ -41,9 +42,11 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <WebPausedGate>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </WebPausedGate>
         {/* Portal root untuk semua modal — terpisah dari .chat-app-container stacking context */}
         <div id="modal-portal-root" />
       </body>

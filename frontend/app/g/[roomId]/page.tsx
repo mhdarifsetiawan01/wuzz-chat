@@ -1,7 +1,7 @@
-import { redirect } from 'next/navigation'
+import OpenInAppLanding from '@/app/OpenInAppLanding'
 
-// Link universal grup (https://chat.wuzzhub.id/g/grp_xxx) -> buka di web chat
-export default async function GroupLinkPage({ params }: { params: Promise<{ roomId: string }> }) {
+// Link universal (https://chat.wuzzhub.id/g/<id>) -> buka di web chat, atau halaman "Buka di Aplikasi" saat web dijeda
+export default async function GLinkPage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = await params
-  redirect(`/chat?room=${encodeURIComponent(decodeURIComponent(roomId))}`)
+  return <OpenInAppLanding scheme="g" roomId={roomId} />
 }
