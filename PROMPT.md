@@ -30,6 +30,7 @@ Sebelum mengeksekusi tugas, AI **HANYA PERLU MEMBACA** dokumen primer yang relev
 | **Group Memory AI, Worker, LLM M1-M7** | 🤖 **[`docs/domains/AI_MEMORY.md`](docs/domains/AI_MEMORY.md)** | [`docs/context/AI_MEMORY.md`](docs/context/AI_MEMORY.md) | [`docs/progress/AI_MEMORY.md`](docs/progress/AI_MEMORY.md) |
 | **Multi-Tenancy Engine & Isolasi Data** | 🏢 **[`docs/domains/MULTI_TENANT.md`](docs/domains/MULTI_TENANT.md)** | [`docs/context/MULTI_TENANT.md`](docs/context/MULTI_TENANT.md) | [`docs/progress/MULTI_TENANT.md`](docs/progress/MULTI_TENANT.md) |
 | **Push Notification & Kluster Sync** | 🔔 **[`docs/domains/NOTIFICATION_SYNC.md`](docs/domains/NOTIFICATION_SYNC.md)** | [`docs/context/BACKEND.md`](docs/context/BACKEND.md) | [`docs/progress/MOBILE.md`](docs/progress/MOBILE.md) |
+| **Update Aplikasi Mobile, APK & Rilis Play Store** | 🚀 **[`docs/PLAY_STORE_MIGRATION.md`](docs/PLAY_STORE_MIGRATION.md)** | [`docs/context/MOBILE.md`](docs/context/MOBILE.md) | [`docs/progress/MOBILE.md`](docs/progress/MOBILE.md) |
 | **Arsitektur Global & Skema DB** | 🏛️ **[`docs/context/ARCHITECTURE.md`](docs/context/ARCHITECTURE.md)** | — | [`docs/PROGRESS.md`](docs/PROGRESS.md) |
 
 ---
