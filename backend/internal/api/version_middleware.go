@@ -13,6 +13,7 @@ type VersionMiddleware struct {
 	minMobileBuild int
 	playStoreURL   string
 	appStoreURL    string
+	apkURL         string
 }
 
 // UpdateRequiredResponse mendefinisikan bentuk JSON saat versi aplikasi usang.
@@ -34,11 +35,35 @@ func NewVersionMiddleware(minMobileBuild int, playStoreURL, appStoreURL string) 
 	}
 }
 
+// WithAPKURL mengatur URL unduh untuk klien channel "apk" (sideload, bukan Play Store).
+func (m *VersionMiddleware) WithAPKURL(url string) *VersionMiddleware {
+	m.apkURL = strings.TrimSpace(url)
+	return m
+}
+
+// ResolveUpdateURL memilih URL pembaruan menurut platform dan channel instalasi ("apk" | "play").
+func ResolveUpdateURL(platform, channel, playStoreURL, appStoreURL, apkURL string) string {
+	if platform == "ios" {
+		return appStoreURL
+	}
+	if strings.EqualFold(strings.TrimSpace(channel), "apk") && strings.TrimSpace(apkURL) != "" {
+		return strings.TrimSpace(apkURL)
+	}
+	return playStoreURL
+}
+
+func requestChannel(r *http.Request) string {
+	if c := strings.TrimSpace(r.Header.Get("X-App-Channel")); c != "" {
+		return c
+	}
+	return strings.TrimSpace(r.URL.Query().Get("app_channel"))
+}
+
 // Middleware membungkus http.Handler untuk memvalidasi header versi klien mobile.
 func (m *VersionMiddleware) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Lewatkan rute health check dan dokumentasi API
-		if r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, "/uploads/") || strings.HasPrefix(r.URL.Path, "/api/docs") || r.URL.Path == "/api/openapi.yaml" {
+		if r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, "/uploads/") || strings.HasPrefix(r.URL.Path, "/api/docs") || r.URL.Path == VersionInfoPath || r.URL.Path == "/api/openapi.yaml" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -63,10 +88,7 @@ func (m *VersionMiddleware) Middleware(next http.Handler) http.Handler {
 			clientBuild, err := strconv.Atoi(buildStr)
 
 			if err != nil || clientBuild < m.minMobileBuild {
-				updateURL := m.playStoreURL
-				if platform == "ios" {
-					updateURL = m.appStoreURL
-				}
+				updateURL := ResolveUpdateURL(platform, requestChannel(r), m.playStoreURL, m.appStoreURL, m.apkURL)
 
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUpgradeRequired) // 426

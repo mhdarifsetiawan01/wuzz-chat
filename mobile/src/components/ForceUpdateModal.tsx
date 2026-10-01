@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { colors, spacing, typography } from '../theme';
+import { fetchAppUpdateInfo } from '../services/appUpdate';
 import {
   ForceUpdatePayload,
   getAppVersionInfo,
@@ -39,6 +40,10 @@ export const ForceUpdateModal: React.FC = () => {
 
   const handleOpenStore = async () => {
     let targetUrl = updateInfo.update_url;
+    if (!targetUrl) {
+      // Mis. dari penutupan WebSocket (4426): ambil tujuan unduh sesuai channel dari backend
+      targetUrl = (await fetchAppUpdateInfo(true))?.download_url;
+    }
     if (!targetUrl) {
       if (Platform.OS === 'android') {
         targetUrl = `market://details?id=${appInfo.clientId}`;

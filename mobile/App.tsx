@@ -39,6 +39,7 @@ import {
   IncomingCallModal,
   ActiveCallOverlay,
   ForceUpdateModal,
+  UpdateBannerLayout,
 } from './src/components';
 import { AppNavigator as MainAppNavigator, navigationRef } from './src/navigation';
 import { notificationService } from './src/services/notificationService';
@@ -382,7 +383,9 @@ function AppContent() {
 
   return (
     <View style={styles.rootContainer}>
-      {renderContent()}
+      <UpdateBannerLayout enabled={isAuthenticated}>
+        {renderContent()}
+      </UpdateBannerLayout>
 
       {/* Global Terminal Session Replaced Guard Modal */}
       {!!sessionReplacedMessage && (

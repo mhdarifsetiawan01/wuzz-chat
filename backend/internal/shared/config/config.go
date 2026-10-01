@@ -42,6 +42,12 @@ type Config struct {
 	MinMobileBuild int
 	PlayStoreURL   string
 	AppStoreURL    string
+
+	// Info pembaruan opsional (banner "Pembaruan tersedia"); 0 = tidak ada info build terbaru
+	LatestMobileBuild   int
+	LatestMobileVersion string
+	APKDownloadURL      string // channel "apk" (sideload); kosong -> fallback PlayStoreURL
+	MobileReleaseNotes  string
 }
 
 // Load membaca konfigurasi dari file .env (jika tersedia) dan variabel lingkungan sistem (OS Environment).
@@ -76,6 +82,11 @@ func Load() (*Config, error) {
 		MinMobileBuild: getEnvInt("MIN_MOBILE_BUILD", 1),
 		PlayStoreURL:   getEnv("PLAY_STORE_URL", "https://play.google.com/store/apps/details?id=com.wuzzchat.mobile"),
 		AppStoreURL:    getEnv("APP_STORE_URL", "https://apps.apple.com/app/wuzz-chat/id000000000"),
+
+		LatestMobileBuild:   getEnvInt("LATEST_MOBILE_BUILD", 0),
+		LatestMobileVersion: getEnv("LATEST_MOBILE_VERSION", ""),
+		APKDownloadURL:      getEnv("APK_DOWNLOAD_URL", ""),
+		MobileReleaseNotes:  getEnv("MOBILE_RELEASE_NOTES", ""),
 	}
 
 	return cfg, nil

@@ -8,7 +8,7 @@ import { Platform } from 'react-native';
 import { secureStorage } from '../services/secureStorage';
 import { API_CONFIG, getBaseApiUrl } from './config';
 import { ApiError } from './types';
-import { getAppVersionInfo, notifyForceUpdateRequired } from '../utils/appVersion';
+import { APP_CHANNEL, getAppVersionInfo, notifyForceUpdateRequired } from '../utils/appVersion';
 
 export interface RequestOptions extends RequestInit {
   timeoutMs?: number;
@@ -39,6 +39,7 @@ export async function apiClient<T>(
     'X-Tenant-ID': API_CONFIG.TENANT_ID,
     'X-App-Version': appInfo.version,
     'X-App-Build': String(appInfo.buildNumber),
+    'X-App-Channel': APP_CHANNEL,
     'X-Client-ID': appInfo.clientId,
     ...(headers as Record<string, string>),
   };

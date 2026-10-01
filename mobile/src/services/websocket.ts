@@ -7,7 +7,7 @@
 
 import { Platform } from 'react-native';
 import { getBaseWsUrl } from '../api/config';
-import { getAppVersionInfo, notifyForceUpdateRequired } from '../utils/appVersion';
+import { APP_CHANNEL, getAppVersionInfo, notifyForceUpdateRequired } from '../utils/appVersion';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'terminated';
 
@@ -153,7 +153,7 @@ class WebSocketClient {
 
     const baseUrl = getBaseWsUrl();
     const appInfo = getAppVersionInfo();
-    const wsUrl = `${baseUrl}?token=${encodeURIComponent(this.token)}&device_id=${encodeURIComponent(this.deviceId)}&platform=${Platform.OS === 'ios' ? 'ios' : 'android'}&name=${encodeURIComponent(Platform.OS === 'ios' ? 'Aplikasi WuzzChat di iOS' : 'Aplikasi WuzzChat di Android')}&app_version=${encodeURIComponent(appInfo.version)}&app_build=${encodeURIComponent(String(appInfo.buildNumber))}`;
+    const wsUrl = `${baseUrl}?token=${encodeURIComponent(this.token)}&device_id=${encodeURIComponent(this.deviceId)}&platform=${Platform.OS === 'ios' ? 'ios' : 'android'}&name=${encodeURIComponent(Platform.OS === 'ios' ? 'Aplikasi WuzzChat di iOS' : 'Aplikasi WuzzChat di Android')}&app_version=${encodeURIComponent(appInfo.version)}&app_build=${encodeURIComponent(String(appInfo.buildNumber))}&app_channel=${APP_CHANNEL}`;
 
     const originHeader = baseUrl.includes('localhost') || baseUrl.includes('10.0.2.2')
       ? 'http://localhost:3000'

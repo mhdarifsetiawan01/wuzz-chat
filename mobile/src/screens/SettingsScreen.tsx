@@ -10,6 +10,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
+  Linking,
   ScrollView,
   Share,
   StyleSheet,
@@ -36,6 +37,7 @@ import {
   AboutWuzzChatModal,
 } from '../components';
 import { getAppVersionInfo } from '../utils/appVersion';
+import { fetchAppUpdateInfo, isUpdateAvailable } from '../services/appUpdate';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Settings Menu Item
@@ -170,6 +172,29 @@ export const SettingsScreen: React.FC = () => {
   const username = user?.username ?? '';
   const initials = getInitials(displayName);
   const appVersion = getAppVersionInfo();
+
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const handleCheckUpdate = useCallback(async () => {
+    setIsCheckingUpdate(true);
+    const info = await fetchAppUpdateInfo(true);
+    setIsCheckingUpdate(false);
+    if (!info) {
+      Alert.alert('Gagal Memeriksa', 'Tidak dapat memeriksa pembaruan. Periksa koneksi lalu coba lagi.');
+      return;
+    }
+    if (!isUpdateAvailable(info)) {
+      Alert.alert('Sudah Terbaru', 'Anda sudah memakai versi WuzzChat terbaru.');
+      return;
+    }
+    const url = info.download_url;
+    Alert.alert(
+      'Pembaruan Tersedia',
+      info.latest_version ? `Versi ${info.latest_version} sudah tersedia.` : 'Versi terbaru sudah tersedia.',
+      url
+        ? [{ text: 'Nanti', style: 'cancel' }, { text: 'Perbarui', onPress: () => Linking.openURL(url).catch(() => {}) }]
+        : [{ text: 'OK' }],
+    );
+  }, []);
 
   const handleShareMyProfile = useCallback(async () => {
     if (!username) return;
@@ -356,6 +381,11 @@ export const SettingsScreen: React.FC = () => {
           <Text style={styles.footerVersion}>
             v{appVersion.version} (Build {appVersion.buildNumber}) · Aurora Build
           </Text>
+          <TouchableOpacity onPress={handleCheckUpdate} disabled={isCheckingUpdate} hitSlop={8}>
+            <Text style={styles.footerUpdateLink}>
+              {isCheckingUpdate ? 'Memeriksa...' : 'Cek pembaruan'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -617,6 +647,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  footerUpdateLink: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.accentHover,
+    marginTop: spacing.xs,
   },
   footerVersion: {
     ...typography.caption,

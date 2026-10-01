@@ -35,6 +35,15 @@ func (a *Application) setupRouter() http.Handler {
 		fmt.Fprintf(w, `{"status":"ok","time":"%s"}`, time.Now().UTC().Format(time.RFC3339))
 	})
 
+	// Info versi aplikasi mobile (publik, tanpa auth; dikecualikan dari gatekeeper versi)
+	if a.Config != nil {
+		versionInfo := api.NewVersionInfoHandler(
+			a.Config.MinMobileBuild, a.Config.LatestMobileBuild, a.Config.LatestMobileVersion,
+			a.Config.MobileReleaseNotes, a.Config.PlayStoreURL, a.Config.AppStoreURL, a.Config.APKDownloadURL,
+		)
+		mux.HandleFunc(api.VersionInfoPath, withCORS(versionInfo.ServeHTTP))
+	}
+
 	if a.MediaHandler != nil {
 		mux.HandleFunc("/api/config", withCORS(a.MediaHandler.Config))
 	}
@@ -360,7 +369,7 @@ func (a *Application) setupRouter() http.Handler {
 
 	// Validasi versi aplikasi klien mobile (Force Update Gatekeeper)
 	if a.Config != nil {
-		versionMw := api.NewVersionMiddleware(a.Config.MinMobileBuild, a.Config.PlayStoreURL, a.Config.AppStoreURL)
+		versionMw := api.NewVersionMiddleware(a.Config.MinMobileBuild, a.Config.PlayStoreURL, a.Config.AppStoreURL).WithAPKURL(a.Config.APKDownloadURL)
 		handler = versionMw.Middleware(handler)
 	}
 

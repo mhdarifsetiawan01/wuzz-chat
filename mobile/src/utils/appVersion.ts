@@ -7,6 +7,11 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
+// Channel instalasi: 'apk' (sideload/Drive) atau 'play' (Play Store).
+// Set EXPO_PUBLIC_UPDATE_CHANNEL=play saat build rilis Play Store. Menentukan tujuan tombol pembaruan.
+export const APP_CHANNEL: 'apk' | 'play' =
+  process.env.EXPO_PUBLIC_UPDATE_CHANNEL === 'play' ? 'play' : 'apk';
+
 export interface AppVersionInfo {
   version: string;
   buildNumber: number;
