@@ -11,3 +11,4 @@ export * from './FeedScreen';
 export * from './UserProfileScreen';
 export * from './FriendsListScreen';
 
+export * from './PostReaderScreen';

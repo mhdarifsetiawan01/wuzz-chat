@@ -12,41 +12,40 @@
  * - CreatePostModal, PostCommentsModal, and SharePostToChatModal integrations
  */
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FeedPost } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { CreatePostModal } from '../components/CreatePostModal';
+import { ExpandableText } from '../components/ExpandableText';
+import { LinkPreviewCard } from '../components/LinkPreviewCard';
+import { MediaViewerModal } from '../components/MediaViewerModal';
+import { PostMedia } from '../components/PostMedia';
 import { PostCommentsModal } from '../components/PostCommentsModal';
 import { SharePostToChatModal } from '../components/SharePostToChatModal';
 import { useAuth, useFeed } from '../context';
-import { colors, radius, spacing, typography } from '../theme';
+import { RootStackParamList } from '../navigation/types';
+import { colors } from '../theme';
+import { formatPostTime } from '../utils/feedTime';
+import { extractFirstUrl } from '../utils/linkUtils';
 
-function formatPostTime(dateString: string): string {
-  try {
-    const diff = (Date.now() - new Date(dateString).getTime()) / 1000;
-    if (diff < 60) return 'Baru saja';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m lalu`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}j lalu`;
-    return `${Math.floor(diff / 86400)}h lalu`;
-  } catch {
-    return '';
-  }
-}
+const COLLAPSED_LINES = 6;
 
 export const FeedScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const {
     activeTab,
@@ -66,6 +65,12 @@ export const FeedScreen: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [activeCommentsPost, setActiveCommentsPost] = useState<FeedPost | null>(null);
   const [activeSharePost, setActiveSharePost] = useState<FeedPost | null>(null);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+
+  const openReader = useCallback(
+    (post: FeedPost) => navigation.navigate('PostReader', { postId: post.id, initialPost: post }),
+    [navigation]
+  );
 
   const canModeratePost = (post: FeedPost): boolean => {
     if (!user) return false;
@@ -123,39 +128,9 @@ export const FeedScreen: React.FC = () => {
     return null;
   };
 
-  const renderMedia = (urls?: string[]) => {
-    if (!urls || urls.length === 0) return null;
-
-    if (urls.length === 1) {
-      return (
-        <View style={styles.singleImageWrapper}>
-          <Image
-            source={{ uri: urls[0] }}
-            style={styles.singleImage}
-            resizeMode="cover"
-          />
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.imageGrid}>
-        {urls.slice(0, 4).map((url, idx) => (
-          <View key={idx} style={styles.gridImageWrapper}>
-            <Image
-              source={{ uri: url }}
-              style={styles.gridImage}
-              resizeMode="cover"
-            />
-            {idx === 3 && urls.length > 4 && (
-              <View style={styles.moreImagesOverlay}>
-                <Text style={styles.moreImagesText}>+{urls.length - 4}</Text>
-              </View>
-            )}
-          </View>
-        ))}
-      </View>
-    );
+  const renderLinkPreview = (content: string) => {
+    const url = extractFirstUrl(content);
+    return url ? <LinkPreviewCard url={url} /> : null;
   };
 
   const renderPostItem = ({ item }: { item: FeedPost }) => {
@@ -212,10 +187,19 @@ export const FeedScreen: React.FC = () => {
         </View>
 
         {/* Post Content */}
-        <Text style={styles.postContent}>{item.content}</Text>
+        <ExpandableText
+          text={item.content}
+          cacheKey={item.id}
+          numberOfLines={COLLAPSED_LINES}
+          style={styles.postContent}
+          onExpand={() => openReader(item)}
+        />
 
-        {/* Attached Media Grid */}
-        {renderMedia(item.media_urls)}
+        {/* Link preview untuk URL pertama (di-throttle & di-cache di fetchLinkPreview) */}
+        {renderLinkPreview(item.content)}
+
+        {/* Attached Media Grid (ketuk untuk zoom) */}
+        <PostMedia urls={item.media_urls} onPressImage={setViewerUrl} />
 
         {/* Post Actions (Like, Comment, Share to Chat) */}
         <View style={styles.postActionsRow}>
@@ -356,6 +340,10 @@ export const FeedScreen: React.FC = () => {
             colors={[colors.accentPrimary]}
           />
         }
+        initialNumToRender={5}
+        maxToRenderPerBatch={5}
+        windowSize={7}
+        removeClippedSubviews
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
         ListEmptyComponent={renderEmptyComponent}
@@ -381,6 +369,12 @@ export const FeedScreen: React.FC = () => {
       </TouchableOpacity>
 
       {/* Modals */}
+      <MediaViewerModal
+        visible={Boolean(viewerUrl)}
+        mediaUrl={viewerUrl}
+        onClose={() => setViewerUrl(null)}
+      />
+
       <CreatePostModal
         visible={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -606,47 +600,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#1e293b',
     marginBottom: 12,
-  },
-  singleImageWrapper: {
-    width: '100%',
-    height: 200,
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginBottom: 12,
-    backgroundColor: '#f1f5f9',
-  },
-  singleImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imageGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 12,
-  },
-  gridImageWrapper: {
-    width: '48.5%',
-    height: 120,
-    borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: '#f1f5f9',
-  },
-  gridImage: {
-    width: '100%',
-    height: '100%',
-  },
-  moreImagesOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  moreImagesText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '800',
   },
   postActionsRow: {
     flexDirection: 'row',

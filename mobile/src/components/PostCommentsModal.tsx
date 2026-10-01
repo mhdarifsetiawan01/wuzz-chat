@@ -30,6 +30,7 @@ import { FeedComment, FeedPost } from '../api/types';
 import { useFeed } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
 import { Avatar } from './Avatar';
+import { LinkifiedText } from './LinkifiedText';
 
 export interface PostCommentsModalProps {
   visible: boolean;
@@ -260,7 +261,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
                         {formatCommentTime(item.created_at)}
                       </Text>
                     </View>
-                    <Text style={styles.commentText}>{item.content}</Text>
+                    <LinkifiedText text={item.content} style={styles.commentText} />
                   </View>
                 </View>
               )}

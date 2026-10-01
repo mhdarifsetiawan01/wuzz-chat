@@ -20,6 +20,7 @@ import {
   NewGroupScreen,
   UserProfileScreen,
   FriendsListScreen,
+  PostReaderScreen,
 } from '../screens';
 import { MainTabNavigator } from './MainTabNavigator';
 import { colors } from '../theme';
@@ -202,6 +203,23 @@ export const AppNavigator: React.FC = () => {
             onNavigateToNewChat={() => {
               navigation.navigate('NewChat');
             }}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* 8. Post Reader (Mode Baca Feed) */}
+      <Stack.Screen
+        name="PostReader"
+        options={{
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+        }}
+      >
+        {({ route, navigation }) => (
+          <PostReaderScreen
+            postId={route.params.postId}
+            initialPost={route.params.initialPost}
+            onBack={() => navigation.goBack()}
           />
         )}
       </Stack.Screen>

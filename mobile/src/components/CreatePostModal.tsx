@@ -182,7 +182,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
         const uploadRes = await mediaApi.uploadMedia(
           item.uri,
           item.fileName,
-          item.mimeType
+          item.mimeType,
+          undefined,
+          'feed'
         );
         if (uploadRes?.url) {
           uploadedUrls.push(uploadRes.url);

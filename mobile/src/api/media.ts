@@ -44,8 +44,10 @@ export const mediaApi = {
     uri: string,
     fileName?: string,
     mimeType?: string,
-    base64?: string
+    base64?: string,
+    purpose?: 'feed'
   ): Promise<MediaUploadResponse> {
+    const purposeQuery = purpose ? `?purpose=${purpose}` : '';
     const cleanFileName = fileName || `media_${Date.now()}`;
     const cleanMimeType = mimeType || 'application/octet-stream';
 
@@ -85,7 +87,7 @@ export const mediaApi = {
     // =========================================================================
     try {
       const fileSize = bytes ? bytes.length : 0;
-      const ticket = await apiClient<SignedUploadTicketResponse>('/api/media/signed-upload-url', {
+      const ticket = await apiClient<SignedUploadTicketResponse>(`/api/media/signed-upload-url${purposeQuery}`, {
         method: 'POST',
         body: JSON.stringify({
           file_name: cleanFileName,
@@ -187,7 +189,7 @@ export const mediaApi = {
       formData.append('file', blob, cleanFileName);
     }
 
-    return apiClient<MediaUploadResponse>('/api/media/upload', {
+    return apiClient<MediaUploadResponse>(`/api/media/upload${purposeQuery}`, {
       method: 'POST',
       body: formData,
       timeoutMs: 60000, // 60s timeout for media uploads

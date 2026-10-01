@@ -54,6 +54,11 @@ export type RootStackParamList = {
     username?: string;
     initialUser?: import('../api/types').User;
   };
+  /** Mode baca layar penuh untuk postingan feed */
+  PostReader: {
+    postId: string;
+    initialPost?: import('../api/types').FeedPost;
+  };
   /** Friends list & pending connection requests */
   FriendsList?: {
     initialTab?: 'friends' | 'requests';

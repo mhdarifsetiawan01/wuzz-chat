@@ -91,3 +91,53 @@ export async function safeOpenUrl(rawUrl: string): Promise<boolean> {
   }
 }
 
+
+export interface LinkToken {
+  text: string;
+  /** Terisi hanya jika token adalah URL aman (http/https) yang boleh diketuk. */
+  url?: string;
+}
+
+const MAX_LINKIFY_LENGTH = 5000;
+
+/**
+ * Memecah teks menjadi token teks biasa dan URL. Memakai RegExp baru per panggilan
+ * (bukan URL_REGEX global bersama) agar tidak terkena state `lastIndex`.
+ * Teks ditampilkan apa adanya (tidak ada label yang menyembunyikan tujuan link), skema
+ * berbahaya ditolak oleh isSafeHttpUrl, dan alamat email (didahului '@') tidak dianggap link.
+ */
+export function tokenizeLinks(text: string): LinkToken[] {
+  if (!text) return [];
+  if (text.length > MAX_LINKIFY_LENGTH) return [{ text }];
+
+  const re = new RegExp(URL_REGEX.source, 'gi');
+  const tokens: LinkToken[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  const pushText = (value: string) => {
+    if (!value) return;
+    const last = tokens[tokens.length - 1];
+    if (last && !last.url) last.text += value;
+    else tokens.push({ text: value });
+  };
+
+  while ((match = re.exec(text)) !== null) {
+    const raw = match[0];
+    const start = match.index;
+    const clean = sanitizeUrl(raw);
+    const normalized = normalizeUrl(clean);
+
+    if (!clean || text[start - 1] === '@' || !isSafeHttpUrl(normalized)) {
+      continue; // biarkan sebagai teks biasa
+    }
+
+    pushText(text.slice(cursor, start));
+    tokens.push({ text: clean, url: normalized });
+    pushText(raw.slice(clean.length));
+    cursor = start + raw.length;
+  }
+
+  pushText(text.slice(cursor));
+  return tokens;
+}
