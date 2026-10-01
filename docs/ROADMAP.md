@@ -76,6 +76,11 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 >      - **Tahap 1 (M-Mobile-9.1: Fondasi Profil & Identitas Publik Mobile)**: **SELESAI ✅** (Kolom `bio`, `role`, dan `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, dan komponen modular `UserProfileScreen.tsx`).
 >      - **Tahap 2 (M-Mobile-9.2: Spesifikasi Domain, Skema DB & Backend Go Engine)**: **SELESAI ✅** (Domain DDD `COMMUNITY_FEED`, tabel `feed_posts`, `feed_likes`, `feed_comments`, otorisasi RBAC ber-prefix `wuzz_`, dan REST API Go `/api/feed`).
 >      - **Tahap 3 (M-Mobile-9.3: Integrasi Real Mobile UI, Interaksi & Viral Share Loop)**: **SELESAI ✅** (Penggantian mock `FeedScreen.tsx` ke real SWR cache, modal buat postingan FAB `+`, thread komentar interaktif, dan fitur "Bagikan ke Obrolan").
+>    - **Milestone M-Mobile-11: Dynamic Client App Versioning, Build Tracking & Force Update Gatekeeper**: **SELESAI ✅** (Tracking `X-App-Version`, `X-App-Build`, `X-Client-ID`, HTTP 426 & WS 4426 gatekeeper di Go backend, dialog non-dismissible `ForceUpdateModal.tsx`, dan bypass aman untuk web).
+>    - **Milestone M-Mobile-12: Smart Version Bumper via Conventional Commits & Android Gradle Release Hook**: **SELESAI ✅** (SOP Conventional Commits di `.agents/AGENTS.md`, skrip cerdas `smart-bump.js`, hook otomatis ke `./gradlew assembleRelease` via `app.json` single source of truth).
+>    - **Milestone M-Mobile-13: API Prefix Versioning (`/api/v1`) & Dual-Route Backward Compatibility Layer**: **🔮 PLANNED** (Standarisasi prefix `/api/v1`, dual-route routing tanpa breaking change untuk klien lawas, dan sinkronisasi Next.js web & React Native mobile client).
+>    - **Milestone M-Mobile-14: Client Integrity, HMAC Request Signature & Authorized App Protection (Play Integrity & Anti-Bot Shield)**: **🔮 PLANNED** (HMAC-SHA256 signature header, timestamp & nonce replay attack guard, Play Integrity / DeviceCheck attestation, dan proteksi anti-tamper/bot).
+>
 
 ---
 
@@ -499,6 +504,37 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
   - **Pembuat Postingan (Create Post Modal)**: Floating Action Button (FAB `+`) yang membuka `CreatePostModal.tsx` dengan dukungan teks, live 1.000 char counter, pemilih media kamera/galeri native terintegrasi upload REST, serta kontrol admin (`is_pinned`, `post_type`).
   - **Interaksi Instan (Optimistic UI)**: Animasi ketuk Like hati 0ms dengan atomic rollback jika server gagal, serta bottom sheet `PostCommentsModal.tsx` untuk membaca dan mengirim komentar dengan sinkronisasi counter live.
   - **Mekanisme Akuisisi Pengguna & Viral Loop**: Modal `SharePostToChatModal.tsx` untuk meneruskan kartu postingan langsung ke 1–5 ruang obrolan (DM atau Grup) melalui WebSocket dengan preview pesan berformat `[FEED_POST]`.
+
+---
+
+### Fase 13: Client Security, Dynamic Versioning & API Protection Suite (Status: ⚡ SEDANG BERJALAN)
+*Tujuan: Mengamankan ekosistem aplikasi dan API backend dari akses tidak sah, modifikasi biner (tampering), bot otomatis, serta menyediakan siklus rilis, build tracking, dan deprecation versi yang aman tanpa breaking change bagi klien yang telah terpasang.*
+
+- **Tahap 1: Dynamic Client App Versioning, Build Tracking & Force Update Gatekeeper (Milestone M-Mobile-11)**: **SELESAI ✅**
+  - **Client Build Metadata**: Injeksi otomatis header `X-App-Version`, `X-App-Build`, dan `X-Client-ID` pada seluruh REST request via Axios interceptor di `mobile/src/api/client.ts`.
+  - **Handshake Version Query**: Penyematan parameter `app_version` dan `app_build` pada URL WebSocket upgrade di `mobile/src/services/websocket.ts`.
+  - **Backend Version Gatekeeper**: Middleware `VersionMiddleware` di Go (`backend/internal/api/version_middleware.go`) yang mengecek `X-App-Build` terhadap variabel lingkungan `MIN_MOBILE_BUILD`. Jika di bawah batas minimum, kembalikan HTTP `426 Upgrade Required` dengan payload JSON store URL.
+  - **WebSocket Terminal Code**: Penutupan koneksi WebSocket dengan kode `4426` dan event `APP_UPGRADE_REQUIRED` jika build perangkat tidak memenuhi syarat.
+  - **Force Update UI**: Komponen modal `ForceUpdateModal.tsx` non-dismissible yang mencegah navigasi lebih lanjut dan mengarahkan pengguna langsung ke Google Play Store atau Apple App Store.
+  - **Web Client Bypass**: Permintaan dari browser desktop/web dengan header `X-Device-Platform: web` secara transparan dibebaskan dari pemeriksaan versi.
+
+- **Tahap 2: Smart Version Bumper via Conventional Commits & Android Gradle Release Hook (Milestone M-Mobile-12)**: **SELESAI ✅**
+  - **SOP Conventional Commits**: Formalisasi aturan pesan commit pada `.agents/AGENTS.md` (`feat:` ➔ Minor, `fix/perf/refactor:` ➔ Patch, `BREAKING CHANGE:` ➔ Major, `chore/docs/test:` ➔ Build number only).
+  - **Engine Smart Bump**: Skrip mandiri `mobile/scripts/smart-bump.js` yang menganalisis riwayat `git log` sejak bump terakhir, menghitung kenaikan semver secara otomatis, dan menyinkronkan `app.json` serta `package.json`.
+  - **Gradle Single Source of Truth**: Konfigurasi `mobile/android/app/build.gradle` membaca langsung `versionCode` dan `versionName` dari `app.json` menggunakan `groovy.json.JsonSlurper`.
+  - **Automated Gradle Hook**: Pemicuan otomatis `smart-bump.js` setiap kali `./gradlew assembleRelease` atau `./gradlew bundleRelease` dijalankan, serta pengamanan permanen via Expo config plugin `withAndroidReleaseOptimization.js`.
+
+- **Tahap 3: API Prefix Versioning (`/api/v1`) & Dual-Route Backward Compatibility Layer (Milestone M-Mobile-13)**: **🔮 PLANNED**
+  - **Standarisasi Prefix `/api/v1`**: Memetakan seluruh endpoint backend di bawah namespace versi resmi `/api/v1/...` (misal `/api/v1/auth`, `/api/v1/conversations`, `/api/v1/users`, `/api/v1/feed`).
+  - **Dual-Route In-Memory Rewrite**: Menyediakan backward compatibility tanpa redirect 301/308 (yang rawan membatalkan payload HTTP POST/PUT). Request ke path lama (`/api/auth/*`) tetap dilayani secara transparan oleh router Go.
+  - **Kesiapan Multiversi `/api/v2`**: Membuka jalan perubahan skema data besar di masa depan tanpa memutus fungsionalitas aplikasi mobile yang belum sempat diperbarui oleh pengguna.
+  - **Client API URL Sync**: Memperbarui konfigurasi client web Next.js dan mobile React Native (`mobile/src/api/client.ts`) untuk menggunakan base URL `/api/v1`.
+
+- **Tahap 4: Client Integrity, HMAC Request Signature & Authorized App Protection (Milestone M-Mobile-14)**: **🔮 PLANNED**
+  - **HMAC-SHA256 Request Signing**: Setiap request dari aplikasi resmi mobile diwajibkan menyertakan header tanda tangan digital `X-App-Signature: t={timestamp},v1={hash}` yang dihitung dari timestamp, HTTP method, path, request body, dan embedded app secret.
+  - **Replay Attack & Clock Drift Protection**: Backend Go memvalidasi bahwa selisih waktu timestamp request tidak lebih dari 5 menit, serta memanfaatkan cache nonce (Redis/in-memory) untuk mencegah penyerang mengirim ulang request yang sama (*anti-replay attack*).
+  - **Play Integrity API & Device Attestation**: Integrasi Google Play Integrity API (Android) dan DeviceCheck/App Attest (iOS) untuk memverifikasi keaslian hardware dan memastikan biner aplikasi tidak dimodifikasi, di-hook, atau di-recompile oleh pihak ketiga (*anti-tamper / anti-reverse-engineering*).
+  - **Shield Anti-Bot & Unauthorized Scraper**: Penolakan otomatis pada tingkat middleware terhadap HTTP client liar (Postman, cURL, Python/Go bot scrapers) yang mencoba mengakses API tanpa signature atau token integritas yang valid.
 
 ---
 
