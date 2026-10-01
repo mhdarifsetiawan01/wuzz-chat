@@ -16,7 +16,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/broker"
+	"github.com/bms-del112/wuzz-chat/internal/shared/ratelimit"
 )
 
 var (
@@ -40,8 +42,9 @@ type LinkPreview struct {
 
 // LinkPreviewHandler mengelola scraping metadata OpenGraph yang aman dari SSRF & DNS Rebinding.
 type LinkPreviewHandler struct {
-	broker broker.MessageBroker
-	client *http.Client
+	broker  broker.MessageBroker
+	client  *http.Client
+	limiter *ratelimit.IPRateLimiter // kuota scrape per user (cache HIT tidak dihitung)
 }
 
 // SetClient menyetel HTTP client kustom (terutama untuk unit test / mocking).
@@ -64,7 +67,8 @@ func NewLinkPreviewHandler(b broker.MessageBroker) *LinkPreviewHandler {
 	}
 
 	return &LinkPreviewHandler{
-		broker: b,
+		broker:  b,
+		limiter: ratelimit.NewIPRateLimiter(40, time.Minute),
 		client: &http.Client{
 			Transport: transport,
 			Timeout:   5 * time.Second,
@@ -128,14 +132,25 @@ func (h *LinkPreviewHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 4. Scrape metadata dari URL
+	// 4. Rate limit per user hanya untuk request yang benar-benar men-scrape (cache MISS)
+	limitKey := ratelimit.GetClientIP(r)
+	if claims, ok := auth.GetUserFromContext(r.Context()); ok && claims != nil && claims.UserID != "" {
+		limitKey = claims.UserID
+	}
+	if h.limiter != nil && !h.limiter.Allow(limitKey) {
+		w.Header().Set("Retry-After", "60")
+		http.Error(w, "Too many link preview requests", http.StatusTooManyRequests)
+		return
+	}
+
+	// 5. Scrape metadata dari URL
 	preview, err := h.fetchAndExtract(rawURL)
 	if err != nil {
 		http.Error(w, "Failed to scrape link preview: "+err.Error(), http.StatusBadGateway)
 		return
 	}
 
-	// 5. Simpan hasil ke Cache hanya jika Title valid (TTL 24 jam)
+	// 6. Simpan hasil ke Cache hanya jika Title valid (TTL 24 jam)
 	previewJSON, err := json.Marshal(preview)
 	if err == nil && preview.Title != "" && h.broker != nil {
 		_ = h.broker.Set(ctx, cacheKey, string(previewJSON), 24*time.Hour)
@@ -180,6 +195,11 @@ func (h *LinkPreviewHandler) fetchAndExtract(targetURL string) (*LinkPreview, er
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("remote returned HTTP %d", resp.StatusCode)
+	}
+
+	if ct := strings.ToLower(resp.Header.Get("Content-Type")); ct != "" &&
+		!strings.Contains(ct, "text/html") && !strings.Contains(ct, "application/xhtml") {
+		return nil, errors.New("remote content is not HTML")
 	}
 
 	// Batasi pembacaan body maks 512KB untuk mencegah memory exhaustion
@@ -227,8 +247,45 @@ func (h *LinkPreviewHandler) fetchAndExtract(targetURL string) (*LinkPreview, er
 		preview.Favicon = fmt.Sprintf("%s://%s/favicon.ico", baseURL.Scheme, baseURL.Host)
 	}
 
+	// Hanya http/https yang boleh diteruskan ke klien (cegah javascript:/file:/data:)
+	preview.Image = safeAssetURL(preview.Image)
+	preview.Favicon = safeAssetURL(preview.Favicon)
+	preview.Title = truncateRunes(preview.Title, 200)
+	preview.Description = truncateRunes(preview.Description, 300)
+	preview.SiteName = truncateRunes(preview.SiteName, 100)
+
 	return preview, nil
 }
+
+// safeAssetURL mengembalikan "" jika URL bukan http/https absolut berhost atau terlalu panjang.
+func safeAssetURL(raw string) string {
+	if raw == "" || len(raw) > 2048 {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") {
+		return ""
+	}
+	return raw
+}
+
+func truncateRunes(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max])
+}
+
+var extraBlockedNets = func() []*net.IPNet {
+	var nets []*net.IPNet
+	for _, c := range []string{"0.0.0.0/8", "192.0.0.0/24", "198.18.0.0/15", "240.0.0.0/4"} {
+		if _, n, err := net.ParseCIDR(c); err == nil {
+			nets = append(nets, n)
+		}
+	}
+	return nets
+}()
 
 // validateIP memeriksa apakah suatu alamat IP adalah alamat privat/internal/loopback/link-local/metadata/CGNAT.
 func validateIP(ip net.IP) error {
@@ -257,6 +314,15 @@ func validateIP(ip net.IP) error {
 	// Cloud metadata IP explicit check: 169.254.169.254
 	if ip.String() == "169.254.169.254" {
 		return errors.New("cloud metadata endpoint not allowed")
+	}
+
+	if ip.IsMulticast() {
+		return errors.New("multicast IP address not allowed")
+	}
+	for _, n := range extraBlockedNets {
+		if n.Contains(ip) {
+			return errors.New("reserved/benchmark IP range not allowed")
+		}
 	}
 
 	// Carrier-Grade NAT (RFC 6598: 100.64.0.0/10)

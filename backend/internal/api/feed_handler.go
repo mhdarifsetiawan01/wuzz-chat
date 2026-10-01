@@ -150,6 +150,7 @@ func (h *FeedHandler) listTimeline(w http.ResponseWriter, r *http.Request, claim
 // createPost membuat postingan baru.
 func (h *FeedHandler) createPost(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims) {
 	var input feed.CreatePostInput
+	r.Body = http.MaxBytesReader(w, r.Body, 64*1024)
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeFeedError(w, http.StatusBadRequest, "Payload request tidak valid")
 		return
@@ -163,7 +164,7 @@ func (h *FeedHandler) createPost(w http.ResponseWriter, r *http.Request, claims 
 	post, err := h.feedService.CreatePost(r.Context(), claims.TenantID, claims.UserID, systemRole, input)
 	if err != nil {
 		switch {
-		case errors.Is(err, feed.ErrContentEmpty), errors.Is(err, feed.ErrContentTooLong), errors.Is(err, feed.ErrTooManyMedia):
+		case errors.Is(err, feed.ErrContentEmpty), errors.Is(err, feed.ErrContentTooLong), errors.Is(err, feed.ErrTooManyMedia), errors.Is(err, feed.ErrInvalidMediaURL):
 			writeFeedError(w, http.StatusBadRequest, err.Error())
 		default:
 			writeFeedError(w, http.StatusInternalServerError, "Gagal membuat postingan: "+err.Error())

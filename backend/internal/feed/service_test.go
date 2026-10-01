@@ -148,7 +148,7 @@ func TestFeedService_CreatePost_Validation(t *testing.T) {
 	// 3. Lebih dari 4 URL media harus gagal
 	_, err = service.CreatePost(ctx, "default", "user-1", "user", feed.CreatePostInput{
 		Content:   "Postingan keren",
-		MediaURLs: []string{"url1", "url2", "url3", "url4", "url5"},
+		MediaURLs: []string{"https://a.id/1.jpg", "https://a.id/2.jpg", "https://a.id/3.jpg", "https://a.id/4.jpg", "https://a.id/5.jpg"},
 	})
 	if err != feed.ErrTooManyMedia {
 		t.Fatalf("expected ErrTooManyMedia, got: %v", err)
@@ -157,7 +157,7 @@ func TestFeedService_CreatePost_Validation(t *testing.T) {
 	// 4. Postingan sah berhasil
 	post, err := service.CreatePost(ctx, "default", "user-1", "user", feed.CreatePostInput{
 		Content:   "Halo Komunitas WuzzChat!",
-		MediaURLs: []string{"url1", "url2"},
+		MediaURLs: []string{"https://a.id/1.jpg", "/uploads/2.jpg"},
 	})
 	if err != nil {
 		t.Fatalf("expected nil error, got: %v", err)
@@ -167,6 +167,24 @@ func TestFeedService_CreatePost_Validation(t *testing.T) {
 	}
 	if len(post.MediaURLs) != 2 {
 		t.Fatalf("expected 2 media urls, got %d", len(post.MediaURLs))
+	}
+}
+
+func TestFeedService_CreatePost_RejectsUnsafeMediaURL(t *testing.T) {
+	service := feed.NewFeedService(newMockFeedRepository())
+	bad := []string{
+		"javascript:alert(1)", "file:///etc/passwd", "data:image/png;base64,AAAA",
+		"url1", "https://user:pw@a.id/x.jpg", "/uploads/../etc/passwd",
+		"https://a.id/" + strings.Repeat("a", 2100), "https://a.id/x\n.jpg",
+		"https://a.id/evil.svg", "https://a.id/evil.HTML", "/uploads/x.js", "https://a.id/doc.pdf", "https://a.id/noext", "https://a.id/x.bin",
+	}
+	for _, u := range bad {
+		_, err := service.CreatePost(context.Background(), "default", "user-1", "user", feed.CreatePostInput{
+			Content: "x", MediaURLs: []string{u},
+		})
+		if err != feed.ErrInvalidMediaURL {
+			t.Fatalf("expected ErrInvalidMediaURL for %q, got: %v", u, err)
+		}
 	}
 }
 

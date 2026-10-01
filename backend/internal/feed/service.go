@@ -3,6 +3,8 @@ package feed
 import (
 	"context"
 	"encoding/json"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -44,6 +46,11 @@ func (s *FeedService) CreatePost(ctx context.Context, tenantID, userID, callerSy
 	}
 	if len(cleanedMedia) > 4 {
 		return nil, ErrTooManyMedia
+	}
+	for _, m := range cleanedMedia {
+		if !isSafeMediaURL(m) {
+			return nil, ErrInvalidMediaURL
+		}
 	}
 
 	// Default nilai tipe postingan, pinning, dan metadata
@@ -304,4 +311,38 @@ func (s *FeedService) DeletePost(ctx context.Context, tenantID, postID, callerUs
 	}
 
 	return s.repo.DeletePost(ctx, tenantID, postID)
+}
+
+// isSafeMediaURL memastikan URL lampiran hanya http/https absolut (berhost, tanpa userinfo)
+// atau path relatif /uploads/ dari storage lokal. Menolak javascript:, file:, data:, dsb.
+func isSafeMediaURL(raw string) bool {
+	if len(raw) > 2048 {
+		return false
+	}
+	for _, r := range raw {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	if strings.HasPrefix(raw, "/uploads/") {
+		return !strings.Contains(raw, "..") && hasAllowedMediaExt(strings.SplitN(raw, "?", 2)[0])
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" || u.User != nil {
+		return false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return false
+	}
+	return hasAllowedMediaExt(u.Path)
+}
+
+// allowedMediaExts: lampiran feed hanya gambar. Berlaku untuk SEMUA versi klien (aplikasi lama yang
+// melampirkan file non-gambar akan ditolak saat membuat postingan).
+var allowedMediaExts = map[string]bool{
+	".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".gif": true, ".heic": true, ".heif": true,
+}
+
+func hasAllowedMediaExt(path string) bool {
+	return allowedMediaExts[strings.ToLower(filepath.Ext(path))]
 }

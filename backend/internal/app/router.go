@@ -69,14 +69,16 @@ func (a *Application) setupRouter() http.Handler {
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		fileServer.ServeHTTP(w, r)
 	})
-	mux.Handle("/uploads/", http.StripPrefix("/uploads/", a.CorsValidator.Middleware(fileHandler)))
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", api.UploadsSecurityHeaders(a.CorsValidator.Middleware(fileHandler))))
 
 	if a.MediaHandler != nil {
+		// Kuota per user (batas longgar agar burst kirim banyak gambar/voice note tetap aman)
+		uploadLimiter := ratelimit.NewIPRateLimiter(40, time.Minute)
 		mux.HandleFunc("/api/media/upload", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RequireJWT()(http.HandlerFunc(a.MediaHandler.Upload)).ServeHTTP(w, r)
+			auth.RequireJWT()(api.UserRateLimit(uploadLimiter)(http.HandlerFunc(a.MediaHandler.Upload))).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/media/signed-upload-url", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RequireJWT()(http.HandlerFunc(a.MediaHandler.CreateSignedUploadURL)).ServeHTTP(w, r)
+			auth.RequireJWT()(api.UserRateLimit(uploadLimiter)(http.HandlerFunc(a.MediaHandler.CreateSignedUploadURL))).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/media/ack", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(a.MediaHandler.AcknowledgeDownload)).ServeHTTP(w, r)

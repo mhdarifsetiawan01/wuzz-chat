@@ -198,15 +198,22 @@ func (h *MediaHandler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Validasi Ekstensi & Keamanan
 	ext := strings.ToLower(filepath.Ext(header.Filename))
-	dangerousExts := map[string]bool{
-		".exe": true, ".bat": true, ".cmd": true, ".sh": true, ".msi": true,
-		".php": true, ".py": true, ".pl": true, ".cgi": true, ".jsp": true,
-	}
-	if dangerousExts[ext] {
+	if isBlockedUploadExt(ext) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{
 			"error": "Tipe file yang dapat dieksekusi (.exe, .sh, .bat, script) dilarang demi keamanan sistem.",
+		})
+		return
+	}
+
+	// 4b. Lampiran feed (purpose=feed, klien baru): hanya gambar asli, divalidasi via magic bytes.
+	// Klien lama tidak mengirim purpose sehingga perilakunya tidak berubah.
+	if r.URL.Query().Get("purpose") == uploadPurposeFeed && !validateFeedImage(ext, buffer[:n]) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Lampiran postingan hanya boleh berupa gambar (JPG, PNG, WebP, GIF, HEIC).",
 		})
 		return
 	}
@@ -290,15 +297,21 @@ func (h *MediaHandler) CreateSignedUploadURL(w http.ResponseWriter, r *http.Requ
 
 	// 4. Validasi Ekstensi Berbahaya
 	ext := strings.ToLower(filepath.Ext(req.FileName))
-	dangerousExts := map[string]bool{
-		".exe": true, ".bat": true, ".cmd": true, ".sh": true, ".msi": true,
-		".php": true, ".py": true, ".pl": true, ".cgi": true, ".jsp": true,
-	}
-	if dangerousExts[ext] {
+	if isBlockedUploadExt(ext) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{
 			"error": "Tipe file yang dapat dieksekusi (.exe, .sh, .bat, script) dilarang demi keamanan sistem.",
+		})
+		return
+	}
+
+	if r.URL.Query().Get("purpose") == uploadPurposeFeed &&
+		(!feedImageExts[ext] || !strings.HasPrefix(strings.ToLower(req.MIMEType), "image/")) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Lampiran postingan hanya boleh berupa gambar (JPG, PNG, WebP, GIF, HEIC).",
 		})
 		return
 	}

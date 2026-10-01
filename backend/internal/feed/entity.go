@@ -16,6 +16,7 @@ var (
 	ErrCommentEmpty        = errors.New("konten komentar tidak boleh kosong")
 	ErrCommentTooLong      = errors.New("konten komentar melebihi batas maksimal 500 karakter")
 	ErrTooManyMedia        = errors.New("lampiran media melebihi batas maksimal 4 item")
+	ErrInvalidMediaURL     = errors.New("lampiran media tidak valid: hanya gambar (JPG, PNG, WebP, GIF, HEIC) yang diperbolehkan")
 	ErrUnauthorizedAction  = errors.New("tidak memiliki hak akses untuk tindakan ini")
 )
 

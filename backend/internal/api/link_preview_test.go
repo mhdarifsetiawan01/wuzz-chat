@@ -224,3 +224,22 @@ func TestLinkPreviewHandler_ValidateIP_Subnets(t *testing.T) {
 		})
 	}
 }
+
+func TestSafeAssetURL(t *testing.T) {
+	for _, bad := range []string{"javascript:alert(1)", "file:///etc/passwd", "data:image/png;base64,AA", "//x.com/a.png", "/rel.png", "https://u:p@x.com/a"} {
+		if safeAssetURL(bad) != "" {
+			t.Fatalf("expected %q to be rejected", bad)
+		}
+	}
+	if safeAssetURL("https://x.com/a.png") == "" {
+		t.Fatal("expected https URL accepted")
+	}
+}
+
+func TestValidateIP_ExtraRanges(t *testing.T) {
+	for _, ip := range []string{"0.1.2.3", "198.18.0.1", "240.0.0.1", "224.0.0.1"} {
+		if validateIP(net.ParseIP(ip)) == nil {
+			t.Fatalf("expected %s blocked", ip)
+		}
+	}
+}
