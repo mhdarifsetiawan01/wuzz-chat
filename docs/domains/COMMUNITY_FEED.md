@@ -12,6 +12,8 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Community Social Feed & 
 2. **Validasi Konten Postingan**:
    - `content`: Teks wajib berisi 1–1.000 karakter (setelah proses *trim whitespace*). Postingan hanya spasi kosong akan ditolak (`ErrContentEmpty`).
    - `media_urls`: Opsional, berupa array JSON berisi maksimal **4 tautan URL media** (gambar/video yang sudah diunggah via storage API).
+   - Setiap URL media divalidasi server: wajib `http/https` berhost (tanpa `user:pass@`) atau path `/uploads/…`, maks 2048 karakter, tanpa karakter kontrol, dan **ekstensi harus gambar** (`.jpg .jpeg .png .webp .gif .heic .heif`). Selain itu ditolak `400` (`ErrInvalidMediaURL`). Body request dibatasi 64 KB.
+   - Upload lampiran feed dari klien baru memakai `?purpose=feed` pada `/api/media/upload` dan `/api/media/signed-upload-url` (hanya gambar asli, divalidasi magic bytes). Klien lama tanpa parameter ini tetap diterima di endpoint upload, namun ditolak saat `POST /api/feed` bila bukan gambar.
    - `post_type`: Mendukung tipe `'standard'`, `'announcement'`, `'article'`, dan `'sponsored'`. Default adalah `'standard'`.
    - `is_pinned`: Menentukan apakah postingan disematkan di puncak linimasa (`true` / `false`).
    - `metadata`: Objek JSON fleksibel untuk informasi tambahan (misal CTA button, deep-link external, banner styling, atau sponsor badge). Default `{}`.
