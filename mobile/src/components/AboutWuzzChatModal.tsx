@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { BottomSheetModal } from './BottomSheetModal';
 import { Button } from './Button';
 import { colors, radius, spacing, typography } from '../theme';
@@ -27,7 +27,7 @@ export const AboutWuzzChatModal: React.FC<AboutWuzzChatModalProps> = ({
         {/* App Logo & Title */}
         <View style={styles.headerBlock}>
           <View style={styles.logoBadge}>
-            <Text style={styles.logoText}>💬</Text>
+            <Image source={require('../../assets/icon.png')} style={styles.logoImage} />
           </View>
           <Text style={styles.appName}>
             <Text style={{ color: colors.accentPrimary }}>Wuzz</Text>
@@ -111,15 +111,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 20,
-    backgroundColor: colors.tintAccent10,
-    borderWidth: 1,
-    borderColor: colors.borderDefault,
-    alignItems: 'center',
-    justifyContent: 'center',
+    overflow: 'hidden',
     marginBottom: spacing.xs,
   },
-  logoText: {
-    fontSize: 28,
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   appName: {
     ...typography.h2,

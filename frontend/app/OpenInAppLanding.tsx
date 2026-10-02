@@ -9,7 +9,7 @@ export default function OpenInAppLanding({ scheme, roomId }: { scheme: 'g' | 'su
   return (
     <main className="landing-page">
       <div className="landing-card" style={{ textAlign: 'center' }}>
-        <div className="landing-logo-icon">💬</div>
+        <div className="landing-logo-brand"></div>
         <h1 style={{ marginTop: 'var(--space-4)' }}>Anda diundang ke WuzzChat</h1>
         <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-2)' }}>
           Buka tautan ini di aplikasi WuzzChat untuk bergabung ke obrolan.

@@ -138,7 +138,7 @@ function LoginContent() {
     return (
       <main className="landing-page">
         <div className="landing-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
-          <div className="landing-logo-icon" style={{ animation: 'spin 1.5s linear infinite' }}>💬</div>
+          <div className="landing-logo-brand" style={{ animation: 'spin 1.5s linear infinite' }}></div>
           <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>Memeriksa sesi akun...</p>
         </div>
       </main>
@@ -149,7 +149,7 @@ function LoginContent() {
     <main className="landing-page">
       <div className="landing-card">
         <div className="landing-logo">
-          <div className="landing-logo-icon">💬</div>
+          <div className="landing-logo-brand"></div>
           <h1>Wuzz Chat</h1>
         </div>
         <h2 style={{ fontSize: '1.25rem', marginBottom: '4px', color: 'var(--text-primary)' }}>
@@ -256,7 +256,7 @@ export default function LoginPage() {
     <Suspense fallback={
       <main className="landing-page">
         <div className="landing-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
-          <div className="landing-logo-icon" style={{ animation: 'spin 1.5s linear infinite' }}>💬</div>
+          <div className="landing-logo-brand" style={{ animation: 'spin 1.5s linear infinite' }}></div>
           <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>Memuat...</p>
         </div>
       </main>

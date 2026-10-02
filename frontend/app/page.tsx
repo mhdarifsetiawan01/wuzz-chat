@@ -22,7 +22,7 @@ function LandingPageContent() {
     return (
       <main className="landing-page">
         <div className="landing-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
-          <div className="landing-logo-icon" style={{ animation: 'spin 1.5s linear infinite' }}>💬</div>
+          <div className="landing-logo-brand" style={{ animation: 'spin 1.5s linear infinite' }}></div>
           <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>Memeriksa sesi akun...</p>
         </div>
       </main>
@@ -37,7 +37,7 @@ function LandingPageContent() {
       <div className="landing-card">
         {/* Logo */}
         <div className="landing-logo">
-          <div className="landing-logo-icon">💬</div>
+          <div className="landing-logo-brand"></div>
           <h1>Wuzz Chat</h1>
         </div>
         <p className="landing-subtitle" style={{ marginBottom: 'var(--space-6)' }}>
@@ -91,7 +91,7 @@ export default function LandingPage() {
     <Suspense fallback={
       <main className="landing-page">
         <div className="landing-card" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
-          <div className="landing-logo-icon" style={{ animation: 'spin 1.5s linear infinite' }}>💬</div>
+          <div className="landing-logo-brand" style={{ animation: 'spin 1.5s linear infinite' }}></div>
           <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>Memuat...</p>
         </div>
       </main>
