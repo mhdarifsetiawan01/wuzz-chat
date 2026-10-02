@@ -645,7 +645,10 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const messageId = newMsg.id;
         const delays = [2000, 5000, 10000, 20000, 40000];
         const attempt = (i: number) => {
-          if (i >= delays.length) return;
+          if (i >= delays.length) {
+            updateMessage(targetRoom, messageId, { decrypt_failed: true });
+            return;
+          }
           const timer = setTimeout(async () => {
             decryptRetryTimers.delete(timer);
             const retryKey = (await getRoomAESKey(targetRoom)) || undefined;
@@ -654,7 +657,10 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
               return;
             }
             try {
-              updateMessage(targetRoom, messageId, { content: decryptText(retryKey, rawContent) });
+              updateMessage(targetRoom, messageId, {
+                content: decryptText(retryKey, rawContent),
+                decrypt_failed: false,
+              });
             } catch {
               updateMessage(targetRoom, messageId, {
                 content: '🔒 Pesan terenkripsi (kunci tidak cocok)',

@@ -117,6 +117,8 @@ export interface Message {
   edited_at?: string;
   is_forwarded?: boolean;
   is_pinned?: boolean;
+  /** True bila dekripsi E2EE gagal setelah semua retry (kunci tidak berhasil didapat) */
+  decrypt_failed?: boolean;
   pinned_at?: string;
 }
 

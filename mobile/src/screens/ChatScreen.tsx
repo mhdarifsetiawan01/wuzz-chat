@@ -126,6 +126,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     hasMoreOlderMessages,
     isLoadingOlderMessages,
     loadOlderMessages,
+    getRoomAESKey,
   } = useMessages();
 
   const messages = getRoomMessages(roomId);
@@ -615,7 +616,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         if (isEncryptedMessage(m.content)) {
           try {
             const plain = decryptText(roomAESKey, m.content);
-            return { ...m, content: plain, is_encrypted: true };
+            return { ...m, content: plain, is_encrypted: true, decrypt_failed: false };
           } catch {
             return { ...m, content: '🔒 Pesan terenkripsi (kunci tidak cocok)', is_encrypted: true };
           }
@@ -1160,6 +1161,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   );
 
   // 7. Handle Press Quote (Scroll to target message with highlight pulse)
+  const handleRetryDecrypt = useCallback(
+    async (msg: Message) => {
+      setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, decrypt_failed: false } : m)));
+      const key = roomAESKeyRef.current || (await getRoomAESKey(roomId));
+      let plain: string | null = null;
+      if (key) {
+        try {
+          plain = decryptText(key, msg.content);
+        } catch {
+          plain = '🔒 Pesan terenkripsi (kunci tidak cocok)';
+        }
+      }
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msg.id
+            ? plain !== null
+              ? { ...m, content: plain, decrypt_failed: false }
+              : { ...m, decrypt_failed: true }
+            : m
+        )
+      );
+    },
+    [roomId, getRoomAESKey, setMessages]
+  );
+
   const handlePressQuote = useCallback(
     (targetMessageId: string) => {
       const index = messages.findIndex((m) => m.id === targetMessageId);
@@ -1854,6 +1880,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   onPressQuote={handlePressQuote}
                   onReact={handleReact}
                   onPressPost={onOpenPost}
+                  onRetryDecrypt={handleRetryDecrypt}
                 />
               );
             }}

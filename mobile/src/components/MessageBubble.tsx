@@ -46,6 +46,8 @@ export interface MessageBubbleProps {
   onPressMedia?: (message: Message, uri: string) => void;
   /** Dipanggil saat kartu postingan feed yang dibagikan diketuk */
   onPressPost?: (postId: string, post?: import('../api/types').FeedPost) => void;
+  /** Dipanggil saat pesan E2EE yang gagal didekripsi diketuk untuk dicoba lagi */
+  onRetryDecrypt?: (message: Message) => void;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -62,6 +64,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReact,
   onPressMedia,
   onPressPost,
+  onRetryDecrypt,
 }) => {
   const insets = useSafeAreaInsets();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -429,7 +432,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               ) : null}
 
               {/* Text Content / Caption */}
-              {isE2EE ? (
+              {isE2EE && message.decrypt_failed ? (
+                <TouchableOpacity
+                  style={styles.e2eeRow}
+                  activeOpacity={0.7}
+                  onPress={() => onRetryDecrypt?.(message)}
+                >
+                  <Text style={styles.e2eeIcon}>🔒</Text>
+                  <Text style={[styles.messageText, styles.e2eeText]}>
+                    Pesan terenkripsi gagal dibuka.{' '}
+                    <Text style={styles.e2eeRetryText}>Ketuk untuk coba lagi</Text>
+                  </Text>
+                </TouchableOpacity>
+              ) : isE2EE ? (
                 <View style={styles.e2eeRow}>
                   <Text style={styles.e2eeIcon}>🔒</Text>
                   <Text style={[styles.messageText, styles.e2eeText]}>
@@ -793,6 +808,11 @@ const styles = StyleSheet.create({
   e2eeText: {
     fontStyle: 'italic',
     color: colors.textSecondary,
+  },
+  e2eeRetryText: {
+    fontStyle: 'normal',
+    fontWeight: '600',
+    color: colors.accentPrimary,
   },
   e2eeLockBadge: {
     fontSize: 9,
