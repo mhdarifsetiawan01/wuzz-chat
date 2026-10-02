@@ -5,11 +5,12 @@
  */
 
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { enableScreens } from 'react-native-screens';
 import { NavigationContainer } from '@react-navigation/native';
 import './src/services/notificationBackgroundTask';
-import { ActivityIndicator, Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   AuthProvider,
@@ -43,10 +44,19 @@ import {
 } from './src/components';
 import { AppNavigator as MainAppNavigator, navigationRef } from './src/navigation';
 import { notificationService } from './src/services/notificationService';
-import { colors, spacing, typography } from './src/theme';
+import { colors } from './src/theme';
 
 // Enable native screens for fluid 60fps stack transitions
 enableScreens(true);
+
+// Tahan splash native sampai pemeriksaan sesi awal selesai agar tidak ada layar loading perantara.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Batas pengaman: splash native tidak boleh tertahan lebih lama dari ini.
+const SPLASH_MAX_WAIT_MS = 3000;
+
+const SPLASH_BACKGROUND = '#0462E8';
+const SPLASH_ICON = require('./assets/splash-icon.png');
 
 type AuthRoute = 'login' | 'register';
 
@@ -66,6 +76,18 @@ function AppContent() {
   const [authRoute, setAuthRoute] = useState<AuthRoute>('login');
   const [isKeyTransferModalOpen, setIsKeyTransferModalOpen] = useState<boolean>(false);
   const lastHandledUrlRef = useRef<{ url: string; time: number } | null>(null);
+
+  // Lepas splash native setelah sesi awal siap; layar loading JS di bawahnya tetap dipakai untuk logout.
+  useEffect(() => {
+    if (!isLoading) {
+      SplashScreen.hideAsync().catch(() => {});
+      return;
+    }
+    const timer = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, SPLASH_MAX_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   // Sync active room ID to notification service for foreground suppression (DEC-015)
   const handleNavigationStateChange = useCallback(() => {
@@ -354,11 +376,8 @@ function AppContent() {
     if (isLoading) {
       return (
         <View style={styles.splashContainer}>
-          <View style={styles.splashBadge}>
-            <Text style={styles.splashLogo}>⚡</Text>
-          </View>
-          <Text style={styles.splashTitle}>WuzzChat</Text>
-          <ActivityIndicator size="large" color={colors.accentPrimary} style={styles.spinner} />
+          <Image source={SPLASH_ICON} style={styles.splashLogo} resizeMode="contain" />
+          <ActivityIndicator size="large" color="#FFFFFF" style={styles.spinner} />
         </View>
       );
     }
@@ -452,33 +471,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bgBase,
   },
+  // Samakan dengan splash native (app.json -> expo-splash-screen) agar peralihan tidak terlihat.
   splashContainer: {
     flex: 1,
-    backgroundColor: colors.bgBase,
+    backgroundColor: SPLASH_BACKGROUND,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
-  },
-  splashBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: colors.tintAccent10,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
   },
   splashLogo: {
-    fontSize: 40,
-  },
-  splashTitle: {
-    ...typography.h1,
-    color: colors.textPrimary,
-    marginBottom: spacing.xxl,
+    width: 200,
+    height: 200,
   },
   spinner: {
-    marginTop: spacing.md,
+    position: 'absolute',
+    bottom: '25%',
   },
 });
