@@ -37,7 +37,7 @@ import {
   AboutWuzzChatModal,
 } from '../components';
 import { getAppVersionInfo } from '../utils/appVersion';
-import { fetchAppUpdateInfo, isUpdateAvailable } from '../services/appUpdate';
+import { fetchAppUpdateInfo, getLatestVersionLabel, isUpdateAvailable } from '../services/appUpdate';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Settings Menu Item
@@ -187,9 +187,10 @@ export const SettingsScreen: React.FC = () => {
       return;
     }
     const url = info.download_url;
+    const versionLabel = getLatestVersionLabel(info);
     Alert.alert(
       'Pembaruan Tersedia',
-      info.latest_version ? `Versi ${info.latest_version} sudah tersedia.` : 'Versi terbaru sudah tersedia.',
+      versionLabel ? `${versionLabel} sudah tersedia.` : 'Versi terbaru sudah tersedia.',
       url
         ? [{ text: 'Nanti', style: 'cancel' }, { text: 'Perbarui', onPress: () => Linking.openURL(url).catch(() => {}) }]
         : [{ text: 'OK' }],

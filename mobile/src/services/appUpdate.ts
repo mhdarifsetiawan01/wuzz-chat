@@ -52,3 +52,16 @@ export function isUpdateAvailable(info: AppUpdateInfo | null): boolean {
   if (!info || !info.latest_build) return false;
   return info.latest_build > getAppVersionInfo().buildNumber;
 }
+
+const VERSION_PATTERN = /^\d+\.\d+(\.\d+)*$/;
+
+/**
+ * Label versi terbaru untuk UI. Nilai `latest_version` dari backend hanya dipakai jika
+ * berformat versi valid (mis. "1.11.0"); jika salah konfigurasi (mis. "1") jatuh ke nomor build.
+ */
+export function getLatestVersionLabel(info: AppUpdateInfo | null): string | null {
+  const version = info?.latest_version?.trim().replace(/^v/i, '');
+  if (version && VERSION_PATTERN.test(version)) return `Versi ${version}`;
+  if (info?.latest_build) return `Build ${info.latest_build}`;
+  return null;
+}

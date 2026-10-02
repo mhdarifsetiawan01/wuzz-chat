@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AppState, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../theme';
-import { AppUpdateInfo, fetchAppUpdateInfo, isUpdateAvailable } from '../services/appUpdate';
+import { AppUpdateInfo, fetchAppUpdateInfo, getLatestVersionLabel, isUpdateAvailable } from '../services/appUpdate';
 import { useCall } from '../context';
 
 export interface UpdateBannerLayoutProps {
@@ -44,6 +44,7 @@ export const UpdateBannerLayout: React.FC<UpdateBannerLayoutProps> = ({ enabled,
   }, [enabled]);
 
   const inCall = !!activeCall && activeCall.status !== 'idle' && activeCall.status !== 'ended';
+  const versionLabel = getLatestVersionLabel(info);
   const visible = enabled && !dismissed && !inCall && isUpdateAvailable(info);
 
   const handleUpdate = useCallback(async () => {
@@ -60,7 +61,7 @@ export const UpdateBannerLayout: React.FC<UpdateBannerLayoutProps> = ({ enabled,
       {visible && (
         <View style={[styles.banner, { paddingTop: insets.top + spacing.xs }]}>
           <Text style={styles.text} numberOfLines={1}>
-            {info?.latest_version ? `Versi ${info.latest_version} tersedia` : 'Pembaruan tersedia'}
+            {versionLabel ? `${versionLabel} tersedia` : 'Pembaruan tersedia'}
           </Text>
           {!!info?.download_url && (
             <TouchableOpacity onPress={handleUpdate} hitSlop={8} accessibilityRole="button">
