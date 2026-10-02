@@ -28,7 +28,26 @@ export default function WebPausedGate({ children }: { children: React.ReactNode 
           Versi web sedang dijeda sementara karena kami fokus menyempurnakan aplikasi mobile. Akun dan riwayat chat Anda
           tetap sama, cukup login di aplikasi.
         </p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
+        <div
+          role="note"
+          style={{
+            marginTop: 'var(--space-5)',
+            padding: 'var(--space-3) var(--space-4)',
+            textAlign: 'left',
+            fontSize: '0.8125rem',
+            lineHeight: 1.6,
+            color: 'var(--text-secondary)',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-md, 12px)',
+          }}
+        >
+          <strong>Sudah pernah memasang aplikasi sebelumnya?</strong> Jika versinya di bawah <strong>1.13.0 (Build 19)</strong>,
+          Anda <strong>wajib uninstall dulu</strong> sebelum memasang versi ini. Tanpa itu, instalasi akan gagal dengan pesan
+          “Aplikasi tidak terpasang” (App not installed). Cek versi di <strong>Pengaturan</strong>, bagian bawah halaman.
+          Riwayat chat lama di perangkat tidak ikut terbawa.
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
           <a className="btn btn-primary" style={{ justifyContent: 'center' }} href={APP_DOWNLOAD_URL} rel="noopener noreferrer">
             ⬇️ Download Aplikasi Android
           </a>
@@ -58,10 +77,11 @@ export default function WebPausedGate({ children }: { children: React.ReactNode 
           <details>
             <summary style={{ cursor: 'pointer', color: 'var(--text-secondary)', fontWeight: 600 }}>Cara instal</summary>
             <ol style={{ marginTop: 'var(--space-2)', paddingLeft: 'var(--space-5)' }}>
+              <li>Jika sebelumnya sudah ada WuzzChat versi di bawah 1.13.0 (Build 19), <strong>uninstall dulu</strong> dari semua profil pengguna di HP Anda (termasuk profil lain/Tamu bila ada).</li>
               <li>Ketuk <strong>Download Aplikasi Android</strong>, lalu buka file yang terunduh.</li>
               <li>Jika diminta, aktifkan <strong>Izinkan dari sumber ini</strong> untuk browser Anda.</li>
               <li>Ketuk <strong>Instal</strong>. Jika Play Protect menampilkan peringatan, pilih <strong>Tetap instal</strong>.</li>
-              <li>Buka WuzzChat dan login dengan akun Anda.</li>
+              <li>Buka WuzzChat dan login dengan akun Anda. Jika muncul layar konflik kunci, pilih <strong>Reset Kunci</strong> dan masukkan kata sandi.</li>
             </ol>
           </details>
         </div>
