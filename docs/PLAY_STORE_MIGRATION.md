@@ -102,5 +102,36 @@ APK sebelumnya (hingga build 18) ditandatangani **kunci debug bawaan template** 
 - Muncul di Android 16 saat tombol "Perbarui" ditekan; pemasangan sebenarnya tetap berhasil ("App installed"). Di Android 11 tidak muncul.
 - Yang terjadi di luar aplikasi: tombol hanya memanggil `Linking.openURL(download_url)`; unduhan dan pemasangan ditangani Google Drive + package installer sistem. Pada kasus ini bersamaan dengan layar Google Play Protect "App scan recommended" (pemindaian APK sideload).
 - Banner di header adalah satu komponen untuk semua layar (`UpdateBannerLayout` di `App.tsx`); tidak ada perbedaan kode antara Home dan Pengaturan. Perbedaan kejadian di Home vs Pengaturan kemungkinan karena beban sistem saat itu atau cache hasil scan Play Protect (dugaan, tidak terbukti).
-- Tidak dibuktikan lewat `logcat` (HP Android 16 tidak dihubungkan ke adb). Jika perlu diselidiki lagi: rekam `logcat` saat Perbarui ditekan dari Home dan baca daftar proses pemakai CPU di laporan ANR untuk melihat apakah WuzzChat ikut membebani sistem.
+- Diuji lewat `adb logcat` pada dua HP (lihat "Hasil pengujian" di bawah). Tidak ditemukan bukti kesalahan di kode aplikasi.
 - Tidak perlu perbaikan kode. Hilang dengan sendirinya setelah rilis lewat Play Store (APK dari Play tidak memicu scan sideload).
+
+### Hasil pengujian adb (2026-10-02, update 1.16.0 → 1.16.1 dari Home)
+
+Cara: rekam `logcat` + cuplikan `top` selama proses, lalu baca linimasa fokus jendela dan log verifikasi Play (`VerifyApps`).
+
+| | Realme RMX3506, Android 11 | Infinix X6886, Android 16 |
+|---|---|---|
+| ANR / crash WuzzChat | tidak ada | tidak ada |
+| Play Protect | **dimatikan** (`Skipping verification. Disabled by user setting`), hasil `ALLOW` ~1 dtk | **aktif**, *Anti-malware verification* ~10 dtk, hasil `ALLOW` |
+| Pemindaian OEM tambahan | tidak ada | Transsion PhoneMaster `InstallScanActivity` ~10 dtk |
+| Keluhan pengguna | tidak ada | layar "diam, tidak bisa disentuh" setelah Perbarui |
+
+Linimasa Android 16 (dari log fokus jendela): WuzzChat kehilangan fokus **di detik pertama** setelah Perbarui (pindah ke Drive), lalu Drive ~7 dtk → pilihan "Buka dengan" OS ~4 dtk → **`InstallStaging` ~59 dtk** (installer menunggu Drive mengalirkan APK 47 MB) → dialog konfirmasi → Play Protect ~10 dtk → terpasang.
+
+Kesimpulan:
+- "Layar diam" = fase `InstallStaging` (~1 menit) yang dikuasai installer sistem + Drive, **bukan** WuzzChat yang membeku (aplikasi sudah di latar belakang). Ini kesimpulan dari log fokus, bukan dari merekam layar.
+- ANR "Package installer isn't responding" **tidak selalu muncul** (tidak muncul pada pengujian ini meski Play Protect aktif) → intermiten, terkait installer/Play Protect, bukan jalur kode kita. Pada kejadian pertama ANR muncul bersamaan dengan layar "App scan recommended".
+- CPU sebagian besar menganggur (~75–95% idle); bukan soal beban prosesor. Pada HP Realme 4 GB, RAM hampir penuh (~3,7 GB terpakai) tetapi tidak berpengaruh pada hasil.
+- `Skipped 39 frames` hanya muncul di proses WuzzChat baru setelah terpasang (jank startup normal).
+
+### Rekomendasi perbaikan (belum dikerjakan)
+
+Jeda ~1 menit dan layar "diam" muncul karena APK dialirkan dari Google Drive lewat aplikasi Drive ke installer. **Rekomendasi: layani APK langsung dari server sendiri** (mis. `https://chat.wuzzhub.id/download/wuzzchat.apk` dengan `Content-Type: application/vnd.android.package-archive` dan `Content-Disposition: attachment`) sehingga Android memakai pengelola unduhan peramban: ada notifikasi progres, layar tidak terkunci oleh installer, lalu cukup ketuk berkas untuk memasang.
+
+Yang perlu diubah jika dikerjakan:
+- Host file APK di VPS (~47 MB per ABI) dan tentukan cara mengunggah tiap rilis (pengganti "Manage versions" di Drive).
+- Backend: `APK_DOWNLOAD_URL` ke tautan baru; web gate: `NEXT_PUBLIC_APK_URL` (rebuild frontend).
+- Pertimbangkan batas bandwidth/ukuran di reverse proxy dan verifikasi `Content-Length`.
+
+Catatan: ini hanya memperbaiki pengalaman unduh. Dialog Play Protect/ANR installer tetap bisa muncul untuk APK sideload; yang menghilangkannya sepenuhnya tetap rilis lewat Play Store (bagian 3). Jika Play Store segera live, perubahan ini tidak sepadan.
+
