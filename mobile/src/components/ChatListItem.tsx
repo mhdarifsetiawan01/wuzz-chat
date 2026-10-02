@@ -10,6 +10,7 @@ import { colors, radius, spacing, typography } from '../theme';
 import { Avatar } from './Avatar';
 import { VerifiedBadge } from './VerifiedBadge';
 import { useAuth } from '../context';
+import { parseSharedPost } from '../utils/feedShare';
 
 interface ChatListItemProps {
   conversation: Conversation;
@@ -78,6 +79,8 @@ function getMessagePreview(conversation: Conversation, currentUserId?: string): 
     body = 'Belum ada pesan';
   } else if (raw.startsWith('e2ee:')) {
     body = '🔒 Pesan terenkripsi';
+  } else if (parseSharedPost(raw)) {
+    body = '📢 Postingan Komunitas';
   } else {
     body = raw;
   }

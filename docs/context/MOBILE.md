@@ -61,7 +61,7 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 ### G. Community Social Feed & Viral Share Loop (Milestone M-Mobile-9)
 - **SWR FeedContext & Local SQLite Persistensi**: Linimasa postingan dikelola melalui `FeedContext.tsx` dengan SQLite cache lokal (`local_feed_posts`) untuk cold start < 50ms dan rolling cap 50 posts per tab ("⏱️ Terbaru" & "🎲 Jelajah").
 - **Optimistic Interactions**: Like instan 0ms dengan locking per-post (`likeInFlightRef`) dan rollback otomatis jika gagal. Thread komentar ber-pagination kursor waktu (`PostCommentsModal.tsx`).
-- **Viral Share Loop**: Meneruskan kartu postingan (`SharePostToChatModal.tsx`) langsung ke 1–5 ruang obrolan (DM atau Grup) via WebSocket dengan preview pesan `[FEED_POST]`.
+- **Viral Share Loop**: Meneruskan postingan (`SharePostToChatModal.tsx`) ke 1–5 ruang obrolan via WebSocket. Isi pesan berupa teks terbaca + baris penanda `wuzzchat://post/<id>` (`utils/feedShare.ts`). Klien baru merender penanda itu sebagai `SharedPostCard` di `MessageBubble` (thumbnail & status dari `GET /api/feed/:id`, di-cache; 404 → "Postingan sudah dihapus"), ketuk membuka `PostReader`. Klien lama hanya melihat teks biasa.
 
 ---
 

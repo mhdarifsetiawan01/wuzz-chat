@@ -52,6 +52,16 @@ export const feedApi = {
   },
 
   /**
+   * GET /api/feed/:id
+   * Mengambil satu postingan (404 bila sudah dihapus atau beda tenant).
+   */
+  async getPost(postId: string): Promise<FeedPost> {
+    return apiClient<FeedPost>(`/api/feed/${encodeURIComponent(postId)}`, {
+      method: 'GET',
+    });
+  },
+
+  /**
    * POST /api/feed
    * Membuat postingan komunitas baru.
    */

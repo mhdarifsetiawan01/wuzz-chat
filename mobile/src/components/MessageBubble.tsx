@@ -27,6 +27,8 @@ import { MediaViewerModal } from './MediaViewerModal';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { LinkPreviewCard } from './LinkPreviewCard';
+import { SharedPostCard } from './SharedPostCard';
+import { parseSharedPost } from '../utils/feedShare';
 import { URL_REGEX, sanitizeUrl, safeOpenUrl, extractFirstUrl } from '../utils/linkUtils';
 
 export interface MessageBubbleProps {
@@ -42,6 +44,8 @@ export interface MessageBubbleProps {
   onPressQuote?: (messageId: string) => void;
   onReact?: (messageId: string, emoji: string) => void;
   onPressMedia?: (message: Message, uri: string) => void;
+  /** Dipanggil saat kartu postingan feed yang dibagikan diketuk */
+  onPressPost?: (postId: string, post?: import('../api/types').FeedPost) => void;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -57,6 +61,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onPressQuote,
   onReact,
   onPressMedia,
+  onPressPost,
 }) => {
   const insets = useSafeAreaInsets();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -161,7 +166,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const isExpired = Boolean(message.media_status === 'expired' && !cachedMediaUri);
 
   // DEC-037 & DEC-038: Ekstrak URL pertama untuk LinkPreviewCard jika pesan aktif
-  const previewUrl = !isDeleted && !isE2EE && message.content ? extractFirstUrl(message.content) : null;
+  const sharedPost = !isDeleted && !isE2EE ? parseSharedPost(message.content) : null;
+  const previewUrl = !isDeleted && !isE2EE && !sharedPost && message.content ? extractFirstUrl(message.content) : null;
 
   // Render teks pesan dengan deteksi auto-linking aman (http/https/www)
   const renderMessageTextWithLinks = (
@@ -430,6 +436,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     Pesan terenkripsi (sedang menyinkronkan kunci...)
                   </Text>
                 </View>
+              ) : sharedPost ? (
+                <SharedPostCard
+                  postId={sharedPost.postId}
+                  text={sharedPost.text}
+                  isSelf={isSelf}
+                  onPress={onPressPost}
+                />
               ) : hasCaption ? (
                 renderMessageTextWithLinks(message.content, isSelf, isImage)
               ) : null}

@@ -28,6 +28,7 @@ import { Conversation, FeedPost } from '../api/types';
 import { websocketClient } from '../services/websocket';
 import { colors, radius, spacing, typography } from '../theme';
 import { Avatar } from './Avatar';
+import { buildSharedPostMessage } from '../utils/feedShare';
 
 export interface SharePostToChatModalProps {
   visible: boolean;
@@ -102,17 +103,7 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const authorName = post.author?.display_name || post.author?.username || 'Pengguna';
-      const snippet =
-        post.content.length > 250
-          ? `${post.content.slice(0, 250)}...`
-          : post.content;
-
-      let shareMessage = `📢 [Postingan Komunitas oleh @${authorName}]\n\n"${snippet}"`;
-
-      if (post.media_urls && post.media_urls.length > 0) {
-        shareMessage += `\n\n📷 [${post.media_urls.length} Foto Terlampir]`;
-      }
+      const shareMessage = buildSharedPostMessage(post);
 
       // Send to each chosen room
       for (const roomId of selectedRoomIds) {

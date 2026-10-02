@@ -25,7 +25,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
-import { Conversation, ConversationItem, GroupDetails, Message, PinnedMessage, ConnectionStatusResponse } from '../api/types';
+import { Conversation, FeedPost, ConversationItem, GroupDetails, Message, PinnedMessage, ConnectionStatusResponse } from '../api/types';
 import { getUserPublicKey } from '../api/users';
 import { groupsApi } from '../api/groups';
 import { mediaApi } from '../api/media';
@@ -78,6 +78,8 @@ export interface ChatScreenProps {
   onEnterSubGroup?: (subConv: Conversation) => void;
   /** Opens UserProfileScreen for the direct chat peer */
   onOpenUserProfile?: (userId: string) => void;
+  /** Opens PostReader for a feed post shared into the chat */
+  onOpenPost?: (postId: string, post?: FeedPost) => void;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
@@ -88,6 +90,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   parentGroupConversation,
   onEnterSubGroup,
   onOpenUserProfile,
+  onOpenPost,
 }) => {
 
   const insets = useSafeAreaInsets();
@@ -1848,6 +1851,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   onLongPress={(msg) => setActionSheetMessage(msg)}
                   onPressQuote={handlePressQuote}
                   onReact={handleReact}
+                  onPressPost={onOpenPost}
                 />
               );
             }}

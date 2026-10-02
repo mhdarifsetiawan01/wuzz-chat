@@ -41,3 +41,4 @@ export * from './ForceUpdateModal';
 export * from './AboutWuzzChatModal';
 export * from './LinkPreviewCard';
 export * from './UpdateBanner';
+export * from './SharedPostCard';

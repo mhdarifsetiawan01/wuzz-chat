@@ -65,6 +65,9 @@ export const AppNavigator: React.FC = () => {
             onOpenUserProfile={(peerUserId) => {
               navigation.navigate('UserProfile', { userId: peerUserId });
             }}
+            onOpenPost={(postId, post) => {
+              navigation.navigate('PostReader', { postId, initialPost: post });
+            }}
             onOpenGroupInfo={(grp) => {
               const targetGroupId = grp.id || (grp as any).room_id || '';
               if (targetGroupId) {
