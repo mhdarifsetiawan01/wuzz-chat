@@ -92,3 +92,15 @@ APK sebelumnya (hingga build 18) ditandatangani **kunci debug bawaan template** 
 - iOS tidak mendukung API ini; banner tetap dipakai (`APP_STORE_URL`).
 - Banner untuk pengguna APK tetap berguna selama masih ada yang memasang manual.
 - Pengguna PWA/web lama: halaman `/transfer/share` (lihat `frontend/app/transfer/share/`) tetap tersedia untuk memindahkan kunci ke aplikasi selama web dijeda.
+
+---
+
+## 5. Masalah Diketahui (Update APK Sideload)
+
+**Dialog "Package installer isn't responding" (Close app / Wait) saat memasang update APK** — ditutup sebagai *masalah sistem Android*, bukan bug aplikasi (2026-10-02).
+
+- Muncul di Android 16 saat tombol "Perbarui" ditekan; pemasangan sebenarnya tetap berhasil ("App installed"). Di Android 11 tidak muncul.
+- Yang terjadi di luar aplikasi: tombol hanya memanggil `Linking.openURL(download_url)`; unduhan dan pemasangan ditangani Google Drive + package installer sistem. Pada kasus ini bersamaan dengan layar Google Play Protect "App scan recommended" (pemindaian APK sideload).
+- Banner di header adalah satu komponen untuk semua layar (`UpdateBannerLayout` di `App.tsx`); tidak ada perbedaan kode antara Home dan Pengaturan. Perbedaan kejadian di Home vs Pengaturan kemungkinan karena beban sistem saat itu atau cache hasil scan Play Protect (dugaan, tidak terbukti).
+- Tidak dibuktikan lewat `logcat` (HP Android 16 tidak dihubungkan ke adb). Jika perlu diselidiki lagi: rekam `logcat` saat Perbarui ditekan dari Home dan baca daftar proses pemakai CPU di laporan ANR untuk melihat apakah WuzzChat ikut membebani sistem.
+- Tidak perlu perbaikan kode. Hilang dengan sendirinya setelah rilis lewat Play Store (APK dari Play tidak memicu scan sideload).
