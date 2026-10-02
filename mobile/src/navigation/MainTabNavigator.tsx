@@ -1,18 +1,19 @@
 /**
  * WuzzChat Mobile UI — MainTabNavigator
- * Aurora Glassmorphic Bottom Tab Navigation (M-Mobile-8.19)
+ * Aurora Floating Pill Bottom Tab Navigation
  *
  * Architecture:
- *  - 3 tabs: Chats | Calls | Settings
- *  - Custom Aurora tab bar: glassmorphic surface, safe-area insets, unread badge
+ *  - 4 tabs: Chats | Feed | Calls | Settings
+ *  - Floating pill bar with sliding capsule indicator, safe-area insets, unread badge
  *  - Chats tab integrates with ConversationContext for live unread badge count
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
+  Animated,
   StyleSheet,
   Platform,
 } from 'react-native';
@@ -29,7 +30,7 @@ import { RecentChatsScreen } from '../screens/RecentChatsScreen';
 import { CallsHistoryScreen } from '../screens/CallsHistoryScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { FeedScreen } from '../screens/FeedScreen';
-import { colors, spacing } from '../theme';
+import { colors, spacing, radius } from '../theme';
 import { useConversations } from '../context/ConversationContext';
 import { ConversationItem } from '../api/types';
 
@@ -61,95 +62,166 @@ const TAB_CONFIGS: TabConfig[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Custom Aurora Glassmorphic Tab Bar
+// Tab Item — animated icon pop, tanpa kotak/ripple saat ditekan
+// ─────────────────────────────────────────────────────────────────────────────
+interface TabItemProps {
+  cfg: TabConfig;
+  isFocused: boolean;
+  badge: number;
+  accessibilityLabel: string;
+  onPress: () => void;
+}
+
+const TabItem: React.FC<TabItemProps> = ({
+  cfg,
+  isFocused,
+  badge,
+  accessibilityLabel,
+  onPress,
+}) => {
+  const focus = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+  const press = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.spring(focus, {
+      toValue: isFocused ? 1 : 0,
+      useNativeDriver: true,
+      friction: 7,
+      tension: 120,
+    }).start();
+  }, [isFocused, focus]);
+
+  const animatePress = (to: number) =>
+    Animated.spring(press, {
+      toValue: to,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 200,
+    }).start();
+
+  const iconScale = Animated.multiply(
+    press,
+    focus.interpolate({ inputRange: [0, 1], outputRange: [1, 1.18] })
+  );
+  const iconLift = focus.interpolate({ inputRange: [0, 1], outputRange: [0, -2] });
+  const iconOpacity = focus.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] });
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={isFocused ? { selected: true } : {}}
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      onPressIn={() => animatePress(0.88)}
+      onPressOut={() => animatePress(1)}
+      android_ripple={null}
+      style={styles.tabItem}
+    >
+      <View style={styles.iconWrapper}>
+        <Animated.Text
+          style={[
+            styles.tabIcon,
+            { opacity: iconOpacity, transform: [{ translateY: iconLift }, { scale: iconScale }] },
+          ]}
+        >
+          {cfg.icon}
+        </Animated.Text>
+        {badge > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge > 99 ? '99+' : String(badge)}</Text>
+          </View>
+        )}
+      </View>
+      <Text
+        style={[styles.tabLabel, isFocused ? styles.tabLabelActive : styles.tabLabelInactive]}
+        numberOfLines={1}
+      >
+        {cfg.label}
+      </Text>
+    </Pressable>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom Aurora Floating Pill Tab Bar
+//  - Kapsul melayang dengan sudut membulat penuh
+//  - Indikator kapsul meluncur halus (spring) mengikuti tab aktif
 // ─────────────────────────────────────────────────────────────────────────────
 function AuroraTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { conversations } = useConversations();
+  const [barWidth, setBarWidth] = useState(0);
+  const slide = useRef(new Animated.Value(state.index)).current;
 
-  // Compute total unread count for the Chats badge
-  const totalUnread = conversations.reduce(
-    (sum, c) => sum + (c.unread_count ?? 0),
-    0
-  );
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count ?? 0), 0);
+
+  const innerWidth = Math.max(barWidth - BAR_PADDING * 2, 0);
+  const itemWidth = state.routes.length > 0 ? innerWidth / state.routes.length : 0;
+
+  useEffect(() => {
+    Animated.spring(slide, {
+      toValue: state.index,
+      useNativeDriver: true,
+      friction: 9,
+      tension: 90,
+    }).start();
+  }, [state.index, slide]);
+
+  const translateX = slide.interpolate({
+    inputRange: state.routes.map((_, i) => i),
+    outputRange: state.routes.map((_, i) => i * itemWidth),
+  });
 
   return (
     <View
       style={[
-        styles.tabBar,
+        styles.tabBarOuter,
         { paddingBottom: Math.max(insets.bottom, spacing.sm) },
       ]}
     >
-      {state.routes.map((route, index) => {
-        const tabCfg = TAB_CONFIGS.find((t) => t.key === route.name);
-        if (!tabCfg) return null;
+      <View
+        style={styles.tabBar}
+        onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+      >
+        {itemWidth > 0 && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.indicator,
+              { width: itemWidth, transform: [{ translateX }] },
+            ]}
+          />
+        )}
+        {state.routes.map((route, index) => {
+          const tabCfg = TAB_CONFIGS.find((t) => t.key === route.name);
+          if (!tabCfg) return null;
 
-        const isFocused = state.index === index;
-        const { options } = descriptors[route.key];
+          const isFocused = state.index === index;
+          const { options } = descriptors[route.key];
 
-        const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-          if (!isFocused && !event.defaultPrevented) {
-            // navigate to the tab — route.name is already typed via TabParamList
-            navigation.navigate(route.name as keyof TabParamList);
-          }
-        };
+          const onPress = () => {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name as keyof TabParamList);
+            }
+          };
 
-        const showBadge = route.name === 'Chats' && totalUnread > 0;
-
-        return (
-          <TouchableOpacity
-            key={route.key}
-            accessibilityRole="button"
-            accessibilityState={isFocused ? { selected: true } : {}}
-            accessibilityLabel={options.tabBarAccessibilityLabel ?? tabCfg.label}
-            onPress={onPress}
-            style={styles.tabItem}
-            activeOpacity={0.7}
-          >
-            {/* Icon container */}
-            <View style={styles.iconWrapper}>
-              <View
-                style={[
-                  styles.iconBg,
-                  isFocused && styles.iconBgActive,
-                ]}
-              >
-                <Text style={styles.tabIcon}>
-                  {isFocused ? tabCfg.iconActive : tabCfg.icon}
-                </Text>
-              </View>
-
-              {/* Unread badge */}
-              {showBadge && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {totalUnread > 99 ? '99+' : String(totalUnread)}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Label */}
-            <Text
-              style={[
-                styles.tabLabel,
-                isFocused ? styles.tabLabelActive : styles.tabLabelInactive,
-              ]}
-              numberOfLines={1}
-            >
-              {tabCfg.label}
-            </Text>
-
-            {/* Active indicator dot — anchored directly under label for precision across all Android versions */}
-            <View style={[styles.activeDot, !isFocused && styles.activeDotInactive]} />
-          </TouchableOpacity>
-        );
-      })}
+          return (
+            <TabItem
+              key={route.key}
+              cfg={tabCfg}
+              isFocused={isFocused}
+              badge={route.name === 'Chats' ? totalUnread : 0}
+              accessibilityLabel={options.tabBarAccessibilityLabel ?? tabCfg.label}
+              onPress={onPress}
+            />
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -199,80 +271,70 @@ export const MainTabNavigator: React.FC = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Styles
 // ─────────────────────────────────────────────────────────────────────────────
+const BAR_PADDING = spacing.xs;
+
 const styles = StyleSheet.create({
+  tabBarOuter: {
+    backgroundColor: colors.bgBase,
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: colors.bgSurface,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderSubtle,
-    paddingTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.bgElevated,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.borderDefault,
+    padding: BAR_PADDING,
     ...Platform.select({
-      android: { elevation: 16 },
+      android: { elevation: 10 },
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 12,
+        shadowColor: colors.accentPrimary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
       },
     }),
+  },
+  indicator: {
+    position: 'absolute',
+    top: BAR_PADDING,
+    bottom: BAR_PADDING,
+    left: BAR_PADDING,
+    borderRadius: radius.full,
+    backgroundColor: colors.tintAccent20,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-    position: 'relative',
+    minHeight: 52,
+    paddingVertical: spacing.xs,
   },
   iconWrapper: {
     position: 'relative',
-    marginBottom: 2,
-  },
-  iconBg: {
-    width: 40,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  iconBgActive: {
-    backgroundColor: colors.tintAccent20,
   },
   tabIcon: {
     fontSize: 20,
-    lineHeight: 24,
+    lineHeight: 26,
   },
   tabLabel: {
     fontSize: 10,
     fontWeight: '500',
-    letterSpacing: 0,
     marginTop: 1,
     textAlign: 'center',
   },
   tabLabelActive: {
-    color: colors.accentPrimary,
-    fontWeight: '600',
+    color: colors.accentHover,
+    fontWeight: '700',
   },
   tabLabelInactive: {
     color: colors.textMuted,
   },
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.accentPrimary,
-    marginTop: 3,
-  },
-  activeDotInactive: {
-    opacity: 0,
-  },
   badge: {
     position: 'absolute',
-    top: -6,
-    right: -10,
+    top: -4,
+    right: -12,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -281,12 +343,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 1.5,
-    borderColor: colors.bgBase,
+    borderColor: colors.bgElevated,
   },
   badgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#ffffff',
+    color: colors.unreadBadgeText,
     lineHeight: 14,
   },
 });

@@ -346,3 +346,7 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 
 
+- [ ] **Migrasi ikon emoji ke ikon vektor** (bottom nav & seluruh UI mobile):
+  - Latar belakang: bottom nav sudah diredesain jadi kapsul melayang dengan indikator meluncur (diuji di perangkat, hasil sesuai), tetapi ikonnya masih emoji (💬 🌐 📞 ⚙️) yang tampilannya berbeda antar vendor/versi Android dan tidak bisa diwarnai.
+  - Rencana: tambahkan `@expo/vector-icons` (atau `react-native-svg` dengan set ikon sendiri), buat komponen `Icon` tunggal berbasis token `colors`, lalu ganti ikon tab (varian outline untuk non-aktif, filled untuk aktif) dan bertahap ikon di layar lain.
+  - Catatan: menambah dependency native sehingga butuh build APK ulang; cek dampak ukuran APK per ABI.

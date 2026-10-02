@@ -88,7 +88,7 @@ mobile/
 │   │   └── DeviceContext.tsx       # Device identification & platform state
 │   ├── navigation/
 │   │   ├── AppNavigator.tsx        # Native Stack Navigator (slide_from_right)
-│   │   └── MainTabNavigator.tsx    # Glassmorphic Bottom Tab (Obrolan, Feed, Panggilan, Pengaturan)
+│   │   └── MainTabNavigator.tsx    # Floating Pill Bottom Tab dengan indikator kapsul meluncur (Obrolan, Feed, Panggilan, Pengaturan)
 │   ├── screens/
 │   │   ├── LoginScreen.tsx         # Login UI & Multi-device override confirmation
 │   │   ├── RegisterScreen.tsx      # Pendaftaran akun baru
