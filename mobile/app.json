@@ -97,7 +97,16 @@
       ],
       "./plugins/withAndroidEdgeToEdgeKeyboard",
       "./plugins/withAndroidReleaseOptimization",
-      "./plugins/withAndroidReleaseSigning"
+      "./plugins/withAndroidReleaseSigning",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "backgroundColor": "#0462E8",
+          "resizeMode": "contain"
+        }
+      ]
     ]
   }
 }
