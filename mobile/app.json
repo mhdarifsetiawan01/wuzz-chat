@@ -9,14 +9,14 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "18",
+      "buildNumber": "19",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "WuzzChat memerlukan izin akses mikrofon untuk melakukan panggilan suara dan mengirim pesan audio."
       }
     },
     "android": {
       "package": "com.wuzzchat.mobile",
-      "versionCode": 18,
+      "versionCode": 19,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0462E8",
@@ -96,7 +96,8 @@
         }
       ],
       "./plugins/withAndroidEdgeToEdgeKeyboard",
-      "./plugins/withAndroidReleaseOptimization"
+      "./plugins/withAndroidReleaseOptimization",
+      "./plugins/withAndroidReleaseSigning"
     ]
   }
 }
