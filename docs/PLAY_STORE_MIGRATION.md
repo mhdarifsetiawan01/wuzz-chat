@@ -32,6 +32,21 @@ Prosedur rilis APK sekarang:
 - [ ] Jika tanda tangan berbeda: pengguna APK **tidak bisa** menimpa langsung ke versi Play Store; harus uninstall dulu → data lokal dan **kunci E2EE hilang** kecuali sudah dipindah. Siapkan panduan migrasi: pindahkan kunci via transfer QR sebelum uninstall (lihat `docs/domains/MESSAGING_CHAT.md` / alur `DeviceTransferModal`).
 - [ ] Pastikan `versionCode` build Play lebih besar dari semua APK yang beredar (`mobile/app.json` → `android.versionCode`, sekarang 12).
 
+#### Keystore release (keputusan 2026-10-02)
+APK sebelumnya (hingga build 18) ditandatangani **kunci debug bawaan template** (`CN=Android Debug`, SHA-256 `FA:C6:17:45:…:3B:9C`): kunci publik, tidak aman, dan ditolak Play Console. Rencana: satu keystore release dipakai APK Drive **dan** diimpor sebagai kunci Play App Signing, sehingga tanda tangannya sama dan APK ↔ Play bisa saling menimpa.
+
+1. Buat keystore (simpan di luar repo, **backup di dua tempat**; kehilangannya = APK tidak bisa diperbarui lagi):
+   ```
+   keytool -genkeypair -v -keystore ~/wuzzchat-release.jks -alias wuzzchat -keyalg RSA -keysize 2048 -validity 10000
+   ```
+2. Build release membaca env berikut (plugin `mobile/plugins/withAndroidReleaseSigning.js`); tanpa itu build **berhenti**:
+   `WUZZ_KEYSTORE_PATH`, `WUZZ_KEYSTORE_PASSWORD`, `WUZZ_KEY_ALIAS`, `WUZZ_KEY_PASSWORD`
+3. Setelah mengubah plugin: `npx expo prebuild --platform android`, lalu `./gradlew assembleRelease`.
+4. Di Play Console, saat rilis pertama pilih **"Export and upload a key from a Java keystore"** (alat `pepk`) agar kunci Play = kunci APK. Opsi ini hanya ada di rilis pertama; kunci yang dibuat otomatis oleh Google tidak bisa diunduh dan akan berbeda dari APK.
+5. Verifikasi tanda tangan: `apksigner verify --print-certs app-arm64-v8a-release.apk`.
+
+**Dampak:** pengguna APK lama (kunci debug) tidak bisa menimpa ke build kunci baru ("package conflicts"); harus uninstall dulu. Lakukan sekali, sekarang, selagi pengguna masih sedikit.
+
 ### 2.2 Konfigurasi Play Console
 - [ ] Buat aplikasi dengan package `com.wuzzchat.mobile`.
 - [ ] Isi formulir kebijakan (privasi, data safety, izin: notifikasi, kamera untuk pindai QR, mikrofon untuk pesan suara/panggilan).
@@ -52,7 +67,7 @@ Prosedur rilis APK sekarang:
 
 ### 3.1 Pembagian peran
 - Channel `apk` dan iOS: tetap memakai banner + `/api/app/version`.
-- Channel `play`: banner tidak ditampilkan; Play yang mengunduh dan memasang di dalam aplikasi.
+- Channel `play`: banner tidak ditampilkan (sudah dipasang di `UpdateBanner.tsx` lewat `APP_CHANNEL !== 'play'`); pembaruan diurus Play Store (auto update). Keputusan 2026-10-02: tidak perlu membangun In-App Updates dulu, cukup auto update Play Store. `ForceUpdateModal` untuk build di bawah `MIN_MOBILE_BUILD` tetap aktif.
 
 ### 3.2 Jenis update
 - **Flexible** (default): unduh di latar belakang, lalu banner kecil "Pembaruan siap — Restart". Untuk build di bawah `LATEST` tetapi di atas `MIN`.

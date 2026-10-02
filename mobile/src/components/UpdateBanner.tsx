@@ -12,6 +12,7 @@ import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area
 import { colors, spacing, typography } from '../theme';
 import { AppUpdateInfo, fetchAppUpdateInfo, getLatestVersionLabel, isUpdateAvailable } from '../services/appUpdate';
 import { useCall } from '../context';
+import { APP_CHANNEL } from '../utils/appVersion';
 
 export interface UpdateBannerLayoutProps {
   enabled: boolean;
@@ -24,9 +25,13 @@ export const UpdateBannerLayout: React.FC<UpdateBannerLayoutProps> = ({ enabled,
   const [info, setInfo] = useState<AppUpdateInfo | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
+  // Build Play Store (channel 'play') diperbarui oleh Play Store sendiri (auto update), jadi banner dimatikan.
+  // ForceUpdateModal (build di bawah MIN_MOBILE_BUILD) tetap aktif di semua channel.
+  const bannerEnabled = enabled && APP_CHANNEL !== 'play';
+
   // Cek saat login/aplikasi dibuka dan saat kembali ke foreground (di-cache 30 menit di service)
   useEffect(() => {
-    if (!enabled) return;
+    if (!bannerEnabled) return;
     let cancelled = false;
     const check = () => {
       fetchAppUpdateInfo().then((res) => {
@@ -41,11 +46,11 @@ export const UpdateBannerLayout: React.FC<UpdateBannerLayoutProps> = ({ enabled,
       cancelled = true;
       sub.remove();
     };
-  }, [enabled]);
+  }, [bannerEnabled]);
 
   const inCall = !!activeCall && activeCall.status !== 'idle' && activeCall.status !== 'ended';
   const versionLabel = getLatestVersionLabel(info);
-  const visible = enabled && !dismissed && !inCall && isUpdateAvailable(info);
+  const visible = bannerEnabled && !dismissed && !inCall && isUpdateAvailable(info);
 
   const handleUpdate = useCallback(async () => {
     if (!info?.download_url) return;
