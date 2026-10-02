@@ -609,6 +609,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // 0B. Retroactively decrypt loaded messages once AES key is established
   useEffect(() => {
     if (!roomAESKey) return;
+    if (!messages.some((m) => isEncryptedMessage(m.content))) return;
     setMessages((prev) =>
       prev.map((m) => {
         if (isEncryptedMessage(m.content)) {
@@ -622,7 +623,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         return m;
       })
     );
-  }, [roomAESKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomAESKey, messages]);
 
   // 0C. Fetch initial pinned messages for this room
   useEffect(() => {

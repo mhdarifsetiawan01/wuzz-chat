@@ -569,6 +569,8 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const currentUserId = user?.id;
 
+    const decryptRetryTimers = new Set<ReturnType<typeof setTimeout>>();
+
     // 1. Incoming Message Listener
     const unsubscribeMessage = websocketClient.on('message', async (incoming: any) => {
       const targetRoom = incoming.room || incoming.room_id;
@@ -636,6 +638,33 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
 
       appendMessage(targetRoom, newMsg);
+
+      // Kunci belum tersedia (mis. fetch public key gagal/lambat): coba lagi dengan backoff
+      if (isEncrypted && isEncryptedMessage(content)) {
+        const rawContent = content;
+        const messageId = newMsg.id;
+        const delays = [2000, 5000, 10000, 20000, 40000];
+        const attempt = (i: number) => {
+          if (i >= delays.length) return;
+          const timer = setTimeout(async () => {
+            decryptRetryTimers.delete(timer);
+            const retryKey = (await getRoomAESKey(targetRoom)) || undefined;
+            if (!retryKey) {
+              attempt(i + 1);
+              return;
+            }
+            try {
+              updateMessage(targetRoom, messageId, { content: decryptText(retryKey, rawContent) });
+            } catch {
+              updateMessage(targetRoom, messageId, {
+                content: '🔒 Pesan terenkripsi (kunci tidak cocok)',
+              });
+            }
+          }, delays[i]);
+          decryptRetryTimers.add(timer);
+        };
+        attempt(0);
+      }
     });
 
     // 2. ACK Listener
@@ -815,6 +844,8 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
       unsubscribePinned();
       unsubscribeUnpinned();
       unsubscribeHistory();
+      decryptRetryTimers.forEach(clearTimeout);
+      decryptRetryTimers.clear();
     };
   }, [
     isAuthenticated,
