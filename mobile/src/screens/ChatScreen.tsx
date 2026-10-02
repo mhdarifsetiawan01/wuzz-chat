@@ -246,6 +246,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [peerPublicKey, setPeerPublicKey] = useState<string | undefined>(conversation.peer_public_key);
 
   const flatListRef = useRef<FlatList>(null);
+  // Inverted list: newest message at index 0 so the chat opens at the bottom with no scroll jump
+  const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
   const lastHandledMsgIdRef = useRef<string | null>(null);
   const roomAESKeyRef = useRef<Uint8Array | null>(null);
   const isPrependingRef = useRef<boolean>(false);
@@ -259,7 +261,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     isNearBottomRef.current = true;
     setShowScrollBottomBtn(false);
     setUnreadWhileScrolled(0);
-    flatListRef.current?.scrollToEnd({ animated: true });
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
   }, []);
 
   // Load older messages for reverse infinite scroll
@@ -286,7 +288,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const offsetY = contentOffset?.y ?? 0;
 
       // Track if user is near the bottom (<= 150px from bottom)
-      const distanceFromBottom = (contentSize?.height ?? 0) - (offsetY + (layoutMeasurement?.height ?? 0));
+      // List is inverted: offset 0 is the newest message (visual bottom)
+      const distanceFromBottom = offsetY;
+      const distanceFromOldest = (contentSize?.height ?? 0) - (offsetY + (layoutMeasurement?.height ?? 0));
       const nearBottom = distanceFromBottom <= 150;
       isNearBottomRef.current = nearBottom;
 
@@ -299,7 +303,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       // Trigger older messages fetch when scrolling near top
       if (
-        offsetY <= 40 &&
+        distanceFromOldest <= 40 &&
         hasMoreOlderMessages(roomId) &&
         !isLoadingOlderMessages(roomId) &&
         messages.length >= 20
@@ -685,11 +689,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       clearTimeout(timeout);
       const rawMessages = data.messages || [];
       reconcileHistoryRef.current(roomId, rawMessages, roomAESKeyRef.current);
-
-      // Auto-scroll to bottom once history rendered
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: false });
-      }, 100);
     });
 
     // Join room via WebSocket & send read receipt.
@@ -749,7 +748,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       if (isNearBottomRef.current) {
         setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
+          flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }, 100);
       } else {
         setUnreadWhileScrolled((prev) => prev + 1);
@@ -979,7 +978,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       setReplyingTo(null);
       isNearBottomRef.current = true;
       setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 50);
 
       // D. Kirim pesan WebSocket lengkap dengan metadata media dan reply_to jika ada
@@ -1052,7 +1051,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       setReplyingTo(null);
       isNearBottomRef.current = true;
       setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 50);
 
       // B. Upload audio file to storage in background
@@ -1188,7 +1187,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handlePressQuote = useCallback(
     (targetMessageId: string) => {
-      const index = messages.findIndex((m) => m.id === targetMessageId);
+      const index = invertedMessages.findIndex((m) => m.id === targetMessageId);
       if (index !== -1) {
         flatListRef.current?.scrollToIndex({
           index,
@@ -1203,7 +1202,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         Alert.alert('Pesan Tidak Ditemukan', 'Pesan asli mungkin berada di riwayat sebelumnya.');
       }
     },
-    [messages]
+    [invertedMessages]
   );
 
   // 8. Milestone 8.3: Edit Message Handlers
@@ -1342,7 +1341,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handleJumpToMessage = useCallback(
     (messageId: string, showAlert = true) => {
-      const index = messages.findIndex((m) => m.id === messageId);
+      const index = invertedMessages.findIndex((m) => m.id === messageId);
       if (index !== -1 && flatListRef.current) {
         // Crucial: Disarm near-bottom auto-scroll so list doesn't snap back to bottom
         isNearBottomRef.current = false;
@@ -1368,7 +1367,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         Alert.alert('Pesan Tidak Ditemukan', 'Pesan mungkin berada di riwayat sebelumnya.');
       }
     },
-    [messages]
+    [invertedMessages]
   );
 
   // 11. Milestone 8.3: In-Chat Search Handlers
@@ -1840,7 +1839,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         ) : (
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={invertedMessages}
+            inverted
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
             onScrollToIndexFailed={(info) => {
@@ -1887,7 +1887,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             contentContainerStyle={styles.listContent}
             onScroll={handleScroll}
             scrollEventThrottle={32}
-            ListHeaderComponent={
+            ListFooterComponent={
               isLoadingOlderMessages(roomId) ? (
                 <View style={styles.loadingOlderContainer}>
                   <ActivityIndicator size="small" color={colors.accentPrimary} />
@@ -1905,18 +1905,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             }
             maintainVisibleContentPosition={{
               minIndexForVisible: 0,
-            }}
-            onContentSizeChange={() => {
-              if (!hasInitialScrolledRef.current && messages.length > 0) {
-                hasInitialScrolledRef.current = true;
-                flatListRef.current?.scrollToEnd({ animated: false });
-                return;
-              }
-
-              // Only auto-scroll to bottom if user was already at the bottom, not prepending history, and not searching
-              if (isNearBottomRef.current && !isPrependingRef.current && !isSearching) {
-                flatListRef.current?.scrollToEnd({ animated: false });
-              }
+              autoscrollToTopThreshold: 10,
             }}
           />
         )}
@@ -2309,7 +2298,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingVertical: spacing.md,
     flexGrow: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
   },
   centerContainer: {
     flex: 1,
