@@ -100,3 +100,4 @@ Setiap kali ada perubahan pada direktori `backend/`:
    ```
 2. Eksekusi deployment hanya dilakukan setelah ada konfirmasi/persetujuan eksplisit dari pengguna.
 3. Verifikasi ketersediaan server setelah deploy (status HTTP 200 OK).
+4. Jika `ssh` ke port 22 timeout, kemungkinan jaringan (ISP/WiFi) memblokir port 22 keluar. sshd di VPS juga mendengarkan di port **2222**: `ssh -p 2222 deploy@<VPS_IP> ./deploy-chat.sh` (atau alias lokal di `~/.ssh/config`). Alternatif tanpa SSH: Web Console panel VPS, login `deploy`, jalankan `./deploy-chat.sh`.

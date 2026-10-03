@@ -61,3 +61,5 @@ Thumbs.db
 .vercel
 
 JANGAN-DI-COMMIT.md
+# Dokumentasi operasional lokal (IP server, langkah akses) — jangan di-commit/push
+docs/local/
