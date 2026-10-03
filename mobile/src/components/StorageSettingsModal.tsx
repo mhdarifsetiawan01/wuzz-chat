@@ -17,12 +17,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Image } from 'expo-image';
 import {
   getStorageStats,
   clearMessageCacheOnly,
   StorageStats,
   MAX_LOCAL_MESSAGES_PER_ROOM,
 } from '../services/sqliteStorage';
+import { mediaCache } from '../services/mediaCache';
 import { colors, radius, shadows, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
@@ -32,6 +34,30 @@ export interface StorageSettingsModalProps {
   visible: boolean;
   onClose: () => void;
   userId: string;
+}
+
+/** Folder database expo-sqlite (wuzzchat.db + -wal + -shm). */
+const SQLITE_DIR = `${FileSystem.documentDirectory ?? ''}SQLite/`;
+
+/**
+ * Entri cacheDirectory yang TIDAK ikut dihapus tombol pembersih:
+ *  - wuzz_*.wav: nada dering/nada sambung panggilan yang dibuat app (callAudioManager membuatnya ulang bila hilang,
+ *    tapi tidak perlu memaksa).
+ *  - image_manager_disk_cache: cache expo-image (Glide) yang sedang dibuka; dibersihkan lewat Image.clearDiskCache().
+ */
+function isProtectedCacheEntry(name: string): boolean {
+  return /^wuzz_.*\.wav$/.test(name) || name === 'image_manager_disk_cache';
+}
+
+/** Ukuran rekursif sebuah folder (getInfoAsync menghitung isi folder secara rekursif di Android). */
+async function directorySize(uri: string | null): Promise<number> {
+  if (!uri) return 0;
+  try {
+    const info: any = await FileSystem.getInfoAsync(uri);
+    return info.exists && typeof info.size === 'number' ? info.size : 0;
+  } catch {
+    return 0;
+  }
 }
 
 function formatBytes(bytes: number): string {
@@ -49,7 +75,9 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<StorageStats | null>(null);
-  const [mediaCacheBytes, setMediaCacheBytes] = useState<number>(0);
+  const [dbBytes, setDbBytes] = useState<number>(0);
+  const [persistedMedia, setPersistedMedia] = useState<{ bytes: number; files: number }>({ bytes: 0, files: 0 });
+  const [tempCacheBytes, setTempCacheBytes] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isClearingMessages, setIsClearingMessages] = useState<boolean>(false);
   const [isClearingMedia, setIsClearingMedia] = useState<boolean>(false);
@@ -58,25 +86,16 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
     if (!userId) return;
     setIsLoading(true);
     try {
-      const storageStats = await getStorageStats(userId);
+      const [storageStats, sqliteDirBytes, media, cacheBytes] = await Promise.all([
+        getStorageStats(userId),
+        directorySize(SQLITE_DIR), // database + WAL + SHM yang benar-benar memakai disk
+        mediaCache.getUsage(), // media chat persisten (documentDirectory/wuzzchat_media)
+        directorySize(FileSystem.cacheDirectory), // cache gambar & berkas sementara
+      ]);
       setStats(storageStats);
-
-      // Calculate media cache
-      let mediaBytes = 0;
-      if (FileSystem.cacheDirectory) {
-        try {
-          const files = await FileSystem.readDirectoryAsync(FileSystem.cacheDirectory);
-          for (const file of files) {
-            const info = await FileSystem.getInfoAsync(FileSystem.cacheDirectory + file);
-            if (info.exists && 'size' in info && typeof info.size === 'number') {
-              mediaBytes += info.size;
-            }
-          }
-        } catch {
-          // ignore cache read errors
-        }
-      }
-      setMediaCacheBytes(mediaBytes);
+      setDbBytes(sqliteDirBytes);
+      setPersistedMedia(media);
+      setTempCacheBytes(cacheBytes);
     } catch (err) {
       console.warn('[StorageSettingsModal] Failed to load storage stats:', err);
     } finally {
@@ -119,8 +138,8 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
 
   const handleClearMedia = () => {
     Alert.alert(
-      'Bersihkan Cache Media?',
-      'File cache sementara (gambar, audio, dan dokumen) yang pernah diunduh akan dihapus dari penyimpanan HP.',
+      'Bersihkan Cache Gambar?',
+      'Gambar dan berkas sementara akan dihapus lalu diunduh ulang saat dibutuhkan. Media chat yang tersimpan di perangkat (foto dan voice note) tidak ikut terhapus.',
       [
         { text: 'Batal', style: 'cancel' },
         {
@@ -129,21 +148,26 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
           onPress: async () => {
             setIsClearingMedia(true);
             try {
+              // Cache expo-image lewat API resminya (folder Glide sedang dibuka, jangan dihapus manual)
+              await Image.clearDiskCache().catch(() => false);
+              await Image.clearMemoryCache().catch(() => false);
+
               if (FileSystem.cacheDirectory) {
-                const files = await FileSystem.readDirectoryAsync(FileSystem.cacheDirectory);
-                for (const file of files) {
+                const entries = await FileSystem.readDirectoryAsync(FileSystem.cacheDirectory);
+                for (const entry of entries) {
+                  if (isProtectedCacheEntry(entry)) continue;
                   try {
-                    await FileSystem.deleteAsync(FileSystem.cacheDirectory + file, { idempotent: true });
+                    await FileSystem.deleteAsync(FileSystem.cacheDirectory + entry, { idempotent: true });
                   } catch {
-                    // ignore
+                    // berkas sedang dipakai: lewati
                   }
                 }
               }
               await loadStats();
-              Alert.alert('Sukses', 'Cache media berhasil dibersihkan.');
+              Alert.alert('Sukses', 'Cache gambar berhasil dibersihkan.');
             } catch (err) {
               console.warn('[StorageSettingsModal] Clear media error:', err);
-              Alert.alert('Gagal', 'Terjadi kesalahan saat membersihkan media cache.');
+              Alert.alert('Gagal', 'Terjadi kesalahan saat membersihkan cache gambar.');
             } finally {
               setIsClearingMedia(false);
             }
@@ -153,7 +177,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
     );
   };
 
-  const totalUsedBytes = (stats?.estimatedSizeBytes || 0) + mediaCacheBytes;
+  const totalUsedBytes = dbBytes + persistedMedia.bytes + tempCacheBytes;
 
   return (
     <Modal
@@ -206,19 +230,18 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
                 <Text style={styles.summaryValue}>{formatBytes(totalUsedBytes)}</Text>
               )}
               <Text style={styles.summaryDesc}>
-                Terdiri dari database pesan terenkripsi SQLite lokal dan berkas media offline.
+                Terdiri dari database pesan lokal, media chat yang tersimpan, dan cache sementara.
               </Text>
 
-              {/* Progress bar visual */}
+              {/* Bar proporsi nyata: database / media tersimpan / cache sementara */}
               <View style={styles.progressBarBg}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: totalUsedBytes > 0 ? '45%' : '5%',
-                    },
-                  ]}
-                />
+                {totalUsedBytes > 0 ? (
+                  <View style={styles.progressBarRow}>
+                    <View style={{ flex: dbBytes, backgroundColor: colors.accentPrimary }} />
+                    <View style={{ flex: persistedMedia.bytes, backgroundColor: colors.colorWarning }} />
+                    <View style={{ flex: tempCacheBytes, backgroundColor: colors.textMuted }} />
+                  </View>
+                ) : null}
               </View>
             </View>
 
@@ -261,21 +284,33 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLeft}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.accentPrimary }]} />
                   <IconText style={styles.detailIcon}>🗄️</IconText>
-                  <Text style={styles.detailLabel}>Ukuran Basis Data SQLite</Text>
+                  <Text style={styles.detailLabel}>Database Lokal (SQLite)</Text>
                 </View>
-                <Text style={styles.detailValue}>
-                  {stats ? formatBytes(stats.estimatedSizeBytes) : '...'}
-                </Text>
+                <Text style={styles.detailValue}>{isLoading ? '...' : formatBytes(dbBytes)}</Text>
               </View>
               <View style={styles.divider} />
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLeft}>
-                  <IconText style={styles.detailIcon}>🖼️</IconText>
-                  <Text style={styles.detailLabel}>Cache Berkas & Media</Text>
+                  <View style={[styles.legendDot, { backgroundColor: colors.colorWarning }]} />
+                  <IconText style={styles.detailIcon}>📥</IconText>
+                  <Text style={styles.detailLabel}>
+                    Media Chat Tersimpan{persistedMedia.files > 0 ? ` (${persistedMedia.files}\u00A0berkas)` : ''}
+                  </Text>
                 </View>
-                <Text style={styles.detailValue}>{formatBytes(mediaCacheBytes)}</Text>
+                <Text style={styles.detailValue}>{isLoading ? '...' : formatBytes(persistedMedia.bytes)}</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.detailRow}>
+                <View style={styles.detailLeft}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.textMuted }]} />
+                  <IconText style={styles.detailIcon}>🖼️</IconText>
+                  <Text style={styles.detailLabel}>Cache Gambar & Berkas Sementara</Text>
+                </View>
+                <Text style={styles.detailValue}>{isLoading ? '...' : formatBytes(tempCacheBytes)}</Text>
               </View>
             </View>
 
@@ -334,9 +369,9 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
                     <IconText style={styles.actionIconText}>🗑️</IconText>
                   </View>
                   <View style={styles.actionTextBox}>
-                    <Text style={styles.actionTitle}>Bersihkan Cache Media</Text>
+                    <Text style={styles.actionTitle}>Bersihkan Cache Gambar</Text>
                     <Text style={styles.actionSubtitle}>
-                      Hapus preview gambar, voice note sementara, dan file thumbnail.
+                      Hapus gambar dan berkas sementara; diunduh ulang saat dibutuhkan. Media chat yang tersimpan tidak terhapus.
                     </Text>
                   </View>
                 </View>
@@ -447,9 +482,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     overflow: 'hidden',
   },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: colors.accentPrimary,
+  progressBarRow: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
     borderRadius: radius.full,
   },
   cardTitle: {
@@ -471,15 +510,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   detailLeft: {
+    flex: 1,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    marginRight: spacing.md,
   },
   detailIcon: {
     fontSize: 16,
   },
   detailLabel: {
     ...typography.body,
+    flexShrink: 1,
     color: colors.textSecondary,
   },
   detailValue: {

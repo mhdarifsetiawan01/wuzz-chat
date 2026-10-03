@@ -61,53 +61,36 @@ class CallAudioManager {
   private isSpeakerphoneOn: boolean = false;
   private isMuted: boolean = false;
   private activePlayer: AudioPlayer | null = null;
-  private incomingRingtoneUri: string | null = null;
-  private outgoingRingbackUri: string | null = null;
 
   /**
-   * Pre-generates tone WAV files in cache if not yet generated.
+   * Menyiapkan WAV nada dering / nada sambung di cache. Keberadaan berkas SELALU diperiksa ulang:
+   * cacheDirectory boleh terhapus kapan saja (tombol Bersihkan Cache, pembersihan Android), jadi jalur
+   * yang diingat di memori bisa menunjuk berkas yang sudah hilang dan nada dering diam sampai app dimulai ulang.
    */
   private async ensureTonesGenerated(): Promise<{ ringtoneUri: string; ringbackUri: string }> {
     const cacheDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
     const ringtonePath = `${cacheDir}wuzz_incoming_ring.wav`;
     const ringbackPath = `${cacheDir}wuzz_outgoing_ringback.wav`;
 
-    if (!this.incomingRingtoneUri) {
-      try {
-        const info = await FileSystem.getInfoAsync(ringtonePath);
-        if (!info.exists) {
-          // Melodic ringtone (C5 + G5, 1.2s cadence)
-          const b64 = createToneWavBase64(1.5, 523.25, 783.99, 1.0);
-          await FileSystem.writeAsStringAsync(ringtonePath, b64, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-        }
-        this.incomingRingtoneUri = ringtonePath;
-      } catch (err) {
-        console.warn('[CallAudioManager] Failed to generate incoming ringtone wav:', err);
-      }
-    }
+    // Melodic ringtone (C5 + G5, 1.2s cadence)
+    await this.ensureToneFile(ringtonePath, () => createToneWavBase64(1.5, 523.25, 783.99, 1.0), 'incoming ringtone');
+    // Classic telephone ringback (440Hz + 480Hz, 1.5s on, 1.5s cadence)
+    await this.ensureToneFile(ringbackPath, () => createToneWavBase64(2.0, 440, 480, 1.0), 'ringback tone');
 
-    if (!this.outgoingRingbackUri) {
-      try {
-        const info = await FileSystem.getInfoAsync(ringbackPath);
-        if (!info.exists) {
-          // Classic telephone ringback (440Hz + 480Hz, 1.5s on, 1.5s cadence)
-          const b64 = createToneWavBase64(2.0, 440, 480, 1.0);
-          await FileSystem.writeAsStringAsync(ringbackPath, b64, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-        }
-        this.outgoingRingbackUri = ringbackPath;
-      } catch (err) {
-        console.warn('[CallAudioManager] Failed to generate ringback tone wav:', err);
-      }
-    }
+    return { ringtoneUri: ringtonePath, ringbackUri: ringbackPath };
+  }
 
-    return {
-      ringtoneUri: this.incomingRingtoneUri || ringtonePath,
-      ringbackUri: this.outgoingRingbackUri || ringbackPath,
-    };
+  private async ensureToneFile(path: string, makeBase64: () => string, label: string): Promise<void> {
+    try {
+      const info = await FileSystem.getInfoAsync(path);
+      if (!info.exists) {
+        await FileSystem.writeAsStringAsync(path, makeBase64(), {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      }
+    } catch (err) {
+      console.warn(`[CallAudioManager] Failed to generate ${label} wav:`, err);
+    }
   }
 
   /**

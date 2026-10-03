@@ -56,6 +56,26 @@ class MediaCacheService {
   }
 
   /**
+   * Total pemakaian disk cache media persisten (folder wuzzchat_media). Tidak membuat folder bila belum ada.
+   * Catatan: salinan lokal ini sering menjadi SATU-SATUNYA salinan (server menghapus berkas fisik setelah ACK).
+   */
+  public async getUsage(): Promise<{ bytes: number; files: number }> {
+    if (!this.baseDir) {
+      this.initBaseDir();
+    }
+    if (!this.baseDir) return { bytes: 0, files: 0 };
+
+    try {
+      const info: any = await FileSystem.getInfoAsync(this.baseDir);
+      if (!info.exists) return { bytes: 0, files: 0 };
+      const names = await FileSystem.readDirectoryAsync(this.baseDir);
+      return { bytes: typeof info.size === 'number' ? info.size : 0, files: names.length };
+    } catch {
+      return { bytes: 0, files: 0 };
+    }
+  }
+
+  /**
    * Generates a safe, deterministic local file path for a given media URL or message ID.
    */
   public getLocalFilePath(

@@ -50,6 +50,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
         PRAGMA foreign_keys = ON;
+        PRAGMA journal_size_limit = 1048576;
 
         CREATE TABLE IF NOT EXISTS local_conversations (
           user_id TEXT NOT NULL,
@@ -633,6 +634,10 @@ export function runStorageMaintenance(userId: string): Promise<StorageMaintenanc
       if (result.prunedRows > 0 || row?.auto_vacuum !== 2) {
         await compactDatabase(db);
         result.compacted = true;
+      } else {
+        // Tanpa kompaksi pun, kembalikan file WAL ke ukuran kecil: tanpa ini WAL bertahan di ±4 MB
+        // (ambang auto-checkpoint 1000 halaman) dan tidak pernah menyusut sendiri.
+        await db.execAsync(`PRAGMA wal_checkpoint(TRUNCATE);`);
       }
     } catch (error) {
       // Dicoba lagi pada maintenance berikutnya
