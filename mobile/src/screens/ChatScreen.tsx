@@ -36,7 +36,6 @@ import { useAuth, useCall, useConversations, useMessageActions, useRoomMessages 
 import { useConnection } from '../context/ConnectionContext';
 import {
   deriveRoomAESKey,
-  getOrDeriveRoomAESKey,
   cachePeerPublicKey,
   getCachedPeerPublicKey,
   encryptText,
@@ -44,6 +43,7 @@ import {
   isEncryptedMessage,
   extractDMPeerId,
 } from '../services/crypto';
+import { ensureRoomAESKey } from '../services/roomKeyStore';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInputBar, StagedMedia } from '../components/ChatInputBar';
@@ -600,7 +600,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
 
       try {
-        const derived = getOrDeriveRoomAESKey(e2eeKeyPair.privateKeyHex, peerPubKey, roomId);
+        const derived = await ensureRoomAESKey(currentUserId, e2eeKeyPair.privateKeyHex, peerPubKey, roomId);
         if (mounted) {
           roomAESKeyRef.current = derived;
           setRoomAESKey(derived);

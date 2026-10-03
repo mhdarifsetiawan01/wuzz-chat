@@ -25,10 +25,10 @@ import {
   cachePeerPublicKey,
   decryptText,
   getCachedPeerPublicKey,
-  getOrDeriveRoomAESKey,
   isEncryptedMessage,
   extractDMPeerId,
 } from '../services/crypto';
+import { ensureRoomAESKey } from '../services/roomKeyStore';
 import { getUserPublicKey } from '../api/users';
 import { messagesApi } from '../api/messages';
 import {
@@ -155,7 +155,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       if (peerPubKey && e2eeKeyPair.privateKeyHex) {
-        const derived = getOrDeriveRoomAESKey(e2eeKeyPair.privateKeyHex, peerPubKey, roomId);
+        const derived = await ensureRoomAESKey(user.id, e2eeKeyPair.privateKeyHex, peerPubKey, roomId);
         if (derived) {
           roomKeysCacheRef.current.set(roomId, derived);
           return derived;

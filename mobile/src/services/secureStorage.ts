@@ -5,6 +5,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { createExclusiveQueue } from './exclusiveQueue';
 
 const STORAGE_KEYS = {
   AUTH_TOKEN: 'wuzz_auth_token',
@@ -15,6 +16,8 @@ const STORAGE_KEYS = {
   NOTIFICATIONS_ENABLED: 'wuzz_notifications_enabled',
   E2EE_PRIVATE_KEY_PREFIX: 'wuzz_e2ee_priv_',
   E2EE_PUBLIC_KEY_PREFIX: 'wuzz_e2ee_pub_',
+  E2EE_ROOM_KEY_PREFIX: 'wuzz_e2ee_aes_',
+  E2EE_ROOM_KEY_INDEX_PREFIX: 'wuzz_e2ee_aes_idx_',
 } as const;
 
 // In-memory fallback for environments without SecureStore (e.g. web preview)
@@ -27,6 +30,18 @@ async function isSecureStoreAvailable(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Kunci turunan room (AES) disimpan per user supaya cold start tidak mengulang ECDH (±120 ms/room).
+ * Indeks daftar entri disimpan agar semuanya bisa dihapus saat kunci E2EE dihapus/diganti
+ * (SecureStore tidak bisa menyebutkan isi). Read-modify-write indeks diserialkan lewat antrean.
+ */
+const roomKeyIndexLock = createExclusiveQueue();
+
+function roomKeyEntryName(userId: string, roomId: string): string {
+  // SecureStore hanya menerima [A-Za-z0-9._-]
+  return `${STORAGE_KEYS.E2EE_ROOM_KEY_PREFIX}${userId}_${roomId.replace(/[^A-Za-z0-9._-]/g, '_')}`;
 }
 
 export const secureStorage = {
@@ -140,6 +155,11 @@ export const secureStorage = {
   ): Promise<void> {
     const privHex = typeof keyPairOrHex === 'string' ? keyPairOrHex : keyPairOrHex.privateKeyHex;
     const pubJWK = typeof keyPairOrHex === 'string' ? (publicKeyJWK || '') : keyPairOrHex.publicKeyJWK;
+    // Kunci privat berganti (reset/regenerasi): kunci turunan lama tak berlaku lagi, hapus agar tidak tersisa
+    const previousPriv = await this.getItem(`${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`);
+    if (previousPriv && previousPriv !== privHex) {
+      await this.clearDerivedRoomKeys(userId);
+    }
     await this.setItem(`${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`, privHex);
     await this.setItem(`${STORAGE_KEYS.E2EE_PUBLIC_KEY_PREFIX}${userId}`, pubJWK);
   },
@@ -156,6 +176,50 @@ export const secureStorage = {
   async deleteE2EEKeyPair(userId: string): Promise<void> {
     await this.deleteItem(`${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`);
     await this.deleteItem(`${STORAGE_KEYS.E2EE_PUBLIC_KEY_PREFIX}${userId}`);
+    await this.clearDerivedRoomKeys(userId);
+  },
+
+  async getDerivedRoomKey(userId: string, roomId: string): Promise<string | null> {
+    return await this.getItem(roomKeyEntryName(userId, roomId));
+  },
+
+  async setDerivedRoomKey(userId: string, roomId: string, value: string): Promise<void> {
+    const entry = roomKeyEntryName(userId, roomId);
+    await roomKeyIndexLock(async () => {
+      // Indeks ditulis lebih dulu: entri yatim tak mungkin terbentuk bila proses mati di tengah jalan
+      const indexName = `${STORAGE_KEYS.E2EE_ROOM_KEY_INDEX_PREFIX}${userId}`;
+      let names: string[] = [];
+      try {
+        const parsed = JSON.parse((await this.getItem(indexName)) || '[]');
+        if (Array.isArray(parsed)) names = parsed.filter((n): n is string => typeof n === 'string');
+      } catch {
+        // indeks rusak: mulai dari kosong
+      }
+      if (!names.includes(entry)) {
+        names.push(entry);
+        await this.setItem(indexName, JSON.stringify(names));
+      }
+      await this.setItem(entry, value);
+    });
+  },
+
+  async clearDerivedRoomKeys(userId: string): Promise<void> {
+    await roomKeyIndexLock(async () => {
+      const indexName = `${STORAGE_KEYS.E2EE_ROOM_KEY_INDEX_PREFIX}${userId}`;
+      try {
+        const parsed = JSON.parse((await this.getItem(indexName)) || '[]');
+        if (Array.isArray(parsed)) {
+          for (const name of parsed) {
+            if (typeof name === 'string' && name.startsWith(STORAGE_KEYS.E2EE_ROOM_KEY_PREFIX)) {
+              await this.deleteItem(name).catch(() => {});
+            }
+          }
+        }
+      } catch {
+        // indeks rusak: tidak ada yang bisa dihapus secara terarah
+      }
+      await this.deleteItem(indexName).catch(() => {});
+    });
   },
 };
 

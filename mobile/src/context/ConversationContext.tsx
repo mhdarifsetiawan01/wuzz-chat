@@ -25,6 +25,7 @@ import {
   isEncryptedMessage,
   extractDMPeerId,
 } from '../services/crypto';
+import { ensureRoomAESKey } from '../services/roomKeyStore';
 import {
   getStoredConversations,
   saveStoredConversations,
@@ -222,7 +223,14 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             return c;
           }
 
-          // 3. Decrypt snippet using cached/derived AES key
+          // 3. Decrypt snippet using cached/derived AES key.
+          // ensureRoomAESKey memulihkan kunci dari SecureStore (atau menurunkan satu per satu dengan jeda)
+          // sehingga derivasi ECDH ±120 ms/room tidak memblokir thread JS sekaligus.
+          try {
+            await ensureRoomAESKey(currentUserId, privateKeyHex, peerPub, c.id);
+          } catch {
+            // decryptSnippet di bawah menurunkan sendiri sebagai cadangan
+          }
           let plain = decryptSnippet(raw, c.id, peerPub, privateKeyHex);
 
           // If decryption returned placeholder lock icon but we already have clean plaintext, preserve clean plaintext!

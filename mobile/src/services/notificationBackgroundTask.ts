@@ -14,9 +14,9 @@ import { Platform } from 'react-native';
 import { secureStorage } from './secureStorage';
 import {
   decryptText,
-  getOrDeriveRoomAESKey,
   isEncryptedMessage,
 } from './crypto';
+import { ensureRoomAESKey } from './roomKeyStore';
 import {
   DEFAULT_NOTIFICATION_CHANNEL_ID,
   MENTION_NOTIFICATION_CHANNEL_ID,
@@ -108,7 +108,7 @@ export async function decryptNotificationPayload(data: Record<string, any>): Pro
     }
 
     // Derive symmetric AES key & decrypt
-    const aesKey = getOrDeriveRoomAESKey(keyPair.privateKeyHex, senderPubKey, roomId);
+    const aesKey = await ensureRoomAESKey(currentUserId, keyPair.privateKeyHex, senderPubKey, roomId);
     const decryptedText = decryptText(aesKey, rawContent);
 
     let displayBody = decryptedText;

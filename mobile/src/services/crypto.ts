@@ -269,18 +269,72 @@ export function getCachedPeerPublicKey(userId: string): string | undefined {
   return peerPublicKeyMemoryCache.get(userId);
 }
 
+function roomKeyCacheId(myPrivateKeyHex: string, theirPublicKeyJWK: string, roomId: string): string {
+  return `${myPrivateKeyHex.slice(0, 16)}:${theirPublicKeyJWK.slice(0, 32)}:${roomId}`;
+}
+
+/**
+ * Derivasi ECDH P-256 murni JS memakan ±120 ms per room di Hermes (terukur di perangkat) dan
+ * memblokir thread JS. Pemanggil di jalur UI sebaiknya memakai ensureRoomAESKey (roomKeyStore.ts),
+ * yang memulihkan kunci dari penyimpanan aman lebih dulu lalu memanggil fungsi ini sebagai cadangan.
+ */
 export function getOrDeriveRoomAESKey(
   myPrivateKeyHex: string,
   theirPublicKeyJWK: string,
   roomId: string
 ): Uint8Array {
-  const cacheKey = `${myPrivateKeyHex.slice(0, 16)}:${theirPublicKeyJWK.slice(0, 32)}:${roomId}`;
+  const cacheKey = roomKeyCacheId(myPrivateKeyHex, theirPublicKeyJWK, roomId);
   if (derivedAESKeyMemoryCache.has(cacheKey)) {
     return derivedAESKeyMemoryCache.get(cacheKey)!;
   }
   const derived = deriveRoomAESKey(myPrivateKeyHex, theirPublicKeyJWK, roomId);
   derivedAESKeyMemoryCache.set(cacheKey, derived);
   return derived;
+}
+
+/** Baca cache memori tanpa menurunkan kunci. */
+export function peekRoomAESKey(
+  myPrivateKeyHex: string,
+  theirPublicKeyJWK: string,
+  roomId: string
+): Uint8Array | undefined {
+  return derivedAESKeyMemoryCache.get(roomKeyCacheId(myPrivateKeyHex, theirPublicKeyJWK, roomId));
+}
+
+/** Isi cache memori dengan kunci yang dipulihkan dari penyimpanan aman (tanpa ECDH). */
+export function primeRoomAESKey(
+  myPrivateKeyHex: string,
+  theirPublicKeyJWK: string,
+  roomId: string,
+  key: Uint8Array
+): void {
+  derivedAESKeyMemoryCache.set(roomKeyCacheId(myPrivateKeyHex, theirPublicKeyJWK, roomId), key);
+}
+
+/**
+ * Checksum integritas kunci turunan yang disimpan (SHA-256 atas sidik jari + kunci base64).
+ * Mendeteksi byte kunci yang rusak walau panjangnya masih 32, supaya jatuh ke derivasi ulang
+ * dan bukan terjebak memakai kunci salah (dekripsi gagal terus).
+ */
+export function roomKeyChecksum(fingerprint: string, keyBase64: string): string {
+  const input = new TextEncoder().encode(`wuzz-room-key-ck-v1\n${fingerprint}\n${keyBase64}`);
+  return Array.from(sha256(input), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Sidik jari masukan derivasi (SHA-256 atas kunci privat + kunci publik peer + roomId, dengan pemisah domain).
+ * Disimpan bersama kunci turunan: bila salah satu masukan berubah (reset kunci, peer ganti kunci),
+ * sidik jari tidak cocok dan kunci tersimpan tidak dipakai.
+ */
+export function roomKeyFingerprint(
+  myPrivateKeyHex: string,
+  theirPublicKeyJWK: string,
+  roomId: string
+): string {
+  const input = new TextEncoder().encode(
+    `wuzz-room-key-fp-v1\n${myPrivateKeyHex}\n${theirPublicKeyJWK}\n${roomId}`
+  );
+  return Array.from(sha256(input), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
