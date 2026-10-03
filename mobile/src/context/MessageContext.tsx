@@ -35,7 +35,9 @@ import {
   getStoredMessages,
   saveStoredMessages,
   pruneRoomMessages,
+  runStorageMaintenance,
   MAX_LOCAL_MESSAGES_PER_ROOM,
+  PRUNE_SLACK,
 } from '../services/sqliteStorage';
 
 import {
@@ -186,7 +188,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const stored = await getStoredMessages(user.id, roomId, 50);
 
         // Silent background pruning to enforce MAX_LOCAL_MESSAGES_PER_ROOM retention cap
-        pruneRoomMessages(user.id, roomId, MAX_LOCAL_MESSAGES_PER_ROOM).catch(() => {});
+        pruneRoomMessages(user.id, roomId, MAX_LOCAL_MESSAGES_PER_ROOM, PRUNE_SLACK).catch(() => {});
 
         if (stored && stored.length > 0) {
           setMessagesByRoom((prev) => {
@@ -578,6 +580,30 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
     },
     [user?.id]
   );
+
+  // Maintenance penyimpanan lokal: pangkas room di atas cap + kompaksi DB. Tertunda agar tidak
+  // bersaing dengan hidrasi awal / render pertama, dan hanya berjalan saat thread JS idle.
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    const userId = user.id;
+    let cancelled = false;
+    let idleHandle: number | undefined;
+    const timer = setTimeout(() => {
+      idleHandle = requestIdleCallback(
+        () => {
+          if (!cancelled) {
+            runStorageMaintenance(userId).catch(() => {});
+          }
+        },
+        { timeout: 15000 }
+      );
+    }, 8000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      if (idleHandle !== undefined) cancelIdleCallback(idleHandle);
+    };
+  }, [isAuthenticated, user?.id]);
 
   // Clear cache for a specific room or all rooms
   const clearRoomCache = useCallback((roomId?: string) => {

@@ -10,12 +10,20 @@
  */
 
 import * as SQLite from 'expo-sqlite';
+import { createExclusiveQueue } from './exclusiveQueue';
 import { Conversation, Message, normalizeReactions, FeedPost, FriendItem } from '../api/types';
 
 const DB_NAME = 'wuzzchat.db';
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 let initPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+
+/**
+ * Seluruh operasi tulis berjalan satu per satu lewat antrean ini (koneksi SQLite tunggal).
+ * Lihat exclusiveQueue.ts. Tidak reentrant: fungsi bergembok jangan `await` fungsi bergembok lain;
+ * gunakan helper internal tanpa gembok (mis. sweepOversizedRooms, compactDatabase).
+ */
+const runExclusive = createExclusiveQueue();
 
 /**
  * Initializes and returns the singleton SQLite database instance.
@@ -218,131 +226,137 @@ export async function getStoredConversations(userId: string): Promise<Conversati
  * Persists an array of conversations to local SQLite for a specific user.
  * Wrapped in a single transaction to minimize disk I/O and device heating.
  */
-export async function saveStoredConversations(
+export function saveStoredConversations(
   userId: string,
   conversations: Conversation[]
 ): Promise<void> {
-  if (!userId || !conversations || conversations.length === 0) return;
+  return runExclusive(async () => {
+    if (!userId || !conversations || conversations.length === 0) return;
 
-  try {
-    const db = await getDatabase();
+    try {
+      const db = await getDatabase();
 
-    await db.withTransactionAsync(async () => {
-      for (const c of conversations) {
-        const convId = c.id || c.room_id;
-        if (!convId) continue;
+      await db.withTransactionAsync(async () => {
+        for (const c of conversations) {
+          const convId = c.id || c.room_id;
+          if (!convId) continue;
 
-        const isPinned = c.is_pinned || c.pinned ? 1 : 0;
-        const lastMsg =
-          typeof c.last_message === 'string'
-            ? c.last_message
-            : c.last_message?.content || '';
-        const lastMsgAt =
-          typeof c.last_message === 'object'
-            ? c.last_message?.timestamp || c.last_message?.created_at || ''
-            : '';
-        const updatedAt = c.updated_at || lastMsgAt || new Date().toISOString();
-        const rawJson = JSON.stringify(c);
+          const isPinned = c.is_pinned || c.pinned ? 1 : 0;
+          const lastMsg =
+            typeof c.last_message === 'string'
+              ? c.last_message
+              : c.last_message?.content || '';
+          const lastMsgAt =
+            typeof c.last_message === 'object'
+              ? c.last_message?.timestamp || c.last_message?.created_at || ''
+              : '';
+          const updatedAt = c.updated_at || lastMsgAt || new Date().toISOString();
+          const rawJson = JSON.stringify(c);
 
-        await db.runAsync(
-          `INSERT OR REPLACE INTO local_conversations (
-            user_id, id, type, name, avatar_url, last_message, 
-            last_message_at, unread_count, is_pinned, peer_id, 
-            peer_public_key, updated_at, raw_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            userId,
-            convId,
-            c.type || 'direct',
-            c.name || c.title || '',
-            c.avatar_url || c.peer_avatar_url || '',
-            lastMsg,
-            lastMsgAt,
-            c.unread_count || 0,
-            isPinned,
-            c.peer_id || '',
-            c.peer_public_key || '',
-            updatedAt,
-            rawJson,
-          ]
-        );
-      }
-    });
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to saveStoredConversations:', error);
-  }
+          await db.runAsync(
+            `INSERT OR REPLACE INTO local_conversations (
+              user_id, id, type, name, avatar_url, last_message, 
+              last_message_at, unread_count, is_pinned, peer_id, 
+              peer_public_key, updated_at, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              userId,
+              convId,
+              c.type || 'direct',
+              c.name || c.title || '',
+              c.avatar_url || c.peer_avatar_url || '',
+              lastMsg,
+              lastMsgAt,
+              c.unread_count || 0,
+              isPinned,
+              c.peer_id || '',
+              c.peer_public_key || '',
+              updatedAt,
+              rawJson,
+            ]
+          );
+        }
+      });
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to saveStoredConversations:', error);
+    }
+  });
 }
 
 /**
  * Optimistically updates the pinned state of a conversation in local SQLite.
  */
-export async function updateStoredConversationPin(
+export function updateStoredConversationPin(
   userId: string,
   roomId: string,
   isPinned: boolean
 ): Promise<void> {
-  if (!userId || !roomId) return;
+  return runExclusive(async () => {
+    if (!userId || !roomId) return;
 
-  try {
-    const db = await getDatabase();
-    await db.runAsync(
-      `UPDATE local_conversations 
-       SET is_pinned = ? 
-       WHERE user_id = ? AND id = ?`,
-      [isPinned ? 1 : 0, userId, roomId]
-    );
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to updateStoredConversationPin:', error);
-  }
+    try {
+      const db = await getDatabase();
+      await db.runAsync(
+        `UPDATE local_conversations 
+         SET is_pinned = ? 
+         WHERE user_id = ? AND id = ?`,
+        [isPinned ? 1 : 0, userId, roomId]
+      );
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to updateStoredConversationPin:', error);
+    }
+  });
 }
 
 /**
  * Optimistically updates the unread count of a conversation in local SQLite.
  * Updates both the unread_count indexed column and the embedded raw_json.
  */
-export async function updateStoredConversationUnread(
+export function updateStoredConversationUnread(
   userId: string,
   roomId: string,
   unreadCount = 0
 ): Promise<void> {
-  if (!userId || !roomId) return;
+  return runExclusive(async () => {
+    if (!userId || !roomId) return;
 
-  try {
-    const db = await getDatabase();
-    const row = await db.getFirstAsync<{ raw_json: string }>(
-      `SELECT raw_json FROM local_conversations WHERE user_id = ? AND id = ?`,
-      [userId, roomId]
-    );
+    try {
+      const db = await getDatabase();
+      const row = await db.getFirstAsync<{ raw_json: string }>(
+        `SELECT raw_json FROM local_conversations WHERE user_id = ? AND id = ?`,
+        [userId, roomId]
+      );
 
-    let newRawJson: string | null = null;
-    if (row?.raw_json) {
-      try {
-        const parsed = JSON.parse(row.raw_json);
-        parsed.unread_count = unreadCount;
-        newRawJson = JSON.stringify(parsed);
-      } catch {
-        // ignore JSON parse error
+      let newRawJson: string | null = null;
+      if (row?.raw_json) {
+        try {
+          const parsed = JSON.parse(row.raw_json);
+          parsed.unread_count = unreadCount;
+          newRawJson = JSON.stringify(parsed);
+        } catch {
+          // ignore JSON parse error
+        }
       }
-    }
 
-    if (newRawJson) {
-      await db.runAsync(
-        `UPDATE local_conversations 
-         SET unread_count = ?, raw_json = ? 
-         WHERE user_id = ? AND id = ?`,
-        [unreadCount, newRawJson, userId, roomId]
-      );
-    } else {
-      await db.runAsync(
-        `UPDATE local_conversations 
-         SET unread_count = ? 
-         WHERE user_id = ? AND id = ?`,
-        [unreadCount, userId, roomId]
-      );
+      if (newRawJson) {
+        await db.runAsync(
+          `UPDATE local_conversations 
+           SET unread_count = ?, raw_json = ? 
+           WHERE user_id = ? AND id = ?`,
+          [unreadCount, newRawJson, userId, roomId]
+        );
+      } else {
+        await db.runAsync(
+          `UPDATE local_conversations 
+           SET unread_count = ? 
+           WHERE user_id = ? AND id = ?`,
+          [unreadCount, userId, roomId]
+        );
+      }
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to updateStoredConversationUnread:', error);
     }
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to updateStoredConversationUnread:', error);
-  }
+  });
 }
 
 /**
@@ -448,121 +462,268 @@ export async function getRoomMediaMessages(
 export const MAX_LOCAL_MESSAGES_PER_ROOM = 500;
 
 /**
- * Prunes older messages in a specific room exceeding keepLimit (default: MAX_LOCAL_MESSAGES_PER_ROOM).
- * Efficiently retains the latest messages ordered by created_at DESC and removes the rest.
- * Runs incremental vacuum if rows were pruned to immediately return reclaimed pages to OS.
- * Returns the number of pruned rows.
+ * Histeresis pruning pada jalur tulis: baru memangkas bila jumlah pesan room melebihi
+ * keepLimit + PRUNE_SLACK, lalu memangkas kembali ke keepLimit. Tanpa ini, room yang sudah
+ * penuh menjalankan DELETE + vacuum pada SETIAP pesan masuk.
  */
-export async function pruneRoomMessages(
+export const PRUNE_SLACK = 50;
+
+/** Batas halaman per panggilan incremental_vacuum di jalur panas agar tidak menahan lock tulis lama. */
+const HOT_PATH_VACUUM_PAGES = 100;
+
+/**
+ * Membebaskan halaman kosong ke OS. WAJIB lewat execAsync (sqlite3_exec): PRAGMA incremental_vacuum
+ * membebaskan satu halaman per langkah eksekusi, sedangkan runAsync hanya melangkah SEKALI
+ * sehingga hanya 1 halaman yang kembali. Tidak berefek bila auto_vacuum bukan INCREMENTAL.
+ */
+async function freeUnusedPages(db: SQLite.SQLiteDatabase, maxPages?: number): Promise<void> {
+  const arg = maxPages && maxPages > 0 ? `(${Math.floor(maxPages)})` : '';
+  await db.execAsync(`PRAGMA incremental_vacuum${arg};`);
+}
+
+/**
+ * Hapus pesan lama sebuah room hingga tersisa keepLimit terbaru. Mengembalikan jumlah baris terhapus.
+ * Tidak mengembalikan halaman ke OS; pemanggil yang memutuskan kapan.
+ */
+async function deleteOldRoomMessages(
+  db: SQLite.SQLiteDatabase,
   userId: string,
   roomId: string,
+  keepLimit: number
+): Promise<number> {
+  const result = await db.runAsync(
+    `DELETE FROM local_messages 
+     WHERE user_id = ? AND room_id = ? 
+       AND id NOT IN (
+         SELECT id FROM local_messages 
+         WHERE user_id = ? AND room_id = ? 
+         ORDER BY created_at DESC 
+         LIMIT ?
+       )`,
+    [userId, roomId, userId, roomId, keepLimit]
+  );
+  return result.changes || 0;
+}
+
+/**
+ * Prunes older messages in a specific room exceeding keepLimit (default: MAX_LOCAL_MESSAGES_PER_ROOM).
+ * Efficiently retains the latest messages ordered by created_at DESC and removes the rest.
+ * Dengan slack > 0, pemangkasan dilewati selama jumlah pesan <= keepLimit + slack (jalur tulis).
+ * Returns the number of pruned rows.
+ */
+export function pruneRoomMessages(
+  userId: string,
+  roomId: string,
+  keepLimit: number = MAX_LOCAL_MESSAGES_PER_ROOM,
+  slack: number = 0
+): Promise<number> {
+  return runExclusive(async () => {
+    if (!userId || !roomId || keepLimit <= 0) return 0;
+
+    try {
+      const db = await getDatabase();
+
+      if (slack > 0) {
+        const row = await db.getFirstAsync<{ count: number }>(
+          `SELECT COUNT(*) as count FROM local_messages WHERE user_id = ? AND room_id = ?`,
+          [userId, roomId]
+        );
+        if ((row?.count || 0) <= keepLimit + slack) return 0;
+      }
+
+      const changes = await deleteOldRoomMessages(db, userId, roomId, keepLimit);
+      if (changes > 0) {
+        try {
+          await freeUnusedPages(db, HOT_PATH_VACUUM_PAGES);
+        } catch {
+          // incremental_vacuum tidak berlaku bila auto_vacuum belum INCREMENTAL; abaikan
+        }
+      }
+
+      return changes;
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to pruneRoomMessages:', error);
+      return 0;
+    }
+  });
+}
+
+/** Pangkas semua room yang melebihi keepLimit + PRUNE_SLACK. Tanpa gembok; dipakai pemanggil bergembok. */
+async function sweepOversizedRooms(
+  db: SQLite.SQLiteDatabase,
+  userId: string,
+  keepLimit: number
+): Promise<number> {
+  const rooms = await db.getAllAsync<{ room_id: string }>(
+    `SELECT room_id FROM local_messages 
+     WHERE user_id = ? 
+     GROUP BY room_id 
+     HAVING COUNT(*) > ?`,
+    [userId, keepLimit + PRUNE_SLACK]
+  );
+
+  let total = 0;
+  for (const { room_id } of rooms) {
+    total += await deleteOldRoomMessages(db, userId, room_id, keepLimit);
+  }
+  return total;
+}
+
+/**
+ * Memangkas SEMUA room milik user yang melebihi keepLimit + PRUNE_SLACK. Dipakai saat maintenance
+ * agar room lama (mis. dari versi sebelum cap ada, atau tidak pernah dibuka lagi) ikut terpangkas.
+ * Mengembalikan total baris terhapus.
+ */
+export function pruneOversizedRooms(
+  userId: string,
   keepLimit: number = MAX_LOCAL_MESSAGES_PER_ROOM
 ): Promise<number> {
-  if (!userId || !roomId || keepLimit <= 0) return 0;
+  if (!userId || keepLimit <= 0) return Promise.resolve(0);
 
-  try {
-    const db = await getDatabase();
-    const result = await db.runAsync(
-      `DELETE FROM local_messages 
-       WHERE user_id = ? AND room_id = ? 
-         AND id NOT IN (
-           SELECT id FROM local_messages 
-           WHERE user_id = ? AND room_id = ? 
-           ORDER BY created_at DESC 
-           LIMIT ?
-         )`,
-      [userId, roomId, userId, roomId, keepLimit]
-    );
-
-    const changes = result.changes || 0;
-    if (changes > 0) {
-      try {
-        await db.runAsync(`PRAGMA incremental_vacuum;`);
-      } catch {
-        // ignore incremental_vacuum error if not applicable
-      }
+  return runExclusive(async () => {
+    try {
+      const db = await getDatabase();
+      return await sweepOversizedRooms(db, userId, keepLimit);
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to pruneOversizedRooms:', error);
+      return 0;
     }
+  });
+}
 
-    return changes;
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to pruneRoomMessages:', error);
-    return 0;
+/**
+ * Mengembalikan seluruh ruang kosong ke OS dan merapikan file WAL.
+ * - auto_vacuum sudah INCREMENTAL: cukup incremental_vacuum penuh.
+ * - Belum (DB dibuat sebelum M-Mobile-8.29; PRAGMA auto_vacuum pada DB lama tidak berefek tanpa VACUUM):
+ *   set INCREMENTAL lalu VACUUM sekali. Hasilnya permanen, sehingga selanjutnya jalur cepat.
+ * Hanya dipanggil dari dalam gembok tulis (runExclusive), jadi tidak bertabrakan dengan transaksi tulis lain;
+ * VACUUM tetap bisa gagal (mis. disk penuh) dan pemanggil menangkap error lalu mencoba lagi nanti.
+ */
+async function compactDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
+  const row = await db.getFirstAsync<{ auto_vacuum: number }>(`PRAGMA auto_vacuum;`);
+  if (row?.auto_vacuum === 2) {
+    await freeUnusedPages(db);
+  } else {
+    await db.execAsync(`PRAGMA auto_vacuum = INCREMENTAL; VACUUM;`);
   }
+  await db.execAsync(`PRAGMA wal_checkpoint(TRUNCATE);`);
+}
+
+export interface StorageMaintenanceResult {
+  prunedRows: number;
+  compacted: boolean;
+}
+
+/**
+ * Maintenance penyimpanan lokal: pangkas room yang melebihi cap lalu kompaksi bila perlu
+ * (selalu pada DB yang belum INCREMENTAL, atau bila ada baris terpangkas). Aman dipanggil berulang
+ * dan tidak pernah melempar error. Panggil tertunda setelah startup, bukan di jalur kritis.
+ */
+export function runStorageMaintenance(userId: string): Promise<StorageMaintenanceResult> {
+  const result: StorageMaintenanceResult = { prunedRows: 0, compacted: false };
+  if (!userId) return Promise.resolve(result);
+
+  // Satu gembok untuk seluruh maintenance: VACUUM butuh koneksi tanpa transaksi lain yang terbuka
+  return runExclusive(async () => {
+    try {
+      const db = await getDatabase();
+      result.prunedRows = await sweepOversizedRooms(db, userId, MAX_LOCAL_MESSAGES_PER_ROOM);
+
+      const row = await db.getFirstAsync<{ auto_vacuum: number }>(`PRAGMA auto_vacuum;`);
+      if (result.prunedRows > 0 || row?.auto_vacuum !== 2) {
+        await compactDatabase(db);
+        result.compacted = true;
+      }
+    } catch (error) {
+      // Dicoba lagi pada maintenance berikutnya
+      console.warn('[sqliteStorage] Storage maintenance incomplete:', error);
+    }
+    return result;
+  });
 }
 
 /**
  * Persists an array of messages to local SQLite for a specific room.
  * Uses a single transaction to maintain maximum thermal and battery efficiency.
  */
-export async function saveStoredMessages(
+export function saveStoredMessages(
   userId: string,
   roomId: string,
   messages: Message[]
 ): Promise<void> {
-  if (!userId || !roomId || !messages || messages.length === 0) return;
+  return runExclusive(async () => {
+    if (!userId || !roomId || !messages || messages.length === 0) return false;
 
-  try {
-    const db = await getDatabase();
+    try {
+      const db = await getDatabase();
 
-    await db.withTransactionAsync(async () => {
-      for (const m of messages) {
-        if (!m.id) continue;
+      await db.withTransactionAsync(async () => {
+        for (const m of messages) {
+          if (!m.id) continue;
 
-        const createdAt = m.created_at || m.timestamp || new Date().toISOString();
-        const safeReactions = normalizeReactions(m.reactions);
-        const safeMsg = { ...m, reactions: safeReactions };
-        const rawJson = JSON.stringify(safeMsg);
+          const createdAt = m.created_at || m.timestamp || new Date().toISOString();
+          const safeReactions = normalizeReactions(m.reactions);
+          const safeMsg = { ...m, reactions: safeReactions };
+          const rawJson = JSON.stringify(safeMsg);
 
-        await db.runAsync(
-          `INSERT OR REPLACE INTO local_messages (
-            user_id, id, room_id, sender_id, sender_nickname, 
-            content, type, status, reply_to_id, media_url, 
-            local_media_uri, created_at, raw_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            userId,
-            m.id,
-            roomId,
-            m.sender_id || '',
-            m.nickname || m.from || '',
-            m.content || '',
-            m.type || 'text',
-            m.status || 'sent',
-            m.reply_to?.id || null,
-            m.media_url || null,
-            (m as any).local_media_uri || null,
-            createdAt,
-            rawJson,
-          ]
-        );
-      }
-    });
+          await db.runAsync(
+            `INSERT OR REPLACE INTO local_messages (
+              user_id, id, room_id, sender_id, sender_nickname, 
+              content, type, status, reply_to_id, media_url, 
+              local_media_uri, created_at, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              userId,
+              m.id,
+              roomId,
+              m.sender_id || '',
+              m.nickname || m.from || '',
+              m.content || '',
+              m.type || 'text',
+              m.status || 'sent',
+              m.reply_to?.id || null,
+              m.media_url || null,
+              (m as any).local_media_uri || null,
+              createdAt,
+              rawJson,
+            ]
+          );
+        }
+      });
 
-    // Non-blocking background pruning to enforce MAX_LOCAL_MESSAGES_PER_ROOM retention cap
-    pruneRoomMessages(userId, roomId, MAX_LOCAL_MESSAGES_PER_ROOM).catch(() => {});
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to saveStoredMessages:', error);
-  }
+      return true;
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to saveStoredMessages:', error);
+      return false;
+    }
+  }).then((saved) => {
+    // Pruning dijadwalkan SETELAH gembok dilepas (antrean tidak reentrant); tidak menahan pemanggil
+    if (saved) {
+      pruneRoomMessages(userId, roomId, MAX_LOCAL_MESSAGES_PER_ROOM, PRUNE_SLACK).catch(() => {});
+    }
+  });
 }
 
 /**
  * Clears all cached conversations and messages for a specific user.
  * Used during logout to guarantee user isolation and privacy protection.
  */
-export async function clearUserCache(userId: string): Promise<void> {
-  if (!userId) return;
+export function clearUserCache(userId: string): Promise<void> {
+  return runExclusive(async () => {
+    if (!userId) return;
 
-  try {
-    const db = await getDatabase();
-    await db.withTransactionAsync(async () => {
-      await db.runAsync(`DELETE FROM local_conversations WHERE user_id = ?`, [userId]);
-      await db.runAsync(`DELETE FROM local_messages WHERE user_id = ?`, [userId]);
-      await db.runAsync(`DELETE FROM local_call_logs WHERE user_id = ?`, [userId]);
-      await db.runAsync(`DELETE FROM local_friends WHERE user_id = ?`, [userId]);
-    });
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to clearUserCache:', error);
-  }
+    try {
+      const db = await getDatabase();
+      await db.withTransactionAsync(async () => {
+        await db.runAsync(`DELETE FROM local_conversations WHERE user_id = ?`, [userId]);
+        await db.runAsync(`DELETE FROM local_messages WHERE user_id = ?`, [userId]);
+        await db.runAsync(`DELETE FROM local_call_logs WHERE user_id = ?`, [userId]);
+        await db.runAsync(`DELETE FROM local_friends WHERE user_id = ?`, [userId]);
+      });
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to clearUserCache:', error);
+    }
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -585,32 +746,34 @@ export interface LocalCallRecord {
 /**
  * Save or update a call log record in local SQLite.
  */
-export async function saveCallRecord(record: LocalCallRecord): Promise<void> {
-  if (!record || !record.id || !record.user_id) return;
+export function saveCallRecord(record: LocalCallRecord): Promise<void> {
+  return runExclusive(async () => {
+    if (!record || !record.id || !record.user_id) return;
 
-  try {
-    const db = await getDatabase();
-    await db.runAsync(
-      `INSERT OR REPLACE INTO local_call_logs (
-        id, user_id, room_id, peer_id, peer_username, peer_display_name,
-        call_type, duration_seconds, created_at, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        record.id,
-        record.user_id,
-        record.room_id || '',
-        record.peer_id,
-        record.peer_username || '',
-        record.peer_display_name || '',
-        record.call_type,
-        record.duration_seconds || 0,
-        record.created_at || Date.now(),
-        record.status || 'completed',
-      ]
-    );
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to saveCallRecord:', error);
-  }
+    try {
+      const db = await getDatabase();
+      await db.runAsync(
+        `INSERT OR REPLACE INTO local_call_logs (
+          id, user_id, room_id, peer_id, peer_username, peer_display_name,
+          call_type, duration_seconds, created_at, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          record.id,
+          record.user_id,
+          record.room_id || '',
+          record.peer_id,
+          record.peer_username || '',
+          record.peer_display_name || '',
+          record.call_type,
+          record.duration_seconds || 0,
+          record.created_at || Date.now(),
+          record.status || 'completed',
+        ]
+      );
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to saveCallRecord:', error);
+    }
+  });
 }
 
 /**
@@ -638,29 +801,33 @@ export async function getCallHistory(
 /**
  * Clears all call history for a specific user.
  */
-export async function clearCallHistory(userId: string): Promise<void> {
-  if (!userId) return;
+export function clearCallHistory(userId: string): Promise<void> {
+  return runExclusive(async () => {
+    if (!userId) return;
 
-  try {
-    const db = await getDatabase();
-    await db.runAsync(`DELETE FROM local_call_logs WHERE user_id = ?`, [userId]);
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to clearCallHistory:', error);
-  }
+    try {
+      const db = await getDatabase();
+      await db.runAsync(`DELETE FROM local_call_logs WHERE user_id = ?`, [userId]);
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to clearCallHistory:', error);
+    }
+  });
 }
 
 /**
  * Delete a specific call record by its primary key ID.
  */
-export async function deleteCallRecord(recordId: string): Promise<void> {
-  if (!recordId) return;
+export function deleteCallRecord(recordId: string): Promise<void> {
+  return runExclusive(async () => {
+    if (!recordId) return;
 
-  try {
-    const db = await getDatabase();
-    await db.runAsync(`DELETE FROM local_call_logs WHERE id = ?`, [recordId]);
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to deleteCallRecord:', error);
-  }
+    try {
+      const db = await getDatabase();
+      await db.runAsync(`DELETE FROM local_call_logs WHERE id = ?`, [recordId]);
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to deleteCallRecord:', error);
+    }
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -724,24 +891,23 @@ export async function getStorageStats(userId: string): Promise<StorageStats> {
  * Clears only cached messages for a specific user.
  * Preserves conversations list and call history so UI remains intact.
  */
-export async function clearMessageCacheOnly(userId: string): Promise<void> {
-  if (!userId) return;
+export function clearMessageCacheOnly(userId: string): Promise<void> {
+  return runExclusive(async () => {
+    if (!userId) return;
 
-  try {
-    const db = await getDatabase();
-    await db.runAsync(`DELETE FROM local_messages WHERE user_id = ?`, [userId]);
     try {
-      await db.runAsync(`PRAGMA incremental_vacuum;`);
-    } catch {
+      const db = await getDatabase();
+      await db.runAsync(`DELETE FROM local_messages WHERE user_id = ?`, [userId]);
       try {
-        await db.runAsync(`VACUUM;`);
-      } catch {
-        // ignore vacuum fallback error
+        await compactDatabase(db);
+      } catch (compactError) {
+        // Pesan sudah terhapus; kompaksi gagal hanya berarti ruang dikembalikan nanti
+        console.warn('[sqliteStorage] Compaction after clearMessageCacheOnly failed:', compactError);
       }
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to clearMessageCacheOnly:', error);
     }
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to clearMessageCacheOnly:', error);
-  }
+  });
 }
 
 /**
@@ -788,206 +954,216 @@ export async function getStoredFeedPosts(
  * Persists an array of Community Social Feed posts to SQLite with Auto-Pruning.
  * Keeps memory/disk storage footprint strictly capped at max 50 posts per tab (< 200 KB).
  */
-export async function saveStoredFeedPosts(
+export function saveStoredFeedPosts(
   userId: string,
   posts: FeedPost[],
   tab: string = 'latest'
 ): Promise<void> {
-  if (!userId || !posts || posts.length === 0) return;
+  return runExclusive(async () => {
+    if (!userId || !posts || posts.length === 0) return;
 
-  try {
-    const db = await getDatabase();
+    try {
+      const db = await getDatabase();
 
-    await db.withTransactionAsync(async () => {
-      for (const p of posts) {
-        if (!p.id) continue;
+      await db.withTransactionAsync(async () => {
+        for (const p of posts) {
+          if (!p.id) continue;
 
-        const isPinned = p.is_pinned ? 1 : 0;
-        const isLiked = p.is_liked ? 1 : 0;
-        const authorVerified = p.author?.is_verified ? 1 : 0;
-        const mediaUrls = JSON.stringify(p.media_urls || []);
-        const metadata = JSON.stringify(p.metadata || {});
-        const rawJson = JSON.stringify(p);
+          const isPinned = p.is_pinned ? 1 : 0;
+          const isLiked = p.is_liked ? 1 : 0;
+          const authorVerified = p.author?.is_verified ? 1 : 0;
+          const mediaUrls = JSON.stringify(p.media_urls || []);
+          const metadata = JSON.stringify(p.metadata || {});
+          const rawJson = JSON.stringify(p);
 
+          await db.runAsync(
+            `INSERT OR REPLACE INTO local_feed_posts (
+              user_id, feed_tab, id, tenant_id, content, media_urls, post_type,
+              is_pinned, metadata, likes_count, comments_count, is_liked,
+              author_id, author_username, author_display_name,
+              author_avatar_url, author_role, author_is_verified,
+              created_at, updated_at, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              userId,
+              tab,
+              p.id,
+              p.tenant_id || 'default',
+              p.content || '',
+              mediaUrls,
+              p.post_type || 'standard',
+              isPinned,
+              metadata,
+              p.likes_count || 0,
+              p.comments_count || 0,
+              isLiked,
+              p.author?.id || '',
+              p.author?.username || '',
+              p.author?.display_name || '',
+              p.author?.avatar_url || '',
+              p.author?.role || '',
+              authorVerified,
+              p.created_at || new Date().toISOString(),
+              p.updated_at || new Date().toISOString(),
+              rawJson,
+            ]
+          );
+        }
+
+        // Rolling Window Pruning Cap: keep maximum 50 posts per tab per user
         await db.runAsync(
-          `INSERT OR REPLACE INTO local_feed_posts (
-            user_id, feed_tab, id, tenant_id, content, media_urls, post_type,
-            is_pinned, metadata, likes_count, comments_count, is_liked,
-            author_id, author_username, author_display_name,
-            author_avatar_url, author_role, author_is_verified,
-            created_at, updated_at, raw_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            userId,
-            tab,
-            p.id,
-            p.tenant_id || 'default',
-            p.content || '',
-            mediaUrls,
-            p.post_type || 'standard',
-            isPinned,
-            metadata,
-            p.likes_count || 0,
-            p.comments_count || 0,
-            isLiked,
-            p.author?.id || '',
-            p.author?.username || '',
-            p.author?.display_name || '',
-            p.author?.avatar_url || '',
-            p.author?.role || '',
-            authorVerified,
-            p.created_at || new Date().toISOString(),
-            p.updated_at || new Date().toISOString(),
-            rawJson,
-          ]
-        );
-      }
-
-      // Rolling Window Pruning Cap: keep maximum 50 posts per tab per user
-      await db.runAsync(
-        `DELETE FROM local_feed_posts 
-         WHERE user_id = ? AND feed_tab = ? 
-         AND id NOT IN (
-           SELECT id FROM local_feed_posts 
+          `DELETE FROM local_feed_posts 
            WHERE user_id = ? AND feed_tab = ? 
-           ORDER BY is_pinned DESC, created_at DESC 
-           LIMIT 50
-         )`,
-        [userId, tab, userId, tab]
-      );
-    });
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to saveStoredFeedPosts:', error);
-  }
+           AND id NOT IN (
+             SELECT id FROM local_feed_posts 
+             WHERE user_id = ? AND feed_tab = ? 
+             ORDER BY is_pinned DESC, created_at DESC 
+             LIMIT 50
+           )`,
+          [userId, tab, userId, tab]
+        );
+      });
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to saveStoredFeedPosts:', error);
+    }
+  });
 }
 
 /**
  * Optimistically updates the like state and count for a feed post in SQLite.
  */
-export async function updateStoredFeedPostLike(
+export function updateStoredFeedPostLike(
   userId: string,
   postId: string,
   isLiked: boolean,
   likesCount: number
 ): Promise<void> {
-  if (!userId || !postId) return;
+  return runExclusive(async () => {
+    if (!userId || !postId) return;
 
-  try {
-    const db = await getDatabase();
-    // Also update raw_json so subsequent getStoredFeedPosts reflect the change
-    const row = await db.getFirstAsync<{ raw_json: string }>(
-      `SELECT raw_json FROM local_feed_posts WHERE user_id = ? AND id = ?`,
-      [userId, postId]
-    );
+    try {
+      const db = await getDatabase();
+      // Also update raw_json so subsequent getStoredFeedPosts reflect the change
+      const row = await db.getFirstAsync<{ raw_json: string }>(
+        `SELECT raw_json FROM local_feed_posts WHERE user_id = ? AND id = ?`,
+        [userId, postId]
+      );
 
-    let updatedRawJson = '';
-    if (row?.raw_json) {
-      try {
-        const parsed = JSON.parse(row.raw_json) as FeedPost;
-        parsed.is_liked = isLiked;
-        parsed.likes_count = likesCount;
-        updatedRawJson = JSON.stringify(parsed);
-      } catch {
-        // ignore JSON parse error
+      let updatedRawJson = '';
+      if (row?.raw_json) {
+        try {
+          const parsed = JSON.parse(row.raw_json) as FeedPost;
+          parsed.is_liked = isLiked;
+          parsed.likes_count = likesCount;
+          updatedRawJson = JSON.stringify(parsed);
+        } catch {
+          // ignore JSON parse error
+        }
       }
-    }
 
-    if (updatedRawJson) {
-      await db.runAsync(
-        `UPDATE local_feed_posts 
-         SET is_liked = ?, likes_count = ?, raw_json = ? 
-         WHERE user_id = ? AND id = ?`,
-        [isLiked ? 1 : 0, likesCount, updatedRawJson, userId, postId]
-      );
-    } else {
-      await db.runAsync(
-        `UPDATE local_feed_posts 
-         SET is_liked = ?, likes_count = ? 
-         WHERE user_id = ? AND id = ?`,
-        [isLiked ? 1 : 0, likesCount, userId, postId]
-      );
+      if (updatedRawJson) {
+        await db.runAsync(
+          `UPDATE local_feed_posts 
+           SET is_liked = ?, likes_count = ?, raw_json = ? 
+           WHERE user_id = ? AND id = ?`,
+          [isLiked ? 1 : 0, likesCount, updatedRawJson, userId, postId]
+        );
+      } else {
+        await db.runAsync(
+          `UPDATE local_feed_posts 
+           SET is_liked = ?, likes_count = ? 
+           WHERE user_id = ? AND id = ?`,
+          [isLiked ? 1 : 0, likesCount, userId, postId]
+        );
+      }
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to updateStoredFeedPostLike:', error);
     }
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to updateStoredFeedPostLike:', error);
-  }
+  });
 }
 
 /**
  * Updates the comments count for a feed post in SQLite.
  */
-export async function updateStoredFeedPostCommentsCount(
+export function updateStoredFeedPostCommentsCount(
   userId: string,
   postId: string,
   commentsCount: number
 ): Promise<void> {
-  if (!userId || !postId) return;
+  return runExclusive(async () => {
+    if (!userId || !postId) return;
 
-  try {
-    const db = await getDatabase();
-    const row = await db.getFirstAsync<{ raw_json: string }>(
-      `SELECT raw_json FROM local_feed_posts WHERE user_id = ? AND id = ?`,
-      [userId, postId]
-    );
+    try {
+      const db = await getDatabase();
+      const row = await db.getFirstAsync<{ raw_json: string }>(
+        `SELECT raw_json FROM local_feed_posts WHERE user_id = ? AND id = ?`,
+        [userId, postId]
+      );
 
-    if (row?.raw_json) {
-      try {
-        const parsed = JSON.parse(row.raw_json) as FeedPost;
-        parsed.comments_count = commentsCount;
-        const updatedRawJson = JSON.stringify(parsed);
+      if (row?.raw_json) {
+        try {
+          const parsed = JSON.parse(row.raw_json) as FeedPost;
+          parsed.comments_count = commentsCount;
+          const updatedRawJson = JSON.stringify(parsed);
 
-        await db.runAsync(
-          `UPDATE local_feed_posts 
-           SET comments_count = ?, raw_json = ? 
-           WHERE user_id = ? AND id = ?`,
-          [commentsCount, updatedRawJson, userId, postId]
-        );
-        return;
-      } catch {
-        // fallback to column update
+          await db.runAsync(
+            `UPDATE local_feed_posts 
+             SET comments_count = ?, raw_json = ? 
+             WHERE user_id = ? AND id = ?`,
+            [commentsCount, updatedRawJson, userId, postId]
+          );
+          return;
+        } catch {
+          // fallback to column update
+        }
       }
-    }
 
-    await db.runAsync(
-      `UPDATE local_feed_posts SET comments_count = ? WHERE user_id = ? AND id = ?`,
-      [commentsCount, userId, postId]
-    );
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to updateStoredFeedPostCommentsCount:', error);
-  }
+      await db.runAsync(
+        `UPDATE local_feed_posts SET comments_count = ? WHERE user_id = ? AND id = ?`,
+        [commentsCount, userId, postId]
+      );
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to updateStoredFeedPostCommentsCount:', error);
+    }
+  });
 }
 
 /**
  * Removes a deleted feed post from SQLite storage.
  */
-export async function deleteStoredFeedPost(
+export function deleteStoredFeedPost(
   userId: string,
   postId: string
 ): Promise<void> {
-  if (!userId || !postId) return;
+  return runExclusive(async () => {
+    if (!userId || !postId) return;
 
-  try {
-    const db = await getDatabase();
-    await db.runAsync(
-      `DELETE FROM local_feed_posts WHERE user_id = ? AND id = ?`,
-      [userId, postId]
-    );
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to deleteStoredFeedPost:', error);
-  }
+    try {
+      const db = await getDatabase();
+      await db.runAsync(
+        `DELETE FROM local_feed_posts WHERE user_id = ? AND id = ?`,
+        [userId, postId]
+      );
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to deleteStoredFeedPost:', error);
+    }
+  });
 }
 
 /**
  * Clears cached feed posts for a specific user.
  */
-export async function clearFeedPosts(userId: string): Promise<void> {
-  if (!userId) return;
+export function clearFeedPosts(userId: string): Promise<void> {
+  return runExclusive(async () => {
+    if (!userId) return;
 
-  try {
-    const db = await getDatabase();
-    await db.runAsync(`DELETE FROM local_feed_posts WHERE user_id = ?`, [userId]);
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to clearFeedPosts:', error);
-  }
+    try {
+      const db = await getDatabase();
+      await db.runAsync(`DELETE FROM local_feed_posts WHERE user_id = ?`, [userId]);
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to clearFeedPosts:', error);
+    }
+  });
 }
 
 /**
@@ -1000,43 +1176,45 @@ export async function clearFeedPosts(userId: string): Promise<void> {
  * Persists an array of FriendItem objects in local SQLite database.
  * Uses transactional batching for zero UI stutter / 60 FPS performance.
  */
-export async function saveLocalFriends(
+export function saveLocalFriends(
   userId: string,
   friends: FriendItem[]
 ): Promise<void> {
-  if (!userId || !friends || friends.length === 0) return;
+  return runExclusive(async () => {
+    if (!userId || !friends || friends.length === 0) return;
 
-  try {
-    const db = await getDatabase();
-    await db.withTransactionAsync(async () => {
-      for (const friend of friends) {
-        await db.runAsync(
-          `INSERT OR REPLACE INTO local_friends (
-            user_id, id, username, display_name, avatar_url,
-            status_message, bio, role, is_verified, is_private_account,
-            connection_id, connected_at, raw_json
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            userId,
-            friend.id,
-            friend.username,
-            friend.display_name,
-            friend.avatar_url || null,
-            friend.status_message || null,
-            friend.bio || null,
-            friend.role || null,
-            friend.is_verified ? 1 : 0,
-            friend.is_private_account ? 1 : 0,
-            friend.connection_id,
-            friend.connected_at,
-            JSON.stringify(friend),
-          ]
-        );
-      }
-    });
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to saveLocalFriends:', error);
-  }
+    try {
+      const db = await getDatabase();
+      await db.withTransactionAsync(async () => {
+        for (const friend of friends) {
+          await db.runAsync(
+            `INSERT OR REPLACE INTO local_friends (
+              user_id, id, username, display_name, avatar_url,
+              status_message, bio, role, is_verified, is_private_account,
+              connection_id, connected_at, raw_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              userId,
+              friend.id,
+              friend.username,
+              friend.display_name,
+              friend.avatar_url || null,
+              friend.status_message || null,
+              friend.bio || null,
+              friend.role || null,
+              friend.is_verified ? 1 : 0,
+              friend.is_private_account ? 1 : 0,
+              friend.connection_id,
+              friend.connected_at,
+              JSON.stringify(friend),
+            ]
+          );
+        }
+      });
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to saveLocalFriends:', error);
+    }
+  });
 }
 
 /**
@@ -1069,35 +1247,39 @@ export async function getLocalFriends(
 /**
  * Removes a specific friend from local cache upon unfriend event.
  */
-export async function removeLocalFriend(
+export function removeLocalFriend(
   userId: string,
   friendId: string
 ): Promise<void> {
-  if (!userId || !friendId) return;
+  return runExclusive(async () => {
+    if (!userId || !friendId) return;
 
-  try {
-    const db = await getDatabase();
-    await db.runAsync(
-      `DELETE FROM local_friends WHERE user_id = ? AND id = ?`,
-      [userId, friendId]
-    );
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to removeLocalFriend:', error);
-  }
+    try {
+      const db = await getDatabase();
+      await db.runAsync(
+        `DELETE FROM local_friends WHERE user_id = ? AND id = ?`,
+        [userId, friendId]
+      );
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to removeLocalFriend:', error);
+    }
+  });
 }
 
 /**
  * Clears all cached friends for a specific user.
  */
-export async function clearLocalFriends(userId: string): Promise<void> {
-  if (!userId) return;
+export function clearLocalFriends(userId: string): Promise<void> {
+  return runExclusive(async () => {
+    if (!userId) return;
 
-  try {
-    const db = await getDatabase();
-    await db.runAsync(`DELETE FROM local_friends WHERE user_id = ?`, [userId]);
-  } catch (error) {
-    console.warn('[sqliteStorage] Failed to clearLocalFriends:', error);
-  }
+    try {
+      const db = await getDatabase();
+      await db.runAsync(`DELETE FROM local_friends WHERE user_id = ?`, [userId]);
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to clearLocalFriends:', error);
+    }
+  });
 }
 
 
