@@ -8,6 +8,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import { BottomSheetModal } from './BottomSheetModal';
 import { Button } from './Button';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
 import { getAppVersionInfo } from '../utils/appVersion';
 
 interface AboutWuzzChatModalProps {
@@ -40,7 +41,7 @@ export const AboutWuzzChatModal: React.FC<AboutWuzzChatModalProps> = ({
 
         {/* Mission Statement Box */}
         <View style={styles.missionCard}>
-          <Text style={styles.missionIcon}>💡</Text>
+          <IconText style={styles.missionIcon}>💡</IconText>
           <Text style={styles.missionText}>
             WuzzChat adalah messenger modern yang membantu individu, tim, dan komunitas mengubah percakapan menjadi pengetahuan yang dapat dicari, dipahami, dan diingat kembali.
           </Text>
@@ -49,7 +50,7 @@ export const AboutWuzzChatModal: React.FC<AboutWuzzChatModalProps> = ({
         {/* Core Pillars */}
         <View style={styles.pillarsContainer}>
           <View style={styles.pillarItem}>
-            <Text style={styles.pillarIcon}>🛡️</Text>
+            <IconText style={styles.pillarIcon}>🛡️</IconText>
             <View style={styles.pillarContent}>
               <Text style={styles.pillarTitle}>Zero-Knowledge E2EE</Text>
               <Text style={styles.pillarDesc}>
@@ -69,7 +70,7 @@ export const AboutWuzzChatModal: React.FC<AboutWuzzChatModalProps> = ({
           </View>
 
           <View style={styles.pillarItem}>
-            <Text style={styles.pillarIcon}>⚡</Text>
+            <IconText style={styles.pillarIcon}>⚡</IconText>
             <View style={styles.pillarContent}>
               <Text style={styles.pillarTitle}>Cepat & Andal</Text>
               <Text style={styles.pillarDesc}>

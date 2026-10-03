@@ -27,6 +27,8 @@ import { GroupPreviewModal } from '../components/GroupPreviewModal';
 import { useAuth } from '../context/AuthContext';
 import { useConnection } from '../context/ConnectionContext';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from '../components/IconText';
+import { Icon } from '../components/Icon';
 
 export interface NewChatScreenProps {
   onBack: () => void;
@@ -260,12 +262,12 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
               {item.display_name || item.username}
             </Text>
             {item.is_verified && (
-              <Text style={styles.verifiedBadge}>✓</Text>
+              <IconText style={styles.verifiedBadge}>✓</IconText>
             )}
             {item.is_private_account && (
-              <Text style={{ fontSize: 13, marginLeft: 2 }}>
+              <IconText style={{ fontSize: 13, marginLeft: 2 }}>
                 🔒
-              </Text>
+              </IconText>
             )}
             {isMe && (
               <Text style={styles.meBadge}> (Anda)</Text>
@@ -312,7 +314,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
               {title}
             </Text>
             <View style={styles.publicBadgeSmall}>
-              <Text style={styles.publicBadgeSmallText}>🌐 Publik</Text>
+              <IconText style={styles.publicBadgeSmallText}>🌐 Publik</IconText>
             </View>
           </View>
 
@@ -369,7 +371,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           activeOpacity={0.7}
         >
-          <Text style={styles.backButtonText}>←</Text>
+          <Icon name="back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <View style={styles.headerTitleContainer}>
@@ -381,7 +383,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
       {/* Search Input Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <IconText style={styles.searchIcon}>🔍</IconText>
           <TextInput
             style={styles.searchInput}
             placeholder="Cari nama, @username, atau grup..."
@@ -397,7 +399,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
           )}
           {isSearchActive && !isSearching && (
             <TouchableOpacity onPress={handleClearQuery} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.clearIcon}>✕</Text>
+              <Icon name="close" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -422,10 +424,10 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
         }}
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderTitle}>
+            <IconText style={styles.sectionHeaderTitle}>
               {section.type === 'groups' ? '🌐 ' : '👤 '}
               {section.title}
-            </Text>
+            </IconText>
             <View style={styles.sectionHeaderBadge}>
               <Text style={styles.sectionHeaderCount}>{section.data.length}</Text>
             </View>
@@ -443,7 +445,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
                   activeOpacity={0.7}
                 >
                   <View style={styles.newGroupIconWrapper}>
-                    <Text style={styles.newGroupIcon}>👥</Text>
+                    <IconText style={styles.newGroupIcon}>👥</IconText>
                   </View>
                   <View style={styles.newGroupInfo}>
                     <Text style={styles.newGroupTitle}>Grup Baru</Text>
@@ -484,9 +486,9 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
         ListEmptyComponent={
           !isSearching ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>
+              <IconText style={styles.emptyIcon}>
                 {isSearchActive ? '🔍❓' : '💬'}
-              </Text>
+              </IconText>
               <Text style={styles.emptyTitle}>
                 {isSearchActive
                   ? 'Tidak Ditemukan'
@@ -531,11 +533,6 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
     paddingVertical: spacing.xs,
   },
-  backButtonText: {
-    fontSize: 24,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
   headerTitleContainer: {
     flex: 1,
   },
@@ -576,11 +573,6 @@ const styles = StyleSheet.create({
   },
   searchSpinner: {
     marginLeft: spacing.xs,
-  },
-  clearIcon: {
-    fontSize: 14,
-    color: colors.textMuted,
-    paddingHorizontal: spacing.xs,
   },
   errorBox: {
     marginHorizontal: spacing.md,

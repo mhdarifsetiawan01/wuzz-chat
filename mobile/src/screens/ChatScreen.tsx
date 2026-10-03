@@ -58,6 +58,8 @@ import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { PrivateAccountNoticeModal } from '../components/PrivateAccountNoticeModal';
 import { colors } from '../theme/colors';
+import { IconText } from '../components/IconText';
+import { Icon } from '../components/Icon';
 import { radius, spacing } from '../theme/spacing';
 
 export interface ChatScreenProps {
@@ -1533,7 +1535,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.searchHeaderBackIcon}>←</Text>
+            <Icon name="back" size={22} color={colors.textPrimary} />
           </TouchableOpacity>
 
           <View style={styles.searchHeaderInputContainer}>
@@ -1558,7 +1560,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.searchClearIcon}>✕</Text>
+                <Icon name="close" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -1587,14 +1589,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
                 activeOpacity={0.7}
               >
-                <Text
+                <IconText
                   style={[
                     styles.searchNavIcon,
                     searchResults.length === 0 && styles.searchNavIconDisabled,
                   ]}
                 >
                   ▲
-                </Text>
+                </IconText>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -1606,14 +1608,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
                 activeOpacity={0.7}
               >
-                <Text
+                <IconText
                   style={[
                     styles.searchNavIcon,
                     searchResults.length === 0 && styles.searchNavIconDisabled,
                   ]}
                 >
                   ▼
-                </Text>
+                </IconText>
               </TouchableOpacity>
             </View>
           </View>
@@ -1639,7 +1641,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.backIcon}>←</Text>
+            <Icon name="back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
 
           {/* Center: avatar + title + subtitle/breadcrumb */}
@@ -1690,18 +1692,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
                 {/* M-Mobile-8.2C: Interactive breadcrumb for sub-group rooms */}
                 {isSubGroup ? (
-                  <Text style={styles.headerBreadcrumb} numberOfLines={1}>
+                  <IconText style={styles.headerBreadcrumb} numberOfLines={1}>
                     {'↖ '}
                     {parentGroupName ? `${parentGroupName} • ` : ''}
                     {'Forum'}
                     {memberCount > 0 ? ` • ${memberCount} anggota` : ''}
-                  </Text>
+                  </IconText>
                 ) : (
-                  <Text style={styles.headerSubtitle} numberOfLines={1}>
+                  <IconText style={styles.headerSubtitle} numberOfLines={1}>
                     {isDirect
                       ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
                       : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'}`}
-                  </Text>
+                  </IconText>
                 )}
               </View>
             </View>
@@ -1720,10 +1722,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.headerIconText}>📞</Text>
+                <Icon name="call" size={20} color={colors.textPrimary} />
                 {isCallRestricted && (
                   <View style={styles.headerCallLockBadge}>
-                    <Text style={styles.headerCallLockBadgeText}>🔒</Text>
+                    <Icon name="lock" size={9} color={colors.textSecondary} />
                   </View>
                 )}
               </TouchableOpacity>
@@ -1736,7 +1738,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
               activeOpacity={0.75}
             >
-              <Text style={styles.headerIconText}>🔍</Text>
+              <Icon name="search" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
 
             {/* Milestone M-Mobile-8.30: Media Gallery Button */}
@@ -1746,7 +1748,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
               activeOpacity={0.75}
             >
-              <Text style={styles.headerIconText}>🖼️</Text>
+              <Icon name="image" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
 
             {isParentGroup && (
@@ -1757,7 +1759,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.forumButtonText}>🏛️</Text>
+                <IconText style={styles.forumButtonText}>🏛️</IconText>
               </TouchableOpacity>
             )}
 
@@ -1768,7 +1770,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 hitSlop={{ top: 12, bottom: 12, left: 6, right: 12 }}
                 activeOpacity={0.7}
               >
-                <Text style={styles.groupInfoIcon}>ℹ️</Text>
+                <IconText style={styles.groupInfoIcon}>ℹ️</IconText>
               </TouchableOpacity>
             )}
           </View>
@@ -1792,7 +1794,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         {/* Private Account Connection Banner in Direct Chat */}
         {isCallRestricted && (
           <View style={styles.privatePeerBanner}>
-            <Text style={styles.privatePeerBannerIcon}>🔒</Text>
+            <Icon name="lock" size={16} color={colors.textSecondary} />
             <Text style={styles.privatePeerBannerText} numberOfLines={2}>
               {peerConnStatus?.status === 'pending'
                 ? 'Permintaan pertemanan sedang menunggu persetujuan.'
@@ -1818,9 +1820,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         {/* M-Mobile-8.2B: Fail-Closed Read-Only Banner for expired forum topics */}
         {isForumExpired && (
           <View style={styles.expiredBanner}>
-            <Text style={styles.expiredBannerText}>
+            <IconText style={styles.expiredBannerText}>
               🔒 Topik forum ini telah kedaluwarsa dan terkunci. Riwayat pesan tetap dapat dibaca.
-            </Text>
+            </IconText>
           </View>
         )}
 
@@ -1832,7 +1834,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           </View>
         ) : messages.length === 0 ? (
           <View style={styles.centerContainer}>
-            <Text style={styles.emptyIcon}>💬</Text>
+            <IconText style={styles.emptyIcon}>💬</IconText>
             <Text style={styles.emptyTitle}>Belum ada pesan</Text>
             <Text style={styles.emptySubtitle}>Kirim pesan pertama Anda untuk memulai percakapan.</Text>
           </View>
@@ -1899,7 +1901,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   onPress={handleLoadOlder}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.loadOlderButtonText}>↑ Muat Pesan Terdahulu</Text>
+                  <IconText style={styles.loadOlderButtonText}>↑ Muat Pesan Terdahulu</IconText>
                 </TouchableOpacity>
               ) : null
             }
@@ -1917,7 +1919,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             onPress={handleScrollToBottom}
             activeOpacity={0.8}
           >
-            <Text style={styles.scrollToBottomIcon}>↓</Text>
+            <IconText style={styles.scrollToBottomIcon}>↓</IconText>
             {unreadWhileScrolled > 0 && (
               <View style={styles.scrollToBottomBadge}>
                 <Text style={styles.scrollToBottomBadgeText}>
@@ -2090,11 +2092,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backIcon: {
-    fontSize: 22,
-    color: colors.textPrimary,
-    fontWeight: '600',
-  },
   headerInfoTouchable: {
     flex: 1,
     flexDirection: 'row',
@@ -2167,9 +2164,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerIconText: {
-    fontSize: 18,
-  },
   searchHeaderBar: {
     height: 56,
     flexDirection: 'row',
@@ -2185,11 +2179,6 @@ const styles = StyleSheet.create({
     marginRight: 4,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  searchHeaderBackIcon: {
-    fontSize: 20,
-    color: colors.textPrimary,
-    fontWeight: '600',
   },
   searchHeaderInputContainer: {
     flex: 1,
@@ -2207,11 +2196,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 14,
     paddingVertical: 0,
-  },
-  searchClearIcon: {
-    fontSize: 14,
-    color: colors.textMuted,
-    paddingHorizontal: 4,
   },
   searchNavCol: {
     flexDirection: 'row',
@@ -2387,9 +2371,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderDefault,
   },
-  headerCallLockBadgeText: {
-    fontSize: 8,
-  },
   privatePeerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2399,9 +2380,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
-  },
-  privatePeerBannerIcon: {
-    fontSize: 14,
   },
   privatePeerBannerText: {
     flex: 1,

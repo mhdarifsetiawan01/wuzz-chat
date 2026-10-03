@@ -6,6 +6,7 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { colors, radius } from '../theme';
+import { IconText } from './IconText';
 
 interface AvatarProps {
   name: string;
@@ -123,7 +124,7 @@ export const Avatar: React.FC<AvatarProps> = ({
             },
           ]}
         >
-          <Text style={[styles.groupBadgeIcon, { fontSize: Math.max(8, size * 0.18) }]}>👥</Text>
+          <IconText style={[styles.groupBadgeIcon, { fontSize: Math.max(8, size * 0.18) }]}>👥</IconText>
         </View>
       )}
     </View>

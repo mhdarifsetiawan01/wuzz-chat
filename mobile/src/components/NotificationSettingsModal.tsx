@@ -19,6 +19,8 @@ import * as Device from 'expo-device';
 import { isExpoGo, notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { Button } from './Button';
 
 interface NotificationSettingsModalProps {
@@ -153,14 +155,14 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
           {/* Header */}
           <View style={styles.headerRow}>
             <View style={styles.iconContainer}>
-              <Text style={styles.headerIcon}>🔔</Text>
+              <IconText style={styles.headerIcon}>🔔</IconText>
             </View>
             <View style={styles.headerTextCol}>
               <Text style={styles.title}>Notifikasi & Privasi</Text>
               <Text style={styles.subtitle}>Push Notification & Background Sync</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
+              <Icon name="close" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -193,7 +195,7 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
             <View style={styles.divider} />
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Privasi Notifikasi:</Text>
-              <Text style={styles.infoValue}>🔒 Zero-Knowledge (E2EE)</Text>
+              <IconText style={styles.infoValue}>🔒 Zero-Knowledge (E2EE)</IconText>
             </View>
             <Text style={styles.privacyNote}>
               Konten obrolan Anda dilindungi enkripsi end-to-end. Server tidak dapat membaca isi pesan di banner notifikasi.
@@ -225,7 +227,7 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
               onPress={handleClearBadge}
               activeOpacity={0.7}
             >
-              <Text style={styles.actionBtnIcon}>🧹</Text>
+              <IconText style={styles.actionBtnIcon}>🧹</IconText>
               <View style={styles.actionBtnTextCol}>
                 <Text style={styles.actionBtnTitle}>Bersihkan Lencana (Badge)</Text>
                 <Text style={styles.actionBtnDesc}>Reset angka unread pada ikon aplikasi</Text>
@@ -289,11 +291,6 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: spacing.sm,
-  },
-  closeBtnText: {
-    fontSize: 18,
-    color: colors.textSecondary,
-    fontWeight: 'bold',
   },
   settingCard: {
     flexDirection: 'row',

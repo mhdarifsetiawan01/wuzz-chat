@@ -28,6 +28,8 @@ import { Avatar } from '../components/Avatar';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { useConnection } from '../context/ConnectionContext';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from '../components/IconText';
+import { Icon } from '../components/Icon';
 
 export interface FriendsListScreenProps {
   initialTab?: 'friends' | 'requests';
@@ -189,9 +191,9 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
               </Text>
               {item.is_verified && <VerifiedBadge size={15} />}
               {item.is_private_account && (
-                <Text style={styles.privateBadge}>
+                <IconText style={styles.privateBadge}>
                   🔒
-                </Text>
+                </IconText>
               )}
             </View>
 
@@ -216,7 +218,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
               {isChatLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.chatButtonText}>💬 Chat</Text>
+                <IconText style={styles.chatButtonText}>💬 Chat</IconText>
               )}
             </TouchableOpacity>
 
@@ -242,7 +244,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
               }}
               activeOpacity={0.6}
             >
-              <Text style={styles.moreButtonText}>⋮</Text>
+              <IconText style={styles.moreButtonText}>⋮</IconText>
             </TouchableOpacity>
           </View>
         </View>
@@ -343,7 +345,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
           </View>
 
           <View style={styles.pendingBadgeContainer}>
-            <Text style={styles.pendingBadgeText}>⏳ Menunggu</Text>
+            <IconText style={styles.pendingBadgeText}>⏳ Menunggu</IconText>
           </View>
         </View>
       </View>
@@ -360,7 +362,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
           onPress={onBack}
           activeOpacity={0.7}
         >
-          <Text style={styles.backIcon}>←</Text>
+          <Icon name="back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
         <View style={styles.navTitleContainer}>
@@ -377,7 +379,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
           onPress={onNavigateToNewChat}
           activeOpacity={0.7}
         >
-          <Text style={styles.addFriendHeaderIcon}>🔍</Text>
+          <IconText style={styles.addFriendHeaderIcon}>🔍</IconText>
         </TouchableOpacity>
       </View>
 
@@ -428,7 +430,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
         <View style={styles.contentContainer}>
           {/* Search Bar */}
           <View style={styles.searchBarWrapper}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <IconText style={styles.searchIcon}>🔍</IconText>
             <TextInput
               style={styles.searchInput}
               placeholder="Cari teman berdasarkan nama atau @username..."
@@ -444,7 +446,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
                 onPress={() => setSearchQuery('')}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.clearSearchIcon}>✕</Text>
+                <Icon name="close" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -482,7 +484,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
                 </View>
               ) : (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyIcon}>👥</Text>
+                  <IconText style={styles.emptyIcon}>👥</IconText>
                   <Text style={styles.emptyTitle}>
                     {searchQuery ? 'Teman Tidak Ditemukan' : 'Belum Ada Teman'}
                   </Text>
@@ -566,9 +568,9 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
             }
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyIcon}>
+                <IconText style={styles.emptyIcon}>
                   {requestSubTab === 'incoming' ? '📬' : '📤'}
-                </Text>
+                </IconText>
                 <Text style={styles.emptyTitle}>
                   {requestSubTab === 'incoming'
                     ? 'Tidak Ada Permintaan Masuk'
@@ -609,11 +611,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backIcon: {
-    fontSize: 22,
-    color: colors.textPrimary,
-    fontWeight: '600',
   },
   navTitleContainer: {
     flex: 1,
@@ -708,11 +705,6 @@ const styles = StyleSheet.create({
     ...typography.bodySecondary,
     color: colors.textPrimary,
     height: '100%',
-  },
-  clearSearchIcon: {
-    fontSize: 14,
-    color: colors.textMuted,
-    padding: spacing.xs,
   },
   listContent: {
     paddingHorizontal: spacing.md,

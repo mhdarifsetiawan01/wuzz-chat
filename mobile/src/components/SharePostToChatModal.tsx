@@ -27,6 +27,8 @@ import { conversationsApi } from '../api/conversations';
 import { Conversation, FeedPost } from '../api/types';
 import { websocketClient } from '../services/websocket';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { Avatar } from './Avatar';
 import { buildSharedPostMessage } from '../utils/feedShare';
 
@@ -156,21 +158,21 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
               onPress={onClose}
               disabled={isSubmitting}
             >
-              <Text style={styles.closeBtnText}>✕</Text>
+              <Icon name="close" size={18} color="#64748b" />
             </TouchableOpacity>
           </View>
 
           {/* Snippet Preview */}
           <View style={styles.previewBox}>
             <Text style={styles.previewLabel}>Cuplikan yang akan dikirim:</Text>
-            <Text style={styles.previewContent} numberOfLines={2}>
+            <IconText style={styles.previewContent} numberOfLines={2}>
               📢 @{post.author?.username || post.author?.display_name}: {post.content}
-            </Text>
+            </IconText>
           </View>
 
           {/* Search Box */}
           <View style={styles.searchContainer}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <IconText style={styles.searchIcon}>🔍</IconText>
             <TextInput
               style={styles.searchInput}
               placeholder="Cari kontak atau grup..."
@@ -190,7 +192,7 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
             </View>
           ) : filteredConversations.length === 0 ? (
             <View style={styles.centerContainer}>
-              <Text style={styles.emptyIcon}>💬</Text>
+              <IconText style={styles.emptyIcon}>💬</IconText>
               <Text style={styles.emptyText}>Tidak ada obrolan ditemukan</Text>
             </View>
           ) : (
@@ -244,7 +246,7 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
                         isSelected && styles.checkboxSelected,
                       ]}
                     >
-                      {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                      {isSelected && <IconText style={styles.checkmark}>✓</IconText>}
                     </View>
                   </TouchableOpacity>
                 );
@@ -331,11 +333,6 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: 6,
-  },
-  closeBtnText: {
-    fontSize: 16,
-    color: '#64748b',
-    fontWeight: '700',
   },
   previewBox: {
     backgroundColor: '#f8fafc',

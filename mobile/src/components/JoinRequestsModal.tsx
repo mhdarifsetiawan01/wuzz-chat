@@ -25,6 +25,8 @@ import { subgroupsApi } from '../api/subgroups';
 import { JoinRequest } from '../api/types';
 import { Avatar } from './Avatar';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -147,7 +149,7 @@ export const JoinRequestsModal: React.FC<JoinRequestsModalProps> = ({
                   activeOpacity={0.75}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
                 >
-                  <Text style={styles.approveBtnText}>✓ Setujui</Text>
+                  <IconText style={styles.approveBtnText}>✓ Setujui</IconText>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionBtn, styles.rejectBtn]}
@@ -155,7 +157,7 @@ export const JoinRequestsModal: React.FC<JoinRequestsModalProps> = ({
                   activeOpacity={0.75}
                   hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
                 >
-                  <Text style={styles.rejectBtnText}>✗ Tolak</Text>
+                  <IconText style={styles.rejectBtnText}>✗ Tolak</IconText>
                 </TouchableOpacity>
               </>
             )}
@@ -189,16 +191,16 @@ export const JoinRequestsModal: React.FC<JoinRequestsModalProps> = ({
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Text style={styles.headerTitle}>Permohonan Izin</Text>
-              <Text style={styles.headerSubtitle} numberOfLines={1}>
+              <IconText style={styles.headerSubtitle} numberOfLines={1}>
                 🔒 {subGroupTitle}
-              </Text>
+              </IconText>
             </View>
             <TouchableOpacity
               style={styles.closeBtn}
               onPress={onClose}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.closeBtnText}>✕</Text>
+              <Icon name="close" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -268,11 +270,6 @@ const styles = StyleSheet.create({
     borderColor: colors.borderDefault,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeBtnText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,

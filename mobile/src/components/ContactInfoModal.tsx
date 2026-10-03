@@ -31,6 +31,8 @@ import { generateSafetyNumber, isContactSafetyVerified } from '../services/e2eeS
 import { useCall } from '../context/CallContext';
 import { APP_LINK_CONFIG } from '../api/config';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 
 export interface ContactInfoModalProps {
   visible: boolean;
@@ -216,7 +218,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                 style={styles.closeBtn}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <Text style={styles.closeText}>✕</Text>
+                <Icon name="close" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -259,7 +261,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                   activeOpacity={0.75}
                 >
                   <View style={styles.actionIconCircle}>
-                    <Text style={styles.actionIcon}>📞</Text>
+                    <IconText style={styles.actionIcon}>📞</IconText>
                   </View>
                   <Text style={styles.actionLabel}>Panggilan</Text>
                 </TouchableOpacity>
@@ -270,7 +272,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                   activeOpacity={0.75}
                 >
                   <View style={styles.actionIconCircle}>
-                    <Text style={styles.actionIcon}>🔗</Text>
+                    <IconText style={styles.actionIcon}>🔗</IconText>
                   </View>
                   <Text style={styles.actionLabel}>Bagikan</Text>
                 </TouchableOpacity>
@@ -286,7 +288,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                       isMuted && styles.actionIconCircleActive,
                     ]}
                   >
-                    <Text style={styles.actionIcon}>{isMuted ? '🔕' : '🔔'}</Text>
+                    <IconText style={styles.actionIcon}>{isMuted ? '🔕' : '🔔'}</IconText>
                   </View>
                   <Text style={styles.actionLabel}>{isMuted ? 'Dibisukan' : 'Bisukan'}</Text>
                 </TouchableOpacity>
@@ -304,7 +306,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                 >
                   <View style={styles.mediaGalleryLeft}>
                     <View style={styles.mediaGalleryIconCircle}>
-                      <Text style={styles.mediaGalleryIcon}>🖼️</Text>
+                      <IconText style={styles.mediaGalleryIcon}>🖼️</IconText>
                     </View>
                     <View style={styles.mediaGalleryTextCol}>
                       <Text style={styles.mediaGalleryTitle}>Media & Berkas</Text>
@@ -327,7 +329,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
               <View style={styles.securityCard}>
                 <View style={styles.securityCardHeader}>
                   <View style={styles.securityTitleRow}>
-                    <Text style={styles.securityIcon}>🔒</Text>
+                    <IconText style={styles.securityIcon}>🔒</IconText>
                     <View>
                       <Text style={styles.securityTitle}>Enkripsi Ujung-ke-Ujung</Text>
                       <Text style={styles.securitySubtitle}>
@@ -341,9 +343,9 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                       isSafetyVerified ? styles.pillVerified : styles.pillE2EEActive,
                     ]}
                   >
-                    <Text style={styles.pillText}>
+                    <IconText style={styles.pillText}>
                       {isSafetyVerified ? '✅ Terverifikasi' : '🔒 E2EE Aktif'}
-                    </Text>
+                    </IconText>
                   </View>
                 </View>
 
@@ -360,7 +362,7 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
                   onPress={() => setShowSafetyModal(true)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.verifyBtnText}>🔍 Pindai / Cocokkan Kode Keamanan</Text>
+                  <IconText style={styles.verifyBtnText}>🔍 Pindai / Cocokkan Kode Keamanan</IconText>
                 </TouchableOpacity>
               </View>
 
@@ -430,11 +432,6 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: spacing.xs,
-  },
-  closeText: {
-    fontSize: 18,
-    color: colors.textMuted,
-    fontWeight: '600',
   },
   scrollContent: {
     paddingBottom: spacing.md,

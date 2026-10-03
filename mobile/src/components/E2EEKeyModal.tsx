@@ -19,6 +19,8 @@ import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { secureStorage } from '../services/secureStorage';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { Button } from './Button';
 import { QRCodeView } from './QRCodeView';
 
@@ -126,7 +128,7 @@ export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.iconCircle}>
-                <Text style={styles.iconEmoji}>🔐</Text>
+                <IconText style={styles.iconEmoji}>🔐</IconText>
               </View>
               <View>
                 <Text style={styles.title}>Kunci & Keamanan E2EE</Text>
@@ -138,7 +140,7 @@ export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
               onPress={onClose}
               activeOpacity={0.7}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Icon name="close" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -202,9 +204,9 @@ export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
                 >
                   <Text style={styles.fingerprintText}>{fingerprint}</Text>
                   <View style={styles.copyRow}>
-                    <Text style={styles.copyLabel}>
+                    <IconText style={styles.copyLabel}>
                       {copied ? '✓ Sidik Jari Disalin' : 'Tap untuk menyalin sidik jari'}
-                    </Text>
+                    </IconText>
                   </View>
                 </TouchableOpacity>
               )}
@@ -295,11 +297,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgSurface,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeButtonText: {
-    color: colors.textMuted,
-    fontSize: 16,
-    fontWeight: '600',
   },
   scrollArea: {
     flex: 1,

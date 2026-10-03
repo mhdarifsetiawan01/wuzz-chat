@@ -25,6 +25,8 @@ import { getAvatarColor } from './Avatar';
 import { mediaCache } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { SharedPostCard } from './SharedPostCard';
@@ -290,7 +292,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           },
         ]}
       >
-        <Text style={styles.swipeReplyIcon}>↩️</Text>
+        <IconText style={styles.swipeReplyIcon}>↩️</IconText>
       </Animated.View>
 
       <Animated.View
@@ -330,7 +332,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Forwarded Message Header */}
           {message.is_forwarded && !isDeleted ? (
             <View style={styles.forwardedRow}>
-              <Text style={styles.forwardedIcon}>↪</Text>
+              <IconText style={styles.forwardedIcon}>↪</IconText>
               <Text style={styles.forwardedText}>Diteruskan</Text>
             </View>
           ) : null}
@@ -338,7 +340,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {/* Deleted Message State */}
           {isDeleted ? (
             <View style={styles.deletedRow}>
-              <Text style={styles.deletedIcon}>🚫</Text>
+              <IconText style={styles.deletedIcon}>🚫</IconText>
               <Text style={styles.deletedText}>Pesan ini telah dihapus</Text>
             </View>
           ) : (
@@ -360,11 +362,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         ? message.reply_to.nickname
                         : 'Pengguna'}
                     </Text>
-                    <Text style={styles.quoteText} numberOfLines={2}>
+                    <IconText style={styles.quoteText} numberOfLines={2}>
                       {message.reply_to.media_type === 'audio'
                         ? '🎙️ Pesan Suara'
                         : message.reply_to.content || 'Pesan'}
-                    </Text>
+                    </IconText>
                   </View>
                 </TouchableOpacity>
               ) : null}
@@ -372,7 +374,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {/* Expired Media Banner (WhatsApp Store-and-Forward Lifecycle) */}
               {message.media_url && isExpired ? (
                 <View style={styles.expiredBox}>
-                  <Text style={styles.expiredIcon}>⌛</Text>
+                  <IconText style={styles.expiredIcon}>⌛</IconText>
                   <View style={styles.expiredTextCol}>
                     <Text style={styles.expiredTitle}>Media telah kedaluwarsa</Text>
                     <Text style={styles.expiredSubtitle}>File sudah tidak tersedia di server</Text>
@@ -408,7 +410,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     ) : null}
                     {imageError ? (
                       <View style={styles.imageErrorOverlay}>
-                        <Text style={styles.imageErrorIcon}>⚠️</Text>
+                        <IconText style={styles.imageErrorIcon}>⚠️</IconText>
                         <Text style={styles.imageErrorText}>Gagal memuat gambar</Text>
                       </View>
                     ) : null}
@@ -438,7 +440,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   activeOpacity={0.7}
                   onPress={() => onRetryDecrypt?.(message)}
                 >
-                  <Text style={styles.e2eeIcon}>🔒</Text>
+                  <Icon name="lock" size={14} color={colors.textSecondary} />
                   <Text style={[styles.messageText, styles.e2eeText]}>
                     Pesan terenkripsi gagal dibuka.{' '}
                     <Text style={styles.e2eeRetryText}>Ketuk untuk coba lagi</Text>
@@ -446,7 +448,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </TouchableOpacity>
               ) : isE2EE ? (
                 <View style={styles.e2eeRow}>
-                  <Text style={styles.e2eeIcon}>🔒</Text>
+                  <Icon name="lock" size={14} color={colors.textSecondary} />
                   <Text style={[styles.messageText, styles.e2eeText]}>
                     Pesan terenkripsi (sedang menyinkronkan kunci...)
                   </Text>
@@ -472,23 +474,22 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
           {/* Bubble Footer: Timestamp & Receipt Checkmarks */}
           <View style={[styles.footerRow, isImage && !hasCaption && !isDeleted ? styles.footerOverImage : null]}>
-            {message.is_pinned && !isDeleted ? <Text style={styles.pinnedBadgeIcon}>📌</Text> : null}
+            {message.is_pinned && !isDeleted ? <Icon name="pin" size={12} color="rgba(255, 255, 255, 0.75)" /> : null}
             {message.is_edited && !isDeleted ? <Text style={[styles.editedLabel, !isSelf && styles.editedLabelOther]}>(diedit)</Text> : null}
-            {message.is_encrypted && !isDeleted ? <Text style={styles.e2eeLockBadge}>🔒</Text> : null}
+            {message.is_encrypted && !isDeleted ? <Icon name="lock" size={11} color="rgba(255, 255, 255, 0.75)" /> : null}
             <Text style={[styles.timeText, !isSelf && styles.timeTextOther, isDeleted && styles.timeTextDeleted]}>{timeString}</Text>
             {isSelf && !isDeleted ? (
-              <Text
-                style={[
-                  styles.receiptIcon,
-                  message.status === 'read' ? styles.receiptRead : styles.receiptSent,
-                ]}
-              >
-                {message.status === 'sending'
-                  ? '🕒'
-                  : message.status === 'read' || message.status === 'delivered'
-                  ? '✓✓'
-                  : '✓'}
-              </Text>
+              <Icon
+                name={
+                  message.status === 'sending'
+                    ? 'clock'
+                    : message.status === 'read' || message.status === 'delivered'
+                    ? 'checkDouble'
+                    : 'check'
+                }
+                size={14}
+                color={message.status === 'read' ? '#ffffff' : 'rgba(255, 255, 255, 0.65)'}
+              />
             ) : null}
           </View>
         </Pressable>
@@ -802,9 +803,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  e2eeIcon: {
-    fontSize: 13,
-  },
   e2eeText: {
     fontStyle: 'italic',
     color: colors.textSecondary,
@@ -813,10 +811,6 @@ const styles = StyleSheet.create({
     fontStyle: 'normal',
     fontWeight: '600',
     color: colors.accentPrimary,
-  },
-  e2eeLockBadge: {
-    fontSize: 9,
-    opacity: 0.85,
   },
   footerRow: {
     flexDirection: 'row',
@@ -863,19 +857,6 @@ const styles = StyleSheet.create({
   },
   editedLabelOther: {
     color: '#94a3b8',
-  },
-  pinnedBadgeIcon: {
-    fontSize: 10,
-  },
-  receiptIcon: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  receiptSent: {
-    color: 'rgba(255, 255, 255, 0.65)',
-  },
-  receiptRead: {
-    color: '#ffffff', // High contrast on #30AFFF bubble
   },
   systemContainer: {
     alignItems: 'center',

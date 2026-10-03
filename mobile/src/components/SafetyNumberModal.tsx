@@ -25,6 +25,8 @@ import { generateSafetyNumber, isContactSafetyVerified, setContactSafetyVerified
 import { QRCodeView } from './QRCodeView';
 import { CameraQRScannerModal } from './CameraQRScannerModal';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 
 export interface SafetyNumberModalProps {
   visible: boolean;
@@ -227,7 +229,7 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
-              <Text style={styles.lockIcon}>🔒</Text>
+              <IconText style={styles.lockIcon}>🔒</IconText>
               <Text style={styles.headerTitle}>Verifikasi Nomor Keamanan</Text>
             </View>
             <TouchableOpacity
@@ -235,7 +237,7 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
               style={styles.closeBtn}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.closeText}>✕</Text>
+              <Icon name="close" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -258,11 +260,11 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
                 isVerified ? styles.statusBannerVerified : styles.statusBannerUnverified,
               ]}
             >
-              <Text style={styles.statusBannerText}>
+              <IconText style={styles.statusBannerText}>
                 {isVerified
                   ? '✅ Kontak Telah Diverifikasi Aman'
                   : '⚠️ Belum Diverifikasi Secara Manual'}
-              </Text>
+              </IconText>
             </View>
 
             {/* Scan Result Feedback Banner */}
@@ -275,16 +277,16 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
                   scanFeedback.type === 'warning' && styles.feedbackWarning,
                 ]}
               >
-                <Text style={styles.feedbackIcon}>
+                <IconText style={styles.feedbackIcon}>
                   {scanFeedback.type === 'success' ? '✅' : scanFeedback.type === 'danger' ? '🚨' : '⚠️'}
-                </Text>
+                </IconText>
                 <Text style={styles.feedbackText}>{scanFeedback.message}</Text>
                 <TouchableOpacity
                   onPress={() => setScanFeedback(null)}
                   style={styles.feedbackCloseBtn}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  <Text style={styles.feedbackCloseText}>✕</Text>
+                  <Icon name="close" size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             )}
@@ -307,9 +309,9 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
                 onPress={() => setActiveTab('qr')}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.tabBtnText, activeTab === 'qr' && styles.tabBtnTextActive]}>
+                <IconText style={[styles.tabBtnText, activeTab === 'qr' && styles.tabBtnTextActive]}>
                   📱 Kode QR
-                </Text>
+                </IconText>
               </TouchableOpacity>
             </View>
 
@@ -337,9 +339,9 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
                     onPress={handleCopy}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.copyButtonText}>
+                    <IconText style={styles.copyButtonText}>
                       {copied ? '✅ Disalin!' : '📋 Salin Nomor'}
-                    </Text>
+                    </IconText>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -347,7 +349,7 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
                     onPress={() => setIsScannerOpen(true)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.scanSecondaryBtnText}>📷 Pindai QR</Text>
+                    <IconText style={styles.scanSecondaryBtnText}>📷 Pindai QR</IconText>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -370,9 +372,9 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
                   onPress={() => setIsScannerOpen(true)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.scanCameraPrimaryBtnText}>
+                  <IconText style={styles.scanCameraPrimaryBtnText}>
                     📷 Pindai Kode QR {peerNickname ? peerNickname.split(' ')[0] : 'Kontak'}
-                  </Text>
+                  </IconText>
                 </TouchableOpacity>
               </View>
             )}
@@ -386,11 +388,11 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
               onPress={handleToggleVerification}
               activeOpacity={0.8}
             >
-              <Text style={styles.verifyToggleText}>
+              <IconText style={styles.verifyToggleText}>
                 {isVerified
                   ? 'Batalkan Status Verifikasi'
                   : '✓ Tandai Sebagai Kontak Terverifikasi'}
-              </Text>
+              </IconText>
             </TouchableOpacity>
           </ScrollView>
 
@@ -456,11 +458,6 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: spacing.xs,
-  },
-  closeText: {
-    fontSize: 18,
-    color: colors.textMuted,
-    fontWeight: '600',
   },
   scrollContent: {
     paddingBottom: spacing.md,
@@ -600,11 +597,6 @@ const styles = StyleSheet.create({
   feedbackCloseBtn: {
     padding: 4,
     marginLeft: spacing.xs,
-  },
-  feedbackCloseText: {
-    fontSize: 14,
-    color: colors.textMuted,
-    fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',

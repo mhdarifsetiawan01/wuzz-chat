@@ -7,6 +7,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { colors, radius, typography } from '../theme';
+import { IconText } from './IconText';
 
 export interface VerifiedBadgeProps {
   size?: number;
@@ -35,7 +36,7 @@ export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({
           },
         ]}
       >
-        <Text
+        <IconText
           style={[
             styles.checkmark,
             {
@@ -45,7 +46,7 @@ export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({
           ]}
         >
           ✓
-        </Text>
+        </IconText>
       </View>
       {showLabel && <Text style={styles.label}>{label}</Text>}
     </View>

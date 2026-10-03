@@ -7,6 +7,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Conversation, Message } from '../api/types';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
 import { Avatar } from './Avatar';
 import { VerifiedBadge } from './VerifiedBadge';
 import { useAuth } from '../context';
@@ -175,14 +176,14 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
         </View>
 
         <View style={styles.bottomRow}>
-          <Text
+          <IconText
             numberOfLines={1}
             style={[styles.preview, hasUnread && styles.previewUnread]}
           >
             {previewText}
-          </Text>
+          </IconText>
 
-          {isPinned && <Text style={styles.pinIcon}>📌</Text>}
+          {isPinned && <IconText style={styles.pinIcon}>📌</IconText>}
         </View>
       </View>
     </TouchableOpacity>

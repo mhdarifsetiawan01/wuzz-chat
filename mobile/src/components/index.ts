@@ -42,3 +42,5 @@ export * from './AboutWuzzChatModal';
 export * from './LinkPreviewCard';
 export * from './UpdateBanner';
 export * from './SharedPostCard';
+export * from './Icon';
+export * from './IconText';

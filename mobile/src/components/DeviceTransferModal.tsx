@@ -39,6 +39,8 @@ import {
 } from '../services/keyTransfer';
 import { secureStorage } from '../services/secureStorage';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { Button } from './Button';
 import { QRCodeView } from './QRCodeView';
 import { CameraQRScannerModal } from './CameraQRScannerModal';
@@ -282,7 +284,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <View style={styles.headerIconWrapper}>
-                <Text style={styles.headerIcon}>📱</Text>
+                <IconText style={styles.headerIcon}>📱</IconText>
               </View>
               <View>
                 <Text style={styles.headerTitle}>Tautkan Perangkat</Text>
@@ -294,7 +296,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
               style={styles.closeButton}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Icon name="close" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -302,7 +304,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
           {isSuccess ? (
             <View style={styles.successContainer}>
               <View style={styles.successIconCircle}>
-                <Text style={styles.successIcon}>✓</Text>
+                <IconText style={styles.successIcon}>✓</IconText>
               </View>
               <Text style={styles.successTitle}>Kunci E2EE Berhasil Disinkronkan!</Text>
               <Text style={styles.successMessage}>
@@ -358,7 +360,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                 {/* Error Banner */}
                 {errorMsg ? (
                   <View style={styles.errorBanner}>
-                    <Text style={styles.errorIcon}>⚠️</Text>
+                    <IconText style={styles.errorIcon}>⚠️</IconText>
                     <Text style={styles.errorText}>{errorMsg}</Text>
                   </View>
                 ) : null}
@@ -377,7 +379,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                       </View>
                     ) : isExpired ? (
                       <View style={styles.expiredBox}>
-                        <Text style={styles.expiredIcon}>⏳</Text>
+                        <IconText style={styles.expiredIcon}>⏳</IconText>
                         <Text style={styles.expiredTitle}>Sesi Transfer Kedaluwarsa</Text>
                         <Text style={styles.expiredDesc}>
                           Untuk keamanan data Anda, kode QR berlaku selama 5 menit.
@@ -397,7 +399,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
 
                         {/* Timer Badge */}
                         <View style={styles.timerBadge}>
-                          <Text style={styles.timerIcon}>⏱️</Text>
+                          <IconText style={styles.timerIcon}>⏱️</IconText>
                           <Text style={styles.timerText}>
                             Kedaluwarsa dalam <Text style={styles.timerCountdown}>{formatTime(timeLeft)}</Text>
                           </Text>
@@ -409,7 +411,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                           onPress={handleCopyToken}
                           activeOpacity={0.7}
                         >
-                          <Text style={styles.copyButtonIcon}>{copied ? '✓' : '📋'}</Text>
+                          <IconText style={styles.copyButtonIcon}>{copied ? '✓' : '📋'}</IconText>
                           <Text style={styles.copyButtonText}>
                             {copied ? 'Kode Token Tersalin!' : 'Salin Kode Token Manual'}
                           </Text>
@@ -418,7 +420,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                     ) : null}
 
                     <View style={styles.infoCard}>
-                      <Text style={styles.infoCardTitle}>🛡️ Zero-Knowledge Security</Text>
+                      <IconText style={styles.infoCardTitle}>🛡️ Zero-Knowledge Security</IconText>
                       <Text style={styles.infoCardText}>
                         Kunci enkripsi dibungkus dengan AES-256-GCM langsung di perangkat Anda. Server tidak dapat melihat atau mendekripsi private key Anda.
                       </Text>
@@ -578,11 +580,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgElevated,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeButtonText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    fontWeight: '600',
   },
   tabContainer: {
     flexDirection: 'row',

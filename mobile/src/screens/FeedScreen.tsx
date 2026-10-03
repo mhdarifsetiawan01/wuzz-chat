@@ -38,6 +38,7 @@ import { SharePostToChatModal } from '../components/SharePostToChatModal';
 import { useAuth, useFeed } from '../context';
 import { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme';
+import { IconText } from '../components/IconText';
 import { formatPostTime } from '../utils/feedTime';
 import { extractFirstUrl } from '../utils/linkUtils';
 
@@ -107,21 +108,21 @@ export const FeedScreen: React.FC = () => {
     if (post.post_type === 'announcement') {
       return (
         <View style={[styles.badgeBase, styles.announcementBadge]}>
-          <Text style={styles.announcementBadgeText}>📢 Pengumuman Resmi</Text>
+          <IconText style={styles.announcementBadgeText}>📢 Pengumuman Resmi</IconText>
         </View>
       );
     }
     if (post.post_type === 'sponsored') {
       return (
         <View style={[styles.badgeBase, styles.sponsoredBadge]}>
-          <Text style={styles.sponsoredBadgeText}>⭐ Sponsored</Text>
+          <IconText style={styles.sponsoredBadgeText}>⭐ Sponsored</IconText>
         </View>
       );
     }
     if (post.post_type === 'article') {
       return (
         <View style={[styles.badgeBase, styles.articleBadge]}>
-          <Text style={styles.articleBadgeText}>📰 Artikel</Text>
+          <IconText style={styles.articleBadgeText}>📰 Artikel</IconText>
         </View>
       );
     }
@@ -144,7 +145,7 @@ export const FeedScreen: React.FC = () => {
         {/* Pinned Indicator Header */}
         {isPinned && (
           <View style={styles.pinnedHeader}>
-            <Text style={styles.pinnedIcon}>📌</Text>
+            <IconText style={styles.pinnedIcon}>📌</IconText>
             <Text style={styles.pinnedText}>Disematkan oleh Admin</Text>
           </View>
         )}
@@ -162,7 +163,7 @@ export const FeedScreen: React.FC = () => {
               <Text style={styles.authorName} numberOfLines={1}>
                 {authorName}
               </Text>
-              {isVerified && <Text style={styles.verifiedCheck}>✓</Text>}
+              {isVerified && <IconText style={styles.verifiedCheck}>✓</IconText>}
               {renderBadge(item)}
             </View>
 
@@ -181,7 +182,7 @@ export const FeedScreen: React.FC = () => {
               onPress={() => handleDeletePress(item)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={styles.modDeleteText}>🗑️</Text>
+              <IconText style={styles.modDeleteText}>🗑️</IconText>
             </TouchableOpacity>
           )}
         </View>
@@ -209,7 +210,7 @@ export const FeedScreen: React.FC = () => {
             onPress={() => toggleLike(item.id)}
             activeOpacity={0.7}
           >
-            <Text style={styles.actionIcon}>{item.is_liked ? '❤️' : '🤍'}</Text>
+            <IconText style={styles.actionIcon}>{item.is_liked ? '❤️' : '🤍'}</IconText>
             <Text
               style={[
                 styles.actionCount,
@@ -226,7 +227,7 @@ export const FeedScreen: React.FC = () => {
             onPress={() => setActiveCommentsPost(item)}
             activeOpacity={0.7}
           >
-            <Text style={styles.actionIcon}>💬</Text>
+            <IconText style={styles.actionIcon}>💬</IconText>
             <Text style={styles.actionCount}>{item.comments_count}</Text>
           </TouchableOpacity>
 
@@ -236,7 +237,7 @@ export const FeedScreen: React.FC = () => {
             onPress={() => setActiveSharePost(item)}
             activeOpacity={0.7}
           >
-            <Text style={styles.actionIconShare}>↗️</Text>
+            <IconText style={styles.actionIconShare}>↗️</IconText>
             <Text style={styles.actionCountShare}>Bagikan ke Obrolan</Text>
           </TouchableOpacity>
         </View>
@@ -256,7 +257,7 @@ export const FeedScreen: React.FC = () => {
 
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>🌐</Text>
+        <IconText style={styles.emptyIcon}>🌐</IconText>
         <Text style={styles.emptyTitle}>Belum Ada Postingan</Text>
         <Text style={styles.emptySubtitle}>
           Jadilah yang pertama membagikan pembaruan atau ide di Komunitas WuzzChat!
@@ -285,7 +286,7 @@ export const FeedScreen: React.FC = () => {
           onPress={() => setIsCreateModalOpen(true)}
           activeOpacity={0.8}
         >
-          <Text style={styles.headerNewPostIcon}>✏️</Text>
+          <IconText style={styles.headerNewPostIcon}>✏️</IconText>
           <Text style={styles.headerNewPostText}>Buat</Text>
         </TouchableOpacity>
       </View>
@@ -297,14 +298,14 @@ export const FeedScreen: React.FC = () => {
           onPress={() => setActiveTab('latest')}
           activeOpacity={0.75}
         >
-          <Text
+          <IconText
             style={[
               styles.tabPillText,
               activeTab === 'latest' && styles.tabPillTextActive,
             ]}
           >
             ⏱️ Terbaru
-          </Text>
+          </IconText>
         </TouchableOpacity>
 
         <TouchableOpacity

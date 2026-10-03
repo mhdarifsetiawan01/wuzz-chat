@@ -20,6 +20,7 @@ import { createAudioPlayer, AudioPlayer, AudioStatus } from 'expo-audio';
 import { audioManager } from '../services/audioManager';
 import { mediaCache } from '../services/mediaCache';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
 
 // Waveform bar heights mimicking human speech patterns (24 bars)
 const WAVEFORM_HEIGHTS = [
@@ -218,7 +219,7 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
     <View style={[styles.container, isSelf ? styles.selfContainer : styles.otherContainer]}>
       {/* Mic Badge Circle */}
       <View style={[styles.micBadge, isSelf ? styles.selfMicBadge : styles.otherMicBadge]}>
-        <Text style={styles.micBadgeIcon}>🎙️</Text>
+        <IconText style={styles.micBadgeIcon}>🎙️</IconText>
       </View>
 
       {/* Play / Pause / Buffering Button */}
@@ -231,9 +232,9 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
         {isLoading ? (
           <ActivityIndicator size="small" color="#ffffff" />
         ) : isPlaying ? (
-          <Text style={styles.pauseIcon}>⏸</Text>
+          <IconText style={styles.pauseIcon}>⏸</IconText>
         ) : (
-          <Text style={styles.playIcon}>▶</Text>
+          <IconText style={styles.playIcon}>▶</IconText>
         )}
       </TouchableOpacity>
 

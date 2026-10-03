@@ -24,6 +24,8 @@ import {
   MAX_LOCAL_MESSAGES_PER_ROOM,
 } from '../services/sqliteStorage';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { Button } from './Button';
 
 export interface StorageSettingsModalProps {
@@ -174,7 +176,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.iconCircle}>
-                <Text style={styles.iconEmoji}>💾</Text>
+                <IconText style={styles.iconEmoji}>💾</IconText>
               </View>
               <View>
                 <Text style={styles.title}>Penyimpanan & Data</Text>
@@ -186,7 +188,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
               onPress={onClose}
               activeOpacity={0.7}
             >
-              <Text style={styles.closeButtonText}>✕</Text>
+              <Icon name="close" size={18} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -226,7 +228,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLeft}>
-                  <Text style={styles.detailIcon}>💬</Text>
+                  <IconText style={styles.detailIcon}>💬</IconText>
                   <Text style={styles.detailLabel}>Pesan Tersimpan</Text>
                 </View>
                 <Text style={styles.detailValue}>
@@ -237,7 +239,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLeft}>
-                  <Text style={styles.detailIcon}>👥</Text>
+                  <IconText style={styles.detailIcon}>👥</IconText>
                   <Text style={styles.detailLabel}>Percakapan Terdaftar</Text>
                 </View>
                 <Text style={styles.detailValue}>
@@ -248,7 +250,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLeft}>
-                  <Text style={styles.detailIcon}>📞</Text>
+                  <IconText style={styles.detailIcon}>📞</IconText>
                   <Text style={styles.detailLabel}>Log Riwayat Panggilan</Text>
                 </View>
                 <Text style={styles.detailValue}>
@@ -259,7 +261,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLeft}>
-                  <Text style={styles.detailIcon}>🗄️</Text>
+                  <IconText style={styles.detailIcon}>🗄️</IconText>
                   <Text style={styles.detailLabel}>Ukuran Basis Data SQLite</Text>
                 </View>
                 <Text style={styles.detailValue}>
@@ -270,7 +272,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
 
               <View style={styles.detailRow}>
                 <View style={styles.detailLeft}>
-                  <Text style={styles.detailIcon}>🖼️</Text>
+                  <IconText style={styles.detailIcon}>🖼️</IconText>
                   <Text style={styles.detailLabel}>Cache Berkas & Media</Text>
                 </View>
                 <Text style={styles.detailValue}>{formatBytes(mediaCacheBytes)}</Text>
@@ -281,7 +283,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
             <View style={styles.card}>
               <View style={styles.actionLeft}>
                 <View style={[styles.actionIconBox, { backgroundColor: colors.tintAccent10 }]}>
-                  <Text style={styles.actionIconText}>⚡</Text>
+                  <IconText style={styles.actionIconText}>⚡</IconText>
                 </View>
                 <View style={styles.actionTextBox}>
                   <Text style={styles.actionTitle}>Kebijakan Retensi Otomatis</Text>
@@ -307,7 +309,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
               >
                 <View style={styles.actionLeft}>
                   <View style={[styles.actionIconBox, { backgroundColor: colors.tintWarning10 }]}>
-                    <Text style={styles.actionIconText}>🧹</Text>
+                    <IconText style={styles.actionIconText}>🧹</IconText>
                   </View>
                   <View style={styles.actionTextBox}>
                     <Text style={styles.actionTitle}>Bersihkan Cache Pesan</Text>
@@ -329,7 +331,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
               >
                 <View style={styles.actionLeft}>
                   <View style={[styles.actionIconBox, { backgroundColor: colors.tintAccent10 }]}>
-                    <Text style={styles.actionIconText}>🗑️</Text>
+                    <IconText style={styles.actionIconText}>🗑️</IconText>
                   </View>
                   <View style={styles.actionTextBox}>
                     <Text style={styles.actionTitle}>Bersihkan Cache Media</Text>
@@ -406,11 +408,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgSurface,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeButtonText: {
-    color: colors.textMuted,
-    fontSize: 16,
-    fontWeight: '600',
   },
   scrollArea: {
     flex: 1,

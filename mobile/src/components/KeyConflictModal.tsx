@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
 import { Button } from './Button';
 import { Input } from './Input';
 
@@ -114,7 +115,7 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
                 showsVerticalScrollIndicator={false}
               >
             <View style={styles.iconContainer}>
-              <Text style={styles.icon}>🔐</Text>
+              <IconText style={styles.icon}>🔐</IconText>
             </View>
 
             <Text style={styles.title}>

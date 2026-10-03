@@ -31,6 +31,8 @@ import { Message } from '../api/types';
 import { EmojiPicker } from './EmojiPicker';
 import { audioManager } from '../services';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
 
 export interface StagedMedia {
@@ -321,9 +323,9 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
         <View style={styles.editBanner}>
           <View style={styles.editAccentBar} />
           <View style={styles.editInfo}>
-            <Text style={styles.editSender} numberOfLines={1}>
+            <IconText style={styles.editSender} numberOfLines={1}>
               ✏️ Edit Pesan
-            </Text>
+            </IconText>
             <Text style={styles.editSnippet} numberOfLines={1}>
               {editingMessage.content}
             </Text>
@@ -337,7 +339,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.replyCancelText}>✕</Text>
+            <Icon name="close" size={14} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
       ) : null}
@@ -357,13 +359,13 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                   ? replyTo.nickname
                   : 'Pengguna')}
             </Text>
-            <Text style={styles.replySnippet} numberOfLines={1}>
+            <IconText style={styles.replySnippet} numberOfLines={1}>
               {replyTo.media_type === 'audio'
                 ? '🎙️ Pesan Suara'
                 : replyTo.media_url
                 ? '📷 Foto'
                 : replyTo.content || 'Pesan'}
-            </Text>
+            </IconText>
           </View>
           <TouchableOpacity
             style={styles.replyCancelBtn}
@@ -371,7 +373,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.replyCancelText}>✕</Text>
+            <Icon name="close" size={14} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
       ) : null}
@@ -400,7 +402,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               activeOpacity={0.7}
             >
-              <Text style={styles.cancelIcon}>✕</Text>
+              <Icon name="close" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -415,7 +417,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Text style={styles.cancelRecordIcon}>🗑️</Text>
+            <IconText style={styles.cancelRecordIcon}>🗑️</IconText>
             <Text style={styles.cancelRecordText}>Batal</Text>
           </TouchableOpacity>
 
@@ -429,7 +431,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             onPress={stopAndSendRecording}
             activeOpacity={0.7}
           >
-            <Text style={styles.sendRecordIcon}>➤</Text>
+            <Icon name="send" size={20} color="#ffffff" />
           </TouchableOpacity>
         </View>
       ) : (
@@ -442,7 +444,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             disabled={disabled || isUploading}
             activeOpacity={0.7}
           >
-            <Text style={styles.emojiToggleIcon}>{showEmojiPicker ? '⌨️' : '😊'}</Text>
+            <IconText style={styles.emojiToggleIcon}>{showEmojiPicker ? '⌨️' : '😊'}</IconText>
           </TouchableOpacity>
 
           {/* Attachment Picker Trigger Button */}
@@ -455,7 +457,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             disabled={disabled || isUploading}
             activeOpacity={0.7}
           >
-            <Text style={styles.attachIcon}>📎</Text>
+            <Icon name="attach" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
 
           {/* Text Input / Caption */}
@@ -489,9 +491,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               {isUploading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={[styles.sendIcon, styles.sendIconActive]}>
-                  {editingMessage ? '✓' : '➤'}
-                </Text>
+                <Icon name={editingMessage ? 'check' : 'send'} size={20} color="#ffffff" />
               )}
             </TouchableOpacity>
           ) : (
@@ -502,7 +502,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
               activeOpacity={0.7}
               accessibilityLabel="Rekam pesan suara"
             >
-              <Text style={styles.micIcon}>🎙️</Text>
+              <Icon name="mic" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -532,7 +532,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 onPress={() => setShowAttachModal(false)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.modalCloseIcon}>✕</Text>
+                <Icon name="close" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -543,7 +543,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 activeOpacity={0.7}
               >
                 <View style={[styles.optionIconCircle, styles.cameraCircle]}>
-                  <Text style={styles.optionEmoji}>📷</Text>
+                  <Icon name="camera" size={28} color={colors.accentHover} />
                 </View>
                 <Text style={styles.optionLabel}>Kamera</Text>
               </TouchableOpacity>
@@ -554,7 +554,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                 activeOpacity={0.7}
               >
                 <View style={[styles.optionIconCircle, styles.galleryCircle]}>
-                  <Text style={styles.optionEmoji}>🖼️</Text>
+                  <Icon name="image" size={28} color={colors.accentHover} />
                 </View>
                 <Text style={styles.optionLabel}>Galeri</Text>
               </TouchableOpacity>
@@ -669,11 +669,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 8,
   },
-  replyCancelText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontWeight: '700',
-  },
   stagedThumbnail: {
     width: 48,
     height: 48,
@@ -715,11 +710,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginLeft: 8,
   },
-  cancelIcon: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '700',
-  },
   container: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -750,10 +740,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 1,
   },
-  attachIcon: {
-    fontSize: 18,
-    color: colors.textSecondary,
-  },
   input: {
     flex: 1,
     minHeight: 40,
@@ -781,13 +767,6 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: colors.bgCardSolid,
-  },
-  sendIcon: {
-    fontSize: 16,
-    marginLeft: 2, // Centering arrow icon
-  },
-  sendIconActive: {
-    color: '#ffffff',
   },
   sendIconDisabled: {
     color: colors.textMuted,
@@ -817,11 +796,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
   },
-  modalCloseIcon: {
-    fontSize: 16,
-    color: colors.textMuted,
-    padding: 4,
-  },
   optionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -848,9 +822,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.tintAccent30,
   },
-  optionEmoji: {
-    fontSize: 26,
-  },
   optionLabel: {
     fontSize: 13,
     fontWeight: '600',
@@ -867,9 +838,6 @@ const styles = StyleSheet.create({
   },
   micButtonDisabled: {
     opacity: 0.5,
-  },
-  micIcon: {
-    fontSize: 18,
   },
   recordingRow: {
     flexDirection: 'row',
@@ -923,10 +891,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentPrimary,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  sendRecordIcon: {
-    fontSize: 15,
-    color: '#ffffff',
-    marginLeft: 2,
   },
 });

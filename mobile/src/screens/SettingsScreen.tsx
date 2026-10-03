@@ -26,6 +26,7 @@ import { useAuth } from '../context/AuthContext';
 import { useConnection } from '../context/ConnectionContext';
 import { APP_LINK_CONFIG } from '../api/config';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from '../components/IconText';
 import {
   DeviceTransferModal,
   NotificationSettingsModal,
@@ -73,7 +74,7 @@ const SettingsItem: React.FC<SettingsItemProps> = ({
         { backgroundColor: tintColor ? `${tintColor}20` : colors.tintAccent10 },
       ]}
     >
-      <Text style={styles.settingsIconText}>{icon}</Text>
+      <IconText style={styles.settingsIconText}>{icon}</IconText>
     </View>
 
     {/* Text */}
@@ -257,7 +258,7 @@ export const SettingsScreen: React.FC = () => {
 
             {/* E2EE badge */}
             <View style={styles.e2eeBadge}>
-              <Text style={styles.e2eeBadgeIcon}>🛡️</Text>
+              <IconText style={styles.e2eeBadgeIcon}>🛡️</IconText>
               <Text style={styles.e2eeBadgeText}>E2EE Terenkripsi</Text>
             </View>
           </View>
@@ -270,7 +271,7 @@ export const SettingsScreen: React.FC = () => {
               activeOpacity={0.7}
               accessibilityLabel="Bagikan Profil Saya"
             >
-              <Text style={styles.shareButtonIcon}>↗️</Text>
+              <IconText style={styles.shareButtonIcon}>↗️</IconText>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.editButton}
@@ -278,7 +279,7 @@ export const SettingsScreen: React.FC = () => {
               activeOpacity={0.7}
               accessibilityLabel="Edit Profil"
             >
-              <Text style={styles.editButtonIcon}>✏️</Text>
+              <IconText style={styles.editButtonIcon}>✏️</IconText>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

@@ -29,6 +29,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { subgroupsApi } from '../api/subgroups';
 import { SubGroup, SubGroupTTL, CreateSubGroupRequest } from '../api/types';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -138,9 +140,9 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
             <View style={styles.header}>
               <View style={styles.headerLeft}>
                 <Text style={styles.headerTitle}>Buat Topik Baru</Text>
-                <Text style={styles.headerSubtitle} numberOfLines={1}>
+                <IconText style={styles.headerSubtitle} numberOfLines={1}>
                   🏛️ {parentGroupTitle}
-                </Text>
+                </IconText>
               </View>
               <TouchableOpacity
                 style={styles.closeBtn}
@@ -148,7 +150,7 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
                 disabled={isSubmitting}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
-                <Text style={styles.closeBtnText}>✕</Text>
+                <Icon name="close" size={16} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -205,11 +207,11 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
                       activeOpacity={0.75}
                       disabled={isSubmitting}
                     >
-                      <Text
+                      <IconText
                         style={[styles.ttlLabel, isSelected && styles.ttlLabelSelected]}
                       >
                         ⏱ {opt.label}
-                      </Text>
+                      </IconText>
                       <Text
                         style={[styles.ttlDesc, isSelected && styles.ttlDescSelected]}
                       >
@@ -223,9 +225,9 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
               {/* Public / Private toggle */}
               <View style={[styles.toggleRow, { marginTop: spacing.xl }]}>
                 <View style={styles.toggleInfo}>
-                  <Text style={styles.toggleLabel}>
+                  <IconText style={styles.toggleLabel}>
                     {isPublic ? '🌐 Terbuka (Publik)' : '🔒 Privat (Perlu Izin)'}
-                  </Text>
+                  </IconText>
                   <Text style={styles.toggleDesc}>
                     {isPublic
                       ? 'Semua anggota grup bisa langsung bergabung'
@@ -251,7 +253,7 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
                 {isSubmitting ? (
                   <ActivityIndicator size="small" color={colors.textOnAccent} />
                 ) : (
-                  <Text style={styles.submitBtnText}>✦ Buat Topik Forum</Text>
+                  <IconText style={styles.submitBtnText}>✦ Buat Topik Forum</IconText>
                 )}
               </TouchableOpacity>
             </ScrollView>
@@ -308,11 +310,6 @@ const styles = StyleSheet.create({
     borderColor: colors.borderDefault,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeBtnText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '600',
   },
   scrollContent: {
     padding: spacing.xl,

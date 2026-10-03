@@ -28,6 +28,8 @@ import { SubGroupListModal } from '../components/SubGroupListModal';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from '../components/IconText';
+import { Icon } from '../components/Icon';
 
 export interface GroupInfoScreenProps {
   groupId: string;
@@ -327,14 +329,14 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
     if (role === 'creator') {
       return (
         <View style={[styles.roleBadge, styles.creatorBadge]}>
-          <Text style={styles.creatorBadgeText}>👑 Pembuat</Text>
+          <IconText style={styles.creatorBadgeText}>👑 Pembuat</IconText>
         </View>
       );
     }
     if (role === 'admin') {
       return (
         <View style={[styles.roleBadge, styles.adminBadge]}>
-          <Text style={styles.adminBadgeText}>🛡️ Admin</Text>
+          <IconText style={styles.adminBadgeText}>🛡️ Admin</IconText>
         </View>
       );
     }
@@ -372,7 +374,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
             <Text style={styles.memberDisplayName} numberOfLines={1}>
               {item.display_name || item.username}
             </Text>
-            {item.is_verified && <Text style={styles.verifiedBadge}>✓</Text>}
+            {item.is_verified && <IconText style={styles.verifiedBadge}>✓</IconText>}
             {isSelf && <Text style={styles.meTag}> (Anda)</Text>}
           </View>
           <Text style={styles.memberUsername} numberOfLines={1}>
@@ -393,7 +395,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backButtonText}>←</Text>
+            <Icon name="back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Info Grup</Text>
         </View>
@@ -414,7 +416,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
           onPress={onBack}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={styles.backButtonText}>←</Text>
+          <Icon name="back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle} numberOfLines={1}>
@@ -470,7 +472,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
             }}
             activeOpacity={0.7}
           >
-            <Text style={styles.actionCardIcon}>🏛️</Text>
+            <IconText style={styles.actionCardIcon}>🏛️</IconText>
             <Text style={styles.forumCardText}>Forum</Text>
           </TouchableOpacity>
 
@@ -480,7 +482,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
               onPress={handleOpenAddModal}
               activeOpacity={0.7}
             >
-              <Text style={styles.actionCardIcon}>👥➕</Text>
+              <IconText style={styles.actionCardIcon}>👥➕</IconText>
               <Text style={styles.actionCardText}>Tambah Anggota</Text>
             </TouchableOpacity>
           )}
@@ -491,7 +493,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
             onPress={() => setShowMediaGallery(true)}
             activeOpacity={0.7}
           >
-            <Text style={styles.actionCardIcon}>🖼️</Text>
+            <IconText style={styles.actionCardIcon}>🖼️</IconText>
             <Text style={styles.actionCardText}>Media & Berkas Grup</Text>
           </TouchableOpacity>
 
@@ -500,7 +502,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
             onPress={handleLeaveGroup}
             activeOpacity={0.7}
           >
-            <Text style={styles.leaveCardIcon}>🚪</Text>
+            <IconText style={styles.leaveCardIcon}>🚪</IconText>
             <Text style={styles.leaveCardText}>Keluar dari Grup</Text>
           </TouchableOpacity>
         </View>
@@ -554,7 +556,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
               style={styles.backButton}
               onPress={() => setIsAddModalOpen(false)}
             >
-              <Text style={styles.backButtonText}>←</Text>
+              <Icon name="back" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
             <View style={styles.headerTitleContainer}>
               <Text style={styles.headerTitle}>Tambah Anggota</Text>
@@ -584,7 +586,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
           {/* Search Bar in Modal */}
           <View style={styles.modalSearchContainer}>
             <View style={styles.searchBar}>
-              <Text style={styles.searchIcon}>🔍</Text>
+              <IconText style={styles.searchIcon}>🔍</IconText>
               <TextInput
                 style={styles.searchInput}
                 placeholder="Cari kontak..."
@@ -634,7 +636,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
                       isSelected && styles.checkboxSelected,
                     ]}
                   >
-                    {isSelected && <Text style={styles.checkMark}>✓</Text>}
+                    {isSelected && <IconText style={styles.checkMark}>✓</IconText>}
                   </View>
                 </TouchableOpacity>
               );
@@ -680,7 +682,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
                 onPress={() => handleChangeRole('admin')}
                 disabled={isActionLoading}
               >
-                <Text style={styles.sheetOptionText}>🛡️ Jadikan Admin Grup</Text>
+                <IconText style={styles.sheetOptionText}>🛡️ Jadikan Admin Grup</IconText>
               </TouchableOpacity>
             )}
 
@@ -690,7 +692,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
                 onPress={() => handleChangeRole('member')}
                 disabled={isActionLoading}
               >
-                <Text style={styles.sheetOptionText}>👤 Turunkan dari Admin</Text>
+                <IconText style={styles.sheetOptionText}>👤 Turunkan dari Admin</IconText>
               </TouchableOpacity>
             )}
 
@@ -699,9 +701,9 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
               onPress={handleKickMember}
               disabled={isActionLoading}
             >
-              <Text style={styles.sheetOptionDestructiveText}>
+              <IconText style={styles.sheetOptionDestructiveText}>
                 🚫 Keluarkan dari Grup
-              </Text>
+              </IconText>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -743,10 +745,6 @@ const styles = StyleSheet.create({
   backButton: {
     padding: spacing.xs,
     marginRight: spacing.sm,
-  },
-  backButtonText: {
-    fontSize: 22,
-    color: colors.textPrimary,
   },
   headerTitleContainer: {
     flex: 1,

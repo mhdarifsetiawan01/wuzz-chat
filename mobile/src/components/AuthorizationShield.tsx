@@ -18,6 +18,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -39,7 +40,7 @@ export const AuthorizationShield: React.FC<AuthorizationShieldProps> = ({
           {/* Glowing Red Shield Icon */}
           <View style={styles.iconGlowContainer}>
             <View style={styles.iconCircle}>
-              <Text style={styles.lockIcon}>🔒</Text>
+              <IconText style={styles.lockIcon}>🔒</IconText>
             </View>
           </View>
 
@@ -72,7 +73,7 @@ export const AuthorizationShield: React.FC<AuthorizationShieldProps> = ({
             onPress={onBack}
             activeOpacity={0.8}
           >
-            <Text style={styles.backButtonText}>← Kembali ke Beranda Obrolan</Text>
+            <IconText style={styles.backButtonText}>← Kembali ke Beranda Obrolan</IconText>
           </TouchableOpacity>
         </View>
       </View>

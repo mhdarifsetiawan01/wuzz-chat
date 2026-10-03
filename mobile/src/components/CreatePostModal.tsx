@@ -33,6 +33,8 @@ import { mediaApi } from '../api/media';
 import { CreateFeedPostRequest, FeedPostType } from '../api/types';
 import { useAuth, useFeed } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { Avatar } from './Avatar';
 
 export interface CreatePostModalProps {
@@ -276,7 +278,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 </Text>
                 {isAdmin && (
                   <View style={styles.adminBadge}>
-                    <Text style={styles.adminBadgeText}>🛡️ Wuzz Admin</Text>
+                    <IconText style={styles.adminBadgeText}>🛡️ Wuzz Admin</IconText>
                   </View>
                 )}
               </View>
@@ -286,7 +288,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             {isAdmin && (
               <View style={styles.adminControlCard}>
                 <View style={styles.adminControlHeader}>
-                  <Text style={styles.adminControlTitle}>⚙️ Pengaturan Admin</Text>
+                  <IconText style={styles.adminControlTitle}>⚙️ Pengaturan Admin</IconText>
                 </View>
 
                 {/* Sticky Pin Toggle */}
@@ -319,7 +321,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                           isSelected && styles.typeChipSelected,
                         ]}
                       >
-                        <Text style={styles.typeChipIcon}>{pt.icon}</Text>
+                        <IconText style={styles.typeChipIcon}>{pt.icon}</IconText>
                         <Text
                           style={[
                             styles.typeChipText,
@@ -359,7 +361,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                       onPress={() => handleRemoveMedia(index)}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.removeMediaText}>✕</Text>
+                      <Icon name="close" size={12} color="#ffffff" />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -375,7 +377,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 onPress={handlePickGallery}
                 disabled={mediaList.length >= MAX_MEDIA || isSubmitting}
               >
-                <Text style={styles.iconBtnText}>🖼️</Text>
+                <IconText style={styles.iconBtnText}>🖼️</IconText>
                 <Text style={styles.iconBtnLabel}>Galeri</Text>
               </TouchableOpacity>
 
@@ -384,7 +386,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                 onPress={handleLaunchCamera}
                 disabled={mediaList.length >= MAX_MEDIA || isSubmitting}
               >
-                <Text style={styles.iconBtnText}>📷</Text>
+                <IconText style={styles.iconBtnText}>📷</IconText>
                 <Text style={styles.iconBtnLabel}>Kamera</Text>
               </TouchableOpacity>
 
@@ -619,11 +621,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  removeMediaText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '800',
   },
   bottomBar: {
     flexDirection: 'row',

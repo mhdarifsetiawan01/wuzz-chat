@@ -22,6 +22,8 @@ import { Conversation, Message } from '../api/types';
 import { conversationsApi } from '../api/conversations';
 import { Avatar } from './Avatar';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 
 export interface ForwardMessageModalProps {
   visible: boolean;
@@ -132,25 +134,25 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
               disabled={isSubmitting}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={styles.closeBtnText}>✕</Text>
+              <Icon name="close" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {/* Snippet Preview */}
           <View style={styles.previewBox}>
             <Text style={styles.previewLabel}>Pesan yang diteruskan:</Text>
-            <Text style={styles.previewContent} numberOfLines={2}>
+            <IconText style={styles.previewContent} numberOfLines={2}>
               {message.media_type === 'audio'
                 ? '🎙️ Pesan Suara'
                 : message.media_url
                 ? '📷 Foto'
                 : message.content || 'Pesan'}
-            </Text>
+            </IconText>
           </View>
 
           {/* Search Box */}
           <View style={styles.searchContainer}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <IconText style={styles.searchIcon}>🔍</IconText>
             <TextInput
               style={styles.searchInput}
               placeholder="Cari obrolan atau grup..."
@@ -196,7 +198,7 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
                       </Text>
                     </View>
                     <View style={[styles.checkbox, isSelected && styles.checkboxActive]}>
-                      {isSelected ? <Text style={styles.checkboxCheck}>✓</Text> : null}
+                      {isSelected ? <IconText style={styles.checkboxCheck}>✓</IconText> : null}
                     </View>
                   </TouchableOpacity>
                 );
@@ -295,11 +297,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.borderSubtle,
-  },
-  closeBtnText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '700',
   },
   previewBox: {
     marginHorizontal: spacing.lg,

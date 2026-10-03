@@ -28,6 +28,8 @@ import { BottomSheetModal, ActionMenuItem } from '../components/BottomSheetModal
 import { useAuth, useConversations } from '../context';
 import { ConnectionState, websocketClient } from '../services/websocket';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from '../components/IconText';
+import { Icon } from '../components/Icon';
 
 export interface RecentChatsScreenProps {
   onSelectChat?: (conversation: Conversation) => void;
@@ -257,7 +259,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     if (debouncedQuery) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🔍</Text>
+          <IconText style={styles.emptyIcon}>🔍</IconText>
           <Text style={styles.emptyTitle}>No Results Found</Text>
           <Text style={styles.emptySubtitle}>
             No conversations matching &quot;{searchQuery}&quot;. Check your spelling or try another keyword.
@@ -276,7 +278,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     if (activeFilter === 'unread') {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>✅</Text>
+          <IconText style={styles.emptyIcon}>✅</IconText>
           <Text style={styles.emptyTitle}>All Caught Up</Text>
           <Text style={styles.emptySubtitle}>
             You have no unread conversations at this time.
@@ -295,7 +297,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     if (activeFilter === 'groups') {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>👥</Text>
+          <IconText style={styles.emptyIcon}>👥</IconText>
           <Text style={styles.emptyTitle}>No Groups Yet</Text>
           <Text style={styles.emptySubtitle}>
             You haven't joined or created any group conversations yet.
@@ -315,7 +317,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
 
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>💬</Text>
+        <IconText style={styles.emptyIcon}>💬</IconText>
         <Text style={styles.emptyTitle}>No Messages Yet</Text>
         <Text style={styles.emptySubtitle}>
           Your recent conversations and contacts will appear here.
@@ -360,7 +362,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityLabel="Menu"
           >
-            <Text style={styles.headerActionIcon}>⋮</Text>
+            <IconText style={styles.headerActionIcon}>⋮</IconText>
           </TouchableOpacity>
         </View>
       </View>
@@ -368,7 +370,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
       {/* Clean Search Input */}
       <View style={styles.searchBarContainer}>
         <View style={styles.searchInputWrapper}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Icon name="search" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search messages..."
@@ -386,7 +388,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityLabel="Hapus pencarian"
             >
-              <Text style={styles.clearSearchIcon}>✕</Text>
+              <Icon name="close" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
@@ -530,7 +532,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
               </Text>
               <Text style={styles.actionProfileUsername}>@{user.username || 'user'}</Text>
               <View style={styles.actionE2eeBadge}>
-                <Text style={styles.actionE2eeText}>🛡️ E2EE Terenkripsi Aktif</Text>
+                <IconText style={styles.actionE2eeText}>🛡️ E2EE Terenkripsi Aktif</IconText>
               </View>
             </View>
           </View>
@@ -604,7 +606,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
           accessibilityLabel="Mulai obrolan baru"
           accessibilityRole="button"
         >
-          <Text style={styles.fabIcon}>💬</Text>
+          <IconText style={styles.fabIcon}>💬</IconText>
         </TouchableOpacity>
       )}
     </View>
@@ -704,11 +706,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 42,
   },
-  searchIcon: {
-    fontSize: 15,
-    marginRight: 8,
-    color: '#94a3b8',
-  },
   searchInput: {
     flex: 1,
     color: colors.textPrimary,
@@ -720,11 +717,6 @@ const styles = StyleSheet.create({
     padding: 4,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  clearSearchIcon: {
-    fontSize: 13,
-    color: '#94a3b8',
-    fontWeight: 'bold',
   },
   favoritesSection: {
     paddingTop: 10,

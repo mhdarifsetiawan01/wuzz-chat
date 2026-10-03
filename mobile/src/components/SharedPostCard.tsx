@@ -9,6 +9,7 @@ import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } fr
 import { feedApi } from '../api/feedApi';
 import { FeedPost } from '../api/types';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
 import { spacing } from '../theme/spacing';
 
 type PostState = { status: 'ok'; post: FeedPost } | { status: 'gone' } | { status: 'error' };
@@ -78,9 +79,9 @@ export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, is
 
       <View style={styles.body}>
         <View style={styles.headerRow}>
-          <Text style={[styles.label, isSelf && styles.labelSelf]} numberOfLines={1}>
+          <IconText style={[styles.label, isSelf && styles.labelSelf]} numberOfLines={1}>
             📢 {authorName ? `Postingan @${authorName}` : 'Postingan Komunitas'}
-          </Text>
+          </IconText>
           {state === null ? <ActivityIndicator size="small" color={isSelf ? 'rgba(255,255,255,0.7)' : colors.accentPrimary} /> : null}
         </View>
 

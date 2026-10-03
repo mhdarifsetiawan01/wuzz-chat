@@ -19,6 +19,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -168,7 +170,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   accessibilityLabel="Tutup"
                 >
-                  <Text style={styles.closeIcon}>✕</Text>
+                  <Icon name="close" size={16} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -208,7 +210,7 @@ export const ActionMenuItem: React.FC<ActionMenuItemProps> = ({
     >
       <View style={[styles.menuIconContainer, destructive && styles.menuIconContainerDestructive]}>
         {typeof icon === 'string' ? (
-          <Text style={styles.menuIconText}>{icon}</Text>
+          <IconText style={styles.menuIconText}>{icon}</IconText>
         ) : (
           icon
         )}
@@ -280,11 +282,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tintAccent10,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeIcon: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   sheetBody: {
     paddingHorizontal: spacing.lg,

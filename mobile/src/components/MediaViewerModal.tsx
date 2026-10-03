@@ -24,6 +24,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
 
 export interface MediaViewerModalProps {
@@ -381,7 +383,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
 
           {hasError ? (
             <View style={styles.errorOverlay} pointerEvents="none">
-              <Text style={styles.errorIcon}>⚠️</Text>
+              <IconText style={styles.errorIcon}>⚠️</IconText>
               <Text style={styles.errorTitle}>Gagal Memuat Media</Text>
               <Text style={styles.errorSubtitle}>
                 Berkas tidak dapat ditampilkan atau telah kedaluwarsa.
@@ -409,7 +411,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
               hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               activeOpacity={0.7}
             >
-              <Text style={styles.closeIconText}>✕</Text>
+              <Icon name="close" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
 
             {/* Info Center */}
@@ -429,7 +431,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
               hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               activeOpacity={0.7}
             >
-              <Text style={styles.shareIconText}>📤</Text>
+              <IconText style={styles.shareIconText}>📤</IconText>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -522,11 +524,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  closeIconText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
   },
   shareIconText: {
     fontSize: 18,

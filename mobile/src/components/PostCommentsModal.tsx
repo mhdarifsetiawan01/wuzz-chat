@@ -29,6 +29,8 @@ import { feedApi } from '../api/feedApi';
 import { FeedComment, FeedPost } from '../api/types';
 import { useFeed } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { Avatar } from './Avatar';
 import { LinkifiedText } from './LinkifiedText';
 
@@ -204,7 +206,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
                 Komentar {headerCount > 0 ? `(${headerCount})` : ''}
               </Text>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Text style={styles.closeText}>✕</Text>
+                <Icon name="close" size={18} color="#94a3b8" />
               </TouchableOpacity>
             </View>
           </View>
@@ -227,7 +229,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
             </View>
           ) : comments.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>💬</Text>
+              <IconText style={styles.emptyIcon}>💬</IconText>
               <Text style={styles.emptyTitle}>Belum ada komentar</Text>
               <Text style={styles.emptySubtitle}>
                 Jadilah yang pertama mengomentari postingan ini!
@@ -255,7 +257,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
                         {item.author?.display_name || item.author?.username || 'Pengguna'}
                       </Text>
                       {item.author?.is_verified && (
-                        <Text style={styles.verifiedBadge}>✓</Text>
+                        <IconText style={styles.verifiedBadge}>✓</IconText>
                       )}
                       <Text style={styles.commentTime}>
                         {formatCommentTime(item.created_at)}
@@ -349,11 +351,6 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: 6,
-  },
-  closeText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#94a3b8',
   },
   postSnippet: {
     backgroundColor: '#f8fafc',

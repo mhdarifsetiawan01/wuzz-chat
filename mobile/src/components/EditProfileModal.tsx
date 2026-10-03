@@ -26,6 +26,8 @@ import { mediaApi } from '../api/media';
 import { User, UserMetadata } from '../api/types';
 import { Avatar } from './Avatar';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { Button } from './Button';
 
 export interface EditProfileModalProps {
@@ -276,7 +278,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             <View style={styles.header}>
               <View style={styles.headerLeft}>
                 <View style={styles.iconCircle}>
-                  <Text style={styles.iconEmoji}>✏️</Text>
+                  <IconText style={styles.iconEmoji}>✏️</IconText>
                 </View>
                 <View>
                   <Text style={styles.title}>Edit Profil</Text>
@@ -288,7 +290,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 onPress={onClose}
                 activeOpacity={0.7}
               >
-                <Text style={styles.closeButtonText}>✕</Text>
+                <Icon name="close" size={17} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -319,7 +321,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     </View>
                   ) : (
                     <View style={styles.cameraIconBadge}>
-                      <Text style={styles.cameraIconEmoji}>📷</Text>
+                      <IconText style={styles.cameraIconEmoji}>📷</IconText>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -462,7 +464,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               {/* Private Account Switch Card */}
               <View style={styles.switchCard}>
                 <View style={styles.switchInfo}>
-                  <Text style={styles.switchTitle}>🔒 Akun Privat</Text>
+                  <IconText style={styles.switchTitle}>🔒 Akun Privat</IconText>
                   <Text style={styles.switchDescription}>
                     Bila aktif, profil tetap dapat ditemukan namun DM dan Panggilan HANYA dapat diinisiasi oleh teman terhubung.
                   </Text>
@@ -645,11 +647,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgBase,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeButtonText: {
-    color: colors.textMuted,
-    fontSize: 15,
-    fontWeight: '600',
   },
   formScroll: {
     flexShrink: 1,

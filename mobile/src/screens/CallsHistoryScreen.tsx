@@ -30,6 +30,7 @@ import { BottomSheetModal } from '../components/BottomSheetModal';
 import { useAuth, useCall, useConversations } from '../context';
 import { LocalCallRecord } from '../services';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from '../components/IconText';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers & Metadata
@@ -100,7 +101,7 @@ const CallListItem = React.memo<CallListItemProps>(
             {item.call_count > 1 ? ` (${item.call_count})` : ''}
           </Text>
           <View style={styles.callMeta}>
-            <Text style={styles.callTypeIcon}>{meta.icon}</Text>
+            <IconText style={styles.callTypeIcon}>{meta.icon}</IconText>
             <Text style={[styles.callTypeLabel, { color: meta.color }]}>
               {meta.label}
             </Text>
@@ -129,7 +130,7 @@ const CallListItem = React.memo<CallListItemProps>(
             onPress={() => onCallback(item)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.callbackIcon}>📞</Text>
+            <IconText style={styles.callbackIcon}>📞</IconText>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -356,7 +357,7 @@ export const CallsHistoryScreen: React.FC = () => {
   const ListEmpty = useMemo(
     () => (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>📞</Text>
+        <IconText style={styles.emptyIcon}>📞</IconText>
         <Text style={styles.emptyTitle}>Belum ada riwayat panggilan</Text>
         <Text style={styles.emptySubtitle}>
           Mulai panggilan suara WebRTC dengan menekan tombol telepon di bawah.
@@ -423,7 +424,7 @@ export const CallsHistoryScreen: React.FC = () => {
         activeOpacity={0.85}
         onPress={() => setIsDialerOpen(true)}
       >
-        <Text style={styles.fabIcon}>📞</Text>
+        <IconText style={styles.fabIcon}>📞</IconText>
       </TouchableOpacity>
 
       {/* Dialer & Contact Picker Modal */}
@@ -439,7 +440,7 @@ export const CallsHistoryScreen: React.FC = () => {
         <View style={styles.modalContent}>
           {/* Search Box */}
           <View style={styles.searchBox}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <IconText style={styles.searchIcon}>🔍</IconText>
             <TextInput
               style={styles.searchInput}
               placeholder="Cari kontak atau username..."
@@ -498,7 +499,7 @@ export const CallsHistoryScreen: React.FC = () => {
                         </Text>
                       </View>
                       <View style={styles.pickerCallAction}>
-                        <Text style={styles.pickerCallIcon}>📞</Text>
+                        <IconText style={styles.pickerCallIcon}>📞</IconText>
                       </View>
                     </TouchableOpacity>
                   )}
@@ -552,7 +553,7 @@ export const CallsHistoryScreen: React.FC = () => {
                           </Text>
                         </View>
                         <View style={styles.pickerCallAction}>
-                          <Text style={styles.pickerCallIcon}>📞</Text>
+                          <IconText style={styles.pickerCallIcon}>📞</IconText>
                         </View>
                       </TouchableOpacity>
                     );

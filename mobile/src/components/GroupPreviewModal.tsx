@@ -24,6 +24,8 @@ import { groupsApi } from '../api/groups';
 import { GroupDetails } from '../api/types';
 import { Avatar } from './Avatar';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -131,7 +133,7 @@ export const GroupPreviewModal: React.FC<GroupPreviewModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
-              <Text style={styles.headerIcon}>🌐</Text>
+              <IconText style={styles.headerIcon}>🌐</IconText>
               <Text style={styles.headerTitle}>Pratinjau Grup Publik</Text>
             </View>
             <TouchableOpacity
@@ -140,7 +142,7 @@ export const GroupPreviewModal: React.FC<GroupPreviewModalProps> = ({
               disabled={isLoading}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={styles.closeBtnText}>✕</Text>
+              <Icon name="close" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -160,11 +162,11 @@ export const GroupPreviewModal: React.FC<GroupPreviewModalProps> = ({
 
               <View style={styles.badgeRow}>
                 <View style={styles.publicBadge}>
-                  <Text style={styles.publicBadgeIcon}>🌐</Text>
+                  <IconText style={styles.publicBadgeIcon}>🌐</IconText>
                   <Text style={styles.publicBadgeText}>Publik</Text>
                 </View>
                 <View style={styles.membersBadge}>
-                  <Text style={styles.membersBadgeText}>👥 {memberCount} Anggota</Text>
+                  <IconText style={styles.membersBadgeText}>👥 {memberCount} Anggota</IconText>
                 </View>
               </View>
 
@@ -191,7 +193,7 @@ export const GroupPreviewModal: React.FC<GroupPreviewModalProps> = ({
 
             {/* Info notice */}
             <View style={styles.noticeBox}>
-              <Text style={styles.noticeIcon}>ℹ️</Text>
+              <IconText style={styles.noticeIcon}>ℹ️</IconText>
               <Text style={styles.noticeText}>
                 {isMember
                   ? 'Anda sudah menjadi anggota grup publik ini. Tekan tombol di bawah untuk langsung membuka ruang obrolan.'
@@ -202,7 +204,7 @@ export const GroupPreviewModal: React.FC<GroupPreviewModalProps> = ({
             {/* Error Message */}
             {errorMessage ? (
               <View style={styles.errorBox}>
-                <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+                <IconText style={styles.errorText}>⚠️ {errorMessage}</IconText>
               </View>
             ) : null}
           </ScrollView>
@@ -231,9 +233,9 @@ export const GroupPreviewModal: React.FC<GroupPreviewModalProps> = ({
               {isLoading ? (
                 <ActivityIndicator size="small" color={colors.textPrimary} />
               ) : (
-                <Text style={styles.primaryBtnText}>
+                <IconText style={styles.primaryBtnText}>
                   {isMember ? '💬 Buka Obrolan' : '➕ Gabung ke Grup'}
-                </Text>
+                </IconText>
               )}
             </TouchableOpacity>
           </View>
@@ -296,11 +298,6 @@ const styles = StyleSheet.create({
     borderColor: colors.borderDefault,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeBtnText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '600',
   },
   body: {
     padding: spacing.lg,

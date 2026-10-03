@@ -17,6 +17,7 @@ import { LinkPreview } from '../api/types';
 import { fetchLinkPreview } from '../api/linkPreview';
 import { safeOpenUrl } from '../utils/linkUtils';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
 import { spacing } from '../theme/spacing';
 
 interface LinkPreviewCardProps {
@@ -110,7 +111,7 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ url, isSelf = 
               resizeMode="contain"
             />
           ) : (
-            <Text style={styles.globeIcon}>🌐</Text>
+            <IconText style={styles.globeIcon}>🌐</IconText>
           )}
           <Text
             style={[styles.siteName, isSelf && styles.siteNameSelf]}

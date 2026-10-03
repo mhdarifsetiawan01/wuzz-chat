@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AppState, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../theme';
+import { Icon } from './Icon';
 import { AppUpdateInfo, fetchAppUpdateInfo, getLatestVersionLabel, isUpdateAvailable } from '../services/appUpdate';
 import { useCall } from '../context';
 import { APP_CHANNEL } from '../utils/appVersion';
@@ -79,7 +80,7 @@ export const UpdateBannerLayout: React.FC<UpdateBannerLayoutProps> = ({ enabled,
             accessibilityRole="button"
             accessibilityLabel="Tutup"
           >
-            <Text style={styles.close}>✕</Text>
+            <Icon name="close" size={14} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
       )}
@@ -113,9 +114,5 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontWeight: '700',
     color: colors.accentHover,
-  },
-  close: {
-    ...typography.caption,
-    color: colors.textSecondary,
   },
 });

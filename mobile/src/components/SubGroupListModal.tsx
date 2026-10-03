@@ -40,6 +40,8 @@ import { Avatar } from './Avatar';
 import { CreateSubGroupModal } from './CreateSubGroupModal';
 import { JoinRequestsModal } from './JoinRequestsModal';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -253,17 +255,17 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
                 {sub.title}
               </Text>
               <View style={[styles.accessBadge, !sub.is_public && styles.accessBadgePrivate]}>
-                <Text style={styles.accessBadgeText}>
+                <IconText style={styles.accessBadgeText}>
                   {sub.is_public ? '🌐 Terbuka' : '🔒 Privat'}
-                </Text>
+                </IconText>
               </View>
             </View>
 
             {/* TTL badge */}
             <View style={[styles.ttlBadge, expired && styles.ttlBadgeExpired]}>
-              <Text style={[styles.ttlBadgeText, expired && styles.ttlBadgeTextExpired]}>
+              <IconText style={[styles.ttlBadgeText, expired && styles.ttlBadgeTextExpired]}>
                 ⏱ {ttlLabel}
-              </Text>
+              </IconText>
             </View>
           </View>
 
@@ -276,13 +278,13 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
 
           {/* Footer: member count + action */}
           <View style={styles.cardFooter}>
-            <Text style={styles.memberCount}>
+            <IconText style={styles.memberCount}>
               👥 {sub.member_count} anggota
-            </Text>
+            </IconText>
 
             {expired ? (
               <View style={styles.expiredChip}>
-                <Text style={styles.expiredChipText}>🔒 Terkunci</Text>
+                <IconText style={styles.expiredChipText}>🔒 Terkunci</IconText>
               </View>
             ) : sub.is_member ? (
               // Already a member → open directly
@@ -310,7 +312,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
             ) : sub.has_pending_request ? (
               // Private + pending request
               <View style={[styles.actionBtn, styles.actionBtnPending]}>
-                <Text style={styles.actionBtnPendingText}>⏳ Menunggu Izin</Text>
+                <IconText style={styles.actionBtnPendingText}>⏳ Menunggu Izin</IconText>
               </View>
             ) : (
               // Private + no request yet → request to join
@@ -323,7 +325,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
                 {isRequesting ? (
                   <ActivityIndicator size="small" color={colors.accentPrimary} />
                 ) : (
-                  <Text style={styles.actionBtnSecondaryText}>🔒 Minta Izin Gabung</Text>
+                  <IconText style={styles.actionBtnSecondaryText}>🔒 Minta Izin Gabung</IconText>
                 )}
               </TouchableOpacity>
             )}
@@ -336,9 +338,9 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
               onPress={() => setJoinRequestsSubGroup(sub)}
               activeOpacity={0.75}
             >
-              <Text style={styles.reviewRequestsBtnText}>
+              <IconText style={styles.reviewRequestsBtnText}>
                 📋 Tinjau Permohonan Izin
-              </Text>
+              </IconText>
             </TouchableOpacity>
           )}
         </View>
@@ -349,7 +351,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
 
   const ListEmpty = (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>🏛️</Text>
+      <IconText style={styles.emptyIcon}>🏛️</IconText>
       <Text style={styles.emptyTitle}>Belum Ada Topik</Text>
       <Text style={styles.emptyDesc}>
         {isAdminOrCreator
@@ -375,7 +377,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerLeft}>
-                <Text style={styles.headerTitle}>🏛️ Forum</Text>
+                <IconText style={styles.headerTitle}>🏛️ Forum</IconText>
                 <Text style={styles.headerSubtitle} numberOfLines={1}>
                   {parentGroupTitle}
                 </Text>
@@ -399,7 +401,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
                   onPress={onClose}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 >
-                  <Text style={styles.closeBtnText}>✕</Text>
+                  <Icon name="close" size={16} color={colors.textSecondary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -520,11 +522,6 @@ const styles = StyleSheet.create({
     borderColor: colors.borderDefault,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeBtnText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,

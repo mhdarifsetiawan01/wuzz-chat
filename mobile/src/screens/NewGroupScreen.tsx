@@ -26,6 +26,8 @@ import { Conversation, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from '../components/IconText';
+import { Icon } from '../components/Icon';
 
 export interface NewGroupScreenProps {
   onBack: () => void;
@@ -191,7 +193,7 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
             <Text style={styles.contactDisplayName} numberOfLines={1}>
               {item.display_name || item.username}
             </Text>
-            {item.is_verified && <Text style={styles.verifiedBadge}>✓</Text>}
+            {item.is_verified && <IconText style={styles.verifiedBadge}>✓</IconText>}
           </View>
           <Text style={styles.contactUsername} numberOfLines={1}>
             @{item.username}
@@ -200,7 +202,7 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
 
         {/* Checkbox Icon */}
         <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
-          {isSelected && <Text style={styles.checkMark}>✓</Text>}
+          {isSelected && <IconText style={styles.checkMark}>✓</IconText>}
         </View>
       </TouchableOpacity>
     );
@@ -220,7 +222,7 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.backButtonText}>←</Text>
+            <Icon name="back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleContainer}>
@@ -310,7 +312,7 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
                     style={styles.chipRemoveButton}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Text style={styles.chipRemoveIcon}>✕</Text>
+                    <Icon name="close" size={12} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -321,7 +323,7 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
         {/* Search Contacts Bar */}
         <View style={styles.searchBarContainer}>
           <View style={styles.searchBar}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <IconText style={styles.searchIcon}>🔍</IconText>
             <TextInput
               style={styles.searchInput}
               placeholder="Cari anggota untuk ditambahkan..."
@@ -381,10 +383,6 @@ const styles = StyleSheet.create({
   backButton: {
     padding: spacing.xs,
     marginRight: spacing.sm,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: colors.textPrimary,
   },
   headerTitleContainer: {
     flex: 1,
@@ -499,11 +497,6 @@ const styles = StyleSheet.create({
   },
   chipRemoveButton: {
     padding: 2,
-  },
-  chipRemoveIcon: {
-    fontSize: 10,
-    color: colors.textMuted,
-    fontWeight: '700',
   },
   searchBarContainer: {
     paddingHorizontal: spacing.md,

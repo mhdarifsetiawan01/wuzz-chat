@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useCall } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
 import { Avatar } from './Avatar';
 
 function formatCallDuration(seconds: number): string {
@@ -82,7 +83,7 @@ export const ActiveCallOverlay: React.FC = () => {
         {/* Top Header info */}
         <View style={styles.headerSection}>
           <View style={styles.securityBadge}>
-            <Text style={styles.securityBadgeIcon}>🔒</Text>
+            <IconText style={styles.securityBadgeIcon}>🔒</IconText>
             <Text style={styles.securityBadgeText}>P2P Voice Call • WebRTC</Text>
           </View>
         </View>
@@ -123,7 +124,7 @@ export const ActiveCallOverlay: React.FC = () => {
                 disabled={activeCall.status === 'ended'}
                 activeOpacity={0.75}
               >
-                <Text style={styles.controlIcon}>{isMuted ? '🔇' : '🎙️'}</Text>
+                <IconText style={styles.controlIcon}>{isMuted ? '🔇' : '🎙️'}</IconText>
               </TouchableOpacity>
               <Text style={styles.controlLabel}>{isMuted ? 'Muted' : 'Mute'}</Text>
             </View>
@@ -135,7 +136,7 @@ export const ActiveCallOverlay: React.FC = () => {
                 onPress={endCall}
                 activeOpacity={0.8}
               >
-                <Text style={styles.hangupIcon}>📵</Text>
+                <IconText style={styles.hangupIcon}>📵</IconText>
               </TouchableOpacity>
               <Text style={styles.controlLabel}>Tutup</Text>
             </View>
@@ -151,7 +152,7 @@ export const ActiveCallOverlay: React.FC = () => {
                 disabled={activeCall.status === 'ended'}
                 activeOpacity={0.75}
               >
-                <Text style={styles.controlIcon}>{isSpeaker ? '🔊' : '🔈'}</Text>
+                <IconText style={styles.controlIcon}>{isSpeaker ? '🔊' : '🔈'}</IconText>
               </TouchableOpacity>
               <Text style={styles.controlLabel}>
                 {isSpeaker ? 'Speaker' : 'Earpiece'}

@@ -16,6 +16,8 @@ import {
 } from 'react-native';
 import { useCall } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { Avatar } from './Avatar';
 
 export const IncomingCallModal: React.FC = () => {
@@ -81,7 +83,7 @@ export const IncomingCallModal: React.FC = () => {
             {activeCall.peerNickname || 'Pengguna WuzzChat'}
           </Text>
           <View style={styles.callBadge}>
-            <Text style={styles.callBadgeIcon}>📞</Text>
+            <IconText style={styles.callBadgeIcon}>📞</IconText>
             <Text style={styles.callBadgeText}>Panggilan Suara Masuk...</Text>
           </View>
 
@@ -93,7 +95,7 @@ export const IncomingCallModal: React.FC = () => {
               onPress={rejectCall}
               activeOpacity={0.8}
             >
-              <Text style={styles.actionIcon}>✕</Text>
+              <Icon name="close" size={20} color={colors.textPrimary} />
               <Text style={styles.actionLabel}>Tolak</Text>
             </TouchableOpacity>
 
@@ -103,7 +105,7 @@ export const IncomingCallModal: React.FC = () => {
               onPress={acceptCall}
               activeOpacity={0.8}
             >
-              <Text style={styles.actionIcon}>📞</Text>
+              <IconText style={styles.actionIcon}>📞</IconText>
               <Text style={styles.actionLabel}>Terima</Text>
             </TouchableOpacity>
           </View>

@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
 import { QUICK_REACTIONS } from '../constants/emojis';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
 import { spacing } from '../theme/spacing';
 
 export interface MessageActionSheetProps {
@@ -149,7 +150,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                   activeOpacity={0.7}
                 >
                   <View style={styles.deleteOptionContent}>
-                    <Text style={styles.deleteOptionIcon}>📢</Text>
+                    <IconText style={styles.deleteOptionIcon}>📢</IconText>
                     <View style={styles.deleteOptionTextWrap}>
                       <Text
                         style={[
@@ -180,7 +181,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                 activeOpacity={0.7}
               >
                 <View style={styles.deleteOptionContent}>
-                  <Text style={styles.deleteOptionIcon}>👤</Text>
+                  <IconText style={styles.deleteOptionIcon}>👤</IconText>
                   <View style={styles.deleteOptionTextWrap}>
                     <Text style={styles.deleteForMeText}>Hapus untuk Saya</Text>
                     <Text style={styles.deleteOptionSubtext}>
@@ -226,7 +227,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                   onPress={handleReply}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.actionMenuIcon}>↩️</Text>
+                  <IconText style={styles.actionMenuIcon}>↩️</IconText>
                   <Text style={styles.actionMenuLabel}>Balas Pesan</Text>
                 </TouchableOpacity>
 
@@ -240,7 +241,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                     }}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.actionMenuIcon}>✏️</Text>
+                    <IconText style={styles.actionMenuIcon}>✏️</IconText>
                     <Text style={styles.actionMenuLabel}>Edit Pesan</Text>
                   </TouchableOpacity>
                 ) : null}
@@ -255,7 +256,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                     }}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.actionMenuIcon}>↪️</Text>
+                    <IconText style={styles.actionMenuIcon}>↪️</IconText>
                     <Text style={styles.actionMenuLabel}>Teruskan Pesan</Text>
                   </TouchableOpacity>
                 ) : null}
@@ -270,7 +271,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                     }}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.actionMenuIcon}>📌</Text>
+                    <IconText style={styles.actionMenuIcon}>📌</IconText>
                     <Text style={styles.actionMenuLabel}>
                       {message.is_pinned ? 'Lepas Sematan' : 'Sematkan Pesan'}
                     </Text>
@@ -284,7 +285,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                     onPress={handleCopy}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.actionMenuIcon}>📋</Text>
+                    <IconText style={styles.actionMenuIcon}>📋</IconText>
                     <Text style={styles.actionMenuLabel}>Salin Teks</Text>
                   </TouchableOpacity>
                 ) : null}
@@ -296,7 +297,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                     onPress={() => setShowDeleteConfirm(true)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.actionMenuIcon}>🗑️</Text>
+                    <IconText style={styles.actionMenuIcon}>🗑️</IconText>
                     <Text style={[styles.actionMenuLabel, styles.deleteMenuLabel]}>
                       Hapus Pesan
                     </Text>

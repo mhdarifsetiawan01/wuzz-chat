@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
 import { Button } from './Button';
 
 export interface ActionConfirmModalProps {
@@ -68,7 +69,7 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
         <View style={styles.card}>
           {/* Icon Badge */}
           <View style={[styles.iconContainer, getIconBgStyle()]}>
-            <Text style={styles.icon}>{icon}</Text>
+            <IconText style={styles.icon}>{icon}</IconText>
           </View>
 
           {/* Title */}

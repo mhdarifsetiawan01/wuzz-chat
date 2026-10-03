@@ -18,6 +18,8 @@ import { PostMedia } from '../components/PostMedia';
 import { SharePostToChatModal } from '../components/SharePostToChatModal';
 import { useAuth, useFeed } from '../context';
 import { colors } from '../theme';
+import { IconText } from '../components/IconText';
+import { Icon } from '../components/Icon';
 import { formatPostTime } from '../utils/feedTime';
 import { extractFirstUrl } from '../utils/linkUtils';
 
@@ -111,15 +113,15 @@ export const PostReaderScreen: React.FC<PostReaderScreenProps> = ({ postId, init
 
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionBtn} onPress={() => toggleLike(post.id)} activeOpacity={0.7}>
-            <Text style={styles.actionIcon}>{post.is_liked ? '❤️' : '🤍'}</Text>
+            <IconText style={styles.actionIcon}>{post.is_liked ? '❤️' : '🤍'}</IconText>
             <Text style={[styles.actionCount, post.is_liked && styles.liked]}>{post.likes_count}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => setCommentsOpen(true)} activeOpacity={0.7}>
-            <Text style={styles.actionIcon}>💬</Text>
+            <IconText style={styles.actionIcon}>💬</IconText>
             <Text style={styles.actionCount}>{post.comments_count} Komentar</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.shareBtn} onPress={() => setShareOpen(true)} activeOpacity={0.7}>
-            <Text style={styles.shareText}>↗️ Bagikan</Text>
+            <IconText style={styles.shareText}>↗️ Bagikan</IconText>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -140,12 +142,12 @@ export const PostReaderScreen: React.FC<PostReaderScreenProps> = ({ postId, init
 const Header: React.FC<{ onBack: () => void; onDelete?: () => void }> = ({ onBack, onDelete }) => (
   <View style={styles.header}>
     <TouchableOpacity onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Kembali">
-      <Text style={styles.back}>←</Text>
+      <Icon name="back" size={24} color="#0f172a" />
     </TouchableOpacity>
     <Text style={styles.headerTitle}>Postingan</Text>
     {onDelete ? (
       <TouchableOpacity onPress={onDelete} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Hapus postingan">
-        <Text style={styles.trash}>🗑️</Text>
+        <IconText style={styles.trash}>🗑️</IconText>
       </TouchableOpacity>
     ) : (
       <View style={styles.headerSpacer} />

@@ -31,6 +31,8 @@ import { CallsHistoryScreen } from '../screens/CallsHistoryScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { FeedScreen } from '../screens/FeedScreen';
 import { colors, spacing, radius } from '../theme';
+import { Icon } from '../components/Icon';
+import type { IconName } from '../components/icons/registry';
 import { useConversations } from '../context/ConversationContext';
 import { ConversationItem } from '../api/types';
 
@@ -50,15 +52,14 @@ type ChatsTabNavigationProp = CompositeNavigationProp<
 interface TabConfig {
   key: keyof TabParamList;
   label: string;
-  icon: string;
-  iconActive: string;
+  icon: IconName;
 }
 
 const TAB_CONFIGS: TabConfig[] = [
-  { key: 'Chats',    label: 'Obrolan',    icon: '💬', iconActive: '💬' },
-  { key: 'Feed',     label: 'Feed',       icon: '🌐', iconActive: '🌐' },
-  { key: 'Calls',    label: 'Panggilan',  icon: '📞', iconActive: '📞' },
-  { key: 'Settings', label: 'Pengaturan', icon: '⚙️',  iconActive: '⚙️'  },
+  { key: 'Chats',    label: 'Obrolan',    icon: 'chat' },
+  { key: 'Feed',     label: 'Feed',       icon: 'feed' },
+  { key: 'Calls',    label: 'Panggilan',  icon: 'call' },
+  { key: 'Settings', label: 'Pengaturan', icon: 'settings' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -118,14 +119,16 @@ const TabItem: React.FC<TabItemProps> = ({
       style={styles.tabItem}
     >
       <View style={styles.iconWrapper}>
-        <Animated.Text
-          style={[
-            styles.tabIcon,
-            { opacity: iconOpacity, transform: [{ translateY: iconLift }, { scale: iconScale }] },
-          ]}
+        <Animated.View
+          style={{ opacity: iconOpacity, transform: [{ translateY: iconLift }, { scale: iconScale }] }}
         >
-          {cfg.icon}
-        </Animated.Text>
+          <Icon
+            name={cfg.icon}
+            size={ICON_SIZE}
+            active={isFocused}
+            color={isFocused ? colors.accentHover : colors.textMuted}
+          />
+        </Animated.View>
         {badge > 0 && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{badge > 99 ? '99+' : String(badge)}</Text>
@@ -272,6 +275,7 @@ export const MainTabNavigator: React.FC = () => {
 // Styles
 // ─────────────────────────────────────────────────────────────────────────────
 const BAR_PADDING = spacing.xs;
+const ICON_SIZE = 24;
 
 const styles = StyleSheet.create({
   tabBarOuter: {
@@ -313,10 +317,6 @@ const styles = StyleSheet.create({
   },
   iconWrapper: {
     position: 'relative',
-  },
-  tabIcon: {
-    fontSize: 20,
-    lineHeight: 26,
   },
   tabLabel: {
     fontSize: 10,

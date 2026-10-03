@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
 import { ConnectionStatus } from '../api/types';
 import { Avatar } from './Avatar';
 import { Button } from './Button';
@@ -79,7 +80,7 @@ export const PrivateAccountNoticeModal: React.FC<PrivateAccountNoticeModalProps>
               isCall ? styles.callIconBg : styles.privateIconBg,
             ]}
           >
-            <Text style={styles.icon}>{isCall ? '📞' : '🔒'}</Text>
+            <IconText style={styles.icon}>{isCall ? '📞' : '🔒'}</IconText>
           </View>
 
           {/* Title */}

@@ -31,6 +31,8 @@ import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
 import { useConnection } from '../context/ConnectionContext';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from '../components/IconText';
+import { Icon } from '../components/Icon';
 
 export interface UserProfileScreenProps {
   userId?: string;
@@ -468,7 +470,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           activeOpacity={0.7}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Text style={styles.backArrow}>←</Text>
+          <Icon name="back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.navTitle} numberOfLines={1}>
           Profil Pengguna
@@ -481,7 +483,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               activeOpacity={0.7}
               accessibilityLabel="Bagikan Profil"
             >
-              <Text style={styles.shareHeaderBtnText}>↗️</Text>
+              <IconText style={styles.shareHeaderBtnText}>↗️</IconText>
             </TouchableOpacity>
           ) : null}
           {isSelf && (
@@ -504,7 +506,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         </View>
       ) : errorMessage && !user ? (
         <View style={styles.errorContainer}>
-          <Text style={styles.errorEmoji}>⚠️</Text>
+          <IconText style={styles.errorEmoji}>⚠️</IconText>
           <Text style={styles.errorText}>{errorMessage}</Text>
           <TouchableOpacity
             style={styles.retryButton}
@@ -568,7 +570,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   onPress={handleShareProfile}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.actionIcon}>↗️</Text>
+                  <IconText style={styles.actionIcon}>↗️</IconText>
                   <Text style={styles.primaryActionText}>Bagikan Profil</Text>
                 </TouchableOpacity>
 
@@ -577,7 +579,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   onPress={() => setShowEditModal(true)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.actionIcon}>✏️</Text>
+                  <IconText style={styles.actionIcon}>✏️</IconText>
                   <Text style={styles.secondaryActionText}>Edit Profil</Text>
                 </TouchableOpacity>
               </View>
@@ -585,7 +587,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <View style={styles.privateProfileActionsContainer}>
                 {/* Private Account Notice Banner */}
                 <View style={styles.privateNoticeCard}>
-                  <Text style={styles.privateNoticeIcon}>🔒</Text>
+                  <IconText style={styles.privateNoticeIcon}>🔒</IconText>
                   <Text style={styles.privateNoticeText}>
                     Akun ini privat. DM dan panggilan hanya dapat diinisiasi oleh teman terhubung.
                   </Text>
@@ -595,7 +597,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <View style={styles.actionsRow}>
                   {connStatus?.status === 'pending' && connStatus?.direction === 'outgoing' ? (
                     <View style={[styles.pendingActionBtn, { flex: 1 }]}>
-                      <Text style={styles.pendingActionText}>⏳ Permintaan Terkirim (Menunggu)</Text>
+                      <IconText style={styles.pendingActionText}>⏳ Permintaan Terkirim (Menunggu)</IconText>
                     </View>
                   ) : connStatus?.status === 'pending' && connStatus?.direction === 'incoming' ? (
                     <>
@@ -608,7 +610,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         {isConnActionLoading ? (
                           <ActivityIndicator size="small" color="#FFFFFF" />
                         ) : (
-                          <Text style={styles.primaryActionText}>✓ Terima Pertemanan</Text>
+                          <IconText style={styles.primaryActionText}>✓ Terima Pertemanan</IconText>
                         )}
                       </TouchableOpacity>
 
@@ -618,7 +620,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         disabled={isConnActionLoading}
                         activeOpacity={0.8}
                       >
-                        <Text style={styles.secondaryActionText}>✕ Tolak</Text>
+                        <IconText style={styles.secondaryActionText}>✕ Tolak</IconText>
                       </TouchableOpacity>
                     </>
                   ) : (
@@ -632,7 +634,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
                         <>
-                          <Text style={styles.actionIcon}>➕</Text>
+                          <IconText style={styles.actionIcon}>➕</IconText>
                           <Text style={styles.primaryActionText}>Tambah Teman</Text>
                         </>
                       )}
@@ -653,7 +655,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
                       <>
-                        <Text style={styles.actionIcon}>💬</Text>
+                        <IconText style={styles.actionIcon}>💬</IconText>
                         <Text style={styles.primaryActionText}>Kirim Pesan</Text>
                       </>
                     )}
@@ -664,7 +666,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     onPress={handleStartCall}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.actionIcon}>📞</Text>
+                    <IconText style={styles.actionIcon}>📞</IconText>
                     <Text style={styles.secondaryActionText}>Panggilan</Text>
                   </TouchableOpacity>
                 </View>
@@ -677,15 +679,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       onPress={handleUnfriendUser}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.friendStatusPillText}>👥 Berteman ✓ (Ketuk untuk opsi)</Text>
+                      <IconText style={styles.friendStatusPillText}>👥 Berteman ✓ (Ketuk untuk opsi)</IconText>
                     </TouchableOpacity>
                   ) : connStatus?.status === 'pending' && connStatus?.direction === 'outgoing' ? (
                     <View style={styles.pendingStatusPill}>
-                      <Text style={styles.pendingStatusPillText}>⏳ Permintaan Pertemanan Terkirim</Text>
+                      <IconText style={styles.pendingStatusPillText}>⏳ Permintaan Pertemanan Terkirim</IconText>
                     </View>
                   ) : connStatus?.status === 'pending' && connStatus?.direction === 'incoming' ? (
                     <View style={styles.incomingRequestPromptRow}>
-                      <Text style={styles.incomingRequestPromptText}>📬 Menerima permintaan:</Text>
+                      <IconText style={styles.incomingRequestPromptText}>📬 Menerima permintaan:</IconText>
                       <TouchableOpacity
                         style={styles.miniAcceptBtn}
                         onPress={handleAcceptRequest}
@@ -724,7 +726,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
               {location ? (
                 <View style={styles.infoRow}>
-                  <Text style={styles.infoRowIcon}>📍</Text>
+                  <IconText style={styles.infoRowIcon}>📍</IconText>
                   <View style={styles.infoRowContent}>
                     <Text style={styles.infoLabel}>Lokasi</Text>
                     <Text style={styles.infoValue}>{location}</Text>
@@ -738,12 +740,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   onPress={() => handleOpenLink(website)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.infoRowIcon}>🌐</Text>
+                  <IconText style={styles.infoRowIcon}>🌐</IconText>
                   <View style={styles.infoRowContent}>
                     <Text style={styles.infoLabel}>Website</Text>
                     <Text style={[styles.infoValue, styles.linkText]}>{website}</Text>
                   </View>
-                  <Text style={styles.chevron}>↗</Text>
+                  <IconText style={styles.chevron}>↗</IconText>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -765,7 +767,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   activeOpacity={0.7}
                 >
                   <View style={[styles.socialIconBox, { backgroundColor: '#FDE2E4' }]}>
-                    <Text style={styles.socialIconEmoji}>📸</Text>
+                    <IconText style={styles.socialIconEmoji}>📸</IconText>
                   </View>
                   <View style={styles.socialInfo}>
                     <Text style={styles.socialPlatform}>Instagram</Text>
@@ -773,7 +775,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       {socialLinks.instagram}
                     </Text>
                   </View>
-                  <Text style={styles.chevron}>↗</Text>
+                  <IconText style={styles.chevron}>↗</IconText>
                 </TouchableOpacity>
               ) : null}
 
@@ -788,7 +790,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   activeOpacity={0.7}
                 >
                   <View style={[styles.socialIconBox, { backgroundColor: '#FEE2E2' }]}>
-                    <Text style={styles.socialIconEmoji}>▶️</Text>
+                    <IconText style={styles.socialIconEmoji}>▶️</IconText>
                   </View>
                   <View style={styles.socialInfo}>
                     <Text style={styles.socialPlatform}>YouTube</Text>
@@ -796,7 +798,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       {socialLinks.youtube}
                     </Text>
                   </View>
-                  <Text style={styles.chevron}>↗</Text>
+                  <IconText style={styles.chevron}>↗</IconText>
                 </TouchableOpacity>
               ) : null}
 
@@ -811,7 +813,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   activeOpacity={0.7}
                 >
                   <View style={[styles.socialIconBox, { backgroundColor: '#E0E7FF' }]}>
-                    <Text style={styles.socialIconEmoji}>💼</Text>
+                    <IconText style={styles.socialIconEmoji}>💼</IconText>
                   </View>
                   <View style={styles.socialInfo}>
                     <Text style={styles.socialPlatform}>LinkedIn</Text>
@@ -819,7 +821,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       {socialLinks.linkedin}
                     </Text>
                   </View>
-                  <Text style={styles.chevron}>↗</Text>
+                  <IconText style={styles.chevron}>↗</IconText>
                 </TouchableOpacity>
               ) : null}
 
@@ -834,7 +836,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   activeOpacity={0.7}
                 >
                   <View style={[styles.socialIconBox, { backgroundColor: '#F1F5F9' }]}>
-                    <Text style={styles.socialIconEmoji}>🎵</Text>
+                    <IconText style={styles.socialIconEmoji}>🎵</IconText>
                   </View>
                   <View style={styles.socialInfo}>
                     <Text style={styles.socialPlatform}>TikTok</Text>
@@ -842,7 +844,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       {socialLinks.tiktok}
                     </Text>
                   </View>
-                  <Text style={styles.chevron}>↗</Text>
+                  <IconText style={styles.chevron}>↗</IconText>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -850,7 +852,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
           {/* E2EE Trust Badge Card */}
           <View style={styles.e2eeCard}>
-            <Text style={styles.e2eeIcon}>🔒</Text>
+            <IconText style={styles.e2eeIcon}>🔒</IconText>
             <View style={styles.e2eeTextWrapper}>
               <Text style={styles.e2eeTitle}>Obrolan Terenkripsi E2EE</Text>
               <Text style={styles.e2eeSubtitle}>
@@ -943,11 +945,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.full,
-  },
-  backArrow: {
-    fontSize: 22,
-    color: colors.textPrimary,
-    fontWeight: '700',
   },
   navTitle: {
     fontSize: 18,

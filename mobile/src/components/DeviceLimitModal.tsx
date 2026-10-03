@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 import { ActiveDeviceItem } from '../api/types';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 
 export interface DeviceLimitModalProps {
   visible: boolean;
@@ -138,7 +140,7 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
-              <Text style={styles.warningEmoji}>⚠️</Text>
+              <IconText style={styles.warningEmoji}>⚠️</IconText>
               <Text style={styles.title}>Batas Perangkat Tercapai</Text>
             </View>
             {!isLoading && (
@@ -148,7 +150,7 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 accessibilityLabel="Tutup dialog"
               >
-                <Text style={styles.closeBtnText}>✕</Text>
+                <Icon name="close" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -161,7 +163,7 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
           {/* Error Message Box */}
           {errorMessage && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠️ {errorMessage}</Text>
+              <IconText style={styles.errorText}>⚠️ {errorMessage}</IconText>
             </View>
           )}
 
@@ -191,7 +193,7 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
                   disabled={isLoading}
                 >
                   <View style={styles.deviceItemLeft}>
-                    <Text style={styles.deviceIcon}>{info.icon}</Text>
+                    <IconText style={styles.deviceIcon}>{info.icon}</IconText>
                     <View style={styles.deviceInfoText}>
                       <View style={styles.deviceNameRow}>
                         <Text
@@ -229,9 +231,9 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
 
           {/* Info Notice */}
           <View style={styles.noticeBox}>
-            <Text style={styles.noticeText}>
+            <IconText style={styles.noticeText}>
               💡 Perangkat yang dikeluarkan akan langsung terputus dari sesi chat.
-            </Text>
+            </IconText>
           </View>
 
           {/* Footer Actions */}
@@ -306,11 +308,6 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: spacing.xs,
     marginLeft: spacing.sm,
-  },
-  closeBtnText: {
-    fontSize: 18,
-    color: colors.textMuted,
-    fontWeight: '600',
   },
   description: {
     fontSize: typography.body.fontSize,

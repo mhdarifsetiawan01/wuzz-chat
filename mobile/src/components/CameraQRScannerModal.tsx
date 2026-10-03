@@ -23,6 +23,8 @@ import {
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const VIEWFINDER_SIZE = Math.min(SCREEN_WIDTH * 0.72, 280);
@@ -114,7 +116,7 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
       <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
         <View style={[styles.permissionContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
           <View style={styles.permissionCard}>
-            <Text style={styles.permissionIcon}>📷</Text>
+            <IconText style={styles.permissionIcon}>📷</IconText>
             <Text style={styles.permissionTitle}>Izin Kamera Diperlukan</Text>
             <Text style={styles.permissionDescription}>
               WuzzChat membutuhkan izin akses kamera untuk memindai kode QR verifikasi keamanan langsung dari perangkat lawan bicara.
@@ -170,7 +172,7 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
               activeOpacity={0.7}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.closeIconText}>✕</Text>
+              <Icon name="close" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
 
             <View style={styles.headerTitleContainer}>
@@ -183,7 +185,7 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
               activeOpacity={0.7}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.torchIconText}>{torchEnabled ? '🔦' : '💡'}</Text>
+              <IconText style={styles.torchIconText}>{torchEnabled ? '🔦' : '💡'}</IconText>
             </TouchableOpacity>
           </View>
 
@@ -341,11 +343,6 @@ const styles = StyleSheet.create({
   circleIconButtonActive: {
     backgroundColor: colors.accentPrimary,
     borderColor: colors.colorCyanNeon,
-  },
-  closeIconText: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '700',
   },
   torchIconText: {
     fontSize: 18,

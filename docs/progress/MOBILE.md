@@ -334,6 +334,19 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+- [x] **FITUR (03-Okt-2026): Sistem Ikon Vektor Wuzz (`Icon`, `IconText`) menggantikan emoji UI di Mobile**:
+  - **Latar Belakang**: Ikon UI (tab bawah, tombol, badge, label) memakai emoji yang tampilannya berbeda antar vendor/versi Android dan tidak bisa diwarnai. Tujuannya membangun gaya dan branding ikon Wuzz sendiri (outline tipis, ujung membulat).
+  - **Implementasi**:
+    1. **Registry (`mobile/src/components/icons/registry.ts`)**: satu-satunya tempat ikon didefinisikan (path `d` pada kanvas 24×24, ~85 ikon). Mendukung varian `filled` (aktif) dan flag `solid`. Nama ikon otomatis menjadi tipe `IconName`.
+    2. **`Icon` (`mobile/src/components/Icon.tsx`)**: render via `react-native-svg` (dependency baru `15.15.4`), garis 1.75 (aktif 2.1), warna lewat prop `color`/token `colors`.
+    3. **`IconText` (`mobile/src/components/IconText.tsx`)**: teks dengan ikon di depan. Emoji di awal string dipetakan ke ikon lewat `EMOJI_TO_ICON` (termasuk komposit `👥➕`, `👤❌`), jadi string data (`'🔒 Pesan terenkripsi'`) tidak diubah. Ukuran/warna ikon mengikuti `fontSize`/`color` style teks; properti layout dipindah ke wadah.
+    4. **Pemasangan**: tab bawah (`MainTabNavigator.tsx`), header/input bar/bubble chat, daftar obrolan, ± 29 file tombol `✕`/`←`, dan ± 200 elemen `<Text>` berawalan emoji di ± 50 file. Ikon `chat` didesain ulang (gelembung persegi dengan ekor tegas + tiga titik) setelah uji di perangkat menunjukkan placeholder lama terlihat kosong.
+  - **Sengaja masih emoji**: picker & reaksi (`constants/emojis.ts`, 👍), avatar hewan, notifikasi push/teks yang dibagikan, titik status 🟢🔴🟡, dan emoji dekoratif (🧠 🚀 🧪 📭 🤝 🎲 🔢).
+  - **Catatan**: semua path di registry masih **placeholder**; diganti bertahap dengan SVG gambar sendiri (`registry.ts` hanya butuh path `d`). `react-native-svg` modul native → butuh build APK ulang.
+  - **Verifikasi**: `npx tsc --noEmit` -> **0 error**; build APK release & uji tampilan di perangkat oleh pengguna.
+
+---
+
 ## Fokus Berikutnya (What's Next)
 - [x] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
 
@@ -346,7 +359,5 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 
 
-- [ ] **Migrasi ikon emoji ke ikon vektor** (bottom nav & seluruh UI mobile):
-  - Latar belakang: bottom nav sudah diredesain jadi kapsul melayang dengan indikator meluncur (diuji di perangkat, hasil sesuai), tetapi ikonnya masih emoji (💬 🌐 📞 ⚙️) yang tampilannya berbeda antar vendor/versi Android dan tidak bisa diwarnai.
-  - Rencana: tambahkan `@expo/vector-icons` (atau `react-native-svg` dengan set ikon sendiri), buat komponen `Icon` tunggal berbasis token `colors`, lalu ganti ikon tab (varian outline untuk non-aktif, filled untuk aktif) dan bertahap ikon di layar lain.
-  - Catatan: menambah dependency native sehingga butuh build APK ulang; cek dampak ukuran APK per ABI.
+- [x] **Migrasi ikon emoji ke ikon vektor** (selesai 03-Okt-2026, lihat entri di atas).
+- [ ] **Ikon Wuzz final**: ganti path placeholder di `icons/registry.ts` dengan SVG gambar sendiri (prioritas: tab bawah, `lock`, `check`/`checkDouble`, lencana verified), putuskan ketebalan garis, dan ganti titik status 🟢🔴🟡 dengan lingkaran berwarna.

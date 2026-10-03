@@ -140,3 +140,9 @@ mobile/
    ```bash
    adb install -r mobile/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk
    ```
+
+### Sistem Ikon (Wuzz Icon)
+- Jangan memakai emoji untuk ikon UI baru. Pakai `<Icon name="..." />` (`mobile/src/components/Icon.tsx`) atau `<IconText icon="...">` untuk teks berikon.
+- Semua ikon didefinisikan di `mobile/src/components/icons/registry.ts` (path `d`, kanvas 24×24, outline tipis, ujung membulat). Menambah/mengganti ikon cukup mengedit file ini.
+- `IconText` juga memetakan emoji di awal string ke ikon (`EMOJI_TO_ICON`), berguna untuk string data. Emoji untuk picker, reaksi, dan notifikasi tetap emoji.
+

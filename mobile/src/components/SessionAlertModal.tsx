@@ -6,6 +6,7 @@
 import React from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, shadows, spacing, typography } from '../theme';
+import { IconText } from './IconText';
 import { Button } from './Button';
 
 interface SessionAlertModalProps {
@@ -31,7 +32,7 @@ export const SessionAlertModal: React.FC<SessionAlertModalProps> = ({
       <View style={styles.overlay}>
         <View style={styles.card}>
           <View style={styles.iconContainer}>
-            <Text style={styles.icon}>⚠️</Text>
+            <IconText style={styles.icon}>⚠️</IconText>
           </View>
 
           <Text style={styles.title}>Sesi Dihentikan</Text>

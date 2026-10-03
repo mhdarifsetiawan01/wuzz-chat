@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { Message, PinnedMessage } from '../api/types';
 import { colors, radius, spacing, typography } from '../theme';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 
 export interface PinnedMessagesBannerProps {
   pinnedMessages: Array<Message | PinnedMessage>;
@@ -82,7 +84,7 @@ export const PinnedMessagesBanner: React.FC<PinnedMessagesBannerProps> = ({
         activeOpacity={0.75}
       >
         <View style={styles.pinIconContainer}>
-          <Text style={styles.pinIcon}>📌</Text>
+          <IconText style={styles.pinIcon}>📌</IconText>
         </View>
 
         <View style={styles.infoCol}>
@@ -94,9 +96,9 @@ export const PinnedMessagesBanner: React.FC<PinnedMessagesBannerProps> = ({
               • {getSenderName()}
             </Text>
           </View>
-          <Text style={styles.snippetText} numberOfLines={1}>
+          <IconText style={styles.snippetText} numberOfLines={1}>
             {getSnippet()}
-          </Text>
+          </IconText>
         </View>
       </TouchableOpacity>
 
@@ -120,7 +122,7 @@ export const PinnedMessagesBanner: React.FC<PinnedMessagesBannerProps> = ({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.unpinBtnText}>✕</Text>
+            <Icon name="close" size={14} color={colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -207,10 +209,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  unpinBtnText: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
   },
 });

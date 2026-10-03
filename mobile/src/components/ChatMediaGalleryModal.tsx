@@ -24,6 +24,8 @@ import { getRoomMediaMessages } from '../services/sqliteStorage';
 import { mediaCache } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
 import { colors } from '../theme/colors';
+import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
 
 export interface ChatMediaGalleryModalProps {
@@ -178,7 +180,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         <Image source={{ uri }} style={styles.gridImage} resizeMode="cover" />
         {isVideo && (
           <View style={styles.videoBadge}>
-            <Text style={styles.videoBadgeIcon}>▶</Text>
+            <IconText style={styles.videoBadgeIcon}>▶</IconText>
           </View>
         )}
       </TouchableOpacity>
@@ -211,7 +213,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         activeOpacity={0.7}
       >
         <View style={styles.fileIconContainer}>
-          <Text style={styles.fileIconText}>{isAudio ? '🎵' : '📄'}</Text>
+          <IconText style={styles.fileIconText}>{isAudio ? '🎵' : '📄'}</IconText>
         </View>
 
         <View style={styles.fileInfo}>
@@ -229,7 +231,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           activeOpacity={0.7}
         >
-          <Text style={styles.fileActionIcon}>📤</Text>
+          <IconText style={styles.fileActionIcon}>📤</IconText>
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -253,7 +255,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
           >
-            <Text style={styles.backButtonIcon}>←</Text>
+            <Icon name="back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleContainer}>
@@ -302,7 +304,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         ) : activeTab === 'media' ? (
           mediaList.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>🖼️</Text>
+              <IconText style={styles.emptyIcon}>🖼️</IconText>
               <Text style={styles.emptyTitle}>Belum Ada Media</Text>
               <Text style={styles.emptySubtitle}>
                 Foto dan video yang dikirim dalam obrolan ini akan tampil di sini.
@@ -322,7 +324,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
           )
         ) : fileList.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📂</Text>
+            <IconText style={styles.emptyIcon}>📂</IconText>
             <Text style={styles.emptyTitle}>Belum Ada Berkas</Text>
             <Text style={styles.emptySubtitle}>
               Dokumen, audio, dan berkas lampiran lainnya akan tampil di sini.
@@ -370,11 +372,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     paddingRight: spacing.sm,
-  },
-  backButtonIcon: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textPrimary,
   },
   headerTitleContainer: {
     flex: 1,
