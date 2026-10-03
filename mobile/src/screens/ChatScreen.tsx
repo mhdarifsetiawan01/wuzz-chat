@@ -32,7 +32,7 @@ import { mediaApi } from '../api/media';
 import { messagesApi } from '../api/messages';
 import { websocketClient } from '../services/websocket';
 import { mediaCache } from '../services/mediaCache';
-import { useAuth, useCall, useConversations, useMessages } from '../context';
+import { useAuth, useCall, useConversations, useMessageActions, useRoomMessages } from '../context';
 import { useConnection } from '../context/ConnectionContext';
 import {
   deriveRoomAESKey,
@@ -118,10 +118,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     };
   }, [roomId, markConversationAsRead, setActiveRoomId]);
 
+  // Aksi stabil (tidak memicu render); data reaktif hanya untuk room ini lewat useRoomMessages
   const {
     getRoomMessages,
     hydrateRoomFromLocalDB,
-    isRoomLoading,
     setRoomMessages,
     reconcileHistory,
     markRoomLoading,
@@ -129,10 +129,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     isLoadingOlderMessages,
     loadOlderMessages,
     getRoomAESKey,
-  } = useMessages();
+  } = useMessageActions();
 
-  const messages = getRoomMessages(roomId);
-  const isLoading = isRoomLoading(roomId);
+  const {
+    messages,
+    isLoading,
+    hasMoreOlder: roomHasMoreOlder,
+    isLoadingOlder: roomIsLoadingOlder,
+  } = useRoomMessages(roomId);
 
   const setMessages = useCallback(
     (updater: Message[] | ((prev: Message[]) => Message[])) => {
@@ -1919,12 +1923,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             onScroll={handleScroll}
             scrollEventThrottle={32}
             ListFooterComponent={
-              isLoadingOlderMessages(roomId) ? (
+              roomIsLoadingOlder ? (
                 <View style={styles.loadingOlderContainer}>
                   <ActivityIndicator size="small" color={colors.accentPrimary} />
                   <Text style={styles.loadingOlderText}>Memuat riwayat pesan terdahulu...</Text>
                 </View>
-              ) : hasMoreOlderMessages(roomId) && messages.length >= 20 ? (
+              ) : roomHasMoreOlder && messages.length >= 20 ? (
                 <TouchableOpacity
                   style={styles.loadOlderButton}
                   onPress={handleLoadOlder}

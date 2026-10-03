@@ -51,6 +51,7 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 ### E. State Manajemen & Optimistic Cache Layer (Stale-While-Revalidate)
 - **Conversation State Isolation**: Daftar percakapan dikelola secara global melalui `ConversationContext` (Milestone M-Mobile-8.15) dengan pola SWR. Data lokal di memori di-render seketika (0ms) saat user kembali dari ruang obrolan, mengeliminasi blocking spinner ("Memuat obrolan...").
 - **WebSocket Centralized Ingestion**: Event `message` dari server diserap terpusat di context untuk memperbarui cuplikan pesan dan unread badge secara background.
+- **Message Store Terpisah (`MessageContext` + `messageStore.ts`)**: Cache pesan per-room disimpan di store di luar React; context hanya membawa store dan aksi yang identitasnya stabil. Layar membaca data lewat `useRoomMessages(roomId)` (berlangganan hanya ke room itu, via `useSyncExternalStore`) dan memanggil aksi lewat `useMessageActions()` (tidak memicu render). Pesan masuk di room lain tidak lagi me-render ulang `ChatScreen`. Updater slice wajib mempertahankan referensi room yang tidak berubah. `useMessages()` lama sudah dihapus.
 
 ### F. Kebijakan Retensi Penyimpanan Lokal SQLite (Storage Retention & Pruning Roadmap)
 - **RAM vs Disk Separation**: Batas memori aktif `MAX_CACHED_MESSAGES_PER_ROOM = 500` dan hidrasi awal 50 pesan (`LIMIT 50`) mencegah lonjakan penggunaan RAM ponsel.
@@ -82,7 +83,8 @@ mobile/
 │   ├── context/
 │   │   ├── AuthContext.tsx         # Session management, Trusted Device E2EE state, login/logout
 │   │   ├── ConversationContext.tsx # Global conversations cache, SWR, unread counts (M-Mobile-8.15)
-│   │   ├── MessageContext.tsx      # In-memory timeline message cache & reverse scroll pagination
+│   │   ├── MessageContext.tsx      # Provider + aksi stabil + hook useRoomMessages/useMessageActions
+│   │   ├── messageStore.ts         # Store pesan per-room di luar React (subscribe/setSlice)
 │   │   ├── FeedContext.tsx         # Community Social Feed SWR cache & like/comment sync
 │   │   ├── CallContext.tsx         # WebRTC voice call peer connection & audio manager
 │   │   └── DeviceContext.tsx       # Device identification & platform state

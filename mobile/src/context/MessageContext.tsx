@@ -2,6 +2,11 @@
  * WuzzChat Mobile - MessageContext
  * Global In-Memory Messages Cache & Stale-While-Revalidate (SWR) Layer.
  * Conforms to docs/context/MOBILE.md Section 2.E & Milestone M-Mobile-8.17.
+ *
+ * State disimpan di messageStore (di luar React). Context hanya membawa store + aksi yang
+ * identitasnya stabil; komponen membaca data lewat useRoomMessages(roomId) (per-room selector)
+ * dan memanggil aksi lewat useMessageActions(). Dengan begitu pesan di room lain tidak
+ * me-render ulang layar obrolan yang sedang terbuka.
  */
 
 import React, {
@@ -9,8 +14,9 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
-  useState,
+  useSyncExternalStore,
 } from 'react';
 import { Message, normalizeReactions } from '../api/types';
 import { useAuth } from './AuthContext';
@@ -32,10 +38,17 @@ import {
   MAX_LOCAL_MESSAGES_PER_ROOM,
 } from '../services/sqliteStorage';
 
+import {
+  EMPTY_MESSAGES,
+  MessageStore,
+  MessageStoreState,
+  createMessageStore,
+} from './messageStore';
+
 const MAX_CACHED_MESSAGES_PER_ROOM = 500;
 
-export interface MessageContextType {
-  messagesByRoom: Record<string, Message[]>;
+/** Aksi & pembacaan imperatif (non-reaktif). Seluruh fungsi di sini identitasnya stabil. */
+export interface MessageActions {
   getRoomMessages: (roomId: string) => Message[];
   hydrateRoomFromLocalDB: (roomId: string) => Promise<Message[]>;
   isRoomLoading: (roomId: string) => boolean;
@@ -61,24 +74,57 @@ export interface MessageContextType {
   getRoomAESKey: (roomId: string) => Promise<Uint8Array | null>;
 }
 
-const MessageContext = createContext<MessageContextType | undefined>(undefined);
+/** Snapshot reaktif satu room, dibaca lewat useRoomMessages. */
+export interface RoomMessageState {
+  messages: Message[];
+  /** true hanya saat belum ada pesan di memori dan sedang memuat awal (SWR 0ms bila sudah ada cache) */
+  isLoading: boolean;
+  isRevalidating: boolean;
+  hasMoreOlder: boolean;
+  isLoadingOlder: boolean;
+}
+
+interface MessageContextValue {
+  store: MessageStore;
+  actions: MessageActions;
+}
+
+const MessageContext = createContext<MessageContextValue | undefined>(undefined);
+
+function makeSetter<K extends keyof MessageStoreState>(store: MessageStore, key: K) {
+  return (
+    value: MessageStoreState[K] | ((prev: MessageStoreState[K]) => MessageStoreState[K])
+  ) =>
+    store.setSlice(key, (prev) =>
+      typeof value === 'function'
+        ? (value as (p: MessageStoreState[K]) => MessageStoreState[K])(prev)
+        : value
+    );
+}
 
 export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthenticated, e2eeKeyPair } = useAuth();
-  const [messagesByRoom, setMessagesByRoom] = useState<Record<string, Message[]>>({});
-  const [roomLoading, setRoomLoading] = useState<Record<string, boolean>>({});
-  const [roomRevalidating, setRoomRevalidating] = useState<Record<string, boolean>>({});
-  const [hasMoreOlder, setHasMoreOlder] = useState<Record<string, boolean>>({});
-  const [loadingOlder, setLoadingOlder] = useState<Record<string, boolean>>({});
+  const storeRef = useRef<MessageStore | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = createMessageStore();
+  }
+  const store = storeRef.current;
+
+  // Setter slice stabil (store tidak pernah berganti), jadi aman tanpa masuk dependency hook lain
+  const { setMessagesByRoom, setRoomLoading, setRoomRevalidating, setHasMoreOlder, setLoadingOlder } =
+    useMemo(
+      () => ({
+        setMessagesByRoom: makeSetter(store, 'messagesByRoom'),
+        setRoomLoading: makeSetter(store, 'roomLoading'),
+        setRoomRevalidating: makeSetter(store, 'roomRevalidating'),
+        setHasMoreOlder: makeSetter(store, 'hasMoreOlder'),
+        setLoadingOlder: makeSetter(store, 'loadingOlder'),
+      }),
+      [store]
+    );
 
   const roomKeysCacheRef = useRef<Map<string, Uint8Array>>(new Map());
   const lastHandledMsgIdRef = useRef<string | null>(null);
-
-  // Synchronized ref for messagesByRoom to prevent hook dependency thrashing
-  const messagesByRoomRef = useRef<Record<string, Message[]>>(messagesByRoom);
-  useEffect(() => {
-    messagesByRoomRef.current = messagesByRoom;
-  }, [messagesByRoom]);
 
   // Helper: Derive or retrieve cached AES Key for a direct conversation
   const getRoomAESKey = useCallback(
@@ -119,19 +165,19 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
     [e2eeKeyPair?.privateKeyHex, user?.id]
   );
 
-  // Query: Get messages for a given room
+  // Query: Get messages for a given room (pembacaan imperatif; untuk render pakai useRoomMessages)
   const getRoomMessages = useCallback(
     (roomId: string): Message[] => {
-      return messagesByRoom[roomId] || [];
+      return store.getState().messagesByRoom[roomId] || EMPTY_MESSAGES;
     },
-    [messagesByRoom]
+    [store]
   );
 
   // Action: Hydrate room messages from local SQLite if memory is empty
   const hydrateRoomFromLocalDB = useCallback(
     async (roomId: string): Promise<Message[]> => {
       if (!roomId || !user?.id) return [];
-      const currentInMemory = messagesByRoomRef.current[roomId];
+      const currentInMemory = store.getState().messagesByRoom[roomId];
       if (currentInMemory && currentInMemory.length > 0) {
         return currentInMemory;
       }
@@ -157,27 +203,28 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       return [];
     },
-    [user?.id]
+    [user?.id, store]
   );
 
   // Query: Check if room is in initial loading state
   const isRoomLoading = useCallback(
     (roomId: string): boolean => {
       // If messages already exist in memory, it is never in initial loading state (0ms SWR)
+      const { messagesByRoom, roomLoading } = store.getState();
       if (messagesByRoom[roomId] && messagesByRoom[roomId].length > 0) {
         return false;
       }
       return Boolean(roomLoading[roomId]);
     },
-    [messagesByRoom, roomLoading]
+    [store]
   );
 
   // Query: Check if room is being revalidated in background
   const isRoomRevalidating = useCallback(
     (roomId: string): boolean => {
-      return Boolean(roomRevalidating[roomId]);
+      return Boolean(store.getState().roomRevalidating[roomId]);
     },
-    [roomRevalidating]
+    [store]
   );
 
   // Mutation: Set messages directly for a room
@@ -288,27 +335,28 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Query: Check if room has more older messages to load
   const hasMoreOlderMessages = useCallback(
     (roomId: string): boolean => {
-      return hasMoreOlder[roomId] !== false;
+      return store.getState().hasMoreOlder[roomId] !== false;
     },
-    [hasMoreOlder]
+    [store]
   );
 
   // Query: Check if older messages are currently being loaded
   const isLoadingOlderMessages = useCallback(
     (roomId: string): boolean => {
-      return Boolean(loadingOlder[roomId]);
+      return Boolean(store.getState().loadingOlder[roomId]);
     },
-    [loadingOlder]
+    [store]
   );
 
   // Action: Load older messages for reverse infinite scroll
   const loadOlderMessages = useCallback(
     async (roomId: string): Promise<boolean> => {
       if (!roomId) return false;
-      if (loadingOlder[roomId]) return false;
-      if (hasMoreOlder[roomId] === false) return false;
+      const snapshot = store.getState();
+      if (snapshot.loadingOlder[roomId]) return false;
+      if (snapshot.hasMoreOlder[roomId] === false) return false;
 
-      const current = messagesByRoom[roomId] || [];
+      const current = snapshot.messagesByRoom[roomId] || [];
       if (current.length === 0) return false;
 
       // Find earliest timestamp
@@ -415,7 +463,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setLoadingOlder((prev) => ({ ...prev, [roomId]: false }));
       }
     },
-    [getRoomAESKey, hasMoreOlder, loadingOlder, messagesByRoom]
+    [getRoomAESKey, store]
   );
 
   // Reconcile incoming history with local cache (DEC-015: E2EE Plaintext Preservation)
@@ -864,10 +912,10 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
     getRoomAESKey,
   ]);
 
-  return (
-    <MessageContext.Provider
-      value={{
-        messagesByRoom,
+  const value = useMemo<MessageContextValue>(
+    () => ({
+      store,
+      actions: {
         getRoomMessages,
         hydrateRoomFromLocalDB,
         isRoomLoading,
@@ -884,17 +932,66 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
         markRoomRevalidating,
         clearRoomCache,
         getRoomAESKey,
-      }}
-    >
-      {children}
-    </MessageContext.Provider>
+      },
+    }),
+    [
+      store,
+      getRoomMessages,
+      hydrateRoomFromLocalDB,
+      isRoomLoading,
+      isRoomRevalidating,
+      hasMoreOlderMessages,
+      isLoadingOlderMessages,
+      loadOlderMessages,
+      setRoomMessages,
+      appendMessage,
+      updateMessage,
+      removeMessage,
+      reconcileHistory,
+      markRoomLoading,
+      markRoomRevalidating,
+      clearRoomCache,
+      getRoomAESKey,
+    ]
   );
+
+  return <MessageContext.Provider value={value}>{children}</MessageContext.Provider>;
 };
 
-export const useMessages = (): MessageContextType => {
+function useMessageContextValue(): MessageContextValue {
   const context = useContext(MessageContext);
   if (!context) {
-    throw new Error('useMessages must be used within a MessageProvider');
+    throw new Error('useMessageActions/useRoomMessages must be used within a MessageProvider');
   }
   return context;
+}
+
+/** Aksi & pembacaan imperatif. Tidak memicu render ulang saat pesan berubah. */
+export const useMessageActions = (): MessageActions => useMessageContextValue().actions;
+
+function useStoreSelector<T>(selector: (state: MessageStoreState) => T): T {
+  const { store } = useMessageContextValue();
+  const getSnapshot = () => selector(store.getState());
+  return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
+}
+
+/**
+ * Berlangganan hanya ke satu room. Selector mengembalikan primitif atau referensi array
+ * room itu sendiri, jadi perubahan di room lain tidak memicu render.
+ */
+export const useRoomMessages = (roomId: string): RoomMessageState => {
+  const messages = useStoreSelector((s) => s.messagesByRoom[roomId] ?? EMPTY_MESSAGES);
+  const isLoading = useStoreSelector((s) => {
+    const list = s.messagesByRoom[roomId];
+    if (list && list.length > 0) return false;
+    return Boolean(s.roomLoading[roomId]);
+  });
+  const isRevalidating = useStoreSelector((s) => Boolean(s.roomRevalidating[roomId]));
+  const hasMoreOlder = useStoreSelector((s) => s.hasMoreOlder[roomId] !== false);
+  const isLoadingOlder = useStoreSelector((s) => Boolean(s.loadingOlder[roomId]));
+
+  return useMemo(
+    () => ({ messages, isLoading, isRevalidating, hasMoreOlder, isLoadingOlder }),
+    [messages, isLoading, isRevalidating, hasMoreOlder, isLoadingOlder]
+  );
 };
