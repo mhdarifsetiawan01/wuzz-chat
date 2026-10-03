@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { colors, radius, shadows, spacing, typography } from '../theme';
 import { IconText } from './IconText';
+import { Icon } from './Icon';
 import { Button } from './Button';
 import { Input } from './Input';
 
@@ -128,6 +129,22 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
                 : 'Akun Anda telah memiliki kunci enkripsi aktif di perangkat lain. Anda dapat memindai kode QR dari perangkat lama untuk menyinkronkan kunci tanpa reset, atau mereset kunci menggunakan kata sandi Anda.'}
             </Text>
 
+            {/* Peringatan konsekuensi reset: pesan lama (termasuk yang dikirim sendiri) permanen tak terbaca */}
+            <View style={styles.warningBox} accessibilityRole="alert">
+              <Icon name="alert" size={20} color={colors.colorDanger} />
+              <View style={styles.warningTextCol}>
+                <Text style={styles.warningTitle}>Pesan lama tidak akan bisa dibuka lagi</Text>
+                <Text style={styles.warningBody}>
+                  Semua pesan sebelum reset, termasuk yang Anda kirim sendiri, tidak bisa dibuka dengan kunci baru
+                  {onOpenDeviceTransfer
+                    ? `. Hanya perangkat yang masih menyimpan kunci lama yang bisa membukanya. Bila Anda masih memilikinya, ${
+                        isPromptingPassword ? 'tekan Kembali lalu pilih' : 'pilih'
+                      } Transfer dari Perangkat Lain.`
+                    : '. Pesan baru setelah reset tidak terpengaruh.'}
+                </Text>
+              </View>
+            </View>
+
             {isPromptingPassword ? (
               <View style={styles.formContainer}>
                 <Input
@@ -146,8 +163,8 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
                 />
 
                 <Button
-                  title="Konfirmasi & Reset Kunci"
-                  variant="primary"
+                  title="Saya Mengerti, Reset Kunci"
+                  variant="danger"
                   isLoading={isLoading}
                   disabled={isLoading}
                   style={styles.actionButton}
@@ -246,6 +263,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.xl,
     lineHeight: 22,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    backgroundColor: colors.tintError10,
+    borderWidth: 1,
+    borderColor: colors.tintError20,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.colorDanger,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  warningTextCol: {
+    flex: 1,
+  },
+  warningTitle: {
+    ...typography.bodySecondary,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  warningBody: {
+    ...typography.bodySecondary,
+    color: colors.textPrimary,
+    lineHeight: 20,
   },
   formContainer: {
     width: '100%',
