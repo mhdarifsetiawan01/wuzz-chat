@@ -75,7 +75,7 @@ export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, is
       onPress={() => onPress?.(postId, post)}
     >
       {thumb && !imageError && !gone ? (
-        <Image source={{ uri: thumb }} style={styles.thumbnail} contentFit="cover" transition={120} onError={() => setImageError(true)} />
+        <Image source={{ uri: thumb }} style={styles.thumbnail} contentFit="cover" onError={() => setImageError(true)} />
       ) : null}
 
       <View style={styles.body}>

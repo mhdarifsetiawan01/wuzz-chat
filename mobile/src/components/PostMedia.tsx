@@ -33,7 +33,7 @@ export const PostMedia: React.FC<PostMediaProps> = React.memo(({ urls, onPressIm
             accessibilityRole="imagebutton"
             accessibilityLabel="Perbesar gambar"
           >
-            <Image source={{ uri: url }} style={styles.fill} contentFit={large ? 'contain' : 'cover'} transition={120} />
+            <Image source={{ uri: url }} style={styles.fill} contentFit={large ? 'contain' : 'cover'} />
           </TouchableOpacity>
         ))}
       </View>
@@ -51,7 +51,7 @@ export const PostMedia: React.FC<PostMediaProps> = React.memo(({ urls, onPressIm
           accessibilityRole="imagebutton"
           accessibilityLabel="Perbesar gambar"
         >
-          <Image source={{ uri: url }} style={styles.fill} contentFit="cover" transition={120} />
+          <Image source={{ uri: url }} style={styles.fill} contentFit="cover" />
           {idx === 3 && (urls?.length ?? 0) > 4 && (
             <View style={styles.moreOverlay}>
               <Text style={styles.moreText}>+{(urls?.length ?? 0) - 4}</Text>

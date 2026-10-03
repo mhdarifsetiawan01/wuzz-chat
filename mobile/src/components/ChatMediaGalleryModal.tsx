@@ -177,7 +177,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         activeOpacity={0.8}
         onPress={() => handleOpenViewer(item)}
       >
-        <Image source={{ uri }} style={styles.gridImage} contentFit="cover" transition={100} />
+        <Image source={{ uri }} style={styles.gridImage} contentFit="cover" />
         {isVideo && (
           <View style={styles.videoBadge}>
             <IconText style={styles.videoBadgeIcon}>▶</IconText>

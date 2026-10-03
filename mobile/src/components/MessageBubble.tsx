@@ -400,7 +400,6 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                       source={{ uri: effectiveMediaUrl }}
                       style={styles.mediaImage}
                       contentFit="cover"
-                      transition={120}
                       recyclingKey={message.id}
                       onLoad={handleImageLoad}
                       onError={handleImageError}

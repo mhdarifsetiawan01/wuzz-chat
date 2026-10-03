@@ -76,7 +76,6 @@ export const Avatar: React.FC<AvatarProps> = ({
         <Image
           source={{ uri: avatarUrl }}
           contentFit="cover"
-          transition={100}
           onError={() => setHasImageError(true)}
           style={[styles.image, { width: size, height: size, borderRadius }]}
         />

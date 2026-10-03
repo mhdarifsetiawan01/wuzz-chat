@@ -96,7 +96,6 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ url, isSelf = 
             source={{ uri: preview.image }}
             style={styles.thumbnail}
             contentFit="cover"
-            transition={120}
             onError={() => setImageError(true)}
           />
         </View>
