@@ -475,6 +475,9 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const key = explicitAESKey || roomKeysCacheRef.current.get(roomId) || null;
 
+      // Hasil rekonsiliasi untuk disimpan; diisi di dalam updater (sinkron) tetapi DITULIS ke SQLite di luarnya
+      let reconciled: Message[] | null = null;
+
       setMessagesByRoom((prev) => {
         const existing = prev[roomId] || [];
         const existingMap = new Map<string, Message>();
@@ -561,18 +564,20 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
           return timeA - timeB;
         });
 
-        // Persist reconciled history to local SQLite disk
-        if (user?.id) {
-          saveStoredMessages(user.id, roomId, merged).catch((err) =>
-            console.warn('[MessageContext] Failed to persist room messages to SQLite:', err)
-          );
-        }
+        reconciled = merged;
 
         return {
           ...prev,
           [roomId]: merged.slice(-MAX_CACHED_MESSAGES_PER_ROOM),
         };
       });
+
+      // Persist reconciled history to local SQLite disk (saveStoredMessages hanya menulis yang baru/berubah)
+      if (user?.id && reconciled) {
+        saveStoredMessages(user.id, roomId, reconciled).catch((err) =>
+          console.warn('[MessageContext] Failed to persist room messages to SQLite:', err)
+        );
+      }
 
       // Clear loading & revalidating indicators for this room
       setRoomLoading((prev) => ({ ...prev, [roomId]: false }));

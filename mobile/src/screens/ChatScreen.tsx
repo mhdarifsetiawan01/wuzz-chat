@@ -123,7 +123,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     getRoomMessages,
     hydrateRoomFromLocalDB,
     setRoomMessages,
-    reconcileHistory,
     markRoomLoading,
     hasMoreOlderMessages,
     isLoadingOlderMessages,
@@ -160,11 +159,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   useEffect(() => {
     markRoomLoadingRef.current = markRoomLoading;
   }, [markRoomLoading]);
-
-  const reconcileHistoryRef = useRef(reconcileHistory);
-  useEffect(() => {
-    reconcileHistoryRef.current = reconcileHistory;
-  }, [reconcileHistory]);
 
   const [isSending, setIsSending] = useState(false);
   const [stagedMedia, setStagedMedia] = useState<StagedMedia | null>(null);
@@ -687,14 +681,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       markRoomLoadingRef.current(roomId, false);
     }, 4000);
 
-    // Subscribe to 'history' event from WebSocket Hub
+    // Event 'history' ditangani SATU kali oleh listener terpusat di MessageContext (merekonsiliasi, menyimpan, dan
+    // menurunkan penanda loading). Layar ini hanya menghentikan timeout pengaman saat riwayat room ini tiba.
     const unsubscribeHistory = websocketClient.on('history', (data: any) => {
       const targetRoom = data.room || data.room_id;
       if (targetRoom && targetRoom !== roomId) return;
-
       clearTimeout(timeout);
-      const rawMessages = data.messages || [];
-      reconcileHistoryRef.current(roomId, rawMessages, roomAESKeyRef.current);
     });
 
     // Join room via WebSocket & send read receipt.
@@ -706,7 +698,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       websocketClient.sendReceipt(roomId, 'read');
     }
 
-    let retried = false;
+    // onStateChange memanggil listener SEKETIKA dengan status saat ini. Bila join pertama sudah berhasil, anggap percobaan
+    // ulang sudah terpakai; kalau tidak, join kedua ini membuat server mengirim 'history' dua kali (4x rekonsiliasi).
+    let retried = joined;
     const unsubscribeWsState = websocketClient.onStateChange((state) => {
       if (state === 'connected' && !retried) {
         retried = true;

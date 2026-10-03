@@ -25,6 +25,56 @@ let initPromise: Promise<SQLite.SQLiteDatabase> | null = null;
  */
 const runExclusive = createExclusiveQueue();
 
+
+/**
+ * Tanda tangan konten terakhir yang DITULIS (atau dimuat) per pesan: key `${userId}:${roomId}` -> (messageId -> hash).
+ * Dipakai saveStoredMessages untuk melewati penulisan data identik. Sebelumnya setiap rekonsiliasi riwayat menulis ulang
+ * seluruh jendela pesan (50 baris x beberapa kali per pembukaan chat) walau tidak ada yang berubah.
+ * Harus dikosongkan setiap kali baris dihapus di luar jalur ini (pruning, pembersihan cache) agar tidak ada penulisan
+ * yang salah dilewati.
+ */
+const persistedMessageSignatures = new Map<string, Map<string, number>>();
+const MAX_SIGNATURES_PER_ROOM = 2000;
+
+function signatureRoomKey(userId: string, roomId: string): string {
+  return `${userId}:${roomId}`;
+}
+
+/** JSON dengan kunci terurut agar urutan properti objek tidak memengaruhi tanda tangan. */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj)
+      .filter((k) => obj[k] !== undefined)
+      .sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+/** Hash 53-bit (cyrb53): cukup untuk membedakan versi sebuah pesan; bukan untuk keamanan. */
+function hash53(text: string): number {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+
+function messageSignature(message: Message): number {
+  return hash53(canonicalJson({ ...message, reactions: normalizeReactions(message.reactions) }));
+}
+
+function forgetRoomSignatures(userId: string, roomId: string): void {
+  persistedMessageSignatures.delete(signatureRoomKey(userId, roomId));
+}
+
 /**
  * Initializes and returns the singleton SQLite database instance.
  * Applies performance PRAGMAs and creates required tables and indexes.
@@ -395,6 +445,14 @@ export async function getStoredMessages(
       }
     }
 
+    // Yang baru dimuat PERSIS yang ada di SQLite: catat tanda tangannya agar rekonsiliasi berikutnya tidak menulis ulang
+    if (messages.length > 0) {
+      const key = signatureRoomKey(userId, roomId);
+      const sigs = persistedMessageSignatures.get(key) ?? new Map<string, number>();
+      for (const m of messages) sigs.set(m.id, messageSignature(m));
+      persistedMessageSignatures.set(key, sigs);
+    }
+
     // Chronological sort: oldest to newest
     return messages.reverse();
   } catch (error) {
@@ -503,7 +561,9 @@ async function deleteOldRoomMessages(
        )`,
     [userId, roomId, userId, roomId, keepLimit]
   );
-  return result.changes || 0;
+  const changes = result.changes || 0;
+  if (changes > 0) forgetRoomSignatures(userId, roomId);
+  return changes;
 }
 
 /**
@@ -662,21 +722,44 @@ export function saveStoredMessages(
     try {
       const db = await getDatabase();
 
+      // Hanya tulis pesan yang baru atau berubah sejak terakhir ditulis/dimuat (lihat persistedMessageSignatures)
+      const roomKey = signatureRoomKey(userId, roomId);
+      const signatures = persistedMessageSignatures.get(roomKey) ?? new Map<string, number>();
+      const pending: { message: Message; rawJson: string; signature: number }[] = [];
+
+      for (const m of messages) {
+        if (!m.id) continue;
+        const safeMsg = { ...m, reactions: normalizeReactions(m.reactions) };
+        const signature = messageSignature(m);
+        if (signatures.get(m.id) === signature) continue;
+        pending.push({ message: m, rawJson: JSON.stringify(safeMsg), signature });
+      }
+      if (pending.length === 0) return false;
+
       await db.withTransactionAsync(async () => {
-        for (const m of messages) {
-          if (!m.id) continue;
-
+        for (const { message: m, rawJson } of pending) {
           const createdAt = m.created_at || m.timestamp || new Date().toISOString();
-          const safeReactions = normalizeReactions(m.reactions);
-          const safeMsg = { ...m, reactions: safeReactions };
-          const rawJson = JSON.stringify(safeMsg);
 
+          // UPSERT (bukan INSERT OR REPLACE): memperbarui baris di tempat tanpa hapus-sisip entri indeks,
+          // jauh lebih sedikit halaman yang ditulis ke WAL saat hanya status/reaksi yang berubah.
           await db.runAsync(
-            `INSERT OR REPLACE INTO local_messages (
+            `INSERT INTO local_messages (
               user_id, id, room_id, sender_id, sender_nickname, 
               content, type, status, reply_to_id, media_url, 
               local_media_uri, created_at, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, id) DO UPDATE SET
+              room_id = excluded.room_id,
+              sender_id = excluded.sender_id,
+              sender_nickname = excluded.sender_nickname,
+              content = excluded.content,
+              type = excluded.type,
+              status = excluded.status,
+              reply_to_id = excluded.reply_to_id,
+              media_url = excluded.media_url,
+              local_media_uri = excluded.local_media_uri,
+              created_at = excluded.created_at,
+              raw_json = excluded.raw_json`,
             [
               userId,
               m.id,
@@ -696,6 +779,10 @@ export function saveStoredMessages(
         }
       });
 
+      // Catat setelah commit berhasil; bila transaksi gagal, pesan tetap dianggap belum tertulis
+      if (signatures.size > MAX_SIGNATURES_PER_ROOM) signatures.clear();
+      for (const { message, signature } of pending) signatures.set(message.id, signature);
+      persistedMessageSignatures.set(roomKey, signatures);
       return true;
     } catch (error) {
       console.warn('[sqliteStorage] Failed to saveStoredMessages:', error);
@@ -725,6 +812,7 @@ export function clearUserCache(userId: string): Promise<void> {
         await db.runAsync(`DELETE FROM local_call_logs WHERE user_id = ?`, [userId]);
         await db.runAsync(`DELETE FROM local_friends WHERE user_id = ?`, [userId]);
       });
+      persistedMessageSignatures.clear();
     } catch (error) {
       console.warn('[sqliteStorage] Failed to clearUserCache:', error);
     }
@@ -903,6 +991,7 @@ export function clearMessageCacheOnly(userId: string): Promise<void> {
     try {
       const db = await getDatabase();
       await db.runAsync(`DELETE FROM local_messages WHERE user_id = ?`, [userId]);
+      persistedMessageSignatures.clear();
       try {
         await compactDatabase(db);
       } catch (compactError) {
