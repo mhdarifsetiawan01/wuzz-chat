@@ -16,6 +16,7 @@ import {
   Pressable,
   Animated,
   PanResponder,
+  Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +32,11 @@ import { spacing } from '../theme/spacing';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { SharedPostCard } from './SharedPostCard';
 import { parseSharedPost } from '../utils/feedShare';
+import {
+  UNDECRYPTABLE_INFO_BODY,
+  UNDECRYPTABLE_INFO_TITLE,
+  isUndecryptablePlaceholder,
+} from '../utils/undecryptable';
 import { URL_REGEX, sanitizeUrl, safeOpenUrl, extractFirstUrl } from '../utils/linkUtils';
 
 export interface MessageBubbleProps {
@@ -150,6 +156,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   });
 
   const isE2EE = typeof message.content === 'string' && message.content.startsWith('e2ee:v1:');
+  // Pesan E2EE yang kuncinya tidak cocok (mis. setelah reset kunci): permanen, bukan "sedang sinkron"
+  const isUndecryptable = !isDeleted && Boolean(message.is_encrypted) && isUndecryptablePlaceholder(message.content);
   const isSystem = message.type === 'system';
   const effectiveMediaUrl = cachedMediaUri || message.media_url;
 
@@ -348,13 +356,13 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               {/* Quoted Message Card */}
               {message.reply_to ? (
                 <TouchableOpacity
-                  style={styles.quoteBox}
+                  style={[styles.quoteBox, isSelf && styles.quoteBoxSelf]}
                   onPress={() => onPressQuote?.(message.reply_to!.id)}
                   activeOpacity={0.7}
                 >
-                  <View style={styles.quoteAccentBar} />
+                  <View style={[styles.quoteAccentBar, isSelf && styles.quoteAccentBarSelf]} />
                   <View style={styles.quoteContent}>
-                    <Text style={styles.quoteSender} numberOfLines={1}>
+                    <Text style={[styles.quoteSender, isSelf && styles.quoteSenderSelf]} numberOfLines={1}>
                       {message.reply_to.nickname &&
                       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
                         message.reply_to.nickname
@@ -435,7 +443,19 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               ) : null}
 
               {/* Text Content / Caption */}
-              {isE2EE && message.decrypt_failed ? (
+              {isUndecryptable ? (
+                <TouchableOpacity
+                  style={styles.e2eeRow}
+                  activeOpacity={0.7}
+                  onPress={() => Alert.alert(UNDECRYPTABLE_INFO_TITLE, UNDECRYPTABLE_INFO_BODY)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Pesan tidak dapat dibuka karena kunci enkripsi berubah. Ketuk untuk info"
+                >
+                  <Icon name="lock" size={14} color="rgba(255, 255, 255, 0.75)" />
+                  <Text style={styles.undecryptableTitle}>Pesan tidak dapat dibuka</Text>
+                  <Icon name="info" size={14} color="rgba(255, 255, 255, 0.75)" />
+                </TouchableOpacity>
+              ) : isE2EE && message.decrypt_failed ? (
                 <TouchableOpacity
                   style={styles.e2eeRow}
                   activeOpacity={0.7}
@@ -592,6 +612,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
+  // Bubble Anda biru terang (#30AFFF): kotak kutipan digelapkan (hitam 40%) agar teks putih memenuhi WCAG AA 4,5:1
+  quoteBoxSelf: {
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  quoteAccentBarSelf: {
+    backgroundColor: '#ffffff',
+  },
+  quoteSenderSelf: {
+    color: '#ffffff',
+  },
   quoteAccentBar: {
     position: 'absolute',
     left: 0,
@@ -614,7 +644,7 @@ const styles = StyleSheet.create({
   },
   quoteText: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.92)',
     lineHeight: 16,
   },
   deletedBubble: {
@@ -810,6 +840,12 @@ const styles = StyleSheet.create({
   e2eeText: {
     fontStyle: 'italic',
     color: colors.textSecondary,
+  },
+  undecryptableTitle: {
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   e2eeRetryText: {
     fontStyle: 'normal',

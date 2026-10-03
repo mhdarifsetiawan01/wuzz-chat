@@ -6,6 +6,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Conversation, Message } from '../api/types';
+import { UNDECRYPTABLE_PREVIEW, isUndecryptablePlaceholder } from '../utils/undecryptable';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Avatar } from './Avatar';
@@ -80,6 +81,8 @@ function getMessagePreview(conversation: Conversation, currentUserId?: string): 
     body = 'Belum ada pesan';
   } else if (raw.startsWith('e2ee:')) {
     body = '🔒 Pesan terenkripsi';
+  } else if (isUndecryptablePlaceholder(raw)) {
+    body = UNDECRYPTABLE_PREVIEW;
   } else if (parseSharedPost(raw)) {
     body = '📢 Postingan Komunitas';
   } else {

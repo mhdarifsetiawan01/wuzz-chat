@@ -261,6 +261,7 @@ Untuk mencegah teks tidak terbaca (*white-on-white* atau warna sama dengan tombo
    - Tombol terang (`secondary`, `ghost`): gunakan spinner biru aksen (`colors.accentPrimary`).
 3. **State Loading Tombol Primer**:
    - Saat `isLoading={true}`, background tombol primer **DILARANG** berubah menjadi putih/pucat yang menyamarkan spinner putih. Background harus tetap `colors.accentPrimary` dengan `activeOpacity`.
+4. **Isi Bubble Chat (`MessageBubble.tsx`)**: teks sekunder di dalam bubble (kutipan balasan, keterangan) juga wajib ≥ 4.5:1. Jangan memakai `colors.textSecondary` (`#64748b`, untuk latar terang) di dalam bubble: terukur 1.2:1 di bubble Anda (`#30AFFF`) dan 2.7:1 di bubble lawan (`#334155`). Pola yang dipakai: teks putih `rgba(255,255,255,0.92)`; di bubble Anda, kotak kutipan digelapkan `rgba(0,0,0,0.4)` (karena `#30AFFF` terang, putih di atas kotak `0.22` hanya 3.5:1, di atas `0.4` 5.3:1) dengan nama pengirim dan bar aksen putih; di bubble lawan nama pengirim tetap `#38bdf8` (6.0:1).
 
 ---
 
