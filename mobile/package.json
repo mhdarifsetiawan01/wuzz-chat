@@ -49,7 +49,8 @@
     "bump:patch": "node scripts/bump-version.js patch",
     "bump:minor": "node scripts/bump-version.js minor",
     "bump:major": "node scripts/bump-version.js major",
-    "bump:build": "node scripts/bump-version.js build"
+    "bump:build": "node scripts/bump-version.js build",
+    "test:unit": "node scripts/test/run-all.js"
   },
   "private": true
 }

@@ -139,6 +139,7 @@ mobile/
    ```bash
    cd mobile && npx tsc --noEmit
    ```
+   **Uji unit logika (tanpa perangkat)**: `cd mobile && npm run test:unit` menjalankan `mobile/scripts/test/*.test.js` terhadap modul `src/` ASLI dengan modul native diganti tiruan dalam memori (`_harness.js`): penulisan pesan ke SQLite (`sqlite-storage`), kunci AES room (`room-key-store`), antrean tulis, store pesan, dan pengenal pesan terkunci. Jalankan setelah mengubah `sqliteStorage.ts`, `roomKeyStore.ts`, `crypto.ts`, `secureStorage.ts`, atau `messageStore.ts`. Skrip sandbox Python di `mobile/scripts/sandbox/` membuktikan perilaku SQLite (WAL, vacuum, biaya tulis).
 2. **Build Standalone Release APK (ABI Splits ~29 MB & ~26 MB)**:
    ```bash
    cd mobile/android && ./gradlew assembleRelease
