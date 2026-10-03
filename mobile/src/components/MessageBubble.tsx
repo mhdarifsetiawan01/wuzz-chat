@@ -10,7 +10,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   Modal,
   ActivityIndicator,
@@ -18,6 +17,7 @@ import {
   Animated,
   PanResponder,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
 import { AudioPlayerBubble } from './AudioPlayerBubble';
@@ -52,7 +52,7 @@ export interface MessageBubbleProps {
   onRetryDecrypt?: (message: Message) => void;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({
+const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   message,
   isSelf,
   showSenderName,
@@ -399,7 +399,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     <Image
                       source={{ uri: effectiveMediaUrl }}
                       style={styles.mediaImage}
-                      resizeMode="cover"
+                      contentFit="cover"
+                      transition={120}
+                      recyclingKey={message.id}
                       onLoad={handleImageLoad}
                       onError={handleImageError}
                     />
@@ -535,6 +537,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     </View>
   );
 };
+
+// Memoized: bubble hanya re-render bila prop-nya berubah (callback dari ChatScreen harus stabil)
+export const MessageBubble = React.memo(MessageBubbleComponent);
 
 const styles = StyleSheet.create({
   container: {

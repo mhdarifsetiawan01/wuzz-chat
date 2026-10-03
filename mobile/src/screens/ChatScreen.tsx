@@ -1187,9 +1187,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     [roomId, getRoomAESKey, setMessages]
   );
 
+  // Ref agar handlePressQuote stabil (tidak berubah tiap pesan baru) dan MessageBubble memo tetap efektif
+  const invertedMessagesRef = useRef(invertedMessages);
+  invertedMessagesRef.current = invertedMessages;
+
   const handlePressQuote = useCallback(
     (targetMessageId: string) => {
-      const index = invertedMessages.findIndex((m) => m.id === targetMessageId);
+      const index = invertedMessagesRef.current.findIndex((m) => m.id === targetMessageId);
       if (index !== -1) {
         flatListRef.current?.scrollToIndex({
           index,
@@ -1204,7 +1208,53 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         Alert.alert('Pesan Tidak Ditemukan', 'Pesan asli mungkin berada di riwayat sebelumnya.');
       }
     },
-    [invertedMessages]
+    []
+  );
+
+  // Stable callbacks + renderItem for the message FlatList (keeps MessageBubble memoized)
+  const handleBubbleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
+  const handleBubbleLongPress = useCallback((msg: Message) => setActionSheetMessage(msg), []);
+  const messageKeyExtractor = useCallback((item: Message) => item.id, []);
+  const username = user?.username;
+
+  const renderMessageItem = useCallback(
+    ({ item }: { item: Message }) => {
+      const isSelf =
+        item.sender_id === currentUserId ||
+        item.from === currentUserId ||
+        (Boolean(username) && item.from === username);
+
+      return (
+        <MessageBubble
+          message={item}
+          isSelf={isSelf}
+          showSenderName={!isDirect && !isSelf}
+          senderName={item.nickname || item.from}
+          currentUserId={currentUserId}
+          isHighlighted={item.id === highlightedMessageId}
+          onMediaLoaded={handleMediaLoaded}
+          onReply={handleBubbleReply}
+          onLongPress={handleBubbleLongPress}
+          onPressQuote={handlePressQuote}
+          onReact={handleReact}
+          onPressPost={onOpenPost}
+          onRetryDecrypt={handleRetryDecrypt}
+        />
+      );
+    },
+    [
+      currentUserId,
+      username,
+      isDirect,
+      highlightedMessageId,
+      handleMediaLoaded,
+      handleBubbleReply,
+      handleBubbleLongPress,
+      handlePressQuote,
+      handleReact,
+      onOpenPost,
+      handleRetryDecrypt,
+    ]
   );
 
   // 8. Milestone 8.3: Edit Message Handlers
@@ -1843,7 +1893,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             ref={flatListRef}
             data={invertedMessages}
             inverted
-            keyExtractor={(item) => item.id}
+            keyExtractor={messageKeyExtractor}
             keyboardShouldPersistTaps="handled"
             onScrollToIndexFailed={(info) => {
               isNearBottomRef.current = false;
@@ -1861,31 +1911,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 });
               }, 80);
             }}
-            renderItem={({ item }) => {
-              const isSelf =
-                item.sender_id === currentUserId ||
-                item.from === currentUserId ||
-                (Boolean(user?.username) && item.from === user?.username);
-
-              return (
-                <MessageBubble
-                  message={item}
-                  isSelf={isSelf}
-                  showSenderName={!isDirect && !isSelf}
-                  senderName={item.nickname || item.from}
-                  currentUserId={currentUserId}
-                  isHighlighted={item.id === highlightedMessageId}
-
-                  onMediaLoaded={handleMediaLoaded}
-                  onReply={(msg) => setReplyingTo(msg)}
-                  onLongPress={(msg) => setActionSheetMessage(msg)}
-                  onPressQuote={handlePressQuote}
-                  onReact={handleReact}
-                  onPressPost={onOpenPost}
-                  onRetryDecrypt={handleRetryDecrypt}
-                />
-              );
-            }}
+            renderItem={renderMessageItem}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={11}
             contentContainerStyle={styles.listContent}
             onScroll={handleScroll}
             scrollEventThrottle={32}

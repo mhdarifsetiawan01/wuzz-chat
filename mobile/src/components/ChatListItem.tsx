@@ -113,7 +113,7 @@ function getMessagePreview(conversation: Conversation, currentUserId?: string): 
   return body;
 }
 
-export const ChatListItem: React.FC<ChatListItemProps> = ({
+const ChatListItemComponent: React.FC<ChatListItemProps> = ({
   conversation,
   onPress,
   onLongPress,
@@ -189,6 +189,9 @@ export const ChatListItem: React.FC<ChatListItemProps> = ({
     </TouchableOpacity>
   );
 };
+
+// Memoized: baris hanya re-render bila conversation/callback berubah
+export const ChatListItem = React.memo(ChatListItemComponent);
 
 const styles = StyleSheet.create({
   rowContainer: {

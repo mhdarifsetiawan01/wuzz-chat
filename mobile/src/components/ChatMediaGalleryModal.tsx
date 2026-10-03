@@ -12,12 +12,12 @@ import {
   Modal,
   TouchableOpacity,
   FlatList,
-  Image,
   ActivityIndicator,
   Dimensions,
   Share,
   StatusBar,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
 import { getRoomMediaMessages } from '../services/sqliteStorage';
@@ -177,7 +177,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         activeOpacity={0.8}
         onPress={() => handleOpenViewer(item)}
       >
-        <Image source={{ uri }} style={styles.gridImage} resizeMode="cover" />
+        <Image source={{ uri }} style={styles.gridImage} contentFit="cover" transition={100} />
         {isVideo && (
           <View style={styles.videoBadge}>
             <IconText style={styles.videoBadgeIcon}>▶</IconText>

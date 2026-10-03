@@ -5,7 +5,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
 import { feedApi } from '../api/feedApi';
 import { FeedPost } from '../api/types';
 import { colors } from '../theme/colors';
@@ -74,7 +75,7 @@ export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, is
       onPress={() => onPress?.(postId, post)}
     >
       {thumb && !imageError && !gone ? (
-        <Image source={{ uri: thumb }} style={styles.thumbnail} resizeMode="cover" onError={() => setImageError(true)} />
+        <Image source={{ uri: thumb }} style={styles.thumbnail} contentFit="cover" transition={120} onError={() => setImageError(true)} />
       ) : null}
 
       <View style={styles.body}>

@@ -5,7 +5,8 @@
  */
 
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
 
 export interface PostMediaProps {
   urls?: string[];
@@ -32,7 +33,7 @@ export const PostMedia: React.FC<PostMediaProps> = React.memo(({ urls, onPressIm
             accessibilityRole="imagebutton"
             accessibilityLabel="Perbesar gambar"
           >
-            <Image source={{ uri: url }} style={styles.fill} resizeMode={large ? 'contain' : 'cover'} />
+            <Image source={{ uri: url }} style={styles.fill} contentFit={large ? 'contain' : 'cover'} transition={120} />
           </TouchableOpacity>
         ))}
       </View>
@@ -50,7 +51,7 @@ export const PostMedia: React.FC<PostMediaProps> = React.memo(({ urls, onPressIm
           accessibilityRole="imagebutton"
           accessibilityLabel="Perbesar gambar"
         >
-          <Image source={{ uri: url }} style={styles.fill} resizeMode="cover" />
+          <Image source={{ uri: url }} style={styles.fill} contentFit="cover" transition={120} />
           {idx === 3 && (urls?.length ?? 0) > 4 && (
             <View style={styles.moreOverlay}>
               <Text style={styles.moreText}>+{(urls?.length ?? 0) - 4}</Text>

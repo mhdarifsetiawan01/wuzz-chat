@@ -106,7 +106,8 @@
           "backgroundColor": "#0462E8",
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-image"
     ]
   }
 }

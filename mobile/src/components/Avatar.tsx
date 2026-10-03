@@ -4,7 +4,8 @@
  */
 
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { colors, radius } from '../theme';
 import { IconText } from './IconText';
 
@@ -74,6 +75,8 @@ export const Avatar: React.FC<AvatarProps> = ({
       {hasValidHttpUrl ? (
         <Image
           source={{ uri: avatarUrl }}
+          contentFit="cover"
+          transition={100}
           onError={() => setHasImageError(true)}
           style={[styles.image, { width: size, height: size, borderRadius }]}
         />

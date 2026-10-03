@@ -9,10 +9,10 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinkPreview } from '../api/types';
 import { fetchLinkPreview } from '../api/linkPreview';
 import { safeOpenUrl } from '../utils/linkUtils';
@@ -95,7 +95,8 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ url, isSelf = 
           <Image
             source={{ uri: preview.image }}
             style={styles.thumbnail}
-            resizeMode="cover"
+            contentFit="cover"
+            transition={120}
             onError={() => setImageError(true)}
           />
         </View>
@@ -108,7 +109,7 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ url, isSelf = 
             <Image
               source={{ uri: preview.favicon }}
               style={styles.favicon}
-              resizeMode="contain"
+              contentFit="contain"
             />
           ) : (
             <IconText style={styles.globeIcon}>🌐</IconText>

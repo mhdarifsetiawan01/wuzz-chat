@@ -124,15 +124,29 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     }, [refreshConversations])
   );
 
-  const handleChatPress = (chat: Conversation) => {
-    const roomId = chat.id || chat.room_id;
-    if (roomId) {
-      markConversationAsRead(roomId);
-    }
-    if (onSelectChat) {
-      onSelectChat(chat);
-    }
-  };
+  const handleChatPress = useCallback(
+    (chat: Conversation) => {
+      const roomId = chat.id || chat.room_id;
+      if (roomId) {
+        markConversationAsRead(roomId);
+      }
+      if (onSelectChat) {
+        onSelectChat(chat);
+      }
+    },
+    [markConversationAsRead, onSelectChat]
+  );
+
+  const renderChatItem = useCallback(
+    ({ item }: { item: Conversation }) => (
+      <ChatListItem
+        conversation={item}
+        onPress={handleChatPress}
+        onLongPress={handleChatLongPress}
+      />
+    ),
+    [handleChatPress, handleChatLongPress]
+  );
 
   const getStatusText = () => {
     switch (wsState) {
@@ -493,13 +507,11 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
           <FlatList
             data={filteredConversations}
             keyExtractor={(item, index) => item.id || item.room_id || String(index)}
-            renderItem={({ item }) => (
-              <ChatListItem
-                conversation={item}
-                onPress={handleChatPress}
-                onLongPress={handleChatLongPress}
-              />
-            )}
+            renderItem={renderChatItem}
+            initialNumToRender={12}
+            maxToRenderPerBatch={8}
+            windowSize={9}
+            removeClippedSubviews
             contentContainerStyle={[
               styles.listContent,
               { paddingBottom: Math.max(insets.bottom + 88, 100) },
