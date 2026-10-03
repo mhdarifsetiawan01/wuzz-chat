@@ -129,7 +129,7 @@ Kesimpulan:
 Jeda ~1 menit dan layar "diam" muncul karena APK dialirkan dari Google Drive lewat aplikasi Drive ke installer. **Rekomendasi: layani APK langsung dari server sendiri** (mis. `https://chat.wuzzhub.id/download/wuzzchat.apk` dengan `Content-Type: application/vnd.android.package-archive` dan `Content-Disposition: attachment`) sehingga Android memakai pengelola unduhan peramban: ada notifikasi progres, layar tidak terkunci oleh installer, lalu cukup ketuk berkas untuk memasang.
 
 Yang perlu diubah jika dikerjakan:
-- Host file APK di VPS (~47 MB per ABI) dan tentukan cara mengunggah tiap rilis (pengganti "Manage versions" di Drive).
+- Host file APK di VPS (~29 MB arm64 / ~26 MB armeabi-v7a dengan kompresi `.so`, lihat `docs/context/MOBILE.md` bagian Build) dan tentukan cara mengunggah tiap rilis (pengganti "Manage versions" di Drive).
 - Backend: `APK_DOWNLOAD_URL` ke tautan baru; web gate: `NEXT_PUBLIC_APK_URL` (rebuild frontend).
 - Pertimbangkan batas bandwidth/ukuran di reverse proxy dan verifikasi `Content-Length`.
 

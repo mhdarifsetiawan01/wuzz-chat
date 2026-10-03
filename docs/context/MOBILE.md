@@ -133,14 +133,18 @@ mobile/
    ```bash
    cd mobile && npx tsc --noEmit
    ```
-2. **Build Standalone Release APK (ABI Splits ~47 MB & ~35 MB)**:
+2. **Build Standalone Release APK (ABI Splits ~29 MB & ~26 MB)**:
    ```bash
    cd mobile/android && ./gradlew assembleRelease
    ```
    *Output APK berlokasi di*: `mobile/android/app/build/outputs/apk/release/`
-   - `app-arm64-v8a-release.apk` (47 MB — untuk 95%+ smartphone modern)
-   - `app-armeabi-v7a-release.apk` (35 MB — cadangan HP lawas 32-bit)
-3. **Build Android App Bundle untuk Google Play Store (Single .aab ~50 MB)**:
+   - `app-arm64-v8a-release.apk` (29,2 MB — untuk 95%+ smartphone modern)
+   - `app-armeabi-v7a-release.apk` (26,5 MB — cadangan HP lawas 32-bit)
+   - Ukuran di atas (terukur 4 Okt 2026, v1.17.0 build 25) sudah memakai kompresi `.so`: plugin `withAndroidReleaseOptimization` mengompres pustaka native di dalam APK untuk `assembleRelease` (`useLegacyPackaging=true`, otomatis dari nama task). Tanpa kompresi: arm64 52,5 MB dan armeabi-v7a 39,5 MB (naik ±5 MB dari catatan lama 47/35 MB, kemungkinan besar karena `expo-image`; belum diverifikasi dengan APK pembanding).
+   - Konsekuensi: HP mengekstrak `.so` saat instal, sehingga ruang terpakai arm64 ±65,9 MB (dibanding ±51,3 MB tanpa kompresi). Cold start tidak memburuk (median 911 ms vs 969 ms, `am start -W`, 5 kali; selisih kecil).
+   - Rincian APK arm64 tanpa kompresi: pustaka native 38,2 MB (73%; terbesar `libjingle_peerconnection_so` WebRTC 11,4 MB, `libreactnative` 7,0 MB, `libbarhopper_v3` ML Kit 4,95 MB), dex 6,9 MB, bundle JS Hermes 3,1 MB. Lazy-load JS tidak mengecilkan APK karena porsinya ada di pustaka native.
+   - Matikan kompresi dengan `-Pwuzz.compressNativeLibsInApk=false`. `bundleRelease` (AAB Play) tidak pernah dikompres: Play sudah mengompres unduhan dan `.so` mentah menjaga ruang terpakai di HP kecil. Gradle mencetak `📦 [Native libs] ...` saat konfigurasi sebagai konfirmasi. Berlaku setelah `expo prebuild`; `android/` hasil generate diabaikan git.
+3. **Build Android App Bundle untuk Google Play Store (Single .aab; ukuran terakhir tercatat ~50 MB, belum diukur ulang setelah `expo-image`)**:
    ```bash
    cd mobile/android && ./gradlew bundleRelease
    ```

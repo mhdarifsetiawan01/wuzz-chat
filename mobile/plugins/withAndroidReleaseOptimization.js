@@ -90,6 +90,28 @@ def appConfig = getAppConfig(projectRoot)
         `${splitsBlock}\n    packagingOptions {`
       );
     }
+    // Kompresi pustaka native (.so) hanya untuk APK rilis yang dibagikan langsung (Drive/VPS).
+    // Template Expo menyimpan .so mentah (useLegacyPackaging=false): APK arm64 ±52 MB; dikompres ±29 MB.
+    // AAB untuk Play (bundle*) TIDAK dikompres: Play sudah mengompres saat pengiriman, dan .so mentah
+    // membuat ruang terpakai di HP lebih kecil. Karena ditentukan dari nama task, pindah ke Play cukup
+    // menjalankan bundleRelease tanpa mengubah konfigurasi. Matikan dengan -Pwuzz.compressNativeLibsInApk=false.
+    if (!modConfig.modResults.contents.includes('wuzz.compressNativeLibsInApk')) {
+      const originalJniLibs = `            def enableLegacyPackaging = findProperty('expo.useLegacyPackaging') ?: 'false'
+            useLegacyPackaging enableLegacyPackaging.toBoolean()`;
+      const conditionalJniLibs = `            def requestedTasks = gradle.startParameter.taskNames.collect { it.toLowerCase() }
+            def isApkReleaseBuild = requestedTasks.any { it.contains("assemblerelease") } && !requestedTasks.any { it.contains("bundle") }
+            def compressForApk = (findProperty('wuzz.compressNativeLibsInApk') ?: 'true').toBoolean()
+            def enableLegacyPackaging = (isApkReleaseBuild && compressForApk) ? 'true' : (findProperty('expo.useLegacyPackaging') ?: 'false')
+            if (isApkReleaseBuild || requestedTasks.any { it.contains("bundle") }) {
+                println "📦 [Native libs] " + (enableLegacyPackaging.toBoolean() ? "dikompres di dalam APK (unduhan lebih kecil)" : "tidak dikompres (default / AAB Play)")
+            }
+            useLegacyPackaging enableLegacyPackaging.toBoolean()`;
+      if (modConfig.modResults.contents.includes(originalJniLibs)) {
+        modConfig.modResults.contents = modConfig.modResults.contents.replace(originalJniLibs, conditionalJniLibs);
+      } else {
+        console.warn('[withAndroidReleaseOptimization] Blok jniLibs template tidak ditemukan; kompresi .so bersyarat dilewati.');
+      }
+    }
     return modConfig;
   });
 
