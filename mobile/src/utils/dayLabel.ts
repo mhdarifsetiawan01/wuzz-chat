@@ -19,6 +19,17 @@ export function dayKey(ts?: string | number | Date | null): string | null {
   return d ? `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` : null;
 }
 
+/** Waktu pesan terakhir di daftar obrolan: jam bila hari ini, selain itu label hari (Kemarin/nama hari/tanggal). */
+export function formatChatListTime(ts?: string | number | Date | null, now: Date = new Date()): string {
+  const d = toDate(ts);
+  if (!d) return '';
+  if (dayKey(d) === dayKey(now)) {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  return formatDayLabel(d, now);
+}
+
 export function formatDayLabel(ts: string | number | Date, now: Date = new Date()): string {
   const d = toDate(ts);
   if (!d) return '';

@@ -4,7 +4,7 @@ const assert = require('assert');
 const { loadFresh } = require('./_harness');
 
 const { dayLabel } = loadFresh(['utils/dayLabel.ts']);
-const { dayKey, formatDayLabel } = dayLabel;
+const { dayKey, formatDayLabel, formatChatListTime } = dayLabel;
 
 const now = new Date(2026, 9, 4, 21, 0); // Minggu, 4 Okt 2026 21:00
 const at = (y, m, d, h = 12) => new Date(y, m, d, h);
@@ -23,5 +23,13 @@ assert.strictEqual(dayKey(at(2026, 9, 4, 0)), dayKey(at(2026, 9, 4, 23)));
 assert.notStrictEqual(dayKey(at(2026, 9, 4, 23)), dayKey(at(2026, 9, 5, 0)));
 assert.notStrictEqual(dayKey(at(2026, 8, 4)), dayKey(at(2026, 9, 4))); // bulan beda, hari sama
 for (const bad of [undefined, null, '', 'xyz']) assert.strictEqual(dayKey(bad), null);
+
+assert.strictEqual(formatChatListTime(at(2026, 9, 4, 8), now), '08:00');
+assert.strictEqual(formatChatListTime(new Date(2026, 9, 4, 0, 5), now), '00:05');
+assert.strictEqual(formatChatListTime(at(2026, 9, 3, 23), now), 'Kemarin');
+assert.strictEqual(formatChatListTime(at(2026, 9, 1), now), 'Kamis');
+assert.strictEqual(formatChatListTime(at(2026, 0, 5), now), '5 Jan');
+assert.strictEqual(formatChatListTime(undefined, now), '');
+assert.strictEqual(formatChatListTime('xyz', now), '');
 
 console.log('day-label: label hari, batas tengah malam, bulan/tahun berbeda, input tidak valid');

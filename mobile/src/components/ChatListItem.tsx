@@ -13,39 +13,12 @@ import { Avatar } from './Avatar';
 import { VerifiedBadge } from './VerifiedBadge';
 import { useAuth } from '../context';
 import { parseSharedPost } from '../utils/feedShare';
+import { formatChatListTime } from '../utils/dayLabel';
 
 interface ChatListItemProps {
   conversation: Conversation;
   onPress: (conversation: Conversation) => void;
   onLongPress?: (conversation: Conversation) => void;
-}
-
-function formatChatTime(dateString?: string): string {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return '';
-
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffSecs < 60) {
-    return 'now';
-  }
-  if (diffMins < 60) {
-    return `${diffMins}m ago`;
-  }
-  if (diffHours < 24) {
-    return `${diffHours}h ago`;
-  }
-  if (diffDays < 7) {
-    return `${diffDays}d ago`;
-  }
-
-  return `${date.getDate()}/${date.getMonth() + 1}`;
 }
 
 function getConversationName(conv: Conversation): string {
@@ -124,7 +97,7 @@ const ChatListItemComponent: React.FC<ChatListItemProps> = ({
   const { user } = useAuth();
   const unreadCount = conversation.unread_count || 0;
   const hasUnread = unreadCount > 0;
-  const timeFormatted = formatChatTime(
+  const timeFormatted = formatChatListTime(
     typeof conversation.last_message === 'object'
       ? conversation.last_message.created_at
       : conversation.updated_at
@@ -169,7 +142,7 @@ const ChatListItemComponent: React.FC<ChatListItemProps> = ({
             {conversation.peer_is_verified && <VerifiedBadge size={14} />}
             {isGroup && (
               <View style={styles.groupTypeTag}>
-                <Text style={styles.groupTypeTagText}>Group</Text>
+                <Text style={styles.groupTypeTagText}>Grup</Text>
               </View>
             )}
           </View>

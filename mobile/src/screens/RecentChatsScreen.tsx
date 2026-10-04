@@ -274,16 +274,16 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
       return (
         <View style={styles.emptyContainer}>
           <IconText style={styles.emptyIcon}>🔍</IconText>
-          <Text style={styles.emptyTitle}>No Results Found</Text>
+          <Text style={styles.emptyTitle}>Tidak Ada Hasil</Text>
           <Text style={styles.emptySubtitle}>
-            No conversations matching &quot;{searchQuery}&quot;. Check your spelling or try another keyword.
+            Tidak ada obrolan yang cocok dengan &quot;{searchQuery}&quot;. Periksa ejaan atau coba kata kunci lain.
           </Text>
           <TouchableOpacity
             style={styles.clearFilterBtn}
             onPress={() => setSearchQuery('')}
             activeOpacity={0.8}
           >
-            <Text style={styles.clearFilterBtnText}>Clear Search</Text>
+            <Text style={styles.clearFilterBtnText}>Hapus Pencarian</Text>
           </TouchableOpacity>
         </View>
       );
@@ -293,16 +293,16 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
       return (
         <View style={styles.emptyContainer}>
           <IconText style={styles.emptyIcon}>✅</IconText>
-          <Text style={styles.emptyTitle}>All Caught Up</Text>
+          <Text style={styles.emptyTitle}>Semua Sudah Dibaca</Text>
           <Text style={styles.emptySubtitle}>
-            You have no unread conversations at this time.
+            Tidak ada obrolan yang belum dibaca.
           </Text>
           <TouchableOpacity
             style={styles.clearFilterBtn}
             onPress={() => setActiveFilter('all')}
             activeOpacity={0.8}
           >
-            <Text style={styles.clearFilterBtnText}>Show All Chats</Text>
+            <Text style={styles.clearFilterBtnText}>Tampilkan Semua Obrolan</Text>
           </TouchableOpacity>
         </View>
       );
@@ -312,9 +312,9 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
       return (
         <View style={styles.emptyContainer}>
           <IconText style={styles.emptyIcon}>👥</IconText>
-          <Text style={styles.emptyTitle}>No Groups Yet</Text>
+          <Text style={styles.emptyTitle}>Belum Ada Grup</Text>
           <Text style={styles.emptySubtitle}>
-            You haven't joined or created any group conversations yet.
+            Anda belum bergabung atau membuat grup.
           </Text>
           {onStartNewGroup && (
             <TouchableOpacity
@@ -322,7 +322,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
               onPress={onStartNewGroup}
               activeOpacity={0.85}
             >
-              <Text style={styles.startChatBtnText}>+ New Group</Text>
+              <Text style={styles.startChatBtnText}>+ Grup Baru</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -332,9 +332,9 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     return (
       <View style={styles.emptyContainer}>
         <IconText style={styles.emptyIcon}>💬</IconText>
-        <Text style={styles.emptyTitle}>No Messages Yet</Text>
+        <Text style={styles.emptyTitle}>Belum Ada Pesan</Text>
         <Text style={styles.emptySubtitle}>
-          Your recent conversations and contacts will appear here.
+          Obrolan dan kontak terbaru Anda akan tampil di sini.
         </Text>
         {onStartNewChat && (
           <TouchableOpacity
@@ -342,7 +342,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
             onPress={onStartNewChat}
             activeOpacity={0.85}
           >
-            <Text style={styles.startChatBtnText}>+ Start a Chat</Text>
+            <Text style={styles.startChatBtnText}>+ Mulai Obrolan</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -387,7 +387,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
           <Icon name="search" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search messages..."
+            placeholder="Cari pesan..."
             placeholderTextColor="#94a3b8"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -410,7 +410,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
 
       {/* FAVORITE CONTACTS Section — Reference Image 1 */}
       <View style={styles.favoritesSection}>
-        <Text style={styles.favoritesSectionTitle}>FAVORITE CONTACTS</Text>
+        <Text style={styles.favoritesSectionTitle}>KONTAK FAVORIT</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -451,7 +451,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
               activeFilter === 'all' && styles.filterChipTextActive,
             ]}
           >
-            All
+            Semua
           </Text>
         </TouchableOpacity>
 
@@ -466,7 +466,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
               activeFilter === 'unread' && styles.filterChipTextActive,
             ]}
           >
-            Unread
+            Belum Dibaca
           </Text>
           {unreadCount > 0 && (
             <View style={styles.filterBadge}>
@@ -486,7 +486,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
               activeFilter === 'groups' && styles.filterChipTextActive,
             ]}
           >
-            Groups
+            Grup
           </Text>
           {groupsCount > 0 && (
             <View style={styles.filterCountTag}>
