@@ -270,7 +270,10 @@ export function getCachedPeerPublicKey(userId: string): string | undefined {
 }
 
 function roomKeyCacheId(myPrivateKeyHex: string, theirPublicKeyJWK: string, roomId: string): string {
-  return `${myPrivateKeyHex.slice(0, 16)}:${theirPublicKeyJWK.slice(0, 32)}:${roomId}`;
+  // Masukan LENGKAP (bukan potongan): 32 karakter pertama JWK hanya memuat 1 karakter `x`, sehingga peer yang
+  // berganti kunci dalam satu sesi bisa tabrakan dan terus memakai kunci lama. Cache hanya di memori, dan kunci
+  // privat memang sudah ada di memori, jadi tidak ada paparan baru; tanpa biaya hash per dekripsi.
+  return `${myPrivateKeyHex}\n${theirPublicKeyJWK}\n${roomId}`;
 }
 
 /**
