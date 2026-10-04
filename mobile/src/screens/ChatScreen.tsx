@@ -65,6 +65,8 @@ import { quotePreviewText } from '../utils/quotePreview';
 import { dayKey } from '../utils/dayLabel';
 import { DateSeparator } from '../components/DateSeparator';
 import { SystemMessageRow } from '../components/SystemMessageRow';
+import { ChatHeaderStatus } from '../components/ChatHeaderStatus';
+import { shouldSendTyping } from '../utils/typingTracker';
 import { isSystemMessage } from '../utils/systemMessage';
 
 export interface ChatScreenProps {
@@ -1211,6 +1213,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   );
 
   // Stable callbacks + renderItem for the message FlatList (keeps MessageBubble memoized)
+  const handleTyping = useCallback(() => {
+    websocketClient.sendTyping(roomId);
+  }, [roomId]);
   const handleBubbleReply = useCallback((msg: Message) => setReplyingTo(msg), []);
   const handleBubbleLongPress = useCallback((msg: Message) => setActionSheetMessage(msg), []);
   const messageKeyExtractor = useCallback((item: Message) => item.id, []);
@@ -1757,21 +1762,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               <View style={styles.headerStatusRow}>
                 {isDirect && <View style={styles.onlineDot} />}
 
-                {/* M-Mobile-8.2C: Interactive breadcrumb for sub-group rooms */}
-                {isSubGroup ? (
-                  <IconText style={styles.headerBreadcrumb} numberOfLines={1}>
-                    {'↖ '}
-                    {parentGroupName ? `${parentGroupName} • ` : ''}
-                    {'Forum'}
-                    {memberCount > 0 ? ` • ${memberCount} anggota` : ''}
-                  </IconText>
-                ) : (
-                  <IconText style={styles.headerSubtitle} numberOfLines={1}>
-                    {isDirect
-                      ? (roomAESKey ? '🔒 Terenkripsi E2EE' : 'Online')
-                      : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'}`}
-                  </IconText>
-                )}
+                {/* "Sedang mengetik" menggantikan subjudul selama ada yang mengetik (state-nya di komponen anak) */}
+                <ChatHeaderStatus roomId={roomId} isDirect={isDirect}>
+                  {isSubGroup ? (
+                    /* M-Mobile-8.2C: Interactive breadcrumb for sub-group rooms */
+                    <IconText style={styles.headerBreadcrumb} numberOfLines={1}>
+                      {'↖ '}
+                      {parentGroupName ? `${parentGroupName} • ` : ''}
+                      {'Forum'}
+                      {memberCount > 0 ? ` • ${memberCount} anggota` : ''}
+                    </IconText>
+                  ) : (
+                    <IconText style={styles.headerSubtitle} numberOfLines={1}>
+                      {isDirect
+                        ? (roomAESKey ? '🔒 Terenkripsi E2EE' : 'Online')
+                        : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'}`}
+                    </IconText>
+                  )}
+                </ChatHeaderStatus>
               </View>
             </View>
           </TouchableOpacity>
@@ -1821,8 +1829,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               </TouchableOpacity>
             )}
 
-            {isParentGroup && (
-              // 🏛️ Forum button — only on parent groups, not sub-groups
+            {isParentGroup && !onOpenGroupInfo && (
+              // 🏛️ Forum button — only on parent groups, not sub-groups. Bila Info Grup tersedia, Forum
+              // dibuka dari tombol "Forum" di sana (ikon dibuang agar judul grup tidak terpotong).
               <TouchableOpacity
                 style={styles.forumButton}
                 onPress={() => setShowForumModal(true)}
@@ -1991,6 +2000,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onCancelStagedMedia={handleCancelStagedMedia}
           replyTo={replyingTo}
           onEmojiPickerChange={setEmojiPickerOpen}
+          // Grup besar / jumlah anggota belum diketahui: tidak mengirim typing (lihat TYPING_MAX_GROUP_MEMBERS)
+          onTyping={shouldSendTyping(isDirect, memberCount) ? handleTyping : undefined}
           replySenderName={getMessageSenderName(replyingTo)}
           onCancelReply={() => setReplyingTo(null)}
           editingMessage={editingMessage}

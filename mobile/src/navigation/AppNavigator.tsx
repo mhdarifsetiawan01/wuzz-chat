@@ -71,7 +71,10 @@ export const AppNavigator: React.FC = () => {
             onOpenGroupInfo={(grp) => {
               const targetGroupId = grp.id || (grp as any).room_id || '';
               if (targetGroupId) {
-                navigation.navigate('GroupInfo', { groupId: targetGroupId });
+                navigation.navigate('GroupInfo', {
+                  groupId: targetGroupId,
+                  conversation: route.params.conversation,
+                });
               }
             }}
             onNavigateToParent={(parentGroupId) => {
@@ -159,6 +162,13 @@ export const AppNavigator: React.FC = () => {
             onLeaveSuccess={() => navigation.navigate('MainTabs')}
             onOpenUserProfile={(memberUserId) => {
               navigation.navigate('UserProfile', { userId: memberUserId });
+            }}
+            // Sama dengan alur dari header chat: topik membuka Chat baru dan Back kembali ke grup induk
+            onEnterSubGroup={(subConv) => {
+              navigation.replace('Chat', {
+                conversation: subConv as ConversationItem,
+                parentGroupConversation: route.params.conversation,
+              });
             }}
           />
         )}

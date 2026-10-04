@@ -58,12 +58,17 @@ export interface ChatInputBarProps {
   replyTo?: Message | null;
   /** Dipanggil saat picker emoji dibuka/ditutup (induk menyembunyikan tombol melayang). */
   onEmojiPickerChange?: (open: boolean) => void;
+  /** Dipanggil (dibatasi tiap 2 dtk) saat pengguna mengetik; induk meneruskannya sebagai event typing. */
+  onTyping?: () => void;
   replySenderName?: string;
   onCancelReply?: () => void;
   editingMessage?: Message | null;
   onSaveEdit?: (messageId: string, newContent: string) => void;
   onCancelEdit?: () => void;
 }
+
+// Sama dengan web (MessageInput.tsx): satu event typing per 2 dtk
+const TYPING_THROTTLE_MS = 2000;
 
 function formatFileSize(bytes?: number): string {
   if (!bytes || bytes <= 0) return '';
@@ -89,6 +94,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onCancelStagedMedia,
   replyTo,
   onEmojiPickerChange,
+  onTyping,
   replySenderName,
   onCancelReply,
   editingMessage,
@@ -96,6 +102,18 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onCancelEdit,
 }) => {
   const [text, setText] = useState('');
+  const lastTypingSentRef = useRef(0);
+
+  const handleChangeText = (value: string) => {
+    setText(value);
+    // Tidak mengirim saat mengedit pesan lama atau teks kosong; server membatasi 3 event/2 dtk
+    if (!onTyping || editingMessage || value.trim().length === 0) return;
+    const now = Date.now();
+    if (now - lastTypingSentRef.current >= TYPING_THROTTLE_MS) {
+      lastTypingSentRef.current = now;
+      onTyping();
+    }
+  };
   const [showAttachModal, setShowAttachModal] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
@@ -477,7 +495,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             }
             placeholderTextColor={colors.textMuted}
             value={text}
-            onChangeText={setText}
+            onChangeText={handleChangeText}
             onFocus={() => setShowEmojiPicker(false)}
             multiline
             maxLength={4000}

@@ -47,6 +47,8 @@ export type RootStackParamList = {
   /** Group info & management */
   GroupInfo: {
     groupId: string;
+    /** Percakapan grup induk, diteruskan sebagai parentGroupConversation saat masuk topik forum. */
+    conversation?: ConversationItem;
   };
   /** Public user profile screen */
   UserProfile: {

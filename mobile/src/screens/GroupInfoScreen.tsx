@@ -22,7 +22,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { groupsApi } from '../api/groups';
 import { searchUsers } from '../api/users';
-import { GroupDetails, GroupMember, User } from '../api/types';
+import { Conversation, GroupDetails, GroupMember, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { SubGroupListModal } from '../components/SubGroupListModal';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
@@ -41,6 +41,8 @@ export interface GroupInfoScreenProps {
   onOpenForum?: (groupId: string) => void;
   /** Opens UserProfileScreen for a specific member */
   onOpenUserProfile?: (userId: string) => void;
+  /** Masuk ke topik forum yang dipilih dari tombol Forum; tanpa ini hanya kembali ke chat induk. */
+  onEnterSubGroup?: (subConversation: Conversation) => void;
 }
 
 function formatDate(dateStr?: string): string {
@@ -58,6 +60,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   onGroupUpdated,
   onOpenForum,
   onOpenUserProfile,
+  onEnterSubGroup,
 }) => {
   const { user: currentUser } = useAuth();
   const [group, setGroup] = useState<GroupDetails | null>(null);
@@ -534,10 +537,14 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
           currentUserRole={group.my_role}
           currentUserId={currentUser?.id || ''}
           onClose={() => setShowForumModal(false)}
-          onEnterSubGroup={() => {
+          onEnterSubGroup={(subConv) => {
             setShowForumModal(false);
-            // In GroupInfoScreen context, entering sub-group triggers back to chat
-            onBack();
+            if (onEnterSubGroup) {
+              onEnterSubGroup(subConv);
+            } else {
+              // Tanpa handler navigasi: kembali ke chat induk
+              onBack();
+            }
           }}
         />
       )}
