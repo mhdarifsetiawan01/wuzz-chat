@@ -37,6 +37,22 @@ interface AuthContextType {
   updateCurrentUser: (updatedUser: User) => Promise<void>;
 }
 
+/**
+ * Menghapus data lokal akun dari SQLite (pesan plaintext, percakapan, log panggilan, teman, feed). Dipakai di setiap jalur
+ * keluar dari sesi agar data tidak tertinggal di HP. TIDAK menyentuh kunci E2EE (diatur masing-masing jalur) maupun berkas
+ * media wuzzchat_media (sering satu-satunya salinan karena server menghapus berkas fisik setelah ACK; lokasinya
+ * deterministik dari id pesan jadi ditemukan lagi saat login).
+ */
+async function clearLocalAccountData(userId: string | undefined | null): Promise<void> {
+  if (!userId) return;
+  try {
+    await clearUserCache(userId);
+    await clearFeedPosts(userId);
+  } catch (err) {
+    console.warn('[AuthContext] Failed to clear local data:', err);
+  }
+}
+
 const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
@@ -196,6 +212,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser((prev) => {
         if (prev?.id) {
           secureStorage.deleteE2EEKeyPair(prev.id).catch(() => {});
+          clearLocalAccountData(prev.id);
         }
         return null;
       });
@@ -257,6 +274,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 setToken(null);
                 setUser(null);
               }
+              await clearLocalAccountData(savedUser.id);
             } else {
               // Network error or offline - keep cached session and attempt connect
               websocketClient.reset();
@@ -381,19 +399,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSessionReplacedMessage(null);
       websocketClient.reset();
 
-      // Data lokal akun (pesan plaintext, percakapan, log panggilan, teman, feed) dihapus agar tidak tertinggal di HP
-      // setelah logout; semuanya kembali dari server saat login. Sengaja DIPERTAHANKAN: kunci E2EE (agar pesan tetap
-      // terbuka, pola Trusted Device) dan berkas media di wuzzchat_media (sering satu-satunya salinan karena server
-      // menghapus berkas fisik setelah ACK; lokasinya deterministik dari id pesan jadi ditemukan lagi saat login).
-      // Dijalankan setelah state di-reset: antrean tulis MessageContext sudah dibuang saat user berganti.
-      if (loggedOutUserId) {
-        try {
-          await clearUserCache(loggedOutUserId);
-          await clearFeedPosts(loggedOutUserId);
-        } catch (err) {
-          console.warn('[AuthContext] Failed to clear local data during logout:', err);
-        }
-      }
+      // Data lokal akun dihapus; kunci E2EE dan media dipertahankan (lihat clearLocalAccountData). Dijalankan setelah state
+      // di-reset: antrean tulis MessageContext sudah dibuang saat user berganti.
+      await clearLocalAccountData(loggedOutUserId);
     } finally {
       setIsLoading(false);
     }
@@ -427,11 +435,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       await secureStorage.clearSession();
 
+      const cancelledUserId = user?.id;
       setUser(null);
       setToken(null);
       setE2eeKeyPair(null);
       setE2eeStatus('uninitialized');
       setSessionReplacedMessage(null);
+      await clearLocalAccountData(cancelledUserId);
     } finally {
       setIsLoading(false);
     }
