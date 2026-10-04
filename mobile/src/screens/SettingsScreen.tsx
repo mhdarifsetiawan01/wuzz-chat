@@ -649,6 +649,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     textAlign: 'center',
+    alignSelf: 'stretch',
   },
   footerUpdateLink: {
     ...typography.caption,
@@ -661,5 +662,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textMuted,
     marginTop: 2,
+    textAlign: 'center',
+    alignSelf: 'stretch',
   },
 });
