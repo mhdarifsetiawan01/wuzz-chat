@@ -32,24 +32,30 @@ func (m *TenantMiddleware) Handler(next http.Handler) http.Handler {
 			return
 		}
 
-		// 1. Resolusi candidate tenant ID berdasarkan prioritas:
-		// Prioritas 1: Header X-Tenant-ID
-		candidateTenantID := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
+		// 1. Resolusi candidate tenant ID.
+		// Header X-Tenant-ID hanya menentukan tenant untuk request tanpa token (register, exchange).
+		// Jika token valid dibawa, tenant di JWT adalah sumber kebenaran dan header tidak boleh berbeda.
+		headerTenantID := strings.TrimSpace(r.Header.Get("X-Tenant-ID"))
+		candidateTenantID := headerTenantID
 
-		// Prioritas 2: JWT Claim tenant_id jika Authorization Bearer atau query ?token= tersedia
-		if candidateTenantID == "" {
-			tokenStr := ""
-			authHeader := r.Header.Get("Authorization")
-			if strings.HasPrefix(authHeader, "Bearer ") {
-				tokenStr = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
-			} else {
-				tokenStr = strings.TrimSpace(r.URL.Query().Get("token"))
-			}
+		tokenStr := ""
+		authHeader := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenStr = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+		} else {
+			tokenStr = strings.TrimSpace(r.URL.Query().Get("token"))
+		}
 
-			if tokenStr != "" {
-				if claims, err := auth.ValidateToken(tokenStr); err == nil && claims != nil {
-					candidateTenantID = strings.TrimSpace(claims.TenantID)
+		if tokenStr != "" {
+			if claims, err := auth.ValidateToken(tokenStr); err == nil && claims != nil {
+				tokenTenantID := tenantshared.NewTenantContext(claims.TenantID).TenantID()
+				if headerTenantID != "" && tenantshared.NewTenantContext(headerTenantID).TenantID() != tokenTenantID {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusForbidden)
+					_ = json.NewEncoder(w).Encode(map[string]string{"error": "tenant pada header tidak sesuai dengan tenant sesi"})
+					return
 				}
+				candidateTenantID = strings.TrimSpace(claims.TenantID)
 			}
 		}
 

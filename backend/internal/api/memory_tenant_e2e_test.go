@@ -88,10 +88,13 @@ func TestHeadlessE2E_AIMemoryTenantScoping(t *testing.T) {
 	// -------------------------------------------------------------------------
 	// 1. Setup Data: 2 Tenant, 2 Admin, 2 Anggota
 	// -------------------------------------------------------------------------
-	aliceAlpha, _ := usrStore.Register("alice_alpha", "Alice Alpha Admin", "password123")
-	bobAlpha, _ := usrStore.Register("bob_alpha", "Bob Alpha Member", "password123")
-	charlieBeta, _ := usrStore.Register("charlie_beta", "Charlie Beta Admin", "password123")
-	daveBeta, _ := usrStore.Register("dave_beta", "Dave Beta Member", "password123")
+	// Pengguna didaftarkan di tenant masing-masing agar konsisten dengan klaim JWT dan tenant grup.
+	regCtxAlpha := tenantshared.WithTenant(context.Background(), "tenant_alpha")
+	regCtxBeta := tenantshared.WithTenant(context.Background(), "tenant_beta")
+	aliceAlpha, _ := usrStore.RegisterWithContext(regCtxAlpha, "alice_alpha", "Alice Alpha Admin", "password123")
+	bobAlpha, _ := usrStore.RegisterWithContext(regCtxAlpha, "bob_alpha", "Bob Alpha Member", "password123")
+	charlieBeta, _ := usrStore.RegisterWithContext(regCtxBeta, "charlie_beta", "Charlie Beta Admin", "password123")
+	daveBeta, _ := usrStore.RegisterWithContext(regCtxBeta, "dave_beta", "Dave Beta Member", "password123")
 
 	// Generate Real Session JWT Token dengan spesifik tenant_id
 	tokenAlphaAdmin, _, _ := auth.GenerateTokenDetailedWithTenant(aliceAlpha.ID, aliceAlpha.Username, aliceAlpha.DisplayName, "tenant_alpha")

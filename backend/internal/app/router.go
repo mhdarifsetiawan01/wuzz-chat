@@ -64,7 +64,7 @@ func (a *Application) setupRouter() http.Handler {
 		uploadDir = "./uploads"
 	}
 	_ = storage.EnsureDir(uploadDir)
-	fileServer := http.FileServer(http.Dir(uploadDir))
+	fileServer := http.FileServer(api.NewUploadsFileSystem(uploadDir))
 	fileHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=86400")
 		fileServer.ServeHTTP(w, r)
@@ -375,10 +375,9 @@ func (a *Application) setupRouter() http.Handler {
 		handler = versionMw.Middleware(handler)
 	}
 
-	if a.TenantService != nil {
-		tenantMw := api.NewTenantMiddleware(a.TenantService)
-		handler = tenantMw.Handler(handler)
-	}
+	// Selalu aktif: guard header/JWT tenant tidak boleh hilang hanya karena TenantService belum terpasang.
+	// Tanpa TenantService, middleware tetap menyuntikkan tenant context tetapi melewati validasi registry.
+	handler = api.NewTenantMiddleware(a.TenantService).Handler(handler)
 
 	// Bungkus dengan request logger middleware di level terluar agar seluruh request tercatat
 	handler = requestLoggerMiddleware(handler)

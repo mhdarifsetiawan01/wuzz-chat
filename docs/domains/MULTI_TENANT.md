@@ -20,6 +20,18 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Multi-Tenancy, Isolasi D
    - Seluruh query data (`SELECT`, `UPDATE`, `DELETE`) wajib menyertakan filter `WHERE tenant_id = $1`.
    - Pencarian kontak (`SearchUsers`) dan daftar grup hanya mengembalikan entitas dalam tenant yang sama.
 
+5. **Tenant Sesi Tidak Dapat Dipalsukan**:
+   - Jika request membawa JWT valid, `X-Tenant-ID` (bila ada) **wajib sama** dengan `tenant_id` di token; selain itu HTTP 403.
+   - Header hanya menentukan tenant untuk request tanpa token (mis. exchange token).
+6. **Pendaftaran Publik Hanya Tenant `default`**:
+   - `POST /api/auth/register` pada tenant non-default → 403. User tenant B2B masuk lewat provisioning (`/api/v1/auth/provision-token`).
+7. **Keanggotaan Satu Tenant**:
+   - DM, anggota awal grup, tambah anggota, dan join grup hanya untuk user se-tenant. Pelanggaran DM → 404 (tidak membocorkan keberadaan user).
+   - Perangkat (`devices`) tidak boleh berpindah pemilik lintas tenant.
+8. **File `/uploads/`**: tidak melayani listing direktori.
+
+> Catatan: `MustFromContext` fallback ke `default` bila context tanpa tenant (bukan fail-closed murni). `TenantMiddleware` selalu terpasang di router.
+
 ---
 
 ## 📡 2. Layer Perutean & Header Contract

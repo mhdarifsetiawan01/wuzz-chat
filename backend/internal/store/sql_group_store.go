@@ -157,6 +157,17 @@ func (s *SQLGroupStore) CreateGroupWithContext(ctx context.Context, title, descr
 		if mID == "" || mID == creatorID {
 			continue
 		}
+		// Anggota awal wajib satu tenant dengan grup; user lintas tenant atau tak dikenal diabaikan.
+		var memberTenantID string
+		var memberTenantQuery string
+		if s.driverName == "postgres" {
+			memberTenantQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`
+		} else {
+			memberTenantQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`
+		}
+		if err := tx.QueryRowContext(ctx, memberTenantQuery, mID).Scan(&memberTenantID); err != nil || memberTenantID != tenantID {
+			continue
+		}
 		if _, err := tx.ExecContext(ctx, insertMemberQuery, groupID, mID, "member", now); err == nil {
 			memberCount++
 		}

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -180,6 +181,10 @@ func (h *ChatHandler) StartDirectChat(w http.ResponseWriter, r *http.Request) {
 
 	roomID, err := h.service.StartDirectChat(r.Context(), claims.UserID, req.TargetUserID)
 	if err != nil {
+		if errors.Is(err, store.ErrUserNotFound) {
+			http.Error(w, `{"error":"Pengguna tidak ditemukan"}`, http.StatusNotFound)
+			return
+		}
 		http.Error(w, `{"error":"Gagal membuat direct conversation"}`, http.StatusInternalServerError)
 		return
 	}

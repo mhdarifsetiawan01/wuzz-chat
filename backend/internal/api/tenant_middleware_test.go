@@ -229,3 +229,70 @@ func TestTenantMiddleware_Resolution(t *testing.T) {
 		}
 	})
 }
+
+// T1: Header X-Tenant-ID tidak boleh menimpa tenant yang tertanam di JWT.
+func TestTenantMiddleware_RejectsHeaderTokenTenantMismatch(t *testing.T) {
+	mw := api.NewTenantMiddleware(newMockTenantService())
+
+	run := func(token, header string) (int, string) {
+		captured := ""
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			captured = tenantshared.MustFromContext(r.Context()).TenantID()
+			w.WriteHeader(http.StatusOK)
+		})
+		req := httptest.NewRequest(http.MethodGet, "/api/users/search?q=a", nil)
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		if header != "" {
+			req.Header.Set("X-Tenant-ID", header)
+		}
+		rec := httptest.NewRecorder()
+		mw.Handler(next).ServeHTTP(rec, req)
+		return rec.Code, captured
+	}
+
+	alphaToken, _, err := auth.GenerateTokenDetailedWithTenant("u-alpha", "alice", "Alice", "tenant_alpha")
+	if err != nil {
+		t.Fatalf("gagal membuat token alpha: %v", err)
+	}
+	defaultToken, _, err := auth.GenerateTokenDetailedWithTenant("u-def", "dina", "Dina", "")
+	if err != nil {
+		t.Fatalf("gagal membuat token default: %v", err)
+	}
+
+	t.Run("token alpha + header default ditolak", func(t *testing.T) {
+		if code, _ := run(alphaToken, "default"); code != http.StatusForbidden {
+			t.Fatalf("LEAK! token alpha dengan header default lolos, status=%d", code)
+		}
+	})
+	t.Run("token default + header alpha ditolak", func(t *testing.T) {
+		if code, _ := run(defaultToken, "tenant_alpha"); code != http.StatusForbidden {
+			t.Fatalf("LEAK! token default dengan header alpha lolos, status=%d", code)
+		}
+	})
+	t.Run("token alpha + header alpha diterima", func(t *testing.T) {
+		code, tenantID := run(alphaToken, "tenant_alpha")
+		if code != http.StatusOK || tenantID != "tenant_alpha" {
+			t.Fatalf("seharusnya lolos sebagai tenant_alpha, got status=%d tenant=%q", code, tenantID)
+		}
+	})
+	t.Run("token default + header default diterima", func(t *testing.T) {
+		code, tenantID := run(defaultToken, "default")
+		if code != http.StatusOK || tenantID != "default" {
+			t.Fatalf("seharusnya lolos sebagai default, got status=%d tenant=%q", code, tenantID)
+		}
+	})
+	t.Run("token alpha tanpa header tetap alpha", func(t *testing.T) {
+		code, tenantID := run(alphaToken, "")
+		if code != http.StatusOK || tenantID != "tenant_alpha" {
+			t.Fatalf("seharusnya alpha dari JWT, got status=%d tenant=%q", code, tenantID)
+		}
+	})
+	t.Run("tanpa token header alpha tetap diterima (register/exchange)", func(t *testing.T) {
+		code, tenantID := run("", "tenant_alpha")
+		if code != http.StatusOK || tenantID != "tenant_alpha" {
+			t.Fatalf("got status=%d tenant=%q", code, tenantID)
+		}
+	})
+}

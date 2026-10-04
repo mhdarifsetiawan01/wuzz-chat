@@ -501,3 +501,193 @@ func TestTenant_PushSubscriptionAndStoragePartition(t *testing.T) {
 	}
 }
 
+
+// T2: DM tidak boleh menghubungkan dua user dari tenant berbeda.
+func TestTenant_DirectChatRejectsCrossTenantTarget(t *testing.T) {
+	tenantSvc, authSvc, userStore, _, _, db, cleanup := setupIsolationEnvironment(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tAlpha, _ := tenantSvc.CreateTenant(ctx, "Alpha", "dm-alpha")
+	tBeta, _ := tenantSvc.CreateTenant(ctx, "Beta", "dm-beta")
+	ctxAlpha := tenantshared.WithTenant(ctx, tAlpha.ID)
+	ctxBeta := tenantshared.WithTenant(ctx, tBeta.ID)
+
+	uA1, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxAlpha, Username: "alice", Password: "Pass123!Safe"})
+	uA2, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxAlpha, Username: "adam", Password: "Pass123!Safe"})
+	uB1, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxBeta, Username: "bob", Password: "Pass123!Safe"})
+
+	countMembers := func(userID string) int {
+		var n int
+		_ = db.QueryRow("SELECT COUNT(*) FROM conversation_members WHERE user_id = ?", userID).Scan(&n)
+		return n
+	}
+
+	// Kontrol: sesama tenant tetap berhasil.
+	if room, err := userStore.GetOrCreateDirectConversationWithContext(ctxAlpha, uA1.UserID, uA2.UserID); err != nil || room == "" {
+		t.Fatalf("DM sesama tenant harus berhasil: room=%q err=%v", room, err)
+	}
+
+	// Serangan: user alpha menarget user beta, dengan context tenant manapun.
+	for name, c := range map[string]context.Context{"ctx alpha": ctxAlpha, "ctx beta": ctxBeta, "ctx default": ctx} {
+		room, err := userStore.GetOrCreateDirectConversationWithContext(c, uA1.UserID, uB1.UserID)
+		if err == nil {
+			t.Errorf("LEAK (%s)! DM lintas tenant berhasil dibuat: room=%q", name, room)
+		}
+	}
+	if n := countMembers(uB1.UserID); n != 0 {
+		t.Errorf("LEAK! user beta menjadi anggota %d percakapan lintas tenant", n)
+	}
+
+	// Target yang tidak ada juga ditolak.
+	if _, err := userStore.GetOrCreateDirectConversationWithContext(ctxAlpha, uA1.UserID, "id-tidak-ada"); err == nil {
+		t.Errorf("DM ke user yang tidak ada harus ditolak")
+	}
+}
+
+// T3: anggota awal saat membuat grup harus satu tenant dengan grup.
+func TestTenant_CreateGroupSkipsCrossTenantInitialMembers(t *testing.T) {
+	tenantSvc, authSvc, _, groupStore, _, db, cleanup := setupIsolationEnvironment(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tAlpha, _ := tenantSvc.CreateTenant(ctx, "Alpha", "mem-alpha")
+	tBeta, _ := tenantSvc.CreateTenant(ctx, "Beta", "mem-beta")
+	ctxAlpha := tenantshared.WithTenant(ctx, tAlpha.ID)
+	ctxBeta := tenantshared.WithTenant(ctx, tBeta.ID)
+
+	uA1, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxAlpha, Username: "alice", Password: "Pass123!Safe"})
+	uA2, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxAlpha, Username: "adam", Password: "Pass123!Safe"})
+	uB1, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxBeta, Username: "bob", Password: "Pass123!Safe"})
+
+	grp, err := groupStore.CreateGroupWithContext(ctxAlpha, "Tim Alpha", "", "", uA1.UserID, "", false,
+		[]string{uA2.UserID, uB1.UserID, "id-tidak-ada"})
+	if err != nil {
+		t.Fatalf("pembuatan grup harus tetap sukses: %v", err)
+	}
+
+	isMember := func(userID string) bool {
+		var n int
+		_ = db.QueryRow("SELECT COUNT(*) FROM conversation_members WHERE conversation_id = ? AND user_id = ?", grp.ID, userID).Scan(&n)
+		return n > 0
+	}
+	if !isMember(uA1.UserID) {
+		t.Errorf("pembuat grup harus menjadi anggota")
+	}
+	if !isMember(uA2.UserID) {
+		t.Errorf("anggota sesama tenant harus masuk")
+	}
+	if isMember(uB1.UserID) {
+		t.Errorf("LEAK! user tenant beta disuntikkan ke grup tenant alpha lewat member_ids awal")
+	}
+	if isMember("id-tidak-ada") {
+		t.Errorf("user yang tidak ada tidak boleh menjadi anggota")
+	}
+	if grp.MemberCount != 2 {
+		t.Errorf("MemberCount seharusnya 2, dapat %d", grp.MemberCount)
+	}
+}
+
+// T4: perangkat tidak boleh berpindah pemilik lintas tenant, tetapi rebind sesama tenant (ganti akun di
+// perangkat yang sama) tetap diizinkan.
+func TestTenant_DeviceRebindRejectsCrossTenantTakeover(t *testing.T) {
+	tenantSvc, authSvc, _, _, _, db, cleanup := setupIsolationEnvironment(t)
+	defer cleanup()
+	deviceStore := store.NewSQLDeviceStore(db, "sqlite")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tAlpha, _ := tenantSvc.CreateTenant(ctx, "Alpha", "dev-alpha")
+	tBeta, _ := tenantSvc.CreateTenant(ctx, "Beta", "dev-beta")
+	ctxAlpha := tenantshared.WithTenant(ctx, tAlpha.ID)
+	ctxBeta := tenantshared.WithTenant(ctx, tBeta.ID)
+
+	uA1, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxAlpha, Username: "alice", Password: "Pass123!Safe"})
+	uA2, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxAlpha, Username: "adam", Password: "Pass123!Safe"})
+	uB1, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxBeta, Username: "bob", Password: "Pass123!Safe"})
+
+	owner := func(deviceID string) string {
+		d, err := deviceStore.GetDeviceByID(deviceID)
+		if err != nil || d == nil {
+			t.Fatalf("device %s tidak ditemukan: %v", deviceID, err)
+		}
+		return d.UserID
+	}
+
+	if err := deviceStore.RegisterOrUpdateDevice(&store.Device{ID: "dev-1", UserID: uA1.UserID, Name: "Ponsel Alice", Platform: "android"}); err != nil {
+		t.Fatalf("registrasi awal gagal: %v", err)
+	}
+
+	// Serangan: user tenant beta mengklaim device milik user tenant alpha.
+	if err := deviceStore.RegisterOrUpdateDevice(&store.Device{ID: "dev-1", UserID: uB1.UserID, Name: "Ponsel Bob", Platform: "android"}); err == nil {
+		t.Errorf("LEAK! device milik tenant alpha berhasil diambil alih user tenant beta")
+	}
+	if got := owner("dev-1"); got != uA1.UserID {
+		t.Errorf("pemilik device berubah ke %s setelah upaya lintas tenant", got)
+	}
+
+	// Kontrol: rebind sesama tenant (ganti akun di perangkat yang sama) tetap berjalan.
+	if err := deviceStore.RegisterOrUpdateDevice(&store.Device{ID: "dev-1", UserID: uA2.UserID, Name: "Ponsel Bersama", Platform: "android"}); err != nil {
+		t.Fatalf("rebind sesama tenant harus berhasil: %v", err)
+	}
+	if got := owner("dev-1"); got != uA2.UserID {
+		t.Errorf("pemilik device seharusnya adam setelah rebind sesama tenant, dapat %s", got)
+	}
+
+	// Kontrol: pemilik yang sama memperbarui device-nya sendiri.
+	if err := deviceStore.RegisterOrUpdateDevice(&store.Device{ID: "dev-1", UserID: uA2.UserID, Name: "Ponsel Baru", Platform: "android"}); err != nil {
+		t.Fatalf("pembaruan oleh pemilik harus berhasil: %v", err)
+	}
+}
+
+// T6: audit baca-saja untuk keanggotaan lintas tenant (sisa data dari celah lama).
+func TestTenant_FindCrossTenantMemberships(t *testing.T) {
+	tenantSvc, authSvc, userStore, groupStore, _, db, cleanup := setupIsolationEnvironment(t)
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tAlpha, _ := tenantSvc.CreateTenant(ctx, "Alpha", "aud-alpha")
+	tBeta, _ := tenantSvc.CreateTenant(ctx, "Beta", "aud-beta")
+	ctxAlpha := tenantshared.WithTenant(ctx, tAlpha.ID)
+	ctxBeta := tenantshared.WithTenant(ctx, tBeta.ID)
+
+	uA1, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxAlpha, Username: "alice", Password: "Pass123!Safe"})
+	uA2, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxAlpha, Username: "adam", Password: "Pass123!Safe"})
+	uB1, _ := authSvc.Register(authz.RegisterInput{Ctx: ctxBeta, Username: "bob", Password: "Pass123!Safe"})
+
+	// Data sehat lewat jalur resmi: tidak boleh terdeteksi.
+	if _, err := userStore.GetOrCreateDirectConversationWithContext(ctxAlpha, uA1.UserID, uA2.UserID); err != nil {
+		t.Fatal(err)
+	}
+	grp, err := groupStore.CreateGroupWithContext(ctxAlpha, "Tim", "", "", uA1.UserID, "", false, []string{uA2.UserID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found, err := store.FindCrossTenantMemberships(ctx, db)
+	if err != nil {
+		t.Fatalf("audit gagal: %v", err)
+	}
+	if len(found) != 0 {
+		t.Fatalf("data sehat tidak boleh terdeteksi, dapat %+v", found)
+	}
+
+	// Simulasikan data tercemar (seperti sebelum perbaikan T2/T3).
+	if _, err := db.Exec("INSERT INTO conversation_members (conversation_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)", grp.ID, uB1.UserID, time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	found, err = store.FindCrossTenantMemberships(ctx, db)
+	if err != nil {
+		t.Fatalf("audit gagal: %v", err)
+	}
+	if len(found) != 1 || found[0].ConversationID != grp.ID || found[0].UserID != uB1.UserID ||
+		found[0].ConversationTenant != tAlpha.ID || found[0].UserTenant != tBeta.ID {
+		t.Fatalf("hasil audit tidak sesuai: %+v", found)
+	}
+}

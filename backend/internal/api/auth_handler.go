@@ -11,6 +11,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/authz"
 	authzinfra "github.com/bms-del112/wuzz-chat/internal/authz/infra"
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
@@ -178,6 +179,14 @@ func parseDeviceName(userAgent string) string {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Pendaftaran publik hanya untuk tenant default; user tenant B2B masuk lewat provisioning (/api/v1/auth/provision-token).
+	if !tenantshared.MustFromContext(r.Context()).IsDefault() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": "pendaftaran publik tidak tersedia untuk tenant ini"})
 		return
 	}
 

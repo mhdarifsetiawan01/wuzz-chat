@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -86,4 +87,33 @@ func UploadsSecurityHeaders(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// uploadsFileSystem membungkus http.Dir agar direktori tidak pernah dilayani sebagai daftar isi.
+// Tanpa ini http.FileServer menampilkan listing /uploads/ dan /uploads/<tenant>/, sehingga nama file
+// acak (UUID) semua tenant bisa dienumerasi tanpa autentikasi.
+type uploadsFileSystem struct {
+	fs http.FileSystem
+}
+
+// NewUploadsFileSystem membuat http.FileSystem untuk /uploads/ yang hanya melayani file, bukan direktori.
+func NewUploadsFileSystem(dir string) http.FileSystem {
+	return uploadsFileSystem{fs: http.Dir(dir)}
+}
+
+func (u uploadsFileSystem) Open(name string) (http.File, error) {
+	f, err := u.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	info, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, err
+	}
+	if info.IsDir() {
+		_ = f.Close()
+		return nil, os.ErrNotExist
+	}
+	return f, nil
 }

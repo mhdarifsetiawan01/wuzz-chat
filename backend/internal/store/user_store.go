@@ -812,17 +812,19 @@ func (s *SQLUserStore) SearchUsers(query, excludeUserID string) ([]User, error) 
 func (s *SQLUserStore) GetOrCreateDirectConversationWithContext(ctx context.Context, userA, userB string) (string, error) {
 	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 
-	// Jika tenant default, ambil tenant_id dari userA jika terdaftar di tenant kustom
+	// Kedua user wajib ada dan berasal dari tenant yang sama; DM lintas tenant ditolak.
+	tenantA, errA := s.userTenantID(userA)
+	tenantB, errB := s.userTenantID(userB)
+	if errA != nil || errB != nil || tenantA != tenantB {
+		return "", ErrUserNotFound // jangan bocorkan keberadaan user tenant lain
+	}
+
+	// Context default tetap mengikuti tenant user (kompatibilitas klien yang tidak mengirim tenant),
+	// sedangkan context non-default harus cocok dengan tenant kedua user.
 	if tenantID == tenantshared.DefaultTenantID {
-		var uTenant string
-		if s.driverName == "postgres" {
-			_ = s.db.QueryRow(`SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`, userA).Scan(&uTenant)
-		} else {
-			_ = s.db.QueryRow(`SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`, userA).Scan(&uTenant)
-		}
-		if uTenant != "" {
-			tenantID = uTenant
-		}
+		tenantID = tenantA
+	} else if tenantID != tenantA {
+		return "", ErrUserNotFound
 	}
 
 	// 1. Cek terlebih dahulu apakah sudah ada percakapan direct aktif antara userA dan userB dalam tenant yang sama
@@ -880,6 +882,19 @@ func (s *SQLUserStore) GetOrCreateDirectConversationWithContext(ctx context.Cont
 	}
 
 	return directRoomID, nil
+}
+
+// userTenantID mengembalikan tenant_id milik user, atau ErrUserNotFound jika user tidak ada.
+func (s *SQLUserStore) userTenantID(userID string) (string, error) {
+	query := `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`
+	if s.driverName == "postgres" {
+		query = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`
+	}
+	var tenantID string
+	if err := s.db.QueryRow(query, userID).Scan(&tenantID); err != nil {
+		return "", ErrUserNotFound
+	}
+	return tenantID, nil
 }
 
 // GetOrCreateDirectConversation membuat atau mengembalikan ID percakapan 1-on-1 antar dua user.

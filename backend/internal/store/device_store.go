@@ -76,6 +76,12 @@ func (s *SQLDeviceStore) RegisterOrUpdateDevice(device *Device) error {
 		device.CreatedAt = now
 	}
 
+	// Rebind perangkat antar akun sesama tenant diizinkan (ganti akun di perangkat yang sama),
+	// tetapi perangkat tidak boleh berpindah pemilik lintas tenant.
+	if err := s.guardCrossTenantRebind(device.ID, device.UserID); err != nil {
+		return err
+	}
+
 	var upsertQuery string
 	if s.isPostgres() {
 		upsertQuery = `INSERT INTO devices (id, user_id, name, platform, user_agent, ip_address, is_active, last_seen_at, created_at)
@@ -222,3 +228,29 @@ func (s *SQLDeviceStore) GetDeviceByID(deviceID string) (*Device, error) {
 	return &d, nil
 }
 
+
+// ErrDeviceTenantMismatch dikembalikan ketika sebuah device_id yang sudah dimiliki user di tenant lain diklaim user dari tenant berbeda.
+var ErrDeviceTenantMismatch = errors.New("perangkat sudah terdaftar pada tenant lain")
+
+// guardCrossTenantRebind menolak pemindahan kepemilikan perangkat jika tenant pemilik lama berbeda dari pemilik baru.
+func (s *SQLDeviceStore) guardCrossTenantRebind(deviceID, newUserID string) error {
+	prevTenantQuery := `SELECT COALESCE(u.tenant_id, 'default') FROM devices d JOIN users u ON u.id = d.user_id WHERE d.id = ?`
+	newTenantQuery := `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`
+	if s.isPostgres() {
+		prevTenantQuery = `SELECT COALESCE(u.tenant_id, 'default') FROM devices d JOIN users u ON u.id = d.user_id WHERE d.id = $1`
+		newTenantQuery = `SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`
+	}
+
+	var prevTenant string
+	if err := s.db.QueryRow(prevTenantQuery, deviceID).Scan(&prevTenant); err != nil {
+		return nil // belum ada pemilik sebelumnya (atau pemilik lama sudah dihapus)
+	}
+	var newTenant string
+	if err := s.db.QueryRow(newTenantQuery, newUserID).Scan(&newTenant); err != nil {
+		return nil // user baru tidak ditemukan: biarkan perilaku lama (tabel devices tidak ber-FK)
+	}
+	if prevTenant != newTenant {
+		return ErrDeviceTenantMismatch
+	}
+	return nil
+}
