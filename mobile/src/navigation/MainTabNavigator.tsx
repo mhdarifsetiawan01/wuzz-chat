@@ -323,6 +323,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 1,
     textAlign: 'center',
+    // Lebar penuh item: Android kadang mengukur teks bobot 500 sedikit lebih sempit
+    // dari yang dirender (label "Feed" jadi "Fe…" di layar 411dp).
+    alignSelf: 'stretch',
   },
   tabLabelActive: {
     color: colors.accentHover,
