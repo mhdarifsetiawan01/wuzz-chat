@@ -1,12 +1,15 @@
 # Backlog: Performa, Penyimpanan & Keamanan Data Lokal Mobile
 
-> Dibuat 2026-10-04 di akhir sesi optimasi mobile. Berisi pekerjaan yang **belum** dikerjakan beserta data terukur,
-> cara memverifikasi, dan keputusan yang masih menunggu. Yang sudah selesai dicatat di bagian "Sudah selesai" sebagai
-> rujukan. Semua angka diukur di HP uji (RMX3506, 720x1600) kecuali disebut lain.
+> Dibuat 2026-10-04 di akhir sesi optimasi mobile, lalu dituntaskan di sesi lanjutan hari yang sama. **Status akhir:**
+> semua item selesai, teruji di HP, atau diputuskan tidak dikerjakan; yang masih terbuka hanya **B3** (opsional, butuh
+> keputusan keamanan) dan **D6** (hanya diukur bila riwayat panjang terasa lambat). Setiap baris item mencatat hasil dan
+> dasar buktinya. Semua angka diukur di HP uji (RMX3506, 720x1600) kecuali disebut lain.
 
-## Status Git (baca dulu)
-- Branch kerja `dev`. **11 commit mobile belum masuk `main`** dan keputusan merge (A: merge+push, B: merge lokal, C: tetap di `dev`) **ditunda** (dipilih C setiap kali). Tidak ada `push` yang pernah dilakukan.
-- Aturan proyek (`PROMPT.md`): jangan `git commit` sebelum pengguna menyatakan "selesai"; jangan `git push` tanpa izin tertulis; build release dilakukan pengguna sendiri.
+## Status Git (per akhir sesi 2026-10-04)
+- `dev` dan `main` lokal sama di komit `f5a922c` (bump 1.18.0 build 26); semua pekerjaan backlog sudah di-merge ke `main` lokal (fast-forward).
+- **`main` lokal masih 1 komit di depan `origin/main`** (komit bump versi); push terakhir (`850fd44`) dilakukan atas izin eksplisit pengguna, push komit bump belum diminta.
+- Rilis 1.18.0 (build 26) sudah diunggah ke Google Drive dan backend sudah menyiarkan `latest_build=26` (diverifikasi lewat `/api/app/version?platform=android&channel=apk`).
+- Aturan proyek (`PROMPT.md`): jangan `git commit` sebelum pengguna menyatakan "selesai"; jangan `git push` tanpa izin tertulis; build release dan deploy backend dilakukan pengguna sendiri.
 
 ## Sudah selesai (rujukan, urut commit)
 | Commit | Isi | Hasil terukur |
@@ -68,8 +71,9 @@
 - **Build:** pengguna sendiri, `./gradlew assembleRelease -PskipSmartBump` di `mobile/android` (keystore via env `WUZZ_*`, password tidak lewat Claude). `mobile/android/` hasil generate dan diabaikan git; perubahan native lewat `app.json` / `mobile/plugins/`. Perubahan JS saja tidak butuh build native ulang (Gradle memakai ulang hasil kompilasi).
 - **Jangan:** memicu konflik kunci E2EE atau reset kunci di akun nyata; memindai QR transfer dari perangkat lama (mengganti kunci utama); menekan "Bersihkan Cache Pesan" tanpa tujuan jelas.
 
-## Cara melanjutkan besok
-1. Putuskan merge ke `main` (A/B/C) atau lanjut dulu di `dev`.
-2. Mulai dari **A1** (`saveStoredConversations`): pasang probe `PROBE-SEMENTARA` di fungsinya, ukur dengan prosedur baku, kerjakan, tambahkan skenario ke uji (`sqlite-storage.test.js` sebagai pola), ukur ulang di HP, hapus probe. Jalankan `npm run test:unit` dan `npx tsc --noEmit` sebelum minta build.
-3. Selesaikan keputusan **A2** dan **B1** (butuh jawaban Anda), lalu B2 (kecil).
-4. Konfirmasi verifikasi **C1–C5** bila ada kesempatan (beberapa butuh perangkat/akun kedua).
+## Sisa pekerjaan (jika dilanjutkan)
+1. **B3** bila ada kebutuhan nyata (butuh keputusan keamanan: arsip kunci privat lama sama sensitifnya dengan kunci utama).
+2. **D6** hanya bila riwayat panjang terasa lambat: ukur dulu, jangan mengoptimasi dari estimasi.
+3. Opsi kecil dari riset: ganti `Image` di `MediaViewerModal` dengan `expo-image` (D5); jangan kerjakan penghematan APK D2 tanpa alasan kuat.
+4. Catatan desain dari C3: pembeda delivered/read di bubble biru hanya kecerahan putih (65% vs penuh); bila ingin lebih jelas, ini keputusan desain tersendiri.
+5. Push `main`/`dev` ke GitHub hanya atas permintaan eksplisit.
