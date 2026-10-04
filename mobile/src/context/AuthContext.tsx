@@ -12,6 +12,7 @@ import { E2EEKeyPair, generateE2EEKeyPair } from '../services/crypto';
 import { deviceIdService } from '../services/deviceIdService';
 import { notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
+import { clearFeedPosts, clearUserCache } from '../services/sqliteStorage';
 import { websocketClient } from '../services/websocket';
 import { useDevice } from './DeviceContext';
 
@@ -372,12 +373,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // on this trusted phone, the existing key is retained and past messages decrypt cleanly
       // without needing to re-scan the QR code every time.
       await secureStorage.clearSession();
+      const loggedOutUserId = user?.id;
       setUser(null);
       setToken(null);
       setE2eeKeyPair(null);
       setE2eeStatus('uninitialized');
       setSessionReplacedMessage(null);
       websocketClient.reset();
+
+      // Data lokal akun (pesan plaintext, percakapan, log panggilan, teman, feed) dihapus agar tidak tertinggal di HP
+      // setelah logout; semuanya kembali dari server saat login. Sengaja DIPERTAHANKAN: kunci E2EE (agar pesan tetap
+      // terbuka, pola Trusted Device) dan berkas media di wuzzchat_media (sering satu-satunya salinan karena server
+      // menghapus berkas fisik setelah ACK; lokasinya deterministik dari id pesan jadi ditemukan lagi saat login).
+      // Dijalankan setelah state di-reset: antrean tulis MessageContext sudah dibuang saat user berganti.
+      if (loggedOutUserId) {
+        try {
+          await clearUserCache(loggedOutUserId);
+          await clearFeedPosts(loggedOutUserId);
+        } catch (err) {
+          console.warn('[AuthContext] Failed to clear local data during logout:', err);
+        }
+      }
     } finally {
       setIsLoading(false);
     }
