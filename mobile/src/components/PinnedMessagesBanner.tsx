@@ -16,6 +16,7 @@ import { Message, PinnedMessage } from '../api/types';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
+import { quotePreviewText } from '../utils/quotePreview';
 
 export interface PinnedMessagesBannerProps {
   pinnedMessages: Array<Message | PinnedMessage>;
@@ -71,9 +72,9 @@ export const PinnedMessagesBanner: React.FC<PinnedMessagesBannerProps> = ({
   const getSnippet = () => {
     const item = activeItem as any;
     const msg = item.message || item;
-    if (msg?.media_type === 'audio') return '🎙️ Pesan Suara';
-    if (msg?.media_url) return '📷 Foto Terlampir';
-    return msg?.content || 'Pesan Tersemat';
+    // Ringkasan bersama dengan kutipan balasan (suara, foto, postingan terbagi tidak tampil mentah)
+    const preview = quotePreviewText(msg || {});
+    return preview === 'Pesan' && !msg?.content ? 'Pesan Tersemat' : preview;
   };
 
   return (
@@ -122,7 +123,7 @@ export const PinnedMessagesBanner: React.FC<PinnedMessagesBannerProps> = ({
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             activeOpacity={0.7}
           >
-            <Icon name="close" size={14} color={colors.textMuted} />
+            <Icon name="close" size={14} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
@@ -134,9 +135,12 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    // Terang seperti header chat; versi gelap lama membuat teks sekunder hanya ±3,9:1 (butuh ≥ 4,5:1)
+    backgroundColor: colors.bgCardSolid,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(56, 189, 248, 0.25)',
+    borderBottomColor: colors.borderDefault,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accentPrimary,
     paddingVertical: 7,
     paddingHorizontal: spacing.md,
     zIndex: 40,
@@ -150,13 +154,14 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    backgroundColor: colors.tintAccent20,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.sm,
   },
   pinIcon: {
     fontSize: 14,
+    color: colors.accentHover,
   },
   infoCol: {
     flex: 1,
@@ -169,11 +174,11 @@ const styles = StyleSheet.create({
   pinTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: colors.accentPrimary,
+    color: colors.textPrimary,
   },
   senderText: {
     fontSize: 11,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     marginLeft: 4,
     flex: 1,
   },
@@ -192,12 +197,12 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.bgInput,
     justifyContent: 'center',
     alignItems: 'center',
   },
   cycleBtnText: {
-    color: colors.accentPrimary,
+    color: colors.textSecondary,
     fontSize: 16,
     fontWeight: '700',
     marginTop: -2,
@@ -206,7 +211,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.bgInput,
     justifyContent: 'center',
     alignItems: 'center',
   },
