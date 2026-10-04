@@ -56,6 +56,8 @@ export interface ChatInputBarProps {
   onPickGallery?: () => void;
   onCancelStagedMedia?: () => void;
   replyTo?: Message | null;
+  /** Dipanggil saat picker emoji dibuka/ditutup (induk menyembunyikan tombol melayang). */
+  onEmojiPickerChange?: (open: boolean) => void;
   replySenderName?: string;
   onCancelReply?: () => void;
   editingMessage?: Message | null;
@@ -86,6 +88,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onPickGallery,
   onCancelStagedMedia,
   replyTo,
+  onEmojiPickerChange,
   replySenderName,
   onCancelReply,
   editingMessage,
@@ -95,6 +98,10 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   const [text, setText] = useState('');
   const [showAttachModal, setShowAttachModal] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  useEffect(() => {
+    onEmojiPickerChange?.(showEmojiPicker);
+  }, [showEmojiPicker, onEmojiPickerChange]);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);

@@ -62,6 +62,8 @@ import { IconText } from '../components/IconText';
 import { Icon } from '../components/Icon';
 import { radius, spacing } from '../theme/spacing';
 import { quotePreviewText } from '../utils/quotePreview';
+import { dayKey } from '../utils/dayLabel';
+import { DateSeparator } from '../components/DateSeparator';
 
 export interface ChatScreenProps {
   conversation: ConversationItem;
@@ -256,6 +258,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const isNearBottomRef = useRef<boolean>(true);
   const hasInitialScrolledRef = useRef<boolean>(false);
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState<boolean>(false);
+  // Tombol panah-bawah disembunyikan saat picker emoji terbuka (kalau tidak, menimpa grid emoji)
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState<boolean>(false);
   const [unreadWhileScrolled, setUnreadWhileScrolled] = useState<number>(0);
 
   const handleScrollToBottom = useCallback(() => {
@@ -1211,13 +1215,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const username = user?.username;
 
   const renderMessageItem = useCallback(
-    ({ item }: { item: Message }) => {
+    ({ item, index }: { item: Message; index: number }) => {
+      // Daftar terbalik: indeks berikutnya = pesan yang lebih lama. Pemisah tanggal muncul di atas
+      // pesan pertama tiap hari; dihitung per item agar indeks data (scrollToIndex) tidak bergeser.
+      const itemTs = item.timestamp || item.created_at;
+      const olderMsg = invertedMessagesRef.current[index + 1];
+      const itemDay = dayKey(itemTs);
+      const showDateSeparator =
+        itemDay !== null && itemDay !== dayKey(olderMsg ? olderMsg.timestamp || olderMsg.created_at : null);
+
       const isSelf =
         item.sender_id === currentUserId ||
         item.from === currentUserId ||
         (Boolean(username) && item.from === username);
 
-      return (
+      const bubble = (
         <MessageBubble
           message={item}
           isSelf={isSelf}
@@ -1233,6 +1245,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onPressPost={onOpenPost}
           onRetryDecrypt={handleRetryDecrypt}
         />
+      );
+
+      if (!showDateSeparator) return bubble;
+      return (
+        <View>
+          <DateSeparator timestamp={itemTs as string} />
+          {bubble}
+        </View>
       );
     },
     [
@@ -1935,7 +1955,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         )}
 
         {/* Floating Scroll to Bottom Button */}
-        {showScrollBottomBtn && (
+        {showScrollBottomBtn && !emojiPickerOpen && (
           <TouchableOpacity
             style={styles.scrollToBottomFab}
             onPress={handleScrollToBottom}
@@ -1963,6 +1983,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onPickGallery={isForumExpired ? undefined : handlePickGallery}
           onCancelStagedMedia={handleCancelStagedMedia}
           replyTo={replyingTo}
+          onEmojiPickerChange={setEmojiPickerOpen}
           replySenderName={getMessageSenderName(replyingTo)}
           onCancelReply={() => setReplyingTo(null)}
           editingMessage={editingMessage}
