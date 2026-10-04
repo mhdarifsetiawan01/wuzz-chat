@@ -15,7 +15,6 @@ import {
   TextInput,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Conversation, Message } from '../api/types';
@@ -24,6 +23,7 @@ import { Avatar } from './Avatar';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
+import { showAlert } from '../services/dialog';
 
 export interface ForwardMessageModalProps {
   visible: boolean;
@@ -62,7 +62,7 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
       setConversations(list || []);
     } catch (err) {
       console.warn('[ForwardMessageModal] Error loading conversations:', err);
-      Alert.alert('Gagal Memuat Obrolan', 'Tidak dapat mengambil daftar obrolan tujuan.');
+      showAlert('Gagal Memuat Obrolan', 'Tidak dapat mengambil daftar obrolan tujuan.');
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +82,7 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
       setSelectedRoomIds((prev) => prev.filter((id) => id !== roomId));
     } else {
       if (selectedRoomIds.length >= 5) {
-        Alert.alert('Batas Maksimal', 'Anda hanya dapat meneruskan pesan ke maksimal 5 obrolan sekaligus.');
+        showAlert('Batas Maksimal', 'Anda hanya dapat meneruskan pesan ke maksimal 5 obrolan sekaligus.');
         return;
       }
       setSelectedRoomIds((prev) => [...prev, roomId]);
@@ -98,7 +98,7 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('[ForwardMessageModal] Forward failed:', err);
-      Alert.alert('Gagal Meneruskan', err?.message || 'Terjadi kesalahan saat meneruskan pesan.');
+      showAlert('Gagal Meneruskan', err?.message || 'Terjadi kesalahan saat meneruskan pesan.');
     } finally {
       setIsSubmitting(false);
     }

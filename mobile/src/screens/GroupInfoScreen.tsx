@@ -8,7 +8,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   FlatList,
   Modal,
@@ -31,6 +30,7 @@ import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from '../components/IconText';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
+import { showAlert } from '../services/dialog';
 
 export interface GroupInfoScreenProps {
   groupId: string;
@@ -210,10 +210,10 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
       setIsAddModalOpen(false);
       setSelectedUserIds([]);
       await loadGroupData(false);
-      Alert.alert('Sukses', 'Anggota berhasil ditambahkan ke grup');
+      showAlert('Sukses', 'Anggota berhasil ditambahkan ke grup');
     } catch (err: any) {
       console.warn('[GroupInfoScreen] Add members failed:', err);
-      Alert.alert('Gagal', err?.message || 'Gagal menambahkan anggota');
+      showAlert('Gagal', err?.message || 'Gagal menambahkan anggota');
     } finally {
       setIsAddingMembers(false);
     }
@@ -244,7 +244,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
       await groupsApi.updateMemberRole(groupId, selectedMember.user_id, targetRole);
       setSelectedMember(null);
       await loadGroupData(false);
-      Alert.alert(
+      showAlert(
         'Sukses',
         `Peran ${selectedMember.display_name || selectedMember.username} berhasil diubah menjadi ${
           targetRole === 'admin' ? 'Admin' : 'Anggota'
@@ -252,7 +252,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
       );
     } catch (err: any) {
       console.warn('[GroupInfoScreen] Change role failed:', err);
-      Alert.alert('Gagal', err?.message || 'Gagal mengubah peran anggota');
+      showAlert('Gagal', err?.message || 'Gagal mengubah peran anggota');
     } finally {
       setIsActionLoading(false);
     }
@@ -262,7 +262,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
     if (!selectedMember || isActionLoading) return;
     const targetName = selectedMember.display_name || selectedMember.username;
 
-    Alert.alert(
+    showAlert(
       'Keluarkan Anggota',
       `Apakah Anda yakin ingin mengeluarkan ${targetName} dari grup?`,
       [
@@ -276,11 +276,11 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
               await groupsApi.removeGroupMember(groupId, selectedMember.user_id);
               setSelectedMember(null);
               await loadGroupData(false);
-              Alert.alert('Sukses', `${targetName} telah dikeluarkan dari grup`);
+              showAlert('Sukses', `${targetName} telah dikeluarkan dari grup`);
             } catch (err: any) {
               console.warn('[GroupInfoScreen] Kick member failed:', err);
 
-              Alert.alert('Gagal', err?.message || 'Gagal mengeluarkan anggota');
+              showAlert('Gagal', err?.message || 'Gagal mengeluarkan anggota');
             } finally {
               setIsActionLoading(false);
             }
@@ -293,14 +293,14 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   // Leave Group
   const handleLeaveGroup = () => {
     if (isCreator && members.length > 1) {
-      Alert.alert(
+      showAlert(
         'Tidak Dapat Keluar',
         'Anda adalah pembuat grup. Alihkan status pembuat ke anggota lain terlebih dahulu sebelum keluar dari grup.'
       );
       return;
     }
 
-    Alert.alert(
+    showAlert(
       'Keluar dari Grup',
       'Apakah Anda yakin ingin keluar dari grup ini? Anda tidak akan lagi menerima pesan dari grup ini.',
       [
@@ -319,7 +319,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
               }
             } catch (err: any) {
               console.warn('[GroupInfoScreen] Leave group failed:', err);
-              Alert.alert('Gagal', err?.message || 'Gagal keluar dari grup');
+              showAlert('Gagal', err?.message || 'Gagal keluar dari grup');
             }
           },
         },

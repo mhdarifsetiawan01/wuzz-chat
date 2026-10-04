@@ -30,7 +30,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +42,7 @@ import { colors } from '../theme/colors';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
+import { showAlert } from '../services/dialog';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -126,7 +126,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
       setSubGroups(list);
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
-        Alert.alert('Gagal memuat topik', 'Silakan tarik ke bawah untuk mencoba lagi.');
+        showAlert('Gagal memuat topik', 'Silakan tarik ke bawah untuk mencoba lagi.');
       }
     } finally {
       clearTimeout(timer);
@@ -169,7 +169,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
       onEnterSubGroup(conv);
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
-        Alert.alert('Gagal bergabung', (err as any)?.detail || 'Silakan coba lagi.');
+        showAlert('Gagal bergabung', (err as any)?.detail || 'Silakan coba lagi.');
       }
     } finally {
       clearTimeout(timer);
@@ -211,7 +211,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
       );
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
-        Alert.alert('Gagal mengajukan izin', (err as any)?.detail || 'Silakan coba lagi.');
+        showAlert('Gagal mengajukan izin', (err as any)?.detail || 'Silakan coba lagi.');
       }
     } finally {
       clearTimeout(timer);

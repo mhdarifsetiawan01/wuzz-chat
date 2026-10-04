@@ -7,7 +7,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -23,6 +22,7 @@ import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
 import { QRCodeView } from './QRCodeView';
+import { showAlert } from '../services/dialog';
 
 export interface E2EEKeyModalProps {
   visible: boolean;
@@ -95,7 +95,7 @@ export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      Alert.alert('Gagal', 'Tidak dapat menyalin ke clipboard.');
+      showAlert('Gagal', 'Tidak dapat menyalin ke clipboard.');
     }
   };
 

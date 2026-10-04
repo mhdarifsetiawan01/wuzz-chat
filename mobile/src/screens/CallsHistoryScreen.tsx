@@ -10,7 +10,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Keyboard,
   ListRenderItem,
@@ -31,6 +30,7 @@ import { useAuth, useCall, useConversations } from '../context';
 import { LocalCallRecord } from '../services';
 import { colors, radius, shadows, spacing, typography } from '../theme';
 import { IconText } from '../components/IconText';
+import { showAlert } from '../services/dialog';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers & Metadata
@@ -244,7 +244,7 @@ export const CallsHistoryScreen: React.FC = () => {
   const handleItemPress = useCallback(
     (item: GroupedCallRecord) => {
       const displayName = item.peer_display_name || item.peer_username || 'Kontak';
-      Alert.alert(
+      showAlert(
         'Panggilan Suara',
         `Mulai panggilan suara ke ${displayName}?`,
         [
@@ -264,7 +264,7 @@ export const CallsHistoryScreen: React.FC = () => {
     (item: GroupedCallRecord) => {
       const displayName = item.peer_display_name || item.peer_username || 'Kontak';
       const countMsg = item.call_count > 1 ? ` (${item.call_count} panggilan)` : '';
-      Alert.alert(
+      showAlert(
         'Hapus Riwayat Panggilan',
         `Hapus catatan panggilan dengan ${displayName}${countMsg}?`,
         [
@@ -287,7 +287,7 @@ export const CallsHistoryScreen: React.FC = () => {
   // Clear all history
   const handleClearAll = useCallback(() => {
     if (callHistory.length === 0) return;
-    Alert.alert(
+    showAlert(
       'Bersihkan Riwayat Panggilan',
       'Apakah Anda yakin ingin menghapus seluruh riwayat panggilan?',
       [

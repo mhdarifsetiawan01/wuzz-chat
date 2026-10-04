@@ -6,7 +6,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Platform,
   RefreshControl,
@@ -31,6 +30,7 @@ import { ConnectionState, websocketClient } from '../services/websocket';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from '../components/IconText';
 import { Icon } from '../components/Icon';
+import { showAlert } from '../services/dialog';
 
 export interface RecentChatsScreenProps {
   onSelectChat?: (conversation: Conversation) => void;
@@ -91,7 +91,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     try {
       await updateConversationPin(roomId, !(chat.is_pinned || chat.pinned));
     } catch (err: any) {
-      Alert.alert('Gagal', err?.message || 'Gagal mengubah status sematan obrolan.');
+      showAlert('Gagal', err?.message || 'Gagal mengubah status sematan obrolan.');
     }
   }, [chatMenuTarget, updateConversationPin]);
 
@@ -251,7 +251,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
 
   const handleConfirmLogout = () => {
     setIsActionMenuOpen(false);
-    Alert.alert(
+    showAlert(
       'Keluar Akun',
       'Apakah Anda yakin ingin keluar dari akun ini? Kunci E2EE tetap tersimpan dengan aman di perangkat ini.',
       [

@@ -18,7 +18,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { subgroupsApi } from '../api/subgroups';
@@ -28,6 +27,7 @@ import { colors } from '../theme/colors';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
+import { showAlert } from '../services/dialog';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -73,7 +73,7 @@ export const JoinRequestsModal: React.FC<JoinRequestsModalProps> = ({
       setRequests(pending);
     } catch (err: any) {
       if (err?.name !== 'AbortError') {
-        Alert.alert('Gagal memuat permohonan', 'Silakan coba lagi.');
+        showAlert('Gagal memuat permohonan', 'Silakan coba lagi.');
       }
     } finally {
       clearTimeout(timer);
@@ -105,7 +105,7 @@ export const JoinRequestsModal: React.FC<JoinRequestsModalProps> = ({
         }
       } catch (err: any) {
         if (err?.name !== 'AbortError') {
-          Alert.alert(
+          showAlert(
             approve ? 'Gagal menyetujui' : 'Gagal menolak',
             'Silakan coba lagi.'
           );

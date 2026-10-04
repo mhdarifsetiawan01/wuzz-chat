@@ -17,7 +17,6 @@ import {
   View,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +26,7 @@ import { CameraQRScannerModal } from './CameraQRScannerModal';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
+import { showAlert } from '../services/dialog';
 
 export interface SafetyNumberModalProps {
   visible: boolean;
@@ -160,7 +160,7 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
     setIsScannerOpen(false);
     const currentClean = safetyNumber.replace(/\D/g, '');
     if (!currentClean || currentClean.length !== 30) {
-      Alert.alert('Perhatian', 'Nomor keamanan belum siap dihitung. Harap tunggu sebentar.');
+      showAlert('Perhatian', 'Nomor keamanan belum siap dihitung. Harap tunggu sebentar.');
       return;
     }
 
@@ -170,7 +170,7 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
         type: 'warning',
         message: 'Kode QR tidak dikenali sebagai format nomor keamanan WuzzChat yang valid.',
       });
-      Alert.alert(
+      showAlert(
         'Format QR Tidak Dikenal',
         'Kode QR yang dipindai bukan format nomor keamanan WuzzChat yang valid.'
       );
@@ -187,7 +187,7 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
         type: 'success',
         message: 'Nomor Keamanan Cocok 100%! Kontak telah berhasil diverifikasi melalui pemindaian kamera.',
       });
-      Alert.alert(
+      showAlert(
         'Verifikasi Berhasil',
         `Nomor keamanan untuk ${peerNickname || 'kontak'} cocok 100%!\n\nKontak ini telah ditandai sebagai kontak aman terverifikasi.`,
         [{ text: 'Selesai' }]
@@ -197,7 +197,7 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
         type: 'danger',
         message: 'PERINGATAN KEAMANAN: Nomor keamanan TIDAK COCOK! Kemungkinan kunci kontak telah berubah atau terjadi manipulasi jaringan (Man-in-the-Middle).',
       });
-      Alert.alert(
+      showAlert(
         'PERINGATAN KEAMANAN',
         `Nomor keamanan TIDAK COCOK dengan perangkat ${peerNickname || 'kontak'}!\n\nKemungkinan sesi tidak aman atau perangkat lawan bicara menggunakan kunci enkripsi yang berbeda.`,
         [{ text: 'Mengerti', style: 'destructive' }]

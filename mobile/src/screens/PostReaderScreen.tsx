@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FeedPost } from '../api/types';
 import { Avatar } from '../components/Avatar';
@@ -23,6 +23,7 @@ import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
 import { formatPostTime } from '../utils/feedTime';
 import { extractFirstUrl } from '../utils/linkUtils';
+import { showAlert } from '../services/dialog';
 
 export interface PostReaderScreenProps {
   postId: string;
@@ -67,7 +68,7 @@ export const PostReaderScreen: React.FC<PostReaderScreenProps> = ({ postId, init
       user!.system_role === 'wuzz_moderator');
 
   const handleDelete = () => {
-    Alert.alert('Hapus Postingan', 'Apakah Anda yakin ingin menghapus postingan ini dari linimasa komunitas?', [
+    showAlert('Hapus Postingan', 'Apakah Anda yakin ingin menghapus postingan ini dari linimasa komunitas?', [
       { text: 'Batal', style: 'cancel' },
       {
         text: 'Hapus',

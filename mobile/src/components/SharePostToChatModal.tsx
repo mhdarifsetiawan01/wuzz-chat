@@ -12,7 +12,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -31,6 +30,7 @@ import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
 import { buildSharedPostMessage } from '../utils/feedShare';
+import { showAlert } from '../services/dialog';
 
 export interface SharePostToChatModalProps {
   visible: boolean;
@@ -70,7 +70,7 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
       setConversations(list || []);
     } catch (err) {
       console.warn('[SharePostToChatModal] Error loading conversations:', err);
-      Alert.alert('Gagal Memuat Obrolan', 'Tidak dapat mengambil daftar obrolan tujuan.');
+      showAlert('Gagal Memuat Obrolan', 'Tidak dapat mengambil daftar obrolan tujuan.');
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +90,7 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
       setSelectedRoomIds((prev) => prev.filter((id) => id !== roomId));
     } else {
       if (selectedRoomIds.length >= MAX_TARGETS) {
-        Alert.alert(
+        showAlert(
           'Batas Maksimal',
           `Anda dapat membagikan ke maksimal ${MAX_TARGETS} obrolan sekaligus.`
         );
@@ -114,13 +114,13 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
 
       onShared?.(selectedRoomIds);
       onClose();
-      Alert.alert(
+      showAlert(
         'Berhasil Dibagikan',
         `Postingan berhasil dibagikan ke ${selectedRoomIds.length} obrolan!`
       );
     } catch (err: any) {
       console.error('[SharePostToChatModal] Share failed:', err);
-      Alert.alert('Gagal Membagikan', err?.message || 'Terjadi kesalahan saat membagikan.');
+      showAlert('Gagal Membagikan', err?.message || 'Terjadi kesalahan saat membagikan.');
     } finally {
       setIsSubmitting(false);
     }

@@ -16,7 +16,6 @@ import {
   Pressable,
   Animated,
   PanResponder,
-  Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,6 +38,7 @@ import {
   isUndecryptablePlaceholder,
 } from '../utils/undecryptable';
 import { URL_REGEX, sanitizeUrl, safeOpenUrl, extractFirstUrl } from '../utils/linkUtils';
+import { showAlert } from '../services/dialog';
 
 export interface MessageBubbleProps {
   message: Message;
@@ -453,7 +453,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 <TouchableOpacity
                   style={styles.e2eeRow}
                   activeOpacity={0.7}
-                  onPress={() => Alert.alert(UNDECRYPTABLE_INFO_TITLE, UNDECRYPTABLE_INFO_BODY)}
+                  onPress={() => showAlert(UNDECRYPTABLE_INFO_TITLE, UNDECRYPTABLE_INFO_BODY)}
                   accessibilityRole="button"
                   accessibilityLabel="Pesan tidak dapat dibuka karena kunci enkripsi berubah. Ketuk untuk info"
                 >

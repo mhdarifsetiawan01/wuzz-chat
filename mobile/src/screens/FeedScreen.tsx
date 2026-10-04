@@ -15,7 +15,6 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -42,6 +41,7 @@ import { IconText } from '../components/IconText';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { formatPostTime } from '../utils/feedTime';
 import { extractFirstUrl } from '../utils/linkUtils';
+import { showAlert } from '../services/dialog';
 
 const COLLAPSED_LINES = 6;
 
@@ -85,7 +85,7 @@ export const FeedScreen: React.FC = () => {
   };
 
   const handleDeletePress = (post: FeedPost) => {
-    Alert.alert(
+    showAlert(
       'Hapus Postingan',
       'Apakah Anda yakin ingin menghapus postingan ini dari linimasa komunitas?',
       [

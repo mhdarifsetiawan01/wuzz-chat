@@ -12,7 +12,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -30,6 +29,7 @@ import { useConnection } from '../context/ConnectionContext';
 import { colors, radius, shadows, spacing, typography } from '../theme';
 import { IconText } from '../components/IconText';
 import { Icon } from '../components/Icon';
+import { showAlert } from '../services/dialog';
 
 export interface FriendsListScreenProps {
   initialTab?: 'friends' | 'requests';
@@ -109,7 +109,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
         onStartChat(conv);
       } catch (err: any) {
         console.warn('[FriendsListScreen] Start chat failed:', err);
-        Alert.alert('Gagal Memulai Chat', err?.message || 'Terjadi kesalahan jaringan.');
+        showAlert('Gagal Memulai Chat', err?.message || 'Terjadi kesalahan jaringan.');
       } finally {
         setStartingChatUserId(null);
       }
@@ -120,7 +120,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
   // Confirm unfriend
   const handleConfirmUnfriend = useCallback(
     (friend: FriendItem) => {
-      Alert.alert(
+      showAlert(
         'Hapus Pertemanan',
         `Apakah kamu yakin ingin menghapus ${friend.display_name} dari daftar teman?`,
         [
@@ -132,7 +132,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
               try {
                 await unfriend(friend.id);
               } catch (err: any) {
-                Alert.alert('Gagal', err?.message || 'Gagal menghapus pertemanan.');
+                showAlert('Gagal', err?.message || 'Gagal menghapus pertemanan.');
               }
             },
           },
@@ -149,7 +149,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
       try {
         await respondFriendRequest(req.id, action);
       } catch (err: any) {
-        Alert.alert(
+        showAlert(
           action === 'accept' ? 'Gagal Menerima' : 'Gagal Menolak',
           err?.message || 'Terjadi kesalahan sistem.'
         );
@@ -225,7 +225,7 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
             <TouchableOpacity
               style={styles.moreButton}
               onPress={() => {
-                Alert.alert(
+                showAlert(
                   item.display_name,
                   `@${item.username}`,
                   [

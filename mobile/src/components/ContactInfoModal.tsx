@@ -19,7 +19,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Share,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getUserProfile } from '../api/users';
@@ -33,6 +32,7 @@ import { APP_LINK_CONFIG } from '../api/config';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
+import { showAlert } from '../services/dialog';
 
 export interface ContactInfoModalProps {
   visible: boolean;
@@ -174,14 +174,14 @@ export const ContactInfoModal: React.FC<ContactInfoModalProps> = ({
       await startCall(roomId || '', userId, displayName, avatarUrl);
     } catch (err: any) {
       console.warn('[ContactInfoModal] Failed to start voice call:', err);
-      Alert.alert('Gagal Memulai Panggilan', err?.message || 'Tidak dapat memulai panggilan suara.');
+      showAlert('Gagal Memulai Panggilan', err?.message || 'Tidak dapat memulai panggilan suara.');
     }
   };
 
   const handleToggleMute = () => {
     const next = !isMuted;
     setIsMuted(next);
-    Alert.alert(
+    showAlert(
       next ? 'Notifikasi Dibisukan' : 'Notifikasi Diaktifkan',
       next
         ? `Notifikasi percakapan dari ${displayName} telah dibisukan.`

@@ -44,3 +44,4 @@ export * from './UpdateBanner';
 export * from './SharedPostCard';
 export * from './Icon';
 export * from './IconText';
+export * from './AppDialogHost';

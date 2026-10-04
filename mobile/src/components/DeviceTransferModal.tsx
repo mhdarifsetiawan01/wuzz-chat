@@ -17,7 +17,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -44,6 +43,7 @@ import { Icon } from './Icon';
 import { Button } from './Button';
 import { QRCodeView } from './QRCodeView';
 import { CameraQRScannerModal } from './CameraQRScannerModal';
+import { showAlert } from '../services/dialog';
 
 export type DeviceTransferMode = 'share' | 'scan' | 'input';
 
@@ -188,7 +188,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     } catch {
-      Alert.alert('Gagal', 'Tidak dapat menyalin token ke papan klip.');
+      showAlert('Gagal', 'Tidak dapat menyalin token ke papan klip.');
     }
   };
 
@@ -202,7 +202,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
 
     const token = parseTransferQRData(scannedData);
     if (!token) {
-      Alert.alert(
+      showAlert(
         'Kode QR Tidak Valid',
         'Kode QR yang dipindai bukan kode transfer perangkat WuzzChat yang sah.'
       );
@@ -236,7 +236,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
         err?.message ||
         'Gagal menyinkronkan kunci keamanan. Pastikan kode QR masih aktif dan belum kedaluwarsa.';
       setErrorMsg(msg);
-      Alert.alert('Transfer Kunci Gagal', msg);
+      showAlert('Transfer Kunci Gagal', msg);
     } finally {
       setIsLoading(false);
     }

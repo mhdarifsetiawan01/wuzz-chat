@@ -7,7 +7,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   StyleSheet,
   Switch,
@@ -22,6 +21,7 @@ import { colors, radius, shadows, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
+import { showAlert } from '../services/dialog';
 
 interface NotificationSettingsModalProps {
   visible: boolean;
@@ -79,7 +79,7 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
           const status = await notificationService.requestPermissions();
           setPermissionStatus(status);
           if (status !== 'granted') {
-            Alert.alert(
+            showAlert(
               'Izin Diperlukan',
               'Izin notifikasi dinonaktifkan di pengaturan sistem operasi HP Anda. Silakan aktifkan di Pengaturan Sistem untuk menerima pemberitahuan pesan baru.'
             );
@@ -90,7 +90,7 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
       }
     } catch (err: any) {
       console.error('[NotificationSettingsModal] Failed to update toggle:', err);
-      Alert.alert('Gagal', err?.message || 'Gagal memperbarui preferensi notifikasi.');
+      showAlert('Gagal', err?.message || 'Gagal memperbarui preferensi notifikasi.');
     } finally {
       setIsUpdating(false);
     }
@@ -105,16 +105,16 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
         { room_id: 'test_room' }
       );
       if (isExpoGo()) {
-        Alert.alert(
+        showAlert(
           '🔔 Uji Coba Notifikasi (Mode Expo Go)',
           'Simulasi notifikasi berhasil dijalankan!\n\nJudul: ⚡ WuzzChat Notification Test\nPesan: Notifikasi latar belakang & foreground audio terverifikasi aktif.\n\n(Catatan: Pada Production APK / Development Build, banner notifikasi sistem OS akan muncul langsung di status bar).'
         );
       } else {
-        Alert.alert('Sukses', 'Notifikasi uji coba berhasil dikirim ke sistem OS!');
+        showAlert('Sukses', 'Notifikasi uji coba berhasil dikirim ke sistem OS!');
       }
     } catch (err: any) {
       console.error('[NotificationSettingsModal] Test notification failed:', err);
-      Alert.alert('Gagal', err?.message || 'Gagal mengirim notifikasi uji coba.');
+      showAlert('Gagal', err?.message || 'Gagal mengirim notifikasi uji coba.');
     } finally {
       setIsTesting(false);
     }
@@ -123,9 +123,9 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
   const handleClearBadge = async () => {
     try {
       await notificationService.clearBadge();
-      Alert.alert('Sukses', 'Lencana (badge) notifikasi pada ikon aplikasi telah di-reset ke 0.');
+      showAlert('Sukses', 'Lencana (badge) notifikasi pada ikon aplikasi telah di-reset ke 0.');
     } catch (err: any) {
-      Alert.alert('Gagal', err?.message || 'Gagal mereset badge.');
+      showAlert('Gagal', err?.message || 'Gagal mereset badge.');
     }
   };
 

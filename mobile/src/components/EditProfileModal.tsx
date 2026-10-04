@@ -7,7 +7,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -29,6 +28,7 @@ import { colors, radius, shadows, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
+import { showAlert } from '../services/dialog';
 
 export interface EditProfileModalProps {
   visible: boolean;
@@ -105,7 +105,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   }, [visible, currentDisplayName, currentAvatarUrl, currentBio, currentRole, currentIsPrivateAccount, currentMetadata]);
 
   const handlePickAvatar = () => {
-    Alert.alert(
+    showAlert(
       'Ganti Foto Profil',
       'Pilih sumber foto avatar Anda:',
       [
@@ -129,7 +129,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Izin Dibutuhkan', 'Izin kamera dibutuhkan untuk mengambil foto profil.');
+        showAlert('Izin Dibutuhkan', 'Izin kamera dibutuhkan untuk mengambil foto profil.');
         return;
       }
 
@@ -145,7 +145,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       }
     } catch (err: any) {
       console.warn('[EditProfileModal] Camera capture error:', err);
-      Alert.alert('Kesalahan Kamera', 'Gagal membuka kamera perangkat.');
+      showAlert('Kesalahan Kamera', 'Gagal membuka kamera perangkat.');
     }
   };
 
@@ -153,7 +153,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Izin Dibutuhkan', 'Izin galeri dibutuhkan untuk memilih foto profil.');
+        showAlert('Izin Dibutuhkan', 'Izin galeri dibutuhkan untuk memilih foto profil.');
         return;
       }
 
@@ -169,7 +169,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       }
     } catch (err: any) {
       console.warn('[EditProfileModal] Gallery picker error:', err);
-      Alert.alert('Kesalahan Galeri', 'Gagal membuka galeri foto.');
+      showAlert('Kesalahan Galeri', 'Gagal membuka galeri foto.');
     }
   };
 
@@ -189,7 +189,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       }
     } catch (err: any) {
       console.warn('[EditProfileModal] Avatar upload failed:', err);
-      Alert.alert('Upload Avatar Gagal', err?.message || 'Gagal mengunggah foto avatar.');
+      showAlert('Upload Avatar Gagal', err?.message || 'Gagal mengunggah foto avatar.');
     } finally {
       setIsUploadingAvatar(false);
     }

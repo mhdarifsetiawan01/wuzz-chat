@@ -8,7 +8,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   Keyboard,
   SectionList,
@@ -30,6 +29,7 @@ import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from '../components/IconText';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
+import { showAlert } from '../services/dialog';
 
 export interface NewChatScreenProps {
   onBack: () => void;
@@ -149,7 +149,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
     // Private account check
     const isFriend = friends.some((f) => f.id === targetUser.id);
     if (targetUser.is_private_account && !isFriend) {
-      Alert.alert(
+      showAlert(
         'Akun Privat',
         `${targetUser.display_name || targetUser.username} menggunakan akun privat. Kirim permintaan pertemanan untuk dapat mengirim pesan langsung.`,
         [
@@ -159,9 +159,9 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
             onPress: async () => {
               try {
                 await sendFriendRequest(targetUser.id);
-                Alert.alert('Terkirim', 'Permintaan pertemanan telah dikirim.');
+                showAlert('Terkirim', 'Permintaan pertemanan telah dikirim.');
               } catch (err: any) {
-                Alert.alert('Gagal', err?.message || 'Gagal mengirim permintaan pertemanan.');
+                showAlert('Gagal', err?.message || 'Gagal mengirim permintaan pertemanan.');
               }
             },
           },
@@ -193,7 +193,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
       const isPrivateError =
         err?.message?.toLowerCase().includes('private') || err?.status === 403;
       if (isPrivateError) {
-        Alert.alert(
+        showAlert(
           'Akun Privat',
           `${targetUser.display_name || targetUser.username} menggunakan akun privat. Anda harus berteman terlebih dahulu.`,
           [
@@ -203,9 +203,9 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
               onPress: async () => {
                 try {
                   await sendFriendRequest(targetUser.id);
-                  Alert.alert('Terkirim', 'Permintaan pertemanan telah dikirim.');
+                  showAlert('Terkirim', 'Permintaan pertemanan telah dikirim.');
                 } catch (reqErr: any) {
-                  Alert.alert('Gagal', reqErr?.message || 'Gagal mengirim permintaan.');
+                  showAlert('Gagal', reqErr?.message || 'Gagal mengirim permintaan.');
                 }
               },
             },

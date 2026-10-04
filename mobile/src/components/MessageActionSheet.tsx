@@ -13,7 +13,6 @@ import {
   Pressable,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +21,7 @@ import { QUICK_REACTIONS } from '../constants/emojis';
 import { colors } from '../theme/colors';
 import { IconText } from './IconText';
 import { spacing } from '../theme/spacing';
+import { showAlert } from '../services/dialog';
 
 export interface MessageActionSheetProps {
   visible: boolean;
@@ -71,7 +71,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   const handleCopy = async () => {
     if (message.content) {
       await Clipboard.setStringAsync(message.content);
-      Alert.alert('Disalin', 'Teks pesan disalin ke papan klip.');
+      showAlert('Disalin', 'Teks pesan disalin ke papan klip.');
     }
     onClose();
   };

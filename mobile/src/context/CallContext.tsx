@@ -12,7 +12,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert } from 'react-native';
 import { useAuth } from './AuthContext';
 import {
   CallSession,
@@ -28,6 +27,7 @@ import {
   deleteCallRecord as deleteCallRecordStorage,
 } from '../services';
 import { startDirectChat } from '../api/users';
+import { showAlert } from '../services/dialog';
 
 interface CallContextType {
   activeCall: CallSession | null;
@@ -229,7 +229,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 1. Validate permissions
       const hasPermission = await callAudioManager.requestMicrophonePermission();
       if (!hasPermission) {
-        Alert.alert(
+        showAlert(
           'Izin Mikrofon Diperlukan',
           'WuzzChat membutuhkan izin akses mikrofon untuk melakukan panggilan suara. Silakan izinkan di pengaturan perangkat.'
         );
@@ -258,14 +258,14 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           } catch (err: any) {
             console.error('[CallContext] Failed to resolve room for call:', err);
-            Alert.alert('Gagal Memulai Panggilan', 'Tidak dapat membuat sesi percakapan dengan kontak.');
+            showAlert('Gagal Memulai Panggilan', 'Tidak dapat membuat sesi percakapan dengan kontak.');
             return false;
           }
         }
       }
 
       if (!targetRoomId) {
-        Alert.alert('Gagal Memulai Panggilan', 'Identitas percakapan tidak valid.');
+        showAlert('Gagal Memulai Panggilan', 'Identitas percakapan tidak valid.');
         return false;
       }
 
@@ -387,7 +387,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 1. Validate permissions
     const hasPermission = await callAudioManager.requestMicrophonePermission();
     if (!hasPermission) {
-      Alert.alert(
+      showAlert(
         'Izin Mikrofon Diperlukan',
         'WuzzChat membutuhkan izin akses mikrofon untuk menjawab panggilan suara.'
       );
@@ -629,7 +629,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       cleanupCallSession();
       setActiveCall((prev) => (prev ? { ...prev, status: 'ended' } : null));
-      Alert.alert('Pengguna Sedang Sibuk', 'Kontak sedang berada dalam panggilan lain.');
+      showAlert('Pengguna Sedang Sibuk', 'Kontak sedang berada dalam panggilan lain.');
       setTimeout(() => setActiveCall(null), 1500);
     });
 

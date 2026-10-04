@@ -20,7 +20,6 @@ import {
   TouchableOpacity,
   Switch,
   ActivityIndicator,
-  Alert,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -32,6 +31,7 @@ import { colors } from '../theme/colors';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
+import { showAlert } from '../services/dialog';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -88,7 +88,7 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
 
   const handleSubmit = useCallback(async () => {
     if (!title.trim()) {
-      Alert.alert('Judul diperlukan', 'Masukkan judul topik forum.');
+      showAlert('Judul diperlukan', 'Masukkan judul topik forum.');
       titleRef.current?.focus();
       return;
     }
@@ -113,7 +113,7 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
       const msg = (err as any)?.detail || 'Gagal membuat topik. Silakan coba lagi.';
-      Alert.alert('Gagal Membuat Topik', msg);
+      showAlert('Gagal Membuat Topik', msg);
     } finally {
       clearTimeout(timer);
       setIsSubmitting(false);

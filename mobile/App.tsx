@@ -10,7 +10,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { enableScreens } from 'react-native-screens';
 import { NavigationContainer } from '@react-navigation/native';
 import './src/services/notificationBackgroundTask';
-import { ActivityIndicator, Alert, Image, Linking, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   AuthProvider,
@@ -45,6 +45,8 @@ import {
 import { AppNavigator as MainAppNavigator, navigationRef } from './src/navigation';
 import { notificationService } from './src/services/notificationService';
 import { colors } from './src/theme';
+import { AppDialogHost } from './src/components/AppDialogHost';
+import { showAlert } from './src/services/dialog';
 
 // Enable native screens for fluid 60fps stack transitions
 enableScreens(true);
@@ -120,7 +122,7 @@ function AppContent() {
       try {
         const targetUser = await getUserProfile(username);
         if (!targetUser || !targetUser.id) {
-          Alert.alert('Pengguna Tidak Ditemukan', `Akun @${username} tidak ditemukan.`);
+          showAlert('Pengguna Tidak Ditemukan', `Akun @${username} tidak ditemukan.`);
           return;
         }
 
@@ -185,7 +187,7 @@ function AppContent() {
         }
       } catch (err: any) {
         console.warn('[App] Failed to resolve user profile from deep link:', err);
-        Alert.alert(
+        showAlert(
           'Profil Tidak Ditemukan',
           err?.detail || err?.message || `Tidak dapat menemukan pengguna @${username}.`
         );
@@ -462,6 +464,7 @@ export default function App() {
           </ConversationProvider>
         </AuthProvider>
       </DeviceProvider>
+      <AppDialogHost />
     </SafeAreaProvider>
   );
 }

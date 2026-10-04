@@ -19,7 +19,6 @@ import {
   ActivityIndicator,
   Keyboard,
   Animated,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -35,6 +34,7 @@ import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
 import { quotePreviewText } from '../utils/quotePreview';
+import { showAlert } from '../services/dialog';
 
 export interface StagedMedia {
   uri: string;
@@ -258,7 +258,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     try {
       const perm = await requestRecordingPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert(
+        showAlert(
           'Izin Mikrofon Dibutuhkan',
           'WuzzChat membutuhkan akses ke mikrofon untuk merekam dan mengirim pesan suara.'
         );
@@ -280,7 +280,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
       }, 1000);
     } catch (err: any) {
       console.error('[ChatInputBar] Error starting recording:', err);
-      Alert.alert('Gagal Memulai Rekaman', err.message || 'Tidak dapat mengakses mikrofon.');
+      showAlert('Gagal Memulai Rekaman', err.message || 'Tidak dapat mengakses mikrofon.');
     }
   };
 
@@ -319,7 +319,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
       await audioManager.configureAudioMode(false);
 
       if (!uri) {
-        Alert.alert('Gagal Mengambil Rekaman', 'Berkas rekaman audio tidak ditemukan.');
+        showAlert('Gagal Mengambil Rekaman', 'Berkas rekaman audio tidak ditemukan.');
         return;
       }
 
@@ -331,7 +331,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
       onSendAudio?.(uri, finalDuration);
     } catch (err: any) {
       console.error('[ChatInputBar] Error stopping and sending recording:', err);
-      Alert.alert('Gagal Mengirim Rekaman', err.message || 'Terjadi kesalahan saat memproses audio.');
+      showAlert('Gagal Mengirim Rekaman', err.message || 'Terjadi kesalahan saat memproses audio.');
     }
   };
 

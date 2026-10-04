@@ -18,7 +18,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert } from 'react-native';
 import { feedApi } from '../api/feedApi';
 import { CreateFeedPostRequest, FeedPost, FeedTabKey } from '../api/types';
 import {
@@ -29,6 +28,7 @@ import {
   updateStoredFeedPostLike,
 } from '../services/sqliteStorage';
 import { useAuth } from './AuthContext';
+import { showAlert } from '../services/dialog';
 
 export interface FeedContextType {
   activeTab: FeedTabKey;
@@ -356,7 +356,7 @@ export const FeedProvider: React.FC<{ children: React.ReactNode }> = ({ children
           )
         );
         await updateStoredFeedPostLike(userId, postId, prevLiked, prevCount);
-        Alert.alert('Gagal Menyukai', 'Koneksi terputus. Silakan coba beberapa saat lagi.');
+        showAlert('Gagal Menyukai', 'Koneksi terputus. Silakan coba beberapa saat lagi.');
       } finally {
         // Lepas lock agar klik berikutnya bisa diproses kembali
         likeInFlightRef.current.delete(postId);
@@ -412,7 +412,7 @@ export const FeedProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setPosts((prev) => [postToDelete, ...prev]);
           await saveStoredFeedPosts(userId, [postToDelete], activeTab);
         }
-        Alert.alert(
+        showAlert(
           'Gagal Menghapus Postingan',
           err?.message || 'Terjadi kesalahan saat menghapus postingan.'
         );

@@ -12,7 +12,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -35,6 +34,7 @@ import { formatPostTime } from '../utils/feedTime';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
 import { LinkifiedText } from './LinkifiedText';
+import { showAlert } from '../services/dialog';
 
 export interface PostCommentsModalProps {
   visible: boolean;
@@ -128,7 +128,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
     if (!trimmed) return;
 
     if (trimmed.length > MAX_COMMENT_CHARS) {
-      Alert.alert('Batas Karakter', `Maksimal komentar adalah ${MAX_COMMENT_CHARS} karakter.`);
+      showAlert('Batas Karakter', `Maksimal komentar adalah ${MAX_COMMENT_CHARS} karakter.`);
       return;
     }
 
@@ -144,7 +144,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
       updatePostCommentsCount(post.id, newTotal);
     } catch (err: any) {
       console.warn('[PostCommentsModal] Error creating comment:', err);
-      Alert.alert('Gagal Mengirim', err?.message || 'Tidak dapat mengirim komentar saat ini.');
+      showAlert('Gagal Mengirim', err?.message || 'Tidak dapat mengirim komentar saat ini.');
     } finally {
       setIsSubmitting(false);
     }

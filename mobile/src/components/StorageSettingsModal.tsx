@@ -7,7 +7,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -29,6 +28,7 @@ import { colors, radius, shadows, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
+import { showAlert } from '../services/dialog';
 
 export interface StorageSettingsModalProps {
   visible: boolean;
@@ -110,7 +110,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
   }, [visible, loadStats]);
 
   const handleClearMessages = () => {
-    Alert.alert(
+    showAlert(
       'Bersihkan Cache Pesan?',
       'Riwayat pesan lokal di perangkat ini akan dikosongkan untuk menghemat memori. Pesan tetap aman di server dan akan diunduh kembali saat Anda membuka ruang obrolan.',
       [
@@ -123,10 +123,10 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
             try {
               await clearMessageCacheOnly(userId);
               await loadStats();
-              Alert.alert('Sukses', 'Cache pesan lokal berhasil dibersihkan.');
+              showAlert('Sukses', 'Cache pesan lokal berhasil dibersihkan.');
             } catch (err) {
               console.warn('[StorageSettingsModal] Clear messages error:', err);
-              Alert.alert('Gagal', 'Terjadi kesalahan saat membersihkan cache pesan.');
+              showAlert('Gagal', 'Terjadi kesalahan saat membersihkan cache pesan.');
             } finally {
               setIsClearingMessages(false);
             }
@@ -137,7 +137,7 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
   };
 
   const handleClearMedia = () => {
-    Alert.alert(
+    showAlert(
       'Bersihkan Cache Gambar?',
       'Gambar dan berkas sementara akan dihapus lalu diunduh ulang saat dibutuhkan. Media chat yang tersimpan di perangkat (foto dan voice note) tidak ikut terhapus.',
       [
@@ -164,10 +164,10 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
                 }
               }
               await loadStats();
-              Alert.alert('Sukses', 'Cache gambar berhasil dibersihkan.');
+              showAlert('Sukses', 'Cache gambar berhasil dibersihkan.');
             } catch (err) {
               console.warn('[StorageSettingsModal] Clear media error:', err);
-              Alert.alert('Gagal', 'Terjadi kesalahan saat membersihkan cache gambar.');
+              showAlert('Gagal', 'Terjadi kesalahan saat membersihkan cache gambar.');
             } finally {
               setIsClearingMedia(false);
             }

@@ -1,4 +1,5 @@
-import { Linking, Alert } from 'react-native';
+import { Linking } from 'react-native';
+import { showAlert } from '../services/dialog';
 
 /**
  * Regex pendeteksi URL HTTP/HTTPS, www, dan domain umum (id, com, net, org, io, dll).
@@ -77,7 +78,7 @@ export async function safeOpenUrl(rawUrl: string): Promise<boolean> {
   const targetUrl = normalizeUrl(rawUrl);
 
   if (!isSafeHttpUrl(targetUrl)) {
-    Alert.alert('Tautan Ditolak', 'Tautan ini tidak menggunakan protokol web yang aman (hanya http/https).');
+    showAlert('Tautan Ditolak', 'Tautan ini tidak menggunakan protokol web yang aman (hanya http/https).');
     return false;
   }
 
@@ -86,7 +87,7 @@ export async function safeOpenUrl(rawUrl: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.warn('[safeOpenUrl] Gagal membuka URL:', targetUrl, error);
-    Alert.alert('Gagal Membuka Tautan', 'Tidak dapat membuka browser untuk memuat tautan ini.');
+    showAlert('Gagal Membuka Tautan', 'Tidak dapat membuka browser untuk memuat tautan ini.');
     return false;
   }
 }

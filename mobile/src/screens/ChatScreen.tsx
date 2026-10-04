@@ -18,7 +18,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
   TextInput,
   BackHandler,
 } from 'react-native';
@@ -68,6 +67,7 @@ import { SystemMessageRow } from '../components/SystemMessageRow';
 import { ChatHeaderStatus } from '../components/ChatHeaderStatus';
 import { shouldSendTyping } from '../utils/typingTracker';
 import { isSystemMessage } from '../utils/systemMessage';
+import { showAlert } from '../services/dialog';
 
 export interface ChatScreenProps {
   conversation: ConversationItem;
@@ -516,7 +516,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           setIsAccessDenied(true);
           setAccessDeniedError(err?.detail || err?.message || 'Akses ditolak: Anda bukan anggota grup ini');
         } else if (!isKnownGroupMember) {
-          Alert.alert('Gagal Memuat Grup', err?.detail || err?.message || 'Grup tidak dapat diakses.');
+          showAlert('Gagal Memuat Grup', err?.detail || err?.message || 'Grup tidak dapat diakses.');
           onBack();
         } else {
           // Resilient SWR: if network failed on an already known group, keep viewing cached messages
@@ -806,7 +806,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
+        showAlert(
           'Izin Kamera Dibutuhkan',
           'Aplikasi membutuhkan izin kamera untuk mengambil foto secara langsung.'
         );
@@ -834,7 +834,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
     } catch (err) {
       console.warn('[ChatScreen] Error launching camera:', err);
-      Alert.alert('Gagal Mengakses Kamera', 'Terjadi kesalahan saat membuka kamera perangkat.');
+      showAlert('Gagal Mengakses Kamera', 'Terjadi kesalahan saat membuka kamera perangkat.');
     }
   };
 
@@ -842,7 +842,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
+        showAlert(
           'Izin Galeri Dibutuhkan',
           'Aplikasi membutuhkan izin akses galeri untuk memilih foto dari perangkat Anda.'
         );
@@ -870,7 +870,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
     } catch (err) {
       console.warn('[ChatScreen] Error launching gallery:', err);
-      Alert.alert('Gagal Mengakses Galeri', 'Terjadi kesalahan saat membuka galeri foto.');
+      showAlert('Gagal Mengakses Galeri', 'Terjadi kesalahan saat membuka galeri foto.');
     }
   };
 
@@ -928,7 +928,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           });
         } catch (err: any) {
           console.error('[ChatScreen] Media upload failed:', err);
-          Alert.alert(
+          showAlert(
             'Gagal Mengunggah Gambar',
             err.detail || err.message || 'Terjadi kesalahan saat mengunggah gambar ke server.'
           );
@@ -1107,7 +1107,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         setMessages((prev) =>
           prev.map((m) => (m.id === msgId ? { ...m, status: 'failed' } : m))
         );
-        Alert.alert(
+        showAlert(
           'Gagal Mengunggah Pesan Suara',
           err.detail || err.message || 'Terjadi kesalahan saat mengunggah rekaman suara ke server.'
         );
@@ -1156,7 +1156,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         console.warn('[ChatScreen] Delete message failed, rolling back:', err);
         // Rollback state on error
         setMessages(previousMessages);
-        Alert.alert('Gagal Menghapus', err.detail || err.message || 'Tidak dapat menghapus pesan.');
+        showAlert('Gagal Menghapus', err.detail || err.message || 'Tidak dapat menghapus pesan.');
       }
     },
     [roomId, messages, replyingTo?.id, editingMessage?.id]
@@ -1206,7 +1206,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           setHighlightedMessageId(null);
         }, 1500);
       } else {
-        Alert.alert('Pesan Tidak Ditemukan', 'Pesan asli mungkin berada di riwayat sebelumnya.');
+        showAlert('Pesan Tidak Ditemukan', 'Pesan asli mungkin berada di riwayat sebelumnya.');
       }
     },
     []
@@ -1311,7 +1311,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         await messagesApi.editMessage(messageId, payloadContent, roomId);
       } catch (err: any) {
         console.error('[ChatScreen] Edit message failed:', err);
-        Alert.alert(
+        showAlert(
           'Gagal Mengedit Pesan',
           err?.message || 'Batas waktu edit (15 menit) telah lewat atau server bermasalah.'
         );
@@ -1331,7 +1331,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       // Pass decrypted plaintext so cross-room recipients can read it without key mismatch
       const plaintextContent = msg.content;
       await messagesApi.forwardMessage(msg.id, targetRoomIds, plaintextContent);
-      Alert.alert('Terkirim', `Pesan berhasil diteruskan ke ${targetRoomIds.length} obrolan.`);
+      showAlert('Terkirim', `Pesan berhasil diteruskan ke ${targetRoomIds.length} obrolan.`);
     },
     []
   );
@@ -1366,7 +1366,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         setMessages((prev) =>
           prev.map((m) => (m.id === targetId ? { ...m, is_pinned: isPinned } : m))
         );
-        Alert.alert('Gagal', err?.detail || err?.message || 'Gagal mengubah status sematan pesan.');
+        showAlert('Gagal', err?.detail || err?.message || 'Gagal mengubah status sematan pesan.');
       }
     },
     [roomId]
@@ -1388,7 +1388,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         await messagesApi.unpinMessage(targetId, roomId);
       } catch (err: any) {
         console.error('[ChatScreen] Unpin message failed:', err);
-        Alert.alert('Gagal', err?.detail || err?.message || 'Gagal melepas sematan pesan.');
+        showAlert('Gagal', err?.detail || err?.message || 'Gagal melepas sematan pesan.');
       }
     },
     [roomId]
@@ -1414,7 +1414,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   }, [pinnedMessages, messages]);
 
   const handleJumpToMessage = useCallback(
-    (messageId: string, showAlert = true) => {
+    (messageId: string, notifyIfMissing = true) => {
       const index = invertedMessages.findIndex((m) => m.id === messageId);
       if (index !== -1 && flatListRef.current) {
         // Crucial: Disarm near-bottom auto-scroll so list doesn't snap back to bottom
@@ -1437,8 +1437,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             animated: true,
           });
         }
-      } else if (showAlert) {
-        Alert.alert('Pesan Tidak Ditemukan', 'Pesan mungkin berada di riwayat sebelumnya.');
+      } else if (notifyIfMissing) {
+        showAlert('Pesan Tidak Ditemukan', 'Pesan mungkin berada di riwayat sebelumnya.');
       }
     },
     [invertedMessages]

@@ -14,7 +14,6 @@ import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -36,6 +35,7 @@ import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
+import { showAlert } from '../services/dialog';
 
 export interface CreatePostModalProps {
   visible: boolean;
@@ -92,14 +92,14 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
 
   const handlePickGallery = async () => {
     if (mediaList.length >= MAX_MEDIA) {
-      Alert.alert('Batas Media', `Maksimal lampiran adalah ${MAX_MEDIA} gambar.`);
+      showAlert('Batas Media', `Maksimal lampiran adalah ${MAX_MEDIA} gambar.`);
       return;
     }
 
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Izin Ditolak', 'Izin galeri diperlukan untuk memilih foto.');
+        showAlert('Izin Ditolak', 'Izin galeri diperlukan untuk memilih foto.');
         return;
       }
 
@@ -120,20 +120,20 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       }
     } catch (err) {
       console.warn('[CreatePostModal] Error picking image:', err);
-      Alert.alert('Gagal', 'Terjadi kesalahan saat membuka galeri foto.');
+      showAlert('Gagal', 'Terjadi kesalahan saat membuka galeri foto.');
     }
   };
 
   const handleLaunchCamera = async () => {
     if (mediaList.length >= MAX_MEDIA) {
-      Alert.alert('Batas Media', `Maksimal lampiran adalah ${MAX_MEDIA} gambar.`);
+      showAlert('Batas Media', `Maksimal lampiran adalah ${MAX_MEDIA} gambar.`);
       return;
     }
 
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Izin Ditolak', 'Izin kamera diperlukan untuk mengambil foto.');
+        showAlert('Izin Ditolak', 'Izin kamera diperlukan untuk mengambil foto.');
         return;
       }
 
@@ -155,7 +155,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       }
     } catch (err) {
       console.warn('[CreatePostModal] Error launching camera:', err);
-      Alert.alert('Gagal', 'Terjadi kesalahan saat membuka kamera.');
+      showAlert('Gagal', 'Terjadi kesalahan saat membuka kamera.');
     }
   };
 
@@ -166,12 +166,12 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   const handleSubmit = async () => {
     const trimmed = content.trim();
     if (!trimmed) {
-      Alert.alert('Konten Kosong', 'Silakan tulis sesuatu untuk membagikan postingan.');
+      showAlert('Konten Kosong', 'Silakan tulis sesuatu untuk membagikan postingan.');
       return;
     }
 
     if (trimmed.length > MAX_CHARS) {
-      Alert.alert('Konten Terlalu Panjang', `Maksimal adalah ${MAX_CHARS} karakter.`);
+      showAlert('Konten Terlalu Panjang', `Maksimal adalah ${MAX_CHARS} karakter.`);
       return;
     }
 
@@ -208,7 +208,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
       onPostCreated?.();
     } catch (err: any) {
       console.warn('[CreatePostModal] Error creating post:', err);
-      Alert.alert(
+      showAlert(
         'Gagal Mempublikasikan',
         err?.message || 'Terjadi kesalahan jaringan saat mempublikasikan postingan.'
       );

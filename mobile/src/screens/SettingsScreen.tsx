@@ -9,7 +9,6 @@
 
 import React, { useCallback, useState } from 'react';
 import {
-  Alert,
   Linking,
   ScrollView,
   Share,
@@ -39,6 +38,7 @@ import {
 } from '../components';
 import { getAppVersionInfo } from '../utils/appVersion';
 import { fetchAppUpdateInfo, getLatestVersionLabel, isUpdateAvailable } from '../services/appUpdate';
+import { showAlert } from '../services/dialog';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Settings Menu Item
@@ -145,7 +145,7 @@ export const SettingsScreen: React.FC = () => {
   const [isAboutVisible, setIsAboutVisible] = useState(false);
 
   const handleLogout = useCallback(() => {
-    Alert.alert(
+    showAlert(
       'Keluar Akun',
       'Apakah kamu yakin ingin keluar? Sesi aktif di perangkat ini akan diakhiri.',
       [
@@ -159,7 +159,7 @@ export const SettingsScreen: React.FC = () => {
               await logout();
             } catch (err) {
               console.error('[SettingsScreen] Logout failed:', err);
-              Alert.alert('Gagal', 'Terjadi kesalahan saat keluar. Coba lagi.');
+              showAlert('Gagal', 'Terjadi kesalahan saat keluar. Coba lagi.');
             } finally {
               setIsLoggingOut(false);
             }
@@ -180,16 +180,16 @@ export const SettingsScreen: React.FC = () => {
     const info = await fetchAppUpdateInfo(true);
     setIsCheckingUpdate(false);
     if (!info) {
-      Alert.alert('Gagal Memeriksa', 'Tidak dapat memeriksa pembaruan. Periksa koneksi lalu coba lagi.');
+      showAlert('Gagal Memeriksa', 'Tidak dapat memeriksa pembaruan. Periksa koneksi lalu coba lagi.');
       return;
     }
     if (!isUpdateAvailable(info)) {
-      Alert.alert('Sudah Terbaru', 'Anda sudah memakai versi WuzzChat terbaru.');
+      showAlert('Sudah Terbaru', 'Anda sudah memakai versi WuzzChat terbaru.');
       return;
     }
     const url = info.download_url;
     const versionLabel = getLatestVersionLabel(info);
-    Alert.alert(
+    showAlert(
       'Pembaruan Tersedia',
       versionLabel ? `${versionLabel} sudah tersedia.` : 'Versi terbaru sudah tersedia.',
       url
