@@ -632,8 +632,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 8,
     borderBottomLeftRadius: 8,
   },
+  // Tanpa flex:1: lebar alami isi kutipan ikut menentukan lebar bubble (maks 85%),
+  // sehingga bubble balasan pendek tidak memotong kutipan menjadi "An…".
   quoteContent: {
-    flex: 1,
+    flexShrink: 1,
     marginLeft: 6,
   },
   quoteSender: {
