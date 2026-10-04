@@ -9,6 +9,7 @@
  * me-render ulang layar obrolan yang sedang terbuka.
  */
 
+import { mergeHistoryWindow } from '../utils/historyMerge';
 import React, {
   createContext,
   useCallback,
@@ -549,20 +550,8 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
           };
         });
 
-        // Merge: keep any optimistic local messages that haven't been confirmed yet
-        const serverIds = new Set(mapped.map((m) => m.id));
-        const pendingOptimistic = existing.filter(
-          (m) => (m.status === 'sending' || (m as any).request_id) && !serverIds.has(m.id)
-        );
-
-        const merged = [...mapped, ...pendingOptimistic];
-
-        // Sort chronologically
-        merged.sort((a, b) => {
-          const timeA = new Date(a.timestamp || a.created_at || 0).getTime();
-          const timeB = new Date(b.timestamp || b.created_at || 0).getTime();
-          return timeA - timeB;
-        });
+        // Jendela server + pesan optimistic + pesan lebih lama yang sudah ada di memori (lihat historyMerge.ts)
+        const merged = mergeHistoryWindow(existing, mapped);
 
         reconciled = merged;
 
