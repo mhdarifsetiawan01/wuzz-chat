@@ -18,7 +18,7 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 ## 🏛️ 2. Pola Arsitektur Kritis Klien Mobile
 
 ### A. Pola Trusted Device & Key Isolation (Penyimpanan Kunci E2EE)
-- **Normal Logout**: Kunci E2EE lokal **TIDAK DIHAPUS** dari SecureStore saat user menekan logout biasa (`clearSession`).
+- **Normal Logout**: Kunci E2EE lokal **TIDAK DIHAPUS** dari SecureStore saat user menekan logout biasa (`clearSession`). Data lokal akun di SQLite (pesan plaintext, percakapan, log panggilan, teman, feed) **DIHAPUS** lewat `clearUserCache` + `clearFeedPosts` dan kembali dari server saat login. Berkas media di `wuzzchat_media` **DIPERTAHANKAN**: sering satu-satunya salinan (server menghapus berkas fisik setelah ACK) dan jalurnya deterministik dari id pesan. Jalur lain (sesi digantikan, 401, batal konflik kunci) belum membersihkan data lokal.
 - **Login Kembali**: Saat user yang sama login kembali di HP tersebut, aplikasi memverifikasi kunci ke server via `PUT /api/users/public-key`. Jika cocok (HTTP 200), aplikasi langsung masuk ke beranda obrolan tanpa modal scan QR atau reset kunci berulang kali.
 - **Isolasi Multi-User**: Kunci disimpan per pengguna dengan prefix unik:
   - Private Key: `wuzz_e2ee_priv_${userId}`
