@@ -35,6 +35,7 @@ import { messagesApi } from '../api/messages';
 import {
   getStoredMessages,
   saveStoredMessages,
+  deleteStoredMessage,
   pruneRoomMessages,
   runStorageMaintenance,
   MAX_LOCAL_MESSAGES_PER_ROOM,
@@ -128,6 +129,53 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const roomKeysCacheRef = useRef<Map<string, Uint8Array>>(new Map());
   const lastHandledMsgIdRef = useRef<string | null>(null);
+
+  // Write-through pembaruan WebSocket (status, reaksi, edit, pin, hapus) ke SQLite. Digabung per room dan ditunda singkat:
+  // satu receipt bisa mengubah banyak pesan, dan saveStoredMessages hanya menulis yang benar-benar berubah.
+  const userIdRef = useRef<string | undefined>(user?.id);
+  userIdRef.current = user?.id;
+  const persistQueueRef = useRef<Map<string, Map<string, Message>>>(new Map());
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushPersistQueue = useCallback(() => {
+    persistTimerRef.current = null;
+    const queue = persistQueueRef.current;
+    persistQueueRef.current = new Map();
+    const userId = userIdRef.current;
+    if (!userId) return;
+    queue.forEach((byId, roomId) => {
+      saveStoredMessages(userId, roomId, [...byId.values()]).catch((err) =>
+        console.warn('[MessageContext] Failed to persist message update to SQLite:', err)
+      );
+    });
+  }, []);
+
+  const queuePersist = useCallback(
+    (roomId: string, changed: Message[]) => {
+      // Pesan optimistic ('sending') belum punya id server; ditulis setelah ACK/history
+      const writable = changed.filter((m) => m.id && m.status !== 'sending');
+      if (writable.length === 0) return;
+      let byId = persistQueueRef.current.get(roomId);
+      if (!byId) {
+        byId = new Map();
+        persistQueueRef.current.set(roomId, byId);
+      }
+      for (const m of writable) byId.set(m.id, m);
+      if (!persistTimerRef.current) {
+        persistTimerRef.current = setTimeout(flushPersistQueue, 300);
+      }
+    },
+    [flushPersistQueue]
+  );
+
+  // Ganti user / keluar: buang antrean agar tidak menulis ke akun yang salah
+  useEffect(() => {
+    persistQueueRef.current = new Map();
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+  }, [user?.id]);
 
   // Helper: Derive or retrieve cached AES Key for a direct conversation
   const getRoomAESKey = useCallback(
@@ -290,34 +338,48 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Mutation: Update a specific message in a room
   const updateMessage = useCallback(
     (roomId: string, messageId: string, updates: Partial<Message>) => {
+      let changed: Message[] = [];
       setMessagesByRoom((prev) => {
         const existing = prev[roomId];
         if (!existing) return prev;
-        const updated = existing.map((m) =>
-          m.id === messageId || (m as any).request_id === messageId
-            ? { ...m, ...updates }
-            : m
-        );
+        changed = [];
+        const updated = existing.map((m) => {
+          if (m.id === messageId || (m as any).request_id === messageId) {
+            const next = { ...m, ...updates };
+            changed.push(next);
+            return next;
+          }
+          return m;
+        });
         return {
           ...prev,
           [roomId]: updated,
         };
       });
+      queuePersist(roomId, changed);
     },
-    []
+    [queuePersist]
   );
 
   // Mutation: Remove a specific message from a room
-  const removeMessage = useCallback((roomId: string, messageId: string) => {
-    setMessagesByRoom((prev) => {
-      const existing = prev[roomId];
-      if (!existing) return prev;
-      return {
-        ...prev,
-        [roomId]: existing.filter((m) => m.id !== messageId),
-      };
-    });
-  }, []);
+  const removeMessage = useCallback(
+    (roomId: string, messageId: string) => {
+      setMessagesByRoom((prev) => {
+        const existing = prev[roomId];
+        if (!existing) return prev;
+        return {
+          ...prev,
+          [roomId]: existing.filter((m) => m.id !== messageId),
+        };
+      });
+      // Hapus juga dari SQLite dan batalkan penulisan tertunda untuk pesan itu
+      persistQueueRef.current.get(roomId)?.delete(messageId);
+      if (user?.id) {
+        deleteStoredMessage(user.id, roomId, messageId).catch(() => {});
+      }
+    },
+    [user?.id]
+  );
 
   // Mutation: Mark room loading state
   const markRoomLoading = useCallback((roomId: string, isLoading: boolean) => {
@@ -746,9 +808,13 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const reqId = ack.request_id || ack.id;
       if (!reqId) return;
 
+      let ackRoom: string | null = null;
+      let ackMessage: Message | null = null;
       setMessagesByRoom((prev) => {
         let changed = false;
         const next = { ...prev };
+        ackRoom = null;
+        ackMessage = null;
 
         for (const roomId of Object.keys(next)) {
           const list = next[roomId];
@@ -763,6 +829,8 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
               id: ack.id || updated[matchIndex].id,
             };
             next[roomId] = updated;
+            ackRoom = roomId;
+            ackMessage = updated[matchIndex];
             changed = true;
             break;
           }
@@ -770,6 +838,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         return changed ? next : prev;
       });
+      if (ackRoom && ackMessage) queuePersist(ackRoom, [ackMessage]);
     });
 
     // 3. Receipt Listener
@@ -781,28 +850,34 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const realMsgId = receipt.id;
       const reqId = receipt.request_id;
 
+      let changedByReceipt: Message[] = [];
       setMessagesByRoom((prev) => {
         const existing = prev[targetRoom];
         if (!existing) return prev;
+        changedByReceipt = [];
 
         const updated = existing.map((msg) => {
+          let next = msg;
           if (reqId && (msg.id === reqId || (msg as any).request_id === reqId)) {
-            return {
+            next = {
               ...msg,
               id: realMsgId || msg.id,
               status: newStatus || 'sent',
             };
-          }
-          if (newStatus === 'read' || newStatus === 'delivered') {
+          } else if (newStatus === 'read' || newStatus === 'delivered') {
             if (msg.sender_id === currentUserId || msg.status === 'sent') {
-              return { ...msg, status: newStatus };
+              next = { ...msg, status: newStatus };
             }
           }
-          return msg;
+          if (next !== msg && (next.status !== msg.status || next.id !== msg.id)) {
+            changedByReceipt.push(next);
+          }
+          return next;
         });
 
         return { ...prev, [targetRoom]: updated };
       });
+      queuePersist(targetRoom, changedByReceipt);
     });
 
     // 4. Reaction Listener
@@ -927,6 +1002,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
     appendMessage,
     updateMessage,
     removeMessage,
+    queuePersist,
     reconcileHistory,
     clearRoomCache,
     getRoomAESKey,

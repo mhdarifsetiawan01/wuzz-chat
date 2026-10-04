@@ -843,6 +843,24 @@ export function saveStoredMessages(
 }
 
 /**
+ * Menghapus satu pesan dari SQLite (mis. "hapus untuk saya"). Tanpa ini baris tetap ada dan muncul lagi saat hidrasi
+ * cold start. Tanda tangannya dilupakan agar penyimpanan ulang pesan yang sama benar-benar menulis.
+ */
+export function deleteStoredMessage(userId: string, roomId: string, messageId: string): Promise<void> {
+  return runExclusive(async () => {
+    if (!userId || !messageId) return;
+
+    try {
+      const db = await getDatabase();
+      await db.runAsync(`DELETE FROM local_messages WHERE user_id = ? AND id = ?`, [userId, messageId]);
+      persistedMessageSignatures.get(signatureRoomKey(userId, roomId))?.delete(messageId);
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to deleteStoredMessage:', error);
+    }
+  });
+}
+
+/**
  * Clears all cached conversations and messages for a specific user.
  * Used during logout to guarantee user isolation and privacy protection.
  */

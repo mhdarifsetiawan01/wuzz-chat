@@ -30,6 +30,10 @@ const fakeDb = {
       drop.forEach((r) => store.rows.delete(r.user + '|' + r.id));
       return { changes: drop.length };
     }
+    if (/^\s*DELETE FROM local_messages WHERE user_id = \? AND id = \?\s*$/.test(sql)) {
+      const [user, id] = p;
+      return { changes: store.rows.delete(user + '|' + id) ? 1 : 0 };
+    }
     if (/^\s*DELETE FROM local_messages WHERE user_id = \?\s*$/.test(sql)) {
       const [user] = p;
       let n = 0;
@@ -187,6 +191,18 @@ const reset = () => {
   await st.saveStoredMessages(U, 'r2', msgs.map((m) => ({ ...m, room_id: 'r2' })));
   assert.equal(store.upserts, 50);
   console.log('10. room lain                         : tanda tangan terpisah per room');
+
+  // 11. hapus satu pesan: baris hilang dan menyimpan ulang pesan itu benar-benar menulis lagi
+  st = coldStart();
+  store.rows.clear();
+  await st.saveStoredMessages(U, R, msgs.slice(0, 5));
+  reset();
+  await st.deleteStoredMessage(U, R, msgs[2].id);
+  assert.ok(!store.rows.has(U + '|' + msgs[2].id));
+  assert.equal(store.rows.size, 4);
+  await st.saveStoredMessages(U, R, msgs.slice(0, 5));
+  assert.equal(store.upserts, 1);
+  console.log('11. hapus satu pesan                  : baris terhapus; simpan ulang menulis 1 baris');
 })().catch((e) => {
   console.error('GAGAL:', e);
   process.exit(1);
