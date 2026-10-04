@@ -31,6 +31,7 @@ import { useFeed } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { VerifiedBadge } from './VerifiedBadge';
+import { formatPostTime } from '../utils/feedTime';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
 import { LinkifiedText } from './LinkifiedText';
@@ -42,18 +43,6 @@ export interface PostCommentsModalProps {
 }
 
 const MAX_COMMENT_CHARS = 500;
-
-function formatCommentTime(dateString: string): string {
-  try {
-    const diff = (Date.now() - new Date(dateString).getTime()) / 1000;
-    if (diff < 60) return 'Baru saja';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m lalu`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}j lalu`;
-    return `${Math.floor(diff / 86400)}h lalu`;
-  } catch {
-    return '';
-  }
-}
 
 export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
   visible,
@@ -261,7 +250,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
                         <VerifiedBadge size={13} style={{ marginRight: spacing.xs }} />
                       )}
                       <Text style={styles.commentTime}>
-                        {formatCommentTime(item.created_at)}
+                        {formatPostTime(item.created_at)}
                       </Text>
                     </View>
                     <LinkifiedText text={item.content} style={styles.commentText} />

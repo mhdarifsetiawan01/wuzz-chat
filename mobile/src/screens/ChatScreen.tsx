@@ -1808,15 +1808,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               <Icon name="search" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
 
-            {/* Milestone M-Mobile-8.30: Media Gallery Button */}
-            <TouchableOpacity
-              style={styles.headerIconButton}
-              onPress={() => setShowMediaGallery(true)}
-              hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
-              activeOpacity={0.75}
-            >
-              <Icon name="image" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
+            {/* Milestone M-Mobile-8.30: Media Gallery Button. Grup induk memakainya lewat Info Grup
+                ("Media & Berkas Grup"), jadi ikonnya dibuang dari header agar judul tidak terpotong. */}
+            {!(isGroup && !isSubGroup && onOpenGroupInfo) && (
+              <TouchableOpacity
+                style={styles.headerIconButton}
+                onPress={() => setShowMediaGallery(true)}
+                hitSlop={{ top: 12, bottom: 12, left: 6, right: 6 }}
+                activeOpacity={0.75}
+              >
+                <Icon name="image" size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            )}
 
             {isParentGroup && (
               // 🏛️ Forum button — only on parent groups, not sub-groups
