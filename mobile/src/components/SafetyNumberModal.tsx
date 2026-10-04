@@ -358,7 +358,7 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
               <View style={styles.qrSection}>
                 <View style={styles.qrWrapper}>
                   <QRCodeView
-                    value={`wuzz-safety://${currentUserId}/${peerId}/${safetyNumber.replace(/\s+/g, '')}`}
+                    value={`wuzz-safety://${safetyNumber.replace(/\s+/g, '')}`}
                     size={220}
                     padding={16}
                   />
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   card: {
-    backgroundColor: colors.bgOverlay,
+    backgroundColor: colors.bgSurface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: spacing.lg,
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSubtle,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 10,
   },
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   highlight: {
-    color: colors.colorCyanNeon,
+    color: colors.accentHover,
     fontWeight: '700',
   },
   statusBanner: {
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(0, 242, 254, 0.25)',
+    borderColor: colors.tintAccent30,
     width: '100%',
     marginBottom: spacing.md,
   },
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: 'monospace',
     letterSpacing: 2,
-    color: colors.colorCyanNeon,
+    color: colors.textPrimary,
   },
   feedbackBanner: {
     flexDirection: 'row',
@@ -631,7 +631,7 @@ const styles = StyleSheet.create({
   },
   scanSecondaryBtnText: {
     ...typography.bodySecondary,
-    color: colors.colorCyanNeon,
+    color: colors.textPrimary,
     fontWeight: '600',
     fontSize: 13,
   },
@@ -653,9 +653,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   scanCameraPrimaryBtn: {
-    backgroundColor: 'rgba(0, 242, 254, 0.12)',
-    borderWidth: 1,
-    borderColor: colors.colorCyanNeon,
+    backgroundColor: colors.accentPrimary,
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
@@ -665,7 +663,7 @@ const styles = StyleSheet.create({
   },
   scanCameraPrimaryBtnText: {
     ...typography.bodySecondary,
-    color: colors.colorCyanNeon,
+    color: colors.textOnAccent,
     fontWeight: '700',
   },
   verifyToggleBtn: {

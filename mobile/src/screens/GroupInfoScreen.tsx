@@ -49,7 +49,7 @@ function formatDate(dateStr?: string): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '';
-  // Sama dengan ContactInfoModal ("18 September 2026"); dd/mm/yyyy ambigu dan berbeda dari layar lain
+  // Format tanggal sama dengan layar profil ("18 September 2026"); dd/mm/yyyy ambigu dan berbeda dari layar lain
   return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 

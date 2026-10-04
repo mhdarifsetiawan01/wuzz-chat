@@ -52,7 +52,6 @@ import { GroupPreviewModal } from '../components/GroupPreviewModal';
 import { AuthorizationShield } from '../components/AuthorizationShield';
 import { ForwardMessageModal } from '../components/ForwardMessageModal';
 import { PinnedMessagesBanner } from '../components/PinnedMessagesBanner';
-import { ContactInfoModal } from '../components/ContactInfoModal';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { PrivateAccountNoticeModal } from '../components/PrivateAccountNoticeModal';
@@ -245,7 +244,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [showForumModal, setShowForumModal] = useState(false);
 
   // Milestone M-Mobile-8.5: Contact Profile & Verified Identity modal
-  const [showContactInfoModal, setShowContactInfoModal] = useState(false);
 
   // Milestone M-Mobile-8.30: Room Media & Document Gallery modal
   const [showMediaGallery, setShowMediaGallery] = useState(false);
@@ -1729,12 +1727,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 if (parentId && onNavigateToParent) onNavigateToParent(parentId);
               } else if (isGroup && onOpenGroupInfo) {
                 onOpenGroupInfo(groupDetails || conversation);
-              } else if (isDirect && resolvedPeerId) {
-                if (onOpenUserProfile) {
-                  onOpenUserProfile(resolvedPeerId);
-                } else {
-                  setShowContactInfoModal(true);
-                }
+              } else if (isDirect && resolvedPeerId && onOpenUserProfile) {
+                onOpenUserProfile(resolvedPeerId);
               }
             }}
             disabled={!isGroup && !isDirect}
@@ -2074,25 +2068,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           }}
         />
       ) : null}
-
-      {/* Milestone M-Mobile-8.5: Contact Profile & E2EE Safety Number Verification Modal */}
-      {isDirect && (
-        <ContactInfoModal
-          visible={showContactInfoModal}
-          onClose={() => setShowContactInfoModal(false)}
-          userId={resolvedPeerId}
-          currentUserId={currentUserId}
-          roomId={roomId}
-          initialDisplayName={conversation.peer_nickname || title}
-          initialAvatarUrl={avatarUrl}
-          initialUsername={conversation.peer_nickname}
-          initialIsVerified={conversation.peer_is_verified}
-          peerPublicKeyJWK={peerPublicKey || conversation.peer_public_key}
-          myPublicKeyJWK={e2eeKeyPair?.publicKeyJWK}
-          isOnline={true}
-          onOpenMediaGallery={() => setShowMediaGallery(true)}
-        />
-      )}
 
       {/* Milestone M-Mobile-8.30: Conversation Media & Document Gallery */}
       <ChatMediaGalleryModal

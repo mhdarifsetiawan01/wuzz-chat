@@ -19,13 +19,15 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { User, ConversationItem, ConnectionStatusResponse, ConnectionStatus } from '../api/types';
-import { getUserProfile, startDirectChat } from '../api/users';
+import { getUserProfile, getUserPublicKey, startDirectChat } from '../api/users';
 import { APP_LINK_CONFIG } from '../api/config';
 import { Avatar } from '../components/Avatar';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { EditProfileModal } from '../components/EditProfileModal';
 import { PrivateAccountNoticeModal } from '../components/PrivateAccountNoticeModal';
 import { ActionConfirmModal } from '../components/ActionConfirmModal';
+import { SafetyNumberModal } from '../components/SafetyNumberModal';
+import { generateSafetyNumber, isContactSafetyVerified } from '../services/e2eeService';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
 import { useConnection } from '../context/ConnectionContext';
@@ -49,7 +51,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onStartChat,
 }) => {
   const insets = useSafeAreaInsets();
-  const { user: currentUser, updateCurrentUser } = useAuth();
+  const { user: currentUser, updateCurrentUser, e2eeKeyPair } = useAuth();
   const { startCall } = useCall();
   const {
     checkConnectionStatus,
@@ -67,6 +69,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [isConnActionLoading, setIsConnActionLoading] = useState<boolean>(false);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState<boolean>(false);
+  const [peerPublicKey, setPeerPublicKey] = useState<string | null>(null);
+  const [safetyNumber, setSafetyNumber] = useState<string>('');
+  const [isSafetyVerified, setIsSafetyVerified] = useState<boolean>(false);
+  const [showSafetyModal, setShowSafetyModal] = useState<boolean>(false);
   const [noticeModal, setNoticeModal] = useState<{
     visible: boolean;
     mode: 'chat' | 'call' | 'general';
@@ -118,6 +124,31 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   useEffect(() => {
     fetchProfile();
   }, [targetIdentifier]);
+
+  // Nomor Keamanan E2EE: hanya untuk profil orang lain, setelah kunci publik kedua pihak tersedia.
+  const myPublicKeyJWK = e2eeKeyPair?.publicKeyJWK;
+  useEffect(() => {
+    if (isSelf || !user?.id || !myPublicKeyJWK) return;
+    let mounted = true;
+    (async () => {
+      try {
+        const key = user.public_key || (await getUserPublicKey(user.id));
+        if (!key) return;
+        const num = await generateSafetyNumber(myPublicKeyJWK, key);
+        const verified = await isContactSafetyVerified(user.id, num);
+        if (mounted) {
+          setPeerPublicKey(key);
+          setSafetyNumber(num);
+          setIsSafetyVerified(verified);
+        }
+      } catch (err) {
+        console.warn('[UserProfileScreen] Failed to calculate safety number:', err);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [isSelf, user?.id, user?.public_key, myPublicKeyJWK]);
 
   const handleOpenLink = useCallback(async (url?: string) => {
     if (!url) return;
@@ -859,7 +890,47 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               </Text>
             </View>
           </View>
+
+          {/* Verifikasi Nomor Keamanan E2EE (hanya profil orang lain, saat kunci kedua pihak tersedia) */}
+          {!isSelf && user && peerPublicKey && safetyNumber ? (
+            <View style={styles.safetyCard}>
+              <View style={styles.safetyHeaderRow}>
+                <Text style={styles.e2eeTitle}>Nomor Keamanan</Text>
+                <View style={[styles.safetyPill, isSafetyVerified ? styles.safetyPillVerified : styles.safetyPillActive]}>
+                  <IconText style={styles.safetyPillText}>
+                    {isSafetyVerified ? '✅ Terverifikasi' : '🔒 E2EE Aktif'}
+                  </IconText>
+                </View>
+              </View>
+              <Text style={styles.e2eeSubtitle}>
+                Cocokkan nomor ini dengan {user.display_name || 'kontak'} (langsung atau lewat pindai QR) untuk memastikan obrolan Anda tidak disadap.
+              </Text>
+              <View style={styles.safetyPreviewBox}>
+                <Text style={styles.safetyPreviewText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{safetyNumber}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.safetyVerifyBtn}
+                onPress={() => setShowSafetyModal(true)}
+                activeOpacity={0.8}
+              >
+                <IconText style={styles.safetyVerifyBtnText}>🔍 Verifikasi Nomor Keamanan</IconText>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </ScrollView>
+      ) : null}
+
+      {!isSelf && user && currentUser && peerPublicKey && e2eeKeyPair?.publicKeyJWK ? (
+        <SafetyNumberModal
+          visible={showSafetyModal}
+          onClose={() => setShowSafetyModal(false)}
+          currentUserId={currentUser.id}
+          peerId={user.id}
+          peerNickname={user.display_name || user.username}
+          peerPublicKeyJWK={peerPublicKey}
+          myPublicKeyJWK={e2eeKeyPair.publicKeyJWK}
+          onVerificationChanged={setIsSafetyVerified}
+        />
       ) : null}
 
       {/* Edit Profile Modal for Self Profile */}
@@ -1318,5 +1389,63 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
     lineHeight: 16,
+  },
+  safetyCard: {
+    backgroundColor: colors.bgCard,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: `${colors.accentPrimary}40`,
+    gap: spacing.sm,
+  },
+  safetyHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  safetyPill: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: radius.full,
+    borderWidth: 1,
+  },
+  safetyPillVerified: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+  },
+  safetyPillActive: {
+    backgroundColor: 'rgba(0, 180, 216, 0.15)',
+    borderColor: 'rgba(0, 180, 216, 0.4)',
+  },
+  safetyPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  safetyPreviewBox: {
+    backgroundColor: colors.tintAccent10,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.tintAccent30,
+  },
+  safetyPreviewText: {
+    fontFamily: 'monospace',
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  safetyVerifyBtn: {
+    backgroundColor: colors.accentPrimary,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  safetyVerifyBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textOnAccent,
   },
 });

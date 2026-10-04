@@ -19,7 +19,6 @@ export * from './NotificationSettingsModal';
 export * from './VerifiedBadge';
 export * from './QRCodeView';
 export * from './SafetyNumberModal';
-export * from './ContactInfoModal';
 export * from './CameraQRScannerModal';
 export * from './KeyConflictModal';
 export * from './DeviceTransferModal';

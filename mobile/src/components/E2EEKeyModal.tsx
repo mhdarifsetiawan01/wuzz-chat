@@ -1,7 +1,7 @@
 /**
  * WuzzChat Mobile UI - E2EEKeyModal Component
  * Interactive Modal for inspecting user's E2EE Cryptographic Identity,
- * Hardware Keystore status, Fingerprint, and Verification QR Code.
+ * Hardware Keystore status and SHA-256 public key Fingerprint.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -16,12 +16,12 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { secureStorage } from '../services/secureStorage';
 import { colors, radius, shadows, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
-import { QRCodeView } from './QRCodeView';
 import { showAlert } from '../services/dialog';
 
 export interface E2EEKeyModalProps {
@@ -33,16 +33,28 @@ export interface E2EEKeyModalProps {
   e2eeStatus: string;
 }
 
+/**
+ * Sidik jari kunci publik: SHA-256 atas string JWK, ditampilkan 16 kelompok hex (4 karakter),
+ * 4 kelompok per baris agar mudah dicocokkan secara lisan atau visual.
+ */
+export function formatKeyFingerprint(publicKeyJWK: string): string {
+  const digest = sha256(new TextEncoder().encode(publicKeyJWK));
+  const hex = Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  const groups = hex.match(/.{4}/g) ?? [];
+  const lines: string[] = [];
+  for (let i = 0; i < groups.length; i += 4) {
+    lines.push(groups.slice(i, i + 4).join(' '));
+  }
+  return lines.join('\n');
+}
+
 export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
   visible,
   onClose,
   userId,
-  username,
-  displayName,
   e2eeStatus,
 }) => {
   const insets = useSafeAreaInsets();
-  const [publicKeyJWK, setPublicKeyJWK] = useState<string>('');
   const [fingerprint, setFingerprint] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
@@ -57,20 +69,8 @@ export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
         const pair = await secureStorage.getE2EEKeyPair(userId);
         const pubKey = pair?.publicKeyJWK || '';
         if (mounted) {
-          setPublicKeyJWK(pubKey);
           if (pubKey) {
-            // Generate clean SHA-256 fingerprint representation
-            let hash = 0;
-            for (let i = 0; i < pubKey.length; i++) {
-              hash = (hash * 31 + pubKey.charCodeAt(i)) >>> 0;
-            }
-            // Format into clean 30-digit chunks or hex fingerprint
-            const hexParts: string[] = [];
-            for (let i = 0; i < 8; i++) {
-              const slice = (hash ^ (i * 0x9e3779b9)).toString(16).padStart(8, '0').slice(-4);
-              hexParts.push(slice.toUpperCase());
-            }
-            setFingerprint(hexParts.join(' : '));
+            setFingerprint(formatKeyFingerprint(pubKey));
           } else {
             setFingerprint('Kunci belum terinisialisasi');
           }
@@ -98,14 +98,6 @@ export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
       showAlert('Gagal', 'Tidak dapat menyalin ke clipboard.');
     }
   };
-
-  const qrPayload = JSON.stringify({
-    type: 'wuzz_identity',
-    userId,
-    username,
-    fingerprint,
-    publicKey: publicKeyJWK ? publicKeyJWK.slice(0, 100) : '',
-  });
 
   return (
     <Modal
@@ -191,7 +183,7 @@ export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Sidik Jari Kunci Publik</Text>
               <Text style={styles.cardSubtitle}>
-                Dapat dicocokkan dengan kontak untuk memastikan jalur obrolan Anda bebas dari penyadapan (MITM).
+                Ringkasan SHA-256 dari kunci publik Anda. Untuk memastikan obrolan dengan seorang kontak bebas dari penyadapan (MITM), gunakan Nomor Keamanan di profil kontak tersebut (ketuk namanya di header obrolan).
               </Text>
 
               {isLoading ? (
@@ -210,27 +202,6 @@ export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
                   </View>
                 </TouchableOpacity>
               )}
-            </View>
-
-            {/* QR Identity Verification */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Kode QR Identitas</Text>
-              <Text style={styles.cardSubtitle}>
-                Kontak Anda dapat memindai kode ini langsung dari menu obrolan mereka untuk memverifikasi nomor keamanan.
-              </Text>
-
-              <View style={styles.qrContainer}>
-                {isLoading ? (
-                  <ActivityIndicator color={colors.accentPrimary} />
-                ) : (
-                  <View style={styles.qrWrapper}>
-                    <QRCodeView value={qrPayload} size={180} />
-                  </View>
-                )}
-                <Text style={styles.qrFootnote}>
-                  {displayName} (@{username})
-                </Text>
-              </View>
             </View>
           </ScrollView>
 
@@ -415,22 +386,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontSize: 11,
     color: colors.textMuted,
-  },
-  qrContainer: {
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  qrWrapper: {
-    padding: spacing.md,
-    backgroundColor: '#ffffff',
-    borderRadius: radius.md,
-    overflow: 'hidden',
-  },
-  qrFootnote: {
-    ...typography.caption,
-    color: colors.textMuted,
-
-    marginTop: spacing.md,
   },
   footer: {
     paddingHorizontal: spacing.lg,
