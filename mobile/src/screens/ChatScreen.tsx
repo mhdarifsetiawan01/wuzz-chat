@@ -690,24 +690,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     });
 
     // Join room via WebSocket & send read receipt.
-    // If WS is not yet OPEN (e.g. right after QR transfer), joinRoom returns false.
-    // In that case, install a one-shot state-change listener that retries once
-    // the connection becomes 'connected', preventing empty chat on fresh sessions.
+    // If WS is not yet OPEN (e.g. right after QR transfer), joinRoom returns false;
+    // the state-change listener below joins once the connection becomes 'connected'.
     const joined = websocketClient.joinRoom(roomId);
     if (joined) {
       websocketClient.sendReceipt(roomId, 'read');
     }
 
-    // onStateChange memanggil listener SEKETIKA dengan status saat ini. Bila join pertama sudah berhasil, anggap percobaan
-    // ulang sudah terpakai; kalau tidak, join kedua ini membuat server mengirim 'history' dua kali (4x rekonsiliasi).
-    let retried = joined;
+    // Server hanya menaruh koneksi di room setelah 'join', dan koneksi baru (hasil reconnect) belum ada di room mana pun;
+    // 'history' juga hanya dikirim saat join, jadi pesan yang masuk selama koneksi putus baru muncul bila join diulang.
+    // onStateChange memanggil listener SEKETIKA dengan status saat ini (panggilan pertama): di situ hanya join ulang bila
+    // join awal gagal (WS belum OPEN). Setelahnya, SETIAP transisi ke 'connected' = koneksi baru -> join ulang sekali.
+    let firstStateCall = true;
     const unsubscribeWsState = websocketClient.onStateChange((state) => {
-      if (state === 'connected' && !retried) {
-        retried = true;
-        console.log('[ChatScreen] WS reconnected — retrying joinRoom for room:', roomId);
-        websocketClient.joinRoom(roomId);
-        websocketClient.sendReceipt(roomId, 'read');
-      }
+      const isInitialCall = firstStateCall;
+      firstStateCall = false;
+      if (state !== 'connected') return;
+      if (isInitialCall && joined) return;
+      console.log('[ChatScreen] WS connected — (re)joining room:', roomId);
+      websocketClient.joinRoom(roomId);
+      websocketClient.sendReceipt(roomId, 'read');
     });
 
     return () => {
