@@ -44,7 +44,7 @@
 | C1 | Varian kutipan balasan di **bubble gelap** (pesan lawan) | Minta lawan membalas sebuah pesan; screenshot. Hitungan: 9,7:1. |
 | C2 | Kalimat baru langkah 2 dialog reset ("tekan Kembali lalu pilih Transfer...") | Hanya muncul saat konflik kunci (HTTP 409). Aman: pasang instance inert sementara di `App.tsx` (ditandai `PRATINJAU-SEMENTARA`, handler kosong, tidak memanggil `resetE2EEKeys`), lalu `git checkout -- mobile/App.tsx`. |
 | C3 | Perubahan status pada pesan yang sudah ada saat riwayat dimuat ulang (delivered → read) | Baca pesan dari perangkat lawan lalu buka chat; hanya teruji lewat database tiruan (satu pesan berubah menulis satu baris). |
-| C4 | `mobile/DESIGN.md` bagian 7A usang | Menyebut bubble masuk berlatar putih (`bgSurface`), kodenya gelap (`#334155`). Periksa bagian lain yang mungkin usang. |
+| C4 | `mobile/DESIGN.md` bagian 7A usang — ✅ bagian 7A diperbaiki (bubble masuk `#334155`, radius sesuai kode; belum dikomit). Bagian lain belum diaudit penuh. | Bandingkan bagian 7B–7C dan tabel token dengan kode bila ingin audit menyeluruh. |
 | C5 | Tombol "Bersihkan Cache Pesan" di layar Penyimpanan | Belum diuji di HP (hanya "Bersihkan Cache Gambar" yang dicoba). Hapus riwayat lokal; pesan harus kembali dari server. Cek juga sinkron dengan cache tanda tangan penulisan. |
 
 ## Prioritas D — Optimasi lanjutan (opsional)

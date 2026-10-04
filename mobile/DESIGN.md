@@ -268,14 +268,13 @@ Untuk mencegah teks tidak terbaca (*white-on-white* atau warna sama dengan tombo
 ## 🧩 7. Pola Komponen Primitif Mobile
 
 ### A. Bubble Chat (`MessageBubble.tsx`)
+- **Dasar bubble**: `borderRadius: 14`, padding `12/8/12/6`; sudut sisi pengirim dipertajam menjadi `3` (lihat `styles.bubble`, `selfBubble`, `otherBubble`).
 - **Pesan Keluar (*Outgoing / Self*)**:
-  - Background: `colors.accentPrimary` (`#30AFFF`).
-  - Alignment: Kanan (`alignSelf: 'flex-end'`).
-  - Radius: `borderTopLeftRadius: 16`, `borderTopRightRadius: 4`, `borderBottomLeftRadius: 16`, `borderBottomRightRadius: 16`.
+  - Background: `#30AFFF` (identitas biru Wuzz, nilai sama dengan `colors.accentPrimary`).
+  - Alignment: Kanan (`alignSelf: 'flex-end'`), `borderBottomRightRadius: 3`.
 - **Pesan Masuk (*Incoming / Peer*)**:
-  - Background: `colors.bgSurface` (`#ffffff`).
-  - Alignment: Kiri (`alignSelf: 'flex-start'`).
-  - Radius: `borderTopLeftRadius: 4`, `borderTopRightRadius: 16`, `borderBottomLeftRadius: 16`, `borderBottomRightRadius: 16`.
+  - Background: `#334155` (GELAP, bukan putih `bgSurface`); teks putih. Kontras isi bubble: lihat butir 4 aturan kontras di atas.
+  - Alignment: Kiri (`alignSelf: 'flex-start'`), `borderBottomLeftRadius: 3`.
   - Dilengkapi mini avatar pengirim deterministik (26dp) pada obrolan grup.
 - **Tanda Terima Neon Cyan**:
   - Centang ganda (`✓✓`) berwarna `colors.colorCyanNeon` (`#0ea5e9`) dengan sudut paralel 45° standar WhatsApp.
