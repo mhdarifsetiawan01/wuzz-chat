@@ -46,10 +46,8 @@ function formatDate(dateStr?: string): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '';
-  const day = d.getDate().toString().padStart(2, '0');
-  const month = (d.getMonth() + 1).toString().padStart(2, '0');
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
+  // Sama dengan ContactInfoModal ("18 September 2026"); dd/mm/yyyy ambigu dan berbeda dari layar lain
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
@@ -836,7 +834,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    // borderSubtle (#f1f5f9) nyaris sama dengan latar bgBase (#f4f7fb) sehingga kartu tampak tanpa border
+    borderColor: colors.borderDefault,
   },
   actionCardIcon: {
     fontSize: 18,
