@@ -64,3 +64,16 @@ export function shouldSendTyping(isDirect: boolean, memberCount: number): boolea
   if (isDirect) return true;
   return memberCount > 0 && memberCount <= TYPING_MAX_GROUP_MEMBERS;
 }
+
+/**
+ * Kunci identitas pengetik dari event `typing` / `message` server: `from` (ID pengguna; nickname tidak
+ * dijamin unik). Mengembalikan null bila event tanpa pengirim atau milik pengguna sendiri: server juga
+ * meneruskan event typing ke perangkat LAIN milik pengirim yang sama, sehingga tanpa penyaringan ini
+ * perangkat kedua menampilkan "sedang mengetik" untuk dirinya sendiri.
+ */
+export function typerKey(event: { from?: unknown; sender_id?: unknown } | null | undefined, selfId: string): string | null {
+  const id = String(event?.from || event?.sender_id || '');
+  if (!id) return null;
+  if (selfId && id === selfId) return null;
+  return id;
+}

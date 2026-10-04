@@ -4,17 +4,16 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '../context';
 import { websocketClient } from '../services/websocket';
-import { TypingTracker } from '../utils/typingTracker';
+import { TypingTracker, typerKey } from '../utils/typingTracker';
 
 // Web mematikan indikator setelah 2,5 dtk; klien mengirim event tiap 2 dtk selama mengetik
 const TYPING_TTL_MS = 3000;
 
-function senderKey(event: any): string {
-  return String(event?.nickname || event?.from || event?.sender_id || '');
-}
-
 export function usePeerTyping(roomId: string): string[] {
+  const { user } = useAuth();
+  const selfId = user?.id || '';
   const [names, setNames] = useState<string[]>([]);
 
   useEffect(() => {
@@ -23,13 +22,13 @@ export function usePeerTyping(roomId: string): string[] {
 
     const offTyping = websocketClient.on('typing', (event: any) => {
       if (event?.room !== roomId) return;
-      const key = senderKey(event);
+      const key = typerKey(event, selfId);
       if (key) tracker.mark(key, String(event?.nickname || ''));
     });
     // Pesan dari orang itu berarti ia sudah selesai mengetik
     const offMessage = websocketClient.on('message', (event: any) => {
       if (event?.room !== roomId) return;
-      const key = senderKey(event);
+      const key = typerKey(event, selfId);
       if (key) tracker.remove(key);
     });
 
@@ -38,7 +37,7 @@ export function usePeerTyping(roomId: string): string[] {
       offMessage();
       tracker.dispose();
     };
-  }, [roomId]);
+  }, [roomId, selfId]);
 
   return names;
 }
