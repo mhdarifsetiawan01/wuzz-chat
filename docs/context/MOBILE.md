@@ -151,11 +151,12 @@ mobile/
    - Konsekuensi: HP mengekstrak `.so` saat instal, sehingga ruang terpakai arm64 ±65,9 MB (dibanding ±51,3 MB tanpa kompresi). Cold start tidak memburuk (median 911 ms vs 969 ms, `am start -W`, 5 kali; selisih kecil).
    - Rincian APK arm64 tanpa kompresi: pustaka native 38,2 MB (73%; terbesar `libjingle_peerconnection_so` WebRTC 11,4 MB, `libreactnative` 7,0 MB, `libbarhopper_v3` ML Kit 4,95 MB), dex 6,9 MB, bundle JS Hermes 3,1 MB. Lazy-load JS tidak mengecilkan APK karena porsinya ada di pustaka native.
    - Matikan kompresi dengan `-Pwuzz.compressNativeLibsInApk=false`. `bundleRelease` (AAB Play) tidak pernah dikompres: Play sudah mengompres unduhan dan `.so` mentah menjaga ruang terpakai di HP kecil. Gradle mencetak `📦 [Native libs] ...` saat konfigurasi sebagai konfirmasi. Berlaku setelah `expo prebuild`; `android/` hasil generate diabaikan git.
-3. **Build Android App Bundle untuk Google Play Store (Single .aab; ukuran terakhir tercatat ~50 MB, belum diukur ulang setelah `expo-image`)**:
+3. **Build Android App Bundle untuk Google Play Store (Single .aab; terukur 4 Okt 2026, v1.17.0 build 25: **52,4 MB** / 54.985.529 byte, arm64-v8a + armeabi-v7a)**:
    ```bash
    cd mobile/android && ./gradlew bundleRelease
    ```
    *Output AAB*: `mobile/android/app/build/outputs/bundle/release/app-release.aab`
+   *Catatan pemeriksaan AAB (4 Okt 2026)*: berkas `.so` di dalam arsip AAB bertanda DEFLATED (52 berkas, 63,4 MB mentah → 27,5 MB di arsip); ini wajar dan BUKAN bukti kompresi aktif. Penanda yang benar adalah `BundleConfig.pb` (`UncompressNativeLibraries` aktif), yang membuat APK hasil Play menyimpan `.so` tanpa kompresi. Ukuran unduhan per perangkat baru bisa dipastikan lewat `bundletool` atau Play Console.
 4. **Instalasi USB Debugging ke HP Fisik Modern**:
    ```bash
    adb install -r mobile/android/app/build/outputs/apk/release/app-arm64-v8a-release.apk
