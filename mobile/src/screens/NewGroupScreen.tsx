@@ -27,6 +27,7 @@ import { Avatar } from '../components/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from '../components/IconText';
+import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
 
 export interface NewGroupScreenProps {
@@ -193,7 +194,7 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
             <Text style={styles.contactDisplayName} numberOfLines={1}>
               {item.display_name || item.username}
             </Text>
-            {item.is_verified && <IconText style={styles.verifiedBadge}>✓</IconText>}
+            {item.is_verified && <VerifiedBadge size={14} style={{ marginLeft: spacing.xs }} />}
           </View>
           <Text style={styles.contactUsername} numberOfLines={1}>
             @{item.username}
@@ -548,12 +549,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
-  },
-  verifiedBadge: {
-    fontSize: 12,
-    color: colors.colorVerified,
-    marginLeft: 4,
-    fontWeight: '700',
   },
   contactUsername: {
     ...typography.caption,

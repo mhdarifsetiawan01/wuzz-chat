@@ -28,6 +28,7 @@ import { useAuth } from '../context/AuthContext';
 import { useConnection } from '../context/ConnectionContext';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from '../components/IconText';
+import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
 
 export interface NewChatScreenProps {
@@ -261,9 +262,7 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
             <Text style={styles.displayName} numberOfLines={1}>
               {item.display_name || item.username}
             </Text>
-            {item.is_verified && (
-              <IconText style={styles.verifiedBadge}>✓</IconText>
-            )}
+            {item.is_verified && <VerifiedBadge size={14} style={{ marginLeft: spacing.xs }} />}
             {item.is_private_account && (
               <IconText style={{ fontSize: 13, marginLeft: 2 }}>
                 🔒
@@ -658,12 +657,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: colors.accentPrimary,
-  },
-  verifiedBadge: {
-    fontSize: 12,
-    color: colors.colorVerified,
-    marginLeft: 4,
-    fontWeight: '700',
   },
   meBadge: {
     ...typography.caption,

@@ -30,6 +30,7 @@ import { FeedComment, FeedPost } from '../api/types';
 import { useFeed } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from './IconText';
+import { VerifiedBadge } from './VerifiedBadge';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
 import { LinkifiedText } from './LinkifiedText';
@@ -257,7 +258,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
                         {item.author?.display_name || item.author?.username || 'Pengguna'}
                       </Text>
                       {item.author?.is_verified && (
-                        <IconText style={styles.verifiedBadge}>✓</IconText>
+                        <VerifiedBadge size={13} style={{ marginRight: spacing.xs }} />
                       )}
                       <Text style={styles.commentTime}>
                         {formatCommentTime(item.created_at)}
@@ -432,11 +433,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#0f172a',
-  },
-  verifiedBadge: {
-    fontSize: 11,
-    color: colors.accentPrimary,
-    fontWeight: '800',
   },
   commentTime: {
     fontSize: 11,

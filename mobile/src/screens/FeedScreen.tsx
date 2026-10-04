@@ -37,8 +37,9 @@ import { PostCommentsModal } from '../components/PostCommentsModal';
 import { SharePostToChatModal } from '../components/SharePostToChatModal';
 import { useAuth, useFeed } from '../context';
 import { RootStackParamList } from '../navigation/types';
-import { colors } from '../theme';
+import { colors, spacing } from '../theme';
 import { IconText } from '../components/IconText';
+import { VerifiedBadge } from '../components/VerifiedBadge';
 import { formatPostTime } from '../utils/feedTime';
 import { extractFirstUrl } from '../utils/linkUtils';
 
@@ -163,7 +164,7 @@ export const FeedScreen: React.FC = () => {
               <Text style={styles.authorName} numberOfLines={1}>
                 {authorName}
               </Text>
-              {isVerified && <IconText style={styles.verifiedCheck}>✓</IconText>}
+              {isVerified && <VerifiedBadge size={14} style={{ marginLeft: spacing.xs }} />}
               {renderBadge(item)}
             </View>
 
@@ -534,11 +535,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#0f172a',
-  },
-  verifiedCheck: {
-    fontSize: 12,
-    color: colors.accentPrimary,
-    fontWeight: '800',
   },
   badgeBase: {
     paddingHorizontal: 7,

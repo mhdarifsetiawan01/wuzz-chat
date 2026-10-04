@@ -19,6 +19,7 @@ import { SharePostToChatModal } from '../components/SharePostToChatModal';
 import { useAuth, useFeed } from '../context';
 import { colors } from '../theme';
 import { IconText } from '../components/IconText';
+import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
 import { formatPostTime } from '../utils/feedTime';
 import { extractFirstUrl } from '../utils/linkUtils';
@@ -94,10 +95,12 @@ export const PostReaderScreen: React.FC<PostReaderScreenProps> = ({ postId, init
         <View style={styles.authorRow}>
           <Avatar name={authorName} avatarUrl={post.author?.avatar_url} size={48} shape="circle" />
           <View style={styles.authorInfo}>
-            <Text style={styles.authorName} numberOfLines={1}>
-              {authorName}
-              {post.author?.is_verified ? '  ✓' : ''}
-            </Text>
+            <View style={styles.authorNameRow}>
+              <Text style={[styles.authorName, styles.authorNameText]} numberOfLines={1}>
+                {authorName}
+              </Text>
+              {post.author?.is_verified ? <VerifiedBadge size={16} style={styles.authorBadge} /> : null}
+            </View>
             <Text style={styles.meta}>
               {post.author?.role ? `${post.author.role} • ` : ''}
               {formatPostTime(post.created_at)}
@@ -174,6 +177,9 @@ const styles = StyleSheet.create({
   authorRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   authorInfo: { marginLeft: 12, flex: 1 },
   authorName: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
+  authorNameRow: { flexDirection: 'row', alignItems: 'center' },
+  authorNameText: { flexShrink: 1 },
+  authorBadge: { marginLeft: 6 },
   meta: { fontSize: 12, color: '#64748b', marginTop: 2 },
   body: { fontSize: 17, lineHeight: 27, color: '#1e293b', marginBottom: 16 },
   actions: {
