@@ -34,6 +34,7 @@ import { colors } from '../theme/colors';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
+import { quotePreviewText } from '../utils/quotePreview';
 
 export interface StagedMedia {
   uri: string;
@@ -360,11 +361,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
                   : 'Pengguna')}
             </Text>
             <IconText style={styles.replySnippet} numberOfLines={1}>
-              {replyTo.media_type === 'audio'
-                ? '🎙️ Pesan Suara'
-                : replyTo.media_url
-                ? '📷 Foto'
-                : replyTo.content || 'Pesan'}
+              {quotePreviewText(replyTo)}
             </IconText>
           </View>
           <TouchableOpacity

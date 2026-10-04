@@ -61,6 +61,7 @@ import { colors } from '../theme/colors';
 import { IconText } from '../components/IconText';
 import { Icon } from '../components/Icon';
 import { radius, spacing } from '../theme/spacing';
+import { quotePreviewText } from '../utils/quotePreview';
 
 export interface ChatScreenProps {
   conversation: ConversationItem;
@@ -948,11 +949,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         ? {
             id: replyingTo.id,
             nickname: getMessageSenderName(replyingTo),
-            content: replyingTo.media_type === 'audio'
-              ? '🎙️ Pesan Suara'
-              : replyingTo.media_url
-              ? '📷 Foto'
-              : replyingTo.content,
+            content: quotePreviewText(replyingTo),
             media_url: replyingTo.media_url,
             media_type: replyingTo.media_type,
           }
@@ -1022,11 +1019,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         ? {
             id: replyingTo.id,
             nickname: getMessageSenderName(replyingTo),
-            content: replyingTo.media_type === 'audio'
-              ? '🎙️ Pesan Suara'
-              : replyingTo.media_url
-              ? '📷 Foto'
-              : replyingTo.content,
+            content: quotePreviewText(replyingTo),
             media_url: replyingTo.media_url,
             media_type: replyingTo.media_type,
           }

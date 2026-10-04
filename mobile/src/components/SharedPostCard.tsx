@@ -41,9 +41,11 @@ interface SharedPostCardProps {
   text: string;
   isSelf?: boolean;
   onPress?: (postId: string, post?: FeedPost) => void;
+  /** Tekan lama diteruskan ke bubble (menu aksi pesan); tanpa ini TouchableOpacity menelannya. */
+  onLongPress?: () => void;
 }
 
-export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, isSelf = false, onPress }) => {
+export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, isSelf = false, onPress, onLongPress }) => {
   const [state, setState] = useState<PostState | null>(postCache.get(postId) ?? null);
   const [imageError, setImageError] = useState(false);
 
@@ -75,6 +77,8 @@ export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, is
       style={[styles.card, isSelf ? styles.cardSelf : styles.cardOther, gone && styles.cardGone]}
       activeOpacity={0.85}
       onPress={() => onPress?.(postId, post)}
+      onLongPress={onLongPress}
+      delayLongPress={280}
     >
       {thumb && !imageError && !gone ? (
         <Image source={{ uri: thumb }} style={styles.thumbnail} contentFit="cover" onError={() => setImageError(true)} />

@@ -23,9 +23,11 @@ import { spacing } from '../theme/spacing';
 interface LinkPreviewCardProps {
   url: string;
   isSelf?: boolean;
+  /** Tekan lama diteruskan ke bubble (menu aksi pesan); tanpa ini TouchableOpacity menelannya. */
+  onLongPress?: () => void;
 }
 
-export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ url, isSelf = false }) => {
+export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ url, isSelf = false, onLongPress }) => {
   const [preview, setPreview] = useState<LinkPreview | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [imageError, setImageError] = useState<boolean>(false);
@@ -88,6 +90,8 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ url, isSelf = 
       style={[styles.card, isSelf ? styles.cardSelf : styles.cardOther]}
       activeOpacity={0.85}
       onPress={() => safeOpenUrl(url)}
+      onLongPress={onLongPress}
+      delayLongPress={280}
     >
       {/* Thumbnail Gambar Web */}
       {preview.image && !imageError ? (

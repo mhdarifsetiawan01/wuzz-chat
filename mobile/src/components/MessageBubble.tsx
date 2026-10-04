@@ -32,6 +32,7 @@ import { spacing } from '../theme/spacing';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { SharedPostCard } from './SharedPostCard';
 import { parseSharedPost } from '../utils/feedShare';
+import { quotePreviewText } from '../utils/quotePreview';
 import {
   UNDECRYPTABLE_INFO_BODY,
   UNDECRYPTABLE_INFO_TITLE,
@@ -281,6 +282,13 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     );
   }
 
+  // Anak yang bisa diketuk (kutipan, gambar, kartu) menelan tekan-lama; teruskan ke handler yang sama
+  const handleBubbleLongPress = () => {
+    if (!isDeleted) {
+      onLongPress?.(message);
+    }
+  };
+
   const hasCaption = Boolean(
     message.content &&
       typeof message.content === 'string' &&
@@ -311,11 +319,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         {...panResponder.panHandlers}
       >
         <Pressable
-          onLongPress={() => {
-            if (!isDeleted) {
-              onLongPress?.(message);
-            }
-          }}
+          onLongPress={handleBubbleLongPress}
           delayLongPress={280}
           style={[
             styles.bubble,
@@ -358,6 +362,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 <TouchableOpacity
                   style={[styles.quoteBox, isSelf && styles.quoteBoxSelf]}
                   onPress={() => onPressQuote?.(message.reply_to!.id)}
+                  onLongPress={handleBubbleLongPress}
+                  delayLongPress={280}
                   activeOpacity={0.7}
                 >
                   <View style={[styles.quoteAccentBar, isSelf && styles.quoteAccentBarSelf]} />
@@ -371,9 +377,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                         : 'Pengguna'}
                     </Text>
                     <IconText style={styles.quoteText} numberOfLines={2}>
-                      {message.reply_to.media_type === 'audio'
-                        ? '🎙️ Pesan Suara'
-                        : message.reply_to.content || 'Pesan'}
+                      {quotePreviewText(message.reply_to)}
                     </IconText>
                   </View>
                 </TouchableOpacity>
@@ -402,6 +406,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                         setIsFullscreen(true);
                       }
                     }}
+                    onLongPress={handleBubbleLongPress}
+                    delayLongPress={280}
                     style={styles.imageTouchable}
                   >
                     <Image
@@ -480,6 +486,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   text={sharedPost.text}
                   isSelf={isSelf}
                   onPress={onPressPost}
+                  onLongPress={handleBubbleLongPress}
                 />
               ) : hasCaption ? (
                 renderMessageTextWithLinks(message.content, isSelf, isImage)
@@ -487,7 +494,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
               {/* Web Link Preview Card (WhatsApp pattern: 1 card per message) */}
               {previewUrl ? (
-                <LinkPreviewCard url={previewUrl} isSelf={isSelf} />
+                <LinkPreviewCard url={previewUrl} isSelf={isSelf} onLongPress={handleBubbleLongPress} />
               ) : null}
             </>
           )}
@@ -821,6 +828,7 @@ const styles = StyleSheet.create({
   },
   expiredIcon: {
     fontSize: 18,
+    color: '#f87171',
   },
   expiredTextCol: {
     flex: 1,
