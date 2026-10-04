@@ -45,7 +45,7 @@
 | C2 | Kalimat baru langkah 2 dialog reset ("tekan Kembali lalu pilih Transfer...") | Hanya muncul saat konflik kunci (HTTP 409). Aman: pasang instance inert sementara di `App.tsx` (ditandai `PRATINJAU-SEMENTARA`, handler kosong, tidak memanggil `resetE2EEKeys`), lalu `git checkout -- mobile/App.tsx`. |
 | C3 | Perubahan status pada pesan yang sudah ada saat riwayat dimuat ulang (delivered → read) | Baca pesan dari perangkat lawan lalu buka chat; hanya teruji lewat database tiruan (satu pesan berubah menulis satu baris). |
 | C4 | `mobile/DESIGN.md` bagian 7A usang — ✅ bagian 7A diperbaiki (bubble masuk `#334155`, radius sesuai kode; belum dikomit). Bagian lain belum diaudit penuh. | Bandingkan bagian 7B–7C dan tabel token dengan kode bila ingin audit menyeluruh. |
-| C5 | Tombol "Bersihkan Cache Pesan" di layar Penyimpanan | Belum diuji di HP (hanya "Bersihkan Cache Gambar" yang dicoba). Hapus riwayat lokal; pesan harus kembali dari server. Cek juga sinkron dengan cache tanda tangan penulisan. |
+| C5 | Tombol "Bersihkan Cache Pesan" di layar Penyimpanan — ✅ TERUJI di HP 2026-10-04 (belum dikomit) | Dialog konfirmasi tampil; setelah "Bersihkan": pesan 174 → 0, percakapan tetap 24, DB 360 → 140 KB, media 939,6 KB dan akun tidak tersentuh. Membuka Semantic: riwayat lengkap kembali dari server (teks terdekripsi, gambar, reaksi 👍). Membuka 4 chat: pesan tersimpan 0 → 115 (bukan 174 karena halaman lama hasil paginasi tidak dimuat ulang), DB 470 KB; baris benar-benar tertulis lagi, jadi cache tanda tangan sinkron dengan pembersihan. |
 
 ## Prioritas D — Optimasi lanjutan (opsional)
 | # | Pekerjaan | Catatan |
