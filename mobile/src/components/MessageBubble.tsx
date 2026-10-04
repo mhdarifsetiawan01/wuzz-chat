@@ -22,7 +22,7 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
 import { AudioPlayerBubble } from './AudioPlayerBubble';
-import { getAvatarColor } from './Avatar';
+import { getSenderNameColor } from './Avatar';
 import { mediaCache } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
 import { colors } from '../theme/colors';
@@ -330,7 +330,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             <Text
               style={[
                 styles.senderName,
-                { color: getAvatarColor(senderName || message.from || 'User') },
+                { color: getSenderNameColor(senderName || message.from || 'User') },
               ]}
             >
               {senderName}
@@ -494,7 +494,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
 
           {/* Bubble Footer: Timestamp & Receipt Checkmarks */}
-          <View style={[styles.footerRow, isImage && !hasCaption && !isDeleted ? styles.footerOverImage : null]}>
+          <View style={[styles.footerRow, isImage && !isExpired && !hasCaption && !isDeleted ? styles.footerOverImage : null]}>
             {message.is_pinned && !isDeleted ? <Icon name="pin" size={12} color="rgba(255, 255, 255, 0.75)" /> : null}
             {message.is_edited && !isDeleted ? <Text style={[styles.editedLabel, !isSelf && styles.editedLabelOther]}>(diedit)</Text> : null}
             {message.is_encrypted && !isDeleted ? <Icon name="lock" size={11} color="rgba(255, 255, 255, 0.75)" /> : null}

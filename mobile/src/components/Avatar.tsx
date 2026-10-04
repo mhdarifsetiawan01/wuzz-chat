@@ -29,14 +29,34 @@ const AVATAR_PALETTE = [
   '#8b5cf6', // Violet
 ];
 
-export function getAvatarColor(name: string): string {
-  if (!name) return AVATAR_PALETTE[0];
+// Nama pengirim di bubble lawan (#334155): tiap warna ≥ 4,5:1 (WCAG AA). Palet avatar di atas
+// untuk latar berinisial putih, terlalu gelap untuk teks di bubble gelap (indigo/sky/teal ±1,5-3:1).
+const SENDER_NAME_PALETTE = [
+  '#38bdf8', // Sky 400
+  '#2dd4bf', // Teal 400
+  '#a5b4fc', // Indigo 300
+  '#fbbf24', // Amber 400
+  '#f9a8d4', // Pink 300
+  '#c4b5fd', // Violet 300
+  '#86efac', // Green 300
+];
+
+function hashName(name: string): number {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  const index = Math.abs(hash) % AVATAR_PALETTE.length;
-  return AVATAR_PALETTE[index];
+  return Math.abs(hash);
+}
+
+export function getAvatarColor(name: string): string {
+  if (!name) return AVATAR_PALETTE[0];
+  return AVATAR_PALETTE[hashName(name) % AVATAR_PALETTE.length];
+}
+
+export function getSenderNameColor(name: string): string {
+  if (!name) return SENDER_NAME_PALETTE[0];
+  return SENDER_NAME_PALETTE[hashName(name) % SENDER_NAME_PALETTE.length];
 }
 
 function getInitials(name: string): string {
