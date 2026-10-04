@@ -26,6 +26,7 @@ import { NotificationSettingsModal } from '../components/NotificationSettingsMod
 import { DeviceTransferModal } from '../components/DeviceTransferModal';
 import { BottomSheetModal, ActionMenuItem } from '../components/BottomSheetModal';
 import { useAuth, useConversations } from '../context';
+import { useFavoriteChats } from '../hooks/useFavoriteChats';
 import { ConnectionState, websocketClient } from '../services/websocket';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from '../components/IconText';
@@ -52,8 +53,10 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     updateConversationPin,
     markConversationAsRead,
   } = useConversations();
+  const { favoriteIds, toggleFavorite, maxFavorites } = useFavoriteChats(user?.id);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [isDeviceTransferModalOpen, setIsDeviceTransferModalOpen] = useState<boolean>(false);
+  const [chatMenuTarget, setChatMenuTarget] = useState<Conversation | null>(null);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
   const [wsState, setWsState] = useState<ConnectionState>(websocketClient.getState());
 
@@ -69,35 +72,28 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const handleChatLongPress = useCallback(
-    (chat: Conversation) => {
-      const roomId = chat.id || chat.room_id || '';
-      if (!roomId) return;
-      const isPinned = Boolean(chat.is_pinned || chat.pinned);
-      const title = chat.title || chat.peer_nickname || chat.name || 'Obrolan';
+  const handleChatLongPress = useCallback((chat: Conversation) => {
+    if (!(chat.id || chat.room_id)) return;
+    setChatMenuTarget(chat);
+  }, []);
 
-      Alert.alert(
-        title,
-        isPinned
-          ? 'Lepas sematan obrolan ini dari daftar teratas?'
-          : 'Sematkan obrolan ini di daftar teratas?',
-        [
-          { text: 'Batal', style: 'cancel' },
-          {
-            text: isPinned ? 'Lepas Sematan' : 'Sematkan 📌',
-            onPress: async () => {
-              try {
-                await updateConversationPin(roomId, !isPinned);
-              } catch (err: any) {
-                Alert.alert('Gagal', err?.message || 'Gagal mengubah status sematan obrolan.');
-              }
-            },
-          },
-        ]
-      );
-    },
-    [updateConversationPin]
-  );
+  const handleToggleFavoriteFromMenu = useCallback(() => {
+    const roomId = chatMenuTarget?.id || chatMenuTarget?.room_id;
+    setChatMenuTarget(null);
+    if (roomId) toggleFavorite(roomId);
+  }, [chatMenuTarget, toggleFavorite]);
+
+  const handleTogglePinFromMenu = useCallback(async () => {
+    const chat = chatMenuTarget;
+    const roomId = chat?.id || chat?.room_id;
+    setChatMenuTarget(null);
+    if (!chat || !roomId) return;
+    try {
+      await updateConversationPin(roomId, !(chat.is_pinned || chat.pinned));
+    } catch (err: any) {
+      Alert.alert('Gagal', err?.message || 'Gagal mengubah status sematan obrolan.');
+    }
+  }, [chatMenuTarget, updateConversationPin]);
 
   useEffect(() => {
     // Stale-While-Revalidate: revalidate silently if conversations already present in context
@@ -218,39 +214,39 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
   }, [conversations, activeFilter, debouncedQuery]);
 
   const favoriteContacts = useMemo(() => {
-    if (conversations.length > 0) {
-      return conversations.slice(0, 8).map((c) => {
-        const title = c.title || c.peer_nickname || c.name || 'Chat';
-        const firstName = title.trim().split(/\s+/)[0];
-        return {
-          id: c.id || c.room_id || '',
-          name: firstName,
+    const byId = new Map<string, Conversation>();
+    conversations.forEach((c) => {
+      const id = c.id || c.room_id;
+      if (id) byId.set(id, c);
+    });
+    // Urutan mengikuti waktu ditambahkan; id yang percakapannya sudah tak ada dilewati.
+    return favoriteIds.flatMap((id) => {
+      const c = byId.get(id);
+      if (!c) return [];
+      const title = c.title || c.peer_nickname || c.name || 'Chat';
+      return [
+        {
+          id,
+          name: title.trim().split(/\s+/)[0],
           fullName: title,
           avatarUrl: c.avatar_url || c.peer_avatar_url,
           unreadCount: c.unread_count ?? 0,
-          isOnline: true,
           conversation: c,
-        };
-      });
-    }
-    // High-fidelity fallback sample matching the user's reference mockup (Kate, Kenneth, Tina, Adam)
-    return [
-      { id: 'fav_1', name: 'Kate', fullName: 'Kate Winslet', avatarUrl: '', unreadCount: 0, isOnline: true },
-      { id: 'fav_2', name: 'Kenneth', fullName: 'Kenneth Cole', avatarUrl: '', unreadCount: 3, isOnline: true },
-      { id: 'fav_3', name: 'Tina', fullName: 'Tina Turner', avatarUrl: '', unreadCount: 0, isOnline: false },
-      { id: 'fav_4', name: 'Adam', fullName: 'Adam Levine', avatarUrl: '', unreadCount: 0, isOnline: true },
-    ];
-  }, [conversations]);
+        },
+      ];
+    });
+  }, [conversations, favoriteIds]);
 
   const handleFavoriteContactPress = useCallback(
     (item: (typeof favoriteContacts)[number]) => {
-      if ('conversation' in item && item.conversation && onSelectChat) {
-        onSelectChat(item.conversation);
-      } else if (onStartNewChat) {
-        onStartNewChat();
-      }
+      handleChatPress(item.conversation);
     },
-    [onSelectChat, onStartNewChat]
+    [handleChatPress]
+  );
+
+  const handleFavoriteContactLongPress = useCallback(
+    (item: (typeof favoriteContacts)[number]) => setChatMenuTarget(item.conversation),
+    []
   );
 
   const handleConfirmLogout = () => {
@@ -408,34 +404,41 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
         </View>
       </View>
 
-      {/* FAVORITE CONTACTS Section — Reference Image 1 */}
+      {/* Kontak Favorit — dipilih pengguna lewat tekan-tahan di daftar obrolan (disimpan lokal) */}
       <View style={styles.favoritesSection}>
         <Text style={styles.favoritesSectionTitle}>KONTAK FAVORIT</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.favoritesScrollContent}
-        >
-          {favoriteContacts.map((contact, idx) => (
-            <TouchableOpacity
-              key={contact.id || String(idx)}
-              style={styles.favoriteCard}
-              onPress={() => handleFavoriteContactPress(contact)}
-              activeOpacity={0.75}
-            >
-              <Avatar
-                name={contact.fullName || contact.name}
-                avatarUrl={contact.avatarUrl}
-                size={44}
-                shape="circle"
-                unreadCount={contact.unreadCount}
-              />
-              <Text style={styles.favoriteCardName} numberOfLines={1}>
-                {contact.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {favoriteContacts.length === 0 ? (
+          <Text style={styles.favoritesEmptyHint}>
+            Tekan-tahan sebuah obrolan lalu pilih Favorit untuk menaruhnya di sini.
+          </Text>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.favoritesScrollContent}
+          >
+            {favoriteContacts.map((contact) => (
+              <TouchableOpacity
+                key={contact.id}
+                style={styles.favoriteCard}
+                onPress={() => handleFavoriteContactPress(contact)}
+                onLongPress={() => handleFavoriteContactLongPress(contact)}
+                activeOpacity={0.75}
+              >
+                <Avatar
+                  name={contact.fullName || contact.name}
+                  avatarUrl={contact.avatarUrl}
+                  size={44}
+                  shape="circle"
+                  unreadCount={contact.unreadCount}
+                />
+                <Text style={styles.favoriteCardName} numberOfLines={1}>
+                  {contact.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
       </View>
 
       {/* Filter Tabs (All, Unread, Groups) */}
@@ -528,6 +531,49 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
           />
         </View>
       )}
+
+      {/* Menu obrolan (tekan-tahan): favorit & sematan */}
+      {(() => {
+        const roomId = chatMenuTarget?.id || chatMenuTarget?.room_id || '';
+        const isFavorite = favoriteIds.includes(roomId);
+        const isPinned = Boolean(chatMenuTarget?.is_pinned || chatMenuTarget?.pinned);
+        const isFull = !isFavorite && favoriteIds.length >= maxFavorites;
+        return (
+          <BottomSheetModal
+            visible={chatMenuTarget !== null}
+            onClose={() => setChatMenuTarget(null)}
+            title={
+              chatMenuTarget?.title ||
+              chatMenuTarget?.peer_nickname ||
+              chatMenuTarget?.name ||
+              'Obrolan'
+            }
+          >
+            <View style={styles.actionMenuList}>
+              <ActionMenuItem
+                icon="⭐"
+                label={isFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit'}
+                subtitle={
+                  isFull
+                    ? `Batas ${maxFavorites} favorit tercapai, hapus salah satu dulu`
+                    : isFavorite
+                      ? 'Keluarkan dari bar Kontak Favorit'
+                      : 'Tampilkan di bar Kontak Favorit'
+                }
+                onPress={isFull ? () => {} : handleToggleFavoriteFromMenu}
+              />
+              <ActionMenuItem
+                icon="📌"
+                label={isPinned ? 'Lepas Sematan' : 'Sematkan Obrolan'}
+                subtitle={
+                  isPinned ? 'Kembalikan ke urutan biasa' : 'Taruh di daftar teratas'
+                }
+                onPress={handleTogglePinFromMenu}
+              />
+            </View>
+          </BottomSheetModal>
+        );
+      })()}
 
       {/* Aurora Action Bottom Sheet Menu */}
       <BottomSheetModal
@@ -742,6 +788,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     paddingHorizontal: 20,
     marginBottom: 10,
+  },
+  favoritesEmptyHint: {
+    fontSize: 12,
+    color: '#94a3b8',
+    paddingHorizontal: 20,
   },
   favoritesScrollContent: {
     paddingHorizontal: 20,
