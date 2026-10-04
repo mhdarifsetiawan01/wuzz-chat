@@ -71,6 +71,21 @@ function messageSignature(message: Message): number {
   return hash53(canonicalJson({ ...message, reactions: normalizeReactions(message.reactions) }));
 }
 
+/**
+ * Sama seperti persistedMessageSignatures, untuk daftar percakapan: userId -> (conversationId -> hash).
+ * Daftar disimpan ulang pada setiap refresh (cold start 2x, setiap kembali ke daftar) walau tidak ada yang berubah.
+ * Dikosongkan saat baris percakapan diubah di luar jalur saveStoredConversations atau dihapus.
+ */
+const persistedConversationSignatures = new Map<string, Map<string, number>>();
+
+function conversationSignature(conversation: Conversation): number {
+  return hash53(canonicalJson(conversation));
+}
+
+function forgetConversationSignature(userId: string, roomId: string): void {
+  persistedConversationSignatures.get(userId)?.delete(roomId);
+}
+
 function forgetRoomSignatures(userId: string, roomId: string): void {
   persistedMessageSignatures.delete(signatureRoomKey(userId, roomId));
 }
@@ -255,17 +270,20 @@ export async function getStoredConversations(userId: string): Promise<Conversati
     );
 
     const conversations: Conversation[] = [];
+    const signatures = persistedConversationSignatures.get(userId) ?? new Map<string, number>();
     for (const row of rows) {
       try {
         const parsed = JSON.parse(row.raw_json) as Conversation;
         if (parsed && parsed.id) {
           conversations.push(parsed);
+          signatures.set(parsed.id, conversationSignature(parsed));
         }
       } catch (err) {
         // Skip corrupted row gracefully
       }
     }
 
+    persistedConversationSignatures.set(userId, signatures);
     return conversations;
   } catch (error) {
     console.warn('[sqliteStorage] Failed to getStoredConversations:', error);
@@ -287,11 +305,20 @@ export function saveStoredConversations(
     try {
       const db = await getDatabase();
 
-      await db.withTransactionAsync(async () => {
-        for (const c of conversations) {
-          const convId = c.id || c.room_id;
-          if (!convId) continue;
+      // Hanya tulis percakapan yang baru atau berubah (lihat persistedConversationSignatures)
+      const signatures = persistedConversationSignatures.get(userId) ?? new Map<string, number>();
+      const pending: { c: Conversation; convId: string; signature: number }[] = [];
+      for (const c of conversations) {
+        const convId = c.id || c.room_id;
+        if (!convId) continue;
+        const signature = conversationSignature(c);
+        if (signatures.get(convId) === signature) continue;
+        pending.push({ c, convId, signature });
+      }
+      if (pending.length === 0) return;
 
+      await db.withTransactionAsync(async () => {
+        for (const { c, convId } of pending) {
           const isPinned = c.is_pinned || c.pinned ? 1 : 0;
           const lastMsg =
             typeof c.last_message === 'string'
@@ -304,12 +331,25 @@ export function saveStoredConversations(
           const updatedAt = c.updated_at || lastMsgAt || new Date().toISOString();
           const rawJson = JSON.stringify(c);
 
+          // UPSERT (bukan INSERT OR REPLACE): perbarui baris di tempat tanpa hapus-sisip entri indeks
           await db.runAsync(
-            `INSERT OR REPLACE INTO local_conversations (
+            `INSERT INTO local_conversations (
               user_id, id, type, name, avatar_url, last_message, 
               last_message_at, unread_count, is_pinned, peer_id, 
               peer_public_key, updated_at, raw_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, id) DO UPDATE SET
+              type = excluded.type,
+              name = excluded.name,
+              avatar_url = excluded.avatar_url,
+              last_message = excluded.last_message,
+              last_message_at = excluded.last_message_at,
+              unread_count = excluded.unread_count,
+              is_pinned = excluded.is_pinned,
+              peer_id = excluded.peer_id,
+              peer_public_key = excluded.peer_public_key,
+              updated_at = excluded.updated_at,
+              raw_json = excluded.raw_json`,
             [
               userId,
               convId,
@@ -328,6 +368,10 @@ export function saveStoredConversations(
           );
         }
       });
+
+      // Catat setelah commit berhasil; bila transaksi gagal, tetap dianggap belum tertulis
+      for (const { convId, signature } of pending) signatures.set(convId, signature);
+      persistedConversationSignatures.set(userId, signatures);
     } catch (error) {
       console.warn('[sqliteStorage] Failed to saveStoredConversations:', error);
     }
@@ -346,6 +390,7 @@ export function updateStoredConversationPin(
     if (!userId || !roomId) return;
 
     try {
+      forgetConversationSignature(userId, roomId);
       const db = await getDatabase();
       await db.runAsync(
         `UPDATE local_conversations 
@@ -372,6 +417,7 @@ export function updateStoredConversationUnread(
     if (!userId || !roomId) return;
 
     try {
+      forgetConversationSignature(userId, roomId);
       const db = await getDatabase();
       const row = await db.getFirstAsync<{ raw_json: string }>(
         `SELECT raw_json FROM local_conversations WHERE user_id = ? AND id = ?`,
@@ -813,6 +859,7 @@ export function clearUserCache(userId: string): Promise<void> {
         await db.runAsync(`DELETE FROM local_friends WHERE user_id = ?`, [userId]);
       });
       persistedMessageSignatures.clear();
+      persistedConversationSignatures.delete(userId);
     } catch (error) {
       console.warn('[sqliteStorage] Failed to clearUserCache:', error);
     }
