@@ -604,8 +604,10 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     borderRadius: 14,
   },
+  // Margin negatif = lebar border, jadi isi bubble tidak bergeser saat disorot (hasil pencarian / lompat ke kutipan)
   highlightedBubble: {
     borderWidth: 1.5,
+    margin: -1.5,
     borderColor: colors.accentPrimary,
     backgroundColor: '#1e3a8a',
   },

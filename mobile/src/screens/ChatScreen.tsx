@@ -64,6 +64,8 @@ import { radius, spacing } from '../theme/spacing';
 import { quotePreviewText } from '../utils/quotePreview';
 import { dayKey } from '../utils/dayLabel';
 import { DateSeparator } from '../components/DateSeparator';
+import { SystemMessageRow } from '../components/SystemMessageRow';
+import { isSystemMessage } from '../utils/systemMessage';
 
 export interface ChatScreenProps {
   conversation: ConversationItem;
@@ -1229,7 +1231,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         item.from === currentUserId ||
         (Boolean(username) && item.from === username);
 
-      const bubble = (
+      const bubble = isSystemMessage(item) ? (
+        <SystemMessageRow text={item.content} />
+      ) : (
         <MessageBubble
           message={item}
           isSelf={isSelf}
