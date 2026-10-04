@@ -677,16 +677,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 4,
-    marginTop: 2,
-    marginBottom: 2,
+    // Chip menimpa tepi bawah bubble (pola WhatsApp); marginBottom menjaga jarak ke bubble berikutnya
+    marginTop: -4,
+    marginBottom: 6,
   },
   selfReactions: {
     justifyContent: 'flex-end',
-    marginRight: 4,
+    marginRight: 10,
   },
   otherReactions: {
     justifyContent: 'flex-start',
-    marginLeft: 4,
+    marginLeft: 10,
   },
   reactionPill: {
     flexDirection: 'row',
@@ -696,7 +697,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    borderColor: colors.borderDefault,
     gap: 3,
   },
   reactionPillActive: {
@@ -714,7 +715,7 @@ const styles = StyleSheet.create({
   imageBubblePadding: {
     paddingHorizontal: 5,
     paddingTop: 5,
-    paddingBottom: 6,
+    paddingBottom: 5,
   },
   audioBubblePadding: {
     paddingHorizontal: 4,
@@ -862,12 +863,18 @@ const styles = StyleSheet.create({
     marginRight: 4,
     gap: 4,
   },
+  // Jam + centang menimpa pojok kanan-bawah gambar (pola WhatsApp), bukan baris terpisah di bawahnya.
+  // Offset 11 = padding bubble gambar (5) + inset dari tepi gambar (6).
   footerOverImage: {
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    position: 'absolute',
+    right: 11,
+    bottom: 11,
+    marginTop: 0,
+    marginRight: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
-    marginTop: 4,
   },
   timeText: {
     fontSize: 10,

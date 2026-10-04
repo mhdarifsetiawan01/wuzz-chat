@@ -1751,7 +1751,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 ) : (
                   <IconText style={styles.headerSubtitle} numberOfLines={1}>
                     {isDirect
-                      ? `${roomAESKey ? '🔒 Terenkripsi E2EE • ' : ''}Terhubung (Online)`
+                      ? (roomAESKey ? '🔒 Terenkripsi E2EE' : 'Online')
                       : `${memberCount > 0 ? `${memberCount} anggota` : 'Grup'}`}
                   </IconText>
                 )}

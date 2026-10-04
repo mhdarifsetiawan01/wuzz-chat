@@ -67,6 +67,8 @@ export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, is
   const post = state?.status === 'ok' ? state.post : undefined;
   const thumb = post?.media_urls?.[0];
   const authorName = post?.author?.display_name || post?.author?.username;
+  // Baris pertama pesan ("📢 Postingan Komunitas oleh @…") sudah diwakili label kartu; buang agar tidak ganda
+  const snippetText = text.replace(/^📢[^\n]*\n+/, '').trim() || text;
 
   return (
     <TouchableOpacity
@@ -80,8 +82,8 @@ export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, is
 
       <View style={styles.body}>
         <View style={styles.headerRow}>
-          <IconText style={[styles.label, isSelf && styles.labelSelf]} numberOfLines={1}>
-            📢 {authorName ? `Postingan @${authorName}` : 'Postingan Komunitas'}
+          <IconText icon="megaphone" style={[styles.label, isSelf && styles.labelSelf]} numberOfLines={1}>
+            {authorName ? `Postingan @${authorName}` : 'Postingan Komunitas'}
           </IconText>
           {state === null ? <ActivityIndicator size="small" color={isSelf ? 'rgba(255,255,255,0.7)' : colors.accentPrimary} /> : null}
         </View>
@@ -90,7 +92,7 @@ export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, is
           <Text style={[styles.goneText, isSelf && styles.textSelf]}>Postingan sudah dihapus</Text>
         ) : (
           <Text style={[styles.snippet, isSelf && styles.textSelf]} numberOfLines={4}>
-            {text}
+            {snippetText}
           </Text>
         )}
 
