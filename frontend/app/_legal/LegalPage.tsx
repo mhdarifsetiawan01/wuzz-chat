@@ -15,6 +15,7 @@ export default function LegalPage({ title, children }: { title: string; children
         <nav className="legal-footer" aria-label="Dokumen legal">
           <Link href="/privacy">Kebijakan Privasi</Link>
           <Link href="/terms">Syarat Layanan</Link>
+          <Link href="/child-safety">Keselamatan Anak</Link>
           <Link href="/delete-account">Hapus Akun</Link>
         </nav>
       </article>

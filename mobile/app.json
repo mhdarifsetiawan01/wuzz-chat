@@ -85,6 +85,8 @@
     },
     "plugins": [
       "expo-secure-store",
+      "@react-native-firebase/app",
+      "@react-native-firebase/crashlytics",
       "expo-audio",
       "@config-plugins/react-native-webrtc",
       [

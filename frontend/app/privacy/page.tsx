@@ -23,6 +23,7 @@ export default function PrivacyPage() {
         <li><strong>Berkas media</strong> (foto, pesan suara): disimpan sementara di server, otomatis dihapus setelah 24 jam untuk pesan langsung dan 7 hari untuk grup.</li>
         <li><strong>Perangkat dan sesi:</strong> ID perangkat, nama dan platform perangkat, user agent, alamat IP, waktu aktif terakhir, serta token notifikasi push (Firebase Cloud Messaging).</li>
         <li><strong>Relasi sosial:</strong> daftar teman, permintaan pertemanan, dan pemblokiran.</li>
+        <li><strong>Laporan kerusakan:</strong> bila aplikasi mengalami crash, data teknis dikirim otomatis ke Google Firebase Crashlytics: jenis dan model perangkat, versi Android dan aplikasi, jejak kesalahan, dan ID akun acak. Tidak ada isi pesan, nama pengguna, atau kata sandi yang disertakan.</li>
         <li><strong>Laporan:</strong> jika Anda melaporkan konten atau pengguna, kami menyimpan laporan itu beserta keterangan yang Anda tulis.</li>
       </ul>
       <p>Kami <strong>tidak</strong> menampilkan iklan, tidak menjual data, dan tidak memakai SDK analitik atau pelacak pihak ketiga.</p>
@@ -38,6 +39,7 @@ export default function PrivacyPage() {
       <h2>3. Cara kami menggunakan data</h2>
       <ul>
         <li>Menjalankan layanan: autentikasi, mengirim pesan, panggilan, dan notifikasi.</li>
+        <li>Stabilitas: memperbaiki crash dan kesalahan aplikasi berdasarkan laporan kerusakan teknis.</li>
         <li>Keamanan: membatasi jumlah perangkat, mencabut sesi, mencegah penyalahgunaan, dan menindaklanjuti laporan.</li>
         <li>Fitur AI Memory: pada <strong>ruang diskusi terbuka dan topik forum</strong>, teks pesan dapat dikirim ke layanan model bahasa (LLM) pihak ketiga, yaitu Groq, untuk menyusun ringkasan. Hasilnya hanya terbit setelah disetujui admin. Pesan langsung E2EE tidak pernah dibaca AI.</li>
       </ul>
@@ -45,6 +47,7 @@ export default function PrivacyPage() {
       <h2>4. Pihak ketiga yang memproses data</h2>
       <ul>
         <li>Google Firebase Cloud Messaging: mengantar notifikasi push (menerima token perangkat dan isi notifikasi).</li>
+        <li>Google Firebase Crashlytics: menerima laporan kerusakan teknis seperti dijelaskan di atas, semata-mata untuk memperbaiki aplikasi.</li>
         <li>Groq (penyedia inferensi model bahasa): menerima teks pesan dari forum terbuka untuk ringkasan AI Memory, seperti dijelaskan di atas.</li>
         <li>Penyedia infrastruktur kami (server, basis data, penyimpanan berkas, dan Redis) yang hanya memproses data atas perintah kami.</li>
       </ul>

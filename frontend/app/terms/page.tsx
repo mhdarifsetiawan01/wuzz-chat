@@ -23,6 +23,7 @@ export default function TermsPage() {
       <p>Anda tidak boleh mengirim atau membagikan konten yang:</p>
       <ul>
         <li>melecehkan, mengancam, merundung, atau mengandung ujaran kebencian;</li>
+        <li>mengeksploitasi atau melecehkan anak secara seksual (lihat <a href="/child-safety">Standar Keselamatan Anak</a>);</li>
         <li>bermuatan seksual eksplisit, eksploitasi anak, atau kekerasan ekstrem;</li>
         <li>penipuan, spam, peniruan identitas, atau pelanggaran hak kekayaan intelektual;</li>
         <li>melanggar hukum, atau mengganggu keamanan dan kinerja layanan (peretasan, otomatisasi massal, dsb.).</li>

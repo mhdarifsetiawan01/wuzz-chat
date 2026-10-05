@@ -8,6 +8,6 @@ export const APP_DOWNLOAD_URL =
 
 export const IS_WEB_PAUSED = process.env.NEXT_PUBLIC_WEB_PAUSED === 'true'
 
-// Halaman legal publik (/privacy, /terms, /delete-account) wajib tetap terbuka untuk Play Console.
+// Halaman legal publik (/privacy, /terms, /delete-account, /child-safety) wajib tetap terbuka untuk Play Console.
 // Route landing deep link dan /transfer/share (kirim kunci E2EE ke aplikasi mobile; halaman penerima /transfer tetap di-gate) tetap normal saat web dijeda
-export const WEB_PAUSED_EXEMPT_PREFIXES = ['/u', '/g', '/sub', '/room', '/transfer/share', '/privacy', '/terms', '/delete-account']
+export const WEB_PAUSED_EXEMPT_PREFIXES = ['/u', '/g', '/sub', '/room', '/transfer/share', '/privacy', '/terms', '/delete-account', '/child-safety']

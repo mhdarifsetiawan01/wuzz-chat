@@ -10,6 +10,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { enableScreens } from 'react-native-screens';
 import { NavigationContainer } from '@react-navigation/native';
 import './src/services/notificationBackgroundTask';
+import { initCrashReporting, setCrashUser } from './src/services/crashReporting';
+import { AppErrorBoundary } from './src/components/AppErrorBoundary';
 import { ActivityIndicator, Image, Linking, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
@@ -62,6 +64,9 @@ const SPLASH_ICON = require('./assets/splash-icon.png');
 
 type AuthRoute = 'login' | 'register';
 
+// Pelaporan crash (Firebase Crashlytics): aktif hanya pada build rilis; no-op bila modul native tak ada.
+initCrashReporting();
+
 function AppContent() {
   const {
     isAuthenticated,
@@ -78,6 +83,11 @@ function AppContent() {
   const [authRoute, setAuthRoute] = useState<AuthRoute>('login');
   const [isKeyTransferModalOpen, setIsKeyTransferModalOpen] = useState<boolean>(false);
   const lastHandledUrlRef = useRef<{ url: string; time: number } | null>(null);
+
+  // Kaitkan laporan crash dengan ID akun acak (UUID); kosongkan saat logout/hapus akun. Tanpa username/nama.
+  useEffect(() => {
+    setCrashUser(user?.id ?? null);
+  }, [user?.id]);
 
   // Lepas splash native setelah sesi awal siap; layar loading JS di bawahnya tetap dipakai untuk logout.
   useEffect(() => {
@@ -447,6 +457,7 @@ function AppContent() {
 
 export default function App() {
   return (
+    <AppErrorBoundary>
     <SafeAreaProvider>
       <StatusBar style="light" />
       <DeviceProvider>
@@ -466,6 +477,7 @@ export default function App() {
       </DeviceProvider>
       <AppDialogHost />
     </SafeAreaProvider>
+    </AppErrorBoundary>
   );
 }
 
