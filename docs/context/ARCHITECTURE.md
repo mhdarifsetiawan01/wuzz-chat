@@ -17,25 +17,24 @@ Dokumen ini adalah acuan konteks utama untuk desain sistem tingkat tinggi (*High
                                ▼
                ┌───────────────────────────────┐
                │    Production Edge Ingress    │
-               │    Fly.io Global Anycast LB   │
+               │   nginx Reverse Proxy (VPS)   │
                └───────────────┬───────────────┘
                                │
-            ┌──────────────────┴──────────────────┐
-            ▼                                     ▼
- ┌─────────────────────┐               ┌─────────────────────┐
- │  Go Backend Node 1  │               │  Go Backend Node 2  │
- │  (Fly.io Machine)   │               │  (Fly.io Machine)   │
- │ • WebSocket Hub     │               │ • WebSocket Hub     │
- │ • Modular Monolith  │               │ • Modular Monolith  │
- └──────────┬──────────┘               └──────────┬──────────┘
-            │                                     │
-            ├───────────────┬─────────────────────┤
-            │               │                     │
-            ▼               ▼                     ▼
+                               ▼
+                   ┌─────────────────────┐
+                   │   Go Backend Node   │
+                   │    (VPS Instance)   │
+                   │ • WebSocket Hub     │
+                   │ • Modular Monolith  │
+                   └──────────┬──────────┘
+                              │
+          ┌───────────────────┼───────────────────┐
+          │                   │                   │
+          ▼                   ▼                   ▼
 ┌──────────────────────┐ ┌──────────────────┐ ┌──────────────────────┐
 │  PostgreSQL Supabase │ │  Upstash Redis   │ │ Supabase S3 Storage  │
 │  (PgBouncer Pooler)  │ │  (Pub/Sub Cluster│ │ (Media Store-and-    │
-│  • Core Relational   │ │   & Session Kick)│ │  Forward Shared Hub)│
+│  • Core Relational   │ │   & Session Kick)│ │  Forward Shared Hub) │
 └──────────────────────┘ └──────────────────┘ └──────────────────────┘
 ```
 
@@ -57,9 +56,9 @@ Dokumen ini adalah acuan konteks utama untuk desain sistem tingkat tinggi (*High
 
 ---
 
-## ⚡ 3. Kluster Terdistribusi & Sinkronisasi Lintas Node (Fly.io + Redis)
+## ⚡ 3. Kluster Terdistribusi & Sinkronisasi Lintas Node (VPS + Redis)
 
-- **Multi-Node WebSocket Sync**:
+- **Multi-Node WebSocket Sync** (produksi saat ini 1 node di VPS; mekanisme ini aktif otomatis bila node ditambah):
   - Setiap instance backend Go memiliki UUID unik node.
   - Event pemutusan sesi (`session_kick`, `device_kick`) dan siaran cluster di-publish ke channel Redis `wuzz:cluster:events`.
   - Node penerima memproses frame pemutusan soket lokal jika target user/device terhubung di node tersebut, dengan guard **Anti-Echo Loop** (mengabaikan event yang di-publish oleh node UUID dirinya sendiri).

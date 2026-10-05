@@ -10,7 +10,7 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - **Real-Time Engine**: WebSocket Hub $O(M)$ membership cache + Redis Pub/Sub multi-node sync SELESAI ✅
 - **Push Notification Engine**: Pluggable Provider (FCM v1 Silent Data-Only + VAPID Web Push) SELESAI ✅
 - **Multi-Device Routing**: Targeted room history socket delivery & trusted device public key protection SELESAI ✅
-- **Status Deployment**: Live di Fly.io (`https://wuzz-chat-backend.fly.dev`)
+- **Status Deployment**: Live di VPS (`https://chat-api.wuzzhub.id`, nginx + `deploy-chat.sh`)
 
 ---
 
@@ -37,7 +37,7 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
   - Validasi kunci identik diperbolehkan (reconnect/trusted device).
   - Jika kunci berbeda dan ada perangkat aktif, server menolak dengan HTTP 409 (`ErrKeyConflict`) untuk melindungi dari pembajakan kunci sepihak.
 - [x] **Multi-Node Cluster Session Kick via Redis**:
-  - Event `session_kick` dan `device_kick` disinkronkan lintas node Fly.io dengan perlindungan Anti-Echo loop node UUID.
+  - Event `session_kick` dan `device_kick` disinkronkan lintas node backend dengan perlindungan Anti-Echo loop node UUID.
 - [x] **In-Memory Message Idempotency**:
   - Deduplikasi pesan (TTL 2 menit) berpresisi nanodetik (`UnixNano()`) untuk menangkal duplicate resend dari perangkat seluler.
 

@@ -13,7 +13,7 @@ Direktori ini memuat **Domain Context Primers** modular untuk pengembang dan age
 | 📱 **[`MOBILE.md`](MOBILE.md)** | React Native Expo Mobile App | `mobile/...` | Saat mengerjakan aplikasi mobile Android/iOS, layout single-screen, WebRTC audio calling, Keystore E2EE, atau FCM push. |
 | 🏢 **[`MULTI_TENANT.md`](MULTI_TENANT.md)** | Multi-Tenancy Architecture | `backend/internal/tenant/...`, middleware | Saat merancang atau mengimplementasikan isolasi tenant, header `X-Tenant-ID`, tenant registry, atau skema partisi. |
 | 🤖 **[`AI_MEMORY.md`](AI_MEMORY.md)** | Group Memory AI Engine | `backend/internal/memory/...`, review drawer | Saat memodifikasi ekstraksi memori M1–M7, worker `SKIP LOCKED`, interface `AIService` (Gemini), atau viewer arsip. |
-| 🏛️ **[`ARCHITECTURE.md`](ARCHITECTURE.md)** | High-Level Architecture & Infra | Skema DB, Redis, Fly.io, Vercel | Saat meninjau ERD relasional, clustering Redis multi-node, optimasi query $O(1)$, atau model keamanan zero-trust. |
+| 🏛️ **[`ARCHITECTURE.md`](ARCHITECTURE.md)** | High-Level Architecture & Infra | Skema DB, Redis, VPS, Vercel | Saat meninjau ERD relasional, clustering Redis multi-node, optimasi query $O(1)$, atau model keamanan zero-trust. |
 
 ---
 

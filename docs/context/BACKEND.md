@@ -10,7 +10,7 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan, perbaikan bug, refact
 - **Database**: PostgreSQL (Supabase Pooler) dengan fallback SQLite (ModernC pure Go, WAL mode + Busy Timeout 5s)
 - **Real-Time & Pub/Sub**: WebSocket (`gorilla/websocket`), Upstash Redis TLS (`rediss://...`) dengan In-Memory fallback broker
 - **Push Notification**: FCM v1 (HTTP v1 API OAuth2 Google ADC) & W3C Web Push (VAPID RFC 8292 via `SherClockHolmes/webpush-go`)
-- **Live Deployment**: Fly.io (`https://wuzz-chat-backend.fly.dev`, WS: `wss://wuzz-chat-backend.fly.dev/ws`)
+- **Live Deployment**: VPS (Ubuntu 24.04, nginx reverse proxy + `deploy-chat.sh`) — `https://chat-api.wuzzhub.id`, WS: `wss://chat-api.wuzzhub.id/ws`
 
 ---
 

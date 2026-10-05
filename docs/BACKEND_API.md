@@ -40,7 +40,7 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
 ### 1.1 Base URLs
 | Lingkungan | Protokol REST | Protokol WebSocket | Status |
 | :--- | :--- | :--- | :--- |
-| **Live Production** | `https://wuzz-chat-backend.fly.dev` | `wss://wuzz-chat-backend.fly.dev/ws` | Aktif (Fly.io) |
+| **Live Production** | `https://chat-api.wuzzhub.id` | `wss://chat-api.wuzzhub.id/ws` | Aktif (VPS) |
 | **Lokal (Dev)** | `http://localhost:8080` | `ws://localhost:8080/ws` | Lokal Go Server |
 
 > 💡 **CORS & Origin Handling**: Backend mendukung validasi origin dinamis via `ALLOWED_ORIGINS` (mendukung domain `https://chat.wuzzhub.id`, `*.vercel.app`, dan `http://localhost:3000`).
@@ -997,7 +997,7 @@ Mengunggah berkas gambar, audio, dokumen, atau video.
 - **Success Response (200 OK)**:
   ```json
   {
-    "url": "https://wuzz-chat-backend.fly.dev/uploads/media_abc123.jpg",
+    "url": "https://chat-api.wuzzhub.id/uploads/media_abc123.jpg",
     "file_name": "foto_liburan.jpg",
     "file_size": 1048576,
     "media_type": "image",
@@ -1192,7 +1192,7 @@ Dijalankan oleh perangkat baru (setelah scan QR code) untuk mengambil bundle ter
 ### 3.9 Health Check
 
 #### 31. `GET /health`
-Liveness dan readiness probe untuk load balancer / orchestrator (Fly.io).
+Liveness dan readiness probe untuk load balancer / orchestrator.
 - **Autentikasi**: Publik
 - **Success Response (200 OK)**:
   ```json
@@ -2133,7 +2133,7 @@ wss://<backend-host>/ws?token=<JWT_TOKEN>&device_id=<DEVICE_ID>
   - Backend memvalidasi integritas perangkat melalui tabel `devices`. Jika perangkat telah dinonaktifkan via remote logout (`is_active = false`), koneksi ditolak saat HTTP upgrade dengan status `HTTP 403 Forbidden` (`DEVICE_DEACTIVATED / DEVICE_KICKED`).
   - Maksimal 2 perangkat aktif bersamaan per user (`DefaultMaxActiveDevicesPerUser = 2`). Jika perangkat ke-3 terhubung, perangkat tertua otomatis di-kick dengan Close Code **`4001: SESSION_REPLACED`**.
   - Jika perangkat dikeluarkan dari jarak jauh (*remote logout* via `DELETE /api/auth/devices/:id`), koneksi soket perangkat tersebut ditutup seketika dengan Close Code **`4001: DEVICE_KICKED`**, memicu penghapusan private key lokal E2EE di browser perangkat target.
-  - **Sinkronisasi Multi-Node Cluster**: Pada arsitektur multi-instance (Fly.io), sinyal kick (`session_kick` dan `device_kick`) di-broadcast secara real-time ke seluruh instance via Redis Pub/Sub channel `wuzz:cluster:events`. Hal ini menjamin soket tertutup seketika dengan Close Code 4001 meskipun perangkat target terhubung ke instance backend fisik yang berbeda.
+  - **Sinkronisasi Multi-Node Cluster**: Pada arsitektur multi-instance, sinyal kick (`session_kick` dan `device_kick`) di-broadcast secara real-time ke seluruh instance via Redis Pub/Sub channel `wuzz:cluster:events`. Hal ini menjamin soket tertutup seketika dengan Close Code 4001 meskipun perangkat target terhubung ke instance backend fisik yang berbeda.
 - **Write Deadline**: 10 detik.
 - **Pong Wait**: 60 detik.
 - **Ping Period**: 54 detik (Server otomatis mengirim Ping frame secara periodik).
@@ -2546,10 +2546,10 @@ Untuk menghubungkan klien frontend (Next.js, Vite, React Native, dsb.) ke backen
 ### Contoh `.env.local` (Next.js / Web)
 ```bash
 # URL REST Backend
-NEXT_PUBLIC_API_URL=https://wuzz-chat-backend.fly.dev
+NEXT_PUBLIC_API_URL=https://chat-api.wuzzhub.id
 
 # URL WebSocket Gateway
-NEXT_PUBLIC_WS_URL=wss://wuzz-chat-backend.fly.dev/ws
+NEXT_PUBLIC_WS_URL=wss://chat-api.wuzzhub.id/ws
 
 # Public VAPID Key untuk Web Push (Bisa didapat juga via GET /api/notifications/vapid-public-key)
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=BEl62iUYgUivxIkv69yViEuiBIa...

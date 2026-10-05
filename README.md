@@ -87,7 +87,7 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 - [x] **Redis Pub/Sub Layer & Multi-Instance Synchronization (Fase 6)**: Sinkronisasi real-time antar multi-instance Go WebSocket via Upstash Redis (`rediss://...`) dengan anti-echo loop UUID & deduplikasi database write.
 - [x] **Dynamic Multi-Origin CORS & WebSocket Whitelist (Fase 6)**: Konfigurasi whitelist dinamis (`*`, exact domain, dan wildcard subdomains seperti `https://*.vercel.app`) untuk REST API dan WebSocket handshake.
 - [x] **OpenGraph Rich Link Previewer (Fase 6)**: Ekstraksi metadata URL OpenGraph dengan proteksi Anti-SSRF (blokir IP privat), Redis caching 24 jam, dan komponen kartu thumbnail interaktif.
-- [x] **Live Production Backend di Fly.io (Fase 6)**: Container Docker Go Alpine super ringan (< 25MB) aktif di region Singapore (`sin`).
+- [x] **Live Production Backend (Fase 6)**: Backend Go aktif di VPS dengan nginx reverse proxy (sebelumnya sempat di Fly.io, region Singapore).
 - [x] **Dual-Platform Architecture (Desktop & WhatsApp Mobile Single-Screen)**: Tampilan desktop split 2-kolom dan mobile single-screen flow (Daftar Chat Fullscreen ⇄ Ruang Obrolan Fullscreen dengan tombol `← Back`), Dynamic Viewport `100dvh`, sticky header, safe area padding `env(safe-area-inset-bottom)`, dan sinkronisasi tanda terima `✓✓` biru serta unread counter instan 0ms.
 - [x] **End-to-End Encryption (E2EE) (Fase 7)**: Kriptografi standar terbuka (**ECDH NIST P-256 + HKDF-SHA256 + AES-256-GCM**) via Web Crypto API, penyimpanan private key di `IndexedDB` (`wuzz_crypto_db`), verifikasi nomor keamanan 30-digit (*Safety Number Fingerprint*), auto-decryption reaktif pada timeline obrolan dan cuplikan pesan di sidebar, serta zero-knowledge storage pada server database.
 - [x] **E2EE Single Active Device & Key Conflict Guard (Fase 7 Milestone 7.5 & 7.7)**: Pelacakan `active_device_id` & `key_version` di database, proteksi HTTP 409 Conflict rejection, rotasi kunci resmi `/api/users/public-key/reset`, **Hard Blocker UI** yang mengunci layar chat secara total saat terjadi konflik, tombol back HP auto-logout, **Single-Session WebSocket Kick** pada backend Go (`SESSION_REPLACED`), dan **Fail-Closed E2EE Guard** untuk menjamin 0% kebocoran plaintext pada direct chat.
@@ -153,17 +153,17 @@ Untuk memahami arah, tujuan, dan detail teknis proyek, silakan baca dokumentasi 
 | **Database** | PostgreSQL (Supabase) / SQLite | Relational schema, auto-migrations, indexing |
 | **Pub/Sub & Cache**| Redis (Upstash) / In-Memory Fallback | Multi-node WebSocket sync & link preview cache |
 | **Storage** | Supabase Storage (S3 API) / Local Disk | Media transit buffer with Store-and-Forward |
-| **Hosting** | Fly.io (Backend) & Vercel (Frontend) | Low-latency Singapore region (`sin`) |
+| **Hosting** | VPS (Backend, nginx) & Vercel (Frontend) | Backend self-hosted di VPS |
 | **Testing** | Go Testing Suite + TypeScript Check | 100% test passing & zero linter errors |
 
 ---
 
-## 🌐 Production Endpoints (Fly.io & Vercel)
+## 🌐 Production Endpoints (VPS & Vercel)
 
 - **Live Web App**: `https://chat.wuzzhub.id` (Mirror: `https://wuzz-chat.vercel.app`)
-- **REST API Base URL**: `https://wuzz-chat-backend.fly.dev`
-- **WebSocket Endpoint**: `wss://wuzz-chat-backend.fly.dev/ws`
-- **Health Check**: `https://wuzz-chat-backend.fly.dev/health`
+- **REST API Base URL**: `https://chat-api.wuzzhub.id`
+- **WebSocket Endpoint**: `wss://chat-api.wuzzhub.id/ws`
+- **Health Check**: `https://chat-api.wuzzhub.id/health`
 
 ---
 
@@ -208,5 +208,5 @@ npx tsc --noEmit
 
 ## 🚢 Deployment Status
 
-- **Backend (Golang)**: Dideploy ke **[Fly.io](https://fly.io)** (Singapore `sin` region, support persistent WebSocket connection).
+- **Backend (Golang)**: Dideploy ke **VPS** (nginx reverse proxy, support persistent WebSocket connection; deploy via `deploy-chat.sh`).
 - **Frontend (Next.js)**: Dideploy ke **[Vercel](https://vercel.com)** dengan environment variable `BACKEND_API_URL` dan `NEXT_PUBLIC_WS_URL`.

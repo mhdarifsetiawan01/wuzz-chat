@@ -22,8 +22,8 @@ info:
     name: Proprietary / MIT
 
 servers:
-  - url: https://wuzz-chat-backend.fly.dev
-    description: Live Production Server (Fly.io)
+  - url: https://chat-api.wuzzhub.id
+    description: Live Production Server (VPS)
   - url: http://localhost:8080
     description: Local Development Server
 
@@ -1964,7 +1964,7 @@ paths:
       tags:
         - Utility & Diagnostics
       summary: Health Check & Readiness Probe
-      description: Probe used by load balancers, orchestrators (Fly.io/Kubernetes), and uptime monitors.
+      description: Probe used by load balancers, orchestrators (Kubernetes), and uptime monitors.
       responses:
         '200':
           description: Server operational
