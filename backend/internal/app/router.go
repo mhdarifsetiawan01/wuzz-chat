@@ -109,6 +109,20 @@ func (a *Application) setupRouter() http.Handler {
 		mux.HandleFunc("/api/auth/login", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			ratelimit.DualRateLimitMiddleware(a.AuthLimiter)(http.HandlerFunc(a.AuthHandler.Login)).ServeHTTP(w, r)
 		}))
+		// Login Google: login/daftar/tautkan memakai pembatas IP yang sama dengan login password (anti tebak password
+		// lewat jalur tautkan). Pengelolaan tautan memakai pembatas percobaan password per pengguna.
+		mux.HandleFunc("/api/auth/google", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			ratelimit.DualRateLimitMiddleware(a.AuthLimiter)(http.HandlerFunc(a.AuthHandler.GoogleSignIn)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/auth/google/register", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			ratelimit.DualRateLimitMiddleware(a.AuthLimiter)(http.HandlerFunc(a.AuthHandler.GoogleRegister)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/auth/google/link", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			ratelimit.DualRateLimitMiddleware(a.AuthLimiter)(http.HandlerFunc(a.AuthHandler.GoogleLinkExisting)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/auth/me/google", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(passwordAttemptLimit(http.HandlerFunc(a.AuthHandler.ManageGoogle))).ServeHTTP(w, r)
+		}))
 		mux.HandleFunc("/api/auth/me", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodDelete {
 				auth.RequireJWT()(passwordAttemptLimit(http.HandlerFunc(a.AuthHandler.DeleteAccount))).ServeHTTP(w, r)
@@ -165,7 +179,8 @@ func (a *Application) setupRouter() http.Handler {
 			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.UpdatePublicKey)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/user/public-key/reset", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.ResetPublicKey)).ServeHTTP(w, r)
+			// Verifikasi password/Google di dalamnya: batasi percobaan agar token curian tak bisa dipakai menebak password.
+			auth.RequireJWT()(passwordAttemptLimit(http.HandlerFunc(a.AuthHandler.ResetPublicKey))).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/users/public-key", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet || r.Method == http.MethodHead {
@@ -177,7 +192,8 @@ func (a *Application) setupRouter() http.Handler {
 			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.UpdatePublicKey)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/users/public-key/reset", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.ResetPublicKey)).ServeHTTP(w, r)
+			// Verifikasi password/Google di dalamnya: batasi percobaan agar token curian tak bisa dipakai menebak password.
+			auth.RequireJWT()(passwordAttemptLimit(http.HandlerFunc(a.AuthHandler.ResetPublicKey))).ServeHTTP(w, r)
 		}))
 	}
 

@@ -41,6 +41,9 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - [x] **In-Memory Message Idempotency**:
   - Deduplikasi pesan (TTL 2 menit) berpresisi nanodetik (`UnixNano()`) untuk menangkal duplicate resend dari perangkat seluler.
 
+### 4. Login dengan Google, fase 1 backend (6 Okt 2026, belum dideploy)
+- [x] Verifier ID token Google, `SQLOAuthStore` atomik, link token, `AuthService` Google, endpoint `/api/auth/google*`, re-auth Google untuk hapus akun dan reset kunci. Nonaktif sampai `GOOGLE_OAUTH_CLIENT_IDS` diisi. Rencana dan sisa pekerjaan: `docs/plans/backlog/GOOGLE_LOGIN.md`.
+
 ---
 
 ## 🎯 Fokus Berikutnya (What's Next)

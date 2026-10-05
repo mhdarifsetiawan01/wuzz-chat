@@ -35,6 +35,7 @@ type LoginResult struct {
 // Handler harus mengembalikan HTTP 409 Conflict dan menyertakan data ini.
 type DeviceConflict struct {
 	ExistingDeviceID string
+	UserID           string // pemilik akun, agar handler dapat menampilkan daftar perangkat aktif
 }
 
 // TransferResult dikembalikan saat consume transfer token berhasil.

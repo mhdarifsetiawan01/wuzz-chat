@@ -384,6 +384,9 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_credentials_user ON user_credentials(user_id, type);`,
 		`CREATE INDEX IF NOT EXISTS idx_credentials_ident ON user_credentials(identifier);`,
+		// Login Google: satu identitas ("google:<sub>") hanya boleh tertaut ke satu akun, dan satu akun hanya satu kredensial oauth.
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_oauth_subject ON user_credentials(identifier) WHERE type = 'oauth';`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_oauth_user ON user_credentials(user_id) WHERE type = 'oauth';`,
 
 		// Tabel Tenants (Milestone 1: Multi-Tenant Architecture)
 		`CREATE TABLE IF NOT EXISTS tenants (

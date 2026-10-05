@@ -31,6 +31,14 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Autentikasi, Manajemen S
    - Baris `users` dipertahankan sebagai **tombstone** (`username=deleted_<id>`, `display_name='Akun Terhapus'`, password/kunci/profil dikosongkan) agar referensi data milik orang lain tidak rusak; username asli dibebaskan. Seluruh JWT lama dicabut (`user_token_revocations`) dan koneksi WebSocket ditendang (`ACCOUNT_DELETED`).
    - Berkas media fisik tidak dihapus langsung; mengikuti `PurgeWorker` (24 jam DM / 7 hari grup). Percobaan password (hapus akun, `verify-password`, `change-password`) dibatasi 10 per 15 menit per pengguna (HTTP 429, `Retry-After: 900`), sebab token curian tidak boleh dipakai menebak password. Halaman publik: `/privacy`, `/terms`, `/delete-account` (frontend, dikecualikan dari gate web dijeda).
 
+7. **Login dengan Google (fase 1 backend, nonaktif sampai `GOOGLE_OAUTH_CLIENT_IDS` diisi)**:
+   - Identitas Google = klaim `sub` dari ID token yang diverifikasi server (tanda tangan RS256 vs JWKS Google, `iss`, `aud` = client ID kita, `exp`, `email_verified`). Email hanya label tampilan, **bukan** kunci. Disimpan sebagai `user_credentials(type='oauth', identifier='google:<sub>', secret_data='')`.
+   - Database menjamin (indeks unik parsial): satu `sub` hanya ke satu akun, satu akun hanya satu Google. Pembuatan user + kredensial `oauth` berlangsung **dalam satu transaksi** (`store.SQLOAuthStore.CreateUserWithOAuth`).
+   - Satu tombol "Lanjutkan dengan Google": `sub` tertaut → login (kuota 2 perangkat sama seperti login password); belum tertaut → `200 {code:"GOOGLE_NOT_LINKED", link_token}`. `link_token` (5 menit, kunci turunan terpisah dari JWT sesi, tidak pernah valid sebagai token sesi) dipakai untuk **daftar baru** (username + display name, tanpa password; `password_hash=''` sehingga login password mustahil) atau **menautkan akun lama** (username + password benar).
+   - Hanya tenant default. Tidak ada auto-link berdasar email.
+   - Re-auth Google (ID token usia ≤ 5 menit, `sub` = yang tertaut) diterima sebagai pengganti password pada `DELETE /api/auth/me` (`google_id_token`) dan reset kunci E2EE (`google_id_token`).
+   - Akun yang masih punya password dapat memutus Google (`DELETE /api/auth/me/google` + password), supaya pemilik asli bisa melepas tautan Google yang dipasang pihak lain setelah mengganti password. Akun tanpa password tidak boleh memutus (satu-satunya cara login).
+
 ---
 
 ## 🏛️ 2. Model Backend DDD (`backend/internal/authz/`)
@@ -39,7 +47,9 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Autentikasi, Manajemen S
 backend/internal/authz/
 ├── entity.go         # Entitas: User, UserCredential, Session, Device, RevokedToken
 ├── repository.go     # Interface AuthRepository & DeviceRepository
-├── service.go        # AuthService (Login, Register, ChangePassword, RevokeSession)
+├── service.go        # AuthService (Login, Register, ChangePassword, RevokeSession); finishLogin dipakai bersama semua metode login
+├── google_auth.go    # Login Google: GoogleSignIn, GoogleRegister, GoogleLinkExisting, LinkGoogleToAccount, ReplaceGoogle, UnlinkGoogle, VerifyGoogleReauth
+├── google/           # Verifier ID token Google (JWKS, cache, tanpa dependensi baru)
 └── worker/           # CleanerWorker (Pembersihan token kedaluwarsa)
 ```
 
@@ -55,10 +65,11 @@ backend/internal/authz/
 
 ## 🗄️ 3. Skema Basis Data
 
-- `user_credentials`: `user_id` (PK, FK `users.id`), `password_hash`, `key_salt`, `updated_at`.
+- `user_credentials`: `id` (PK), `user_id` (indeks, boleh banyak baris per user), `type` (`password`/`passkey`/`oauth`), `identifier`, `secret_data` (NOT NULL; hash bcrypt untuk `password`), `name`, `created_at`, `updated_at`. Tidak ada kolom `key_salt`. Hash password juga disalin ke `users.password_hash` (dual-write jalur lama; `Authenticate` membaca `user_credentials` dulu, fallback ke `users.password_hash`).
 - `sessions`: `id` (PK, UUID), `user_id` (FK), `token_hash`, `device_id`, `created_at`, `expires_at`, `revoked_at`.
 - `devices`: `id` (PK, UUID), `user_id` (FK), `device_id`, `device_name`, `platform` (`web`/`android`/`ios`), `push_token`, `last_active_at`.
 - `revoked_tokens`: `jti` (PK, VARCHAR), `user_id`, `revoked_at`, `expires_at`.
+- Indeks unik parsial `idx_credentials_oauth_subject` (`identifier` WHERE `type='oauth'`) dan `idx_credentials_oauth_user` (`user_id` WHERE `type='oauth'`).
 
 ---
 
@@ -73,7 +84,14 @@ backend/internal/authz/
 | `POST` | `/api/auth/change-password` | Terproteksi | Ganti password & revoke seluruh sesi lain |
 | `GET` | `/api/auth/sessions` | Terproteksi | Daftar sesi aktif |
 | `DELETE` | `/api/auth/sessions/{id}` | Terproteksi | Remote logout sesi tertentu |
-| `DELETE` | `/api/auth/me` | Terproteksi | Hapus akun permanen. Body `{password}` (401 = password salah). Lihat invarian 6 |
+| `DELETE` | `/api/auth/me` | Terproteksi | Hapus akun permanen. Body `{password}` atau `{google_id_token}` (401 = bukti salah). Lihat invarian 6 dan 7 |
+| `POST` | `/api/auth/google` | Publik | `{id_token, device_id, platform, confirm_override?, kick_device_id?}`. 200 sesi, 200 `GOOGLE_NOT_LINKED` + `link_token`, atau 409 `DEVICE_LIMIT_REACHED` |
+| `POST` | `/api/auth/google/register` | Publik + `link_token` | `{link_token, username, display_name?, device_id}` → 201 sesi (akun tanpa password) |
+| `POST` | `/api/auth/google/link` | Publik + `link_token` | `{link_token, username, password, device_id}` → tautkan ke akun lama + login |
+| `POST` / `PUT` / `DELETE` | `/api/auth/me/google` | Terproteksi | Tautkan (`{id_token}`) / ganti (`{old_id_token, id_token}`) / putuskan (`{password}`) |
+| `GET` | `/api/auth/me` | Terproteksi | Kini menyertakan `google_linked` dan `has_password` |
+
+Kode error `code` (selain pesan `error`): `GOOGLE_NOT_CONFIGURED` (503), `GOOGLE_TOKEN_INVALID`, `GOOGLE_REAUTH_STALE`, `GOOGLE_MISMATCH`, `LINK_TOKEN_INVALID`, `INVALID_CREDENTIALS` (401), `GOOGLE_LINKED_TO_OTHER_ACCOUNT`, `ACCOUNT_ALREADY_HAS_GOOGLE`, `USERNAME_TAKEN`, `PASSWORD_LOGIN_UNAVAILABLE` (409), `VALIDATION_ERROR` (400), `GOOGLE_TENANT_NOT_ALLOWED` (403).
 
 ---
 

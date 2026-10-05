@@ -11,6 +11,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/authz"
+	authzgoogle "github.com/bms-del112/wuzz-chat/internal/authz/google"
 	authzinfra "github.com/bms-del112/wuzz-chat/internal/authz/infra"
 	authzworker "github.com/bms-del112/wuzz-chat/internal/authz/worker"
 	"github.com/bms-del112/wuzz-chat/internal/broker"
@@ -187,6 +188,13 @@ func New(cfg *config.Config) (*Application, error) {
 	if userStore != nil {
 		authRepo := authzinfra.NewSQLAuthRepository(userStore, sessionStore, deviceStore, tokenStore, transferStore)
 		authSvc := authz.NewAuthService(authRepo, nil)
+		if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok && cfg != nil && len(cfg.GoogleOAuthClientIDs) > 0 {
+			authSvc.SetGoogleAuth(
+				authzgoogle.NewJWKSVerifier(cfg.GoogleOAuthClientIDs),
+				store.NewSQLOAuthStore(sqlStore.DB(), sqlStore.DriverName()),
+			)
+			log.Printf("🔐 Login Google aktif (%d client ID)", len(cfg.GoogleOAuthClientIDs))
+		}
 		app.AuthHandler = api.NewAuthHandlerWithService(authSvc, userStore)
 		if tokenStore != nil {
 			app.AuthHandler.SetTokenStore(tokenStore)

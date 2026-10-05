@@ -22,4 +22,13 @@ var (
 
 	// ErrInternal digunakan untuk error internal server yang tidak terduga.
 	ErrInternal = errors.New("terjadi kesalahan internal server")
+
+	// ErrOAuthSubjectTaken: identitas pihak ketiga (mis. akun Google) sudah tertaut ke akun Wuzz lain.
+	ErrOAuthSubjectTaken = errors.New("akun Google ini sudah terhubung ke akun Wuzz lain")
+
+	// ErrOAuthAlreadyLinked: akun Wuzz ini sudah punya akun pihak ketiga tertaut.
+	ErrOAuthAlreadyLinked = errors.New("akun ini sudah terhubung ke akun Google")
+
+	// ErrOAuthNotLinked: akun Wuzz ini belum punya akun pihak ketiga tertaut.
+	ErrOAuthNotLinked = errors.New("akun ini belum terhubung ke akun Google")
 )

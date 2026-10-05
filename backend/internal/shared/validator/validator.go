@@ -92,8 +92,36 @@ func IsForbiddenUsername(username string) bool {
 
 // ValidateRegistration memvalidasi username, displayName, dan password pendaftar baru.
 func ValidateRegistration(username, displayName, password string) error {
+	if err := ValidateUsername(username); err != nil {
+		return err
+	}
+
+	if err := ValidatePassword(password); err != nil {
+		return err
+	}
+
+	return ValidateDisplayName(displayName)
+}
+
+// ValidateIdentity memvalidasi username dan displayName tanpa password (pendaftaran lewat Google).
+func ValidateIdentity(username, displayName string) error {
+	if err := ValidateUsername(username); err != nil {
+		return err
+	}
+	return ValidateDisplayName(displayName)
+}
+
+// ValidateDisplayName memeriksa panjang nama tampilan (kosong diperbolehkan; pemanggil memilih fallback).
+func ValidateDisplayName(displayName string) error {
+	if len(strings.TrimSpace(displayName)) > 50 {
+		return ErrDisplayNameTooLong
+	}
+	return nil
+}
+
+// ValidateUsername memeriksa panjang, karakter, dan daftar kata terlarang pada username.
+func ValidateUsername(username string) error {
 	username = strings.TrimSpace(username)
-	displayName = strings.TrimSpace(displayName)
 
 	if username == "" {
 		return ErrUsernameEmpty
@@ -111,14 +139,6 @@ func ValidateRegistration(username, displayName, password string) error {
 		return ErrUsernameForbidden
 	}
 
-	if err := ValidatePassword(password); err != nil {
-		return err
-	}
-
-	if len(displayName) > 50 {
-		return ErrDisplayNameTooLong
-	}
-
 	return nil
 }
 
@@ -134,4 +154,17 @@ func ValidatePassword(password string) error {
 		return ErrPasswordTooLong
 	}
 	return nil
+}
+
+// IsValidationError memberi tahu apakah err adalah kegagalan validasi input (aman ditampilkan ke pengguna sebagai 400).
+func IsValidationError(err error) bool {
+	for _, target := range []error{
+		ErrUsernameEmpty, ErrUsernameTooShort, ErrUsernameTooLong, ErrUsernameInvalidChar, ErrUsernameForbidden,
+		ErrPasswordEmpty, ErrPasswordTooShort, ErrPasswordTooLong, ErrDisplayNameTooLong,
+	} {
+		if errors.Is(err, target) {
+			return true
+		}
+	}
+	return false
 }

@@ -325,13 +325,29 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := h.userStore.GetUserByID(claims.UserID)
-	if err != nil {
+	if err != nil || user == nil {
 		http.Error(w, `{"error":"User tidak ditemukan"}`, http.StatusNotFound)
 		return
 	}
 
+	googleLinked := false
+	if h.authSvc != nil {
+		googleLinked, _ = h.authSvc.IsGoogleLinked(r.Context(), claims.UserID)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(meResponse{
+		User:         user,
+		GoogleLinked: googleLinked,
+		HasPassword:  user.PasswordHash != "",
+	})
+}
+
+// meResponse adalah profil sendiri ditambah status metode login (untuk menentukan UI: tautkan Google, ganti password, re-auth).
+type meResponse struct {
+	*store.User
+	GoogleLinked bool `json:"google_linked"`
+	HasPassword  bool `json:"has_password"`
 }
 
 type UpdateProfileRequest struct {
@@ -448,6 +464,8 @@ type ResetPublicKeyRequest struct {
 	PublicKey string `json:"public_key"`
 	DeviceID  string `json:"device_id"`
 	Password  string `json:"password"`
+	// GoogleIDToken adalah alternatif password untuk akun yang tertaut ke Google (ID token baru, maks 5 menit).
+	GoogleIDToken string `json:"google_id_token,omitempty"`
 }
 
 // ResetPublicKey mereset paksa kunci publik E2EE ke perangkat baru dan menaikkan key_version setelah verifikasi password.
@@ -479,7 +497,7 @@ func (h *AuthHandler) ResetPublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Password == "" {
+	if req.Password == "" && strings.TrimSpace(req.GoogleIDToken) == "" {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{
@@ -488,13 +506,7 @@ func (h *AuthHandler) ResetPublicKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	validPass, err := h.userStore.VerifyPassword(claims.UserID, req.Password)
-	if err != nil || !validPass {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": "Password salah. Verifikasi identitas reset kunci gagal.",
-		})
+	if !h.verifyOwnership(w, r, claims.UserID, req.Password, req.GoogleIDToken, "Password salah. Verifikasi identitas reset kunci gagal.") {
 		return
 	}
 
@@ -830,6 +842,8 @@ func (h *AuthHandler) RevokeAllOtherSessions(w http.ResponseWriter, r *http.Requ
 // DeleteAccountRequest adalah payload DELETE /api/auth/me.
 type DeleteAccountRequest struct {
 	Password string `json:"password"`
+	// GoogleIDToken adalah alternatif password untuk akun yang tertaut ke Google (ID token baru, maks 5 menit).
+	GoogleIDToken string `json:"google_id_token,omitempty"`
 }
 
 // DeleteAccount menghapus akun pemanggil secara permanen setelah re-autentikasi password.
@@ -854,16 +868,13 @@ func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req DeleteAccountRequest
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || req.Password == "" {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192)).Decode(&req); err != nil || (req.Password == "" && strings.TrimSpace(req.GoogleIDToken) == "") {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"error":"Password wajib diisi"}`))
 		return
 	}
 
-	valid, err := h.userStore.VerifyPassword(claims.UserID, req.Password)
-	if err != nil || !valid {
-		w.WriteHeader(http.StatusUnauthorized)
-		_, _ = w.Write([]byte(`{"error":"Password salah"}`))
+	if !h.verifyOwnership(w, r, claims.UserID, req.Password, req.GoogleIDToken, "Password salah") {
 		return
 	}
 

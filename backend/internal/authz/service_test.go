@@ -2,6 +2,7 @@ package authz_test
 
 import (
 	"context"
+	"github.com/bms-del112/wuzz-chat/internal/testutil/pgtest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -11,13 +12,27 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
+// newTestStore membuka store uji: PostgreSQL bila PG_TEST_ADMIN_DSN diisi, selain itu SQLite sementara.
+func newTestStore(t *testing.T, sqliteName string) *store.SQLMessageStore {
+	t.Helper()
+	driver, target := "sqlite", filepath.Join(t.TempDir(), sqliteName)
+	if dsn, ok := pgtest.NewDSN(t); ok {
+		driver, target = "postgres", dsn
+	}
+	sqlStore, err := store.NewSQLMessageStore(driver, target)
+	if err != nil {
+		t.Fatalf("gagal init store (%s): %v", driver, err)
+	}
+	t.Cleanup(func() { sqlStore.Close() })
+	if driver == "postgres" {
+		pgtest.ProductionShape(t, sqlStore.DB())
+	}
+	return sqlStore
+}
+
 func setupTestAuthService(t *testing.T) (*authz.AuthService, func()) {
 	t.Helper()
-	tmpDB := filepath.Join(t.TempDir(), "test_authz_svc.db")
-	sqlStore, err := store.NewSQLMessageStore("sqlite", tmpDB)
-	if err != nil {
-		t.Fatalf("failed to init SQLite store: %v", err)
-	}
+	sqlStore := newTestStore(t, "test_authz_svc.db")
 
 	userStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
 	sessionStore := store.NewSQLSessionStore(sqlStore.DB(), sqlStore.DriverName())
@@ -28,9 +43,7 @@ func setupTestAuthService(t *testing.T) (*authz.AuthService, func()) {
 	repo := infra.NewSQLAuthRepository(userStore, sessionStore, deviceStore, tokenStore, transferStore)
 	svc := authz.NewAuthService(repo, nil)
 
-	cleanup := func() {
-		sqlStore.Close()
-	}
+	cleanup := func() {}
 
 	return svc, cleanup
 }
@@ -412,5 +425,3 @@ func TestAuthService_SearchUsersAndProfile(t *testing.T) {
 		t.Fatalf("expected error for empty params, got nil")
 	}
 }
-
-

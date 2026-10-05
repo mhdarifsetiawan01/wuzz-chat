@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/authz/google"
 	sharederrors "github.com/bms-del112/wuzz-chat/internal/shared/errors"
 	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	sharedvalidator "github.com/bms-del112/wuzz-chat/internal/shared/validator"
@@ -34,6 +35,12 @@ type SessionKicker interface {
 type AuthService struct {
 	repo   AuthRepository
 	kicker SessionKicker // optional, bisa nil jika Hub belum diinit
+
+	// Login Google (opsional; lihat SetGoogleAuth). Sengaja di luar AuthRepository agar tidak ikut tergantikan
+	// saat SetRepository dipanggil.
+	googleVerifier google.Verifier
+	oauth          OAuthStore
+	now            func() time.Time // hanya untuk tes; nil = time.Now
 }
 
 // NewAuthService membuat instance AuthService baru.
@@ -178,7 +185,7 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, *DeviceConflict, er
 	reqDeviceID := strings.TrimSpace(input.DeviceID)
 
 	// Lookup user (tenant-aware via context)
-	userID, _, err := s.repo.GetUserByUsernameWithContext(ctx, username)
+	userID, displayName, err := s.repo.GetUserByUsernameWithContext(ctx, username)
 	if err != nil {
 		return nil, nil, ErrInvalidCredentials
 	}
@@ -188,6 +195,31 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, *DeviceConflict, er
 	if err != nil || !ok {
 		return nil, nil, ErrInvalidCredentials
 	}
+
+	return s.finishLogin(ctx, tenantID, userID, username, displayName, loginDevice{
+		DeviceID:        reqDeviceID,
+		Platform:        input.Platform,
+		ConfirmOverride: input.ConfirmOverride,
+		KickDeviceID:    input.KickDeviceID,
+		UserAgent:       input.UserAgent,
+		IP:              input.IP,
+	})
+}
+
+// loginDevice membawa data perangkat/klien yang dipakai finishLogin.
+type loginDevice struct {
+	DeviceID        string // sudah di-trim
+	Platform        string
+	ConfirmOverride bool
+	KickDeviceID    string
+	UserAgent       string
+	IP              string
+}
+
+// finishLogin dijalankan setelah kredensial (password atau Google) terbukti sah: memeriksa kuota perangkat,
+// menerbitkan JWT, mencatat sesi, dan mendaftarkan perangkat. Dipakai bersama oleh semua metode login.
+func (s *AuthService) finishLogin(ctx context.Context, tenantID, userID, username, displayName string, dev loginDevice) (*LoginResult, *DeviceConflict, error) {
+	reqDeviceID := dev.DeviceID
 
 	// Cek kuota device aktif
 	if reqDeviceID != "" {
@@ -202,15 +234,16 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, *DeviceConflict, er
 			}
 
 			if !isExistingDevice && len(devices) >= maxActiveDevices {
-				if !input.ConfirmOverride {
+				if !dev.ConfirmOverride {
 					// Kembalikan konflik — handler handle HTTP 409
 					return nil, &DeviceConflict{
 						ExistingDeviceID: devices[len(devices)-1].ID,
+						UserID:           userID,
 					}, nil
 				}
 
 				// ConfirmOverride=true: kick device yang dipilih atau tertua
-				kickDeviceID := strings.TrimSpace(input.KickDeviceID)
+				kickDeviceID := strings.TrimSpace(dev.KickDeviceID)
 				if kickDeviceID == "" && len(devices) > 0 {
 					kickDeviceID = devices[len(devices)-1].ID
 				}
@@ -224,12 +257,6 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, *DeviceConflict, er
 				}
 			}
 		}
-	}
-
-	// Lookup displayname & username untuk token
-	_, displayName, err := s.repo.GetUserByUsernameWithContext(ctx, username)
-	if err != nil {
-		displayName = username
 	}
 
 	systemRole := "user"
@@ -247,7 +274,7 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, *DeviceConflict, er
 	if claims != nil && reqDeviceID != "" {
 		if err := s.repo.CreateSession(
 			claims.ID, userID, reqDeviceID,
-			input.UserAgent, input.IP,
+			dev.UserAgent, dev.IP,
 			claims.ExpiresAt.Time,
 		); err != nil {
 			log.Printf("⚠️ [AuthService.Login] Gagal mencatat sesi (user: %s): %v", userID, err)
@@ -256,8 +283,8 @@ func (s *AuthService) Login(input LoginInput) (*LoginResult, *DeviceConflict, er
 
 	// Daftarkan/perbarui device
 	if reqDeviceID != "" {
-		platform := resolvePlatform(input.Platform, input.UserAgent)
-		deviceName := parseDeviceName(input.UserAgent, platform)
+		platform := resolvePlatform(dev.Platform, dev.UserAgent)
+		deviceName := parseDeviceName(dev.UserAgent, platform)
 		if err := s.repo.UpsertDevice(
 			reqDeviceID, userID,
 			deviceName, platform,

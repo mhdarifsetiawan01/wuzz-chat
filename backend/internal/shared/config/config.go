@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -55,6 +56,10 @@ type Config struct {
 	LatestMobileVersion string
 	APKDownloadURL      string // channel "apk" (sideload); kosong -> fallback PlayStoreURL
 	MobileReleaseNotes  string
+
+	// GoogleOAuthClientIDs adalah daftar OAuth client ID (Android, iOS, Web) yang diterima sebagai audience ID token
+	// Google. Kosong = login Google nonaktif (endpoint membalas 503 GOOGLE_NOT_CONFIGURED).
+	GoogleOAuthClientIDs []string
 }
 
 // Load membaca konfigurasi dari file .env (jika tersedia) dan variabel lingkungan sistem (OS Environment).
@@ -99,9 +104,22 @@ func Load() (*Config, error) {
 		LatestMobileVersion: getEnv("LATEST_MOBILE_VERSION", ""),
 		APKDownloadURL:      getEnv("APK_DOWNLOAD_URL", ""),
 		MobileReleaseNotes:  getEnv("MOBILE_RELEASE_NOTES", ""),
+
+		GoogleOAuthClientIDs: splitCSV(getEnv("GOOGLE_OAUTH_CLIENT_IDS", "")),
 	}
 
 	return cfg, nil
+}
+
+// splitCSV memecah string dipisah koma menjadi daftar tanpa elemen kosong.
+func splitCSV(v string) []string {
+	var out []string
+	for _, p := range strings.Split(v, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // getEnv membaca environment variable string dengan fallback ke default.
