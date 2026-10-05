@@ -27,6 +27,7 @@ import {
   deleteCallRecord as deleteCallRecordStorage,
 } from '../services';
 import { startDirectChat } from '../api/users';
+import { fetchIceServers, mapPeerConnectionState } from '../services/webrtcService';
 import { showAlert } from '../services/dialog';
 
 interface CallContextType {
@@ -82,6 +83,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const pendingOfferSdpRef = useRef<string | null>(null);
   const earlyIceCandidatesRef = useRef<string[]>([]);
   const durationTimerRef = useRef<any>(null);
+  const mediaTimeoutRef = useRef<any>(null);
 
   // Load call history from SQLite
   const refreshCallHistory = useCallback(async () => {
@@ -184,7 +186,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Update timer during connected call
   useEffect(() => {
-    if (activeCall?.status === 'connected') {
+    if (activeCall?.status === 'connected' && activeCall?.mediaState === 'connected') {
       clearDurationTimer();
       setCallDuration(0);
       durationTimerRef.current = setInterval(() => {
@@ -197,12 +199,52 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     return () => clearDurationTimer();
-  }, [activeCall?.status, clearDurationTimer]);
+  }, [activeCall?.status, activeCall?.mediaState, clearDurationTimer]);
 
   /**
    * Internal session cleanup helper
    */
+  const clearMediaTimeout = useCallback(() => {
+    if (mediaTimeoutRef.current) {
+      clearTimeout(mediaTimeoutRef.current);
+      mediaTimeoutRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Status jalur media berasal dari RTCPeerConnection.connectionState, BUKAN dari sinyal call_answer: timer dan label
+   * "tersambung" baru muncul bila media benar-benar tersambung.
+   */
+  const handlePeerConnectionState = useCallback(
+    (state: string) => {
+      const mapped = mapPeerConnectionState(state);
+      if (!mapped) return;
+      if (mapped === 'connected') clearMediaTimeout();
+      setActiveCall((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          mediaState: mapped,
+          mediaConnectedAt: mapped === 'connected' ? prev.mediaConnectedAt || Date.now() : prev.mediaConnectedAt,
+        };
+      });
+    },
+    [clearMediaTimeout]
+  );
+
+  /** Setelah panggilan dijawab, media harus tersambung dalam 25 detik; bila tidak, tandai gagal agar UI jujur. */
+  const armMediaTimeout = useCallback(() => {
+    clearMediaTimeout();
+    mediaTimeoutRef.current = setTimeout(() => {
+      mediaTimeoutRef.current = null;
+      setActiveCall((prev) =>
+        prev && prev.status === 'connected' && prev.mediaState !== 'connected' ? { ...prev, mediaState: 'failed' } : prev
+      );
+    }, 25000);
+  }, [clearMediaTimeout]);
+
   const cleanupCallSession = useCallback(() => {
+    clearMediaTimeout();
     clearDurationTimer();
     callAudioManager.endCallAudioSession();
     if (webrtcSessionRef.current) {
@@ -213,7 +255,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     earlyIceCandidatesRef.current = [];
     setIsMuted(false);
     setIsSpeaker(false);
-  }, [clearDurationTimer]);
+  }, [clearDurationTimer, clearMediaTimeout]);
 
   /**
    * Start an outgoing 1-on-1 voice call
@@ -297,14 +339,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 3. Initialize WebRTC session
       // FIX-C: Pass onRemoteStream callback agar remote audio track terhubung ke native audio output.
       // Tanpa callback ini, suara dari peer tidak akan terdengar meskipun WebRTC connected.
+      const iceConfig = await fetchIceServers();
       const session = new WebRTCAudioSession(
         (state) => {
           console.log('[CallContext] PeerConnection state (caller):', state);
+          handlePeerConnectionState(state);
         },
         (stream) => {
           console.log('[CallContext] Remote audio stream received (caller), activating native audio...');
           callAudioManager.activateRemoteAudioStream(stream);
-        }
+        },
+        iceConfig
       );
       webrtcSessionRef.current = session;
 
@@ -325,7 +370,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
     },
-    [cleanupCallSession, recordCallLog]
+    [cleanupCallSession, recordCallLog, handlePeerConnectionState]
   );
 
   /**
@@ -399,14 +444,17 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveCall((prev) => (prev ? { ...prev, status: 'connecting' } : null));
 
     // FIX-C: Pass onRemoteStream callback agar remote audio track terhubung ke native audio output.
+    const iceConfig = await fetchIceServers();
     const session = new WebRTCAudioSession(
       (state) => {
         console.log('[CallContext] PeerConnection state (callee):', state);
+        handlePeerConnectionState(state);
       },
       (stream) => {
         console.log('[CallContext] Remote audio stream received (callee), activating native audio...');
         callAudioManager.activateRemoteAudioStream(stream);
-      }
+      },
+      iceConfig
     );
     webrtcSessionRef.current = session;
 
@@ -434,10 +482,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ? {
               ...prev,
               status: 'connected',
+              mediaState: prev.mediaState === 'connected' ? 'connected' : 'connecting',
               startTime: Date.now(),
             }
           : null
       );
+      armMediaTimeout();
     } catch (err) {
       console.error('[CallContext] Failed to accept call:', err);
       recordCallLog(current, 'failed', 0);
@@ -445,7 +495,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setActiveCall((prev) => (prev ? { ...prev, status: 'ended' } : null));
       setTimeout(() => setActiveCall(null), 1500);
     }
-  }, [cleanupCallSession, isSpeaker, recordCallLog]);
+  }, [cleanupCallSession, isSpeaker, recordCallLog, handlePeerConnectionState, armMediaTimeout]);
 
   /**
    * Reject incoming call
@@ -563,10 +613,12 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ? {
                 ...prev,
                 status: 'connected',
+                mediaState: prev.mediaState === 'connected' ? 'connected' : 'connecting',
                 startTime: Date.now(),
               }
             : null
         );
+        armMediaTimeout();
       } else if (current && !current.isCaller && current.status === 'incoming_ringing') {
         // Panggilan telah dijawab di perangkat lain milik akun yang sama
         callAudioManager.stopAllCallTones();
@@ -641,7 +693,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubEnd();
       unsubBusy();
     };
-  }, [cleanupCallSession, isSpeaker, recordCallLog]);
+  }, [cleanupCallSession, isSpeaker, recordCallLog, armMediaTimeout]);
 
   return (
     <CallContext.Provider

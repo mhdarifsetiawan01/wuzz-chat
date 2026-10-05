@@ -13,3 +13,4 @@ export * from './transfer';
 export * from './feedApi';
 export * from './connections';
 export * from './reports';
+export * from './calls';

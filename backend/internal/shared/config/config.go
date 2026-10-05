@@ -13,6 +13,13 @@ import (
 // Didesain terpusat dan berstruktur rapi agar mudah dibaca dan dipahami
 // oleh developer pemula maupun senior.
 type Config struct {
+	// TURN/STUN untuk panggilan suara (kredensial sementara via GET /api/calls/ice-servers).
+	// TURNSecret kosong = TURN nonaktif (klien hanya menerima STUN).
+	TURNSecret        string
+	TURNURLs          string // daftar URL dipisah koma, mis. "turn:43.157.227.115:3478?transport=udp,turn:43.157.227.115:3478?transport=tcp"
+	STUNURLs          string
+	TURNCredentialTTL time.Duration
+
 	// Server & Network
 	Port               string
 	CORSAllowedOrigins string
@@ -78,6 +85,11 @@ func Load() (*Config, error) {
 		TransferCleanupInterval: 10 * time.Minute,
 
 		Connection: LoadConnectionConfig(),
+
+		TURNSecret:        getEnv("TURN_SECRET", ""),
+		TURNURLs:          getEnv("TURN_URLS", ""),
+		STUNURLs:          getEnv("STUN_URLS", "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302"),
+		TURNCredentialTTL: getEnvDurationSeconds("TURN_CREDENTIAL_TTL_SECONDS", 10*time.Minute),
 
 		MinMobileBuild: getEnvInt("MIN_MOBILE_BUILD", 1),
 		PlayStoreURL:   getEnv("PLAY_STORE_URL", "https://play.google.com/store/apps/details?id=com.wuzzchat.mobile"),

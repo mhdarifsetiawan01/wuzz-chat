@@ -12,6 +12,24 @@ export type CallStatus =
   | 'connected'
   | 'ended';
 
+export type MediaState = 'connecting' | 'connected' | 'disconnected' | 'failed';
+
+/** Memetakan RTCPeerConnection.connectionState ke MediaState (state 'new'/'closed' diabaikan). */
+export function mapPeerConnectionState(state: string): MediaState | null {
+  switch (state) {
+    case 'connecting':
+      return 'connecting';
+    case 'connected':
+      return 'connected';
+    case 'disconnected':
+      return 'disconnected';
+    case 'failed':
+      return 'failed';
+    default:
+      return null;
+  }
+}
+
 export interface CallSession {
   room: string;
   peerId: string;
@@ -20,6 +38,10 @@ export interface CallSession {
   mediaType: 'audio';
   isCaller: boolean;
   status: CallStatus;
+  /** Status jalur media WebRTC (terpisah dari status sinyal `status`): timer hanya jalan bila 'connected'. */
+  mediaState?: MediaState;
+  /** Waktu media benar-benar tersambung (dasar timer & durasi bicara). */
+  mediaConnectedAt?: number;
   startTime?: number;
   isMuted?: boolean;
   isSpeaker?: boolean;
@@ -32,33 +54,34 @@ export interface IceServerConfig {
   credential?: string;
 }
 
+// Cadangan bila backend tak terjangkau: hanya STUN. TURN dengan kredensial sementara diambil dari
+// GET /api/calls/ice-servers (lihat fetchIceServers); TURN publik gratis `openrelayproject` dihapus karena tidak
+// menghasilkan kandidat relay (diuji 5 Okt 2026).
 export const DEFAULT_ICE_SERVERS: { iceServers: IceServerConfig[] } = {
   iceServers: [
-    // Google Public STUN Cluster
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-    // OpenRelay Public STUN & TURN Relay Cluster (Fallback untuk NAT/Firewall/4G/5G)
-    { urls: 'stun:stun.relay.metered.ca:80' },
-    {
-      urls: 'turn:standard.relay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turn:standard.relay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
-    {
-      urls: 'turn:standard.relay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
-    },
   ],
 };
+
+/**
+ * Mengambil STUN/TURN dari backend (timeout singkat agar panggilan tidak tertunda); gagal = pakai DEFAULT_ICE_SERVERS.
+ */
+export async function fetchIceServers(): Promise<{ iceServers: IceServerConfig[] }> {
+  try {
+    // Impor ditunda: menjaga modul ini ringan dan menghindari impor melingkar services <-> api.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { callsApi } = require('../api/calls') as typeof import('../api/calls');
+    const res = await callsApi.getIceServers(4000);
+    if (Array.isArray(res?.ice_servers) && res.ice_servers.length > 0) {
+      return { iceServers: res.ice_servers };
+    }
+  } catch (err) {
+    console.warn('[WebRTC] Gagal mengambil ICE servers dari backend, memakai STUN bawaan:', err);
+  }
+  return DEFAULT_ICE_SERVERS;
+}
 
 export function extractRawSDP(sdpInput: string): string {
   if (!sdpInput) return '';
@@ -128,12 +151,16 @@ export class WebRTCAudioSession {
   private onRemoteStreamCallback: ((stream: any) => void) | null = null;
   private isMuted: boolean = false;
 
+  private iceConfig: { iceServers: IceServerConfig[] };
+
   constructor(
     onConnectionStateChange?: (state: string) => void,
-    onRemoteStream?: (stream: any) => void
+    onRemoteStream?: (stream: any) => void,
+    iceConfig?: { iceServers: IceServerConfig[] }
   ) {
     this.onConnectionStateChangeCallback = onConnectionStateChange || null;
     this.onRemoteStreamCallback = onRemoteStream || null;
+    this.iceConfig = iceConfig || DEFAULT_ICE_SERVERS;
   }
 
   /**
@@ -150,7 +177,7 @@ export class WebRTCAudioSession {
 
     if (PeerConnectionClass) {
       try {
-        const pc = new PeerConnectionClass(DEFAULT_ICE_SERVERS);
+        const pc = new PeerConnectionClass(this.iceConfig);
         pc.onicecandidate = (event: any) => {
           if (event && event.candidate) {
             const candidateStr = typeof event.candidate.toJSON === 'function'

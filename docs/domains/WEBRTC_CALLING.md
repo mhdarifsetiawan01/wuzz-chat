@@ -62,3 +62,12 @@ sequenceDiagram
 ## 💻📱 3. Antarmuka Pengguna & Komponen (Web & Mobile)
 - **Modal Panggilan Masuk**: `IncomingCallModal.tsx` dengan tema Aurora Dark Mode, avatar berkedip/pendar neon, serta tombol "Tolak" (merah) dan "Terima" (hijau).
 - **Overlay Panggilan Aktif**: `ActiveCallOverlay.tsx` dengan live timer panggilan (mm:ss), toggle mute mikrofon, switch audio output, dan tombol tutup panggilan merah mengambang.
+
+---
+
+## 🌐 ICE/TURN & Status Media (5 Okt 2026)
+
+1. **ICE servers dari backend**: `GET /api/calls/ice-servers` (JWT) mengembalikan STUN + TURN dengan kredensial sementara (TURN REST API: `username=<exp>:<userID>`, `credential=base64(HMAC-SHA1(TURN_SECRET, username))`, TTL `TURN_CREDENTIAL_TTL_SECONDS`, default 600). `TURN_SECRET` kosong = hanya STUN. Mobile (`fetchIceServers`, timeout 4 dtk) mengambilnya tiap panggilan dimulai/dijawab; gagal = STUN bawaan. TURN publik `openrelayproject` dihapus (tidak menghasilkan kandidat relay). Setup server: `docs/TURN_SETUP.md`.
+2. **Status media jujur**: `CallSession.mediaState` (`connecting|connected|disconnected|failed`) berasal dari `RTCPeerConnection.connectionState`. Status sinyal `connected` (call_answer) hanya berarti dijawab; timer dan titik hijau baru muncul saat `mediaState==='connected'`. Bila media belum tersambung 25 dtk setelah dijawab → "Koneksi audio gagal". Belum ada ICE restart (butuh renegosiasi sinyal baru); dicatat sebagai pekerjaan lanjutan.
+3. **Diagnosis**: panggilan "tersambung" tetapi sunyi = tidak ada media (diukur dari `/proc/net/dev`); WiFi dengan *client isolation* memaksa relay TURN.
+

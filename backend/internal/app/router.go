@@ -345,6 +345,14 @@ func (a *Application) setupRouter() http.Handler {
 		}))
 	}
 
+	// Daftar STUN/TURN (kredensial sementara) untuk panggilan suara; selalu tersedia (TURN aktif bila TURN_SECRET diisi).
+	if a.Config != nil {
+		iceHandler := api.NewIceHandler(a.Config.TURNSecret, a.Config.TURNURLs, a.Config.STUNURLs, a.Config.TURNCredentialTTL)
+		mux.HandleFunc("/api/calls/ice-servers", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(iceHandler).ServeHTTP(w, r)
+		}))
+	}
+
 	if a.ReportHandler != nil {
 		mux.HandleFunc("/api/reports", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(a.ReportHandler.Handle)).ServeHTTP(w, r)

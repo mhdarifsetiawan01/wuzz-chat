@@ -52,7 +52,11 @@ export const ActiveCallOverlay: React.FC = () => {
       case 'connecting':
         return 'Menghubungkan...';
       case 'connected':
-        return formatCallDuration(callDuration);
+        // Status sinyal "connected" hanya berarti panggilan dijawab; timer baru jalan bila media WebRTC tersambung.
+        if (activeCall.mediaState === 'connected') return formatCallDuration(callDuration);
+        if (activeCall.mediaState === 'failed') return 'Koneksi audio gagal';
+        if (activeCall.mediaState === 'disconnected') return 'Koneksi terputus, mencoba menyambung...';
+        return 'Menyambungkan audio...';
       case 'ended':
         return activeCall.endReason || 'Panggilan Berakhir';
       default:
@@ -63,7 +67,8 @@ export const ActiveCallOverlay: React.FC = () => {
   const getStatusColor = () => {
     switch (activeCall.status) {
       case 'connected':
-        return colors.accentPrimary;
+        if (activeCall.mediaState === 'failed') return colors.colorError;
+        return activeCall.mediaState === 'connected' ? colors.accentPrimary : colors.textSecondary;
       case 'ended':
         return colors.colorError;
       default:
@@ -101,7 +106,7 @@ export const ActiveCallOverlay: React.FC = () => {
             {activeCall.peerNickname || 'Pengguna WuzzChat'}
           </Text>
           <View style={styles.statusBadge}>
-            {activeCall.status === 'connected' && (
+            {activeCall.status === 'connected' && activeCall.mediaState === 'connected' && (
               <View style={[styles.liveDot, { backgroundColor: getStatusColor() }]} />
             )}
             <Text style={[styles.statusText, { color: getStatusColor() }]}>
