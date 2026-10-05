@@ -28,6 +28,7 @@ import { useAuth, useConversations } from '../context';
 import { useFavoriteChats } from '../hooks/useFavoriteChats';
 import { ConnectionState, websocketClient } from '../services/websocket';
 import { colors, radius, spacing, typography } from '../theme';
+import { fabStyle, getFabBottom } from '../theme/fab';
 import { IconText } from '../components/IconText';
 import { Icon } from '../components/Icon';
 import { showAlert } from '../services/dialog';
@@ -657,7 +658,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
         <TouchableOpacity
           style={[
             styles.fab,
-            { bottom: Math.max(insets.bottom + 56, 72) },
+            { bottom: getFabBottom(insets.bottom) },
           ]}
           onPress={onStartNewChat}
           activeOpacity={0.82}
@@ -732,21 +733,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#475569',
   },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: colors.accentPrimary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: colors.accentPrimary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-  },
+  fab: fabStyle,
   fabIcon: {
     fontSize: 26,
   },

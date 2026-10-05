@@ -620,10 +620,28 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     };
   }, [isDirect, conversation.peer_id, conversation.peer_public_key, conversation.participants, roomId, currentUserId, e2eeKeyPair]);
 
+  // Teks kutipan balasan tidak boleh berupa ciphertext (mis. masuk lewat notifikasi saat kunci belum siap)
+  const safeQuotePreview = useCallback(
+    (msg: Message): string => {
+      const text = quotePreviewText(msg);
+      if (!isEncryptedMessage(text)) return text;
+      const key = roomAESKeyRef.current;
+      if (key) {
+        try {
+          return decryptText(key, text);
+        } catch {
+          /* jatuh ke placeholder */
+        }
+      }
+      return '🔒 Pesan terenkripsi';
+    },
+    []
+  );
+
   // 0B. Retroactively decrypt loaded messages once AES key is established
   useEffect(() => {
     if (!roomAESKey) return;
-    if (!messages.some((m) => isEncryptedMessage(m.content))) return;
+    if (!messages.some((m) => isEncryptedMessage(m.content) || isEncryptedMessage(m.reply_to?.content))) return;
     setMessages((prev) =>
       prev.map((m) => {
         if (isEncryptedMessage(m.content)) {
@@ -633,6 +651,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           } catch {
             return { ...m, content: '🔒 Pesan terenkripsi (kunci tidak cocok)', is_encrypted: true };
           }
+        }
+        if (m.reply_to && isEncryptedMessage(m.reply_to.content)) {
+          let quoted = '🔒 Pesan terenkripsi';
+          try {
+            quoted = decryptText(roomAESKey, m.reply_to.content ?? '');
+          } catch {
+            /* biarkan placeholder */
+          }
+          return { ...m, reply_to: { ...m.reply_to, content: quoted } };
         }
         return m;
       })
@@ -957,7 +984,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         ? {
             id: replyingTo.id,
             nickname: getMessageSenderName(replyingTo),
-            content: quotePreviewText(replyingTo),
+            content: safeQuotePreview(replyingTo),
             media_url: replyingTo.media_url,
             media_type: replyingTo.media_type,
           }
@@ -1012,7 +1039,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         );
       }
     },
-    [roomId, currentUserId, isDirect, replyingTo, title]
+    [roomId, currentUserId, isDirect, replyingTo, title, safeQuotePreview]
   );
 
   // 4b. Handle Send Audio Voice Note (WhatsApp Store-and-Forward + Optimistic UI)
@@ -1027,7 +1054,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         ? {
             id: replyingTo.id,
             nickname: getMessageSenderName(replyingTo),
-            content: quotePreviewText(replyingTo),
+            content: safeQuotePreview(replyingTo),
             media_url: replyingTo.media_url,
             media_type: replyingTo.media_type,
           }
@@ -1113,7 +1140,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         );
       }
     },
-    [roomId, currentUserId, replyingTo, title]
+    [roomId, currentUserId, replyingTo, title, safeQuotePreview]
   );
 
   // 5. Handle Reaction on Message
@@ -1994,7 +2021,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onPickCamera={isForumExpired ? undefined : handlePickCamera}
           onPickGallery={isForumExpired ? undefined : handlePickGallery}
           onCancelStagedMedia={handleCancelStagedMedia}
-          replyTo={replyingTo}
+          replyTo={replyingTo ? { ...replyingTo, content: safeQuotePreview(replyingTo) } : null}
           onEmojiPickerChange={setEmojiPickerOpen}
           // Grup besar / jumlah anggota belum diketahui: tidak mengirim typing (lihat TYPING_MAX_GROUP_MEMBERS)
           onTyping={shouldSendTyping(isDirect, memberCount) ? handleTyping : undefined}

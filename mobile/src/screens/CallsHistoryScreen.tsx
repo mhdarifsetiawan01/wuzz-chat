@@ -26,6 +26,7 @@ import { searchUsers } from '../api/users';
 import { Conversation, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { BottomSheetModal } from '../components/BottomSheetModal';
+import { fabStyle, getFabBottom } from '../theme/fab';
 import { useAuth, useCall, useConversations } from '../context';
 import { LocalCallRecord } from '../services';
 import { colors, radius, shadows, spacing, typography } from '../theme';
@@ -417,9 +418,7 @@ export const CallsHistoryScreen: React.FC = () => {
       <TouchableOpacity
         style={[
           styles.fab,
-          {
-            bottom: Math.max(insets.bottom + spacing.xl, spacing.xxxl),
-          },
+          { bottom: getFabBottom(insets.bottom) },
         ]}
         activeOpacity={0.85}
         onPress={() => setIsDialerOpen(true)}
@@ -436,6 +435,7 @@ export const CallsHistoryScreen: React.FC = () => {
           setSearchResults([]);
         }}
         title="Mulai Panggilan Suara"
+        avoidKeyboard
       >
         <View style={styles.modalContent}>
           {/* Search Box */}
@@ -711,17 +711,7 @@ const styles = StyleSheet.create({
   },
 
   // ── FAB ───────────────────────────────────────────────────────────────────
-  fab: {
-    position: 'absolute',
-    right: spacing.xl,
-    width: 56,
-    height: 56,
-    borderRadius: radius.full,
-    backgroundColor: colors.accentPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.modal,
-  },
+  fab: fabStyle,
   fabIcon: {
     fontSize: 24,
   },

@@ -38,6 +38,7 @@ import { SharePostToChatModal } from '../components/SharePostToChatModal';
 import { useAuth, useFeed } from '../context';
 import { RootStackParamList } from '../navigation/types';
 import { colors, spacing } from '../theme';
+import { fabStyle, getFabBottom } from '../theme/fab';
 import { IconText } from '../components/IconText';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { formatPostTime } from '../utils/feedTime';
@@ -384,7 +385,7 @@ export const FeedScreen: React.FC = () => {
       <TouchableOpacity
         style={[
           styles.fab,
-          { bottom: Math.max(insets.bottom + 70, 85) },
+          { bottom: getFabBottom(insets.bottom) },
         ]}
         onPress={() => setIsCreateModalOpen(true)}
         activeOpacity={0.85}
@@ -712,22 +713,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.accentPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: colors.accentPrimary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    zIndex: 90,
-  },
+  fab: fabStyle,
   fabIcon: {
     fontSize: 30,
     color: '#ffffff',

@@ -4,10 +4,11 @@
  * swipe-to-dismiss gesture, and safe-area padding compliance.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Keyboard,
   Modal,
   PanResponder,
   Platform,
@@ -28,6 +29,8 @@ export interface BottomSheetModalProps {
   visible: boolean;
   onClose: () => void;
   title?: string;
+  /** Naikkan sheet setinggi keyboard (Modal Android tidak ikut adjustResize). Opt-in untuk sheet berisi input. */
+  avoidKeyboard?: boolean;
   children: React.ReactNode;
 }
 
@@ -35,11 +38,26 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   visible,
   onClose,
   title,
+  avoidKeyboard = false,
   children,
 }) => {
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!avoidKeyboard || !visible) {
+      setKeyboardHeight(0);
+      return;
+    }
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [avoidKeyboard, visible]);
 
   // Open & Close animations
   useEffect(() => {
@@ -133,6 +151,7 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
           styles.modalRoot,
           {
             paddingTop: Math.max(insets.top, 24) + spacing.lg,
+            paddingBottom: keyboardHeight,
           },
         ]}
       >
