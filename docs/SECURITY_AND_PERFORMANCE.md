@@ -448,3 +448,12 @@ Seluruh lapisan keamanan dan optimasi performa di atas dilindungi oleh suite pen
 - [Arsitektur Database & WebSocket Protocol (`docs/ARCHITECTURE.md`)](ARCHITECTURE.md)
 - [Roadmap Pengembangan Fitur (`docs/ROADMAP.md`)](ROADMAP.md)
 - [Laporan Progres & Milestone Terkini (`docs/PROGRESS.md`)](PROGRESS.md)
+
+---
+
+## Pembatas Laju per Pengguna & TURN (5 Okt 2026)
+
+- `api.UserRateLimitMsg` (`backend/internal/api/upload_security.go`) membatasi per user (fallback IP), dipasang setelah `RequireJWT`: percobaan password (`DELETE /api/auth/me`, `verify-password`, `change-password`) 10/15 menit; `GET /api/calls/ice-servers` 20/menit; `POST /api/reports` 20/jam; `POST/DELETE /api/connections/block` 30/jam. Batas ada di `backend/internal/app/router.go`.
+- Pembatas laju bersifat in-memory per proses: bila backend dijalankan multi-instance, kuota berlaku per instance (pindahkan ke Redis bila dibutuhkan).
+- TURN (coturn) menerbitkan kredensial sementara dan dibatasi `total-quota`/`user-quota`/`max-bps`/`bps-capacity`/`no-tcp-relay`. Kapasitas dan jalur upgrade: `docs/TURN_SETUP.md` bagian 6. Insiden konfigurasi coturn: bagian 6.7.
+

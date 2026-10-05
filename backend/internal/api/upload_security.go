@@ -1,9 +1,11 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
@@ -50,6 +52,12 @@ func validateFeedImage(ext string, head []byte) bool {
 
 // UserRateLimit membatasi request per user (fallback ke IP). Dipasang setelah RequireJWT.
 func UserRateLimit(limiter *ratelimit.IPRateLimiter) func(http.Handler) http.Handler {
+	return UserRateLimitMsg(limiter, "Terlalu banyak permintaan unggah, coba lagi sebentar lagi.", 60)
+}
+
+// UserRateLimitMsg sama seperti UserRateLimit dengan pesan 429 dan Retry-After (detik) khusus endpoint.
+func UserRateLimitMsg(limiter *ratelimit.IPRateLimiter, message string, retryAfterSeconds int) func(http.Handler) http.Handler {
+	body, _ := json.Marshal(map[string]string{"error": message})
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			key := ratelimit.GetClientIP(r)
@@ -58,9 +66,9 @@ func UserRateLimit(limiter *ratelimit.IPRateLimiter) func(http.Handler) http.Han
 			}
 			if !limiter.Allow(key) {
 				w.Header().Set("Content-Type", "application/json")
-				w.Header().Set("Retry-After", "60")
+				w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds))
 				w.WriteHeader(http.StatusTooManyRequests)
-				_, _ = w.Write([]byte(`{"error":"Terlalu banyak permintaan unggah, coba lagi sebentar lagi."}`))
+				_, _ = w.Write(body)
 				return
 			}
 			next.ServeHTTP(w, r)

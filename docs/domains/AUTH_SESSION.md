@@ -29,7 +29,7 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Autentikasi, Manajemen S
    - Dihapus: pesan yang ditulis user (DM & grup) beserta pin, keanggotaan & permintaan gabung, relasi pertemanan, postingan/komentar/suka feed (counter post orang lain disinkronkan ulang), kredensial, sesi, perangkat, push token, token transfer/pertukaran.
    - Grup yang dibuat user: peran `creator` diwariskan ke admin/anggota tertua; jika tidak ada anggota lain, grup beserta pesannya dihapus.
    - Baris `users` dipertahankan sebagai **tombstone** (`username=deleted_<id>`, `display_name='Akun Terhapus'`, password/kunci/profil dikosongkan) agar referensi data milik orang lain tidak rusak; username asli dibebaskan. Seluruh JWT lama dicabut (`user_token_revocations`) dan koneksi WebSocket ditendang (`ACCOUNT_DELETED`).
-   - Berkas media fisik tidak dihapus langsung; mengikuti `PurgeWorker` (24 jam DM / 7 hari grup). Halaman publik: `/privacy`, `/terms`, `/delete-account` (frontend, dikecualikan dari gate web dijeda).
+   - Berkas media fisik tidak dihapus langsung; mengikuti `PurgeWorker` (24 jam DM / 7 hari grup). Percobaan password (hapus akun, `verify-password`, `change-password`) dibatasi 10 per 15 menit per pengguna (HTTP 429, `Retry-After: 900`), sebab token curian tidak boleh dipakai menebak password. Halaman publik: `/privacy`, `/terms`, `/delete-account` (frontend, dikecualikan dari gate web dijeda).
 
 ---
 

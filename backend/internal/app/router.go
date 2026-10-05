@@ -97,6 +97,11 @@ func (a *Application) setupRouter() http.Handler {
 	// =========================================================================
 	// 4. AUTHENTICATION & IDENTITY (Dual-Tier Rate Limited)
 	// =========================================================================
+	// Percobaan password oleh pengguna yang sudah login (hapus akun, verifikasi, ganti password): batasi agar token curian
+	// tidak bisa dipakai menebak password. Kuota per user, longgar untuk pemakaian sah.
+	passwordAttemptLimiter := ratelimit.NewIPRateLimiter(10, 15*time.Minute)
+	passwordAttemptLimit := api.UserRateLimitMsg(passwordAttemptLimiter, "Terlalu banyak percobaan password, coba lagi dalam 15 menit.", 900)
+
 	if a.AuthHandler != nil {
 		mux.HandleFunc("/api/auth/register", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			ratelimit.DualRateLimitMiddleware(a.AuthLimiter)(http.HandlerFunc(a.AuthHandler.Register)).ServeHTTP(w, r)
@@ -106,7 +111,7 @@ func (a *Application) setupRouter() http.Handler {
 		}))
 		mux.HandleFunc("/api/auth/me", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodDelete {
-				auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.DeleteAccount)).ServeHTTP(w, r)
+				auth.RequireJWT()(passwordAttemptLimit(http.HandlerFunc(a.AuthHandler.DeleteAccount))).ServeHTTP(w, r)
 				return
 			}
 			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.Me)).ServeHTTP(w, r)
@@ -145,10 +150,10 @@ func (a *Application) setupRouter() http.Handler {
 			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.UpdateProfile)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/verify-password", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.VerifyPassword)).ServeHTTP(w, r)
+			auth.RequireJWT()(passwordAttemptLimit(http.HandlerFunc(a.AuthHandler.VerifyPassword))).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/change-password", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.ChangePassword)).ServeHTTP(w, r)
+			auth.RequireJWT()(passwordAttemptLimit(http.HandlerFunc(a.AuthHandler.ChangePassword))).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/public-key", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet || r.Method == http.MethodHead {
@@ -348,14 +353,22 @@ func (a *Application) setupRouter() http.Handler {
 	// Daftar STUN/TURN (kredensial sementara) untuk panggilan suara; selalu tersedia (TURN aktif bila TURN_SECRET diisi).
 	if a.Config != nil {
 		iceHandler := api.NewIceHandler(a.Config.TURNSecret, a.Config.TURNURLs, a.Config.STUNURLs, a.Config.TURNCredentialTTL)
+		// Satu panggilan = 1 permintaan per perangkat; kuota ini mencegah akun terdaftar menimbun kredensial TURN.
+		iceLimit := api.UserRateLimitMsg(ratelimit.NewIPRateLimiter(20, time.Minute), "Terlalu banyak permintaan, coba lagi sebentar lagi.", 60)
 		mux.HandleFunc("/api/calls/ice-servers", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RequireJWT()(iceHandler).ServeHTTP(w, r)
+			auth.RequireJWT()(iceLimit(iceHandler)).ServeHTTP(w, r)
 		}))
 	}
 
 	if a.ReportHandler != nil {
+		// Membatasi pertumbuhan tabel content_reports oleh satu akun (tiap laporan bisa membawa hingga 16 KB).
+		reportLimit := api.UserRateLimitMsg(ratelimit.NewIPRateLimiter(20, time.Hour), "Terlalu banyak laporan dalam waktu singkat, coba lagi nanti.", 3600)
 		mux.HandleFunc("/api/reports", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RequireJWT()(http.HandlerFunc(a.ReportHandler.Handle)).ServeHTTP(w, r)
+			handler := http.Handler(http.HandlerFunc(a.ReportHandler.Handle))
+			if r.Method == http.MethodPost { // daftar untuk moderator (GET) tidak dibatasi
+				handler = reportLimit(handler)
+			}
+			auth.RequireJWT()(handler).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/reports/", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(a.ReportHandler.HandleItem)).ServeHTTP(w, r)
@@ -381,8 +394,13 @@ func (a *Application) setupRouter() http.Handler {
 		mux.HandleFunc("/api/connections", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(a.ConnectionHandler.RouteConnectionRequest)).ServeHTTP(w, r)
 		}))
+		blockLimit := api.UserRateLimitMsg(ratelimit.NewIPRateLimiter(30, time.Hour), "Terlalu banyak aksi blokir, coba lagi nanti.", 3600)
 		mux.HandleFunc("/api/connections/", withCORS(func(w http.ResponseWriter, r *http.Request) {
-			auth.RequireJWT()(http.HandlerFunc(a.ConnectionHandler.RouteConnectionRequest)).ServeHTTP(w, r)
+			handler := http.Handler(http.HandlerFunc(a.ConnectionHandler.RouteConnectionRequest))
+			if strings.HasPrefix(r.URL.Path, "/api/connections/block") && r.Method != http.MethodGet {
+				handler = blockLimit(handler)
+			}
+			auth.RequireJWT()(handler).ServeHTTP(w, r)
 		}))
 	}
 
