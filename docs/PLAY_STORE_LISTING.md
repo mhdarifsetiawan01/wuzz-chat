@@ -137,6 +137,7 @@ Rekam via adb: `adb exec-out screencap -p > shot.png` (lihat catatan alur build)
 **Short description** (71/80): `Chat, groups and voice calls. Direct messages are end-to-end encrypted.`
 
 ## 6. Daftar periksa sebelum mengirim ke Play
+- [ ] Proses moderasi nyata tersedia (alat moderasi: `docs/plans/backlog/MODERATION_TOOL.md`) dan SOP disepakati; janji `/child-safety` dapat dipenuhi.
 - [ ] `support@wuzzhub.id` aktif dan `NEXT_PUBLIC_SUPPORT_EMAIL` di Vercel diisi (lalu rebuild frontend).
 - [ ] Halaman `/privacy`, `/terms`, `/delete-account` terbuka dari jaringan luar (tanpa gate), dan teks privasi cocok dengan jawaban Data Safety.
 - [ ] Akun demo peninjau dibuat dan dites login di build Play.

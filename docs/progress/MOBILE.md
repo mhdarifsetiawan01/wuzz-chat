@@ -364,6 +364,8 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - **Perlu deploy backend** (`ssh deploy@<VPS_IP> ./deploy-chat.sh`) dan rebuild frontend; mobile butuh build baru.
 
 ## Fokus Berikutnya (What's Next)
+
+- **Alat moderasi laporan (halaman web moderator)** — rencana lengkap di `docs/plans/backlog/MODERATION_TOOL.md` (backend: penangguhan akun + audit + endpoint admin; frontend: `/admin/reports`; SOP). Dicatat 5 Okt 2026, belum dikerjakan.
 - [x] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
 
   - [x] **Tahap 1 (M-Mobile-9.1)**: Fondasi Profil & Identitas Publik Mobile (`bio`, `role`, `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, `UserProfileScreen.tsx`).

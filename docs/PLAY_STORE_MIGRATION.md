@@ -57,6 +57,7 @@ APK sebelumnya (hingga build 18) ditandatangani **kunci debug bawaan template** 
 - [~] **Draf Data Safety, deklarasi, dan naskah toko**: `docs/PLAY_STORE_LISTING.md` (belum dimasukkan ke Console; butir ⚠️ perlu dicocokkan dengan formulir terbaru).
 - [x] **Crashlytics** dipasang (build rilis lolos kompilasi+R8; tanpa izin baru); aktifkan di Firebase Console dan verifikasi dengan crash sintetis: `docs/CRASH_REPORTING.md`.
 - [x] **/child-safety** (halaman standar keselamatan anak) dibuat, dikecualikan dari gate web.
+- [ ] **Alat moderasi laporan** (halaman web moderator): **direncanakan, belum dikerjakan** — `docs/plans/backlog/MODERATION_TOOL.md`. Disarankan selesai sebelum rilis produksi; janji di `/child-safety` bergantung padanya.
 - [ ] **Belum**: isi formulir di Console, rating konten, aset toko (ikon, feature graphic, screenshot), closed testing 12 penguji × 14 hari (akun personal baru).
 
 ### 2.2 Konfigurasi Play Console
