@@ -564,6 +564,50 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// RefreshResponse adalah respons POST /api/auth/refresh.
+type RefreshResponse struct {
+	Refreshed bool      `json:"refreshed"`
+	Token     string    `json:"token,omitempty"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// Refresh menerbitkan token baru (sliding renewal) bila token saat ini hampir kedaluwarsa.
+// Dilindungi RequireJWT: token yang sudah dicabut atau kedaluwarsa ditolak 401 sebelum sampai sini.
+func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method tidak diizinkan"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	res, err := h.authSvc.RefreshToken(authz.RefreshInput{
+		Claims:    claims,
+		UserAgent: r.UserAgent(),
+		IP:        getClientIP(r),
+	})
+	if err != nil {
+		if errors.Is(err, authz.ErrSessionExpired) {
+			http.Error(w, `{"error":"Sesi berakhir, silakan login ulang"}`, http.StatusUnauthorized)
+			return
+		}
+		log.Printf("[Auth] ❌ Refresh gagal (user: %s): %v", claims.UserID, err)
+		http.Error(w, `{"error":"Gagal memperbarui token"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(RefreshResponse{
+		Refreshed: res.Refreshed,
+		Token:     res.Token,
+		ExpiresAt: res.ExpiresAt,
+	})
+}
+
 type VerifyPasswordRequest struct {
 	Password string `json:"password"`
 }

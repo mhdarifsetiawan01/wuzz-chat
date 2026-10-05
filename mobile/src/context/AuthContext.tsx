@@ -5,6 +5,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { AppState } from 'react-native';
 import { authApi } from '../api/auth';
 import { ApiError, LoginRequest, RegisterRequest, User } from '../api/types';
 import { updatePublicKey, resetPublicKey } from '../api/users';
@@ -14,6 +15,7 @@ import { notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
 import { clearFeedPosts, clearUserCache } from '../services/sqliteStorage';
 import { websocketClient } from '../services/websocket';
+import { shouldRefreshToken } from '../utils/jwt';
 import { useDevice } from './DeviceContext';
 
 export type E2EEStatus = 'uninitialized' | 'loading' | 'ready' | 'conflict' | 'error';
@@ -50,6 +52,23 @@ async function clearLocalAccountData(userId: string | undefined | null): Promise
     await clearFeedPosts(userId);
   } catch (err) {
     console.warn('[AuthContext] Failed to clear local data:', err);
+  }
+}
+
+/**
+ * Dipanggil setelah login/register sukses. Bila sesi sebelumnya berakhir karena token kedaluwarsa dan akun yang masuk
+ * sekarang berbeda, data lokal akun lama dihapus (isolasi antar akun). Akun yang sama memakai ulang cache-nya.
+ */
+async function purgeStaleAccountData(newUserId: string): Promise<void> {
+  try {
+    const expiredUserId = await secureStorage.getExpiredUserId();
+    if (!expiredUserId) return;
+    if (expiredUserId !== newUserId) {
+      await clearLocalAccountData(expiredUserId);
+    }
+    await secureStorage.deleteExpiredUserId();
+  } catch (err) {
+    console.warn('[AuthContext] Failed to purge stale account data:', err);
   }
 }
 
@@ -201,6 +220,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user?.id, deviceId]);
 
+  // Sliding renewal: perpanjang token saat sisa umurnya < 50% (saat app dibuka dan tiap kembali ke foreground).
+  // Kegagalan apa pun (offline, timeout, 401 sesi) diabaikan: token lama tetap berlaku sampai habis dan logout
+  // hanya dipicu oleh respons 401 pada request biasa.
+  useEffect(() => {
+    if (!token || !user?.id) return;
+    let cancelled = false;
+    let inFlight = false;
+
+    const run = async () => {
+      if (inFlight || !shouldRefreshToken(token)) return;
+      inFlight = true;
+      try {
+        const res = await authApi.refresh();
+        if (cancelled || !res.refreshed || !res.token) return;
+        await secureStorage.setAuthToken(res.token);
+        websocketClient.updateToken(res.token);
+        setToken(res.token);
+      } catch (err) {
+        console.warn('[AuthContext] Token refresh skipped:', err);
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    run();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') run();
+    });
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, [token, user?.id]);
+
   // Setup WebSocket session replaced handler
   useEffect(() => {
     websocketClient.onSessionReplaced((reason) => {
@@ -270,11 +323,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               console.warn('[AuthContext] Stored token expired, clearing session.');
               await notificationService.unsubscribeDevice().catch(() => {});
               await secureStorage.clearSession();
+              // Token habis bukan logout sukarela: cache lokal dipertahankan agar login ulang tidak mengunduh ulang
+              // seluruh riwayat dan pesan yang sudah terhapus di server tidak hilang. Dibersihkan di
+              // purgeStaleAccountData() bila yang login berikutnya akun berbeda.
+              await secureStorage.setExpiredUserId(savedUser.id);
               if (mounted) {
                 setToken(null);
                 setUser(null);
               }
-              await clearLocalAccountData(savedUser.id);
             } else {
               // Network error or offline - keep cached session and attempt connect
               websocketClient.reset();
@@ -310,6 +366,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await secureStorage.setAuthToken(response.token);
         await secureStorage.setUserData(response.user);
         await secureStorage.setCurrentUserId(response.user.id);
+        await purgeStaleAccountData(response.user.id);
 
         setToken(response.token);
         setUser(response.user);
@@ -342,6 +399,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await secureStorage.setAuthToken(response.token);
         await secureStorage.setUserData(response.user);
         await secureStorage.setCurrentUserId(response.user.id);
+        await purgeStaleAccountData(response.user.id);
 
         setToken(response.token);
         setUser(response.user);

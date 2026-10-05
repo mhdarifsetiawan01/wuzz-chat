@@ -107,6 +107,11 @@ func (a *Application) setupRouter() http.Handler {
 		mux.HandleFunc("/api/auth/me", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.Me)).ServeHTTP(w, r)
 		}))
+		mux.HandleFunc("/api/auth/refresh", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			// Tanpa AuthLimiter: bucket itu milik login/register (per IP) dan berbagi NAT akan memblokir login. Endpoint ini
+			// murah (token segar → refreshed:false) dan wajib JWT sah.
+			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.Refresh)).ServeHTTP(w, r)
+		}))
 		mux.HandleFunc("/api/auth/logout", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.Logout)).ServeHTTP(w, r)
 		}))

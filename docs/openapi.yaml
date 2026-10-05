@@ -103,7 +103,7 @@ paths:
         - B2B Gateway
       summary: Exchange One-Time Token for Session JWT
       description: |
-        Called by the third-party client application (Web/Mobile SDK) using the short-lived exchange token to receive a 7-day WuzzChat session JWT.
+        Called by the third-party client application (Web/Mobile SDK) using the short-lived exchange token to receive a 30-day WuzzChat session JWT.
       parameters:
         - $ref: '#/components/parameters/HeaderTenantID'
       requestBody:
@@ -228,6 +228,41 @@ paths:
                 $ref: '#/components/schemas/User'
         '401':
           description: Unauthorized or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/auth/refresh:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Refresh Token (Sliding Renewal)
+      description: >
+        Issues a new JWT (new JTI, full 30-day lifetime) when the current token has less than 50% of its lifetime
+        left. Otherwise returns `refreshed=false` and the client keeps its token. Sessions are capped at 365 days
+        since the original login (`auth_time`). The old token is left to expire naturally; its session record is
+        revoked. Revoked/expired tokens are rejected with 401 before reaching this handler.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Refresh result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  refreshed:
+                    type: boolean
+                  token:
+                    type: string
+                    description: Present only when refreshed=true
+                  expires_at:
+                    type: string
+                    format: date-time
+        '401':
+          description: Token invalid/revoked, session inactive, or absolute session age (365 days) exceeded
           content:
             application/json:
               schema:
@@ -2064,7 +2099,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: "Standard 7-day session token passed as Authorization: Bearer <token>."
+      description: "Standard 30-day session token passed as Authorization: Bearer <token>."
     B2BAppID:
       type: apiKey
       in: header
@@ -2200,7 +2235,7 @@ components:
       properties:
         token:
           type: string
-          description: 7-day session JWT
+          description: 30-day session JWT
         user:
           $ref: '#/components/schemas/User'
         expires_in:

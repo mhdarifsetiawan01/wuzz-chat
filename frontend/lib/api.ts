@@ -46,6 +46,7 @@ export async function apiRequest<T>(
         if (res.status === 401 && typeof window !== 'undefined') {
           const isCredentialValidationEndpoint =
             endpoint.startsWith('/api/auth/login') ||
+            endpoint.startsWith('/api/auth/refresh') ||
             endpoint.startsWith('/api/auth/register') ||
             endpoint.startsWith('/api/auth/verify-password') ||
             endpoint.startsWith('/api/auth/change-password') ||

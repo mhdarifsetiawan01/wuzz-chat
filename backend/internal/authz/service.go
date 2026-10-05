@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"log"
 	"strings"
 	"time"
@@ -289,7 +290,7 @@ func (s *AuthService) Logout(input LogoutInput) error {
 	if input.JTI != "" {
 		exp := input.TokenExp
 		if exp.IsZero() {
-			exp = time.Now().Add(7 * 24 * time.Hour)
+			exp = time.Now().Add(auth.TokenLifetime)
 		}
 		if err := s.repo.RevokeToken(input.JTI, exp); err != nil {
 			log.Printf("⚠️ [AuthService.Logout] Gagal mencabut token jti %s: %v", input.JTI, err)
@@ -331,7 +332,7 @@ func (s *AuthService) RevokeSession(sessionID, actorUserID string) error {
 	if err := s.repo.RevokeSession(sessionID, actorUserID); err != nil {
 		return err
 	}
-	if err := s.repo.RevokeToken(sessionID, time.Now().Add(7*24*time.Hour)); err != nil {
+	if err := s.repo.RevokeToken(sessionID, time.Now().Add(auth.TokenLifetime)); err != nil {
 		log.Printf("⚠️ [AuthService.RevokeSession] Gagal mencabut token untuk sesi %s: %v", sessionID, err)
 	}
 	return nil
@@ -394,7 +395,7 @@ func (s *AuthService) ChangePassword(input ChangePasswordInput) error {
 	if input.CurrentJTI != "" {
 		exp := input.TokenExp
 		if exp.IsZero() {
-			exp = time.Now().Add(7 * 24 * time.Hour)
+			exp = time.Now().Add(auth.TokenLifetime)
 		}
 		_ = s.repo.RevokeToken(input.CurrentJTI, exp)
 	}
@@ -575,3 +576,86 @@ func (s *AuthService) GetUserProfile(ctx context.Context, userID, username strin
 	return nil, sharederrors.ErrInvalidInput
 }
 
+
+// --- Refresh Token Use Case (sliding renewal) ---
+
+// ErrSessionExpired berarti sesi sudah melewati batas absolut (auth.MaxSessionAge) atau sesinya sudah tidak aktif.
+var ErrSessionExpired = errors.New("sesi berakhir, silakan login ulang")
+
+// RefreshInput adalah input untuk use case RefreshToken.
+type RefreshInput struct {
+	Claims    *auth.UserClaims // klaim token yang sudah divalidasi RequireJWT (belum kedaluwarsa & tidak dicabut)
+	UserAgent string
+	IP        string
+}
+
+// RefreshResult: Refreshed=false berarti token masih panjang sisa umurnya dan klien tetap memakai token lama.
+type RefreshResult struct {
+	Refreshed bool
+	Token     string
+	JTI       string
+	ExpiresAt time.Time
+}
+
+// RefreshToken menerbitkan token baru bagi sesi yang masih sah bila sisa masa berlaku token kurang dari
+// auth.RefreshWindow. Token lama dibiarkan habis alami (request yang sedang berjalan tidak gagal); record sesinya
+// dicabut agar daftar sesi hanya menampilkan sesi baru. Refresh tidak menambah perangkat.
+func (s *AuthService) RefreshToken(input RefreshInput) (*RefreshResult, error) {
+	old := input.Claims
+	if old == nil || old.ExpiresAt == nil {
+		return nil, ErrSessionExpired
+	}
+
+	// Batas absolut sejak login awal.
+	if time.Since(old.EffectiveAuthTime()) > auth.MaxSessionAge {
+		return nil, ErrSessionExpired
+	}
+
+	// Token masih segar: tidak perlu diperbarui.
+	if time.Until(old.ExpiresAt.Time) > auth.RefreshWindow {
+		return &RefreshResult{Refreshed: false, ExpiresAt: old.ExpiresAt.Time}, nil
+	}
+
+	// Sesi harus masih tercatat aktif dan perangkatnya belum dikeluarkan.
+	sessions, err := s.repo.GetActiveSessions(old.UserID)
+	if err != nil {
+		return nil, err
+	}
+	deviceID := ""
+	for _, sess := range sessions {
+		if sess.ID == old.ID {
+			deviceID = sess.DeviceID
+			break
+		}
+	}
+	if deviceID == "" {
+		return nil, ErrSessionExpired
+	}
+	devices, err := s.repo.GetUserDevices(old.UserID)
+	if err != nil {
+		return nil, err
+	}
+	deviceActive := false
+	for _, d := range devices {
+		if d.ID == deviceID {
+			deviceActive = true
+			break
+		}
+	}
+	if !deviceActive {
+		return nil, ErrSessionExpired
+	}
+
+	tokenStr, claims, err := auth.GenerateRefreshedToken(old)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.CreateSession(claims.ID, old.UserID, deviceID, input.UserAgent, input.IP, claims.ExpiresAt.Time); err != nil {
+		return nil, err
+	}
+	if err := s.repo.RevokeSession(old.ID, old.UserID); err != nil {
+		log.Printf("⚠️ [AuthService.RefreshToken] Gagal mencabut record sesi lama %s: %v", old.ID, err)
+	}
+
+	return &RefreshResult{Refreshed: true, Token: tokenStr, JTI: claims.ID, ExpiresAt: claims.ExpiresAt.Time}, nil
+}

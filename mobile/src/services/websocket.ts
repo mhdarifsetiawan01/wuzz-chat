@@ -124,6 +124,13 @@ class WebSocketClient {
   }
 
   /**
+   * Ganti token untuk reconnect berikutnya (hasil refresh) tanpa memutus koneksi yang sedang berjalan.
+   */
+  public updateToken(token: string): void {
+    this.token = token;
+  }
+
+  /**
    * Connect to WebSocket with token & device_id.
    */
   public connect(token: string, deviceId: string): void {

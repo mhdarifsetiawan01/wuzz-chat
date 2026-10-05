@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
   DEVICE_ID: 'wuzz_device_id',
   USER_DATA: 'wuzz_user_profile',
   CURRENT_USER_ID: 'wuzz_current_user_id',
+  EXPIRED_USER_ID: 'wuzz_expired_user_id',
   PUSH_TOKEN: 'wuzz_push_token',
   NOTIFICATIONS_ENABLED: 'wuzz_notifications_enabled',
   E2EE_PRIVATE_KEY_PREFIX: 'wuzz_e2ee_priv_',
@@ -118,6 +119,19 @@ export const secureStorage = {
 
   async deleteCurrentUserId(): Promise<void> {
     await this.deleteItem(STORAGE_KEYS.CURRENT_USER_ID);
+  },
+
+  /** Menandai akun yang sesinya habis (token 401) agar cache lokalnya dipertahankan sampai login berikutnya. */
+  async setExpiredUserId(userId: string): Promise<void> {
+    await this.setItem(STORAGE_KEYS.EXPIRED_USER_ID, userId);
+  },
+
+  async getExpiredUserId(): Promise<string | null> {
+    return await this.getItem(STORAGE_KEYS.EXPIRED_USER_ID);
+  },
+
+  async deleteExpiredUserId(): Promise<void> {
+    await this.deleteItem(STORAGE_KEYS.EXPIRED_USER_ID);
   },
 
   async clearSession(): Promise<void> {

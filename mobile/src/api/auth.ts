@@ -30,6 +30,16 @@ export const authApi = {
   },
 
   /**
+   * POST /api/auth/refresh
+   * Sliding renewal: refreshed=false bila token masih panjang sisa umurnya.
+   */
+  async refresh(): Promise<{ refreshed: boolean; token?: string; expires_at: string }> {
+    return apiClient<{ refreshed: boolean; token?: string; expires_at: string }>('/api/auth/refresh', {
+      method: 'POST',
+    });
+  },
+
+  /**
    * GET /api/auth/me
    */
   async getMe(): Promise<User> {

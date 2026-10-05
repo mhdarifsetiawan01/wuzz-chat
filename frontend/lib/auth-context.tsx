@@ -8,6 +8,7 @@ import type { User } from './types'
 import { unsubscribeFromPushNotifications, saveAuthTokenToCache, clearAuthTokenFromCache } from './pushNotification'
 import { clearAllMessageCache } from './messageCache'
 import { getOrCreateDeviceId } from './crypto/keyStore'
+import { shouldRefreshToken } from './jwt'
 
 /**
  * Mendeteksi nama ramah perangkat dari User-Agent browser.
@@ -94,6 +95,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setIsLoading(false)
   }, [])
+
+  // Sliding renewal: perpanjang token saat sisa umurnya < 50% (saat dibuka dan tiap tab kembali terlihat).
+  // Kegagalan apa pun diabaikan; logout hanya dipicu 401 pada request biasa (lihat apiRequest).
+  useEffect(() => {
+    if (!token || !user?.id) return
+    let cancelled = false
+    let inFlight = false
+    const userId = user.id
+
+    const run = async () => {
+      if (inFlight || !shouldRefreshToken(token)) return
+      inFlight = true
+      try {
+        const { data } = await apiRequest<{ refreshed: boolean; token?: string }>('/api/auth/refresh', { method: 'POST' })
+        if (cancelled || !data?.refreshed || !data.token) return
+        localStorage.setItem('wuzz_auth_token', data.token)
+        saveAuthTokenToCache(data.token, userId)
+        setToken(data.token)
+      } catch (err) {
+        console.warn('[Auth] Refresh token dilewati:', err)
+      } finally {
+        inFlight = false
+      }
+    }
+
+    run()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') run()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [token, user?.id])
 
   const login = (newToken: string, newUser: User) => {
     setToken(newToken)

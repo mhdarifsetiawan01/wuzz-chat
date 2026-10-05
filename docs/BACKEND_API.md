@@ -46,7 +46,7 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
 > 💡 **CORS & Origin Handling**: Backend mendukung validasi origin dinamis via `ALLOWED_ORIGINS` (mendukung domain `https://chat.wuzzhub.id`, `*.vercel.app`, dan `http://localhost:3000`).
 
 ### 1.2 Autentikasi (JWT Bearer Token)
-- Masa berlaku token JWT: **7 hari**.
+- Masa berlaku token JWT: **30 hari** (diperpanjang otomatis lewat `/api/auth/refresh`, batas absolut 365 hari).
 - REST API: Sertakan header `Authorization: Bearer <jwt_token>`.
 - WebSocket: Sertakan query parameter `?token=<jwt_token>` pada URL koneksi (`/ws?token=...`).
 

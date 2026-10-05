@@ -9,7 +9,8 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Autentikasi, Manajemen S
 1. **Pemisahan Kredensial**:
    - Kata sandi disimpan terpisah di tabel `user_credentials` dalam bentuk hash `bcrypt` (cost 10). Tabel `users` bersih dari data kata sandi.
 2. **Siklus Hidup JWT & Token Revocation**:
-   - Akses token JWT memiliki masa aktif 7 hari.
+   - Akses token JWT memiliki masa aktif 30 hari sejak diterbitkan (login maupun refresh).
+   - **Sliding renewal**: `POST /api/auth/refresh` menerbitkan token baru (jti baru) bila sisa masa berlaku < 50% (15 hari); selain itu `refreshed:false`. Batas absolut sesi 365 hari sejak login awal (klaim `auth_time`, fallback `iat` untuk token lama); lewat itu 401 dan wajib login ulang. Token lama dibiarkan habis alami, record sesinya dicabut. Refresh tidak menambah perangkat dan ditolak bila sesi/perangkat sudah dicabut. Kegagalan refresh di klien **tidak boleh** memicu logout.
    - Setiap token memuat klaim unik `jti` (UUID). Saat pengguna melakukan logout atau mengganti kata sandi, `jti` dicatat di tabel `revoked_tokens` (*blacklist*).
    - Middleware memvalidasi bahwa `jti` belum kedaluwarsa dan tidak ada di daftar blacklist.
 3. **Batas Kuota Perangkat (Maksimal 2 Perangkat Aktif)**:
@@ -61,6 +62,7 @@ backend/internal/authz/
 |---|---|---|---|
 | `POST` | `/api/auth/register` | Publik | Registrasi akun baru |
 | `POST` | `/api/auth/login` | Publik | Login & terbitkan JWT token |
+| `POST` | `/api/auth/refresh` | Terproteksi | Perpanjang token (sliding renewal, lihat invarian 2) |
 | `POST` | `/api/auth/logout` | Terproteksi | Logout & cabut sesi perangkat |
 | `POST` | `/api/auth/change-password` | Terproteksi | Ganti password & revoke seluruh sesi lain |
 | `GET` | `/api/auth/sessions` | Terproteksi | Daftar sesi aktif |
