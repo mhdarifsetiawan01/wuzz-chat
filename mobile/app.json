@@ -3,20 +3,20 @@
     "name": "WuzzChat",
     "slug": "wuzz-chat",
     "scheme": "wuzzchat",
-    "version": "1.21.0",
+    "version": "1.21.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "31",
+      "buildNumber": "32",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "WuzzChat memerlukan izin akses mikrofon untuk melakukan panggilan suara dan mengirim pesan audio."
       }
     },
     "android": {
       "package": "com.wuzzchat.mobile",
-      "versionCode": 31,
+      "versionCode": 32,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0462E8",
@@ -32,7 +32,6 @@
         "android.permission.INTERNET",
         "android.permission.CAMERA",
         "android.permission.ACCESS_NETWORK_STATE",
-        "android.permission.BLUETOOTH",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE"
       ],
@@ -98,6 +97,7 @@
       "./plugins/withAndroidEdgeToEdgeKeyboard",
       "./plugins/withAndroidReleaseOptimization",
       "./plugins/withAndroidReleaseSigning",
+      "./plugins/withAndroidPermissionCleanup",
       [
         "expo-splash-screen",
         {
