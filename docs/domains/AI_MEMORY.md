@@ -28,7 +28,7 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Group Memory AI (Forum I
 1. **Enqueue Job**: Job ekstraksi dimasukkan ke tabel `forum_memory_jobs` saat topik kedaluwarsa atau dipicu on-demand.
 2. **Worker Non-Blocking**: Goroutine backend Go mem-polling antrean via `SELECT ... FOR UPDATE SKIP LOCKED` untuk mencegah race condition antar-node.
 3. **Context Ingestion**: `ContextSource` mengambil riwayat pesan terotorisasi.
-4. **LLM Extraction**: `AIService` (Google Gemini) memproses prompt terstruktur dengan schema JSON ketat dan confidence score (0.00–1.00).
+4. **LLM Extraction**: `AIService` (produksi memakai Groq, model dari env; `GeminiProvider` tersedia sebagai alternatif) memproses prompt terstruktur dengan schema JSON ketat dan confidence score (0.00–1.00).
 5. **Review Suite**: Admin meninjau draft di drawer UI (<30 detik one-click approval / edit / reject).
 6. **Knowledge Archive**: Keputusan yang disetujui dipublikasikan ke `approved_memories` untuk dibaca seluruh anggota.
 

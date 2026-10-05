@@ -6111,13 +6111,18 @@ h4 { font-size: 1rem;   font-weight: 600; }
    LEGAL PAGES (privacy, terms, delete-account) — publik, tanpa login
    ================================================================ */
 
+/* html/body global memakai overflow:hidden (shell aplikasi chat), jadi halaman legal harus menjadi area gulirnya sendiri. */
 .legal-page {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
   padding: var(--space-6) var(--space-4);
   background: var(--bg-base);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .legal-card {

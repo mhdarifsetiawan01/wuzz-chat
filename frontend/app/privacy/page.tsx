@@ -39,13 +39,13 @@ export default function PrivacyPage() {
       <ul>
         <li>Menjalankan layanan: autentikasi, mengirim pesan, panggilan, dan notifikasi.</li>
         <li>Keamanan: membatasi jumlah perangkat, mencabut sesi, mencegah penyalahgunaan, dan menindaklanjuti laporan.</li>
-        <li>Fitur AI Memory: pada <strong>ruang diskusi terbuka dan topik forum</strong>, teks pesan dapat dikirim ke layanan Google Gemini untuk menyusun ringkasan. Hasilnya hanya terbit setelah disetujui admin. Pesan langsung E2EE tidak pernah dibaca AI.</li>
+        <li>Fitur AI Memory: pada <strong>ruang diskusi terbuka dan topik forum</strong>, teks pesan dapat dikirim ke layanan model bahasa (LLM) pihak ketiga, yaitu Groq, untuk menyusun ringkasan. Hasilnya hanya terbit setelah disetujui admin. Pesan langsung E2EE tidak pernah dibaca AI.</li>
       </ul>
 
       <h2>4. Pihak ketiga yang memproses data</h2>
       <ul>
         <li>Google Firebase Cloud Messaging: mengantar notifikasi push (menerima token perangkat dan isi notifikasi).</li>
-        <li>Google Gemini: ringkasan AI Memory pada forum terbuka, seperti dijelaskan di atas.</li>
+        <li>Groq (penyedia inferensi model bahasa): menerima teks pesan dari forum terbuka untuk ringkasan AI Memory, seperti dijelaskan di atas.</li>
         <li>Penyedia infrastruktur kami (server, basis data, penyimpanan berkas, dan Redis) yang hanya memproses data atas perintah kami.</li>
       </ul>
       <p>Kami dapat mengungkapkan data bila diwajibkan hukum yang berlaku.</p>
