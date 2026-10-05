@@ -861,6 +861,29 @@ export function deleteStoredMessage(userId: string, roomId: string, messageId: s
 }
 
 /**
+ * Menghapus satu percakapan beserta seluruh pesan cache-nya dari SQLite (aksi "Hapus Percakapan").
+ * Tanpa ini baris percakapan tetap ada dan muncul sesaat pada cold start (saveStoredConversations tidak
+ * pernah menghapus baris yang hilang dari server), dan pesan lama muncul lagi saat room dibuka.
+ */
+export function deleteStoredConversation(userId: string, roomId: string): Promise<void> {
+  return runExclusive(async () => {
+    if (!userId || !roomId) return;
+
+    try {
+      const db = await getDatabase();
+      await db.withTransactionAsync(async () => {
+        await db.runAsync(`DELETE FROM local_messages WHERE user_id = ? AND room_id = ?`, [userId, roomId]);
+        await db.runAsync(`DELETE FROM local_conversations WHERE user_id = ? AND id = ?`, [userId, roomId]);
+      });
+      forgetRoomSignatures(userId, roomId);
+      forgetConversationSignature(userId, roomId);
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to deleteStoredConversation:', error);
+    }
+  });
+}
+
+/**
  * Clears all cached conversations and messages for a specific user.
  * Used during logout to guarantee user isolation and privacy protection.
  */

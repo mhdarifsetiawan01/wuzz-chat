@@ -57,4 +57,16 @@ export const conversationsApi = {
       }),
     });
   },
+
+  /**
+   * POST /api/conversations/clear
+   * Membersihkan riwayat untuk user ini saja (cleared_at). Lawan bicara tidak terpengaruh dan
+   * percakapan muncul lagi di daftar bila ada pesan baru. Handler backend membaca `id` / `conversation_id`.
+   */
+  async clearConversation(roomId: string): Promise<{ success: boolean; id: string }> {
+    return apiClient<{ success: boolean; id: string }>('/api/conversations/clear', {
+      method: 'POST',
+      body: JSON.stringify({ conversation_id: roomId, id: roomId }),
+    });
+  },
 };

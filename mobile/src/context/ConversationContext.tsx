@@ -30,6 +30,7 @@ import {
   getStoredConversations,
   saveStoredConversations,
   updateStoredConversationPin as persistConversationPin,
+  deleteStoredConversation,
   updateStoredConversationUnread,
 } from '../services/sqliteStorage';
 import { secureStorage } from '../services/secureStorage';
@@ -42,6 +43,8 @@ export interface ConversationContextType {
   activeRoomId: string | null;
   refreshConversations: (isSilent?: boolean) => Promise<void>;
   updateConversationPin: (roomId: string, isPinned: boolean) => Promise<void>;
+  /** Hapus percakapan untuk akun ini saja (server menyimpan cleared_at); lawan bicara tidak terpengaruh. */
+  clearConversation: (roomId: string) => Promise<void>;
   markConversationAsRead: (roomId: string) => void;
   setActiveRoomId: (roomId: string | null) => void;
 }
@@ -395,6 +398,28 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [user?.id]
   );
 
+  /**
+   * Menghapus percakapan dari daftar. Server dulu (bukan optimistis): bila gagal, daftar tetap utuh dan
+   * pemanggil menampilkan error. Setelah sukses, state dan cache SQLite dibersihkan.
+   */
+  const clearConversation = useCallback(
+    async (roomId: string) => {
+      if (!roomId) return;
+
+      await conversationsApi.clearConversation(roomId);
+
+      setConversations((prev) => prev.filter((c) => c.id !== roomId && c.room_id !== roomId));
+      if (user?.id) {
+        deleteStoredConversation(user.id, roomId).catch(() => {});
+      }
+      // Fetch yang sedang berjalan bisa saja membawa daftar lama; ulangi setelah selesai
+      if (isFetchingRef.current) {
+        pendingRefreshRef.current = true;
+      }
+    },
+    [user?.id]
+  );
+
   // Synchronize on authentication state changes (Cache-First Hydration)
   useEffect(() => {
     if (!isAuthenticated || !user?.id) {
@@ -500,6 +525,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         activeRoomId,
         refreshConversations,
         updateConversationPin,
+        clearConversation,
         markConversationAsRead,
         setActiveRoomId,
       }}

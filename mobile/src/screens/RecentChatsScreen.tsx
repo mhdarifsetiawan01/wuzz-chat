@@ -24,7 +24,7 @@ import { ChatListItem } from '../components/ChatListItem';
 import { NotificationSettingsModal } from '../components/NotificationSettingsModal';
 import { DeviceTransferModal } from '../components/DeviceTransferModal';
 import { BottomSheetModal, ActionMenuItem } from '../components/BottomSheetModal';
-import { useAuth, useConversations } from '../context';
+import { useAuth, useConversations, useMessageActions } from '../context';
 import { useFavoriteChats } from '../hooks/useFavoriteChats';
 import { ConnectionState, websocketClient } from '../services/websocket';
 import { colors, radius, spacing, typography } from '../theme';
@@ -52,8 +52,10 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     isRefreshing,
     refreshConversations,
     updateConversationPin,
+    clearConversation,
     markConversationAsRead,
   } = useConversations();
+  const { clearRoomCache } = useMessageActions();
   const { favoriteIds, toggleFavorite, maxFavorites } = useFavoriteChats(user?.id);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [isDeviceTransferModalOpen, setIsDeviceTransferModalOpen] = useState<boolean>(false);
@@ -95,6 +97,34 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
       showAlert('Gagal', err?.message || 'Gagal mengubah status sematan obrolan.');
     }
   }, [chatMenuTarget, updateConversationPin]);
+
+  const handleDeleteChatFromMenu = useCallback(() => {
+    const chat = chatMenuTarget;
+    const roomId = chat?.id || chat?.room_id;
+    setChatMenuTarget(null);
+    if (!chat || !roomId) return;
+    const name = chat.title || chat.peer_nickname || chat.name || 'obrolan ini';
+    showAlert(
+      'Hapus Percakapan?',
+      `Seluruh riwayat dengan ${name} dihapus dari akun Anda. Lawan bicara tetap menyimpan pesannya, dan percakapan muncul lagi bila ada pesan baru.`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearConversation(roomId);
+              clearRoomCache(roomId);
+              if (favoriteIds.includes(roomId)) toggleFavorite(roomId);
+            } catch (err: any) {
+              showAlert('Gagal', err?.message || 'Gagal menghapus percakapan.');
+            }
+          },
+        },
+      ]
+    );
+  }, [chatMenuTarget, clearConversation, clearRoomCache, favoriteIds, toggleFavorite]);
 
   useEffect(() => {
     // Stale-While-Revalidate: revalidate silently if conversations already present in context
@@ -538,6 +568,8 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
         const roomId = chatMenuTarget?.id || chatMenuTarget?.room_id || '';
         const isFavorite = favoriteIds.includes(roomId);
         const isPinned = Boolean(chatMenuTarget?.is_pinned || chatMenuTarget?.pinned);
+        // Hanya obrolan pribadi: di grup, menghapus riwayat membuat grup hilang padahal pengguna masih anggota
+        const isDirect = (chatMenuTarget?.type ?? 'direct') === 'direct' && !chatMenuTarget?.is_group;
         const isFull = !isFavorite && favoriteIds.length >= maxFavorites;
         return (
           <BottomSheetModal
@@ -571,6 +603,15 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
                 }
                 onPress={handleTogglePinFromMenu}
               />
+              {isDirect && (
+                <ActionMenuItem
+                  icon="🗑️"
+                  label="Hapus Percakapan"
+                  subtitle="Hapus riwayat dari akun Anda saja"
+                  destructive
+                  onPress={handleDeleteChatFromMenu}
+                />
+              )}
             </View>
           </BottomSheetModal>
         );
