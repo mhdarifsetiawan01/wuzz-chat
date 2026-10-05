@@ -73,3 +73,9 @@ sequenceDiagram
 4. **Skala & upgrade**: batas alokasi/bandwidth coturn, perkiraan kapasitas, pemantauan, uji beban, dan jalur upgrade (kuota -> TURN terpisah -> beberapa server -> TLS 443 -> TURN terkelola) ada di `docs/TURN_SETUP.md` bagian 6. Developer berikutnya: baca bagian itu **sebelum** jumlah pengguna naik.
 5. **Pekerjaan lanjutan yang diketahui**: ICE restart (butuh renegosiasi sinyal), foreground service mikrofon untuk panggilan saat layar mati (butuh deklarasi Play Console), pemantauan otomatis coturn.
 
+### Sinyal ICE & room (penting; bug 5 Okt 2026)
+- Server meneruskan `ice_candidate`/`call_*` **hanya ke anggota room yang sedang terhubung** (`Hub.BroadcastRoom`). **Penjawab baru masuk room saat menekan angkat** (`joinRoom` di `acceptCall`).
+  Akibatnya kandidat ICE yang dikirim penelepon **selama telepon berdering hilang di server**. Kandidat relay TURN yang hilang membuat media gagal tersambung pada jaringan tanpa P2P (mis. WiFi dengan *client isolation*); karena waktunya acak, gejalanya **intermiten**.
+- Perbaikan: `OutgoingIceBuffer` (`mobile/src/utils/iceCandidateBuffer.ts`) menahan kandidat penelepon sampai `call_answer` diterima lalu mengirim semuanya berurutan; `acceptCall` juga memberikan `earlyIceCandidatesRef` (kandidat yang tiba sebelum sesi ada) ke sesi (sebelumnya buffer itu hanya diisi, tak pernah dibaca).
+- Diagnosis: aktifkan `verbose` coturn sementara. Pada panggilan sehat **kedua** username (penelepon dan penjawab) membuat `CREATE_PERMISSION ... success`; bila hanya satu sisi, sisi lain tidak menerima kandidat lawan.
+

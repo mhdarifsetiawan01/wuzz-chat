@@ -28,6 +28,7 @@ import {
 } from '../services';
 import { startDirectChat } from '../api/users';
 import { fetchIceServers, mapPeerConnectionState } from '../services/webrtcService';
+import { OutgoingIceBuffer } from '../utils/iceCandidateBuffer';
 import { showAlert } from '../services/dialog';
 
 interface CallContextType {
@@ -82,6 +83,8 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const webrtcSessionRef = useRef<WebRTCAudioSession | null>(null);
   const pendingOfferSdpRef = useRef<string | null>(null);
   const earlyIceCandidatesRef = useRef<string[]>([]);
+  // Kandidat ICE penelepon ditahan sampai panggilan dijawab (penjawab baru masuk room saat angkat; lihat OutgoingIceBuffer).
+  const outgoingIceRef = useRef<OutgoingIceBuffer>(new OutgoingIceBuffer());
   const durationTimerRef = useRef<any>(null);
   const mediaTimeoutRef = useRef<any>(null);
 
@@ -253,6 +256,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     pendingOfferSdpRef.current = null;
     earlyIceCandidatesRef.current = [];
+    outgoingIceRef.current.reset();
     setIsMuted(false);
     setIsSpeaker(false);
   }, [clearDurationTimer, clearMediaTimeout]);
@@ -354,8 +358,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       webrtcSessionRef.current = session;
 
       try {
+        outgoingIceRef.current.reset();
         const offerSdp = await session.createOffer((candidateJson) => {
-          websocketClient.sendIceCandidate(targetRoomId, candidateJson);
+          outgoingIceRef.current.submit(candidateJson, (c) => websocketClient.sendIceCandidate(targetRoomId, c));
         });
 
         // 4. Send SDP Offer via WebSocket signaling
@@ -467,6 +472,13 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const answerSdp = await session.createAnswer(offerSdp, (candidateJson) => {
         websocketClient.sendIceCandidate(current.room, candidateJson);
       });
+
+      // Kandidat penelepon yang tiba sebelum sesi ada (mis. saat mengambil ICE servers) harus diberikan ke sesi, bukan dibuang.
+      const earlyCandidates = earlyIceCandidatesRef.current;
+      earlyIceCandidatesRef.current = [];
+      for (const candidate of earlyCandidates) {
+        session.addIceCandidate(candidate).catch(() => {});
+      }
 
       // Ensure socket is connected before sending answer
       await websocketClient.ensureConnected(4000);
@@ -606,6 +618,9 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.warn('[CallContext] Error handling remote answer SDP:', err);
           });
         }
+
+        // Penjawab sudah masuk room: kirim semua kandidat yang tertahan selama berdering.
+        outgoingIceRef.current.release((c) => websocketClient.sendIceCandidate(current.room, c));
 
         callAudioManager.startCallAudioSession(isSpeaker);
         setActiveCall((prev) =>
