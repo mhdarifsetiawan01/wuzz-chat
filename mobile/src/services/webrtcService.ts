@@ -83,6 +83,19 @@ export async function fetchIceServers(): Promise<{ iceServers: IceServerConfig[]
   return DEFAULT_ICE_SERVERS;
 }
 
+export function countCandidateType(counts: Record<string, number>, candidate: unknown): void {
+  if (typeof candidate !== 'string') return;
+  const match = /\btyp (host|srflx|prflx|relay)\b/.exec(candidate);
+  if (match) counts[match[1]] = (counts[match[1]] || 0) + 1;
+}
+
+export function formatCandidateCounts(counts: Record<string, number>): string {
+  const parts = Object.keys(counts)
+    .sort()
+    .map((k) => `${k}:${counts[k]}`);
+  return parts.length ? parts.join(',') : 'none';
+}
+
 export function extractRawSDP(sdpInput: string): string {
   if (!sdpInput) return '';
   const trimmed = sdpInput.trim();
@@ -150,6 +163,11 @@ export class WebRTCAudioSession {
   private onConnectionStateChangeCallback: ((state: string) => void) | null = null;
   private onRemoteStreamCallback: ((stream: any) => void) | null = null;
   private isMuted: boolean = false;
+  // Diagnostik (tanpa data pribadi): hanya status dan jumlah kandidat per jenis (host/srflx/relay), TANPA alamat IP.
+  private localCandidateTypes: Record<string, number> = {};
+  private remoteCandidateTypes: Record<string, number> = {};
+  private iceState = 'new';
+  private gatheringState = 'new';
 
   private iceConfig: { iceServers: IceServerConfig[] };
 
@@ -178,8 +196,15 @@ export class WebRTCAudioSession {
     if (PeerConnectionClass) {
       try {
         const pc = new PeerConnectionClass(this.iceConfig);
+        pc.oniceconnectionstatechange = () => {
+          this.iceState = pc.iceConnectionState || this.iceState;
+        };
+        pc.onicegatheringstatechange = () => {
+          this.gatheringState = pc.iceGatheringState || this.gatheringState;
+        };
         pc.onicecandidate = (event: any) => {
           if (event && event.candidate) {
+            countCandidateType(this.localCandidateTypes, event.candidate.candidate);
             const candidateStr = typeof event.candidate.toJSON === 'function'
               ? JSON.stringify(event.candidate.toJSON())
               : JSON.stringify(event.candidate);
@@ -356,6 +381,7 @@ export class WebRTCAudioSession {
   public async addIceCandidate(candidateJson: string): Promise<void> {
     try {
       const candidateInit = typeof candidateJson === 'string' ? JSON.parse(candidateJson) : candidateJson;
+      countCandidateType(this.remoteCandidateTypes, candidateInit?.candidate);
       if (this.pc && this.pc.remoteDescription && typeof this.pc.addIceCandidate === 'function') {
         await this.pc.addIceCandidate(candidateInit);
       } else {
@@ -364,6 +390,43 @@ export class WebRTCAudioSession {
     } catch (err) {
       console.warn('[WebRTC] addIceCandidate error:', err);
     }
+  }
+
+  /**
+   * Ringkasan diagnostik koneksi untuk Crashlytics. Aman privasi: status, jumlah kandidat per jenis, dan jenis pasangan
+   * kandidat terpilih (mis. "relay-srflx"); tidak memuat alamat IP.
+   */
+  public async collectDiagnostics(): Promise<Record<string, string>> {
+    const pc = this.pc;
+    const d: Record<string, string> = {
+      call_ice: this.iceState,
+      call_gather: this.gatheringState,
+      call_sig: pc?.signalingState ?? 'none',
+      call_local: formatCandidateCounts(this.localCandidateTypes),
+      call_remote: formatCandidateCounts(this.remoteCandidateTypes),
+    };
+    if (pc && typeof pc.getStats === 'function') {
+      try {
+        const stats: any = await Promise.race([
+          pc.getStats(),
+          new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
+        ]);
+        if (stats && typeof stats.forEach === 'function') {
+          const byId = new Map<string, any>();
+          stats.forEach((r: any) => byId.set(r.id, r));
+          stats.forEach((r: any) => {
+            if (r.type === 'candidate-pair' && (r.selected || r.nominated) && r.state === 'succeeded') {
+              const local = byId.get(r.localCandidateId);
+              const remote = byId.get(r.remoteCandidateId);
+              d.call_pair = `${local?.candidateType ?? '?'}-${remote?.candidateType ?? '?'}`;
+            }
+          });
+        }
+      } catch {
+        // Diagnostik opsional
+      }
+    }
+    return d;
   }
 
   /**

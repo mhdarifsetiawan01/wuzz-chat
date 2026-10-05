@@ -29,6 +29,8 @@ import {
 import { startDirectChat } from '../api/users';
 import { fetchIceServers, mapPeerConnectionState } from '../services/webrtcService';
 import { OutgoingIceBuffer } from '../utils/iceCandidateBuffer';
+import { MediaStateTracker } from '../utils/mediaStateTracker';
+import { logBreadcrumb, recordNonFatal, setCrashAttributes } from '../services/crashReporting';
 import { showAlert } from '../services/dialog';
 
 interface CallContextType {
@@ -86,7 +88,6 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Kandidat ICE penelepon ditahan sampai panggilan dijawab (penjawab baru masuk room saat angkat; lihat OutgoingIceBuffer).
   const outgoingIceRef = useRef<OutgoingIceBuffer>(new OutgoingIceBuffer());
   const durationTimerRef = useRef<any>(null);
-  const mediaTimeoutRef = useRef<any>(null);
 
   // Load call history from SQLite
   const refreshCallHistory = useCallback(async () => {
@@ -207,44 +208,52 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
   /**
    * Internal session cleanup helper
    */
+  /**
+   * Status jalur media berasal dari RTCPeerConnection.connectionState (MediaStateTracker), BUKAN dari sinyal call_answer:
+   * timer dan label "tersambung" baru muncul bila media benar-benar tersambung. Batas 25 dtk setelah dijawab -> 'failed'.
+   * Setiap perubahan dicatat sebagai breadcrumb Crashlytics; saat tersambung/gagal dikirim ringkasan diagnostik tanpa data pribadi.
+   */
+  const mediaTrackerRef = useRef<MediaStateTracker | null>(null);
+  if (!mediaTrackerRef.current) {
+    mediaTrackerRef.current = new MediaStateTracker((snapshot) => {
+      setActiveCall((prev) =>
+        prev
+          ? { ...prev, mediaState: snapshot.state, mediaConnectedAt: snapshot.connectedAt ?? prev.mediaConnectedAt }
+          : prev
+      );
+      logBreadcrumb(`call:media=${snapshot.state}`);
+      if (snapshot.state === 'connected' || snapshot.state === 'failed') {
+        const session = webrtcSessionRef.current;
+        const msToConnect = mediaTrackerRef.current?.msToConnect;
+        if (session) {
+          session
+            .collectDiagnostics()
+            .then((diag) => {
+              setCrashAttributes({
+                ...diag,
+                call_media: snapshot.state,
+                call_ms_to_connect: msToConnect === undefined ? 'n/a' : String(msToConnect),
+              });
+              if (snapshot.state === 'failed') recordNonFatal(new Error('call_media_failed'), 'call_media');
+            })
+            .catch(() => {});
+        }
+      }
+    });
+  }
+
   const clearMediaTimeout = useCallback(() => {
-    if (mediaTimeoutRef.current) {
-      clearTimeout(mediaTimeoutRef.current);
-      mediaTimeoutRef.current = null;
-    }
+    mediaTrackerRef.current?.reset();
   }, []);
 
-  /**
-   * Status jalur media berasal dari RTCPeerConnection.connectionState, BUKAN dari sinyal call_answer: timer dan label
-   * "tersambung" baru muncul bila media benar-benar tersambung.
-   */
-  const handlePeerConnectionState = useCallback(
-    (state: string) => {
-      const mapped = mapPeerConnectionState(state);
-      if (!mapped) return;
-      if (mapped === 'connected') clearMediaTimeout();
-      setActiveCall((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          mediaState: mapped,
-          mediaConnectedAt: mapped === 'connected' ? prev.mediaConnectedAt || Date.now() : prev.mediaConnectedAt,
-        };
-      });
-    },
-    [clearMediaTimeout]
-  );
+  const handlePeerConnectionState = useCallback((state: string) => {
+    mediaTrackerRef.current?.onPeerState(state);
+  }, []);
 
-  /** Setelah panggilan dijawab, media harus tersambung dalam 25 detik; bila tidak, tandai gagal agar UI jujur. */
+  /** Dipanggil saat panggilan dijawab: media harus tersambung dalam 25 detik; bila tidak, UI menampilkan gagal. */
   const armMediaTimeout = useCallback(() => {
-    clearMediaTimeout();
-    mediaTimeoutRef.current = setTimeout(() => {
-      mediaTimeoutRef.current = null;
-      setActiveCall((prev) =>
-        prev && prev.status === 'connected' && prev.mediaState !== 'connected' ? { ...prev, mediaState: 'failed' } : prev
-      );
-    }, 25000);
-  }, [clearMediaTimeout]);
+    mediaTrackerRef.current?.arm();
+  }, []);
 
   const cleanupCallSession = useCallback(() => {
     clearMediaTimeout();
@@ -359,6 +368,7 @@ export const CallProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         outgoingIceRef.current.reset();
+        mediaTrackerRef.current?.reset();
         const offerSdp = await session.createOffer((candidateJson) => {
           outgoingIceRef.current.submit(candidateJson, (c) => websocketClient.sendIceCandidate(targetRoomId, c));
         });

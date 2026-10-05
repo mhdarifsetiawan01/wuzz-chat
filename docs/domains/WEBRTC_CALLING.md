@@ -79,3 +79,17 @@ sequenceDiagram
 - Perbaikan: `OutgoingIceBuffer` (`mobile/src/utils/iceCandidateBuffer.ts`) menahan kandidat penelepon sampai `call_answer` diterima lalu mengirim semuanya berurutan; `acceptCall` juga memberikan `earlyIceCandidatesRef` (kandidat yang tiba sebelum sesi ada) ke sesi (sebelumnya buffer itu hanya diisi, tak pernah dibaca).
 - Diagnosis: aktifkan `verbose` coturn sementara. Pada panggilan sehat **kedua** username (penelepon dan penjawab) membuat `CREATE_PERMISSION ... success`; bila hanya satu sisi, sisi lain tidak menerima kandidat lawan.
 
+### Status media: `MediaStateTracker` (5 Okt 2026)
+`mobile/src/utils/mediaStateTracker.ts` (kelas murni, diuji dengan timer palsu di `media-state-tracker.test.js`) menggantikan logika timeout yang tersebar di `CallContext`:
+`arm()` saat dijawab -> `connecting`; `onPeerState(raw)` memetakan `connectionState`; tidak tersambung dalam 25 dtk -> `failed`; media tersambung terlambat -> pulih ke `connected`; `reset()` per panggilan.
+Perubahan status dicatat sebagai breadcrumb Crashlytics dan memicu pengambilan diagnostik (lihat `docs/CRASH_REPORTING.md` bagian 1b).
+
+### Cara menguji panggilan antar dua HP (dan jebakannya)
+Syarat: dua HP via adb di WiFi yang sama, aplikasi terbuka dan login, orang kedua mengangkat di HP penjawab. Ukur dengan `/proc/net/dev` (`wlan0`) dan log coturn `verbose` sementara
+(`echo verbose >> ~/coturn/turnserver.conf`, restart, **matikan lagi**; verifikasi bagian 2 `TURN_SETUP.md`).
+1. Lakukan **minimal 5 panggilan**, termasuk yang pertama setelah aplikasi dibuka, dan satu tepat setelah panggilan sebelumnya ditutup. Satu keberhasilan **tidak** membuktikan apa pun (bug sinyal ICE bersifat acak).
+2. Bukti yang benar: pada **setiap** panggilan **kedua** username (penelepon dan penjawab) punya `CREATE_PERMISSION ... success` di log coturn, dan timer jalan di kedua HP.
+3. Jebakan skrip uji (semuanya pernah terjadi): (a) simpan serial adb sebagai variabel terpisah, bukan string berspasi di dalam `for d in $A $B` (kata terpecah); (b) `awk` mencetak angka besar dalam notasi ilmiah/terpotong:
+   pakai `printf "%.0f"`; (c) `pkill -f nama-skrip` ikut mematikan shell yang perintahnya memuat nama itu: matikan lewat PID; (d) **jangan membunuh skrip di tengah panggilan** lalu langsung memulai uji baru: panggilan lama yang masih terbuka mengacaukan hasil;
+   (e) tunggu panggilan sebelumnya benar-benar ditutup sebelum menelepon lagi; (f) regex jam `\d\d:\d\d` bisa menangkap jam pesan di layar, baca teks di sekitar nama lawan bicara; (g) naikkan `screen_off_timeout` sementara dan kembalikan.
+

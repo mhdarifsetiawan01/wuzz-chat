@@ -15,6 +15,15 @@
 Pengumpulan **hanya aktif pada build rilis** (`setCrashlyticsCollectionEnabled(!__DEV__)`); manifest bawaan library menetapkan koleksi **mati** sampai JS menyalakannya,
 sehingga crash native yang terjadi sebelum JS pertama kali berjalan pada instalasi pertama bisa tidak tercatat. Setelah JS berjalan sekali, pengaturan tersimpan untuk peluncuran berikutnya.
 
+### 1b. Diagnostik panggilan (breadcrumb dan atribut)
+Dikirim lewat `logBreadcrumb` dan `setCrashAttributes` (`crashReporting.ts`) dari `CallContext`:
+- Breadcrumb: `call:media=<connecting|connected|disconnected|failed>` setiap status media berubah.
+- Saat media **tersambung** atau **gagal**, atribut kustom dilampirkan: `call_ice`, `call_gather`, `call_sig` (status WebRTC), `call_local` dan `call_remote`
+  (jumlah kandidat per jenis, mis. `host:2,relay:2,srflx:1`), `call_pair` (jenis pasangan terpilih, mis. `relay-srflx`), `call_media`, `call_ms_to_connect`.
+- Saat gagal, satu **non-fatal** `call_media_failed` dicatat (kelompok isu yang sama; rinciannya ada di atribut).
+- **Tanpa alamat IP, username, atau isi pesan** (diuji di `scripts/test/call-diagnostics.test.js`). Membaca: tanpa kandidat `relay` pada `call_local` berarti TURN gagal dialokasikan; `call_remote` tanpa `relay`
+  berarti kandidat lawan tidak sampai (lihat bug sinyal ICE di `WEBRTC_CALLING.md`); `call_pair=relay-*` artinya panggilan lewat TURN (hitung beban relay).
+
 ## 2. Aturan privasi (WAJIB)
 - Kirim **hanya** ID akun acak (UUID) lewat `setCrashUser`. **Jangan** mengirim isi pesan, username, nama, token, kunci E2EE, atau kata sandi, baik lewat `log`, atribut, maupun pesan `Error` yang dibuat sendiri.
 - Pesan error dari library bisa memuat data; periksa laporan pertama untuk memastikan tidak ada data pribadi, dan bersihkan di sumber bila ada.

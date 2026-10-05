@@ -68,3 +68,22 @@ export function recordNonFatal(error: unknown, context?: string): void {
     crashlyticsModule.recordError(crashlytics, err);
   });
 }
+
+/** Breadcrumb singkat yang ikut terlampir pada laporan crash/non-fatal berikutnya. Tanpa data pribadi. */
+export function logBreadcrumb(message: string): void {
+  if (!crashlytics) return;
+  safe(() => crashlyticsModule.log(crashlytics, message.slice(0, 200)));
+}
+
+/**
+ * Atribut kustom (teks pendek) pada laporan berikutnya. Hanya nilai teknis berenumerasi (status, jumlah, jenis kandidat);
+ * JANGAN alamat IP, username, atau isi pesan.
+ */
+export function setCrashAttributes(attributes: Record<string, string>): void {
+  if (!crashlytics) return;
+  safe(() => {
+    for (const [key, value] of Object.entries(attributes)) {
+      void crashlyticsModule.setAttribute(crashlytics, key.slice(0, 40), String(value).slice(0, 100));
+    }
+  });
+}
