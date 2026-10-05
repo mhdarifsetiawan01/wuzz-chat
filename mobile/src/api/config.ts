@@ -38,6 +38,15 @@ export const API_CONFIG = {
   PLATFORM: Platform.OS === 'ios' ? 'ios' : 'android',
 } as const;
 
+/**
+ * Login Google. WEB_CLIENT_ID adalah OAuth client ID bertipe "Web application" dari Google Cloud Console (bukan client
+ * ID Android) dan harus termasuk dalam GOOGLE_OAUTH_CLIENT_IDS di server. Kosong = tombol Google disembunyikan dan
+ * aplikasi berperilaku seperti sebelumnya (login/daftar username + password). Nilainya bukan rahasia.
+ */
+export const GOOGLE_AUTH_CONFIG = {
+  WEB_CLIENT_ID: '721755234013-ciptsooit78pk1vjmrevkmdaft0malhg.apps.googleusercontent.com',
+} as const;
+
 export const APP_LINK_CONFIG = {
   WEB_DOMAIN: 'chat.wuzzhub.id',
   WEB_BASE_URL: 'https://chat.wuzzhub.id',

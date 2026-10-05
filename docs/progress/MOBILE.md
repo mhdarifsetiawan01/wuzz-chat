@@ -379,3 +379,4 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 - [x] **Migrasi ikon emoji ke ikon vektor** (selesai 03-Okt-2026, lihat entri di atas).
 - [ ] **Ikon Wuzz final**: ganti path placeholder di `icons/registry.ts` dengan SVG gambar sendiri (prioritas: tab bawah, `lock`, `check`/`checkDouble`, lencana verified), putuskan ketebalan garis, dan ganti titik status 🟢🔴🟡 dengan lingkaran berwarna.
+- [x] **Login Google, fase 2 mobile (kode, 6-Okt-2026, belum dijalankan di perangkat)**: library `react-native-nitro-google-signin` (Credential Manager), `services/googleAuth.ts`, `GoogleOnboardingScreen`, tombol di `LoginScreen`, item Pengaturan, re-auth Google di `DeleteAccountModal`/`KeyConflictModal`. Nonaktif sampai `GOOGLE_AUTH_CONFIG.WEB_CLIENT_ID` diisi. Detail: `docs/plans/backlog/GOOGLE_LOGIN.md` bagian 9.

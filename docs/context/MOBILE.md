@@ -72,6 +72,13 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 - **Pembersih Cache Gambar**: memakai `Image.clearDiskCache()` + `Image.clearMemoryCache()` (expo-image), lalu menghapus sisa isi `cacheDirectory` KECUALI `wuzz_*.wav` (nada dering/ringback) dan `image_manager_disk_cache` (folder Glide yang sedang dibuka). `callAudioManager` kini selalu memeriksa keberadaan nada di cache dan membuatnya ulang bila hilang (sebelumnya jalur diingat di memori sehingga nada dering diam setelah cache dibersihkan sampai app dimulai ulang). Isi `cacheDirectory` terukur di perangkat (4 Okt 2026): `image_manager_disk_cache` (expo-image), `image_cache` (Fresco), `http-cache`, `ImagePicker`, dua `.wav`, `WebView`.
 - **Pembersih Cache Pesan**: tombol *"Bersihkan Cache Pesan"* dan *"Bersihkan Cache Gambar"* ada di `StorageSettingsModal` (M-Mobile-8.21). Pembersihan pesan memanggil `compactDatabase` sehingga ukuran file ikut turun.
 
+### F2. Login dengan Google (Android; belum aktif sampai client ID diisi)
+- **Library**: `react-native-nitro-google-signin` (Credential Manager) + `react-native-nitro-modules`, dipin exact. Hanya `services/googleAuth.ts` yang menyentuhnya; modul dimuat malas supaya build tanpa modul native tidak crash. Tombol Google hanya tampil bila `GOOGLE_AUTH_CONFIG.WEB_CLIENT_ID` (`api/config.ts`) terisi **dan** modul native ada (`isGoogleSignInAvailable()`).
+- **Alur**: `loginWithGoogle()` (AuthContext) → `GOOGLE_NOT_LINKED` → `GoogleOnboardingScreen` (buat akun baru tanpa password, atau tautkan akun lama dengan username + password). ID token dipakai ulang untuk percobaan ulang (konflik 2 perangkat, `link_token` 5 menit yang habis) tanpa memunculkan pemilih akun lagi.
+- **Akun tanpa password** (`user.has_password === false`): `DeleteAccountModal` dan `KeyConflictModal` meminta re-auth lewat pemilih akun Google (ID token baru, maks 5 menit di server) sebagai pengganti password; `deleteAccount`/`resetE2EEKeys` menerima `string | {password} | {googleIdToken}`.
+- Langkah sesi bersama login/daftar/Google ada di `startSession` (AuthContext); jangan menggandakannya.
+- Detail keputusan, bukti kompatibilitas, dan cara mengaktifkan: `docs/plans/backlog/GOOGLE_LOGIN.md` bagian 9.
+
 ### G. Community Social Feed & Viral Share Loop (Milestone M-Mobile-9)
 - **SWR FeedContext & Local SQLite Persistensi**: Linimasa postingan dikelola melalui `FeedContext.tsx` dengan SQLite cache lokal (`local_feed_posts`) untuk cold start < 50ms dan rolling cap 50 posts per tab ("⏱️ Terbaru" & "🎲 Jelajah").
 - **Optimistic Interactions**: Like instan 0ms dengan locking per-post (`likeInFlightRef`) dan rollback otomatis jika gagal. Thread komentar ber-pagination kursor waktu (`PostCommentsModal.tsx`).

@@ -142,9 +142,9 @@ func (h *AuthHandler) googleDevice(r *http.Request, f googleDeviceFields) authz.
 	}
 }
 
-func (h *AuthHandler) respondWithSession(w http.ResponseWriter, status int, userID, token string) {
+func (h *AuthHandler) respondWithSession(w http.ResponseWriter, r *http.Request, status int, userID, token string) {
 	user, _ := h.userStore.GetUserByID(userID)
-	writeAuthJSON(w, status, AuthResponse{Token: token, User: user})
+	writeAuthJSON(w, status, h.newAuthResponse(r, token, user))
 }
 
 // --- POST /api/auth/google ---
@@ -187,7 +187,7 @@ func (h *AuthHandler) GoogleSignIn(w http.ResponseWriter, r *http.Request) {
 		h.writeDeviceConflict(w, res.Conflict)
 	default:
 		log.Printf("[Auth] ✅ Google sign-in: user_id=%s ip=%s", res.Login.UserID, getClientIP(r))
-		h.respondWithSession(w, http.StatusOK, res.Login.UserID, res.Login.Token)
+		h.respondWithSession(w, r, http.StatusOK, res.Login.UserID, res.Login.Token)
 	}
 }
 
@@ -226,7 +226,7 @@ func (h *AuthHandler) GoogleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("[Auth] ✅ Google register: username=%q user_id=%s ip=%s", strings.TrimSpace(req.Username), res.UserID, getClientIP(r))
-	h.respondWithSession(w, http.StatusCreated, res.UserID, res.Token)
+	h.respondWithSession(w, r, http.StatusCreated, res.UserID, res.Token)
 }
 
 // --- POST /api/auth/google/link ---
@@ -268,7 +268,7 @@ func (h *AuthHandler) GoogleLinkExisting(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	log.Printf("[Auth] ✅ Google link: username=%q user_id=%s ip=%s", strings.TrimSpace(req.Username), res.UserID, getClientIP(r))
-	h.respondWithSession(w, http.StatusOK, res.UserID, res.Token)
+	h.respondWithSession(w, r, http.StatusOK, res.UserID, res.Token)
 }
 
 // --- /api/auth/me/google (JWT) ---

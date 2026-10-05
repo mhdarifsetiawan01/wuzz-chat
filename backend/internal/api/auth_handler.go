@@ -109,6 +109,22 @@ type LoginRequest struct {
 type AuthResponse struct {
 	Token string      `json:"token"`
 	User  *store.User `json:"user"`
+	// Metode login akun, supaya klien tahu cara membuktikan kepemilikan untuk aksi sensitif tanpa panggilan tambahan:
+	// akun Google-only (has_password=false) harus memakai re-auth Google, bukan password.
+	HasPassword  bool `json:"has_password"`
+	GoogleLinked bool `json:"google_linked"`
+}
+
+// newAuthResponse merakit respons sesi lengkap dengan status metode login akun.
+func (h *AuthHandler) newAuthResponse(r *http.Request, token string, user *store.User) AuthResponse {
+	resp := AuthResponse{Token: token, User: user}
+	if user != nil {
+		resp.HasPassword = user.PasswordHash != ""
+		if h.authSvc != nil {
+			resp.GoogleLinked, _ = h.authSvc.IsGoogleLinked(r.Context(), user.ID)
+		}
+	}
+	return resp
 }
 
 func getClientIP(r *http.Request) string {
@@ -243,10 +259,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[Auth] ✅ Register success: username=%q user_id=%s ip=%s", req.Username, res.UserID, clientIP)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(AuthResponse{
-		Token: res.Token,
-		User:  user,
-	})
+	_ = json.NewEncoder(w).Encode(h.newAuthResponse(r, res.Token, user))
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -311,10 +324,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	user, _ := h.userStore.GetUserByID(res.UserID)
 	log.Printf("[Auth] ✅ Login success: username=%q user_id=%s device_id=%q ip=%s", req.Username, res.UserID, req.DeviceID, clientIP)
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(AuthResponse{
-		Token: res.Token,
-		User:  user,
-	})
+	_ = json.NewEncoder(w).Encode(h.newAuthResponse(r, res.Token, user))
 }
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {

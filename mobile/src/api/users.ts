@@ -4,7 +4,8 @@
  */
 
 import { apiClient } from './client';
-import { User, StartDirectChatResponse, PublicKeyResponse, UpdatePublicKeyResponse } from './types';
+import { proofToBody } from './auth';
+import { User, StartDirectChatResponse, PublicKeyResponse, UpdatePublicKeyResponse, OwnershipProof } from './types';
 
 /**
  * Fetch a user's full public profile by ID or username
@@ -85,19 +86,19 @@ export async function updatePublicKey(
  * Force reset E2EE public key for the account on this device (e.g. after login on fresh device)
  * @param publicKeyJWK New canonical JWK string
  * @param deviceId Current client device ID
- * @param password User password for verification
+ * @param proof Bukti kepemilikan: password ATAU ID token Google baru (akun tanpa password)
  */
 export async function resetPublicKey(
   publicKeyJWK: string,
   deviceId: string,
-  password?: string
+  proof?: OwnershipProof
 ): Promise<UpdatePublicKeyResponse> {
   return apiClient<UpdatePublicKeyResponse>('/api/users/public-key/reset', {
     method: 'POST',
     body: JSON.stringify({
       public_key: publicKeyJWK,
       device_id: deviceId,
-      password: password || '',
+      ...(proof ? proofToBody(proof) : { password: '' }),
     }),
   });
 }

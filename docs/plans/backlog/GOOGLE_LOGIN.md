@@ -1,6 +1,6 @@
 # Backlog: Login dengan Google (wajib untuk akun baru, migrasi akun lama)
 
-> Dibuat 2026-10-06. **Status: FASE 1 (BACKEND) SELESAI di branch `dev`, belum di-commit/deploy; fase 2 sampai 5 belum dikerjakan.** Lihat bagian 8. Seluruh keputusan di bagian 2 berasal dari diskusi dengan pemilik proyek.
+> Dibuat 2026-10-06. **Status: fase 1 (backend) sudah di produksi (mati sampai client ID diisi). Fase 2 (mobile Android) kodenya selesai di `dev` tapi BELUM pernah dijalankan di perangkat (butuh OAuth client). Fase 3 sampai 5 belum.** Lihat bagian 8 dan 9. Seluruh keputusan di bagian 2 berasal dari diskusi dengan pemilik proyek.
 > Fakta bertanda **(terverifikasi)** sudah dicek di kode per tanggal di atas; bertanda **(belum diverifikasi)** harus dicek dulu.
 
 ## 1. Latar belakang dan tujuan
@@ -166,3 +166,47 @@ Fase 1 sampai 2 dapat dirilis tanpa menyalakan batas waktu (fase 3 sampai 4). Ba
 - **Belum dites dengan ID token Google sungguhan** (butuh client ID dan perangkat). Perlu diperiksa di fase 2: apakah library mobile mengembalikan token baru (`iat` ≤ 5 menit) atau token cache; bila cache, batas kesegaran 5 menit untuk re-auth akan menolak pengguna yang sah.
 
 **Langkah deploy fase 1** (hanya setelah disetujui): `ssh deploy@<VPS_IP> ./deploy-chat.sh`. Migrasi indeks berjalan otomatis saat start. Aman dideploy dengan `GOOGLE_OAUTH_CLIENT_IDS` kosong (fitur mati); isi setelah OAuth client dibuat di Google Cloud Console.
+
+## 9. Status fase 2 (mobile Android), 2026-10-06
+
+### Keputusan library: `react-native-nitro-google-signin` 2.3.0 + `react-native-nitro-modules` 0.37.1 (dipasang exact)
+Dibandingkan (diverifikasi dari paket npm dan dokumentasi resmi):
+
+| Kandidat | Hasil |
+|---|---|
+| `@react-native-google-signin/google-signin` 16.1.5 | Paling matang (1,27 juta unduhan/minggu), tapi versi gratis memakai **SDK Google Sign-In lama** (`play-services-auth`) yang oleh Android Developers dinyatakan deprecated dan "akan dihapus dari Play Services pada rilis mendatang" (tanpa tanggal). Tanpa dukungan nonce (hanya versi berbayar). |
+| `react-native-nitro-google-signin` 2.3.0 (**dipilih**) | MIT, **Credential Manager** (API pengganti resmi), `GetSignInWithGoogleOption` (alur tombol resmi), dukungan nonce, matriks kompatibilitas resmi mencantumkan **RN 0.86** + nitro-modules 0.36/0.37. ±94 ribu unduhan/minggu. |
+| `react-native-credentials-manager` 0.9.0 | Pra-1.0, ±3 ribu unduhan/minggu: terlalu kecil. |
+| `expo-auth-session` | Alur peramban: UX lebih buruk, redirect URI rumit untuk Android. Tidak dipilih. |
+
+**Risiko yang diterima:** library modern baru berumur ±4 bulan (rilis pertama 1 Juni 2026), satu maintainer, 24 rilis cepat. Jalan keluar bila bermasalah: ganti ke `@react-native-google-signin/google-signin` (hanya `services/googleAuth.ts` yang menyentuh library; sisanya memakai `signInWithGoogle()`). Pin exact supaya tidak berubah diam-diam.
+
+**Terbukti (tanpa perangkat):** `./gradlew projects` mengenali kedua modul; `:react-native-nitro-google-signin:compileDebugKotlin` dan `:react-native-nitro-modules:compileDebugKotlin` **berhasil (exit 0)** terhadap toolchain proyek (compileSdk 36, Kotlin 2.1.20). **Belum terbukti:** `assembleRelease` penuh (C++ Nitro/NDK), dan jalan di perangkat sungguhan.
+
+**Config plugin sengaja TIDAK ditambahkan ke `app.json`:** Android cukup autolinking dengan `webClientId` lewat `configure()`; plugin hanya untuk iOS dan melempar error bila `iosUrlScheme` tidak diisi. Tambahkan saat iOS dikerjakan.
+
+### Yang selesai (kode di `dev`)
+- `services/googleAuth.ts`: pembungkus library (lazy-load, alur tombol resmi = pemilih akun + ID token baru tiap panggilan, pembatalan = `null`, galat diterjemahkan).
+- `AuthContext`: langkah sesi bersama (`startSession`) untuk login/daftar/Google; `loginWithGoogle`, `registerWithGoogle`, `linkGoogleToExistingAccount`, `linkGoogleToCurrentAccount`; `deleteAccount`/`resetE2EEKeys` menerima password ATAU `{googleIdToken}`; `has_password`/`google_linked` disimpan di profil lokal.
+- Layar: tombol "Lanjutkan dengan Google" di `LoginScreen` (link daftar password disembunyikan bila Google aktif); `GoogleOnboardingScreen` (belum tertaut: buat akun baru / tautkan akun lama, `link_token` kedaluwarsa diperbarui diam-diam dengan ID token yang sama, dialog batas 2 perangkat dipakai ulang); Pengaturan: item "Akun Google"; `DeleteAccountModal` dan `KeyConflictModal` memakai re-auth Google untuk akun tanpa password.
+- Backend: respons login/daftar/Google kini menyertakan `has_password` dan `google_linked` (modal konflik kunci muncul tepat setelah login sehingga flag ini tak bisa menunggu `/me`).
+- Tes: `scripts/test/google-errors.test.js`, `google-auth.test.js` (diperiksa dengan mutasi: sengaja merusak logika, tes gagal), backend diperluas. `tsc` bersih, 19/19 berkas uji mobile, `go test ./...` lulus.
+
+### Status konfigurasi Google (6 Okt 2026)
+- Google Cloud project `wuzzchat` (nomor `721755234013`): Branding terisi (kontak `support@semanticdigital.id`, halaman privasi/syarat di `chat.wuzzhub.id`, tanpa logo supaya tidak memicu verifikasi brand), Audience **External** berstatus **Testing** (ubah ke In production sebelum APK dibagikan ke non-test-user dan sebelum review Play Store; scope dasar tidak butuh verifikasi).
+- Client Web `721755234013-ciptsooit78pk1vjmrevkmdaft0malhg.apps.googleusercontent.com` sudah dibuat dan **sudah diisi** ke `GOOGLE_AUTH_CONFIG.WEB_CLIENT_ID` (mobile). Client Android (package `com.wuzzchat.mobile`, SHA-1 rilis `BE:B3:11:41:D1:90:3B:AD:83:87:1E:CA:B4:D2:98:A8:7D:23:14:69`) sudah dibuat; ID-nya TIDAK dipakai di kode.
+- Server hanya butuh client **Web** di `GOOGLE_OAUTH_CLIENT_IDS`: `aud` ID token = client Web (koreksi dari catatan awal yang menyebut Android juga).
+- Belum: client Android debug (SHA-1 `92:7E:07:52:8E:A7:8B:F6:58:00:BC:61:16:CB:F2:78:70:38:67:3A`) dan client Android untuk sertifikat Play App Signing.
+
+### Cara mengaktifkan (urutan)
+1. Google Cloud Console: OAuth consent screen; client **Web**; client **Android** (`com.wuzzchat.mobile`, SHA-1 keystore release, plus debug bila perlu; **dan sertifikat Play App Signing** bila rilis lewat Play).
+2. Server: isi `GOOGLE_OAUTH_CLIENT_IDS` (client Web + Android, dipisah koma) lalu deploy ulang/restart.
+3. Mobile: isi `GOOGLE_AUTH_CONFIG.WEB_CLIENT_ID` di `mobile/src/api/config.ts` (client **Web**), bump versi, build native (library butuh rebuild, bukan OTA).
+4. Uji di perangkat: login Google akun baru, akun belum tertaut, tautkan akun lama, hapus akun lewat Google, reset kunci lewat Google, batas 2 perangkat. Periksa terutama: apakah `iat` ID token dari Credential Manager benar-benar baru (batas 5 menit di server).
+
+### Belum dikerjakan / diketahui
+- **Belum diuji di perangkat sama sekali** (butuh client ID). Semua perilaku UI baru hanya terverifikasi lewat `tsc` dan tes logika, bukan visual.
+- Logo "G" resmi: tombol memakai teks saja (palet `secondary`). Ganti dengan aset resmi saat polish.
+- UI untuk "ganti akun Google" dan "putuskan Google" belum ada (endpoint backend ada).
+- iOS (client iOS, `GoogleService-Info.plist`, plugin), web, penutupan `POST /api/auth/register`, pengumuman/`google_link_deadline`, pembekuan (fase 3 sampai 5).
+- `google-services.json` saat ini **tanpa `oauth_client`**; tidak masalah karena `webClientId` diberikan eksplisit.

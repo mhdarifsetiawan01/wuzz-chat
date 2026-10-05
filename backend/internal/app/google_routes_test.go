@@ -91,6 +91,10 @@ func TestGoogleRoutes_PasswordFlowUnaffected(t *testing.T) {
 	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"token"`) {
 		t.Fatalf("login password harus 200, dapat %d %s", rr.Code, rr.Body.String())
 	}
+	// Akun password: has_password=true, belum ada Google.
+	if !strings.Contains(rr.Body.String(), `"has_password":true`) || !strings.Contains(rr.Body.String(), `"google_linked":false`) {
+		t.Fatalf("respons login password harus memuat has_password=true dan google_linked=false: %s", rr.Body.String())
+	}
 	rr = doJSON(r, http.MethodPost, "/api/auth/login", `{"username":"legacy_user","password":"salah","device_id":"d1"}`)
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("login password salah harus 401, dapat %d", rr.Code)

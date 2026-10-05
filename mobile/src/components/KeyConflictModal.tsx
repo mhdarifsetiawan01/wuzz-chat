@@ -22,10 +22,16 @@ import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
 import { Input } from './Input';
+import type { OwnershipProof } from '../api/types';
+import { signInWithGoogle } from '../services/googleAuth';
+import { googleErrorMessage } from '../utils/googleErrors';
 
 interface KeyConflictModalProps {
   visible: boolean;
-  onConfirmReset: (password: string) => Promise<void>;
+  /** Bukti kepemilikan: password, atau ID token Google baru untuk akun Google-only. */
+  onConfirmReset: (proof: OwnershipProof) => Promise<void>;
+  /** false = akun Google-only: reset dikonfirmasi lewat pemilih akun Google. Default true. */
+  hasPassword?: boolean;
   onOpenDeviceTransfer?: () => void;
   onCancel: () => void | Promise<void>;
 }
@@ -33,6 +39,7 @@ interface KeyConflictModalProps {
 export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   visible,
   onConfirmReset,
+  hasPassword = true,
   onOpenDeviceTransfer,
   onCancel,
 }) => {
@@ -64,7 +71,7 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   };
 
   const handleSubmitReset = async () => {
-    if (!password.trim()) {
+    if (hasPassword && !password.trim()) {
       setErrorMessage('Harap masukkan password akun Anda untuk konfirmasi reset.');
       return;
     }
@@ -73,15 +80,27 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
     setIsLoading(true);
 
     try {
-      await onConfirmReset(password);
+      let proof: OwnershipProof;
+      if (hasPassword) {
+        proof = { password };
+      } else {
+        // Akun Google-only: ID token baru dari pemilih akun Google (server memeriksa akunnya sama).
+        const identity = await signInWithGoogle();
+        if (!identity) {
+          setIsLoading(false); // pengguna menutup pemilih akun
+          return;
+        }
+        proof = { googleIdToken: identity.idToken };
+      }
+      await onConfirmReset(proof);
       setIsPromptingPassword(false);
       setPassword('');
     } catch (err: any) {
-      const msg =
-        err?.detail ||
-        err?.message ||
-        'Password salah atau gagal mereset kunci keamanan. Periksa password Anda.';
-      setErrorMessage(msg);
+      setErrorMessage(
+        hasPassword
+          ? err?.detail || err?.message || 'Password salah atau gagal mereset kunci keamanan. Periksa password Anda.'
+          : googleErrorMessage(err, 'Gagal mereset kunci keamanan. Silakan coba lagi.')
+      );
     } finally {
       setIsLoading(false);
     }
@@ -147,23 +166,32 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
 
             {isPromptingPassword ? (
               <View style={styles.formContainer}>
-                <Input
-                  label="Kata Sandi Akun"
-                  placeholder="Masukkan kata sandi akun Anda"
-                  secureTextEntry
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (errorMessage) setErrorMessage(null);
-                  }}
-                  error={errorMessage}
-                  autoCapitalize="none"
-                  editable={!isLoading}
-                  containerStyle={styles.inputContainer}
-                />
+                {hasPassword ? (
+                  <Input
+                    label="Kata Sandi Akun"
+                    placeholder="Masukkan kata sandi akun Anda"
+                    secureTextEntry
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      if (errorMessage) setErrorMessage(null);
+                    }}
+                    error={errorMessage}
+                    autoCapitalize="none"
+                    editable={!isLoading}
+                    containerStyle={styles.inputContainer}
+                  />
+                ) : (
+                  <>
+                    <Text style={styles.googleNote}>
+                      Akun ini masuk dengan Google. Untuk konfirmasi reset, Anda akan diminta memilih akun Google yang sama.
+                    </Text>
+                    {errorMessage ? <Text style={styles.googleError}>{errorMessage}</Text> : null}
+                  </>
+                )}
 
                 <Button
-                  title="Saya Mengerti, Reset Kunci"
+                  title={hasPassword ? 'Saya Mengerti, Reset Kunci' : 'Konfirmasi dengan Google & Reset Kunci'}
                   variant="danger"
                   isLoading={isLoading}
                   disabled={isLoading}
@@ -215,6 +243,16 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
 };
 
 const styles = StyleSheet.create({
+  googleNote: {
+    ...typography.bodySecondary,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  googleError: {
+    ...typography.caption,
+    color: colors.colorError,
+    marginBottom: spacing.sm,
+  },
   overlay: {
     flex: 1,
     backgroundColor: colors.bgOverlay,

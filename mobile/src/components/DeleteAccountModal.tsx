@@ -9,15 +9,20 @@ import { colors, radius, shadows, spacing, typography } from '../theme';
 import { Button } from './Button';
 import { Input } from './Input';
 import { IconText } from './IconText';
+import type { OwnershipProof } from '../api/types';
+import { signInWithGoogle } from '../services/googleAuth';
+import { googleErrorMessage } from '../utils/googleErrors';
 
 export interface DeleteAccountModalProps {
   visible: boolean;
   onClose: () => void;
-  /** Melempar error ber-status 401 bila password salah. */
-  onConfirm: (password: string) => Promise<void>;
+  /** Melempar error ber-status 401 bila bukti (password atau akun Google) salah. */
+  onConfirm: (proof: OwnershipProof) => Promise<void>;
+  /** false = akun Google-only: konfirmasi lewat pemilih akun Google, bukan password. Default true. */
+  hasPassword?: boolean;
 }
 
-export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible, onClose, onConfirm }) => {
+export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible, onClose, onConfirm, hasPassword = true }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -31,20 +36,32 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
   }, [visible]);
 
   const handleConfirm = async () => {
-    if (!password) {
+    if (hasPassword && !password) {
       setError('Masukkan kata sandi untuk melanjutkan.');
       return;
     }
     setIsDeleting(true);
     setError(null);
     try {
-      await onConfirm(password);
+      let proof: OwnershipProof;
+      if (hasPassword) {
+        proof = { password };
+      } else {
+        // Akun Google-only: minta ID token baru dari pemilih akun Google (server memeriksa akunnya sama).
+        const identity = await signInWithGoogle();
+        if (!identity) {
+          setIsDeleting(false); // pengguna menutup pemilih akun
+          return;
+        }
+        proof = { googleIdToken: identity.idToken };
+      }
+      await onConfirm(proof);
     } catch (err: any) {
-      setError(
-        err?.status === 401
-          ? 'Kata sandi salah.'
-          : err?.detail || 'Gagal menghapus akun. Periksa koneksi lalu coba lagi.'
-      );
+      if (hasPassword && err?.status === 401) {
+        setError('Kata sandi salah.');
+      } else {
+        setError(googleErrorMessage(err, 'Gagal menghapus akun. Periksa koneksi lalu coba lagi.'));
+      }
       setIsDeleting(false);
     }
   };
@@ -62,27 +79,34 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
               Tindakan ini tidak dapat dibatalkan. Yang akan dihapus:
             </Text>
             <View style={styles.list}>
-              <Text style={styles.listItem}>• Profil, kata sandi, dan kunci enkripsi akun ini</Text>
+              <Text style={styles.listItem}>• Profil, {hasPassword ? 'kata sandi, ' : 'tautan akun Google, '}dan kunci enkripsi akun ini</Text>
               <Text style={styles.listItem}>• Semua pesan yang Anda kirim, postingan, dan komentar</Text>
               <Text style={styles.listItem}>• Daftar teman dan keanggotaan grup (kepemilikan grup dialihkan)</Text>
               <Text style={styles.listItem}>• Riwayat chat dan media di perangkat ini</Text>
             </View>
-            <Input
-              label="Kata sandi"
-              placeholder="Masukkan kata sandi Anda"
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={password}
-              onChangeText={(t) => {
-                setPassword(t);
-                if (error) setError(null);
-              }}
-              editable={!isDeleting}
-              error={error}
-            />
+            {hasPassword ? (
+              <Input
+                label="Kata sandi"
+                placeholder="Masukkan kata sandi Anda"
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={password}
+                onChangeText={(t) => {
+                  setPassword(t);
+                  if (error) setError(null);
+                }}
+                editable={!isDeleting}
+                error={error}
+              />
+            ) : (
+              <Text style={styles.googleNote}>
+                Akun ini masuk dengan Google. Untuk konfirmasi, Anda akan diminta memilih akun Google yang sama.
+              </Text>
+            )}
+            {!hasPassword && error ? <Text style={styles.errorText}>{error}</Text> : null}
             <View style={styles.actions}>
-              <Button title="Hapus Akun Saya" variant="danger" isLoading={isDeleting} onPress={handleConfirm} style={styles.btn} />
+              <Button title={hasPassword ? 'Hapus Akun Saya' : 'Konfirmasi dengan Google & Hapus'} variant="danger" isLoading={isDeleting} onPress={handleConfirm} style={styles.btn} />
               <Button title="Batal" variant="secondary" disabled={isDeleting} onPress={onClose} style={styles.btn} />
             </View>
           </ScrollView>
@@ -127,6 +151,8 @@ const styles = StyleSheet.create({
   description: { ...typography.bodySecondary, color: colors.textSecondary, alignSelf: 'flex-start', marginBottom: spacing.sm },
   list: { alignSelf: 'stretch', marginBottom: spacing.lg, gap: spacing.xs },
   listItem: { ...typography.bodySecondary, color: colors.textSecondary, lineHeight: 20 },
+  googleNote: { ...typography.bodySecondary, color: colors.textSecondary, alignSelf: 'stretch', marginBottom: spacing.sm },
+  errorText: { ...typography.caption, color: colors.colorError, alignSelf: 'stretch', marginBottom: spacing.sm },
   actions: { width: '100%', gap: spacing.sm, marginTop: spacing.md },
   btn: { width: '100%', height: 48, borderRadius: radius.lg },
 });

@@ -3,7 +3,7 @@
  * Elegant WhatsApp-Grade Dark Mode Login Screen.
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -19,17 +19,28 @@ import { ActiveDeviceItem } from '../api/types';
 import { Button, DeviceLimitModal, Input } from '../components';
 import { useAuth } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
+import { isGoogleSignInAvailable, GoogleAuthError } from '../services/googleAuth';
+import { GoogleFlowError, googleErrorMessage, isDeviceLimitError } from '../utils/googleErrors';
+import type { GooglePending } from './GoogleOnboardingScreen';
 
 interface LoginScreenProps {
   onNavigateToRegister: () => void;
+  /** Akun Google valid tetapi belum tertaut: lanjut ke layar pilihan daftar/tautkan. */
+  onGoogleNotLinked: (pending: GooglePending) => void;
+  /** Pesan dari layar sebelumnya (mis. sesi verifikasi Google berakhir). */
+  initialMessage?: string | null;
 }
 
-export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }) => {
-  const { login } = useAuth();
+export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister, onGoogleNotLinked, initialMessage }) => {
+  const { login, loginWithGoogle } = useAuth();
+  const googleAvailable = isGoogleSignInAvailable();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  // ID token Google dipertahankan untuk percobaan ulang konfirmasi ganti perangkat (tanpa pemilih akun kedua).
+  const googleIdTokenRef = useRef<string | null>(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(initialMessage ?? null);
 
   // Device limit override state
   const [isDeviceLimitModalOpen, setIsDeviceLimitModalOpen] = useState(false);
@@ -71,16 +82,53 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
     }
   };
 
+  const handleGoogle = async () => {
+    if (isGoogleLoading || isLoading) return;
+    setErrorMessage(null);
+    setIsGoogleLoading(true);
+    googleIdTokenRef.current = null;
+    try {
+      const outcome = await loginWithGoogle();
+      if (!outcome) return; // pengguna menutup pemilih akun
+      googleIdTokenRef.current = outcome.idToken;
+      if (outcome.status === 'not_linked') {
+        onGoogleNotLinked({ linkToken: outcome.linkToken, idToken: outcome.idToken, email: outcome.email });
+      }
+      // signed_in: AuthProvider mengganti layar.
+    } catch (err: any) {
+      if (isDeviceLimitError(err)) {
+        setActiveDevices(err?.active_devices || err?.data?.active_devices || []);
+        setDeviceLimitError(null);
+        setIsDeviceLimitModalOpen(true);
+        return;
+      }
+      const message =
+        err instanceof GoogleAuthError ? err.message : googleErrorMessage(err as GoogleFlowError, 'Login dengan Google gagal. Silakan coba lagi.');
+      setErrorMessage(message);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   const handleConfirmKickDevice = async (kickDeviceId: string) => {
     setIsOverriding(true);
     setDeviceLimitError(null);
     try {
-      await login({
-        username: username.trim().toLowerCase(),
-        password,
-        confirm_override: true,
-        kick_device_id: kickDeviceId,
-      });
+      if (googleIdTokenRef.current) {
+        // Konflik datang dari login Google: ulangi dengan ID token yang sama.
+        await loginWithGoogle({
+          idToken: googleIdTokenRef.current,
+          confirm_override: true,
+          kick_device_id: kickDeviceId,
+        });
+      } else {
+        await login({
+          username: username.trim().toLowerCase(),
+          password,
+          confirm_override: true,
+          kick_device_id: kickDeviceId,
+        });
+      }
       setIsDeviceLimitModalOpen(false);
     } catch (overrideErr: any) {
       setDeviceLimitError(
@@ -120,6 +168,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
               </View>
             )}
 
+            {googleAvailable && (
+              <>
+                <Button
+                  title="Lanjutkan dengan Google"
+                  variant="secondary"
+                  isLoading={isGoogleLoading}
+                  disabled={isLoading}
+                  onPress={handleGoogle}
+                />
+                <Text style={styles.googleHint}>Akun baru dibuat lewat Google.</Text>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>atau masuk dengan username</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+              </>
+            )}
+
             <Input
               label="Username"
               placeholder="Masukkan username"
@@ -150,12 +216,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister }
               style={styles.submitButton}
             />
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Belum memiliki akun?</Text>
-              <TouchableOpacity onPress={onNavigateToRegister} activeOpacity={0.7}>
-                <Text style={styles.registerLink}>Daftar Sekarang</Text>
-              </TouchableOpacity>
-            </View>
+            {!googleAvailable && (
+              <View style={styles.footer}>
+                <Text style={styles.footerText}>Belum memiliki akun?</Text>
+                <TouchableOpacity onPress={onNavigateToRegister} activeOpacity={0.7}>
+                  <Text style={styles.registerLink}>Daftar Sekarang</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -238,6 +306,27 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: spacing.sm,
+  },
+  googleHint: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.borderDefault,
+  },
+  dividerText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    marginHorizontal: spacing.md,
   },
   footer: {
     flexDirection: 'row',

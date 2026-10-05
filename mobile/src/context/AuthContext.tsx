@@ -7,10 +7,19 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { AppState } from 'react-native';
 import { authApi } from '../api/auth';
-import { ApiError, LoginRequest, RegisterRequest, User } from '../api/types';
+import {
+  ApiError,
+  AuthTokenResponse,
+  GoogleNotLinkedResponse,
+  LoginRequest,
+  OwnershipProof,
+  RegisterRequest,
+  User,
+} from '../api/types';
 import { updatePublicKey, resetPublicKey } from '../api/users';
 import { E2EEKeyPair, generateE2EEKeyPair } from '../services/crypto';
 import { deviceIdService } from '../services/deviceIdService';
+import { signInWithGoogle, signOutGoogleLocal } from '../services/googleAuth';
 import { mediaCache } from '../services/mediaCache';
 import { notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
@@ -21,6 +30,28 @@ import { useDevice } from './DeviceContext';
 
 export type E2EEStatus = 'uninitialized' | 'loading' | 'ready' | 'conflict' | 'error';
 
+/** Hasil login Google: sesi terbentuk, atau akun Google belum tertaut sehingga pengguna harus memilih daftar/tautkan. */
+export type GoogleSignInOutcome =
+  | { status: 'signed_in' }
+  | { status: 'not_linked'; linkToken: string; email?: string; expiresInSec: number };
+
+/** Opsi perangkat untuk login Google (konfirmasi mengganti perangkat lama saat batas 2 perangkat tercapai). */
+export interface GoogleLoginOptions {
+  confirm_override?: boolean;
+  kick_device_id?: string;
+}
+
+/** Bukti kepemilikan: string dianggap password (kompatibel dengan pemanggil lama). */
+export type ProofInput = string | OwnershipProof;
+
+export function normalizeProof(input: ProofInput): OwnershipProof {
+  return typeof input === 'string' ? { password: input } : input;
+}
+
+export function isGoogleNotLinked(res: unknown): res is GoogleNotLinkedResponse {
+  return (res as GoogleNotLinkedResponse | null)?.code === 'GOOGLE_NOT_LINKED' && !!(res as GoogleNotLinkedResponse).link_token;
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -30,12 +61,20 @@ interface AuthContextType {
   e2eeKeyPair: E2EEKeyPair | null;
   e2eeStatus: E2EEStatus;
   initE2EEKeys: () => Promise<void>;
-  resetE2EEKeys: (password?: string) => Promise<void>;
+  resetE2EEKeys: (proof?: ProofInput) => Promise<void>;
   importTransferredKeyPair: (pair: E2EEKeyPair) => Promise<void>;
   login: (credentials: Omit<LoginRequest, 'device_id'>) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
+  /** Menampilkan pemilih akun Google lalu login. Mengembalikan ID token agar percobaan ulang (konflik perangkat) tak perlu pemilih lagi. */
+  loginWithGoogle: (options?: GoogleLoginOptions & { idToken?: string }) => Promise<(GoogleSignInOutcome & { idToken: string }) | null>;
+  /** Membuat akun baru (tanpa password) dari link_token hasil loginWithGoogle. */
+  registerWithGoogle: (payload: { linkToken: string; username: string; displayName?: string }) => Promise<void>;
+  /** Menautkan akun Google (link_token) ke akun lama dengan username + password, lalu login. */
+  linkGoogleToExistingAccount: (payload: { linkToken: string; username: string; password: string } & GoogleLoginOptions) => Promise<void>;
+  /** Menautkan Google ke akun yang sedang login (Pengaturan). false = pengguna membatalkan pemilih akun. */
+  linkGoogleToCurrentAccount: () => Promise<boolean>;
   logout: () => Promise<void>;
-  deleteAccount: (password: string) => Promise<void>;
+  deleteAccount: (proof: ProofInput) => Promise<void>;
   dismissSessionAlert: () => void | Promise<void>;
   cancelKeyConflict: () => void | Promise<void>;
   updateCurrentUser: (updatedUser: User) => Promise<void>;
@@ -87,6 +126,10 @@ const AuthContext = createContext<AuthContextType>({
   importTransferredKeyPair: async () => {},
   login: async () => {},
   register: async () => {},
+  loginWithGoogle: async () => null,
+  registerWithGoogle: async () => {},
+  linkGoogleToExistingAccount: async () => {},
+  linkGoogleToCurrentAccount: async () => false,
   logout: async () => {},
   deleteAccount: async () => {},
   dismissSessionAlert: () => {},
@@ -180,13 +223,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await initE2EEForUser(user.id, currentDeviceId);
   }, [user?.id, deviceId, initE2EEForUser]);
 
-  const resetE2EEKeys = useCallback(async (password?: string) => {
+  const resetE2EEKeys = useCallback(async (proof?: ProofInput) => {
     if (!user?.id) throw new Error('User tidak terotentikasi');
     setE2eeStatus('loading');
     try {
       const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
       const freshPair = generateE2EEKeyPair();
-      await resetPublicKey(freshPair.publicKeyJWK, currentDeviceId, password);
+      await resetPublicKey(freshPair.publicKeyJWK, currentDeviceId, proof === undefined ? undefined : normalizeProof(proof));
       await secureStorage.setE2EEKeyPair(user.id, freshPair);
       setE2eeKeyPair(freshPair);
       setE2eeStatus('ready');
@@ -357,74 +400,145 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [isDeviceReady, deviceId, initE2EEForUser]);
 
+  /**
+   * Langkah bersama setelah server menerbitkan sesi (password maupun Google): simpan token, isolasi data akun lama,
+   * inisialisasi kunci E2EE, daftar push, dan sambungkan WebSocket.
+   */
+  const startSession = useCallback(
+    async (response: AuthTokenResponse, currentDeviceId: string, source: string) => {
+      // Metode login dari server (akun Google-only atau berpassword) ikut disimpan di profil lokal.
+      const sessionUser: User = {
+        ...response.user,
+        has_password: response.has_password ?? response.user.has_password,
+        google_linked: response.google_linked ?? response.user.google_linked,
+      };
+      await secureStorage.setAuthToken(response.token);
+      await secureStorage.setUserData(sessionUser);
+      await secureStorage.setCurrentUserId(sessionUser.id);
+      await purgeStaleAccountData(sessionUser.id);
+
+      setToken(response.token);
+      setUser(sessionUser);
+      setSessionReplacedMessage(null);
+
+      // Initialize E2EE Keys
+      await initE2EEForUser(sessionUser.id, currentDeviceId);
+
+      // Subscribe Push Notifications
+      notificationService.subscribeDevice().catch((err) => {
+        console.warn(`[AuthContext] Push subscribe on ${source} skipped:`, err);
+      });
+
+      // Connect WebSocket singleton
+      websocketClient.reset();
+      websocketClient.connect(response.token, currentDeviceId);
+    },
+    [initE2EEForUser]
+  );
+
   const login = useCallback(
     async (credentials: Omit<LoginRequest, 'device_id'>) => {
-      try {
-        const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
-        const response = await authApi.login({
-          ...credentials,
-          device_id: currentDeviceId,
-        });
-
-        await secureStorage.setAuthToken(response.token);
-        await secureStorage.setUserData(response.user);
-        await secureStorage.setCurrentUserId(response.user.id);
-        await purgeStaleAccountData(response.user.id);
-
-        setToken(response.token);
-        setUser(response.user);
-        setSessionReplacedMessage(null);
-
-        // Initialize E2EE Keys
-        await initE2EEForUser(response.user.id, currentDeviceId);
-
-        // Subscribe Push Notifications
-        notificationService.subscribeDevice().catch((err) => {
-          console.warn('[AuthContext] Push subscribe on login skipped:', err);
-        });
-
-        // Connect WebSocket singleton
-        websocketClient.reset();
-        websocketClient.connect(response.token, currentDeviceId);
-      } catch (err) {
-        throw err;
-      }
+      const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+      const response = await authApi.login({
+        ...credentials,
+        device_id: currentDeviceId,
+      });
+      await startSession(response, currentDeviceId, 'login');
     },
-    [deviceId, initE2EEForUser]
+    [deviceId, startSession]
   );
 
   const register = useCallback(
     async (payload: RegisterRequest) => {
-      try {
-        const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
-        const response = await authApi.register(payload);
-
-        await secureStorage.setAuthToken(response.token);
-        await secureStorage.setUserData(response.user);
-        await secureStorage.setCurrentUserId(response.user.id);
-        await purgeStaleAccountData(response.user.id);
-
-        setToken(response.token);
-        setUser(response.user);
-        setSessionReplacedMessage(null);
-
-        // Initialize E2EE Keys
-        await initE2EEForUser(response.user.id, currentDeviceId);
-
-        // Subscribe Push Notifications
-        notificationService.subscribeDevice().catch((err) => {
-          console.warn('[AuthContext] Push subscribe on register skipped:', err);
-        });
-
-        // Connect WebSocket singleton
-        websocketClient.reset();
-        websocketClient.connect(response.token, currentDeviceId);
-      } catch (err) {
-        throw err;
-      }
+      const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+      const response = await authApi.register(payload);
+      await startSession(response, currentDeviceId, 'register');
     },
-    [deviceId, initE2EEForUser]
+    [deviceId, startSession]
   );
+
+  const loginWithGoogle = useCallback(
+    async (options: GoogleLoginOptions & { idToken?: string } = {}) => {
+      // Percobaan ulang (mis. konfirmasi ganti perangkat) memakai ID token yang sama: tanpa pemilih akun kedua.
+      let idToken = options.idToken;
+      if (!idToken) {
+        const identity = await signInWithGoogle();
+        if (!identity) return null; // pengguna membatalkan
+        idToken = identity.idToken;
+      }
+
+      const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+      const response = await authApi.googleSignIn(idToken, {
+        device_id: currentDeviceId,
+        confirm_override: options.confirm_override,
+        kick_device_id: options.kick_device_id,
+      });
+
+      if (isGoogleNotLinked(response)) {
+        return {
+          status: 'not_linked' as const,
+          linkToken: response.link_token,
+          email: response.email,
+          expiresInSec: response.expires_in,
+          idToken,
+        };
+      }
+      await startSession(response, currentDeviceId, 'google login');
+      return { status: 'signed_in' as const, idToken };
+    },
+    [deviceId, startSession]
+  );
+
+  const registerWithGoogle = useCallback(
+    async ({ linkToken, username, displayName }: { linkToken: string; username: string; displayName?: string }) => {
+      const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+      const response = await authApi.googleRegister({
+        link_token: linkToken,
+        username,
+        display_name: displayName,
+        device_id: currentDeviceId,
+      });
+      await startSession(response, currentDeviceId, 'google register');
+    },
+    [deviceId, startSession]
+  );
+
+  const linkGoogleToExistingAccount = useCallback(
+    async ({
+      linkToken,
+      username,
+      password,
+      confirm_override,
+      kick_device_id,
+    }: { linkToken: string; username: string; password: string } & GoogleLoginOptions) => {
+      const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+      const response = await authApi.googleLink({
+        link_token: linkToken,
+        username,
+        password,
+        device_id: currentDeviceId,
+        confirm_override,
+        kick_device_id,
+      });
+      await startSession(response, currentDeviceId, 'google link');
+    },
+    [deviceId, startSession]
+  );
+
+  const linkGoogleToCurrentAccount = useCallback(async () => {
+    const identity = await signInWithGoogle();
+    if (!identity) return false;
+    await authApi.linkGoogleToAccount(identity.idToken);
+    // Segarkan profil agar google_linked/has_password terbaru tersimpan.
+    try {
+      const fresh = await authApi.getMe();
+      setUser(fresh);
+      await secureStorage.setUserData(fresh);
+    } catch (err) {
+      console.warn('[AuthContext] Refresh profil setelah menautkan Google gagal:', err);
+    }
+    return true;
+  }, []);
 
   const logout = useCallback(async () => {
     setIsLoading(true);
@@ -452,6 +566,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // on this trusted phone, the existing key is retained and past messages decrypt cleanly
       // without needing to re-scan the QR code every time.
       await secureStorage.clearSession();
+      signOutGoogleLocal().catch(() => {});
       const loggedOutUserId = user?.id;
       setUser(null);
       setToken(null);
@@ -473,8 +588,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    * yang berubah), baru data lokal dibersihkan termasuk kunci E2EE dan media (tidak ada akun lagi yang bisa memakainya).
    */
   const deleteAccount = useCallback(
-    async (password: string) => {
-      await authApi.deleteAccount(password);
+    async (proof: ProofInput) => {
+      await authApi.deleteAccount(normalizeProof(proof));
 
       const deletedUserId = user?.id;
       websocketClient.disconnect();
@@ -489,6 +604,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch {}
       }
       await secureStorage.clearSession();
+      signOutGoogleLocal().catch(() => {});
       setUser(null);
       setToken(null);
       setE2eeKeyPair(null);
@@ -562,6 +678,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         importTransferredKeyPair,
         login,
         register,
+        loginWithGoogle,
+        registerWithGoogle,
+        linkGoogleToExistingAccount,
+        linkGoogleToCurrentAccount,
         logout,
         dismissSessionAlert,
         cancelKeyConflict,

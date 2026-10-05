@@ -43,6 +43,10 @@ export interface User {
   public_key?: string;
   created_at?: string;
   last_seen?: string;
+  /** Hanya ada pada respons GET /api/auth/me: akun sudah punya akun Google tertaut. */
+  google_linked?: boolean;
+  /** Hanya ada pada respons GET /api/auth/me: false = akun Google-only (tanpa password). */
+  has_password?: boolean;
 }
 
 export interface UpdateProfileRequest {
@@ -67,6 +71,9 @@ export interface AuthTokenResponse {
   token: string;
   user: User;
   expires_in?: number;
+  /** false = akun Google-only: aksi sensitif (hapus akun, reset kunci) harus memakai re-auth Google. */
+  has_password?: boolean;
+  google_linked?: boolean;
 }
 
 export interface LoginRequest {
@@ -77,6 +84,39 @@ export interface LoginRequest {
   confirm_override?: boolean;
   kick_device_id?: string;
 }
+
+/** Perangkat yang dikirim pada semua endpoint login Google (opsional bila memakai header X-Device-ID). */
+export interface GoogleDeviceFields {
+  device_id?: string;
+  confirm_override?: boolean;
+  kick_device_id?: string;
+}
+
+/** Respons POST /api/auth/google bila akun Google belum tertaut ke akun Wuzz mana pun (HTTP 200). */
+export interface GoogleNotLinkedResponse {
+  code: 'GOOGLE_NOT_LINKED';
+  link_token: string;
+  email?: string;
+  expires_in: number;
+}
+
+/** Hasil POST /api/auth/google: sesi penuh atau permintaan melanjutkan pendaftaran/penautan. */
+export type GoogleSignInResponse = AuthTokenResponse | GoogleNotLinkedResponse;
+
+export interface GoogleRegisterRequest extends GoogleDeviceFields {
+  link_token: string;
+  username: string;
+  display_name?: string;
+}
+
+export interface GoogleLinkRequest extends GoogleDeviceFields {
+  link_token: string;
+  username: string;
+  password: string;
+}
+
+/** Bukti kepemilikan untuk aksi sensitif: password ATAU ID token Google yang baru diterbitkan (maks 5 menit). */
+export type OwnershipProof = { password: string } | { googleIdToken: string };
 
 export interface RegisterRequest {
   username: string;

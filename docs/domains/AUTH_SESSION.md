@@ -91,6 +91,8 @@ backend/internal/authz/
 | `POST` / `PUT` / `DELETE` | `/api/auth/me/google` | Terproteksi | Tautkan (`{id_token}`) / ganti (`{old_id_token, id_token}`) / putuskan (`{password}`) |
 | `GET` | `/api/auth/me` | Terproteksi | Kini menyertakan `google_linked` dan `has_password` |
 
+Respons `login`, `register`, dan semua endpoint Google memuat `has_password` dan `google_linked` (di samping `token` dan `user`) supaya klien tahu metode login akun tanpa panggilan tambahan (akun Google-only wajib re-auth Google untuk hapus akun dan reset kunci).
+
 Kode error `code` (selain pesan `error`): `GOOGLE_NOT_CONFIGURED` (503), `GOOGLE_TOKEN_INVALID`, `GOOGLE_REAUTH_STALE`, `GOOGLE_MISMATCH`, `LINK_TOKEN_INVALID`, `INVALID_CREDENTIALS` (401), `GOOGLE_LINKED_TO_OTHER_ACCOUNT`, `ACCOUNT_ALREADY_HAS_GOOGLE`, `USERNAME_TAKEN`, `PASSWORD_LOGIN_UNAVAILABLE` (409), `VALIDATION_ERROR` (400), `GOOGLE_TENANT_NOT_ALLOWED` (403).
 
 ---

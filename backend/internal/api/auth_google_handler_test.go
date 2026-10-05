@@ -134,10 +134,14 @@ func TestGoogleHTTP_NewAccountLifecycle(t *testing.T) {
 	e := setupGoogleHTTP(t, true)
 	token, userID := e.signup(t, "tok-a", "sub-a", "alice")
 
-	// Sign-in ulang langsung login.
+	// Sign-in ulang langsung login, dan respons memuat metode login akun (akun Google-only: tanpa password).
 	w := post(t, e.h.GoogleSignIn, http.MethodPost, `{"id_token":"tok-a","device_id":"dev-alice"}`, "")
-	if w.Code != http.StatusOK || decode(t, w)["token"] == nil {
+	signin := decode(t, w)
+	if w.Code != http.StatusOK || signin["token"] == nil {
 		t.Fatalf("sign-in kedua harus 200 dengan token, dapat %d %s", w.Code, w.Body.String())
+	}
+	if signin["has_password"] != false || signin["google_linked"] != true {
+		t.Fatalf("respons sign-in harus has_password=false google_linked=true, dapat %v", signin)
 	}
 
 	// /me menunjukkan akun Google-only.
@@ -212,8 +216,12 @@ func TestGoogleHTTP_LinkExistingAccount(t *testing.T) {
 	if w.Code != 200 || decode(t, w)["token"] == nil {
 		t.Fatalf("link harus 200 dengan token, dapat %d %s", w.Code, w.Body.String())
 	}
-	// Sesudahnya /me menunjukkan dua metode login.
-	token := decode(t, w)["token"].(string)
+	// Respons link dan /me sama-sama menunjukkan dua metode login.
+	linked := decode(t, w)
+	if linked["has_password"] != true || linked["google_linked"] != true {
+		t.Fatalf("respons link harus has_password=true google_linked=true, dapat %v", linked)
+	}
+	token := linked["token"].(string)
 	me := decode(t, post(t, e.h.Me, http.MethodGet, ``, token))
 	if me["google_linked"] != true || me["has_password"] != true {
 		t.Fatalf("akun lama harus punya Google dan password: %v", me)

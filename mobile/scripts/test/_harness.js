@@ -19,7 +19,7 @@ const SRC_ROOT = path.resolve(__dirname, '../../src');
 const OUT_ROOT = path.resolve(__dirname, '../../node_modules/.cache/wuzz-unit-tests');
 
 /** Keadaan tiruan yang dibagi antar-"cold start": SecureStore tetap ada walau modul dimuat ulang. */
-const state = { secureStore: new Map(), sqliteDb: null };
+const state = { secureStore: new Map(), sqliteDb: null, googleNative: null };
 
 let stubsInstalled = false;
 function installNativeStubs() {
@@ -49,6 +49,10 @@ function installNativeStubs() {
         };
       case 'react-native':
         return { Platform: { OS: 'android' } };
+      case 'react-native-nitro-google-signin':
+        // null = modul native tidak ada pada build ini (require gagal seperti di build lama)
+        if (!state.googleNative) throw Object.assign(new Error("Cannot find module 'react-native-nitro-google-signin'"), { code: 'MODULE_NOT_FOUND' });
+        return state.googleNative;
       case 'expo-sqlite':
         return { openDatabaseAsync: async () => state.sqliteDb };
       default:

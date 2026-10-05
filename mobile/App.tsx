@@ -34,7 +34,8 @@ import {
 import { ConversationItem, ConnectionStatusResponse } from './src/api/types';
 import { getUserProfile, startDirectChat } from './src/api/users';
 import { connectionsApi } from './src/api/connections';
-import { LoginScreen, RegisterScreen } from './src/screens';
+import { GoogleOnboardingScreen, LoginScreen, RegisterScreen } from './src/screens';
+import type { GooglePending } from './src/screens/GoogleOnboardingScreen';
 import {
   KeyConflictModal,
   SessionAlertModal,
@@ -62,7 +63,7 @@ const SPLASH_MAX_WAIT_MS = 3000;
 const SPLASH_BACKGROUND = '#0462E8';
 const SPLASH_ICON = require('./assets/splash-icon.png');
 
-type AuthRoute = 'login' | 'register';
+type AuthRoute = 'login' | 'register' | 'google';
 
 // Pelaporan crash (Firebase Crashlytics): aktif hanya pada build rilis; no-op bila modul native tak ada.
 initCrashReporting();
@@ -81,6 +82,9 @@ function AppContent() {
   const { conversations } = useConversations();
   const { triggerIncomingCall } = useCall();
   const [authRoute, setAuthRoute] = useState<AuthRoute>('login');
+  // Bukti verifikasi Google untuk layar onboarding (akun Google belum tertaut) dan pesan balik ke layar login.
+  const [googlePending, setGooglePending] = useState<GooglePending | null>(null);
+  const [loginMessage, setLoginMessage] = useState<string | null>(null);
   const [isKeyTransferModalOpen, setIsKeyTransferModalOpen] = useState<boolean>(false);
   const lastHandledUrlRef = useRef<{ url: string; time: number } | null>(null);
 
@@ -374,6 +378,14 @@ function AppContent() {
     };
   }, [isAuthenticated]);
 
+  // Sesi terbentuk: buang sisa state alur Google/pesan login supaya tidak muncul lagi setelah logout berikutnya.
+  useEffect(() => {
+    if (isAuthenticated) {
+      setGooglePending(null);
+      setLoginMessage(null);
+    }
+  }, [isAuthenticated]);
+
   const handleDismissSessionAlert = useCallback(async () => {
     await dismissSessionAlert();
     setAuthRoute('login');
@@ -409,7 +421,30 @@ function AppContent() {
       return <RegisterScreen onNavigateToLogin={() => setAuthRoute('login')} />;
     }
 
-    return <LoginScreen onNavigateToRegister={() => setAuthRoute('register')} />;
+    if (authRoute === 'google' && googlePending) {
+      return (
+        <GoogleOnboardingScreen
+          pending={googlePending}
+          onCancel={(message) => {
+            setGooglePending(null);
+            setLoginMessage(message ?? null);
+            setAuthRoute('login');
+          }}
+        />
+      );
+    }
+
+    return (
+      <LoginScreen
+        onNavigateToRegister={() => setAuthRoute('register')}
+        onGoogleNotLinked={(pending) => {
+          setLoginMessage(null);
+          setGooglePending(pending);
+          setAuthRoute('google');
+        }}
+        initialMessage={loginMessage}
+      />
+    );
   };
 
   return (
@@ -432,6 +467,7 @@ function AppContent() {
         <KeyConflictModal
           visible={e2eeStatus === 'conflict'}
           onConfirmReset={resetE2EEKeys}
+          hasPassword={user?.has_password !== false}
           onOpenDeviceTransfer={() => setIsKeyTransferModalOpen(true)}
           onCancel={handleCancelKeyConflict}
         />
