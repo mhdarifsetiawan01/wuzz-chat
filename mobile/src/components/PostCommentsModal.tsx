@@ -26,7 +26,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { feedApi } from '../api/feedApi';
 import { FeedComment, FeedPost } from '../api/types';
-import { useFeed } from '../context';
+import { useAuth, useFeed } from '../context';
+import { ReportModal, ReportTarget } from './ReportModal';
 import { colors, radius, spacing, typography } from '../theme';
 import { IconText } from './IconText';
 import { VerifiedBadge } from './VerifiedBadge';
@@ -51,6 +52,8 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { updatePostCommentsCount } = useFeed();
+  const { user: currentUser } = useAuth();
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
 
   const [comments, setComments] = useState<FeedComment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -252,6 +255,22 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
                       <Text style={styles.commentTime}>
                         {formatPostTime(item.created_at)}
                       </Text>
+                      {(item.author?.id || item.user_id) !== currentUser?.id ? (
+                        <TouchableOpacity
+                          hitSlop={8}
+                          onPress={() =>
+                            setReportTarget({
+                              type: 'comment',
+                              id: item.id,
+                              userId: item.author?.id || item.user_id,
+                              evidence: item.content,
+                              label: 'komentar',
+                            })
+                          }
+                        >
+                          <Text style={styles.commentTime}>  ·  Laporkan</Text>
+                        </TouchableOpacity>
+                      ) : null}
                     </View>
                     <LinkifiedText text={item.content} style={styles.commentText} />
                   </View>
@@ -288,6 +307,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
           </View>
         </View>
       </KeyboardAvoidingView>
+      <ReportModal visible={Boolean(reportTarget)} target={reportTarget} onClose={() => setReportTarget(null)} />
     </Modal>
   );
 };

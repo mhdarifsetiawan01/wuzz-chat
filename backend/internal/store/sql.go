@@ -472,6 +472,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_conn_requester_cursor ON user_connections(tenant_id, requester_id, status, updated_at DESC, id DESC);`,
 		`CREATE INDEX IF NOT EXISTS idx_conn_receiver_cursor ON user_connections(tenant_id, receiver_id, status, updated_at DESC, id DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_conn_blocked_receiver ON user_connections(receiver_id) WHERE status = 'blocked';`,
 		`CREATE INDEX IF NOT EXISTS idx_conn_receiver_pending ON user_connections(tenant_id, receiver_id, status, created_at DESC) WHERE status = 'pending';`,
 	}
 

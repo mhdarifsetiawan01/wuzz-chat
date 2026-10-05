@@ -16,6 +16,7 @@ import (
 )
 
 type AuthHandler struct {
+	accountEraser store.AccountEraser
 	userStore    store.UserStore
 	tokenStore   store.TokenStore
 	sessionStore store.SessionStore
@@ -74,6 +75,11 @@ func (h *AuthHandler) SetSessionStore(ss store.SessionStore) {
 func (h *AuthHandler) SetDeviceStore(ds store.DeviceStore) {
 	h.deviceStore = ds
 	h.syncAuthRepo()
+}
+
+// SetAccountEraser menyuntikkan penghapus akun (diperlukan untuk DELETE /api/auth/me).
+func (h *AuthHandler) SetAccountEraser(e store.AccountEraser) {
+	h.accountEraser = e
 }
 
 func (h *AuthHandler) SetHub(hub WebSocketHub) {
@@ -820,3 +826,68 @@ func (h *AuthHandler) RevokeAllOtherSessions(w http.ResponseWriter, r *http.Requ
 
 
 
+
+// DeleteAccountRequest adalah payload DELETE /api/auth/me.
+type DeleteAccountRequest struct {
+	Password string `json:"password"`
+}
+
+// DeleteAccount menghapus akun pemanggil secara permanen setelah re-autentikasi password.
+func (h *AuthHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodDelete {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = w.Write([]byte(`{"error":"Method tidak diizinkan"}`))
+		return
+	}
+
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"Unauthorized"}`))
+		return
+	}
+	if h.accountEraser == nil || h.userStore == nil {
+		w.WriteHeader(http.StatusNotImplemented)
+		_, _ = w.Write([]byte(`{"error":"Hapus akun tidak tersedia"}`))
+		return
+	}
+
+	var req DeleteAccountRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil || req.Password == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"Password wajib diisi"}`))
+		return
+	}
+
+	valid, err := h.userStore.VerifyPassword(claims.UserID, req.Password)
+	if err != nil || !valid {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"Password salah"}`))
+		return
+	}
+
+	if err := h.accountEraser.EraseUser(r.Context(), claims.UserID); err != nil {
+		if errors.Is(err, store.ErrUserNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"Akun tidak ditemukan"}`))
+			return
+		}
+		log.Printf("⚠️ [DeleteAccount] gagal menghapus %s: %v", claims.UserID, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"Gagal menghapus akun, coba lagi"}`))
+		return
+	}
+
+	if h.tokenStore != nil {
+		_ = h.tokenStore.RevokeAllUserTokens(claims.UserID)
+	}
+	if h.hub != nil {
+		h.hub.KickClientByUserID(claims.UserID, "", "ACCOUNT_DELETED: Akun telah dihapus.")
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": "Akun dan data pribadi Anda telah dihapus.",
+	})
+}

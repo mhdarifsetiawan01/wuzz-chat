@@ -56,6 +56,22 @@ class MediaCacheService {
   }
 
   /**
+   * Menghapus seluruh folder media persisten. Hanya untuk penghapusan akun (salinan lokal bisa jadi satu-satunya).
+   */
+  public async clearAll(): Promise<void> {
+    if (!this.baseDir) {
+      this.initBaseDir();
+    }
+    if (!this.baseDir) return;
+    try {
+      await FileSystem.deleteAsync(this.baseDir, { idempotent: true });
+    } catch (err) {
+      console.warn('[MediaCache] Failed to clear media directory:', err);
+    }
+    this.isDirInitialized = false;
+  }
+
+  /**
    * Total pemakaian disk cache media persisten (folder wuzzchat_media). Tidak membuat folder bila belum ada.
    * Catatan: salinan lokal ini sering menjadi SATU-SATUNYA salinan (server menghapus berkas fisik setelah ACK).
    */

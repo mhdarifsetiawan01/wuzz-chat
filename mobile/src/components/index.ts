@@ -44,3 +44,5 @@ export * from './SharedPostCard';
 export * from './Icon';
 export * from './IconText';
 export * from './AppDialogHost';
+export * from './DeleteAccountModal';
+export * from './ReportModal';

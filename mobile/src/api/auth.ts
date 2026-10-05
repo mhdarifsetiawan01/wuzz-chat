@@ -49,6 +49,18 @@ export const authApi = {
   },
 
   /**
+   * DELETE /api/auth/me
+   * Menghapus akun & data pribadi secara permanen (wajib password). 401 = password salah.
+   */
+  async deleteAccount(password: string): Promise<{ status: string; message?: string }> {
+    return apiClient<{ status: string; message?: string }>('/api/auth/me', {
+      method: 'DELETE',
+      body: JSON.stringify({ password }),
+      timeoutMs: 30000,
+    });
+  },
+
+  /**
    * POST /api/auth/logout
    */
   async logout(deviceId?: string): Promise<{ message?: string }> {

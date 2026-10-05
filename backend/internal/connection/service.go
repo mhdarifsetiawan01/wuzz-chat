@@ -265,11 +265,84 @@ func (s *ConnectionService) Unfriend(ctx context.Context, currentUserID, targetU
 	}
 
 	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+	// Baris 'blocked' tidak boleh dihapus lewat unfriend (pihak yang diblokir bisa melepas blokirnya sendiri).
+	existing, err := s.repo.FindConnection(ctx, tenantID, currentUserID, targetUserID)
+	if err != nil {
+		return err
+	}
+	if existing != nil && existing.Status == StatusBlocked {
+		return ErrConnectionNotFound
+	}
 	if err := s.repo.DeleteConnection(ctx, tenantID, currentUserID, targetUserID); err != nil {
 		return err
 	}
 
 	s.invalidateFriendCache(tenantID, currentUserID, targetUserID)
+	return nil
+}
+
+// BlockUser memblokir target: relasi apa pun (teman/pending/declined) diganti baris 'blocked' dengan blocker sebagai
+// requester_id. Target tidak dapat lagi mengirim pesan atau permintaan pertemanan ke blocker.
+func (s *ConnectionService) BlockUser(ctx context.Context, blockerID, targetUserID string) error {
+	if targetUserID == "" || blockerID == targetUserID {
+		return errors.New("target_user_id tidak valid")
+	}
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+
+	if s.userStore != nil {
+		if u, err := s.userStore.GetUserByID(targetUserID); err != nil || u == nil {
+			return errors.New("user target tidak ditemukan")
+		}
+	}
+
+	existing, err := s.repo.FindConnection(ctx, tenantID, blockerID, targetUserID)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		if existing.Status == StatusBlocked && existing.RequesterID == blockerID {
+			return nil // sudah diblokir (idempoten)
+		}
+		if err := s.repo.DeleteConnection(ctx, tenantID, blockerID, targetUserID); err != nil {
+			return err
+		}
+	}
+
+	now := time.Now().UTC()
+	if err := s.repo.CreateRequest(ctx, &UserConnection{
+		ID:          uuid.New().String(),
+		TenantID:    tenantID,
+		RequesterID: blockerID,
+		ReceiverID:  targetUserID,
+		Status:      StatusBlocked,
+		SourceType:  SourceInAppRequest,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}); err != nil {
+		return err
+	}
+	s.invalidateFriendCache(tenantID, blockerID, targetUserID)
+	return nil
+}
+
+// UnblockUser membuka blokir yang dibuat oleh pemanggil sendiri (blokir dari pihak lain tidak bisa dibuka).
+func (s *ConnectionService) UnblockUser(ctx context.Context, blockerID, targetUserID string) error {
+	if targetUserID == "" || blockerID == targetUserID {
+		return errors.New("target_user_id tidak valid")
+	}
+	tenantID := tenantshared.MustFromContext(ctx).TenantID()
+
+	existing, err := s.repo.FindConnection(ctx, tenantID, blockerID, targetUserID)
+	if err != nil {
+		return err
+	}
+	if existing == nil || existing.Status != StatusBlocked || existing.RequesterID != blockerID {
+		return ErrConnectionNotFound
+	}
+	if err := s.repo.DeleteConnection(ctx, tenantID, blockerID, targetUserID); err != nil {
+		return err
+	}
+	s.invalidateFriendCache(tenantID, blockerID, targetUserID)
 	return nil
 }
 
@@ -370,6 +443,11 @@ func (s *ConnectionService) GetConnectionStatus(ctx context.Context, currentUser
 
 	isAccepted := conn.Status == StatusAccepted
 	canInteract := isAccepted || !isPrivate
+	blockedByMe := conn.Status == StatusBlocked && conn.RequesterID == currentUserID
+	blockedByThem := conn.Status == StatusBlocked && conn.RequesterID != currentUserID
+	if conn.Status == StatusBlocked {
+		canInteract = false
+	}
 
 	return &ConnectionStatusResponse{
 		Status:           conn.Status,
@@ -378,6 +456,8 @@ func (s *ConnectionService) GetConnectionStatus(ctx context.Context, currentUser
 		IsPrivateAccount: isPrivate,
 		CanMessage:       canInteract,
 		CanCall:          canInteract,
+		BlockedByMe:      blockedByMe,
+		BlockedByThem:    blockedByThem,
 	}, nil
 }
 

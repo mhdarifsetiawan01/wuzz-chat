@@ -62,6 +62,22 @@ func (h *ConnectionHandler) RouteConnectionRequest(w http.ResponseWriter, r *htt
 		h.handleRespondConnection(w, r, claims)
 		return
 
+	case rawPath == "block":
+		if r.Method != http.MethodPost {
+			writeConnectionError(w, http.StatusMethodNotAllowed, "Method tidak diizinkan")
+			return
+		}
+		h.handleBlock(w, r, claims)
+		return
+
+	case strings.HasPrefix(rawPath, "block/"):
+		if r.Method != http.MethodDelete {
+			writeConnectionError(w, http.StatusMethodNotAllowed, "Method tidak diizinkan")
+			return
+		}
+		h.handleUnblock(w, r, claims, strings.TrimPrefix(rawPath, "block/"))
+		return
+
 	case rawPath == "friends":
 		if r.Method != http.MethodGet {
 			writeConnectionError(w, http.StatusMethodNotAllowed, "Method tidak diizinkan")
@@ -239,4 +255,36 @@ func (h *ConnectionHandler) handleUnfriend(w http.ResponseWriter, r *http.Reques
 	}
 
 	writeConnectionJSON(w, http.StatusOK, map[string]string{"message": "Berhasil menghapus pertemanan"})
+}
+
+func (h *ConnectionHandler) handleBlock(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims) {
+	var body struct {
+		UserID string `json:"user_id"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024)).Decode(&body); err != nil || strings.TrimSpace(body.UserID) == "" {
+		writeConnectionError(w, http.StatusBadRequest, "user_id wajib diisi")
+		return
+	}
+	if err := h.service.BlockUser(r.Context(), claims.UserID, strings.TrimSpace(body.UserID)); err != nil {
+		writeConnectionError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeConnectionJSON(w, http.StatusOK, map[string]string{"message": "Pengguna diblokir"})
+}
+
+func (h *ConnectionHandler) handleUnblock(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims, targetUserID string) {
+	targetUserID = strings.TrimSpace(targetUserID)
+	if targetUserID == "" {
+		writeConnectionError(w, http.StatusBadRequest, "target_user_id wajib diisi")
+		return
+	}
+	if err := h.service.UnblockUser(r.Context(), claims.UserID, targetUserID); err != nil {
+		if errors.Is(err, connection.ErrConnectionNotFound) {
+			writeConnectionError(w, http.StatusNotFound, "Pengguna ini tidak sedang Anda blokir")
+			return
+		}
+		writeConnectionError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeConnectionJSON(w, http.StatusOK, map[string]string{"message": "Blokir dibuka"})
 }

@@ -6106,3 +6106,56 @@ h4 { font-size: 1rem;   font-weight: 600; }
 
 
 
+
+/* ================================================================
+   LEGAL PAGES (privacy, terms, delete-account) — publik, tanpa login
+   ================================================================ */
+
+.legal-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  background: var(--bg-base);
+  overflow-y: auto;
+}
+
+.legal-card {
+  width: 100%;
+  max-width: 760px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  font-size: 0.9375rem;
+}
+
+.legal-header { margin-bottom: var(--space-6); }
+.legal-brand { color: var(--text-primary); font-weight: 700; text-decoration: none; }
+.legal-header h1 { color: var(--text-primary); margin-top: var(--space-3); font-size: 1.75rem; }
+.legal-meta { color: var(--text-muted); font-size: 0.8125rem; margin-top: var(--space-1); }
+
+.legal-body h2 { color: var(--text-primary); font-size: 1.125rem; margin: var(--space-6) 0 var(--space-2); }
+.legal-body p, .legal-body ul, .legal-body ol { margin-bottom: var(--space-3); }
+.legal-body ul, .legal-body ol { padding-left: var(--space-5); }
+.legal-body li { margin-bottom: var(--space-1); }
+.legal-body strong { color: var(--text-primary); }
+.legal-body a { color: var(--text-primary); text-decoration: underline; }
+
+.legal-note {
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md, 12px);
+  margin-bottom: var(--space-4);
+}
+
+.legal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-8);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.8125rem;
+}
+.legal-footer a { color: var(--text-muted); text-decoration: none; }
+.legal-footer a:hover { color: var(--text-primary); }

@@ -1359,6 +1359,26 @@ func (s *SQLUserStore) IsUserInConversation(conversationID, userID string) (bool
 		return false, err
 	}
 	if count > 0 {
+		// Pihak yang diblokir lawan bicaranya kehilangan akses ke DM tersebut (kirim maupun terima).
+		if strings.HasPrefix(conversationID, "dm_") {
+			var blockQuery string
+			if s.driverName == "postgres" {
+				blockQuery = `SELECT COUNT(1) FROM user_connections uc
+					JOIN conversation_members m ON m.conversation_id = $1 AND m.user_id = uc.requester_id
+					WHERE uc.status = 'blocked' AND uc.receiver_id = $2`
+			} else {
+				blockQuery = `SELECT COUNT(1) FROM user_connections uc
+					JOIN conversation_members m ON m.conversation_id = ? AND m.user_id = uc.requester_id
+					WHERE uc.status = 'blocked' AND uc.receiver_id = ?`
+			}
+			var blocked int
+			if bErr := s.db.QueryRow(blockQuery, conversationID, userID).Scan(&blocked); bErr != nil {
+				return false, bErr
+			}
+			if blocked > 0 {
+				return false, nil
+			}
+		}
 		return true, nil
 	}
 

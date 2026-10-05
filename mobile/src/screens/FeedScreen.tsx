@@ -27,6 +27,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FeedPost } from '../api/types';
 import { Avatar } from '../components/Avatar';
+import { ReportModal, ReportTarget } from '../components/ReportModal';
 import { CreatePostModal } from '../components/CreatePostModal';
 import { ExpandableText } from '../components/ExpandableText';
 import { LinkPreviewCard } from '../components/LinkPreviewCard';
@@ -68,6 +69,7 @@ export const FeedScreen: React.FC = () => {
   const [activeCommentsPost, setActiveCommentsPost] = useState<FeedPost | null>(null);
   const [activeSharePost, setActiveSharePost] = useState<FeedPost | null>(null);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
 
   const openReader = useCallback(
     (post: FeedPost) => navigation.navigate('PostReader', { postId: post.id, initialPost: post }),
@@ -175,6 +177,26 @@ export const FeedScreen: React.FC = () => {
               <Text style={styles.postTimeAgo}>{formatPostTime(item.created_at)}</Text>
             </View>
           </View>
+
+          {/* Laporkan (postingan orang lain) */}
+          {!(item.author?.id === user?.id || item.user_id === user?.id) && (
+            <TouchableOpacity
+              style={styles.modDeleteBtn}
+              onPress={() =>
+                setReportTarget({
+                  type: 'post',
+                  id: item.id,
+                  userId: item.author?.id || item.user_id,
+                  evidence: item.content,
+                  label: 'postingan',
+                })
+              }
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Laporkan postingan"
+            >
+              <IconText style={styles.modDeleteText}>🚩</IconText>
+            </TouchableOpacity>
+          )}
 
           {/* Moderation Menu */}
           {canModeratePost(item) && (
@@ -376,6 +398,8 @@ export const FeedScreen: React.FC = () => {
         mediaUrl={viewerUrl}
         onClose={() => setViewerUrl(null)}
       />
+
+      <ReportModal visible={Boolean(reportTarget)} target={reportTarget} onClose={() => setReportTarget(null)} />
 
       <CreatePostModal
         visible={isCreateModalOpen}

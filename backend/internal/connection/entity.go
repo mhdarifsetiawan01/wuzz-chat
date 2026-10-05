@@ -86,6 +86,9 @@ type ConnectionStatusResponse struct {
 	IsPrivateAccount bool             `json:"is_private_account"`
 	CanMessage       bool             `json:"can_message"`
 	CanCall          bool             `json:"can_call"`
+	// BlockedByMe true bila pemanggil yang memblokir target; BlockedByThem true bila sebaliknya.
+	BlockedByMe   bool `json:"blocked_by_me,omitempty"`
+	BlockedByThem bool `json:"blocked_by_them,omitempty"`
 }
 
 // EncodeCursor mengonversi timestamp nanosecond dan connection ID ke format string opaque Base64 URL-safe.

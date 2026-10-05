@@ -562,6 +562,8 @@ export interface ConnectionStatusResponse {
   is_private_account: boolean;
   can_message: boolean;
   can_call: boolean;
+  blocked_by_me?: boolean;
+  blocked_by_them?: boolean;
 }
 
 // =========================================================================

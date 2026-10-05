@@ -24,6 +24,12 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Autentikasi, Manajemen S
    - Saat login ulang di perangkat yang sama, aplikasi memverifikasi kunci ke server via `PUT /api/users/public-key`, menerima status 200 OK, dan langsung masuk tanpa modal scan QR atau reset kunci berulang kali.
 5. **Session Replacement & Eviction**:
    - Jika akun dibuka di perangkat baru yang menendang perangkat lama, server mengirimkan frame penutupan WebSocket Close Code `4001: SESSION_REPLACED`. Klien lama wajib memutus koneksi permanen (`destroyed = true`) dan menghapus sesi lokal.
+6. **Hapus Akun (syarat Google Play)**:
+   - `DELETE /api/auth/me` wajib re-auth password. Seluruh penghapusan berjalan dalam **satu transaksi** (`store.SQLAccountEraser.EraseUser`), gagal = tidak ada yang berubah.
+   - Dihapus: pesan yang ditulis user (DM & grup) beserta pin, keanggotaan & permintaan gabung, relasi pertemanan, postingan/komentar/suka feed (counter post orang lain disinkronkan ulang), kredensial, sesi, perangkat, push token, token transfer/pertukaran.
+   - Grup yang dibuat user: peran `creator` diwariskan ke admin/anggota tertua; jika tidak ada anggota lain, grup beserta pesannya dihapus.
+   - Baris `users` dipertahankan sebagai **tombstone** (`username=deleted_<id>`, `display_name='Akun Terhapus'`, password/kunci/profil dikosongkan) agar referensi data milik orang lain tidak rusak; username asli dibebaskan. Seluruh JWT lama dicabut (`user_token_revocations`) dan koneksi WebSocket ditendang (`ACCOUNT_DELETED`).
+   - Berkas media fisik tidak dihapus langsung; mengikuti `PurgeWorker` (24 jam DM / 7 hari grup). Halaman publik: `/privacy`, `/terms`, `/delete-account` (frontend, dikecualikan dari gate web dijeda).
 
 ---
 
@@ -67,6 +73,7 @@ backend/internal/authz/
 | `POST` | `/api/auth/change-password` | Terproteksi | Ganti password & revoke seluruh sesi lain |
 | `GET` | `/api/auth/sessions` | Terproteksi | Daftar sesi aktif |
 | `DELETE` | `/api/auth/sessions/{id}` | Terproteksi | Remote logout sesi tertentu |
+| `DELETE` | `/api/auth/me` | Terproteksi | Hapus akun permanen. Body `{password}` (401 = password salah). Lihat invarian 6 |
 
 ---
 

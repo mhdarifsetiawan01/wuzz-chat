@@ -357,6 +357,12 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+### Milestone Kepatuhan Play Store: Hapus Akun, Laporan & Blokir, Halaman Legal (SELESAI - 05/10/2026, belum di-commit)
+- Backend: `DELETE /api/auth/me` (transaksi tunggal `SQLAccountEraser`), `content_reports` + `/api/reports`, `POST/DELETE /api/connections/block` dengan penegakan di `IsUserInConversation` (DM). Tes: `auth_delete_account_test.go`, `report_handler_test.go`, `connection_block_test.go`.
+- Frontend web: `/privacy`, `/terms`, `/delete-account` (server component, kelas `.legal-*` di `globals.css`, dikecualikan dari gate).
+- Mobile: `DeleteAccountModal`, `ReportModal`, menu Legal & Hapus Akun di Pengaturan, Laporkan di pesan/postingan/komentar, Blokir/Laporkan di profil.
+- **Perlu deploy backend** (`ssh deploy@<VPS_IP> ./deploy-chat.sh`) dan rebuild frontend; mobile butuh build baru.
+
 ## Fokus Berikutnya (What's Next)
 - [x] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
 

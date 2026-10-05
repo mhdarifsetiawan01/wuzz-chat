@@ -23,7 +23,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
 import { useConnection } from '../context/ConnectionContext';
-import { APP_LINK_CONFIG } from '../api/config';
+import { APP_LINK_CONFIG, LEGAL_URLS } from '../api/config';
 import { colors, radius, shadows, spacing, typography } from '../theme';
 import { IconText } from '../components/IconText';
 import {
@@ -35,6 +35,7 @@ import {
   Avatar,
   VerifiedBadge,
   AboutWuzzChatModal,
+  DeleteAccountModal,
 } from '../components';
 import { getAppVersionInfo } from '../utils/appVersion';
 import { fetchAppUpdateInfo, getLatestVersionLabel, isUpdateAvailable } from '../services/appUpdate';
@@ -132,7 +133,7 @@ function getInitials(name: string): string {
 export const SettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user, logout, e2eeStatus, updateCurrentUser } = useAuth();
+  const { user, logout, deleteAccount, e2eeStatus, updateCurrentUser } = useAuth();
   const { friends, pendingCount } = useConnection();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -143,6 +144,7 @@ export const SettingsScreen: React.FC = () => {
   const [isStorageVisible, setIsStorageVisible] = useState(false);
   const [isEditProfileVisible, setIsEditProfileVisible] = useState(false);
   const [isAboutVisible, setIsAboutVisible] = useState(false);
+  const [isDeleteAccountVisible, setIsDeleteAccountVisible] = useState(false);
 
   const handleLogout = useCallback(() => {
     showAlert(
@@ -364,11 +366,36 @@ export const SettingsScreen: React.FC = () => {
           />
         </SettingsSection>
 
+        <SettingsSection title="Legal">
+          <SettingsItem
+            icon="📄"
+            title="Kebijakan Privasi"
+            onPress={() => Linking.openURL(LEGAL_URLS.privacy).catch(() => {})}
+            tintColor={colors.accentPrimary}
+          />
+          <View style={styles.itemDivider} />
+          <SettingsItem
+            icon="📜"
+            title="Syarat Layanan"
+            onPress={() => Linking.openURL(LEGAL_URLS.terms).catch(() => {})}
+            tintColor={colors.accentPrimary}
+          />
+        </SettingsSection>
+
         <SettingsSection title="Akun">
           <SettingsItem
             icon="🚪"
             title={isLoggingOut ? 'Sedang keluar…' : 'Keluar Akun'}
             onPress={handleLogout}
+            showChevron={false}
+            destructive
+          />
+          <View style={styles.itemDivider} />
+          <SettingsItem
+            icon="🗑️"
+            title="Hapus Akun"
+            subtitle="Hapus akun dan semua data Anda secara permanen"
+            onPress={() => setIsDeleteAccountVisible(true)}
             showChevron={false}
             destructive
           />
@@ -392,6 +419,12 @@ export const SettingsScreen: React.FC = () => {
       </ScrollView>
 
       {/* ── Modals ────────────────────────────────────────────────────── */}
+      <DeleteAccountModal
+        visible={isDeleteAccountVisible}
+        onClose={() => setIsDeleteAccountVisible(false)}
+        onConfirm={deleteAccount}
+      />
+
       <DeviceTransferModal
         visible={isDeviceTransferVisible}
         onClose={() => setIsDeviceTransferVisible(false)}

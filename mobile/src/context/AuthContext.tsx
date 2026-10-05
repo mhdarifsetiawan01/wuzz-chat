@@ -11,6 +11,7 @@ import { ApiError, LoginRequest, RegisterRequest, User } from '../api/types';
 import { updatePublicKey, resetPublicKey } from '../api/users';
 import { E2EEKeyPair, generateE2EEKeyPair } from '../services/crypto';
 import { deviceIdService } from '../services/deviceIdService';
+import { mediaCache } from '../services/mediaCache';
 import { notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
 import { clearFeedPosts, clearUserCache } from '../services/sqliteStorage';
@@ -34,6 +35,7 @@ interface AuthContextType {
   login: (credentials: Omit<LoginRequest, 'device_id'>) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
   dismissSessionAlert: () => void | Promise<void>;
   cancelKeyConflict: () => void | Promise<void>;
   updateCurrentUser: (updatedUser: User) => Promise<void>;
@@ -86,6 +88,7 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   register: async () => {},
   logout: async () => {},
+  deleteAccount: async () => {},
   dismissSessionAlert: () => {},
   cancelKeyConflict: () => {},
   updateCurrentUser: async () => {},
@@ -465,6 +468,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [deviceId, user?.id]);
 
+  /**
+   * Hapus akun permanen: server menghapus data dulu (error 401 = password salah, dilempar ke pemanggil dan tidak ada
+   * yang berubah), baru data lokal dibersihkan termasuk kunci E2EE dan media (tidak ada akun lagi yang bisa memakainya).
+   */
+  const deleteAccount = useCallback(
+    async (password: string) => {
+      await authApi.deleteAccount(password);
+
+      const deletedUserId = user?.id;
+      websocketClient.disconnect();
+      try {
+        await notificationService.unsubscribeDevice();
+      } catch {
+        // Token push sudah dihapus server bersama akun
+      }
+      if (deletedUserId) {
+        try {
+          await secureStorage.deleteE2EEKeyPair(deletedUserId);
+        } catch {}
+      }
+      await secureStorage.clearSession();
+      setUser(null);
+      setToken(null);
+      setE2eeKeyPair(null);
+      setE2eeStatus('uninitialized');
+      setSessionReplacedMessage(null);
+      websocketClient.reset();
+      await clearLocalAccountData(deletedUserId);
+      await mediaCache.clearAll();
+    },
+    [user?.id]
+  );
+
   const dismissSessionAlert = useCallback(async () => {
     setSessionReplacedMessage(null);
     try {
@@ -518,6 +554,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         isLoading,
         sessionReplacedMessage,
+        deleteAccount,
         e2eeKeyPair,
         e2eeStatus,
         initE2EEKeys,

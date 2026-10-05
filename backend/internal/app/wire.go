@@ -78,6 +78,7 @@ type Application struct {
 	ProvisioningHandler *api.ProvisioningHandler
 	OpenAPIHandler     *api.OpenAPIHandler
 	FeedHandler        *api.FeedHandler
+	ReportHandler      *api.ReportHandler
 	ConnectionHandler  *api.ConnectionHandler
 	ConnectionService  *connection.ConnectionService
 	WsHandler          *ws.Handler
@@ -117,6 +118,8 @@ func New(cfg *config.Config) (*Application, error) {
 	var credentialStore store.CredentialStore
 	var tenantRepo tenant.TenantRepository
 	var tenantSvc tenant.TenantService
+	var accountEraser store.AccountEraser
+	var reportStore store.ReportStore
 	var feedRepo feed.FeedRepository
 	var connRepo connection.ConnectionRepository
 
@@ -132,6 +135,12 @@ func New(cfg *config.Config) (*Application, error) {
 		sessionStore = store.NewSQLSessionStore(sqlStore.DB(), sqlStore.DriverName())
 		deviceStore = store.NewSQLDeviceStore(sqlStore.DB(), sqlStore.DriverName())
 		credentialStore = store.NewSQLCredentialStore(sqlStore.DB(), sqlStore.DriverName())
+		accountEraser = store.NewSQLAccountEraser(sqlStore.DB(), sqlStore.DriverName())
+		if rs, err := store.NewSQLReportStore(sqlStore.DB(), sqlStore.DriverName()); err != nil {
+			log.Printf("⚠️ Laporan konten dinonaktifkan: %v", err)
+		} else {
+			reportStore = rs
+		}
 		sqlUserStore.SetCredentialStore(credentialStore)
 
 		sqlTenantRepo := tenantinfra.NewSQLTenantRepository(sqlStore.DB(), sqlStore.DriverName())
@@ -181,6 +190,9 @@ func New(cfg *config.Config) (*Application, error) {
 		app.AuthHandler = api.NewAuthHandlerWithService(authSvc, userStore)
 		if tokenStore != nil {
 			app.AuthHandler.SetTokenStore(tokenStore)
+		}
+		if accountEraser != nil {
+			app.AuthHandler.SetAccountEraser(accountEraser)
 		}
 		if tenantSvc != nil {
 			tenantSvc.SetUserStore(userStore)
@@ -239,6 +251,10 @@ func New(cfg *config.Config) (*Application, error) {
 	app.LinkPreviewHandler = api.NewLinkPreviewHandler(messageBroker)
 	app.OpenAPIHandler = api.NewOpenAPIHandler()
 	app.AuthLimiter = ratelimit.NewDualTierRateLimiter(cfg.AuthRateLimitIP, cfg.AuthRateLimitUser, 1*time.Minute)
+
+	if reportStore != nil {
+		app.ReportHandler = api.NewReportHandler(reportStore)
+	}
 
 	// Inisialisasi Community Social Feed Engine (Milestone M-Mobile-9.2)
 	if feedRepo != nil {

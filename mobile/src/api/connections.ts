@@ -98,4 +98,25 @@ export const connectionsApi = {
       method: 'DELETE',
     });
   },
+
+  /**
+   * POST /api/connections/block
+   * Memblokir pengguna: pertemanan diputus dan pihak yang diblokir tidak bisa lagi mengirim pesan/permintaan.
+   */
+  async blockUser(userId: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>('/api/connections/block', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    });
+  },
+
+  /**
+   * DELETE /api/connections/block/:targetUserId
+   * Membuka blokir yang dibuat sendiri.
+   */
+  async unblockUser(targetUserId: string): Promise<{ message: string }> {
+    return apiClient<{ message: string }>(`/api/connections/block/${targetUserId}`, {
+      method: 'DELETE',
+    });
+  },
 };

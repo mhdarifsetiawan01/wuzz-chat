@@ -27,6 +27,8 @@ import { EditProfileModal } from '../components/EditProfileModal';
 import { PrivateAccountNoticeModal } from '../components/PrivateAccountNoticeModal';
 import { ActionConfirmModal } from '../components/ActionConfirmModal';
 import { SafetyNumberModal } from '../components/SafetyNumberModal';
+import { ReportModal } from '../components/ReportModal';
+import { connectionsApi } from '../api/connections';
 import { generateSafetyNumber, isContactSafetyVerified } from '../services/e2eeService';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
@@ -69,6 +71,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [isConnActionLoading, setIsConnActionLoading] = useState<boolean>(false);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState<boolean>(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState<boolean>(false);
+  const [showReport, setShowReport] = useState<boolean>(false);
   const [peerPublicKey, setPeerPublicKey] = useState<string | null>(null);
   const [safetyNumber, setSafetyNumber] = useState<string>('');
   const [isSafetyVerified, setIsSafetyVerified] = useState<boolean>(false);
@@ -291,6 +295,41 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     }
   }, [connStatus, isPrivate, respondFriendRequest]);
 
+  const isBlockedByMe = Boolean(connStatus?.blocked_by_me);
+
+  const confirmBlockToggle = useCallback(async () => {
+    if (!user) return;
+    setIsConnActionLoading(true);
+    try {
+      if (isBlockedByMe) {
+        await connectionsApi.unblockUser(user.id);
+        setConnStatus({ status: 'none', direction: '', is_private_account: isPrivate, can_message: !isPrivate, can_call: !isPrivate });
+      } else {
+        await connectionsApi.blockUser(user.id);
+        setConnStatus({
+          status: 'blocked',
+          direction: '',
+          is_private_account: isPrivate,
+          can_message: false,
+          can_call: false,
+          blocked_by_me: true,
+        });
+      }
+      setShowBlockConfirm(false);
+    } catch (err: any) {
+      setShowBlockConfirm(false);
+      setNoticeModal({
+        visible: true,
+        mode: 'general',
+        title: isBlockedByMe ? 'Gagal Membuka Blokir' : 'Gagal Memblokir',
+        description: err?.detail || err?.title || err?.message || 'Coba lagi beberapa saat.',
+        connectionStatus: connStatus?.status || 'none',
+      });
+    } finally {
+      setIsConnActionLoading(false);
+    }
+  }, [user, isBlockedByMe, isPrivate, connStatus?.status]);
+
   const handleUnfriendUser = useCallback(() => {
     if (!user) return;
     setShowUnfriendConfirm(true);
@@ -348,6 +387,19 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     if (!user) return;
     if (isSelf) {
       setShowEditModal(true);
+      return;
+    }
+
+    if (connStatus?.status === 'blocked') {
+      setNoticeModal({
+        visible: true,
+        mode: 'general',
+        title: connStatus.blocked_by_me ? 'Pengguna Diblokir' : 'Tidak Dapat Mengirim Pesan',
+        description: connStatus.blocked_by_me
+          ? `Buka blokir ${user.display_name} terlebih dahulu untuk mengirim pesan.`
+          : `Kamu tidak dapat mengirim pesan ke ${user.display_name}.`,
+        connectionStatus: 'blocked',
+      });
       return;
     }
 
@@ -880,6 +932,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
           ) : null}
 
+          {/* Keamanan komunitas: blokir & laporkan (hanya profil orang lain) */}
+          {!isSelf && user ? (
+            <View style={styles.safetyActionsRow}>
+              <TouchableOpacity onPress={() => setShowBlockConfirm(true)} activeOpacity={0.7} hitSlop={8}>
+                <Text style={styles.safetyActionText}>{isBlockedByMe ? 'Buka Blokir' : 'Blokir Pengguna'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowReport(true)} activeOpacity={0.7} hitSlop={8}>
+                <Text style={styles.safetyActionText}>Laporkan</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {/* E2EE Trust Badge Card */}
           <View style={styles.e2eeCard}>
             <IconText style={styles.e2eeIcon}>🔒</IconText>
@@ -974,6 +1038,29 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         connectionStatus={noticeModal.connectionStatus || connStatus?.status || 'none'}
         isAddingFriend={isConnActionLoading}
         onAddFriend={handleSendFriendRequest}
+      />
+
+      <ActionConfirmModal
+        visible={showBlockConfirm}
+        onClose={() => setShowBlockConfirm(false)}
+        onConfirm={confirmBlockToggle}
+        title={isBlockedByMe ? 'Buka Blokir' : 'Blokir Pengguna'}
+        description={
+          isBlockedByMe
+            ? `${user?.display_name || 'Pengguna ini'} akan bisa mengirim pesan dan permintaan pertemanan lagi.`
+            : `${user?.display_name || 'Pengguna ini'} tidak akan bisa mengirim pesan atau permintaan pertemanan kepadamu, dan pertemanan kalian diputus.`
+        }
+        confirmTitle={isBlockedByMe ? 'Buka Blokir' : 'Blokir'}
+        confirmVariant={isBlockedByMe ? 'primary' : 'danger'}
+        isLoading={isConnActionLoading}
+        icon="🚫"
+        iconBgVariant="danger"
+      />
+
+      <ReportModal
+        visible={showReport}
+        target={user ? { type: 'user', id: user.id, userId: user.id, label: user.display_name || 'pengguna' } : null}
+        onClose={() => setShowReport(false)}
       />
 
       {/* Unfriend Confirmation Modal */}
@@ -1269,6 +1356,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSubtle,
     gap: spacing.xs,
+  },
+  safetyActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.xxl,
+    paddingVertical: spacing.sm,
+  },
+  safetyActionText: {
+    ...typography.caption,
+    color: colors.colorError,
+    fontWeight: '600',
   },
   secondaryActionText: {
     color: colors.textPrimary,

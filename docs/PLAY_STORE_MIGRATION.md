@@ -47,6 +47,13 @@ APK sebelumnya (hingga build 18) ditandatangani **kunci debug bawaan template** 
 
 **Dampak:** pengguna APK lama (kunci debug) tidak bisa menimpa ke build kunci baru ("package conflicts"); harus uninstall dulu. Lakukan sekali, sekarang, selagi pengguna masih sedikit.
 
+### 2.1b Kepatuhan kebijakan Play (audit 2026-10-05)
+- [x] **Hapus akun**: `DELETE /api/auth/me` + layar "Hapus Akun" di Pengaturan + halaman web `/delete-account` (isi URL ini di Data Safety → Account deletion).
+- [x] **Kebijakan privasi & syarat**: `https://chat.wuzzhub.id/privacy`, `/terms` (dikecualikan dari gate web dijeda; dibuka dari Pengaturan lewat `Linking`). **Sebelum rilis:** set `NEXT_PUBLIC_SUPPORT_EMAIL` ke email yang dipantau lalu rebuild frontend (default `support@wuzzhub.id` belum tentu ada), dan cocokkan teks privasi dengan fakta produksi (penyedia hosting, rotasi backup).
+- [x] **UGC**: laporan (`POST /api/reports`; moderator `GET /api/reports`, `PATCH /api/reports/{id}` dengan `system_role` `wuzz_moderator`), blokir/buka blokir, tombol Laporkan di pesan, postingan, komentar, dan profil. SOP: tinjau laporan `open` minimal harian; hapus konten/ban akun pelanggar; balas banding lewat email dukungan.
+- [ ] **Belum**: `assetlinks.json` masih memuat sidik jari kunci DEBUG; tambahkan SHA-256 keystore release dan SHA-256 Play App Signing (Play Console → App integrity), deploy frontend.
+- [ ] **Belum**: Crashlytics/Sentry, deklarasi Foreground Service (`mediaPlayback`), pembersihan izin `SYSTEM_ALERT_WINDOW`/`BLUETOOTH`, cek 16 KB page size, Data Safety, rating konten, aset toko, closed testing 12 penguji × 14 hari (akun personal baru).
+
 ### 2.2 Konfigurasi Play Console
 - [ ] Buat aplikasi dengan package `com.wuzzchat.mobile`.
 - [ ] Isi formulir kebijakan (privasi, data safety, izin: notifikasi, kamera untuk pindai QR, mikrofon untuk pesan suara/panggilan).

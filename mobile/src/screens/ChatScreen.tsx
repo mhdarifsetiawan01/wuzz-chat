@@ -47,6 +47,7 @@ import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInputBar, StagedMedia } from '../components/ChatInputBar';
 import { MessageActionSheet } from '../components/MessageActionSheet';
+import { ReportModal, ReportTarget } from '../components/ReportModal';
 import { SubGroupListModal } from '../components/SubGroupListModal';
 import { GroupPreviewModal } from '../components/GroupPreviewModal';
 import { AuthorizationShield } from '../components/AuthorizationShield';
@@ -172,6 +173,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [roomAESKey, setRoomAESKey] = useState<Uint8Array | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [actionSheetMessage, setActionSheetMessage] = useState<Message | null>(null);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [memberCount, setMemberCount] = useState<number>(conversation.member_count || 0);
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
@@ -2021,8 +2023,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         onEdit={handleStartEdit}
         onForward={handleStartForward}
         onTogglePin={handleTogglePin}
+        onReport={(msg) =>
+          setReportTarget({
+            type: 'message',
+            id: msg.id,
+            userId: msg.sender_id || undefined,
+            evidence: msg.content || undefined,
+            label: 'pesan',
+          })
+        }
         onDelete={handleDeleteMessage}
       />
+
+      <ReportModal visible={Boolean(reportTarget)} target={reportTarget} onClose={() => setReportTarget(null)} />
 
       {/* Milestone 8.3: Forward Message Modal */}
       <ForwardMessageModal

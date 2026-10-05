@@ -49,3 +49,10 @@ export const APP_LINK_CONFIG = {
   getSubGroupShareUrl: (subGroupId: string) =>
     `https://chat.wuzzhub.id/sub/${encodeURIComponent(subGroupId)}`,
 } as const;
+
+/** Halaman legal publik (web); dibuka lewat peramban dari aplikasi dan dipakai sebagai URL di Play Console. */
+export const LEGAL_URLS = {
+  privacy: 'https://chat.wuzzhub.id/privacy',
+  terms: 'https://chat.wuzzhub.id/terms',
+  deleteAccount: 'https://chat.wuzzhub.id/delete-account',
+} as const;

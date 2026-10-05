@@ -105,6 +105,10 @@ func (a *Application) setupRouter() http.Handler {
 			ratelimit.DualRateLimitMiddleware(a.AuthLimiter)(http.HandlerFunc(a.AuthHandler.Login)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/me", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodDelete {
+				auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.DeleteAccount)).ServeHTTP(w, r)
+				return
+			}
 			auth.RequireJWT()(http.HandlerFunc(a.AuthHandler.Me)).ServeHTTP(w, r)
 		}))
 		mux.HandleFunc("/api/auth/refresh", withCORS(func(w http.ResponseWriter, r *http.Request) {
@@ -338,6 +342,15 @@ func (a *Application) setupRouter() http.Handler {
 		}))
 		mux.HandleFunc("/api/notifications/unsubscribe", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(a.NotificationHandler.Unsubscribe)).ServeHTTP(w, r)
+		}))
+	}
+
+	if a.ReportHandler != nil {
+		mux.HandleFunc("/api/reports", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(a.ReportHandler.Handle)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/reports/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(a.ReportHandler.HandleItem)).ServeHTTP(w, r)
 		}))
 	}
 

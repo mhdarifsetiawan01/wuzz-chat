@@ -13,7 +13,10 @@ Dokumen ini adalah spesifikasi definitif untuk domain **User Connections (Pertem
      - `pending`: Menunggu persetujuan penerima.
      - `accepted`: Sah berteman (*Connected*). Membuka izin Direct Message & Telepon jika akun target privat.
      - `declined`: Permintaan ditolak. Mengaktifkan *cooldown period* terkonfigurasi.
-     - `blocked`: Pemblokiran komunikasi penuh.
+     - `blocked`: Pemblokiran komunikasi penuh. Baris dibuat dengan **pemblokir sebagai `requester_id`**.
+       - `POST /api/connections/block` `{user_id}` (idempoten; relasi lama diganti) dan `DELETE /api/connections/block/{id}` (hanya pemblokir yang bisa membuka). `DELETE /api/connections/{id}` (unfriend) menolak baris `blocked`.
+       - `GET /status/{id}` menambah `blocked_by_me` / `blocked_by_them`; `can_message` & `can_call` = false.
+       - Penegakan: `SQLUserStore.IsUserInConversation` menolak pihak yang diblokir pada room `dm_*` (kirim & terima, WS & REST). Pemblokir tetap bisa membaca riwayat. Index parsial `idx_conn_blocked_receiver`.
 
 2. **Karakteristik Akun Privat vs Publik**:
    - **Akun Publik (`is_private_account: false`)**:

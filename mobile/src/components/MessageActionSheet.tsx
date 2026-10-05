@@ -34,6 +34,8 @@ export interface MessageActionSheetProps {
   onEdit?: (message: Message) => void;
   onForward?: (message: Message) => void;
   onTogglePin?: (message: Message) => void;
+  /** Dilaporkan ke moderator (hanya muncul pada pesan orang lain). */
+  onReport?: (message: Message) => void;
   onDelete: (messageId: string, type: 'for_me' | 'for_everyone') => void;
 }
 
@@ -48,6 +50,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   onEdit,
   onForward,
   onTogglePin,
+  onReport,
   onDelete,
 }) => {
   const insets = useSafeAreaInsets();
@@ -290,7 +293,22 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
                   </TouchableOpacity>
                 ) : null}
 
-                {/* 6. Delete Message */}
+                {/* 6. Report Message (pesan orang lain) */}
+                {!isSender && !message.is_deleted && onReport ? (
+                  <TouchableOpacity
+                    style={styles.actionMenuItem}
+                    onPress={() => {
+                      onReport(message);
+                      onClose();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <IconText style={styles.actionMenuIcon}>🚩</IconText>
+                    <Text style={styles.actionMenuLabel}>Laporkan Pesan</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                {/* 7. Delete Message */}
                 {!message.is_deleted ? (
                   <TouchableOpacity
                     style={[styles.actionMenuItem, styles.deleteMenuItem]}
