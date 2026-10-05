@@ -67,10 +67,10 @@ bila ragu, lebih aman mendeklarasikan "Dibagikan" untuk Pesan (Groq, hanya teks 
 | **Rating konten (IARC)** | Kategori *Komunikasi/Jejaring sosial*. Jawab: pengguna berinteraksi **Ya**; berbagi konten buatan pengguna **Ya**; berbagi lokasi **Tidak**; pembelian digital **Tidak**; konten dewasa/kekerasan **Tidak ada dari aplikasi** (konten dari pengguna dimoderasi lewat laporan dan blokir). Perkiraan hasil: Remaja (Teen)/12+ |
 | **Fitur keuangan, kesehatan, berita, pemerintah** | Tidak ada |
 | **Izin sensitif** | Tidak ada yang memerlukan formulir deklarasi khusus (tidak ada SMS, log panggilan, lokasi, semua-berkas, Foreground Service, atau aksesibilitas) |
-| **Standar keselamatan anak** ⚠️ | Halaman publik **`https://chat.wuzzhub.id/child-safety`** sudah dibuat (larangan CSAE, batas usia 13+, pelaporan dalam aplikasi dan email, tindakan, kontak). Bila Console menampilkan formulir ini, tempel URL itu dan kontak `support@wuzzhub.id`. **Pastikan Anda sanggup memenuhi janji di halaman itu** (laporan keselamatan anak ditinjau prioritas tertinggi, pelaporan ke pihak berwenang) |
+| **Standar keselamatan anak** ⚠️ | Halaman publik **`https://chat.wuzzhub.id/child-safety`** sudah dibuat (larangan CSAE, batas usia 13+, pelaporan dalam aplikasi dan email, tindakan, kontak). Bila Console menampilkan formulir ini, tempel URL itu dan kontak `support@semanticdigital.id`. **Pastikan Anda sanggup memenuhi janji di halaman itu** (laporan keselamatan anak ditinjau prioritas tertinggi, pelaporan ke pihak berwenang) |
 | **Kebijakan privasi** | `https://chat.wuzzhub.id/privacy` |
 | **Penghapusan akun** | `https://chat.wuzzhub.id/delete-account` |
-| **Kontak developer** | Email `support@wuzzhub.id` (**pastikan aktif**), situs `https://chat.wuzzhub.id` |
+| **Kontak developer** | Email `support@semanticdigital.id` (**pastikan aktif**), situs `https://chat.wuzzhub.id` |
 | **Enkripsi/ekspor** | Aplikasi memakai E2EE (P-256/AES-GCM); standar, tidak ada pertanyaan ekspor khusus di Play |
 
 ## 4. Naskah halaman toko (Bahasa Indonesia, bahasa utama)
@@ -107,7 +107,7 @@ PERHATIAN
 • Jika kunci enkripsi hilang dan Anda tidak punya perangkat lain, pesan langsung lama tidak dapat dipulihkan. Pindahkan kunci ke perangkat lain sebelum mengganti atau menghapus aplikasi.
 • Satu akun dapat dipakai di maksimal 2 perangkat.
 
-Butuh bantuan atau ingin melaporkan masalah? Hubungi support@wuzzhub.id. Kebijakan Privasi: https://chat.wuzzhub.id/privacy
+Butuh bantuan atau ingin melaporkan masalah? Hubungi support@semanticdigital.id. Kebijakan Privasi: https://chat.wuzzhub.id/privacy
 ```
 
 **Catatan rilis (Apa yang baru)** (221/500):
@@ -138,7 +138,7 @@ Rekam via adb: `adb exec-out screencap -p > shot.png` (lihat catatan alur build)
 
 ## 6. Daftar periksa sebelum mengirim ke Play
 - [ ] Proses moderasi nyata tersedia (alat moderasi: `docs/plans/backlog/MODERATION_TOOL.md`) dan SOP disepakati; janji `/child-safety` dapat dipenuhi.
-- [ ] `support@wuzzhub.id` aktif dan `NEXT_PUBLIC_SUPPORT_EMAIL` di Vercel diisi (lalu rebuild frontend).
+- [ ] `support@semanticdigital.id` aktif dan `NEXT_PUBLIC_SUPPORT_EMAIL` di Vercel diisi (lalu rebuild frontend).
 - [ ] Halaman `/privacy`, `/terms`, `/delete-account` terbuka dari jaringan luar (tanpa gate), dan teks privasi cocok dengan jawaban Data Safety.
 - [ ] Akun demo peninjau dibuat dan dites login di build Play.
 - [ ] ~~Putuskan Crashlytics/Sentry~~ **Crashlytics dipilih dan dipasang** (jawaban 2.2 sudah memuatnya); aktifkan Crashlytics di Firebase Console (lihat `docs/CRASH_REPORTING.md` bagian 4).
