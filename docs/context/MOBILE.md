@@ -77,6 +77,7 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 - **Alur**: `loginWithGoogle()` (AuthContext) → `GOOGLE_NOT_LINKED` → `GoogleOnboardingScreen` (buat akun baru tanpa password, atau tautkan akun lama dengan username + password). ID token dipakai ulang untuk percobaan ulang (konflik 2 perangkat, `link_token` 5 menit yang habis) tanpa memunculkan pemilih akun lagi.
 - **Akun tanpa password** (`user.has_password === false`): `DeleteAccountModal` dan `KeyConflictModal` meminta re-auth lewat pemilih akun Google (ID token baru, maks 5 menit di server) sebagai pengganti password; `deleteAccount`/`resetE2EEKeys` menerima `string | {password} | {googleIdToken}`.
 - Langkah sesi bersama login/daftar/Google ada di `startSession` (AuthContext); jangan menggandakannya.
+- **Pengumuman penautan (fase 3)**: `GoogleLinkBannerLayout` (membungkus `UpdateBannerLayout` di `App.tsx`) menampilkan banner bila `user.google_link_required_by` ada dan akun belum tertaut. Tingkat/teks/penunda dihitung `utils/googleLinkDeadline.ts` (murni, teruji); aksi "Hubungkan" lewat hook `useLinkGoogle` (dipakai juga Pengaturan). Tiga tingkat pertama bisa ditutup sementara (per akun), urgent/expired tidak.
 - Detail keputusan, bukti kompatibilitas, dan cara mengaktifkan: `docs/plans/backlog/GOOGLE_LOGIN.md` bagian 9.
 
 ### G. Community Social Feed & Viral Share Loop (Milestone M-Mobile-9)

@@ -411,6 +411,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...response.user,
         has_password: response.has_password ?? response.user.has_password,
         google_linked: response.google_linked ?? response.user.google_linked,
+        google_link_required_by: response.google_link_required_by ?? response.user.google_link_required_by,
       };
       await secureStorage.setAuthToken(response.token);
       await secureStorage.setUserData(sessionUser);

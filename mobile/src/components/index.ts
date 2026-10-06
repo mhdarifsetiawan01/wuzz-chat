@@ -46,3 +46,4 @@ export * from './IconText';
 export * from './AppDialogHost';
 export * from './DeleteAccountModal';
 export * from './ReportModal';
+export * from './GoogleLinkBanner';

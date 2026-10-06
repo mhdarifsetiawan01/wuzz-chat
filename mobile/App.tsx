@@ -44,6 +44,7 @@ import {
   ActiveCallOverlay,
   ForceUpdateModal,
   UpdateBannerLayout,
+  GoogleLinkBannerLayout,
 } from './src/components';
 import { AppNavigator as MainAppNavigator, navigationRef } from './src/navigation';
 import { notificationService } from './src/services/notificationService';
@@ -449,9 +450,11 @@ function AppContent() {
 
   return (
     <View style={styles.rootContainer}>
-      <UpdateBannerLayout enabled={isAuthenticated}>
-        {renderContent()}
-      </UpdateBannerLayout>
+      <GoogleLinkBannerLayout enabled={isAuthenticated}>
+        <UpdateBannerLayout enabled={isAuthenticated}>
+          {renderContent()}
+        </UpdateBannerLayout>
+      </GoogleLinkBannerLayout>
 
       {/* Global Terminal Session Replaced Guard Modal */}
       {!!sessionReplacedMessage && (

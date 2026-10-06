@@ -41,7 +41,8 @@ import { getAppVersionInfo } from '../utils/appVersion';
 import { fetchAppUpdateInfo, getLatestVersionLabel, isUpdateAvailable } from '../services/appUpdate';
 import { showAlert } from '../services/dialog';
 import { isGoogleSignInAvailable } from '../services/googleAuth';
-import { googleErrorMessage } from '../utils/googleErrors';
+import { useLinkGoogle } from '../hooks/useLinkGoogle';
+import { formatDeadlineDate, getLinkDeadlineState } from '../utils/googleLinkDeadline';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Settings Menu Item
@@ -135,9 +136,10 @@ function getInitials(name: string): string {
 export const SettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user, logout, deleteAccount, e2eeStatus, updateCurrentUser, linkGoogleToCurrentAccount } = useAuth();
+  const { user, logout, deleteAccount, e2eeStatus, updateCurrentUser } = useAuth();
   const googleAvailable = isGoogleSignInAvailable();
-  const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
+  const { link: linkGoogle, isLinking: isLinkingGoogle } = useLinkGoogle();
+  const linkDeadline = getLinkDeadlineState(user?.google_link_required_by, user?.google_linked, new Date());
   const { friends, pendingCount } = useConnection();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -151,22 +153,11 @@ export const SettingsScreen: React.FC = () => {
   const [isDeleteAccountVisible, setIsDeleteAccountVisible] = useState(false);
 
   const handleLinkGoogle = async () => {
-    if (isLinkingGoogle) return;
     if (user?.google_linked) {
       showAlert('Akun Google Terhubung', 'Akun ini sudah terhubung ke Google. Anda dapat masuk dengan Google dari layar login.');
       return;
     }
-    setIsLinkingGoogle(true);
-    try {
-      const linked = await linkGoogleToCurrentAccount();
-      if (linked) {
-        showAlert('Berhasil', 'Akun Google berhasil dihubungkan. Sekarang Anda dapat masuk dengan Google.');
-      }
-    } catch (err: any) {
-      showAlert('Gagal Menghubungkan', googleErrorMessage(err, 'Tidak dapat menghubungkan akun Google. Silakan coba lagi.'));
-    } finally {
-      setIsLinkingGoogle(false);
-    }
+    await linkGoogle();
   };
 
   const handleLogout = useCallback(() => {
@@ -338,7 +329,9 @@ export const SettingsScreen: React.FC = () => {
                     ? 'Menghubungkan…'
                     : user?.google_linked
                       ? 'Terhubung · bisa masuk dengan Google'
-                      : 'Hubungkan untuk masuk dengan Google'
+                      : linkDeadline.urgency !== 'none' && user?.google_link_required_by
+                        ? `Hubungkan sebelum ${formatDeadlineDate(new Date(user.google_link_required_by))}`
+                        : 'Hubungkan untuk masuk dengan Google'
                 }
                 onPress={handleLinkGoogle}
                 tintColor={colors.accentPrimary}

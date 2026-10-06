@@ -202,6 +202,10 @@ func New(cfg *config.Config) (*Application, error) {
 		if accountEraser != nil {
 			app.AuthHandler.SetAccountEraser(accountEraser)
 		}
+		if cfg != nil && !cfg.GoogleLinkDeadline.IsZero() {
+			app.AuthHandler.SetGoogleLinkDeadline(cfg.GoogleLinkDeadline)
+			log.Printf("📣 Pengumuman penautan Google aktif (batas waktu: %s)", cfg.GoogleLinkDeadline.Format(time.RFC3339))
+		}
 		if tenantSvc != nil {
 			tenantSvc.SetUserStore(userStore)
 			tenantSvc.SetAuthzRepo(authRepo)

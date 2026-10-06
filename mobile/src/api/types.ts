@@ -47,6 +47,8 @@ export interface User {
   google_linked?: boolean;
   /** Hanya ada pada respons GET /api/auth/me: false = akun Google-only (tanpa password). */
   has_password?: boolean;
+  /** RFC3339: akun belum tertaut diminta menautkan Google sebelum waktu ini (hanya ada bila server mengumumkannya). */
+  google_link_required_by?: string;
 }
 
 export interface UpdateProfileRequest {
@@ -74,6 +76,7 @@ export interface AuthTokenResponse {
   /** false = akun Google-only: aksi sensitif (hapus akun, reset kunci) harus memakai re-auth Google. */
   has_password?: boolean;
   google_linked?: boolean;
+  google_link_required_by?: string;
 }
 
 export interface LoginRequest {

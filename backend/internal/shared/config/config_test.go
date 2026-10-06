@@ -136,3 +136,57 @@ func TestConfig_CustomEnv(t *testing.T) {
 		t.Errorf("expected Connection.CacheTTL 300s, got %v", cfg.Connection.CacheTTL)
 	}
 }
+
+func TestParseDeadline(t *testing.T) {
+	// Tanggal saja = akhir hari itu menurut WIB (UTC+7), bukan awal hari dan bukan UTC.
+	d, err := ParseDeadline("2026-12-31")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Date(2026, 12, 31, 16, 59, 59, 0, time.UTC); !d.Equal(want) {
+		t.Fatalf("2026-12-31 harus berakhir 23:59:59 WIB (%v UTC), dapat %v", want, d.UTC())
+	}
+
+	// Spasi di sekitar nilai diabaikan; RFC3339 dipakai apa adanya (dinormalkan ke UTC).
+	d, err = ParseDeadline("  2026-11-30T10:00:00+07:00 ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Date(2026, 11, 30, 3, 0, 0, 0, time.UTC); !d.Equal(want) {
+		t.Fatalf("RFC3339 salah: %v", d.UTC())
+	}
+
+	for _, bad := range []string{"", "besok", "31-12-2026", "2026-13-01", "2026-12-32", "2026/12/31"} {
+		if _, err := ParseDeadline(bad); err == nil {
+			t.Fatalf("%q seharusnya ditolak", bad)
+		}
+	}
+}
+
+func TestConfig_GoogleLinkDeadline(t *testing.T) {
+	t.Setenv("GOOGLE_LINK_DEADLINE", "2026-12-31")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.GoogleLinkDeadline.IsZero() || cfg.GoogleLinkDeadline.UTC().Hour() != 16 {
+		t.Fatalf("tenggat harus terbaca, dapat %v", cfg.GoogleLinkDeadline)
+	}
+
+	// Nilai salah TIDAK boleh menggagalkan start: fitur dimatikan saja.
+	t.Setenv("GOOGLE_LINK_DEADLINE", "kapan-kapan")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("nilai salah tidak boleh membuat Load gagal: %v", err)
+	}
+	if !cfg.GoogleLinkDeadline.IsZero() {
+		t.Fatalf("nilai salah harus berarti tanpa tenggat, dapat %v", cfg.GoogleLinkDeadline)
+	}
+
+	// Tidak diisi = tanpa tenggat.
+	t.Setenv("GOOGLE_LINK_DEADLINE", "")
+	cfg, _ = Load()
+	if !cfg.GoogleLinkDeadline.IsZero() {
+		t.Fatal("kosong harus berarti tanpa tenggat")
+	}
+}

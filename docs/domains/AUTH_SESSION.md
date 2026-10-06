@@ -93,6 +93,8 @@ backend/internal/authz/
 
 Respons `login`, `register`, dan semua endpoint Google memuat `has_password` dan `google_linked` (di samping `token` dan `user`) supaya klien tahu metode login akun tanpa panggilan tambahan (akun Google-only wajib re-auth Google untuk hapus akun dan reset kunci).
 
+Pengumuman penautan (fase 3): bila env `GOOGLE_LINK_DEADLINE` diisi (`YYYY-MM-DD` = sampai 23:59:59 WIB, atau RFC3339; kosong/tidak valid = mati), respons `login`, `register`, endpoint Google, dan `GET /api/auth/me` memuat `google_link_required_by` (RFC3339 UTC) **hanya** untuk akun yang belum tertaut, di tenant default, dan bila Google aktif di server. Ini informatif saja: server belum membekukan akun setelah batas waktu (fase 4).
+
 Kode error `code` (selain pesan `error`): `GOOGLE_NOT_CONFIGURED` (503), `GOOGLE_TOKEN_INVALID`, `GOOGLE_REAUTH_STALE`, `GOOGLE_MISMATCH`, `LINK_TOKEN_INVALID`, `INVALID_CREDENTIALS` (401), `GOOGLE_LINKED_TO_OTHER_ACCOUNT`, `ACCOUNT_ALREADY_HAS_GOOGLE`, `USERNAME_TAKEN`, `PASSWORD_LOGIN_UNAVAILABLE` (409), `VALIDATION_ERROR` (400), `GOOGLE_TENANT_NOT_ALLOWED` (403).
 
 ---

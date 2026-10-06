@@ -1,6 +1,6 @@
 # Backlog: Login dengan Google (wajib untuk akun baru, migrasi akun lama)
 
-> Dibuat 2026-10-06. **Status: fase 1 (backend) sudah di produksi (mati sampai client ID diisi). Fase 2 (mobile Android) kodenya selesai di `dev` tapi BELUM pernah dijalankan di perangkat (butuh OAuth client). Fase 3 sampai 5 belum.** Lihat bagian 8 dan 9. Seluruh keputusan di bagian 2 berasal dari diskusi dengan pemilik proyek.
+> Dibuat 2026-10-06. **Status: fase 1 (backend) sudah di produksi (mati sampai client ID diisi). Fase 2 (mobile Android) kodenya selesai di `dev` tapi BELUM pernah dijalankan di perangkat (butuh OAuth client). Fase 3 sampai 5 belum.** Fase 3 (pengumuman) kodenya selesai di `dev`, lihat bagian 10. Lihat juga bagian 8 dan 9. Seluruh keputusan di bagian 2 berasal dari diskusi dengan pemilik proyek.
 > Fakta bertanda **(terverifikasi)** sudah dicek di kode per tanggal di atas; bertanda **(belum diverifikasi)** harus dicek dulu.
 
 ## 1. Latar belakang dan tujuan
@@ -210,3 +210,16 @@ Dibandingkan (diverifikasi dari paket npm dan dokumentasi resmi):
 - UI untuk "ganti akun Google" dan "putuskan Google" belum ada (endpoint backend ada).
 - iOS (client iOS, `GoogleService-Info.plist`, plugin), web, penutupan `POST /api/auth/register`, pengumuman/`google_link_deadline`, pembekuan (fase 3 sampai 5).
 - `google-services.json` saat ini **tanpa `oauth_client`**; tidak masalah karena `webClientId` diberikan eksplisit.
+
+## 10. Status fase 3 (pengumuman + batas waktu), 2026-10-06
+
+**Kode selesai di `dev` (belum dideploy, belum dibuild/diuji di HP):**
+- Backend: env `GOOGLE_LINK_DEADLINE` (`config.ParseDeadline`: `YYYY-MM-DD` = akhir hari WIB, atau RFC3339; nilai salah tidak menggagalkan start, fitur mati + peringatan di log). `AuthHandler.googleLinkRequiredBy` mengisi `google_link_required_by` di respons login/daftar/Google/`/me` **hanya** bila: tenggat diatur, Google aktif di server, akun belum tertaut, tenant default (tes untuk tiap syarat, mutasi tenant tertangkap).
+- Mobile: `utils/googleLinkDeadline.ts` (logika murni + tes dengan batas tepat), `GoogleLinkBannerLayout` (di `App.tsx`, membungkus `UpdateBannerLayout`), hook bersama `useLinkGoogle` (Pengaturan dan banner), subtitle Pengaturan menampilkan batas waktu.
+- Tingkat banner: >30 hari info (tunda 7 hari), 8-30 info (tunda 3 hari), 3-7 warning (tunda 1 hari), 1-2 hari dan <24 jam urgent (tidak bisa ditutup), lewat = expired (tidak bisa ditutup). Penunda disimpan per akun di SecureStore. Banner hanya tampil bila build memuat modul Google dan client ID terisi. Teks expired SENGAJA tidak menjanjikan pembekuan/penghapusan (belum ada).
+
+**Cara mengaktifkan:** isi `GOOGLE_LINK_DEADLINE=<tanggal>` di `~/wuzz-chat/backend/.env` VPS lalu `docker compose up -d` (log: "Pengumuman penautan Google aktif"). Tanpa env itu tidak ada perubahan perilaku. Klien dengan build lama mengabaikan field baru; banner baru tampil di build >= yang memuat fase 3.
+
+**Keputusan yang masih diminta dari pemilik proyek:** tanggal batas waktu (disarankan memberi 60-90 hari sejak banner pertama beredar).
+
+**Belum:** pengumuman di luar aplikasi (halaman web, listing Play Store, catatan rilis `MOBILE_RELEASE_NOTES`), pembekuan akun (fase 4), hapus akun tidak aktif (fase 5), tampilan banner belum terlihat di perangkat.

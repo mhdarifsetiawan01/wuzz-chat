@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -60,6 +61,11 @@ type Config struct {
 	// GoogleOAuthClientIDs adalah daftar OAuth client ID (Android, iOS, Web) yang diterima sebagai audience ID token
 	// Google. Kosong = login Google nonaktif (endpoint membalas 503 GOOGLE_NOT_CONFIGURED).
 	GoogleOAuthClientIDs []string
+
+	// GoogleLinkDeadline adalah batas waktu pengumuman agar akun lama menautkan akun Google (env GOOGLE_LINK_DEADLINE).
+	// Zero = tidak ada batas waktu: server tidak mengumumkan kewajiban apa pun. Hanya mengatur pengumuman di klien;
+	// pembekuan akun setelah batas waktu adalah fase terpisah.
+	GoogleLinkDeadline time.Time
 }
 
 // Load membaca konfigurasi dari file .env (jika tersedia) dan variabel lingkungan sistem (OS Environment).
@@ -108,7 +114,31 @@ func Load() (*Config, error) {
 		GoogleOAuthClientIDs: splitCSV(getEnv("GOOGLE_OAUTH_CLIENT_IDS", "")),
 	}
 
+	if raw := strings.TrimSpace(os.Getenv("GOOGLE_LINK_DEADLINE")); raw != "" {
+		if deadline, err := ParseDeadline(raw); err != nil {
+			// Nilai salah tidak boleh menggagalkan start server: fitur pengumuman dimatikan dan dicatat.
+			log.Printf("⚠️ GOOGLE_LINK_DEADLINE=%q tidak valid (%v); pengumuman batas waktu Google dinonaktifkan", raw, err)
+		} else {
+			cfg.GoogleLinkDeadline = deadline
+		}
+	}
+
 	return cfg, nil
+}
+
+// jakarta dipakai untuk tanggal tanpa jam: batas waktu "2026-12-31" berarti akhir hari itu menurut WIB, bukan UTC.
+var jakarta = time.FixedZone("WIB", 7*60*60)
+
+// ParseDeadline membaca batas waktu dari "YYYY-MM-DD" (berlaku sampai 23:59:59 WIB hari itu) atau RFC3339 penuh.
+func ParseDeadline(raw string) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if t, err := time.ParseInLocation("2006-01-02", raw, jakarta); err == nil {
+		return t.Add(24*time.Hour - time.Second), nil
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t.UTC(), nil
+	}
+	return time.Time{}, fmt.Errorf("gunakan format YYYY-MM-DD atau RFC3339")
 }
 
 // splitCSV memecah string dipisah koma menjadi daftar tanpa elemen kosong.

@@ -23,6 +23,9 @@ type AuthHandler struct {
 	deviceStore  store.DeviceStore
 	hub          WebSocketHub
 	authSvc      *authz.AuthService
+
+	// googleLinkDeadline: batas waktu pengumuman penautan Google (zero = tidak ada pengumuman).
+	googleLinkDeadline time.Time
 }
 
 func (h *AuthHandler) syncAuthRepo() {
@@ -77,6 +80,27 @@ func (h *AuthHandler) SetDeviceStore(ds store.DeviceStore) {
 	h.syncAuthRepo()
 }
 
+// SetGoogleLinkDeadline mengatur batas waktu pengumuman penautan Google. Zero mematikan pengumuman.
+func (h *AuthHandler) SetGoogleLinkDeadline(deadline time.Time) {
+	h.googleLinkDeadline = deadline
+}
+
+// googleLinkRequiredBy mengembalikan batas waktu (RFC3339 UTC) bila akun ini perlu diingatkan menautkan Google, atau
+// string kosong. Syarat: tenggat dikonfigurasi, Google aktif di server (jangan menjanjikan fitur yang tidak jalan),
+// akun belum tertaut, dan akun berada di tenant default (tenant B2B tidak bisa memakai login Google).
+func (h *AuthHandler) googleLinkRequiredBy(user *store.User, googleLinked bool) string {
+	if h.googleLinkDeadline.IsZero() || user == nil || googleLinked {
+		return ""
+	}
+	if h.authSvc == nil || !h.authSvc.GoogleEnabled() {
+		return ""
+	}
+	if user.TenantID != "" && user.TenantID != tenantshared.DefaultTenantID {
+		return ""
+	}
+	return h.googleLinkDeadline.UTC().Format(time.RFC3339)
+}
+
 // SetAccountEraser menyuntikkan penghapus akun (diperlukan untuk DELETE /api/auth/me).
 func (h *AuthHandler) SetAccountEraser(e store.AccountEraser) {
 	h.accountEraser = e
@@ -113,6 +137,8 @@ type AuthResponse struct {
 	// akun Google-only (has_password=false) harus memakai re-auth Google, bukan password.
 	HasPassword  bool `json:"has_password"`
 	GoogleLinked bool `json:"google_linked"`
+	// GoogleLinkRequiredBy diisi hanya bila akun diminta menautkan Google sebelum batas waktu tersebut (RFC3339 UTC).
+	GoogleLinkRequiredBy string `json:"google_link_required_by,omitempty"`
 }
 
 // newAuthResponse merakit respons sesi lengkap dengan status metode login akun.
@@ -123,6 +149,7 @@ func (h *AuthHandler) newAuthResponse(r *http.Request, token string, user *store
 		if h.authSvc != nil {
 			resp.GoogleLinked, _ = h.authSvc.IsGoogleLinked(r.Context(), user.ID)
 		}
+		resp.GoogleLinkRequiredBy = h.googleLinkRequiredBy(user, resp.GoogleLinked)
 	}
 	return resp
 }
@@ -347,9 +374,10 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(meResponse{
-		User:         user,
-		GoogleLinked: googleLinked,
-		HasPassword:  user.PasswordHash != "",
+		User:                 user,
+		GoogleLinked:         googleLinked,
+		HasPassword:          user.PasswordHash != "",
+		GoogleLinkRequiredBy: h.googleLinkRequiredBy(user, googleLinked),
 	})
 }
 
@@ -358,6 +386,8 @@ type meResponse struct {
 	*store.User
 	GoogleLinked bool `json:"google_linked"`
 	HasPassword  bool `json:"has_password"`
+	// GoogleLinkRequiredBy: lihat AuthResponse.
+	GoogleLinkRequiredBy string `json:"google_link_required_by,omitempty"`
 }
 
 type UpdateProfileRequest struct {

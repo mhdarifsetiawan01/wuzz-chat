@@ -16,6 +16,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/authz"
 	"github.com/bms-del112/wuzz-chat/internal/authz/google"
 	"github.com/bms-del112/wuzz-chat/internal/authz/infra"
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
@@ -339,5 +340,96 @@ func TestGoogleHTTP_ResetPublicKeyWithGoogleReauth(t *testing.T) {
 	e.verifier.give("tok-a-baru", "sub-a", 0)
 	if w := post(t, e.h.ResetPublicKey, http.MethodPost, body(`"google_id_token":"tok-a-baru"`), token); w.Code != 200 {
 		t.Fatalf("reset kunci dengan Google harus 200, dapat %d %s", w.Code, w.Body.String())
+	}
+}
+
+// --- Pengumuman penautan Google (google_link_required_by) ---
+
+var testLinkDeadline = time.Date(2026, 12, 31, 16, 59, 59, 0, time.UTC)
+
+func (e *googleHTTPEnv) loginPassword(t *testing.T, username string) map[string]any {
+	t.Helper()
+	w := post(t, e.h.Login, http.MethodPost, `{"username":"`+username+`","password":"password123","device_id":"dev-`+username+`"}`, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("login password %s harus 200, dapat %d %s", username, w.Code, w.Body.String())
+	}
+	return decode(t, w)
+}
+
+func TestGoogleLinkAnnouncement(t *testing.T) {
+	e := setupGoogleHTTP(t, true)
+	e.h.SetGoogleLinkDeadline(testLinkDeadline)
+	if _, err := e.users.Register("legacy", "Legacy", "password123"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Akun lama yang belum tertaut menerima tenggat (RFC3339 UTC) di respons login DAN di /me.
+	login := e.loginPassword(t, "legacy")
+	if login["google_link_required_by"] != "2026-12-31T16:59:59Z" {
+		t.Fatalf("login akun belum tertaut harus memuat tenggat, dapat %v", login["google_link_required_by"])
+	}
+	token := login["token"].(string)
+	if me := decode(t, post(t, e.h.Me, http.MethodGet, ``, token)); me["google_link_required_by"] != "2026-12-31T16:59:59Z" {
+		t.Fatalf("/me akun belum tertaut harus memuat tenggat, dapat %v", me["google_link_required_by"])
+	}
+
+	// Setelah menautkan Google, pengumuman hilang di login berikutnya dan di /me.
+	e.verifier.give("tok-L", "sub-L", 0)
+	if w := post(t, e.h.ManageGoogle, http.MethodPost, `{"id_token":"tok-L"}`, token); w.Code != 200 {
+		t.Fatalf("tautkan harus 200, dapat %d %s", w.Code, w.Body.String())
+	}
+	if _, present := e.loginPassword(t, "legacy")["google_link_required_by"]; present {
+		t.Fatal("akun yang sudah tertaut tidak boleh diberi pengumuman (login)")
+	}
+	if _, present := decode(t, post(t, e.h.Me, http.MethodGet, ``, token))["google_link_required_by"]; present {
+		t.Fatal("akun yang sudah tertaut tidak boleh diberi pengumuman (/me)")
+	}
+
+	// Akun Google-only tertaut sejak awal: tanpa pengumuman.
+	gToken, _ := e.signup(t, "tok-g", "sub-g", "gonly")
+	if _, present := decode(t, post(t, e.h.Me, http.MethodGet, ``, gToken))["google_link_required_by"]; present {
+		t.Fatal("akun Google-only tidak boleh diberi pengumuman")
+	}
+}
+
+func TestGoogleLinkAnnouncement_OffWhenNotApplicable(t *testing.T) {
+	// 1. Tenggat tidak diatur: tidak ada pengumuman walau akun belum tertaut.
+	e := setupGoogleHTTP(t, true)
+	if _, err := e.users.Register("legacy", "Legacy", "password123"); err != nil {
+		t.Fatal(err)
+	}
+	if _, present := e.loginPassword(t, "legacy")["google_link_required_by"]; present {
+		t.Fatal("tanpa tenggat tidak boleh ada pengumuman")
+	}
+
+	// 2. Google TIDAK aktif di server: jangan menjanjikan fitur yang tidak berjalan.
+	off := setupGoogleHTTP(t, false)
+	off.h.SetGoogleLinkDeadline(testLinkDeadline)
+	if _, err := off.users.Register("legacy", "Legacy", "password123"); err != nil {
+		t.Fatal(err)
+	}
+	if _, present := off.loginPassword(t, "legacy")["google_link_required_by"]; present {
+		t.Fatal("Google nonaktif tidak boleh memunculkan pengumuman")
+	}
+}
+
+// Tenant B2B tidak bisa memakai login Google, jadi tidak boleh diberi tahu bahwa mereka "wajib" menautkannya.
+func TestGoogleLinkAnnouncement_NotForNonDefaultTenant(t *testing.T) {
+	e := setupGoogleHTTP(t, true)
+	e.h.SetGoogleLinkDeadline(testLinkDeadline)
+
+	ctx := tenantshared.WithTenant(context.Background(), "acme")
+	u, err := e.users.RegisterWithContext(ctx, "b2buser", "B2B User", "password123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, _, _ := auth.GenerateTokenDetailedWithTenant(u.ID, u.Username, u.DisplayName, "acme")
+
+	w := post(t, e.h.Me, http.MethodGet, ``, token)
+	if w.Code != http.StatusOK {
+		t.Fatalf("/me harus 200, dapat %d %s", w.Code, w.Body.String())
+	}
+	if _, present := decode(t, w)["google_link_required_by"]; present {
+		t.Fatal("tenant non-default tidak boleh diberi pengumuman penautan Google")
 	}
 }
