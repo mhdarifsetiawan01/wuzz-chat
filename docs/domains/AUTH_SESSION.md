@@ -41,6 +41,8 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Autentikasi, Manajemen S
 
 8. **Penangguhan akun oleh moderator** (`users.suspended_at`, tidak menghapus data, bisa dipulihkan lewat `POST /api/admin/users/{id}/unsuspend`). Berlaku di semua jalur: login password/Google dan `refresh` ditolak `403 ACCOUNT_SUSPENDED` (dicek SETELAH kredensial terbukti sah supaya status tidak bocor ke orang lain), `SuspensionMiddleware` menolak semua rute lain, gerbang WebSocket menutup koneksi dengan kode 4004, push tidak dikirim. Saat ditangguhkan, semua token dicabut (`RevokeAllUserTokens`, resolusi detik) dan koneksi WS diputus. **Tetap terbuka** (hak pengguna/syarat Google Play): `GET`/`DELETE /api/auth/me`, `POST /api/auth/logout`, rute kesehatan/versi/konfigurasi. Staf dan akun sendiri tidak bisa ditangguhkan lewat alat. Pembacaan status di-cache singkat (15 dtk/60 dtk) dan gagal terbuka bila database error. Detail: `docs/plans/backlog/MODERATION_TOOL.md`.
 
+9. **Peran sistem (`system_role`) diverifikasi ke database.** Klaim peran di JWT hanya saat login. `auth.RequireJWT` memeriksa token berperan istimewa terhadap database (cache 15 detik, gagal tertutup ke `user`); token berperan `user` tidak memicu query dan tidak bisa naik tanpa login ulang. Pencabutan peran di database berlaku tanpa menunggu token habis. Detail: `docs/plans/backlog/MODERATION_TOOL.md` bagian 12.
+
 ---
 
 ## 🏛️ 2. Model Backend DDD (`backend/internal/authz/`)

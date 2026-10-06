@@ -174,3 +174,24 @@ pola rate limit di `backend/internal/app/router.go`, dan pola halaman publik sta
 Bila variabel kurang lengkap, saluran dilewati dengan peringatan di log (server tetap jalan). Token bocor/curiga: cabut lewat @BotFather (`/revoke`) dan ganti.
 
 **Batasan:** laporan di instans lain tidak berbagi kuota "5 per 10 menit" (hanya satu VPS sekarang). Tautan di pesan menuju `/admin` yang butuh login moderator (akun berpassword). Saluran email belum ada (butuh penyedia SMTP). Pembaruan `/privacy` (Telegram sebagai pemroses metadata laporan) dan retensi `evidence` 90 hari masih terbuka (P3).
+
+## 12. Peran staf diverifikasi ke database (2026-10-06)
+
+**Masalah yang diperbaiki:** peran (`system_role`) hanya dibaca dari klaim JWT, sehingga moderator yang perannya dicabut di database masih punya akses sampai tokennya habis (maks 30 hari).
+
+**Perbaikan (`auth/role_resolver.go`, `authz/role_policy.go`, hook di `auth.RequireJWT`):**
+- Token berperan `user`/kosong: dipakai apa adanya, **tanpa query** (tidak ada beban untuk pengguna biasa; peran juga tidak bisa naik tanpa login ulang).
+- Token yang mengklaim peran istimewa (`wuzz_admin`, `wuzz_moderator`, atau klaim asing): **nilai database yang berlaku**, di-cache 15 detik per akun. Pencabutan/penurunan peran berlaku dalam sekitar 15 detik tanpa mencabut token. Akun yang tidak ada (terhapus) menjadi `user`.
+- Galat database: peran diturunkan ke `user` (gagal tertutup untuk hak istimewa); kegagalan tidak di-cache sehingga pulih otomatis.
+- Karena hook ada di `RequireJWT`, semua pembaca peran ikut terlindungi: alat moderasi, `/api/reports`, dan hak staf/admin di Linimasa (hapus postingan orang lain, fitur admin saat membuat postingan). Refresh token juga membawa peran efektif.
+- Resolver dipasang di `app.New` (dan di-reset ke nil bila alat moderasi tidak aktif, agar tidak ada sisa antar-instans/tes).
+
+**Dites** (SQLite dan PostgreSQL 16, seluruh suite lulus, 4 mutasi tertangkap): kebijakan peran (tanpa query untuk user, DB menang, TTL/Invalidate, gagal tertutup + pulih, nil aman), end-to-end lewat `RequireJWT` (token lama ditolak 403 setelah dicabut di DB, diterima lagi setelah diangkat, klaim tanpa dukungan DB ditolak, token user tidak naik sendiri), dan wiring aplikasi dengan akun sungguhan.
+
+**Mengelola moderator (hanya SQL; UI "Kelola moderator" belum ada):**
+- Tambah: orang itu daftar akun biasa (berpassword; setelah 30 Okt 2026 juga sudah menautkan Google), lalu `UPDATE users SET system_role='wuzz_moderator' WHERE username='...';`. Peran di token terbit saat login, jadi mereka **harus login ulang** di `/admin` setelah diangkat (token lama berperan `user` tidak naik sendiri).
+- Cabut: `UPDATE users SET system_role='user' WHERE username='...';` Berlaku dalam sekitar 15 detik (maks 30 detik pada multi-instans), tanpa mencabut token.
+- Cek: `SELECT username, system_role FROM users WHERE system_role <> 'user';`
+- `wuzz_admin` dan `wuzz_moderator` setara di alat moderasi; `wuzz_admin` tambahan punya fitur admin di Linimasa.
+
+**Belum:** halaman "Kelola moderator" di `/admin` (khusus `wuzz_admin`, angkat/cabut lewat username dengan audit dan `Invalidate`). Layak dikerjakan sebelum moderator bertambah banyak.

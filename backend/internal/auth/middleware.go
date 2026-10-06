@@ -86,6 +86,11 @@ func RequireJWT() func(http.Handler) http.Handler {
 				}
 			}
 
+			// Peran istimewa dari token diverifikasi ke database (pencabutan peran berlaku tanpa menunggu token habis).
+			if rr := getRoleResolver(); rr != nil {
+				claims.SystemRole = rr.EffectiveSystemRole(r.Context(), claims.UserID, claims.SystemRole)
+			}
+
 			// Masukkan claims user ke context request
 			ctx := context.WithValue(r.Context(), UserContextKey, claims)
 			next.ServeHTTP(w, r.WithContext(ctx))

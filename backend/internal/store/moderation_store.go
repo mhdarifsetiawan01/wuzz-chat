@@ -177,6 +177,16 @@ func (s *SQLModerationStore) rebind(query string) string {
 	return b.String()
 }
 
+// SystemRoleOf membaca peran sistem akun dari database ("user" bila akun tidak ada).
+func (s *SQLModerationStore) SystemRoleOf(ctx context.Context, userID string) (string, error) {
+	var role string
+	err := s.db.QueryRowContext(ctx, s.rebind(`SELECT COALESCE(system_role, 'user') FROM users WHERE id = ?`), userID).Scan(&role)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "user", nil
+	}
+	return role, err
+}
+
 func (s *SQLModerationStore) IsSuspended(ctx context.Context, userID string) (bool, error) {
 	var suspended bool
 	err := s.db.QueryRowContext(ctx, s.rebind(`SELECT (suspended_at IS NOT NULL) FROM users WHERE id = ?`), userID).Scan(&suspended)

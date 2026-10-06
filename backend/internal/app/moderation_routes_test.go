@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/notify"
 	"github.com/bms-del112/wuzz-chat/internal/shared/config"
+	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
 type recordingNotifier struct {
@@ -50,6 +52,30 @@ func roleToken(t *testing.T, id, role string) string {
 	return tok
 }
 
+// staffToken membuat akun sungguhan, mengangkatnya di DATABASE (sumber kebenaran peran), lalu menerbitkan token berperan
+// itu. Peran di token saja tidak cukup: server memverifikasinya ke database.
+func staffToken(t *testing.T, app *Application, h http.Handler, username, role string) string {
+	t.Helper()
+	rr := call(h, http.MethodPost, "/api/auth/register", "", `{"username":"`+username+`","display_name":"S","password":"password123","device_id":"d_`+username+`"}`)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("register %s: %d %s", username, rr.Code, rr.Body.String())
+	}
+	var res struct {
+		User struct {
+			ID string `json:"id"`
+		} `json:"user"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &res)
+	if res.User.ID == "" {
+		t.Fatalf("id user tidak ditemukan di respons: %s", rr.Body.String())
+	}
+	db := app.MessageStore.(*store.SQLMessageStore).DB()
+	if _, err := db.Exec(`UPDATE users SET system_role = ? WHERE id = ?`, role, res.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	return roleToken(t, res.User.ID, role)
+}
+
 func TestModerationRoutes_WiredAndProtected(t *testing.T) {
 	app, h := newModerationApp(t, config.Config{})
 	if app.ModerationHandler == nil || app.Suspension == nil {
@@ -58,7 +84,7 @@ func TestModerationRoutes_WiredAndProtected(t *testing.T) {
 	if app.Notifier != nil {
 		t.Fatal("tanpa MODERATION_NOTIFY tidak boleh ada dispatcher")
 	}
-	user, mod := roleToken(t, "u1", "user"), roleToken(t, "m1", "wuzz_moderator")
+	user, mod := roleToken(t, "u1", "user"), staffToken(t, app, h, "mod_one", "wuzz_moderator")
 
 	for _, tc := range []struct{ method, path string }{
 		{http.MethodGet, "/api/admin/reports"},
@@ -100,7 +126,7 @@ func TestModerationRoutes_NotifierWiredFromConfig(t *testing.T) {
 	app.ReportHandler.SetNotifier(rec)
 	app.ModerationHandler.SetNotifier(rec)
 
-	user, mod := roleToken(t, "u1", "user"), roleToken(t, "m1", "wuzz_moderator")
+	user, mod := roleToken(t, "u1", "user"), staffToken(t, app, h, "mod_one", "wuzz_moderator")
 	body := `{"target_type":"post","target_id":"p1","reason":"illegal"}`
 	if rr := call(h, http.MethodPost, "/api/reports", user, body); rr.Code != http.StatusCreated {
 		t.Fatalf("buat laporan: %d %s", rr.Code, rr.Body.String())

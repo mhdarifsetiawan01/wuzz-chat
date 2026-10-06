@@ -460,3 +460,5 @@ Seluruh lapisan keamanan dan optimasi performa di atas dilindungi oleh suite pen
 
 ## Moderasi dan penangguhan akun (6 Okt 2026)
 Endpoint `/api/admin/*` hanya untuk staf (`wuzz_admin`/`wuzz_moderator`, diperiksa di backend, tenant dari klaim JWT, rate limit 120/menit per moderator, semua perubahan masuk `moderation_actions`). Penangguhan akun berlaku di login, refresh, middleware HTTP, WebSocket (4004), dan push; hak hapus akun dan logout tetap terbuka. Isi DM E2EE tidak pernah dibaca server (hanya bukti pelapor). Rincian: `docs/plans/backlog/MODERATION_TOOL.md` bagian 9, invarian 8 di `docs/domains/AUTH_SESSION.md`.
+
+Peran istimewa (`wuzz_admin`, `wuzz_moderator`) tidak dipercaya dari JWT saja: `auth.RequireJWT` memverifikasinya ke database (cache 15 detik, gagal tertutup). Mencabut peran di database berlaku dalam sekitar 15 detik tanpa mencabut token (`docs/plans/backlog/MODERATION_TOOL.md` bagian 12).
