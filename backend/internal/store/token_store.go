@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/bms-del112/wuzz-chat/internal/auth"
 )
 
 // TokenStore mendefinisikan kontrak operasi penyimpanan token JWT yang dicabut.
@@ -178,4 +180,75 @@ func (s *SQLTokenStore) CleanupExpiredTokens() (int64, error) {
 		return 0, fmt.Errorf("gagal cleanup expired tokens: %w", err)
 	}
 	return res.RowsAffected()
+}
+
+// CheckRevocation memenuhi auth.CombinedRevocationChecker: memeriksa pencabutan token (jti), pencabutan sesi, dan pencabutan
+// massal akun. Di PostgreSQL ketiganya dikerjakan dalam SATU query (sebelumnya tiga putaran berurutan ke database di
+// setiap permintaan ber-token, yang di produksi ±100 ms per putaran). Semantik identik dengan IsTokenRevoked +
+// IsUserRevokedBefore: tetap memeriksa database setiap kali (tanpa cache baru), pencabutan individual didahulukan, dan
+// issuedAt nol melewati pemeriksaan massal. Driver lain memakai jalur lama.
+func (s *SQLTokenStore) CheckRevocation(jti, userID string, issuedAt time.Time) (auth.RevocationReason, error) {
+	if s.driverName != "postgres" {
+		return s.checkRevocationSequential(jti, userID, issuedAt)
+	}
+
+	// Pencabutan massal yang sudah ada di memori tidak perlu dibaca ulang dari database.
+	var cachedBefore time.Time
+	haveCached := false
+	if userID != "" {
+		if val, ok := s.userRevocationsCache.Load(userID); ok {
+			if t, okTime := val.(time.Time); okTime && !t.IsZero() {
+				cachedBefore, haveCached = t, true
+			}
+		}
+	}
+
+	if haveCached {
+		var tokRevoked bool
+		if err := s.db.QueryRow(`SELECT (EXISTS (SELECT 1 FROM revoked_tokens WHERE jti = $1)
+			OR EXISTS (SELECT 1 FROM sessions WHERE id = $1 AND is_revoked = TRUE))`, jti).Scan(&tokRevoked); err != nil {
+			return auth.NotRevoked, fmt.Errorf("gagal memeriksa pencabutan token: %w", err)
+		}
+		if tokRevoked {
+			return auth.TokenRevoked, nil
+		}
+		if !issuedAt.IsZero() && issuedAt.Unix() < cachedBefore.Unix() {
+			return auth.AllSessionsRevoked, nil
+		}
+		return auth.NotRevoked, nil
+	}
+
+	var tokRevoked bool
+	var revokedBefore sql.NullTime
+	if err := s.db.QueryRow(`SELECT (EXISTS (SELECT 1 FROM revoked_tokens WHERE jti = $1)
+		OR EXISTS (SELECT 1 FROM sessions WHERE id = $1 AND is_revoked = TRUE)),
+		(SELECT revoked_before FROM user_token_revocations WHERE user_id = $2)`, jti, userID).Scan(&tokRevoked, &revokedBefore); err != nil {
+		return auth.NotRevoked, fmt.Errorf("gagal memeriksa pencabutan token/sesi: %w", err)
+	}
+	if revokedBefore.Valid && !revokedBefore.Time.IsZero() && userID != "" {
+		s.userRevocationsCache.Store(userID, revokedBefore.Time) // sama seperti IsUserRevokedBefore: hanya yang ada baris
+	}
+	if tokRevoked {
+		return auth.TokenRevoked, nil
+	}
+	if !issuedAt.IsZero() && revokedBefore.Valid && !revokedBefore.Time.IsZero() && issuedAt.Unix() < revokedBefore.Time.Unix() {
+		return auth.AllSessionsRevoked, nil
+	}
+	return auth.NotRevoked, nil
+}
+
+// checkRevocationSequential adalah jalur lama (dua pemeriksaan terpisah), dipakai driver selain PostgreSQL.
+// Galat pada satu pemeriksaan diabaikan (gagal terbuka) dan pemeriksaan berikutnya tetap jalan, persis perilaku middleware lama.
+func (s *SQLTokenStore) checkRevocationSequential(jti, userID string, issuedAt time.Time) (auth.RevocationReason, error) {
+	if jti != "" {
+		if revoked, err := s.IsTokenRevoked(jti); err == nil && revoked {
+			return auth.TokenRevoked, nil
+		}
+	}
+	if userID != "" && !issuedAt.IsZero() {
+		if revoked, err := s.IsUserRevokedBefore(userID, issuedAt); err == nil && revoked {
+			return auth.AllSessionsRevoked, nil
+		}
+	}
+	return auth.NotRevoked, nil
 }

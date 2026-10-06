@@ -35,7 +35,7 @@ function fakeNative(script) {
 }
 
 function load(clientId) {
-  const m = loadFresh(['api/config.ts', 'services/googleAuth.ts']);
+  const m = loadFresh(['utils/supportContact.ts', 'api/config.ts', 'services/googleAuth.ts']);
   m.config.GOOGLE_AUTH_CONFIG.WEB_CLIENT_ID = clientId; // objek biasa pada runtime; di app diisi lewat berkas konfigurasi
   return m.googleAuth;
 }

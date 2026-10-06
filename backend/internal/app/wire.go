@@ -170,6 +170,10 @@ func New(cfg *config.Config) (*Application, error) {
 		sqlTenantRepo := tenantinfra.NewSQLTenantRepository(sqlStore.DB(), sqlStore.DriverName())
 		tenantRepo = sqlTenantRepo
 		tenantSvc = tenant.NewTenantService(sqlTenantRepo)
+		// Validasi tenant per permintaan (middleware) disimpan 30 detik; jalur kunci API tetap membaca langsung.
+		if c, ok := tenantSvc.(interface{ SetActiveCacheTTL(time.Duration) }); ok {
+			c.SetActiveCacheTTL(tenant.DefaultActiveTenantCacheTTL)
+		}
 
 		feedRepo = feedinfra.NewSQLFeedRepository(sqlStore.DB(), sqlStore.DriverName())
 		connRepo = connectioninfra.NewSQLConnectionRepository(sqlStore.DB(), sqlStore.DriverName())

@@ -3,6 +3,8 @@
  * Modul murni (tanpa React/native) supaya bisa diuji unit. Pola sama dengan linkFrozen.ts.
  */
 
+import { SUPPORT_EMAIL } from './supportContact';
+
 export const ACCOUNT_SUSPENDED = 'ACCOUNT_SUSPENDED';
 
 /** Kode penutupan WebSocket dari server untuk akun yang ditangguhkan (kode 4003 dipakai pembekuan Google). */
@@ -52,3 +54,6 @@ export function isSuspendedClose(code: number, reason: string | undefined): bool
   if (!reason || !reason.includes(ACCOUNT_SUSPENDED)) return false;
   return code === SUSPENDED_CLOSE_CODE || code === 4001;
 }
+
+/** Pesan di layar login bila login (password atau Google) ditolak karena penangguhan; memuat alamat untuk banding. */
+export const ACCOUNT_SUSPENDED_LOGIN_MESSAGE = `Akun ini ditangguhkan karena melanggar ketentuan layanan. Ajukan banding lewat email ke ${SUPPORT_EMAIL}.`;

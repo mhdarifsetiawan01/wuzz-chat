@@ -47,7 +47,12 @@ export const AccountSuspendedView: React.FC<AccountSuspendedViewProps> = ({
       <Text style={styles.body}>{copy.safeData}</Text>
 
       <Button title={copy.appeal} onPress={onAppeal} style={styles.button} />
-      <Text style={styles.contactLine}>{copy.contactLine(supportEmail)}</Text>
+      {/* Alamat di baris sendiri agar tidak terpotong di tengah dan bisa disalin. */}
+      <Text style={styles.contactLine}>{copy.contactIntro}</Text>
+      <Text style={styles.contactEmail} selectable>
+        {supportEmail}
+      </Text>
+      <Text style={styles.contactLine}>{copy.contactHint}</Text>
       {onCheck ? (
         <Button
           title={copy.checkStatus}
@@ -99,7 +104,8 @@ const styles = StyleSheet.create({
   body: { ...typography.bodySecondary, color: colors.textSecondary, marginBottom: spacing.md },
   button: { marginTop: spacing.sm },
   statusMessage: { ...typography.caption, color: colors.colorError, marginTop: spacing.sm, textAlign: 'center' },
-  contactLine: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.sm, textAlign: 'center' },
+  contactLine: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xs, textAlign: 'center' },
+  contactEmail: { ...typography.captionBold, color: colors.textPrimary, marginTop: spacing.xs, textAlign: 'center' },
   deleteLink: { alignSelf: 'center', marginTop: spacing.xl, padding: spacing.sm },
   deleteLinkText: { ...typography.captionBold, color: colors.colorError },
 });

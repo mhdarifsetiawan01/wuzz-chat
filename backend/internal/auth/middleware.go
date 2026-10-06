@@ -20,6 +20,22 @@ type TokenRevocationChecker interface {
 	IsUserRevokedBefore(userID string, issuedAt time.Time) (bool, error)
 }
 
+// RevocationReason menjelaskan mengapa sebuah token ditolak oleh pemeriksaan pencabutan.
+type RevocationReason int
+
+const (
+	NotRevoked         RevocationReason = iota
+	TokenRevoked                        // token (jti) atau sesinya dicabut individual (logout, perangkat dikeluarkan)
+	AllSessionsRevoked                  // semua token akun dicabut massal (ganti password, dll)
+)
+
+// CombinedRevocationChecker adalah kemampuan OPSIONAL untuk memeriksa pencabutan token, sesi, dan pencabutan massal akun
+// dalam SATU putaran ke database (alih-alih tiga query berurutan di setiap permintaan). Semantiknya harus identik dengan
+// IsTokenRevoked + IsUserRevokedBefore: pencabutan individual didahulukan, issuedAt nol berarti pemeriksaan massal dilewati.
+type CombinedRevocationChecker interface {
+	CheckRevocation(jti, userID string, issuedAt time.Time) (RevocationReason, error)
+}
+
 var (
 	tokenCheckerMu sync.RWMutex
 	tokenChecker   TokenRevocationChecker
@@ -67,22 +83,37 @@ func RequireJWT() func(http.Handler) http.Handler {
 			// Cek apakah token masuk dalam daftar revocation
 			checker := GetTokenChecker()
 			if checker != nil {
-				// 1. Cek JTI spesifik (pencabutan individual via logout)
-				if claims.ID != "" {
-					revoked, err := checker.IsTokenRevoked(claims.ID)
-					if err == nil && revoked {
-						http.Error(w, `{"error":"Token telah dicabut atau kadaluarsa"}`, http.StatusUnauthorized)
-						return
+				var issuedAt time.Time
+				if claims.UserID != "" && claims.IssuedAt != nil {
+					issuedAt = claims.IssuedAt.Time
+				}
+				reason := NotRevoked
+				if combined, ok := checker.(CombinedRevocationChecker); ok {
+					// Satu putaran ke database. Galat diabaikan (gagal terbuka), sama seperti pemeriksaan terpisah di bawah.
+					if rr, err := combined.CheckRevocation(claims.ID, claims.UserID, issuedAt); err == nil {
+						reason = rr
+					}
+				} else {
+					// 1. Cek JTI spesifik (pencabutan individual via logout)
+					if claims.ID != "" {
+						if revoked, err := checker.IsTokenRevoked(claims.ID); err == nil && revoked {
+							reason = TokenRevoked
+						}
+					}
+					// 2. Cek pencabutan global user (misal saat ganti password)
+					if reason == NotRevoked && !issuedAt.IsZero() {
+						if userRevoked, err := checker.IsUserRevokedBefore(claims.UserID, issuedAt); err == nil && userRevoked {
+							reason = AllSessionsRevoked
+						}
 					}
 				}
-
-				// 2. Cek pencabutan global user (misal saat ganti password)
-				if claims.UserID != "" && claims.IssuedAt != nil {
-					userRevoked, err := checker.IsUserRevokedBefore(claims.UserID, claims.IssuedAt.Time)
-					if err == nil && userRevoked {
-						http.Error(w, `{"error":"Sesi telah berakhir karena perubahan kredensial akun. Silakan login ulang."}`, http.StatusUnauthorized)
-						return
-					}
+				switch reason {
+				case TokenRevoked:
+					http.Error(w, `{"error":"Token telah dicabut atau kadaluarsa"}`, http.StatusUnauthorized)
+					return
+				case AllSessionsRevoked:
+					http.Error(w, `{"error":"Sesi telah berakhir karena perubahan kredensial akun. Silakan login ulang."}`, http.StatusUnauthorized)
+					return
 				}
 			}
 

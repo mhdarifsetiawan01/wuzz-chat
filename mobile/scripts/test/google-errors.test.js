@@ -3,7 +3,7 @@
 const assert = require('assert');
 const { loadFresh } = require('./_harness');
 
-const { googleErrors: g } = loadFresh(['utils/googleErrors.ts']);
+const { googleErrors: g } = loadFresh(['utils/supportContact.ts', 'utils/accountSuspended.ts', 'utils/googleErrors.ts']);
 
 // Predikat
 assert.ok(g.isDeviceLimitError({ status: 409, code: 'DEVICE_LIMIT_REACHED' }));
@@ -25,6 +25,9 @@ for (const code of known) {
   seen.add(msg);
 }
 assert.strictEqual(seen.size, known.length, 'tiap kode harus punya pesan yang berbeda');
+
+// Pesan penangguhan memuat alamat support untuk banding.
+assert.ok(g.googleErrorMessage({ code: 'ACCOUNT_SUSPENDED' }, 'F').includes('support@semanticdigital.id'));
 
 // VALIDATION_ERROR memakai pesan server apa adanya; tanpa detail jatuh ke fallback.
 assert.strictEqual(g.googleErrorMessage({ code: 'VALIDATION_ERROR', detail: 'username minimal 3 karakter' }, 'F'), 'username minimal 3 karakter');

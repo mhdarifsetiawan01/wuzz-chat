@@ -22,6 +22,7 @@ import { useAuth } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
 import { isGoogleSignInAvailable, GoogleAuthError } from '../services/googleAuth';
 import { GoogleFlowError, googleErrorMessage, isDeviceLimitError } from '../utils/googleErrors';
+import { ACCOUNT_SUSPENDED_LOGIN_MESSAGE, isAccountSuspendedError } from '../utils/accountSuspended';
 import type { GooglePending } from './GoogleOnboardingScreen';
 
 interface LoginScreenProps {
@@ -74,6 +75,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister, 
         setActiveDevices(devices);
         setDeviceLimitError(null);
         setIsDeviceLimitModalOpen(true);
+        return;
+      }
+
+      if (isAccountSuspendedError(err)) {
+        // Pesan sama dengan jalur Google dan memuat alamat support untuk banding.
+        setErrorMessage(ACCOUNT_SUSPENDED_LOGIN_MESSAGE);
         return;
       }
 

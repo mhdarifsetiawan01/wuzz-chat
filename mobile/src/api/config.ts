@@ -60,7 +60,7 @@ export const APP_LINK_CONFIG = {
 } as const;
 
 /** Alamat dukungan yang tercantum di halaman legal publik; dipakai tautan "hubungi support" di aplikasi. */
-export const SUPPORT_EMAIL = 'support@semanticdigital.id';
+export { SUPPORT_EMAIL } from '../utils/supportContact';
 
 /** Halaman legal publik (web); dibuka lewat peramban dari aplikasi dan dipakai sebagai URL di Play Console. */
 export const LEGAL_URLS = {

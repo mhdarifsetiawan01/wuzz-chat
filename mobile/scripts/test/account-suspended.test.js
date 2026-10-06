@@ -3,7 +3,7 @@
 const assert = require('assert');
 const { loadFresh } = require('./_harness');
 
-const { accountSuspended: s } = loadFresh(['utils/accountSuspended.ts']);
+const { accountSuspended: s } = loadFresh(['utils/supportContact.ts', 'utils/accountSuspended.ts']);
 
 // Predikat galat API: kode di level atas ApiError atau di data respons.
 assert.ok(s.isAccountSuspendedError({ status: 403, code: 'ACCOUNT_SUSPENDED' }));
@@ -43,4 +43,9 @@ assert.strictEqual(a, 2, 'pendengar yang berhenti tidak dipanggil lagi'); assert
 offB();
 s.notifyAccountSuspended(); // tanpa pendengar: aman
 assert.strictEqual(b, 3);
+// Pesan di layar login memuat alamat support (tombol email tidak ada di layar login) dan alamatnya satu sumber dengan layar penangguhan.
+const { supportContact: sc } = loadFresh(['utils/supportContact.ts']);
+assert.ok(s.ACCOUNT_SUSPENDED_LOGIN_MESSAGE.includes(sc.SUPPORT_EMAIL), 'pesan login harus memuat alamat support');
+assert.ok(/ditangguhkan/i.test(s.ACCOUNT_SUSPENDED_LOGIN_MESSAGE) && /banding/i.test(s.ACCOUNT_SUSPENDED_LOGIN_MESSAGE));
+assert.strictEqual(sc.SUPPORT_EMAIL, 'support@semanticdigital.id');
 console.log('account-suspended: predikat galat/penutupan, pendengar, isolasi galat');
