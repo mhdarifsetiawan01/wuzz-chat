@@ -7,16 +7,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, typography } from '../theme';
-import { Icon } from './Icon';
+import { GoogleLinkBannerView } from './GoogleLinkBannerView';
 import { useAuth, useCall } from '../context';
 import { useLinkGoogle } from '../hooks/useLinkGoogle';
 import { isGoogleSignInAvailable } from '../services/googleAuth';
 import { secureStorage } from '../services/secureStorage';
 import {
-  LinkUrgency,
   getLinkDeadlineState,
   isSnoozed,
   parseSnoozeUntil,
@@ -27,13 +25,6 @@ export interface GoogleLinkBannerLayoutProps {
   enabled: boolean;
   children: React.ReactNode;
 }
-
-const TONE: Record<Exclude<LinkUrgency, 'none'>, { bg: string; border: string }> = {
-  info: { bg: colors.tintAccent20, border: colors.borderDefault },
-  warning: { bg: colors.tintWarning10, border: colors.colorWarning },
-  urgent: { bg: colors.tintError10, border: colors.colorError },
-  expired: { bg: colors.tintError20, border: colors.colorError },
-};
 
 export const GoogleLinkBannerLayout: React.FC<GoogleLinkBannerLayoutProps> = ({ enabled, children }) => {
   const insets = useSafeAreaInsets();
@@ -85,24 +76,10 @@ export const GoogleLinkBannerLayout: React.FC<GoogleLinkBannerLayoutProps> = ({ 
     secureStorage.setItem(snoozeStorageKey(userId), String(until)).catch(() => {});
   }, [userId, state.dismissible, state.snoozeMs]);
 
-  const tone = state.urgency === 'none' ? TONE.info : TONE[state.urgency];
-
   return (
     <View style={styles.root}>
       {visible && (
-        <View style={[styles.banner, { paddingTop: insets.top + spacing.xs, backgroundColor: tone.bg, borderBottomColor: tone.border }]}>
-          <Text style={styles.text} numberOfLines={2}>
-            {state.message}
-          </Text>
-          <TouchableOpacity onPress={link} disabled={isLinking} hitSlop={8} accessibilityRole="button">
-            <Text style={styles.action}>{isLinking ? 'Menghubungkan…' : 'Hubungkan'}</Text>
-          </TouchableOpacity>
-          {state.dismissible && (
-            <TouchableOpacity onPress={handleDismiss} hitSlop={10} accessibilityRole="button" accessibilityLabel="Tutup">
-              <Icon name="close" size={14} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
+        <GoogleLinkBannerView state={state} topInset={insets.top} isLinking={isLinking} onLink={link} onDismiss={handleDismiss} />
       )}
       <SafeAreaInsetsContext.Provider value={visible ? { ...insets, top: 0 } : insets}>
         <View style={styles.root}>{children}</View>
@@ -114,23 +91,5 @@ export const GoogleLinkBannerLayout: React.FC<GoogleLinkBannerLayoutProps> = ({ 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-  },
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  text: {
-    ...typography.caption,
-    flex: 1,
-    color: colors.textPrimary,
-  },
-  action: {
-    ...typography.caption,
-    fontWeight: '700',
-    color: colors.accentHover,
   },
 });

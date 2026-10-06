@@ -330,7 +330,7 @@ export const SettingsScreen: React.FC = () => {
                     : user?.google_linked
                       ? 'Terhubung · bisa masuk dengan Google'
                       : linkDeadline.urgency !== 'none' && user?.google_link_required_by
-                        ? `Hubungkan sebelum ${formatDeadlineDate(new Date(user.google_link_required_by))}`
+                        ? `Hubungkan paling lambat ${formatDeadlineDate(new Date(user.google_link_required_by))}`
                         : 'Hubungkan untuk masuk dengan Google'
                 }
                 onPress={handleLinkGoogle}

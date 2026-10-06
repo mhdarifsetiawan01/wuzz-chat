@@ -216,7 +216,7 @@ Dibandingkan (diverifikasi dari paket npm dan dokumentasi resmi):
 **Kode selesai di `dev` (belum dideploy, belum dibuild/diuji di HP):**
 - Backend: env `GOOGLE_LINK_DEADLINE` (`config.ParseDeadline`: `YYYY-MM-DD` = akhir hari WIB, atau RFC3339; nilai salah tidak menggagalkan start, fitur mati + peringatan di log). `AuthHandler.googleLinkRequiredBy` mengisi `google_link_required_by` di respons login/daftar/Google/`/me` **hanya** bila: tenggat diatur, Google aktif di server, akun belum tertaut, tenant default (tes untuk tiap syarat, mutasi tenant tertangkap).
 - Mobile: `utils/googleLinkDeadline.ts` (logika murni + tes dengan batas tepat), `GoogleLinkBannerLayout` (di `App.tsx`, membungkus `UpdateBannerLayout`), hook bersama `useLinkGoogle` (Pengaturan dan banner), subtitle Pengaturan menampilkan batas waktu.
-- Tingkat banner: >30 hari info (tunda 7 hari), 8-30 info (tunda 3 hari), 3-7 warning (tunda 1 hari), 1-2 hari dan <24 jam urgent (tidak bisa ditutup), lewat = expired (tidak bisa ditutup). Penunda disimpan per akun di SecureStore. Banner hanya tampil bila build memuat modul Google dan client ID terisi. Teks expired SENGAJA tidak menjanjikan pembekuan/penghapusan (belum ada).
+- Tingkat banner (dihitung dalam hari KALENDER perangkat, bukan pembulatan jam): >30 hari info (tunda 7 hari), 8-30 info (tunda 3 hari), 3-7 warning (tunda 1 hari), 0-2 hari urgent (0 = hari ini; tidak bisa ditutup), lewat = expired (tidak bisa ditutup). Teks memakai "paling lambat <tanggal>" (bukan "sebelum": tenggat berlaku sampai akhir hari itu). Penunda disimpan per akun di SecureStore. Banner hanya tampil bila build memuat modul Google dan client ID terisi. Teks expired SENGAJA tidak menjanjikan pembekuan/penghapusan (belum ada).
 
 **Cara mengaktifkan:** isi `GOOGLE_LINK_DEADLINE=<tanggal>` di `~/wuzz-chat/backend/.env` VPS lalu `docker compose up -d` (log: "Pengumuman penautan Google aktif"). Tanpa env itu tidak ada perubahan perilaku. Klien dengan build lama mengabaikan field baru; banner baru tampil di build >= yang memuat fase 3.
 
@@ -246,3 +246,38 @@ Dibandingkan (diverifikasi dari paket npm dan dokumentasi resmi):
 **Keterbatasan yang diketahui:** web (sedang dijeda) tidak punya layar penautan: pengguna web beku hanya melihat galat; notifikasi push yang sudah dalam antrean penyedia sebelum tenggat tetap tiba; endpoint ganti password/verifikasi password ikut terblokir untuk akun beku (harus menautkan Google dulu); akun beku yang kehilangan akses Google dan password lama hanya punya jalur hapus akun/support.
 
 **Belum:** uji di HP (butuh build baru + tenggat lewat; bisa disimulasikan dengan `GOOGLE_LINK_DEADLINE` kemarin di server uji), fase 5 (hapus akun tidak aktif), alat admin.
+
+## 12. Fase 5 (hapus akun tidak aktif): DITUNDA dengan sengaja, 2026-10-06
+
+**Keputusan pemilik proyek:** dilewati dulu. Tidak ada kode yang ditulis. Menunda aman: login Google, banner, dan pembekuan tidak bergantung padanya, dan hapus akun atas permintaan (syarat Play) sudah tersedia, termasuk dari layar akun beku. Akun beku yang tak pernah kembali hanya tersimpan tanpa dihapus.
+
+**Fakta yang sudah dikumpulkan (jangan diulang):**
+- Tabel `users` tidak punya kolom aktivitas. Sinyal terbaik: `devices.last_seen_at` (diperbarui tiap WebSocket tersambung, `TouchDevice` di `ws/handler.go`) dan `sessions.last_active_at` (hanya berarti login/refresh; `TouchSession` tidak pernah dipanggil). Batas aktif = nilai terbesar keduanya dan `users.created_at`. Akun beku yang login tetap tercatat aktif.
+- `EraseUser` atomik dan permanen: menghapus semua pesan yang ditulis akun itu (riwayat server lawan bicara ikut hilang), mengalihkan kepemilikan grup, tombstone baris `users`, username dibebaskan.
+- Tidak ada email: tidak ada cara pasti memperingatkan pemilik sebelum penghapusan (hanya banner/push, yang tak sampai ke pengguna yang sudah membuang aplikasi). Inilah risiko utama fitur ini.
+- `/privacy` hanya menulis "Data disimpan selama akun Anda aktif" (tanpa angka). Google Play tidak mewajibkan hapus otomatis, hanya hapus atas permintaan.
+- Pola worker terjadwal yang bisa dipakai: `internal/authz/worker/cleaner_worker.go`.
+
+**Rancangan yang disarankan bila kelak dikerjakan (opsi B):** hanya akun yang tidak pernah menautkan Google, tenant default, sudah beku, tanpa aktivitas 12 bulan sejak tenggat (paling cepat Nov 2027); dua tahap (`pending_deletion` + masa tenggang 60 hari yang dibatalkan login apa pun, baru `EraseUser`); mode uji dulu (hanya log kandidat), batas jumlah per putaran, saklar darurat, catatan audit; pengecualian admin/moderator, laporan terbuka, akun terverifikasi. Janji retensi HARUS lebih dulu muncul di `/privacy`, `/terms`, dan listing Play sebelum penegakan.
+
+**Kapan ditinjau lagi:** paling lambat kuartal kedua 2027 (sebelum akun beku pertama berumur 12 bulan), atau lebih awal bila ada permintaan privasi, lonjakan jumlah akun, atau keinginan membebaskan username. Keputusan terbuka: ambang tidak aktif (6/12/24 bulan), masa tenggang, apakah akun yang sudah tertaut Google dikecualikan (disarankan ya), daftar pengecualian, dan izin menghitung sebaran aktivitas di database produksi (agregat, baca-saja).
+
+**Perbaikan murah yang bisa dilakukan kapan saja:** ubah kalimat retensi di `/privacy` agar tidak menyiratkan data akun mati dihapus otomatis.
+
+## 13. Hasil pemeriksaan visual banner dan layar akun beku, 2026-10-06
+
+Dilakukan dua cara: (1) render komponen asli dari repo di browser (harness Vite + react-native-web di scratchpad, di luar repo; emulator tidak dipakai karena citra sistem kedua AVD tidak terpasang dan RAM/disk terbatas), (2) di HP asli dengan APK rilis dan akun password uji sementara (`tes_banner_01`, dibuat lewat API lalu dihapus lewat UI).
+
+**Terbukti di HP asli:** banner tampil dengan teks benar ("paling lambat 30 Okt 2026 (24 hari lagi)"), tombol "Hubungkan" membuka pemilih akun Google, tombol tutup menyembunyikan banner dan penundanya bertahan setelah aplikasi dimatikan paksa, banner tidak menimpa header layar lain, hapus akun lewat password berfungsi.
+
+**Cacat yang ditemukan dan diperbaiki:**
+1. Hitungan hari melebih-lebihkan sisa waktu ("25 hari lagi" padahal 24; "3 hari lagi" padahal 2 sehingga tak mendesak): kini hari kalender.
+2. "sebelum 30 Okt" ambigu (tenggat berlaku sampai akhir hari itu): kini "paling lambat" (banner dan subtitle Pengaturan).
+3. Aksi "Hubungkan" kontras rendah (aksen biru di atas tint biru, 12 px) dan label "Menghubungkan…" memotong pesan: kini teks gelap bergaris bawah, keadaan sibuk hanya meredup.
+4. `DeleteAccountModal` dan `ReportModal` memakai `KeyboardAvoidingView behavior=undefined` di Android: keyboard menutup kolom isian dan tombol konfirmasi (melanggar DESIGN.md 5B). Kini `'height'`. Jalur hapus akun adalah syarat Play, jadi ini serius.
+5. Kolom password di dialog hapus akun lebih sempit daripada konten sekitarnya: kini melebar penuh.
+6. Ikon status bar putih di atas latar terang di SELURUH aplikasi (`<StatusBar style="light" />` global): kini `dark` kecuali saat splash biru.
+
+**Belum diverifikasi di HP:** perbaikan 3-6 (butuh build baru), layar akun beku (hanya bisa muncul setelah tenggat, atau di server uji), font scale aksesibilitas Android.
+
+**Catatan versi:** `~/wuzz-releases/1.25.0-39/` berisi build 08:49 (teks lama, tanpa perbaikan di atas); build 09:53 yang terpasang di HP juga `versionCode 39` tetapi biner berbeda. Dua APK berbeda dengan versionCode sama berbahaya bila yang lama sudah beredar (pengguna tak akan "diperbarui" ke yang baru). Gunakan versionCode baru untuk rilis berikutnya.

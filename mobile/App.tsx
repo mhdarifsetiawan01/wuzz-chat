@@ -456,6 +456,8 @@ function AppContent() {
 
   return (
     <View style={styles.rootContainer}>
+      {/* Ikon status bar: putih hanya di splash biru; gelap di UI terang (putih di atas latar terang nyaris tak terbaca). */}
+      <StatusBar style={isLoading ? 'light' : 'dark'} />
       <GoogleLinkBannerLayout enabled={isAuthenticated}>
         <UpdateBannerLayout enabled={isAuthenticated}>
           {renderContent()}
@@ -504,7 +506,6 @@ export default function App() {
   return (
     <AppErrorBoundary>
     <SafeAreaProvider>
-      <StatusBar style="light" />
       <DeviceProvider>
         <AuthProvider>
           <ConversationProvider>

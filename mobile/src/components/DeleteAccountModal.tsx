@@ -68,7 +68,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
 
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={isDeleting ? undefined : onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.card}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <View style={styles.iconContainer}>
@@ -98,6 +98,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
                 }}
                 editable={!isDeleting}
                 error={error}
+                containerStyle={styles.input}
               />
             ) : (
               <Text style={styles.googleNote}>
@@ -151,6 +152,7 @@ const styles = StyleSheet.create({
   description: { ...typography.bodySecondary, color: colors.textSecondary, alignSelf: 'flex-start', marginBottom: spacing.sm },
   list: { alignSelf: 'stretch', marginBottom: spacing.lg, gap: spacing.xs },
   listItem: { ...typography.bodySecondary, color: colors.textSecondary, lineHeight: 20 },
+  input: { alignSelf: 'stretch' },
   googleNote: { ...typography.bodySecondary, color: colors.textSecondary, alignSelf: 'stretch', marginBottom: spacing.sm },
   errorText: { ...typography.caption, color: colors.colorError, alignSelf: 'stretch', marginBottom: spacing.sm },
   actions: { width: '100%', gap: spacing.sm, marginTop: spacing.md },

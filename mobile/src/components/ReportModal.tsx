@@ -75,7 +75,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ visible, target, onClo
 
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={isSending ? undefined : onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.card}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <Text style={styles.title}>Laporkan {target.label}</Text>
