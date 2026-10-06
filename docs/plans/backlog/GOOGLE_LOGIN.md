@@ -292,3 +292,20 @@ Dilakukan dua cara: (1) render komponen asli dari repo di browser (harness Vite 
 - `Input` mendapat prop `hint` (teks bantuan kecil).
 
 **Belum:** verifikasi di HP (butuh build baru), UI putuskan/ganti akun Google (endpoint backend ada), ikon logo di baris Pengaturan "Akun Google".
+
+### 14.1 Rencana penghapusan jalur akun lama ("Saya sudah punya akun" dan login username)
+
+Kartu "Saya sudah punya akun" (langkah `link` di onboarding) dan login username hanya jembatan masa transisi. Keduanya **bukan permanen**, tetapi belum boleh dihapus sekarang.
+
+**Kenapa belum:** akun lama punya dua jalan menautkan Google, yaitu kartu ini dan layar akun beku. Layar akun beku muncul setelah login username + password. Setelah pembekuan 30 Okt 2026 akun yang belum menautkan hanya dibekukan (tidak dihapus), sehingga login username masih dibutuhkan agar pemiliknya bisa menautkan.
+
+**Kriteria aman dihapus (salah satu):**
+1. Tidak ada lagi akun yang belum punya kredensial `google:` (hitung di database), atau
+2. Keputusan sadar melepas sisa akun beku (terkait fase 5, bagian 12; tinjau paling lambat kuartal 2 2027). Lupa password tetap: daftar baru atau minta support menghapus akun lama.
+
+**Urutan:**
+1. Tutup `POST /api/auth/register` lama (setelah klien baru tersebar, lewat version gatekeeper).
+2. Hapus kartu "Saya sudah punya akun" (`OptionCard` di `GoogleOnboardingView.tsx`, teks di `copy.ts`, langkah `link` dan `attemptLink`/`handleLink` di `GoogleOnboardingScreen.tsx`) serta form username di `LoginScreen`.
+3. Hapus jalur tautan-lewat-password di backend dan layar akun beku yang bergantung padanya.
+
+Desain sudah mendukung ini: kartu dan langkah terpisah, tinggal dikurangi tanpa mengubah logika lain.
