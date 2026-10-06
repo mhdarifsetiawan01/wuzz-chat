@@ -1,0 +1,213 @@
+package api
+
+import (
+	"encoding/json"
+	"errors"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/authz"
+	"github.com/bms-del112/wuzz-chat/internal/store"
+)
+
+const (
+	adminReportsPath = "/api/admin/reports"
+	adminUsersPath   = "/api/admin/users/"
+	maxModNoteRunes  = 500
+)
+
+// ModerationHandler melayani alat moderasi (hanya staf): daftar laporan, detail, keputusan, dan pemulihan akun.
+// Pemeriksaan peran SELALU dilakukan di sini; UI hanya kosmetik. Setiap kueri dibatasi tenant dari klaim JWT.
+type ModerationHandler struct {
+	store      store.ModerationStore
+	suspension *authz.SuspensionPolicy
+	revoke     func(userID string) error   // mencabut semua token akun (nil = dilewati)
+	kick       func(userID, reason string) // memutus semua koneksi WebSocket akun (nil = dilewati)
+}
+
+func NewModerationHandler(s store.ModerationStore, suspension *authz.SuspensionPolicy) *ModerationHandler {
+	return &ModerationHandler{store: s, suspension: suspension}
+}
+
+// SetSessionControl memasang pencabut token dan pemutus koneksi yang dipakai saat akun ditangguhkan.
+func (h *ModerationHandler) SetSessionControl(revoke func(userID string) error, kick func(userID, reason string)) {
+	h.revoke, h.kick = revoke, kick
+}
+
+func (h *ModerationHandler) staff(w http.ResponseWriter, r *http.Request) (*auth.UserClaims, bool) {
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		writeFeedError(w, http.StatusUnauthorized, "Sesi tidak valid atau telah berakhir")
+		return nil, false
+	}
+	if !store.IsStaff(claims.SystemRole) {
+		writeFeedError(w, http.StatusForbidden, "Khusus moderator")
+		return nil, false
+	}
+	return claims, true
+}
+
+// HandleReports melayani GET /api/admin/reports.
+func (h *ModerationHandler) HandleReports(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.staff(w, r)
+	if !ok {
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeFeedError(w, http.StatusMethodNotAllowed, "Method tidak diizinkan")
+		return
+	}
+	q := r.URL.Query()
+	status := q.Get("status")
+	if status != "" && status != store.ReportStatusOpen && status != store.ReportStatusResolved && status != store.ReportStatusDismissed {
+		writeFeedError(w, http.StatusBadRequest, "Status tidak valid")
+		return
+	}
+	if tt := q.Get("target_type"); tt != "" && !validReportTargets[tt] {
+		writeFeedError(w, http.StatusBadRequest, "Jenis target tidak valid")
+		return
+	}
+	if rs := q.Get("reason"); rs != "" && !validReportReasons[rs] {
+		writeFeedError(w, http.StatusBadRequest, "Alasan tidak valid")
+		return
+	}
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	offset, _ := strconv.Atoi(q.Get("offset"))
+	list, err := h.store.ListReports(r.Context(), claims.TenantID, store.ReportFilter{
+		Status: status, TargetType: q.Get("target_type"), Reason: q.Get("reason"),
+	}, limit, offset)
+	if err != nil {
+		log.Printf("⚠️ [Moderation] gagal memuat laporan: %v", err)
+		writeFeedError(w, http.StatusInternalServerError, "Gagal memuat laporan")
+		return
+	}
+	// Daftar sengaja ringkas: bukti dan rincian pelapor hanya tampil di halaman detail (minimalkan data).
+	for i := range list {
+		list[i].Evidence, list[i].Details, list[i].ReporterID = "", "", ""
+	}
+	writeFeedJSON(w, http.StatusOK, map[string]any{"reports": list})
+}
+
+// HandleReportItem melayani GET /api/admin/reports/{id} dan POST /api/admin/reports/{id}/action.
+func (h *ModerationHandler) HandleReportItem(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.staff(w, r)
+	if !ok {
+		return
+	}
+	rest := strings.TrimPrefix(r.URL.Path, adminReportsPath+"/")
+	parts := strings.Split(strings.Trim(rest, "/"), "/")
+	if len(parts) == 0 || parts[0] == "" || len(parts[0]) > 64 {
+		writeFeedError(w, http.StatusNotFound, "Tidak ditemukan")
+		return
+	}
+	id := parts[0]
+
+	switch {
+	case len(parts) == 1 && r.Method == http.MethodGet:
+		d, err := h.store.GetReportDetail(r.Context(), claims.TenantID, id)
+		if errors.Is(err, store.ErrReportNotFound) {
+			writeFeedError(w, http.StatusNotFound, "Laporan tidak ditemukan")
+			return
+		}
+		if err != nil {
+			log.Printf("⚠️ [Moderation] gagal memuat detail %s: %v", id, err)
+			writeFeedError(w, http.StatusInternalServerError, "Gagal memuat laporan")
+			return
+		}
+		writeFeedJSON(w, http.StatusOK, d)
+	case len(parts) == 2 && parts[1] == "action" && r.Method == http.MethodPost:
+		h.applyAction(w, r, claims, id)
+	default:
+		writeFeedError(w, http.StatusMethodNotAllowed, "Method tidak diizinkan")
+	}
+}
+
+func (h *ModerationHandler) applyAction(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims, reportID string) {
+	var body struct {
+		Action string `json:"action"`
+		Note   string `json:"note"`
+	}
+	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body) != nil || utf8.RuneCountInString(body.Note) > maxModNoteRunes {
+		writeFeedError(w, http.StatusBadRequest, "Payload tidak valid")
+		return
+	}
+	res, err := h.store.ApplyAction(r.Context(), store.ApplyActionInput{
+		TenantID: claims.TenantID, ReportID: reportID, ModeratorID: claims.UserID, Action: body.Action, Note: body.Note,
+	})
+	switch {
+	case errors.Is(err, store.ErrReportNotFound):
+		writeFeedError(w, http.StatusNotFound, "Laporan tidak ditemukan")
+		return
+	case errors.Is(err, store.ErrModerationInvalidAction), errors.Is(err, store.ErrModerationNoteRequired):
+		writeFeedError(w, http.StatusBadRequest, err.Error())
+		return
+	case errors.Is(err, store.ErrModerationNotApplicable):
+		writeFeedError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	case errors.Is(err, store.ErrModerationProtectedUser):
+		writeFeedError(w, http.StatusForbidden, err.Error())
+		return
+	case errors.Is(err, store.ErrModerationUserNotFound):
+		writeFeedError(w, http.StatusNotFound, err.Error())
+		return
+	case err != nil:
+		log.Printf("⚠️ [Moderation] aksi %s pada %s gagal: %v", body.Action, reportID, err)
+		writeFeedError(w, http.StatusInternalServerError, "Gagal menjalankan tindakan")
+		return
+	}
+	log.Printf("🛡️ [Moderation] %s: laporan=%s moderator=%s", body.Action, reportID, claims.UserID)
+	if res.SuspendedUser != "" {
+		h.enforceSuspension(res.SuspendedUser)
+	}
+	writeFeedJSON(w, http.StatusOK, map[string]any{"status": "ok", "report_status": res.Report.Status, "content_already_gone": res.ContentGone})
+}
+
+// enforceSuspension membuat penangguhan langsung berlaku: cache dibuang, token dicabut, koneksi diputus.
+func (h *ModerationHandler) enforceSuspension(userID string) {
+	h.suspension.Invalidate(userID)
+	if h.revoke != nil {
+		if err := h.revoke(userID); err != nil {
+			log.Printf("⚠️ [Moderation] gagal mencabut token %s: %v", userID, err)
+		}
+	}
+	if h.kick != nil {
+		h.kick(userID, "ACCOUNT_SUSPENDED: Akun Anda ditangguhkan.")
+	}
+}
+
+// HandleUser melayani POST /api/admin/users/{id}/unsuspend.
+func (h *ModerationHandler) HandleUser(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.staff(w, r)
+	if !ok {
+		return
+	}
+	parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, adminUsersPath), "/"), "/")
+	if len(parts) != 2 || parts[0] == "" || len(parts[0]) > 64 || parts[1] != "unsuspend" || r.Method != http.MethodPost {
+		writeFeedError(w, http.StatusNotFound, "Tidak ditemukan")
+		return
+	}
+	var body struct {
+		Note string `json:"note"`
+	}
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body)
+	if utf8.RuneCountInString(body.Note) > maxModNoteRunes {
+		writeFeedError(w, http.StatusBadRequest, "Catatan terlalu panjang")
+		return
+	}
+	if err := h.store.Unsuspend(r.Context(), claims.TenantID, claims.UserID, parts[0], body.Note); err != nil {
+		if errors.Is(err, store.ErrModerationUserNotFound) {
+			writeFeedError(w, http.StatusNotFound, "Pengguna tidak ditemukan")
+			return
+		}
+		log.Printf("⚠️ [Moderation] unsuspend %s gagal: %v", parts[0], err)
+		writeFeedError(w, http.StatusInternalServerError, "Gagal memulihkan akun")
+		return
+	}
+	h.suspension.Invalidate(parts[0])
+	log.Printf("🛡️ [Moderation] unsuspend: user=%s moderator=%s", parts[0], claims.UserID)
+	writeFeedJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}

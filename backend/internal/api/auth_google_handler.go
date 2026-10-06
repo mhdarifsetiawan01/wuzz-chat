@@ -49,6 +49,8 @@ func writeAuthError(w http.ResponseWriter, status int, code, message string) {
 // writeGoogleError memetakan error domain/store ke respons HTTP. Error tak dikenal menjadi 500 generik (detail hanya di log).
 func writeGoogleError(w http.ResponseWriter, err error, context string) {
 	switch {
+	case errors.Is(err, authz.ErrAccountSuspended):
+		WriteAccountSuspended(w)
 	case errors.Is(err, google.ErrNotConfigured):
 		writeAuthError(w, http.StatusServiceUnavailable, codeGoogleNotConfigured, "Login Google belum tersedia")
 	case errors.Is(err, google.ErrInvalidIDToken):

@@ -30,9 +30,8 @@ type ReportHandler struct {
 
 func NewReportHandler(s store.ReportStore) *ReportHandler { return &ReportHandler{store: s} }
 
-func isModerator(role string) bool {
-	return role == "wuzz_moderator" || role == "admin" || role == "superadmin"
-}
+// isModerator memakai definisi staf bersama (store.IsStaff), sama dengan Linimasa dan alat moderasi.
+func isModerator(role string) bool { return store.IsStaff(role) }
 
 // Handle melayani /api/reports (POST: kirim laporan, GET: daftar untuk moderator).
 func (h *ReportHandler) Handle(w http.ResponseWriter, r *http.Request) {

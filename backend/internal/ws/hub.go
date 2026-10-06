@@ -97,6 +97,14 @@ type Hub struct {
 	// accessGate dipanggil untuk setiap pesan masuk dari klien; false berarti akun dibekukan dan koneksinya diputus.
 	// Diatur sekali saat wiring, sebelum Hub melayani koneksi.
 	accessGate func(userID, tenantID string) bool
+
+	// suspensionGate sama seperti accessGate tetapi untuk akun yang ditangguhkan moderator (nil = tidak ada penangguhan).
+	suspensionGate func(userID string) bool
+}
+
+// SetSuspensionGate memasang pemeriksa penangguhan: true berarti akun ditangguhkan moderator dan koneksinya diputus.
+func (h *Hub) SetSuspensionGate(isSuspended func(userID string) bool) {
+	h.suspensionGate = isSuspended
 }
 
 // SetAccessGate memasang pemeriksa akses (nil = semua boleh). Dipakai untuk memutus koneksi akun yang dibekukan.

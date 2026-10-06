@@ -391,6 +391,24 @@ func (a *Application) setupRouter() http.Handler {
 		}))
 	}
 
+	// Alat moderasi (hanya staf; peran diperiksa di handler). Rate limit per moderator.
+	if a.ModerationHandler != nil {
+		modLimit := api.UserRateLimitMsg(ratelimit.NewIPRateLimiter(120, time.Minute), "Terlalu banyak permintaan moderasi, coba lagi sebentar lagi.", 60)
+		for _, route := range []struct {
+			path string
+			fn   http.HandlerFunc
+		}{
+			{"/api/admin/reports", a.ModerationHandler.HandleReports},
+			{"/api/admin/reports/", a.ModerationHandler.HandleReportItem},
+			{"/api/admin/users/", a.ModerationHandler.HandleUser},
+		} {
+			fn := route.fn
+			mux.HandleFunc(route.path, withCORS(func(w http.ResponseWriter, r *http.Request) {
+				auth.RequireJWT()(modLimit(fn)).ServeHTTP(w, r)
+			}))
+		}
+	}
+
 	// =========================================================================
 	// 9B. COMMUNITY SOCIAL FEED (Milestone M-Mobile-9.2)
 	// =========================================================================
@@ -434,6 +452,8 @@ func (a *Application) setupRouter() http.Handler {
 		// Pembekuan akun (belum menautkan Google setelah tenggat): dibungkus SEBELUM versionMw sehingga build lama yang
 		// terlalu tua tetap mendapat 426 (perbarui aplikasi) lebih dulu, bukan 403.
 		handler = api.NewLinkFreezeMiddleware(a.LinkFreeze).Middleware(handler)
+		// Penangguhan akun oleh moderator: dibungkus bersama pembekuan, juga sebelum versionMw.
+		handler = api.NewSuspensionMiddleware(a.Suspension).Middleware(handler)
 		versionMw := api.NewVersionMiddleware(a.Config.MinMobileBuild, a.Config.PlayStoreURL, a.Config.AppStoreURL).WithAPKURL(a.Config.APKDownloadURL)
 		handler = versionMw.Middleware(handler)
 	}

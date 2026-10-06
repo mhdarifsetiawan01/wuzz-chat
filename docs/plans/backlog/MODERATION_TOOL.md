@@ -1,6 +1,6 @@
 # Backlog: Alat Moderasi Laporan (Halaman Web Moderator)
 
-> Dibuat 2026-10-05. **Status: DIRENCANAKAN, BELUM DIKERJAKAN.** Keputusan pemilik proyek: **Pilihan 1 (halaman web khusus moderator)**.
+> Dibuat 2026-10-05. **Status (2026-10-06): P0 BACKEND SELESAI di `dev` (belum di-commit/dideploy); P1 frontend, P2 pemberitahuan, P3 belum dikerjakan.** Lihat bagian 9. Keputusan pemilik proyek: **Pilihan 1 (halaman web khusus moderator)**.
 > Dokumen ini ditulis agar developer berikutnya (atau sesi AI berikutnya) bisa langsung mengerjakan tanpa konteks percakapan.
 > Fakta bertanda **(terverifikasi)** sudah dicek di kode per tanggal di atas; bertanda **(belum diverifikasi)** harus dicek dulu.
 
@@ -117,3 +117,27 @@ Perkiraan: P0 sedang-besar (±1-2 hari kerja bersama tes), P1 sedang, P2 kecil, 
 ## 8. Titik awal untuk pengerjaan
 Mulai dari `backend/internal/api/report_handler.go` dan `backend/internal/store/report_store.go` (pola handler/store/test: `report_handler_test.go`), pola penangguhan token dari `store/account_eraser.go` dan `api/auth_handler.go` (`DeleteAccount`),
 pola rate limit di `backend/internal/app/router.go`, dan pola halaman publik statis di `frontend/app/_legal/`. Dokumen terkait: `docs/PLAY_STORE_LISTING.md`, `docs/domains/AUTH_SESSION.md` (invarian 6), `docs/SECURITY_AND_PERFORMANCE.md`, `/child-safety` (`frontend/app/child-safety/page.tsx`).
+
+## 9. Status P0 backend (2026-10-06)
+
+**Selesai dan teruji** (SQLite dan PostgreSQL 16; seluruh `go test ./...` lulus; 4 mutasi pemeriksaan keamanan tertangkap tes):
+- `store/moderation_store.go`: kolom `users.suspended_at/_reason/_by` (migrasi idempoten), tabel `moderation_actions` (audit), `IsStaff` (satu definisi staf: `wuzz_admin`, `wuzz_moderator`; `admin`/`superadmin` lama tidak lagi diakui), daftar berprioritas (`sexual`/`illegal` dulu, lalu `violence`/`hate`/`harassment`), detail dengan isi per jenis target, `ApplyAction` transaksional (ubah konten/akun + tutup laporan + audit sekaligus), `Unsuspend`.
+- `authz/suspension.go` + `api/suspension_middleware.go` + gerbang WS 4004 + filter push + penolakan login/refresh (invarian 8 di `docs/domains/AUTH_SESSION.md`).
+- `api/moderation_handler.go`, rute di `app/router.go` (JWT + rate limit 120/menit per moderator):
+
+| Endpoint | Fungsi |
+|---|---|
+| `GET /api/admin/reports?status=&target_type=&reason=&limit=&offset=` | daftar ringkas (tanpa bukti/pelapor) |
+| `GET /api/admin/reports/{id}` | laporan + isi target + laporan terkait + riwayat tindakan + status tangguh pemilik |
+| `POST /api/admin/reports/{id}/action` | `{action: dismiss/resolve/reopen/delete_content/suspend_user, note}`; catatan wajib untuk hapus/tangguhkan |
+| `POST /api/admin/users/{id}/unsuspend` | pulihkan akun |
+
+**Keputusan implementasi yang menyimpang atau menjelaskan rencana:**
+- Paginasi memakai `offset` (bukan kursor): volume laporan kecil.
+- `delete_content` mendukung `post`, `comment`, dan pesan **grup/forum non-E2EE** (ditandai `is_deleted`, belum ada siaran realtime ke klien yang sedang terbuka; muncul saat memuat ulang). DM E2EE: dijawab 422, isi tidak pernah dibaca atau disentuh; gunakan tangguhkan akun. Laporan `user`/`group`: hanya `dismiss`/`resolve`/`suspend_user` (aksi untuk target `group` masih keputusan terbuka, tidak ada tindakan khusus).
+- Pencabutan token massal memakai resolusi detik: token yang terbit di detik yang sama dengan penangguhan lolos dari pencabutan, tetapi tetap diblokir `SuspensionMiddleware`.
+- Cache status tangguh 15 dtk (60 dtk bila tertangguh) per instans; `Invalidate` dipanggil pada instans yang menjalankan aksi. Pada multi-instans instans lain paling lambat 15-60 dtk menyusul.
+- Klien mobile: belum ada layar khusus untuk `ACCOUNT_SUSPENDED` (403 di rute biasa tampil sebagai galat umum; login menampilkan pesan dari server). Perlu build mobile baru bila ingin layar tersendiri.
+
+**Belum:** P1 halaman web (`/admin/reports`), pengecualian gate web `/admin`, P2 pemberitahuan (webhook), retensi `evidence` 90 hari, pembaruan `/privacy` dan Data Safety (data baru: catatan moderasi, tanggal tangguh), SOP bagian 5, cara mengangkat moderator pertama (hanya SQL).
+**Sebelum deploy:** ini mengubah skema produksi (3 kolom `users` + 1 tabel, idempoten) dan menambah jalur penolakan login; deploy hanya dengan izin eksplisit.

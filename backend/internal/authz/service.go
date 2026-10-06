@@ -41,6 +41,9 @@ type AuthService struct {
 	googleVerifier google.Verifier
 	oauth          OAuthStore
 	now            func() time.Time // hanya untuk tes; nil = time.Now
+
+	// suspension menolak login/refresh akun yang ditangguhkan moderator (nil = tidak ada penangguhan).
+	suspension *SuspensionPolicy
 }
 
 // NewAuthService membuat instance AuthService baru.
@@ -56,6 +59,11 @@ func NewAuthService(repo AuthRepository, kicker SessionKicker) *AuthService {
 // Diperlukan untuk menghindari circular dependency saat wiring di main.go.
 func (s *AuthService) SetSessionKicker(kicker SessionKicker) {
 	s.kicker = kicker
+}
+
+// SetSuspension menyuntikkan kebijakan penangguhan akun (opsional).
+func (s *AuthService) SetSuspension(p *SuspensionPolicy) {
+	s.suspension = p
 }
 
 // SetRepository menyuntikkan atau memperbarui implementasi AuthRepository.
@@ -220,6 +228,11 @@ type loginDevice struct {
 // menerbitkan JWT, mencatat sesi, dan mendaftarkan perangkat. Dipakai bersama oleh semua metode login.
 func (s *AuthService) finishLogin(ctx context.Context, tenantID, userID, username, displayName string, dev loginDevice) (*LoginResult, *DeviceConflict, error) {
 	reqDeviceID := dev.DeviceID
+
+	// Kredensial sudah terbukti sah; akun yang ditangguhkan tidak boleh mendapat token baru lewat jalur apa pun.
+	if s.suspension.IsSuspended(ctx, userID) {
+		return nil, nil, ErrAccountSuspended
+	}
 
 	// Cek kuota device aktif
 	if reqDeviceID != "" {
@@ -631,6 +644,9 @@ func (s *AuthService) RefreshToken(input RefreshInput) (*RefreshResult, error) {
 	old := input.Claims
 	if old == nil || old.ExpiresAt == nil {
 		return nil, ErrSessionExpired
+	}
+	if s.suspension.IsSuspended(context.Background(), old.UserID) {
+		return nil, ErrAccountSuspended
 	}
 
 	// Batas absolut sejak login awal.

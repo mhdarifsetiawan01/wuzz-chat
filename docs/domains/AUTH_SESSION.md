@@ -39,6 +39,8 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Autentikasi, Manajemen S
    - Re-auth Google (ID token usia ≤ 5 menit, `sub` = yang tertaut) diterima sebagai pengganti password pada `DELETE /api/auth/me` (`google_id_token`) dan reset kunci E2EE (`google_id_token`).
    - Akun yang masih punya password dapat memutus Google (`DELETE /api/auth/me/google` + password), supaya pemilik asli bisa melepas tautan Google yang dipasang pihak lain setelah mengganti password. Akun tanpa password tidak boleh memutus (satu-satunya cara login).
 
+8. **Penangguhan akun oleh moderator** (`users.suspended_at`, tidak menghapus data, bisa dipulihkan lewat `POST /api/admin/users/{id}/unsuspend`). Berlaku di semua jalur: login password/Google dan `refresh` ditolak `403 ACCOUNT_SUSPENDED` (dicek SETELAH kredensial terbukti sah supaya status tidak bocor ke orang lain), `SuspensionMiddleware` menolak semua rute lain, gerbang WebSocket menutup koneksi dengan kode 4004, push tidak dikirim. Saat ditangguhkan, semua token dicabut (`RevokeAllUserTokens`, resolusi detik) dan koneksi WS diputus. **Tetap terbuka** (hak pengguna/syarat Google Play): `GET`/`DELETE /api/auth/me`, `POST /api/auth/logout`, rute kesehatan/versi/konfigurasi. Staf dan akun sendiri tidak bisa ditangguhkan lewat alat. Pembacaan status di-cache singkat (15 dtk/60 dtk) dan gagal terbuka bila database error. Detail: `docs/plans/backlog/MODERATION_TOOL.md`.
+
 ---
 
 ## 🏛️ 2. Model Backend DDD (`backend/internal/authz/`)

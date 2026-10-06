@@ -88,6 +88,11 @@ func (h *AuthHandler) SetGoogleLinkDeadline(deadline time.Time) {
 	h.googleLinkDeadline = deadline
 }
 
+// SetSuspension menyuntikkan kebijakan penangguhan akun ke service auth (nil = tidak ada penangguhan).
+func (h *AuthHandler) SetSuspension(p *authz.SuspensionPolicy) {
+	h.authSvc.SetSuspension(p)
+}
+
 // SetLinkFreeze menyuntikkan kebijakan pembekuan. Handler memakainya untuk memberi tahu klien (google_link_frozen) dan
 // untuk membuang cache status setelah Google ditautkan atau diputus.
 func (h *AuthHandler) SetLinkFreeze(p *authz.LinkFreezePolicy) {
@@ -358,6 +363,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			"max_devices":    2,
 			"active_devices": activeDevices,
 		})
+		return
+	}
+	if errors.Is(err, authz.ErrAccountSuspended) {
+		log.Printf("[Auth] 🚫 Login ditolak (akun ditangguhkan): username=%q ip=%s", req.Username, clientIP)
+		WriteAccountSuspended(w)
 		return
 	}
 	if err != nil {
@@ -670,6 +680,10 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, authz.ErrSessionExpired) {
 			http.Error(w, `{"error":"Sesi berakhir, silakan login ulang"}`, http.StatusUnauthorized)
+			return
+		}
+		if errors.Is(err, authz.ErrAccountSuspended) {
+			WriteAccountSuspended(w)
 			return
 		}
 		log.Printf("[Auth] ❌ Refresh gagal (user: %s): %v", claims.UserID, err)

@@ -187,6 +187,10 @@ func (c *Client) WritePump() {
 func (c *Client) handleMessage(msg Message) {
 	// Akun yang dibekukan (belum menautkan Google setelah tenggat) tidak boleh memakai koneksi yang sudah terbuka sebelum
 	// tenggat. TypeLeave dibiarkan karena hanya menutup koneksi.
+	if gate := c.hub.suspensionGate; gate != nil && msg.Type != TypeLeave && gate(c.ID) {
+		c.rejectSuspended()
+		return
+	}
 	if gate := c.hub.accessGate; gate != nil && msg.Type != TypeLeave && !gate(c.ID, c.getTenantID()) {
 		c.rejectFrozen()
 		return
@@ -215,6 +219,16 @@ func (c *Client) handleMessage(msg Message) {
 // CloseCodeLinkRequired adalah kode penutupan WebSocket untuk akun yang dibekukan. Klien baru berhenti menyambung ulang
 // dan menampilkan layar penautan Google; klien lama menganggapnya penutupan biasa (dan ditolak 403 saat menyambung ulang).
 const CloseCodeLinkRequired = 4003
+
+// CloseCodeSuspended adalah kode penutupan WebSocket untuk akun yang ditangguhkan moderator.
+const CloseCodeSuspended = 4004
+
+// rejectSuspended memutus koneksi akun yang ditangguhkan dengan kode khusus.
+func (c *Client) rejectSuspended() {
+	closeMsg := websocket.FormatCloseMessage(CloseCodeSuspended, "ACCOUNT_SUSPENDED")
+	_ = c.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(time.Second))
+	_ = c.conn.Close()
+}
 
 // rejectFrozen memutus koneksi akun beku dengan kode khusus.
 func (c *Client) rejectFrozen() {

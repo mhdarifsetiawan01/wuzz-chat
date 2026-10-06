@@ -83,6 +83,9 @@ type Application struct {
 	OpenAPIHandler     *api.OpenAPIHandler
 	FeedHandler        *api.FeedHandler
 	ReportHandler      *api.ReportHandler
+	ModerationHandler  *api.ModerationHandler
+	// Suspension menolak akun yang ditangguhkan moderator; nil bila alat moderasi tidak aktif.
+	Suspension *authz.SuspensionPolicy
 	ConnectionHandler  *api.ConnectionHandler
 	ConnectionService  *connection.ConnectionService
 	WsHandler          *ws.Handler
@@ -124,6 +127,8 @@ func New(cfg *config.Config) (*Application, error) {
 	var tenantSvc tenant.TenantService
 	var accountEraser store.AccountEraser
 	var reportStore store.ReportStore
+	var moderationStore store.ModerationStore
+	var suspension *authz.SuspensionPolicy
 	var feedRepo feed.FeedRepository
 	var connRepo connection.ConnectionRepository
 
@@ -144,6 +149,12 @@ func New(cfg *config.Config) (*Application, error) {
 			log.Printf("⚠️ Laporan konten dinonaktifkan: %v", err)
 		} else {
 			reportStore = rs
+		}
+		if ms, err := store.NewSQLModerationStore(sqlStore.DB(), sqlStore.DriverName()); err != nil {
+			log.Printf("⚠️ Alat moderasi dan penangguhan akun dinonaktifkan: %v", err)
+		} else {
+			moderationStore = ms
+			suspension = authz.NewSuspensionPolicy(ms)
 		}
 		sqlUserStore.SetCredentialStore(credentialStore)
 
@@ -191,6 +202,7 @@ func New(cfg *config.Config) (*Application, error) {
 	if userStore != nil {
 		authRepo := authzinfra.NewSQLAuthRepository(userStore, sessionStore, deviceStore, tokenStore, transferStore)
 		authSvc := authz.NewAuthService(authRepo, nil)
+		authSvc.SetSuspension(suspension)
 		if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok && cfg != nil && len(cfg.GoogleOAuthClientIDs) > 0 {
 			authSvc.SetGoogleAuth(
 				authzgoogle.NewJWKSVerifier(cfg.GoogleOAuthClientIDs),
@@ -281,6 +293,10 @@ func New(cfg *config.Config) (*Application, error) {
 	if reportStore != nil {
 		app.ReportHandler = api.NewReportHandler(reportStore)
 	}
+	app.Suspension = suspension
+	if moderationStore != nil {
+		app.ModerationHandler = api.NewModerationHandler(moderationStore, suspension)
+	}
 
 	// Inisialisasi Community Social Feed Engine (Milestone M-Mobile-9.2)
 	if feedRepo != nil {
@@ -357,6 +373,7 @@ func New(cfg *config.Config) (*Application, error) {
 		hub.SetUserStore(userStore)
 	}
 	hub.SetPushService(pushService)
+	var freezeFilter func([]string) []string
 	if app.LinkFreeze != nil {
 		freeze := app.LinkFreeze
 		// Koneksi yang sudah terbuka sebelum tenggat diputus begitu akun beku mengirim apa pun.
@@ -364,7 +381,7 @@ func New(cfg *config.Config) (*Application, error) {
 			return !freeze.IsFrozen(context.Background(), userID, tenantID)
 		})
 		// Akun beku tidak menerima notifikasi push (isinya pesan terenkripsi yang didekripsi di perangkat).
-		pushService.SetRecipientFilter(func(userIDs []string) []string {
+		freezeFilter = func(userIDs []string) []string {
 			if !freeze.Active() {
 				return userIDs
 			}
@@ -379,10 +396,39 @@ func New(cfg *config.Config) (*Application, error) {
 				}
 			}
 			return allowed
+		}
+	}
+	// Akun yang ditangguhkan moderator juga tidak menerima notifikasi push.
+	if freezeFilter != nil || suspension != nil {
+		pushService.SetRecipientFilter(func(userIDs []string) []string {
+			if freezeFilter != nil {
+				userIDs = freezeFilter(userIDs)
+			}
+			if suspension == nil {
+				return userIDs
+			}
+			allowed := make([]string, 0, len(userIDs))
+			for _, id := range userIDs {
+				if !suspension.IsSuspended(context.Background(), id) {
+					allowed = append(allowed, id)
+				}
+			}
+			return allowed
 		})
 	}
 	hub.SetBroker(messageBroker)
 	app.Hub = hub
+
+	if suspension != nil {
+		hub.SetSuspensionGate(func(userID string) bool { return suspension.IsSuspended(context.Background(), userID) })
+	}
+	if app.ModerationHandler != nil {
+		var revoke func(string) error
+		if tokenStore != nil {
+			revoke = tokenStore.RevokeAllUserTokens
+		}
+		app.ModerationHandler.SetSessionControl(revoke, func(userID, reason string) { hub.KickClientByUserID(userID, "", reason) })
+	}
 
 	if app.ConnectionService != nil {
 		pcc := connection.NewPrivacyCallChecker(userStore, app.ConnectionService)
