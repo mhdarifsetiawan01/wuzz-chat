@@ -8,7 +8,14 @@ export const STAFF_ROLES = ['wuzz_admin', 'wuzz_moderator']
 
 export type ReportStatus = 'open' | 'resolved' | 'dismissed'
 export type ReportTarget = 'message' | 'user' | 'post' | 'comment' | 'group'
-export type ModAction = 'dismiss' | 'resolve' | 'reopen' | 'delete_content' | 'suspend_user'
+export type ModAction =
+  | 'dismiss'
+  | 'resolve'
+  | 'reopen'
+  | 'delete_content'
+  | 'suspend_user'
+  | 'hold_evidence'
+  | 'release_evidence'
 
 export interface AdminReport {
   id: string
@@ -21,6 +28,10 @@ export interface AdminReport {
   evidence?: string
   status: ReportStatus
   created_at: string
+  // Hanya terisi di detail laporan.
+  closed_at?: string
+  evidence_hold?: boolean
+  evidence_purged_at?: string
 }
 
 export interface TargetContent {
@@ -50,6 +61,8 @@ export interface ReportDetail {
   related: AdminReport[]
   history: ModerationHistoryItem[]
   target_user_suspended: boolean
+  // Kapan bukti dihapus otomatis; kosong bila laporan terbuka, ditahan, sudah dibersihkan, atau retensi dimatikan.
+  evidence_expires_at?: string
 }
 
 export const REASON_LABEL: Record<string, string> = {
@@ -84,6 +97,8 @@ export const ACTION_LABEL: Record<string, string> = {
   delete_content: 'Konten dihapus',
   suspend_user: 'Akun ditangguhkan',
   unsuspend_user: 'Akun dipulihkan',
+  hold_evidence: 'Bukti ditahan',
+  release_evidence: 'Tahanan bukti dilepas',
   grant_moderator: 'Diangkat jadi moderator',
   revoke_moderator: 'Moderator dicabut',
 }

@@ -77,6 +77,9 @@ type Config struct {
 	ModerationNotify []string
 	TelegramBotToken string
 	TelegramChatID   string
+	// ReportEvidenceRetentionDays adalah masa simpan teks bukti dan rincian pelapor setelah laporan ditutup (env
+	// REPORT_EVIDENCE_RETENTION_DAYS, bawaan 90). 0 atau negatif = tidak dihapus otomatis.
+	ReportEvidenceRetentionDays int
 	// ModerationAdminURL adalah alamat dasar halaman moderator yang ditautkan di pemberitahuan.
 	ModerationAdminURL string
 }
@@ -131,6 +134,8 @@ func Load() (*Config, error) {
 		TelegramBotToken:   strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")),
 		TelegramChatID:     strings.TrimSpace(os.Getenv("TELEGRAM_CHAT_ID")),
 		ModerationAdminURL: getEnv("MODERATION_ADMIN_URL", "https://chat.wuzzhub.id/admin"),
+
+		ReportEvidenceRetentionDays: getEnvInt("REPORT_EVIDENCE_RETENTION_DAYS", 90),
 	}
 
 	if raw := strings.TrimSpace(os.Getenv("GOOGLE_LINK_DEADLINE")); raw != "" {

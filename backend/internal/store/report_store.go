@@ -45,6 +45,13 @@ type ContentReport struct {
 	CreatedAt    time.Time `json:"created_at"`
 	// Duplicate diisi Create: true bila pelapor yang sama sudah melaporkan target ini (tidak ada baris baru).
 	Duplicate bool `json:"-"`
+
+	// Retensi bukti (diisi hanya oleh GetReportDetail; kosong/false di daftar). ClosedAt adalah waktu laporan terakhir
+	// ditutup (selesai/ditolak); EvidenceHold menahan penghapusan otomatis (mis. bukti yang mungkin diteruskan ke pihak
+	// berwenang); EvidencePurgedAt adalah waktu bukti dan rincian pelapor dihapus otomatis.
+	ClosedAt         *time.Time `json:"closed_at,omitempty"`
+	EvidenceHold     bool       `json:"evidence_hold,omitempty"`
+	EvidencePurgedAt *time.Time `json:"evidence_purged_at,omitempty"`
 }
 
 // ReportStore menyimpan laporan untuk ditinjau moderator.
@@ -83,6 +90,20 @@ func NewSQLReportStore(db *sql.DB, driverName string) (*SQLReportStore, error) {
 	} {
 		if _, err := db.Exec(q); err != nil {
 			return nil, fmt.Errorf("migrasi content_reports gagal: %w", err)
+		}
+	}
+	// Kolom retensi bukti (idempoten; PostgreSQL IF NOT EXISTS, SQLite mengabaikan galat "duplicate column").
+	for _, col := range []string{
+		`closed_at TIMESTAMP NULL`,
+		`evidence_hold BOOLEAN NOT NULL DEFAULT FALSE`,
+		`evidence_purged_at TIMESTAMP NULL`,
+	} {
+		q := `ALTER TABLE content_reports ADD COLUMN ` + col
+		if driverName == "postgres" {
+			q = `ALTER TABLE content_reports ADD COLUMN IF NOT EXISTS ` + col
+		}
+		if _, err := db.Exec(q); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+			return nil, fmt.Errorf("migrasi kolom retensi content_reports gagal: %w", err)
 		}
 	}
 	return s, nil
@@ -163,7 +184,12 @@ func (s *SQLReportStore) List(ctx context.Context, tenantID, status string, limi
 }
 
 func (s *SQLReportStore) SetStatus(ctx context.Context, tenantID, id, status string) error {
-	res, err := s.db.ExecContext(ctx, s.rebind(`UPDATE content_reports SET status = ? WHERE id = ? AND tenant_id = ?`), status, id, tenantID)
+	// closed_at mengikuti status: terisi saat ditutup, dikosongkan saat dibuka kembali (dasar jam retensi bukti).
+	var closedAt any
+	if status != ReportStatusOpen {
+		closedAt = time.Now().UTC()
+	}
+	res, err := s.db.ExecContext(ctx, s.rebind(`UPDATE content_reports SET status = ?, closed_at = ? WHERE id = ? AND tenant_id = ?`), status, closedAt, id, tenantID)
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,9 @@ const (
 	ModActionSuspendUser   = "suspend_user"
 	ModActionUnsuspendUser = "unsuspend_user"
 	ModActionReopen        = "reopen"
+	// Menahan/melepas penghapusan otomatis bukti laporan (mis. bukti yang mungkin diteruskan ke pihak berwenang).
+	ModActionHoldEvidence    = "hold_evidence"
+	ModActionReleaseEvidence = "release_evidence"
 )
 
 // Peran staf. Satu-satunya sumber kebenaran untuk "siapa boleh memoderasi" (Linimasa dan laporan memakainya).
@@ -40,7 +43,9 @@ var (
 	// ErrModerationProtectedUser: staf dan akun sendiri tidak boleh ditangguhkan lewat alat ini.
 	ErrModerationProtectedUser = errors.New("akun staf atau akun sendiri tidak boleh ditangguhkan")
 	ErrModerationUserNotFound  = errors.New("pengguna tidak ditemukan")
-	ErrModerationNoteRequired  = errors.New("catatan wajib untuk hapus konten dan tangguhkan")
+	ErrModerationNoteRequired  = errors.New("catatan wajib untuk hapus konten, tangguhkan, dan tahan bukti")
+	// ErrModerationEvidencePurged: bukti sudah dihapus otomatis, tidak ada lagi yang bisa ditahan.
+	ErrModerationEvidencePurged = errors.New("bukti sudah dihapus otomatis sesuai kebijakan retensi")
 )
 
 // ModerationAction adalah satu baris jejak audit.
@@ -78,6 +83,15 @@ type ApplyActionResult struct {
 	Report        ContentReport
 	SuspendedUser string // diisi bila aksi menangguhkan akun (cabut token dan putus koneksi)
 	ContentGone   bool   // konten memang sudah tidak ada (dihapus pemiliknya sebelumnya)
+	// DeletedMessage diisi bila pesan grup dihapus, agar anggota yang sedang membuka ruang langsung melihatnya hilang.
+	DeletedMessage *DeletedMessage
+}
+
+// DeletedMessage menunjuk pesan grup yang baru dihapus moderator.
+type DeletedMessage struct {
+	TenantID  string
+	RoomID    string
+	MessageID string
 }
 
 // TargetContent adalah isi yang dilaporkan, apa adanya untuk dibaca moderator.
@@ -109,6 +123,10 @@ type ModerationStore interface {
 	GetReportDetail(ctx context.Context, tenantID, reportID string) (*ReportDetail, error)
 	// ApplyAction menjalankan keputusan dan mencatat audit dalam satu transaksi.
 	ApplyAction(ctx context.Context, in ApplyActionInput) (*ApplyActionResult, error)
+	// PurgeExpiredEvidence menghapus bukti dan rincian pelapor dari laporan yang sudah ditutup lebih lama dari cutoff
+	// (kecuali yang ditahan) dan mengembalikan jumlah laporan yang dibersihkan. Metadata laporan dan jejak audit tetap.
+	PurgeExpiredEvidence(ctx context.Context, cutoff time.Time) (int64, error)
+
 	// Unsuspend memulihkan akun dan mencatat audit.
 	Unsuspend(ctx context.Context, tenantID, moderatorID, userID, note string) error
 
@@ -253,14 +271,25 @@ func (s *SQLModerationStore) getReport(ctx context.Context, q interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }, tenantID, id string) (*ContentReport, error) {
 	var r ContentReport
+	var closed, purged sql.NullTime
 	err := q.QueryRowContext(ctx, s.rebind(`SELECT id, tenant_id, reporter_id, target_type, target_id, target_user_id,
-		reason, details, evidence, status, created_at FROM content_reports WHERE id = ? AND tenant_id = ?`), id, tenantID).
-		Scan(&r.ID, &r.TenantID, &r.ReporterID, &r.TargetType, &r.TargetID, &r.TargetUserID, &r.Reason, &r.Details, &r.Evidence, &r.Status, &r.CreatedAt)
+		reason, details, evidence, status, created_at, closed_at, evidence_hold, evidence_purged_at
+		FROM content_reports WHERE id = ? AND tenant_id = ?`), id, tenantID).
+		Scan(&r.ID, &r.TenantID, &r.ReporterID, &r.TargetType, &r.TargetID, &r.TargetUserID, &r.Reason, &r.Details, &r.Evidence, &r.Status, &r.CreatedAt,
+			&closed, &r.EvidenceHold, &purged)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrReportNotFound
 	}
 	if err != nil {
 		return nil, err
+	}
+	if closed.Valid {
+		t := closed.Time
+		r.ClosedAt = &t
+	}
+	if purged.Valid {
+		t := purged.Time
+		r.EvidencePurgedAt = &t
 	}
 	return &r, nil
 }
@@ -402,7 +431,7 @@ func (s *SQLModerationStore) ApplyAction(ctx context.Context, in ApplyActionInpu
 	note := strings.TrimSpace(in.Note)
 	switch in.Action {
 	case ModActionDismiss, ModActionResolve, ModActionReopen:
-	case ModActionDeleteContent, ModActionSuspendUser:
+	case ModActionDeleteContent, ModActionSuspendUser, ModActionHoldEvidence, ModActionReleaseEvidence:
 		if note == "" {
 			return nil, ErrModerationNoteRequired
 		}
@@ -422,6 +451,7 @@ func (s *SQLModerationStore) ApplyAction(ctx context.Context, in ApplyActionInpu
 	}
 	res := &ApplyActionResult{}
 	newStatus := ReportStatusResolved
+	changeStatus := true
 	targetUser := ""
 
 	switch in.Action {
@@ -430,12 +460,24 @@ func (s *SQLModerationStore) ApplyAction(ctx context.Context, in ApplyActionInpu
 	case ModActionReopen:
 		newStatus = ReportStatusOpen
 	case ModActionResolve:
+	case ModActionHoldEvidence, ModActionReleaseEvidence:
+		// Hanya mengatur penahanan; status laporan tidak berubah.
+		changeStatus = false
+		if rep.EvidencePurgedAt != nil {
+			return nil, ErrModerationEvidencePurged
+		}
+		hold := in.Action == ModActionHoldEvidence
+		if _, err := tx.ExecContext(ctx, s.rebind(`UPDATE content_reports SET evidence_hold = ? WHERE id = ? AND tenant_id = ?`), hold, rep.ID, in.TenantID); err != nil {
+			return nil, err
+		}
+		rep.EvidenceHold = hold
 	case ModActionDeleteContent:
-		gone, err := s.deleteContent(ctx, tx, in.TenantID, rep)
+		gone, deleted, err := s.deleteContent(ctx, tx, in.TenantID, rep)
 		if err != nil {
 			return nil, err
 		}
 		res.ContentGone = gone
+		res.DeletedMessage = deleted
 		targetUser = rep.TargetUserID
 	case ModActionSuspendUser:
 		uid := s.ownerOf(ctx, in.TenantID, rep)
@@ -468,8 +510,22 @@ func (s *SQLModerationStore) ApplyAction(ctx context.Context, in ApplyActionInpu
 		targetUser = uid
 	}
 
-	if _, err := tx.ExecContext(ctx, s.rebind(`UPDATE content_reports SET status = ? WHERE id = ? AND tenant_id = ?`), newStatus, rep.ID, in.TenantID); err != nil {
-		return nil, err
+	if changeStatus {
+		// closed_at mengikuti status: terisi saat ditutup, kosong saat dibuka kembali (dasar jam retensi bukti).
+		var closedAt any
+		if newStatus != ReportStatusOpen {
+			closedAt = time.Now().UTC()
+		}
+		if _, err := tx.ExecContext(ctx, s.rebind(`UPDATE content_reports SET status = ?, closed_at = ? WHERE id = ? AND tenant_id = ?`), newStatus, closedAt, rep.ID, in.TenantID); err != nil {
+			return nil, err
+		}
+		rep.Status = newStatus
+		if newStatus == ReportStatusOpen {
+			rep.ClosedAt = nil
+		} else {
+			now := time.Now().UTC()
+			rep.ClosedAt = &now
+		}
 	}
 	if targetUser == "" {
 		targetUser = s.ownerOf(ctx, in.TenantID, rep)
@@ -483,59 +539,80 @@ func (s *SQLModerationStore) ApplyAction(ctx context.Context, in ApplyActionInpu
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	rep.Status = newStatus
 	res.Report = *rep
 	return res, nil
 }
 
-// deleteContent menghapus konten yang dilaporkan (hanya jenis yang kontennya terbaca server). gone=true bila sudah tidak ada.
-func (s *SQLModerationStore) deleteContent(ctx context.Context, tx *sql.Tx, tenantID string, rep *ContentReport) (gone bool, err error) {
+// deleteContent menghapus konten yang dilaporkan (hanya jenis yang kontennya terbaca server). gone=true bila sudah
+// tidak ada. Untuk pesan grup, isi dikosongkan seperti saat pengguna menarik pesannya sendiri (bukan hanya ditandai).
+func (s *SQLModerationStore) deleteContent(ctx context.Context, tx *sql.Tx, tenantID string, rep *ContentReport) (gone bool, deleted *DeletedMessage, err error) {
 	switch rep.TargetType {
 	case ReportTargetPost:
 		if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM feed_likes WHERE post_id = ?`), rep.TargetID); err != nil {
-			return false, err
+			return false, nil, err
 		}
 		if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM feed_comments WHERE post_id = ? AND tenant_id = ?`), rep.TargetID, tenantID); err != nil {
-			return false, err
+			return false, nil, err
 		}
 		r, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM feed_posts WHERE id = ? AND tenant_id = ?`), rep.TargetID, tenantID)
 		if err != nil {
-			return false, err
+			return false, nil, err
 		}
 		n, _ := r.RowsAffected()
-		return n == 0, nil
+		return n == 0, nil, nil
 	case ReportTargetComment:
 		var postID string
 		err := tx.QueryRowContext(ctx, s.rebind(`SELECT post_id FROM feed_comments WHERE id = ? AND tenant_id = ?`), rep.TargetID, tenantID).Scan(&postID)
 		if errors.Is(err, sql.ErrNoRows) {
-			return true, nil
+			return true, nil, nil
 		}
 		if err != nil {
-			return false, err
+			return false, nil, err
 		}
 		if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM feed_comments WHERE id = ? AND tenant_id = ?`), rep.TargetID, tenantID); err != nil {
-			return false, err
+			return false, nil, err
 		}
 		_, err = tx.ExecContext(ctx, s.rebind(`UPDATE feed_posts SET comments_count = CASE WHEN comments_count > 0 THEN comments_count - 1 ELSE 0 END WHERE id = ? AND tenant_id = ?`), postID, tenantID)
-		return false, err
+		return false, nil, err
 	case ReportTargetMessage:
 		// Hanya pesan non-E2EE (grup/forum). Pesan DM terenkripsi tidak bisa dimoderasi isinya; pakai tangguhkan akun.
 		var e2ee sql.NullBool
-		err := tx.QueryRowContext(ctx, s.rebind(`SELECT c.is_e2ee FROM messages m JOIN conversations c ON c.id = m.room_id WHERE m.id = ? AND c.tenant_id = ?`),
-			rep.TargetID, tenantID).Scan(&e2ee)
+		var roomID string
+		err := tx.QueryRowContext(ctx, s.rebind(`SELECT c.is_e2ee, m.room_id FROM messages m JOIN conversations c ON c.id = m.room_id WHERE m.id = ? AND c.tenant_id = ?`),
+			rep.TargetID, tenantID).Scan(&e2ee, &roomID)
 		if errors.Is(err, sql.ErrNoRows) {
-			return true, nil
+			return true, nil, nil
 		}
 		if err != nil {
-			return false, err
+			return false, nil, err
 		}
 		if e2ee.Bool {
-			return false, ErrModerationNotApplicable
+			return false, nil, ErrModerationNotApplicable
 		}
-		_, err = tx.ExecContext(ctx, s.rebind(`UPDATE messages SET is_deleted = ? WHERE id = ?`), true, rep.TargetID)
-		return false, err
+		if _, err := tx.ExecContext(ctx, s.rebind(`UPDATE messages SET content = '🚫 Pesan ini telah dihapus',
+			media_url = '', media_type = '', file_name = '', file_size = 0, reactions = '[]', is_deleted = ? WHERE id = ?`), true, rep.TargetID); err != nil {
+			return false, nil, err
+		}
+		if _, err := tx.ExecContext(ctx, s.rebind(`DELETE FROM pinned_messages WHERE conversation_id = ? AND (message_id = ? OR id = ?)`), roomID, rep.TargetID, rep.TargetID); err != nil {
+			return false, nil, err
+		}
+		return false, &DeletedMessage{TenantID: tenantID, RoomID: roomID, MessageID: rep.TargetID}, nil
 	}
-	return false, ErrModerationNotApplicable
+	return false, nil, ErrModerationNotApplicable
+}
+
+// PurgeExpiredEvidence menghapus teks bukti dan rincian pelapor pada laporan yang ditutup sebelum cutoff, kecuali yang
+// ditahan. Laporan lama tanpa closed_at memakai created_at. Metadata laporan dan jejak audit tidak disentuh.
+func (s *SQLModerationStore) PurgeExpiredEvidence(ctx context.Context, cutoff time.Time) (int64, error) {
+	r, err := s.db.ExecContext(ctx, s.rebind(`UPDATE content_reports SET evidence = '', details = '', evidence_purged_at = ?
+		WHERE status <> ? AND evidence_hold = ? AND evidence_purged_at IS NULL
+		AND COALESCE(closed_at, created_at) < ? AND (evidence <> '' OR details <> '')`),
+		time.Now().UTC(), ReportStatusOpen, false, cutoff.UTC())
+	if err != nil {
+		return 0, err
+	}
+	n, _ := r.RowsAffected()
+	return n, nil
 }
 
 func (s *SQLModerationStore) Unsuspend(ctx context.Context, tenantID, moderatorID, userID, note string) error {

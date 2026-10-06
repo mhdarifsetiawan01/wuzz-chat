@@ -85,6 +85,8 @@ type Application struct {
 	FeedHandler         *api.FeedHandler
 	ReportHandler       *api.ReportHandler
 	ModerationHandler   *api.ModerationHandler
+	// EvidenceWorker menghapus bukti laporan yang melewati masa simpan; nil bila alat moderasi/retensi tidak aktif.
+	EvidenceWorker *worker.EvidenceRetentionWorker
 	// Notifier mengirim pemberitahuan laporan baru ke Telegram dll; nil bila tidak ada saluran aktif.
 	Notifier *notify.Dispatcher
 	// Suspension menolak akun yang ditangguhkan moderator; nil bila alat moderasi tidak aktif.
@@ -306,6 +308,10 @@ func New(cfg *config.Config) (*Application, error) {
 	if moderationStore != nil {
 		app.ModerationHandler = api.NewModerationHandler(moderationStore, suspension)
 		app.ModerationHandler.SetRolePolicy(rolePolicy)
+		app.ModerationHandler.SetEvidenceRetention(cfg.ReportEvidenceRetentionDays)
+		if cfg.ReportEvidenceRetentionDays > 0 {
+			app.EvidenceWorker = worker.NewEvidenceRetentionWorker(moderationStore, time.Duration(cfg.ReportEvidenceRetentionDays)*24*time.Hour, 0)
+		}
 	}
 	if cfg != nil && len(cfg.ModerationNotify) > 0 {
 		app.Notifier = notify.Build(notify.Settings{
@@ -448,6 +454,13 @@ func New(cfg *config.Config) (*Application, error) {
 		hub.SetSuspensionGate(func(userID string) bool { return suspension.IsSuspended(context.Background(), userID) })
 	}
 	if app.ModerationHandler != nil {
+		// Pesan grup yang dihapus moderator langsung hilang di ruang yang sedang terbuka (seperti penarikan pesan oleh pengirim).
+		app.ModerationHandler.SetMessageDeletedHook(func(dm store.DeletedMessage) {
+			hub.BroadcastRoom(dm.RoomID, ws.Message{
+				ID: dm.MessageID, Type: ws.TypeMessageDeleted, Room: dm.RoomID, TenantID: dm.TenantID,
+				Content: "🚫 Pesan ini telah dihapus", IsDeleted: true, Timestamp: time.Now().UTC(),
+			}, "")
+		})
 		var revoke func(string) error
 		if tokenStore != nil {
 			revoke = tokenStore.RevokeAllUserTokens
@@ -525,6 +538,7 @@ func (a *Application) Run() error {
 		a.AuthCleanupWorker.Start()
 	}
 	a.Notifier.Start()
+	a.EvidenceWorker.Start()
 
 	// 2. Banner info server
 	log.Printf("🚀 Wuzz Chat backend berjalan di ws://localhost%s/ws", a.Server.Addr)
@@ -541,6 +555,7 @@ func (a *Application) Run() error {
 func (a *Application) Shutdown(ctx context.Context) error {
 	// 1. Matikan background workers terlebih dahulu
 	a.Notifier.Stop()
+	a.EvidenceWorker.Stop()
 	if a.AuthCleanupWorker != nil {
 		a.AuthCleanupWorker.Stop()
 	}

@@ -117,6 +117,7 @@ export default function ReportDetailPage() {
           {isHighPriority(r.reason) && isOpen && <span className="adm-badge adm-badge-danger">Prioritas</span>}
           <span className={`adm-badge ${isOpen ? 'adm-badge-warn' : 'adm-badge-muted'}`}>{STATUS_LABEL[r.status]}</span>
           {detail.target_user_suspended && <span className="adm-badge adm-badge-danger">Pemilik ditangguhkan</span>}
+          {r.evidence_hold && <span className="adm-badge adm-badge-warn">Bukti ditahan</span>}
         </div>
       </div>
 
@@ -160,6 +161,18 @@ export default function ReportDetailPage() {
           <dt>Rincian</dt><dd className="adm-pre">{r.details || '-'}</dd>
           <dt>Bukti</dt><dd className="adm-pre">{r.evidence || '-'}</dd>
         </dl>
+        {r.evidence_purged_at && (
+          <div className="adm-alert adm-alert-info">
+            Bukti dan rincian pelapor dihapus otomatis pada {formatDate(r.evidence_purged_at)} sesuai kebijakan retensi.
+            Metadata laporan dan riwayat tindakan tetap tersimpan.
+          </div>
+        )}
+        {r.evidence_hold && !r.evidence_purged_at && (
+          <div className="adm-alert adm-alert-warn">Bukti ditahan: tidak akan dihapus otomatis sampai tahanan dilepas.</div>
+        )}
+        {detail.evidence_expires_at && (
+          <p className="adm-muted">Bukti akan dihapus otomatis pada {formatDate(detail.evidence_expires_at)}. Gunakan &ldquo;Tahan bukti&rdquo; bila perlu disimpan lebih lama.</p>
+        )}
         {r.target_type === 'message' && !detail.content.available && (
           <p className="adm-muted">Untuk pesan terenkripsi, bukti dari pelapor adalah satu-satunya rujukan dan tidak dapat diverifikasi server.</p>
         )}
@@ -184,7 +197,7 @@ export default function ReportDetailPage() {
         {actionError && <div className="adm-alert adm-alert-error" role="alert">{actionError}</div>}
         <div className="form-group">
           <label className="form-label" htmlFor="adm-note">
-            Catatan keputusan (wajib untuk hapus, tangguhkan, dan pulihkan)
+            Catatan keputusan (wajib untuk hapus, tangguhkan, pulihkan, dan tahan bukti)
           </label>
           <textarea
             id="adm-note"
@@ -214,6 +227,16 @@ export default function ReportDetailPage() {
           {owner && !detail.target_user_suspended && (
             <button type="button" className="btn adm-btn-danger" disabled={busy || needNote} onClick={() => setPending({ kind: 'suspend_user' })}>
               Tangguhkan akun
+            </button>
+          )}
+          {!r.evidence_purged_at && (r.evidence || r.details || r.evidence_hold) && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={busy || needNote}
+              onClick={() => run(r.evidence_hold ? 'release_evidence' : 'hold_evidence')}
+            >
+              {r.evidence_hold ? 'Lepas tahanan bukti' : 'Tahan bukti'}
             </button>
           )}
           {owner && detail.target_user_suspended && (

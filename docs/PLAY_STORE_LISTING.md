@@ -32,7 +32,8 @@
 | Kategori Play | Tipe | Dikumpulkan | Dibagikan | Tujuan | Catatan |
 |---|---|---|---|---|---|
 | Info pribadi | **Nama** (nama tampilan) | Ya | Tidak | Fungsi aplikasi, Manajemen akun | |
-| Info pribadi | **ID pengguna** (username, ID akun) | Ya | Tidak | Fungsi aplikasi, Manajemen akun, Keamanan | |
+| Info pribadi | **ID pengguna** (username, ID akun, ID akun Google bila memakai Masuk dengan Google) | Ya | Tidak | Fungsi aplikasi, Manajemen akun, Keamanan | |
+| Info pribadi | **Alamat email** (email Google yang tertaut, hanya sebagai label akun saat memakai Masuk dengan Google) ⚠️ | Ya | Tidak | Manajemen akun, Keamanan | **Dikoreksi 6 Okt 2026:** sebelumnya tertulis "email tidak dikumpulkan", padahal login Google menyimpan email (`user_credentials.label`). Tidak dipakai untuk pemasaran dan tidak dikirim ke pihak lain. Wajib dideklarasikan sebelum rilis Play |
 | Info pribadi | **Info pribadi lain** (bio, pesan status, tautan sosial opsional) | Ya | Tidak | Fungsi aplikasi | **Opsional** |
 | Pesan | **Pesan lain dalam aplikasi** | Ya | Tidak ⚠️ | Fungsi aplikasi | Pesan grup/forum tersimpan terbaca di server; pesan langsung tersimpan sebagai teks sandi (E2EE) |
 | Foto dan video | **Foto** (gambar kiriman, avatar) | Ya | Tidak | Fungsi aplikasi | Media dihapus otomatis 24 jam (DM) / 7 hari (grup); avatar opsional |
@@ -44,7 +45,8 @@
 | ID perangkat/lainnya | **ID perangkat atau ID lain** (ID perangkat dibuat aplikasi, token FCM, alamat IP pada sesi) ⚠️ | Ya | Tidak ⚠️ | Fungsi aplikasi (notifikasi), Keamanan (pembatasan 2 perangkat, pencabutan sesi) | Cek panduan Google terkini soal alamat IP |
 | Kontak | (tidak dideklarasikan) ⚠️ | - | - | - | Daftar teman hanya di dalam aplikasi; tidak membaca buku telepon. Bila Console menanyakan, relasi teman dapat dianggap "Konten pengguna lain" |
 
-**Tidak dikumpulkan:** lokasi, email ⚠️ (aplikasi tidak meminta email), nomor telepon, info keuangan, kesehatan, riwayat penjelajahan, riwayat pencarian di server.
+**Tidak dikumpulkan:** lokasi, nomor telepon, info keuangan, kesehatan, riwayat penjelajahan, riwayat pencarian di server.
+Masuk dengan Google **sudah aktif** (email Google dan ID akun Google tersimpan; baris Alamat email di atas) dan `/privacy` sudah memuatnya (6 Okt 2026).
 Crashlytics **sudah dipasang** (baris Log kerusakan/Diagnostik di atas) dan `/privacy` sudah diperbarui. Bila menambah SDK atau data baru, perbarui tabel ini dan `/privacy`.
 
 ### 2.3 Soal "dibagikan" ⚠️
@@ -56,7 +58,8 @@ bila ragu, lebih aman mendeklarasikan "Dibagikan" untuk Pesan (Groq, hanya teks 
 - Data dienkripsi saat transit; kata sandi disimpan sebagai hash bcrypt.
 - Penghapusan: akun, profil, kata sandi, sesi, perangkat, token push, kunci publik, relasi pertemanan, keanggotaan grup, pesan, postingan, komentar, suka dihapus segera;
   media menunggu pembersihan otomatis (maks 24 jam/7 hari); salinan cadangan sampai rotasi berikutnya ⚠️ (cocokkan dengan fakta cadangan produksi).
-- Laporan moderasi dapat disimpan seperlunya untuk keamanan.
+- Laporan moderasi: teks bukti dan keterangan pelapor dihapus otomatis 90 hari setelah laporan ditutup (`REPORT_EVIDENCE_RETENTION_DAYS`), kecuali ditahan (bukti yang mungkin diteruskan ke pihak berwenang); catatan tindakan moderator dan metadata laporan dapat disimpan seperlunya untuk keamanan.
+- Pemberitahuan moderasi lewat Telegram hanya memuat metadata laporan (jenis, alasan, tautan), tanpa isi pesan, bukti, atau identitas pengguna; bukan "berbagi data pengguna".
 
 ## 3. Deklarasi lain di Play Console
 | Bagian | Jawaban yang disarankan |

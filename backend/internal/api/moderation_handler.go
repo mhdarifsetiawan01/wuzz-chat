@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
@@ -28,10 +29,24 @@ type ModerationHandler struct {
 	store      store.ModerationStore
 	suspension *authz.SuspensionPolicy
 	notifier   NotifyTester
+	retention  time.Duration               // masa simpan bukti setelah laporan ditutup (0 = tidak dihapus otomatis)
+	onDeleted  func(store.DeletedMessage)  // dipanggil setelah pesan grup dihapus moderator (siaran realtime)
 	roles      *authz.RolePolicy           // dibuang cache-nya saat peran diubah lewat alat ini (nil = hanya TTL)
 	revoke     func(userID string) error   // mencabut semua token akun (nil = dilewati)
 	kick       func(userID, reason string) // memutus semua koneksi WebSocket akun (nil = dilewati)
 }
+
+// SetEvidenceRetention memberi tahu halaman detail kapan bukti akan dihapus otomatis (days <= 0 = tidak dihapus).
+func (h *ModerationHandler) SetEvidenceRetention(days int) {
+	if days > 0 {
+		h.retention = time.Duration(days) * 24 * time.Hour
+	} else {
+		h.retention = 0
+	}
+}
+
+// SetMessageDeletedHook memasang pemanggil yang menyiarkan penghapusan pesan grup ke anggota ruang yang sedang terbuka.
+func (h *ModerationHandler) SetMessageDeletedHook(fn func(store.DeletedMessage)) { h.onDeleted = fn }
 
 // SetRolePolicy memasang kebijakan peran agar perubahan peran langsung berlaku di instans ini.
 func (h *ModerationHandler) SetRolePolicy(p *authz.RolePolicy) { h.roles = p }
@@ -133,7 +148,7 @@ func (h *ModerationHandler) HandleReportItem(w http.ResponseWriter, r *http.Requ
 			writeFeedError(w, http.StatusInternalServerError, "Gagal memuat laporan")
 			return
 		}
-		writeFeedJSON(w, http.StatusOK, d)
+		writeFeedJSON(w, http.StatusOK, h.detailResponse(d))
 	case len(parts) == 2 && parts[1] == "action" && r.Method == http.MethodPost:
 		h.applyAction(w, r, claims, id)
 	default:
@@ -166,6 +181,9 @@ func (h *ModerationHandler) applyAction(w http.ResponseWriter, r *http.Request, 
 	case errors.Is(err, store.ErrModerationProtectedUser):
 		writeFeedError(w, http.StatusForbidden, err.Error())
 		return
+	case errors.Is(err, store.ErrModerationEvidencePurged):
+		writeFeedError(w, http.StatusConflict, err.Error())
+		return
 	case errors.Is(err, store.ErrModerationUserNotFound):
 		writeFeedError(w, http.StatusNotFound, err.Error())
 		return
@@ -177,6 +195,9 @@ func (h *ModerationHandler) applyAction(w http.ResponseWriter, r *http.Request, 
 	log.Printf("🛡️ [Moderation] %s: laporan=%s moderator=%s", body.Action, reportID, claims.UserID)
 	if res.SuspendedUser != "" {
 		h.enforceSuspension(res.SuspendedUser)
+	}
+	if res.DeletedMessage != nil && h.onDeleted != nil {
+		h.onDeleted(*res.DeletedMessage) // siaran realtime; gagal/ketiadaan hook tidak memengaruhi hasil tindakan
 	}
 	writeFeedJSON(w, http.StatusOK, map[string]any{"status": "ok", "report_status": res.Report.Status, "content_already_gone": res.ContentGone})
 }
@@ -251,4 +272,27 @@ func (h *ModerationHandler) HandleNotifyTest(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	writeFeedJSON(w, http.StatusOK, map[string]any{"channels": res})
+}
+
+// reportDetailResponse menambahkan perkiraan waktu bukti dihapus otomatis ke detail laporan.
+type reportDetailResponse struct {
+	*store.ReportDetail
+	EvidenceExpiresAt *time.Time `json:"evidence_expires_at,omitempty"`
+}
+
+// detailResponse menghitung kapan bukti dihapus otomatis: hanya untuk laporan yang sudah ditutup, tidak ditahan,
+// belum dibersihkan, dan masih memuat teks. Laporan lama tanpa closed_at memakai waktu pembuatan.
+func (h *ModerationHandler) detailResponse(d *store.ReportDetail) reportDetailResponse {
+	resp := reportDetailResponse{ReportDetail: d}
+	r := d.Report
+	if h.retention <= 0 || r.Status == store.ReportStatusOpen || r.EvidenceHold || r.EvidencePurgedAt != nil || (r.Evidence == "" && r.Details == "") {
+		return resp
+	}
+	base := r.CreatedAt
+	if r.ClosedAt != nil {
+		base = *r.ClosedAt
+	}
+	at := base.Add(h.retention)
+	resp.EvidenceExpiresAt = &at
+	return resp
 }

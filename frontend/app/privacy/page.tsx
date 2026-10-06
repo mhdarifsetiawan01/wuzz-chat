@@ -24,7 +24,8 @@ export default function PrivacyPage() {
         <li><strong>Perangkat dan sesi:</strong> ID perangkat, nama dan platform perangkat, user agent, alamat IP, waktu aktif terakhir, serta token notifikasi push (Firebase Cloud Messaging).</li>
         <li><strong>Relasi sosial:</strong> daftar teman, permintaan pertemanan, dan pemblokiran.</li>
         <li><strong>Laporan kerusakan:</strong> bila aplikasi mengalami crash, data teknis dikirim otomatis ke Google Firebase Crashlytics: jenis dan model perangkat, versi Android dan aplikasi, jejak kesalahan, dan ID akun acak. Tidak ada isi pesan, nama pengguna, atau kata sandi yang disertakan.</li>
-        <li><strong>Laporan:</strong> jika Anda melaporkan konten atau pengguna, kami menyimpan laporan itu beserta keterangan yang Anda tulis.</li>
+        <li><strong>Masuk dengan Google:</strong> bila Anda masuk atau menautkan akun Google, kami menyimpan pengenal akun Google Anda (ID unik) dan alamat email Google, semata-mata untuk mengenali akun Anda saat masuk dan menampilkan akun Google mana yang tertaut. Kami tidak membaca kontak, Drive, atau data Google lainnya, dan tidak menyimpan nama atau foto Google Anda.</li>
+        <li><strong>Laporan dan moderasi:</strong> jika Anda melaporkan konten atau pengguna, kami menyimpan laporan itu beserta keterangan dan bukti yang Anda tulis. Tim moderasi mencatat tindakan yang diambil (misalnya konten dihapus atau akun ditangguhkan) beserta waktu dan alasannya.</li>
       </ul>
       <p>Kami <strong>tidak</strong> menampilkan iklan, tidak menjual data, dan tidak memakai SDK analitik atau pelacak pihak ketiga.</p>
 
@@ -40,15 +41,17 @@ export default function PrivacyPage() {
       <ul>
         <li>Menjalankan layanan: autentikasi, mengirim pesan, panggilan, dan notifikasi.</li>
         <li>Stabilitas: memperbaiki crash dan kesalahan aplikasi berdasarkan laporan kerusakan teknis.</li>
-        <li>Keamanan: membatasi jumlah perangkat, mencabut sesi, mencegah penyalahgunaan, dan menindaklanjuti laporan.</li>
+        <li>Keamanan: membatasi jumlah perangkat, mencabut sesi, mencegah penyalahgunaan, dan menindaklanjuti laporan. Akun yang melanggar ketentuan dapat ditangguhkan; kami menyimpan tanggal dan alasan penangguhan, dan akun dapat dipulihkan bila penangguhan dibatalkan.</li>
         <li>Fitur AI Memory: pada <strong>ruang diskusi terbuka dan topik forum</strong>, teks pesan dapat dikirim ke layanan model bahasa (LLM) pihak ketiga, yaitu Groq, untuk menyusun ringkasan. Hasilnya hanya terbit setelah disetujui admin. Pesan langsung E2EE tidak pernah dibaca AI.</li>
       </ul>
 
       <h2>4. Pihak ketiga yang memproses data</h2>
       <ul>
+        <li>Google (Masuk dengan Google): memverifikasi identitas Anda saat Anda memilih masuk dengan akun Google.</li>
         <li>Google Firebase Cloud Messaging: mengantar notifikasi push (menerima token perangkat dan isi notifikasi).</li>
         <li>Google Firebase Crashlytics: menerima laporan kerusakan teknis seperti dijelaskan di atas, semata-mata untuk memperbaiki aplikasi.</li>
         <li>Groq (penyedia inferensi model bahasa): menerima teks pesan dari forum terbuka untuk ringkasan AI Memory, seperti dijelaskan di atas.</li>
+        <li>Telegram: dipakai untuk pemberitahuan internal kepada tim moderasi bahwa ada laporan baru. Pesan hanya memuat jenis dan alasan laporan serta tautan ke halaman moderator; tidak memuat isi pesan, bukti, nama pengguna, atau data pribadi Anda.</li>
         <li>Penyedia infrastruktur kami (server, basis data, penyimpanan berkas, dan Redis) yang hanya memproses data atas perintah kami.</li>
       </ul>
       <p>Kami dapat mengungkapkan data bila diwajibkan hukum yang berlaku.</p>
@@ -58,7 +61,8 @@ export default function PrivacyPage() {
         <li>Data disimpan selama akun Anda aktif.</li>
         <li>Anda dapat menghapus akun kapan saja di aplikasi: <strong>Pengaturan → Hapus Akun</strong>, atau lewat halaman <a href="/delete-account">Hapus Akun</a>.</li>
         <li>Saat akun dihapus, kami menghapus: profil, kata sandi, sesi dan perangkat, token push, kunci publik, relasi pertemanan, keanggotaan grup, pesan yang Anda kirim, serta postingan, komentar, dan suka Anda di Linimasa. Nama pengguna Anda dilepas dan dapat dipakai orang lain.</li>
-        <li>Pesan sandi yang tersimpan di perangkat orang lain, berkas media yang menunggu masa hapus otomatis, dan salinan cadangan sistem dapat bertahan sementara sampai siklus penghapusan/rotasi berikutnya. Laporan moderasi dapat disimpan seperlunya untuk keamanan.</li>
+        <li>Pesan sandi yang tersimpan di perangkat orang lain, berkas media yang menunggu masa hapus otomatis, dan salinan cadangan sistem dapat bertahan sementara sampai siklus penghapusan/rotasi berikutnya. </li>
+        <li><strong>Laporan moderasi:</strong> teks bukti dan keterangan pelapor dihapus otomatis <strong>90 hari setelah laporan ditutup</strong>, kecuali ditahan karena dapat diteruskan ke pihak berwenang. Catatan tindakan moderator dan data dasar laporan (jenis, alasan, status, waktu) dapat disimpan seperlunya untuk keamanan dan penegakan aturan, termasuk setelah akun yang dilaporkan dihapus.</li>
       </ul>
 
       <h2>6. Keamanan</h2>

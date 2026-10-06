@@ -172,3 +172,33 @@ func TestModerationRoutes_NotifierWiredFromConfig(t *testing.T) {
 		t.Fatal("endpoint tes notifikasi harus dibatasi")
 	}
 }
+
+func TestEvidenceRetention_WorkerWiredFromConfig(t *testing.T) {
+	app, _ := newModerationApp(t, config.Config{})
+	if app.EvidenceWorker != nil {
+		t.Fatal("retensi 0 (bawaan struct kosong) = tanpa worker")
+	}
+	app, _ = newModerationApp(t, config.Config{ReportEvidenceRetentionDays: 90})
+	if app.EvidenceWorker == nil {
+		t.Fatal("retensi 90 hari harus memasang worker")
+	}
+}
+
+func TestConfig_ReportEvidenceRetentionDefaults(t *testing.T) {
+	t.Setenv("REPORT_EVIDENCE_RETENTION_DAYS", "")
+	if cfg, _ := config.Load(); cfg.ReportEvidenceRetentionDays != 90 {
+		t.Fatalf("bawaan harus 90, got %d", cfg.ReportEvidenceRetentionDays)
+	}
+	t.Setenv("REPORT_EVIDENCE_RETENTION_DAYS", "30")
+	if cfg, _ := config.Load(); cfg.ReportEvidenceRetentionDays != 30 {
+		t.Fatalf("30, got %d", cfg.ReportEvidenceRetentionDays)
+	}
+	t.Setenv("REPORT_EVIDENCE_RETENTION_DAYS", "0")
+	if cfg, _ := config.Load(); cfg.ReportEvidenceRetentionDays != 0 {
+		t.Fatalf("0 = mati, got %d", cfg.ReportEvidenceRetentionDays)
+	}
+	t.Setenv("REPORT_EVIDENCE_RETENTION_DAYS", "abc")
+	if cfg, _ := config.Load(); cfg.ReportEvidenceRetentionDays != 90 {
+		t.Fatalf("nilai rusak kembali ke 90, got %d", cfg.ReportEvidenceRetentionDays)
+	}
+}
