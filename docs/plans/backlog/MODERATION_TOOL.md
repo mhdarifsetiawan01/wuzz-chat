@@ -1,6 +1,6 @@
 # Backlog: Alat Moderasi Laporan (Halaman Web Moderator)
 
-> Dibuat 2026-10-05. **Status (2026-10-06): P0 BACKEND SELESAI di `dev` (belum di-commit/dideploy); P1 frontend, P2 pemberitahuan, P3 belum dikerjakan.** Lihat bagian 9. Keputusan pemilik proyek: **Pilihan 1 (halaman web khusus moderator)**.
+> Dibuat 2026-10-05. **Status (2026-10-06): P0 backend di-commit di `dev` (`9ffb183`, belum dideploy); P1 halaman web selesai di `dev` (belum di-commit/dideploy); P2 pemberitahuan dan P3 belum dikerjakan.** Lihat bagian 9 dan 10. Keputusan pemilik proyek: **Pilihan 1 (halaman web khusus moderator)**.
 > Dokumen ini ditulis agar developer berikutnya (atau sesi AI berikutnya) bisa langsung mengerjakan tanpa konteks percakapan.
 > Fakta bertanda **(terverifikasi)** sudah dicek di kode per tanggal di atas; bertanda **(belum diverifikasi)** harus dicek dulu.
 
@@ -141,3 +141,14 @@ pola rate limit di `backend/internal/app/router.go`, dan pola halaman publik sta
 
 **Belum:** P1 halaman web (`/admin/reports`), pengecualian gate web `/admin`, P2 pemberitahuan (webhook), retensi `evidence` 90 hari, pembaruan `/privacy` dan Data Safety (data baru: catatan moderasi, tanggal tangguh), SOP bagian 5, cara mengangkat moderator pertama (hanya SQL).
 **Sebelum deploy:** ini mengubah skema produksi (3 kolom `users` + 1 tabel, idempoten) dan menambah jalur penolakan login; deploy hanya dengan izin eksplisit.
+
+## 10. Status P1 halaman web (2026-10-06)
+
+**Selesai dan teruji di browser nyata** (Chrome headless via CDP terhadap backend lokal SQLite terisolasi; `tsc` dan `npm run build` lulus):
+- Rute: `/admin` (alihkan), `/admin/reports` (daftar: tab status, filter jenis/alasan, urutan prioritas, "muat lebih banyak"), `/admin/reports/[id]` (isi target, bukti pelapor, laporan terkait, riwayat, tindakan dengan catatan wajib dan dialog konfirmasi). Kode: `frontend/app/admin/`, `frontend/lib/admin-api.ts`, gaya `app/admin/admin.css`, dokumentasi `frontend/DESIGN.md` bagian 9.
+- **Login sendiri** di `/admin` (bukan `/login`): gerbang jeda web memblokir `/login`, dan login chat memakai slot 2 perangkat serta kunci E2EE. Login admin tanpa `device_id`, token di `sessionStorage` (hilang saat tab ditutup, berlaku maks 30 hari), sesi chat tidak tersentuh. Token dicabut/kedaluwarsa (401) mengembalikan ke form masuk dengan pesan.
+- `/admin` dikecualikan dari gerbang jeda web; `robots: noindex`.
+- Terbukti di browser: DM E2EE tidak menampilkan isi (hanya bukti pelapor + label), HTML/`javascript:` di konten tidak dirender dan tidak jadi tautan, hanya tautan https dengan `rel` aman dan tanpa gambar otomatis, hapus/tangguh nonaktif tanpa catatan, suspend membuat login korban `403 ACCOUNT_SUSPENDED` dan pemulihan membukanya, tanpa scroll horizontal di 390px, laporan `group` hanya punya Tolak/Selesai.
+
+**Batasan:** moderator harus punya akun berpassword (login Google web belum ada, backlog #5) dan, setelah pembekuan 30 Okt 2026, akunnya wajib sudah menautkan Google (di aplikasi) agar tidak `GOOGLE_LINK_REQUIRED`. Tidak ada pengganti tes otomatis di repo untuk UI (skrip CDP ada di scratchpad sesi, bukan di repo).
+**Sebelum dipakai di produksi:** deploy backend P0 (migrasi skema), build/deploy frontend (Vercel), angkat moderator pertama lewat SQL (`UPDATE users SET system_role='wuzz_moderator' WHERE username='...'`), lalu masuk di `/admin`.

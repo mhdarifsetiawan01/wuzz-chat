@@ -171,4 +171,21 @@ Use for **all** modals and drawers. Do not create new backdrop families.
 
 ---
 
-*Last updated: 2026-09-19 — Design Debt Batch #3, #4, #5, #7*
+## 9. Alat Moderasi (`app/admin/`, kelas `adm-*`)
+
+Halaman internal staf (`/admin/reports`, `/admin/reports/[id]`) dengan login sendiri (`lib/admin-api.ts`: token di `sessionStorage`, tanpa `device_id`, tidak menyentuh sesi chat/E2EE). Gaya di `app/admin/admin.css` **hanya memakai token** (tanpa hex/rgba/z-index mentah) dan primitif yang sudah ada (`.btn`, `.form-input`, `.modal-overlay` + `.modal-card-unified` untuk konfirmasi).
+
+| Kelas | Fungsi |
+|---|---|
+| `.adm-page` | Kerangka halaman, scroll sendiri (`100dvh`) seperti `.legal-page` |
+| `.adm-card`, `.adm-list`, `.adm-row` | Kartu, daftar, baris laporan (tautan) |
+| `.adm-badge(-danger/-warn/-muted)` | Lencana prioritas/status |
+| `.adm-alert(-error/-warn/-ok/-info)` | Pesan status |
+| `.adm-content`, `.adm-pre` | Teks pengguna **selalu sebagai teks** (`pre-wrap`, tanpa `dangerouslySetInnerHTML`) |
+| `.adm-btn-danger`, `.adm-link-btn` | Tombol destruktif dan tombol teks header (`.btn-ghost` bawaan gelap, tidak terbaca di latar gelap) |
+
+Aturan keamanan tampilan: tautan dari konten pengguna hanya `http(s)` dengan `rel="noopener noreferrer nofollow"` dan **tidak pernah dimuat otomatis** (tanpa `<img>`); `robots: noindex`; `/admin` dikecualikan dari gerbang jeda web (`WEB_PAUSED_EXEMPT_PREFIXES`). Pemeriksaan peran sebenarnya di backend.
+
+---
+
+*Last updated: 2026-10-06 — bagian 9 (alat moderasi); sebelumnya Design Debt Batch #3, #4, #5, #7*
