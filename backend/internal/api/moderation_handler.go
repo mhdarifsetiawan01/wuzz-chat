@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/authz"
+	"github.com/bms-del112/wuzz-chat/internal/notify"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
@@ -25,9 +27,18 @@ const (
 type ModerationHandler struct {
 	store      store.ModerationStore
 	suspension *authz.SuspensionPolicy
+	notifier   NotifyTester
 	revoke     func(userID string) error   // mencabut semua token akun (nil = dilewati)
 	kick       func(userID, reason string) // memutus semua koneksi WebSocket akun (nil = dilewati)
 }
+
+// NotifyTester menguji saluran pemberitahuan (notify.Dispatcher).
+type NotifyTester interface {
+	SendTest(ctx context.Context) ([]notify.TestResult, error)
+}
+
+// SetNotifier memasang penguji saluran pemberitahuan (nil = endpoint tes menjawab 503).
+func (h *ModerationHandler) SetNotifier(n NotifyTester) { h.notifier = n }
 
 func NewModerationHandler(s store.ModerationStore, suspension *authz.SuspensionPolicy) *ModerationHandler {
 	return &ModerationHandler{store: s, suspension: suspension}
@@ -210,4 +221,30 @@ func (h *ModerationHandler) HandleUser(w http.ResponseWriter, r *http.Request) {
 	h.suspension.Invalidate(parts[0])
 	log.Printf("🛡️ [Moderation] unsuspend: user=%s moderator=%s", parts[0], claims.UserID)
 	writeFeedJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// HandleNotifyTest melayani POST /api/admin/notify/test: mengirim pesan uji ke setiap saluran pemberitahuan dan
+// melaporkan hasilnya, supaya token dan chat id bisa diperiksa tanpa menunggu laporan sungguhan.
+func (h *ModerationHandler) HandleNotifyTest(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.staff(w, r); !ok {
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeFeedError(w, http.StatusMethodNotAllowed, "Method tidak diizinkan")
+		return
+	}
+	if h.notifier == nil {
+		writeFeedError(w, http.StatusServiceUnavailable, "Notifikasi belum dikonfigurasi (MODERATION_NOTIFY)")
+		return
+	}
+	res, err := h.notifier.SendTest(r.Context())
+	if errors.Is(err, notify.ErrNoChannels) {
+		writeFeedError(w, http.StatusServiceUnavailable, "Notifikasi belum dikonfigurasi (MODERATION_NOTIFY)")
+		return
+	}
+	if err != nil {
+		writeFeedError(w, http.StatusInternalServerError, "Gagal menguji notifikasi")
+		return
+	}
+	writeFeedJSON(w, http.StatusOK, map[string]any{"channels": res})
 }

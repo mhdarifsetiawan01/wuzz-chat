@@ -409,6 +409,14 @@ func (a *Application) setupRouter() http.Handler {
 		}
 	}
 
+	// Tes notifikasi: sangat dibatasi supaya tidak bisa dipakai membanjiri chat moderator.
+	if a.ModerationHandler != nil {
+		testLimit := api.UserRateLimitMsg(ratelimit.NewIPRateLimiter(5, time.Hour), "Terlalu banyak tes notifikasi, coba lagi nanti.", 3600)
+		mux.HandleFunc("/api/admin/notify/test", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(testLimit(http.HandlerFunc(a.ModerationHandler.HandleNotifyTest))).ServeHTTP(w, r)
+		}))
+	}
+
 	// =========================================================================
 	// 9B. COMMUNITY SOCIAL FEED (Milestone M-Mobile-9.2)
 	// =========================================================================

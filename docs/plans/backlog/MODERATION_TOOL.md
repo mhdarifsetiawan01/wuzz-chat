@@ -1,6 +1,6 @@
 # Backlog: Alat Moderasi Laporan (Halaman Web Moderator)
 
-> Dibuat 2026-10-05. **Status (2026-10-06): P0 backend di-commit di `dev` (`9ffb183`, belum dideploy); P1 halaman web selesai di `dev` (belum di-commit/dideploy); P2 pemberitahuan dan P3 belum dikerjakan.** Lihat bagian 9 dan 10. Keputusan pemilik proyek: **Pilihan 1 (halaman web khusus moderator)**.
+> Dibuat 2026-10-05. **Status (2026-10-06): P0 backend di-commit di `dev` (`9ffb183`, belum dideploy); P1 halaman web di-commit di `dev` (`64f7f88`, belum dideploy); P2 notifikasi Telegram selesai di `dev` (belum di-commit/dideploy); P3 belum dikerjakan.** Lihat bagian 9, 10, dan 11. Keputusan pemilik proyek: **Pilihan 1 (halaman web khusus moderator)**.
 > Dokumen ini ditulis agar developer berikutnya (atau sesi AI berikutnya) bisa langsung mengerjakan tanpa konteks percakapan.
 > Fakta bertanda **(terverifikasi)** sudah dicek di kode per tanggal di atas; bertanda **(belum diverifikasi)** harus dicek dulu.
 
@@ -152,3 +152,25 @@ pola rate limit di `backend/internal/app/router.go`, dan pola halaman publik sta
 
 **Batasan:** moderator harus punya akun berpassword (login Google web belum ada, backlog #5) dan, setelah pembekuan 30 Okt 2026, akunnya wajib sudah menautkan Google (di aplikasi) agar tidak `GOOGLE_LINK_REQUIRED`. Tidak ada pengganti tes otomatis di repo untuk UI (skrip CDP ada di scratchpad sesi, bukan di repo).
 **Sebelum dipakai di produksi:** deploy backend P0 (migrasi skema), build/deploy frontend (Vercel), angkat moderator pertama lewat SQL (`UPDATE users SET system_role='wuzz_moderator' WHERE username='...'`), lalu masuk di `/admin`.
+
+## 11. Status P2 notifikasi laporan baru, Telegram (2026-10-06)
+
+**Keputusan (disetujui pemilik):** hanya **notifikasi + tautan ke halaman web**; keputusan (hapus/tangguh) tetap di web. Tidak ada aksi lewat bot (menambah celah: webhook publik dan pemetaan akun Telegram ke moderator). Opsi tahap 2 bila nanti dibutuhkan: tombol "Tolak"/"Selesai" saja, dengan verifikasi secret token Telegram, daftar putih ID Telegram, data tombol bertanda tangan, aksi idempoten dan tercatat audit.
+
+**Selesai dan teruji** (`go test ./...` lulus, paket `notify` dengan `-race`, 5 mutasi tertangkap; uji nyata ke api.telegram.org dengan token palsu):
+- `internal/notify`: antarmuka **`Notifier`** (`Name`, `Notify`) agar saluran baru (email, webhook) cukup satu implementasi; `Telegram` (Bot API `sendMessage`, teks polos tanpa `parse_mode`); `Dispatcher` (antrean latar belakang 256, tidak pernah memblokir, percobaan ulang 3x dengan jeda berlipat, `429 retry_after` dihormati, galat permanen seperti token/chat salah tidak diulang, saluran dikirim paralel sehingga satu yang lambat/gagal/panik tidak menahan yang lain, antrean disapu saat berhenti); `Build` dari konfigurasi.
+- **Isi pesan hanya metadata**: jenis target, alasan, penanda prioritas, jumlah laporan pada target yang sama, dan tautan `.../admin/reports/{id}`. Tidak ada isi pesan/postingan, bukti, rincian pelapor, username, atau ID pengguna/target (diuji).
+- **Anti-banjir**: `sexual`/`illegal` selalu dikirim langsung; laporan biasa maksimal 5 per jendela 10 menit, sisanya diringkas jadi satu pesan "Ringkasan laporan" pada akhir jendela. Laporan duplikat dari pelapor yang sama tidak memicu notifikasi.
+- **Kegagalan tidak memengaruhi laporan**: pembuatan laporan selalu 201; gagal kirim hanya dicatat. **Token bot tidak pernah masuk log/UI** (galat jaringan Go memuat URL penuh yang berisi token; disamarkan dan diuji).
+- `POST /api/admin/notify/test` (staf, maks 5 per jam) dan tombol **"Tes notifikasi"** di `/admin/reports`: mengirim pesan uji dan menampilkan hasil per saluran (mis. "ditolak (401): Unauthorized").
+- Dispatcher dimulai di `Run()` dan dihentikan (menyapu sisa antrean) di `Shutdown()`.
+
+**Cara mengaktifkan (di VPS, `~/wuzz-chat/backend/.env`):**
+1. Di Telegram, chat ke **@BotFather** → `/newbot` → simpan token.
+2. Kirim satu pesan ke bot Anda (atau masukkan bot ke grup moderator dan kirim satu pesan di grup).
+3. Buka `https://api.telegram.org/bot<TOKEN>/getUpdates` di browser, cari `"chat":{"id":...}` (angka; grup biasanya negatif). Hapus riwayat URL browser setelahnya karena memuat token.
+4. Tambahkan ke `.env` VPS: `MODERATION_NOTIFY=telegram`, `TELEGRAM_BOT_TOKEN=...`, `TELEGRAM_CHAT_ID=...`, `MODERATION_ADMIN_URL=https://chat.wuzzhub.id/admin`, lalu `docker compose up -d`.
+5. Masuk di `/admin`, tekan **Tes notifikasi**; pesan tes harus muncul di Telegram.
+Bila variabel kurang lengkap, saluran dilewati dengan peringatan di log (server tetap jalan). Token bocor/curiga: cabut lewat @BotFather (`/revoke`) dan ganti.
+
+**Batasan:** laporan di instans lain tidak berbagi kuota "5 per 10 menit" (hanya satu VPS sekarang). Tautan di pesan menuju `/admin` yang butuh login moderator (akun berpassword). Saluran email belum ada (butuh penyedia SMTP). Pembaruan `/privacy` (Telegram sebagai pemroses metadata laporan) dan retensi `evidence` 90 hari masih terbuka (P3).

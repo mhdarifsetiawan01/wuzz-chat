@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/notify"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
@@ -25,10 +27,24 @@ var (
 
 // ReportHandler menangani pelaporan konten/pengguna dan peninjauan oleh moderator.
 type ReportHandler struct {
-	store store.ReportStore
+	store    store.ReportStore
+	notifier ReportNotifier
+}
+
+// ReportNotifier menerima pemberitahuan laporan baru. Enqueue tidak boleh memblokir dan tidak boleh gagal ke pemanggil.
+type ReportNotifier interface {
+	Enqueue(ev notify.Event)
+}
+
+// targetCounter adalah kemampuan opsional ReportStore untuk menghitung laporan pada target yang sama.
+type targetCounter interface {
+	CountForTarget(ctx context.Context, tenantID, targetType, targetID string) (int, error)
 }
 
 func NewReportHandler(s store.ReportStore) *ReportHandler { return &ReportHandler{store: s} }
+
+// SetNotifier memasang pemberi tahu laporan baru (nil = tanpa pemberitahuan).
+func (h *ReportHandler) SetNotifier(n ReportNotifier) { h.notifier = n }
 
 // isModerator memakai definisi staf bersama (store.IsStaff), sama dengan Linimasa dan alat moderasi.
 func isModerator(role string) bool { return store.IsStaff(role) }
@@ -130,5 +146,24 @@ func (h *ReportHandler) create(w http.ResponseWriter, r *http.Request, claims *a
 		return
 	}
 	log.Printf("🚩 [Report] %s %s dilaporkan (%s) oleh %s", rep.TargetType, rep.TargetID, rep.Reason, rep.ReporterID)
+	h.notifyNewReport(r.Context(), rep)
 	writeFeedJSON(w, http.StatusCreated, map[string]string{"status": "ok", "message": "Laporan diterima. Terima kasih."})
+}
+
+// notifyNewReport memberi tahu moderator tentang laporan BARU (laporan ganda dari pelapor yang sama diabaikan).
+// Hanya metadata yang dikirim; kegagalan apa pun tidak memengaruhi respons ke pelapor.
+func (h *ReportHandler) notifyNewReport(ctx context.Context, rep *store.ContentReport) {
+	if h.notifier == nil || rep.Duplicate {
+		return
+	}
+	count := 1
+	if c, ok := h.store.(targetCounter); ok {
+		if n, err := c.CountForTarget(ctx, rep.TenantID, rep.TargetType, rep.TargetID); err == nil && n > 0 {
+			count = n
+		}
+	}
+	h.notifier.Enqueue(notify.Event{
+		Kind: notify.KindReport, ReportID: rep.ID, TargetType: rep.TargetType, Reason: rep.Reason,
+		HighPriority: notify.IsHighPriority(rep.Reason), ReportCount: count, At: rep.CreatedAt,
+	})
 }

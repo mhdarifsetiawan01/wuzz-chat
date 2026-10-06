@@ -9,8 +9,10 @@ import {
   STATUS_LABEL,
   TARGET_LABEL,
   formatDate,
+  NotifyTestResult,
   isHighPriority,
   listReports,
+  testNotify,
 } from '@/lib/admin-api'
 import { useAdminSession } from '../AdminShell'
 
@@ -26,6 +28,17 @@ export default function ReportsPage() {
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ channels?: NotifyTestResult[]; error?: string } | null>(null)
+
+  const runNotifyTest = async () => {
+    setTesting(true)
+    setTestResult(null)
+    const res = await testNotify()
+    setTesting(false)
+    if (res.status === 401) return expire()
+    setTestResult(res.data ? { channels: res.data.channels } : { error: res.error || 'Tes notifikasi gagal.' })
+  }
 
   const load = useCallback(
     async (offset: number) => {
@@ -51,10 +64,22 @@ export default function ReportsPage() {
     <section aria-labelledby="adm-reports-title">
       <div className="adm-toolbar">
         <h1 id="adm-reports-title" className="adm-title">Laporan</h1>
-        <button type="button" className="btn btn-secondary" onClick={() => load(0)} disabled={loading}>
-          Muat ulang
-        </button>
+        <div className="adm-actions">
+          <button type="button" className="btn btn-secondary" onClick={runNotifyTest} disabled={testing}>
+            {testing ? 'Mengirim…' : 'Tes notifikasi'}
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => load(0)} disabled={loading}>
+            Muat ulang
+          </button>
+        </div>
       </div>
+
+      {testResult?.error && <div className="adm-alert adm-alert-error" role="alert">{testResult.error}</div>}
+      {testResult?.channels?.map((c) => (
+        <div key={c.channel} className={`adm-alert ${c.ok ? 'adm-alert-ok' : 'adm-alert-error'}`} role="status">
+          {c.ok ? `Saluran ${c.channel}: pesan tes terkirim. Periksa chat Anda.` : `Saluran ${c.channel} gagal: ${c.error || 'tidak diketahui'}`}
+        </div>
+      ))}
 
       <div className="adm-tabs" role="tablist" aria-label="Status laporan">
         {STATUSES.map((s) => (

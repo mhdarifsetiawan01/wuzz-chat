@@ -198,6 +198,17 @@ export function unsuspendUser(userId: string, note: string) {
   })
 }
 
+export interface NotifyTestResult {
+  channel: string
+  ok: boolean
+  error?: string
+}
+
+// Mengirim pesan uji ke setiap saluran notifikasi (Telegram dll) dan melaporkan hasilnya per saluran.
+export function testNotify() {
+  return adminFetch<{ channels: NotifyTestResult[] }>('/api/admin/notify/test', { method: 'POST' })
+}
+
 export async function adminLogin(username: string, password: string): Promise<AdminResult<{ token: string }>> {
   // Tanpa device_id: tidak memakai kuota 2 perangkat dan tidak membuat sesi/kunci chat.
   return adminFetch<{ token: string }>('/api/auth/login', {

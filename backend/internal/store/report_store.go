@@ -43,6 +43,8 @@ type ContentReport struct {
 	Evidence     string    `json:"evidence,omitempty"`
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
+	// Duplicate diisi Create: true bila pelapor yang sama sudah melaporkan target ini (tidak ada baris baru).
+	Duplicate bool `json:"-"`
 }
 
 // ReportStore menyimpan laporan untuk ditinjau moderator.
@@ -113,7 +115,7 @@ func (s *SQLReportStore) Create(ctx context.Context, r *ContentReport) error {
 	}
 	r.Status = ReportStatusOpen
 	r.CreatedAt = time.Now().UTC()
-	_, err := s.db.ExecContext(ctx, s.rebind(`INSERT INTO content_reports
+	res, err := s.db.ExecContext(ctx, s.rebind(`INSERT INTO content_reports
 		(id, tenant_id, reporter_id, target_type, target_id, target_user_id, reason, details, evidence, status, created_at)
 		VALUES (?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(reporter_id, target_type, target_id) DO NOTHING`),
@@ -121,7 +123,17 @@ func (s *SQLReportStore) Create(ctx context.Context, r *ContentReport) error {
 	if err != nil {
 		return fmt.Errorf("gagal menyimpan laporan: %w", err)
 	}
+	n, _ := res.RowsAffected()
+	r.Duplicate = n == 0
 	return nil
+}
+
+// CountForTarget menghitung semua laporan (apa pun statusnya) pada target yang sama dalam satu tenant.
+func (s *SQLReportStore) CountForTarget(ctx context.Context, tenantID, targetType, targetID string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, s.rebind(`SELECT COUNT(*) FROM content_reports WHERE tenant_id = ? AND target_type = ? AND target_id = ?`),
+		tenantID, targetType, targetID).Scan(&n)
+	return n, err
 }
 
 func (s *SQLReportStore) List(ctx context.Context, tenantID, status string, limit int) ([]ContentReport, error) {

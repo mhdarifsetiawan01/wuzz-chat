@@ -71,6 +71,14 @@ type Config struct {
 	// (env GOOGLE_LINK_FREEZE=true). Default MATI: saklar terpisah dari tenggat sebagai kill switch. Pembekuan tidak
 	// menghapus data dan berakhir begitu Google ditautkan.
 	GoogleLinkFreeze bool
+
+	// ModerationNotify adalah daftar saluran pemberitahuan laporan baru (env MODERATION_NOTIFY, CSV; saat ini: telegram).
+	// Kosong = tanpa pemberitahuan. Token dan chat id TIDAK pernah dicatat di log.
+	ModerationNotify []string
+	TelegramBotToken string
+	TelegramChatID   string
+	// ModerationAdminURL adalah alamat dasar halaman moderator yang ditautkan di pemberitahuan.
+	ModerationAdminURL string
 }
 
 // Load membaca konfigurasi dari file .env (jika tersedia) dan variabel lingkungan sistem (OS Environment).
@@ -118,6 +126,11 @@ func Load() (*Config, error) {
 
 		GoogleOAuthClientIDs: splitCSV(getEnv("GOOGLE_OAUTH_CLIENT_IDS", "")),
 		GoogleLinkFreeze:     strings.EqualFold(strings.TrimSpace(os.Getenv("GOOGLE_LINK_FREEZE")), "true"),
+
+		ModerationNotify:   splitCSV(getEnv("MODERATION_NOTIFY", "")),
+		TelegramBotToken:   strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")),
+		TelegramChatID:     strings.TrimSpace(os.Getenv("TELEGRAM_CHAT_ID")),
+		ModerationAdminURL: getEnv("MODERATION_ADMIN_URL", "https://chat.wuzzhub.id/admin"),
 	}
 
 	if raw := strings.TrimSpace(os.Getenv("GOOGLE_LINK_DEADLINE")); raw != "" {

@@ -25,6 +25,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/memory"
 	"github.com/bms-del112/wuzz-chat/internal/messaging"
 	messaginginfra "github.com/bms-del112/wuzz-chat/internal/messaging/infra"
+	"github.com/bms-del112/wuzz-chat/internal/notify"
 	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/shared/config"
 	"github.com/bms-del112/wuzz-chat/internal/shared/cors"
@@ -67,28 +68,30 @@ type Application struct {
 	AuthCleanupWorker *authzworker.AuthCleanupWorker
 
 	// Transport Handlers & Validators
-	CorsValidator      *cors.CORSValidator
-	AuthLimiter        *ratelimit.DualTierRateLimiter
-	AuthHandler        *api.AuthHandler
-	DeviceHandler      *api.DeviceHandler
-	CredentialHandler  *api.CredentialHandler
-	ChatHandler        *api.ChatHandler
-	GroupHandler       *api.GroupHandler
-	MemoryHandler      *api.MemoryHandler
+	CorsValidator       *cors.CORSValidator
+	AuthLimiter         *ratelimit.DualTierRateLimiter
+	AuthHandler         *api.AuthHandler
+	DeviceHandler       *api.DeviceHandler
+	CredentialHandler   *api.CredentialHandler
+	ChatHandler         *api.ChatHandler
+	GroupHandler        *api.GroupHandler
+	MemoryHandler       *api.MemoryHandler
 	NotificationHandler *api.NotificationHandler
-	MediaHandler       *api.MediaHandler
-	LinkPreviewHandler *api.LinkPreviewHandler
-	TransferHandler    *api.TransferHandler
+	MediaHandler        *api.MediaHandler
+	LinkPreviewHandler  *api.LinkPreviewHandler
+	TransferHandler     *api.TransferHandler
 	ProvisioningHandler *api.ProvisioningHandler
-	OpenAPIHandler     *api.OpenAPIHandler
-	FeedHandler        *api.FeedHandler
-	ReportHandler      *api.ReportHandler
-	ModerationHandler  *api.ModerationHandler
+	OpenAPIHandler      *api.OpenAPIHandler
+	FeedHandler         *api.FeedHandler
+	ReportHandler       *api.ReportHandler
+	ModerationHandler   *api.ModerationHandler
+	// Notifier mengirim pemberitahuan laporan baru ke Telegram dll; nil bila tidak ada saluran aktif.
+	Notifier *notify.Dispatcher
 	// Suspension menolak akun yang ditangguhkan moderator; nil bila alat moderasi tidak aktif.
-	Suspension *authz.SuspensionPolicy
-	ConnectionHandler  *api.ConnectionHandler
-	ConnectionService  *connection.ConnectionService
-	WsHandler          *ws.Handler
+	Suspension        *authz.SuspensionPolicy
+	ConnectionHandler *api.ConnectionHandler
+	ConnectionService *connection.ConnectionService
+	WsHandler         *ws.Handler
 }
 
 // New mengorkestrasi perakitan dependency injection secara berurutan dalam 7 tahap:
@@ -297,6 +300,21 @@ func New(cfg *config.Config) (*Application, error) {
 	if moderationStore != nil {
 		app.ModerationHandler = api.NewModerationHandler(moderationStore, suspension)
 	}
+	if cfg != nil && len(cfg.ModerationNotify) > 0 {
+		app.Notifier = notify.Build(notify.Settings{
+			Channels: cfg.ModerationNotify, AdminURL: cfg.ModerationAdminURL,
+			TelegramBotToken: cfg.TelegramBotToken, TelegramChatID: cfg.TelegramChatID,
+		})
+		if app.Notifier != nil {
+			log.Printf("🔔 Notifikasi moderasi aktif: %v", app.Notifier.Channels())
+			if app.ReportHandler != nil {
+				app.ReportHandler.SetNotifier(app.Notifier)
+			}
+			if app.ModerationHandler != nil {
+				app.ModerationHandler.SetNotifier(app.Notifier)
+			}
+		}
+	}
 
 	// Inisialisasi Community Social Feed Engine (Milestone M-Mobile-9.2)
 	if feedRepo != nil {
@@ -499,6 +517,7 @@ func (a *Application) Run() error {
 	if a.AuthCleanupWorker != nil {
 		a.AuthCleanupWorker.Start()
 	}
+	a.Notifier.Start()
 
 	// 2. Banner info server
 	log.Printf("🚀 Wuzz Chat backend berjalan di ws://localhost%s/ws", a.Server.Addr)
@@ -514,6 +533,7 @@ func (a *Application) Run() error {
 // Shutdown mematikan HTTP server secara anggun dan menghentikan seluruh background workers.
 func (a *Application) Shutdown(ctx context.Context) error {
 	// 1. Matikan background workers terlebih dahulu
+	a.Notifier.Stop()
 	if a.AuthCleanupWorker != nil {
 		a.AuthCleanupWorker.Stop()
 	}
