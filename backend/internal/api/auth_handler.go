@@ -26,6 +26,9 @@ type AuthHandler struct {
 
 	// googleLinkDeadline: batas waktu pengumuman penautan Google (zero = tidak ada pengumuman).
 	googleLinkDeadline time.Time
+
+	// linkFreeze: kebijakan pembekuan akun yang belum menautkan Google (nil = tidak ada pembekuan).
+	linkFreeze *authz.LinkFreezePolicy
 }
 
 func (h *AuthHandler) syncAuthRepo() {
@@ -85,6 +88,17 @@ func (h *AuthHandler) SetGoogleLinkDeadline(deadline time.Time) {
 	h.googleLinkDeadline = deadline
 }
 
+// SetLinkFreeze menyuntikkan kebijakan pembekuan. Handler memakainya untuk memberi tahu klien (google_link_frozen) dan
+// untuk membuang cache status setelah Google ditautkan atau diputus.
+func (h *AuthHandler) SetLinkFreeze(p *authz.LinkFreezePolicy) {
+	h.linkFreeze = p
+}
+
+// googleLinkFrozen memberi tahu apakah akun ini sedang dibekukan (hanya benar bila pembekuan aktif).
+func (h *AuthHandler) googleLinkFrozen(r *http.Request, user *store.User) bool {
+	return user != nil && h.linkFreeze.IsFrozen(r.Context(), user.ID, user.TenantID)
+}
+
 // googleLinkRequiredBy mengembalikan batas waktu (RFC3339 UTC) bila akun ini perlu diingatkan menautkan Google, atau
 // string kosong. Syarat: tenggat dikonfigurasi, Google aktif di server (jangan menjanjikan fitur yang tidak jalan),
 // akun belum tertaut, dan akun berada di tenant default (tenant B2B tidak bisa memakai login Google).
@@ -139,6 +153,8 @@ type AuthResponse struct {
 	GoogleLinked bool `json:"google_linked"`
 	// GoogleLinkRequiredBy diisi hanya bila akun diminta menautkan Google sebelum batas waktu tersebut (RFC3339 UTC).
 	GoogleLinkRequiredBy string `json:"google_link_required_by,omitempty"`
+	// GoogleLinkFrozen true bila akun dibekukan: klien harus menampilkan layar "tautkan Google untuk melanjutkan".
+	GoogleLinkFrozen bool `json:"google_link_frozen,omitempty"`
 }
 
 // newAuthResponse merakit respons sesi lengkap dengan status metode login akun.
@@ -150,6 +166,7 @@ func (h *AuthHandler) newAuthResponse(r *http.Request, token string, user *store
 			resp.GoogleLinked, _ = h.authSvc.IsGoogleLinked(r.Context(), user.ID)
 		}
 		resp.GoogleLinkRequiredBy = h.googleLinkRequiredBy(user, resp.GoogleLinked)
+		resp.GoogleLinkFrozen = h.googleLinkFrozen(r, user)
 	}
 	return resp
 }
@@ -378,6 +395,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		GoogleLinked:         googleLinked,
 		HasPassword:          user.PasswordHash != "",
 		GoogleLinkRequiredBy: h.googleLinkRequiredBy(user, googleLinked),
+		GoogleLinkFrozen:     h.googleLinkFrozen(r, user),
 	})
 }
 
@@ -386,8 +404,9 @@ type meResponse struct {
 	*store.User
 	GoogleLinked bool `json:"google_linked"`
 	HasPassword  bool `json:"has_password"`
-	// GoogleLinkRequiredBy: lihat AuthResponse.
+	// GoogleLinkRequiredBy dan GoogleLinkFrozen: lihat AuthResponse.
 	GoogleLinkRequiredBy string `json:"google_link_required_by,omitempty"`
+	GoogleLinkFrozen     bool   `json:"google_link_frozen,omitempty"`
 }
 
 type UpdateProfileRequest struct {

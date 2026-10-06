@@ -185,6 +185,12 @@ func (c *Client) WritePump() {
 
 // handleMessage mendispatch event berdasarkan field Type.
 func (c *Client) handleMessage(msg Message) {
+	// Akun yang dibekukan (belum menautkan Google setelah tenggat) tidak boleh memakai koneksi yang sudah terbuka sebelum
+	// tenggat. TypeLeave dibiarkan karena hanya menutup koneksi.
+	if gate := c.hub.accessGate; gate != nil && msg.Type != TypeLeave && !gate(c.ID, c.getTenantID()) {
+		c.rejectFrozen()
+		return
+	}
 	switch msg.Type {
 	case TypeJoin:
 		c.onJoin(msg)
@@ -204,6 +210,17 @@ func (c *Client) handleMessage(msg Message) {
 		log.Printf("[Client %s] unknown message type: %s", c.ID, msg.Type)
 		c.sendError("Tipe pesan tidak dikenali: " + string(msg.Type))
 	}
+}
+
+// CloseCodeLinkRequired adalah kode penutupan WebSocket untuk akun yang dibekukan. Klien baru berhenti menyambung ulang
+// dan menampilkan layar penautan Google; klien lama menganggapnya penutupan biasa (dan ditolak 403 saat menyambung ulang).
+const CloseCodeLinkRequired = 4003
+
+// rejectFrozen memutus koneksi akun beku dengan kode khusus.
+func (c *Client) rejectFrozen() {
+	closeMsg := websocket.FormatCloseMessage(CloseCodeLinkRequired, "GOOGLE_LINK_REQUIRED")
+	_ = c.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(time.Second))
+	_ = c.conn.Close()
 }
 
 // onJoin memproses event join ke room percakapan.

@@ -1,6 +1,6 @@
 # Backlog: Login dengan Google (wajib untuk akun baru, migrasi akun lama)
 
-> Dibuat 2026-10-06. **Status: fase 1 (backend) sudah di produksi (mati sampai client ID diisi). Fase 2 (mobile Android) kodenya selesai di `dev` tapi BELUM pernah dijalankan di perangkat (butuh OAuth client). Fase 3 sampai 5 belum.** Fase 3 (pengumuman) kodenya selesai di `dev`, lihat bagian 10. Lihat juga bagian 8 dan 9. Seluruh keputusan di bagian 2 berasal dari diskusi dengan pemilik proyek.
+> Dibuat 2026-10-06. **Status: fase 1 (backend) sudah di produksi (mati sampai client ID diisi). Fase 2 (mobile Android) kodenya selesai di `dev` tapi BELUM pernah dijalankan di perangkat (butuh OAuth client). Fase 3 sampai 5 belum.** Fase 3 (pengumuman) live di backend; fase 4 (pembekuan) kodenya selesai di `dev`, lihat bagian 11. Lihat juga bagian 8 dan 9. Seluruh keputusan di bagian 2 berasal dari diskusi dengan pemilik proyek.
 > Fakta bertanda **(terverifikasi)** sudah dicek di kode per tanggal di atas; bertanda **(belum diverifikasi)** harus dicek dulu.
 
 ## 1. Latar belakang dan tujuan
@@ -223,3 +223,26 @@ Dibandingkan (diverifikasi dari paket npm dan dokumentasi resmi):
 **Keputusan yang masih diminta dari pemilik proyek:** tanggal batas waktu (disarankan memberi 60-90 hari sejak banner pertama beredar).
 
 **Belum:** pengumuman di luar aplikasi (halaman web, listing Play Store, catatan rilis `MOBILE_RELEASE_NOTES`), pembekuan akun (fase 4), hapus akun tidak aktif (fase 5), tampilan banner belum terlihat di perangkat.
+
+## 11. Status fase 4 (pembekuan akun), 2026-10-06
+
+**Kode selesai di `dev`, belum dideploy/dibuild/diuji di HP.** Perilaku: lihat `AUTH_SESSION.md` (pembekuan akun). Ringkas: setelah `GOOGLE_LINK_DEADLINE` lewat DAN `GOOGLE_LINK_FREEZE=true`, akun berpassword yang belum menautkan Google (tenant default) ditolak 403 `GOOGLE_LINK_REQUIRED` di HTTP, WebSocket, dan push, kecuali: lihat status, tautkan Google, keluar, hapus akun. Data tidak dihapus; akun terbuka seketika begitu Google tertaut.
+
+**Keputusan desain (dengan alasan):**
+- Saklar `GOOGLE_LINK_FREEZE` terpisah dari tenggat dan default MATI: kill switch tanpa perlu menghapus tenggat/banner.
+- Gagal terbuka pada galat database: gangguan sesaat tidak boleh mengunci semua pengguna.
+- Mobile: selama beku `isAuthenticated=false` sehingga tidak ada context yang mengambil data; inisialisasi E2EE/push/WS ditunda sampai Google tertaut. **Akun beku di perangkat tanpa kunci TIDAK boleh membuat kunci lokal** (jalur "offline fallback" lama akan menyimpan kunci yang tak pernah terdaftar di server); dijaga di `initE2EEForUser` dan di `startSession`.
+- Layar `GoogleLinkRequiredScreen` menggantikan aplikasi, dengan tiga jalan keluar: hubungkan Google, keluar, hapus akun.
+- Tidak ada pengecualian admin/moderator dan tidak ada daftar pengecualian akun (reviewer Play: pakai akun Google uji, bukan akun password lama).
+
+**URUTAN AKTIVASI (wajib berurutan):**
+1. Deploy backend fase 4 (aman: tanpa `GOOGLE_LINK_FREEZE=true` tidak ada efek).
+2. Build dan bagikan APK yang memuat layar penautan (>= build ini), dan tunggu mayoritas pengguna memperbarui.
+3. Naikkan `MIN_MOBILE_BUILD` ke build itu (build lama kini mendapat 426 "perbarui aplikasi", bukan galat 403 mentah).
+4. Pastikan `GOOGLE_LINK_DEADLINE` sudah diumumkan cukup lama (banner fase 3) dan akun uji pemilik proyek sudah tertaut.
+5. Nyalakan `GOOGLE_LINK_FREEZE=true` lalu `docker compose up -d` (log: "Pembekuan akun belum menautkan Google AKTIF").
+**Mematikan darurat:** `GOOGLE_LINK_FREEZE=false` + restart (~15 detik); semua akun langsung bebas.
+
+**Keterbatasan yang diketahui:** web (sedang dijeda) tidak punya layar penautan: pengguna web beku hanya melihat galat; notifikasi push yang sudah dalam antrean penyedia sebelum tenggat tetap tiba; endpoint ganti password/verifikasi password ikut terblokir untuk akun beku (harus menautkan Google dulu); akun beku yang kehilangan akses Google dan password lama hanya punya jalur hapus akun/support.
+
+**Belum:** uji di HP (butuh build baru + tenggat lewat; bisa disimulasikan dengan `GOOGLE_LINK_DEADLINE` kemarin di server uji), fase 5 (hapus akun tidak aktif), alat admin.

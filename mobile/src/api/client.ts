@@ -9,6 +9,7 @@ import { secureStorage } from '../services/secureStorage';
 import { API_CONFIG, getBaseApiUrl } from './config';
 import { ApiError } from './types';
 import { APP_CHANNEL, getAppVersionInfo, notifyForceUpdateRequired } from '../utils/appVersion';
+import { GOOGLE_LINK_REQUIRED, notifyGoogleLinkRequired } from '../utils/linkFrozen';
 
 export interface RequestOptions extends RequestInit {
   timeoutMs?: number;
@@ -88,6 +89,11 @@ export async function apiClient<T>(
           min_build: data?.min_build,
           update_url: data?.update_url,
         });
+      }
+
+      // Akun dibekukan (belum menautkan Google setelah batas waktu): beri tahu seluruh aplikasi agar menampilkan layar penautan.
+      if (response.status === 403 && data?.code === GOOGLE_LINK_REQUIRED) {
+        notifyGoogleLinkRequired();
       }
 
       const error: ApiError = {

@@ -267,6 +267,7 @@ func (h *AuthHandler) GoogleLinkExisting(w http.ResponseWriter, r *http.Request)
 		writeGoogleError(w, err, "Google link")
 		return
 	}
+	h.linkFreeze.Invalidate(res.UserID)
 	log.Printf("[Auth] ✅ Google link: username=%q user_id=%s ip=%s", strings.TrimSpace(req.Username), res.UserID, getClientIP(r))
 	h.respondWithSession(w, r, http.StatusOK, res.UserID, res.Token)
 }
@@ -318,6 +319,7 @@ func (h *AuthHandler) ManageGoogle(w http.ResponseWriter, r *http.Request) {
 		writeGoogleError(w, err, "Kelola Google")
 		return
 	}
+	h.linkFreeze.Invalidate(claims.UserID) // status beku harus langsung mengikuti tautan baru/yang diputus
 	log.Printf("[Auth] ✅ Kelola Google (%s) sukses user_id=%s", r.Method, claims.UserID)
 	writeAuthJSON(w, http.StatusOK, map[string]any{"status": "ok", "google_linked": r.Method != http.MethodDelete})
 }

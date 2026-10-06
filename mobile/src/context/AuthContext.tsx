@@ -4,7 +4,7 @@
  * Adheres to docs/MOBILE_INTEGRATION_GUIDE.md Section 2B.
  */
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { AppState } from 'react-native';
 import { authApi } from '../api/auth';
 import {
@@ -20,6 +20,7 @@ import { updatePublicKey, resetPublicKey } from '../api/users';
 import { E2EEKeyPair, generateE2EEKeyPair } from '../services/crypto';
 import { deviceIdService } from '../services/deviceIdService';
 import { signInWithGoogle, signOutGoogleLocal } from '../services/googleAuth';
+import { isGoogleLinkRequiredError, onGoogleLinkRequired } from '../utils/linkFrozen';
 import { mediaCache } from '../services/mediaCache';
 import { notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
@@ -56,6 +57,8 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  /** Akun masuk tetapi dibekukan: belum menautkan Google setelah batas waktu. isAuthenticated bernilai false selama ini. */
+  isGoogleLinkFrozen: boolean;
   isLoading: boolean;
   sessionReplacedMessage: string | null;
   e2eeKeyPair: E2EEKeyPair | null;
@@ -117,6 +120,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   token: null,
   isAuthenticated: false,
+  isGoogleLinkFrozen: false,
   isLoading: true,
   sessionReplacedMessage: null,
   e2eeKeyPair: null,
@@ -145,7 +149,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [sessionReplacedMessage, setSessionReplacedMessage] = useState<string | null>(null);
   const [e2eeKeyPair, setE2eeKeyPair] = useState<E2EEKeyPair | null>(null);
   const [e2eeStatus, setE2eeStatus] = useState<E2EEStatus>('uninitialized');
+  // Akun dibekukan (belum menautkan Google setelah batas waktu). Selama true, isAuthenticated=false sehingga tidak ada
+  // context yang mengambil data (semua akan 403), dan inisialisasi E2EE/push/WebSocket ditunda sampai Google tertaut.
+  const [googleLinkFrozen, setGoogleLinkFrozen] = useState<boolean>(false);
+  const googleLinkFrozenRef = useRef(false);
+  useEffect(() => {
+    googleLinkFrozenRef.current = googleLinkFrozen;
+  }, [googleLinkFrozen]);
 
+  // Sinyal global: HTTP 403 GOOGLE_LINK_REQUIRED dari mana pun, atau penutupan WebSocket 4003.
+  useEffect(
+    () =>
+      onGoogleLinkRequired(() => {
+        setGoogleLinkFrozen(true);
+        websocketClient.disconnect();
+      }),
+    []
+  );
 
   const initE2EEForUser = useCallback(async (targetUserId: string, targetDeviceId: string) => {
     console.log('[AuthContext] initE2EEForUser starting for user:', targetUserId);
@@ -160,6 +180,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setE2eeStatus('ready');
           console.log('[AuthContext] Local keypair synced successfully with server.');
         } catch (err: any) {
+          if (isGoogleLinkRequiredError(err)) {
+            // Akun beku: server menolak. Jangan tandai siap dan jangan sentuh kunci; sinkronisasi diulang setelah Google tertaut.
+            setGoogleLinkFrozen(true);
+            setE2eeStatus('uninitialized');
+            return;
+          }
           if (
             err?.status === 409 ||
             err?.title === 'KEY_ALREADY_REGISTERED' ||
@@ -187,6 +213,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setE2eeStatus('ready');
         console.log('[AuthContext] New E2EE keypair registered and saved locally.');
       } catch (err: any) {
+        if (isGoogleLinkRequiredError(err)) {
+          // JANGAN simpan kunci baru ke penyimpanan lokal: kunci itu belum pernah terdaftar di server (jalur "offline fallback"
+          // di bawah akan menyimpannya dan membuat kunci tak cocok setelah akun dibuka kembali).
+          setGoogleLinkFrozen(true);
+          setE2eeStatus('uninitialized');
+          return;
+        }
         if (
           err?.status === 409 ||
           err?.title === 'KEY_ALREADY_REGISTERED' ||
@@ -210,12 +243,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Auto-init E2EE keys whenever user is authenticated but e2eeKeyPair is not yet loaded and status is uninitialized
   useEffect(() => {
-    if (!user?.id || e2eeKeyPair || e2eeStatus !== 'uninitialized') return;
+    if (!user?.id || e2eeKeyPair || e2eeStatus !== 'uninitialized' || googleLinkFrozen) return;
     const currentDeviceId = deviceId || '';
     if (currentDeviceId) {
       initE2EEForUser(user.id, currentDeviceId);
     }
-  }, [user?.id, e2eeKeyPair, e2eeStatus, deviceId, initE2EEForUser]);
+  }, [user?.id, e2eeKeyPair, e2eeStatus, deviceId, initE2EEForUser, googleLinkFrozen]);
 
   const initE2EEKeys = useCallback(async () => {
     if (!user?.id) return;
@@ -316,6 +349,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       });
       setToken(null);
+      setGoogleLinkFrozen(false);
       setE2eeKeyPair(null);
       setE2eeStatus('conflict');
       setSessionReplacedMessage(reason || 'Akun Anda sedang aktif di perangkat lain. Sesi pada perangkat ini telah dihentikan.');
@@ -359,9 +393,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(freshUser);
               await secureStorage.setUserData(freshUser);
               await secureStorage.setCurrentUserId(freshUser.id);
-              // Connect WebSocket
-              websocketClient.reset();
-              websocketClient.connect(savedToken, currentDeviceId);
+              const frozen = freshUser.google_link_frozen === true;
+              setGoogleLinkFrozen(frozen);
+              // Akun beku tidak menyambung WebSocket (ditolak server); disambung setelah Google tertaut.
+              if (!frozen) {
+                websocketClient.reset();
+                websocketClient.connect(savedToken, currentDeviceId);
+              }
             }
           } catch (err: any) {
             // If token expired or unauthorized (401), clean up
@@ -412,6 +450,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         has_password: response.has_password ?? response.user.has_password,
         google_linked: response.google_linked ?? response.user.google_linked,
         google_link_required_by: response.google_link_required_by ?? response.user.google_link_required_by,
+        google_link_frozen: response.google_link_frozen ?? response.user.google_link_frozen,
       };
       await secureStorage.setAuthToken(response.token);
       await secureStorage.setUserData(sessionUser);
@@ -421,6 +460,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(response.token);
       setUser(sessionUser);
       setSessionReplacedMessage(null);
+
+      // Akun beku (belum menautkan Google setelah batas waktu): berhenti di sini. E2EE, push, dan WebSocket ditolak server dan
+      // baru dijalankan setelah Google tertaut (linkGoogleToCurrentAccount); layar penautan menggantikan aplikasi.
+      const frozen = response.google_link_frozen === true;
+      setGoogleLinkFrozen(frozen);
+      if (frozen) return;
 
       // Initialize E2EE Keys
       await initE2EEForUser(sessionUser.id, currentDeviceId);
@@ -538,8 +583,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.warn('[AuthContext] Refresh profil setelah menautkan Google gagal:', err);
     }
+
+    // Akun yang tadinya beku kini bebas: mulai seperti login baru. Kunci E2EE di-reset di state (bukan di penyimpanan) dan
+    // status dikembalikan ke 'uninitialized' supaya efek inisialisasi memuat kunci tersimpan atau membuat kunci baru TEPAT SEKALI.
+    if (googleLinkFrozenRef.current) {
+      setE2eeKeyPair(null);
+      setE2eeStatus('uninitialized');
+      setGoogleLinkFrozen(false);
+      try {
+        const currentToken = await secureStorage.getAuthToken();
+        const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+        notificationService.subscribeDevice().catch((err) => {
+          console.warn('[AuthContext] Push subscribe setelah akun dibuka kembali dilewati:', err);
+        });
+        if (currentToken) {
+          websocketClient.reset();
+          websocketClient.connect(currentToken, currentDeviceId);
+        }
+      } catch (err) {
+        console.warn('[AuthContext] Gagal memulai ulang koneksi setelah akun dibuka kembali:', err);
+      }
+    }
     return true;
-  }, []);
+  }, [deviceId]);
 
   const logout = useCallback(async () => {
     setIsLoading(true);
@@ -573,6 +639,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(null);
       setE2eeKeyPair(null);
       setE2eeStatus('uninitialized');
+      setGoogleLinkFrozen(false);
       setSessionReplacedMessage(null);
       websocketClient.reset();
 
@@ -610,6 +677,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(null);
       setE2eeKeyPair(null);
       setE2eeStatus('uninitialized');
+      setGoogleLinkFrozen(false);
       setSessionReplacedMessage(null);
       websocketClient.reset();
       await clearLocalAccountData(deletedUserId);
@@ -651,6 +719,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(null);
       setE2eeKeyPair(null);
       setE2eeStatus('uninitialized');
+      setGoogleLinkFrozen(false);
       setSessionReplacedMessage(null);
       await clearLocalAccountData(cancelledUserId);
     } finally {
@@ -668,7 +737,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         token,
-        isAuthenticated: !!token && !!user,
+        isAuthenticated: !!token && !!user && !googleLinkFrozen,
+        isGoogleLinkFrozen: !!token && !!user && googleLinkFrozen,
         isLoading,
         sessionReplacedMessage,
         deleteAccount,

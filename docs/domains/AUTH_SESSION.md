@@ -95,6 +95,12 @@ Respons `login`, `register`, dan semua endpoint Google memuat `has_password` dan
 
 Pengumuman penautan (fase 3): bila env `GOOGLE_LINK_DEADLINE` diisi (`YYYY-MM-DD` = sampai 23:59:59 WIB, atau RFC3339; kosong/tidak valid = mati), respons `login`, `register`, endpoint Google, dan `GET /api/auth/me` memuat `google_link_required_by` (RFC3339 UTC) **hanya** untuk akun yang belum tertaut, di tenant default, dan bila Google aktif di server. Ini informatif saja: server belum membekukan akun setelah batas waktu (fase 4).
 
+Pembekuan akun (fase 4, kill switch `GOOGLE_LINK_FREEZE=true`, default mati; butuh `GOOGLE_LINK_DEADLINE` dan Google aktif): setelah tenggat lewat, akun yang **belum tertaut Google** di tenant default **dibekukan** (`authz.LinkFreezePolicy`). Berlaku di tiga tempat dari satu kebijakan:
+- **HTTP** (`api.LinkFreezeMiddleware`, dibungkus di dalam `versionMw` sehingga build kedaluwarsa tetap mendapat 426 lebih dulu): semua rute ditolak `403 {code:"GOOGLE_LINK_REQUIRED"}` (termasuk upgrade `/ws`) KECUALI `GET/DELETE /api/auth/me`, `POST /api/auth/me/google`, `POST /api/auth/logout`, `POST /api/auth/refresh`, `/api/auth/google*`, `/health`, info versi, `/api/config`, dokumentasi. **Hapus akun tidak boleh diblokir** (syarat Play).
+- **WebSocket**: `Hub.SetAccessGate`; koneksi yang sudah terbuka sebelum tenggat diputus (kode `4003`, alasan `GOOGLE_LINK_REQUIRED`) begitu akun beku mengirim apa pun. Kode 4003 juga dipakai klien lama sebagai penutupan terminal (DEVICE_MISMATCH); klien baru membedakan lewat alasan.
+- **Push**: `push.Service.SetRecipientFilter` membuang akun beku dari semua jalur notifikasi (isinya pesan terenkripsi yang didekripsi di perangkat).
+Respons login/`/me` memuat `google_link_frozen:true` agar klien langsung menampilkan layar penautan. Cache status 5 menit (tertaut) / 20 detik (belum), dibuang saat Google ditautkan/diputus. **Gagal terbuka**: galat database berarti TIDAK dibekukan. Pembekuan tidak menghapus data dan berakhir seketika begitu Google ditautkan.
+
 Kode error `code` (selain pesan `error`): `GOOGLE_NOT_CONFIGURED` (503), `GOOGLE_TOKEN_INVALID`, `GOOGLE_REAUTH_STALE`, `GOOGLE_MISMATCH`, `LINK_TOKEN_INVALID`, `INVALID_CREDENTIALS` (401), `GOOGLE_LINKED_TO_OTHER_ACCOUNT`, `ACCOUNT_ALREADY_HAS_GOOGLE`, `USERNAME_TAKEN`, `PASSWORD_LOGIN_UNAVAILABLE` (409), `VALIDATION_ERROR` (400), `GOOGLE_TENANT_NOT_ALLOWED` (403).
 
 ---

@@ -49,6 +49,8 @@ export interface User {
   has_password?: boolean;
   /** RFC3339: akun belum tertaut diminta menautkan Google sebelum waktu ini (hanya ada bila server mengumumkannya). */
   google_link_required_by?: string;
+  /** true bila akun dibekukan: belum menautkan Google setelah batas waktu (hanya ada dari server saat pembekuan aktif). */
+  google_link_frozen?: boolean;
 }
 
 export interface UpdateProfileRequest {
@@ -77,6 +79,7 @@ export interface AuthTokenResponse {
   has_password?: boolean;
   google_linked?: boolean;
   google_link_required_by?: string;
+  google_link_frozen?: boolean;
 }
 
 export interface LoginRequest {

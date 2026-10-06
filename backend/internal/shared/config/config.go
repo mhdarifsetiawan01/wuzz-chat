@@ -66,6 +66,11 @@ type Config struct {
 	// Zero = tidak ada batas waktu: server tidak mengumumkan kewajiban apa pun. Hanya mengatur pengumuman di klien;
 	// pembekuan akun setelah batas waktu adalah fase terpisah.
 	GoogleLinkDeadline time.Time
+
+	// GoogleLinkFreeze menyalakan pembekuan akun yang belum menautkan Google setelah GoogleLinkDeadline lewat
+	// (env GOOGLE_LINK_FREEZE=true). Default MATI: saklar terpisah dari tenggat sebagai kill switch. Pembekuan tidak
+	// menghapus data dan berakhir begitu Google ditautkan.
+	GoogleLinkFreeze bool
 }
 
 // Load membaca konfigurasi dari file .env (jika tersedia) dan variabel lingkungan sistem (OS Environment).
@@ -112,6 +117,7 @@ func Load() (*Config, error) {
 		MobileReleaseNotes:  getEnv("MOBILE_RELEASE_NOTES", ""),
 
 		GoogleOAuthClientIDs: splitCSV(getEnv("GOOGLE_OAUTH_CLIENT_IDS", "")),
+		GoogleLinkFreeze:     strings.EqualFold(strings.TrimSpace(os.Getenv("GOOGLE_LINK_FREEZE")), "true"),
 	}
 
 	if raw := strings.TrimSpace(os.Getenv("GOOGLE_LINK_DEADLINE")); raw != "" {

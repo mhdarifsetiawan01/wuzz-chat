@@ -36,6 +36,27 @@ type Service struct {
 	fcmProvider      PushProvider
 	lastCallPushTime map[string]time.Time
 	mu               sync.RWMutex
+
+	// recipientFilter menyaring penerima push (nil = semua boleh). Dipakai untuk tidak mengirim isi pesan ke akun yang dibekukan.
+	recipientFilter func(userIDs []string) []string
+}
+
+// SetRecipientFilter memasang penyaring penerima push; fungsi mengembalikan hanya user ID yang boleh menerima notifikasi.
+func (s *Service) SetRecipientFilter(filter func(userIDs []string) []string) {
+	s.mu.Lock()
+	s.recipientFilter = filter
+	s.mu.Unlock()
+}
+
+// allowedRecipients menerapkan recipientFilter (jika ada) pada daftar penerima.
+func (s *Service) allowedRecipients(userIDs []string) []string {
+	s.mu.RLock()
+	filter := s.recipientFilter
+	s.mu.RUnlock()
+	if filter == nil {
+		return userIDs
+	}
+	return filter(userIDs)
 }
 
 // SetDeliveryCallback menetapkan fungsi callback saat push notification berhasil diterima push service (Delivery ACK).
@@ -297,7 +318,7 @@ func (s *Service) NotifyOfflineRecipients(
 		}
 
 		// 3. Ambil push subscriptions untuk target user ID
-		subs, err := us.GetPushSubscriptionsForRecipients(targetUserIDs)
+		subs, err := us.GetPushSubscriptionsForRecipients(s.allowedRecipients(targetUserIDs))
 		if err != nil || len(subs) == 0 {
 			return
 		}
@@ -434,7 +455,7 @@ func (s *Service) NotifyUsers(userIDs []string, title, body, tag, url string) {
 			}
 		}()
 
-		subs, err := us.GetPushSubscriptionsForRecipients(userIDs)
+		subs, err := us.GetPushSubscriptionsForRecipients(s.allowedRecipients(userIDs))
 		if err != nil || len(subs) == 0 {
 			return
 		}
@@ -494,7 +515,7 @@ func (s *Service) NotifyMemoryEvent(userIDs []string, title, body, tag string, d
 			}
 		}()
 
-		subs, err := us.GetPushSubscriptionsForRecipients(userIDs)
+		subs, err := us.GetPushSubscriptionsForRecipients(s.allowedRecipients(userIDs))
 		if err != nil || len(subs) == 0 {
 			return
 		}
@@ -648,7 +669,7 @@ func (s *Service) NotifyIncomingCall(
 			return
 		}
 
-		subs, err := us.GetPushSubscriptionsForRecipients(targetUserIDs)
+		subs, err := us.GetPushSubscriptionsForRecipients(s.allowedRecipients(targetUserIDs))
 		if err != nil || len(subs) == 0 {
 			return
 		}
@@ -778,7 +799,7 @@ func (s *Service) NotifyCallCancelled(
 			return
 		}
 
-		subs, err := us.GetPushSubscriptionsForRecipients(targetUserIDs)
+		subs, err := us.GetPushSubscriptionsForRecipients(s.allowedRecipients(targetUserIDs))
 		if err != nil || len(subs) == 0 {
 			return
 		}

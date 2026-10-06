@@ -431,6 +431,9 @@ func (a *Application) setupRouter() http.Handler {
 
 	// Validasi versi aplikasi klien mobile (Force Update Gatekeeper)
 	if a.Config != nil {
+		// Pembekuan akun (belum menautkan Google setelah tenggat): dibungkus SEBELUM versionMw sehingga build lama yang
+		// terlalu tua tetap mendapat 426 (perbarui aplikasi) lebih dulu, bukan 403.
+		handler = api.NewLinkFreezeMiddleware(a.LinkFreeze).Middleware(handler)
 		versionMw := api.NewVersionMiddleware(a.Config.MinMobileBuild, a.Config.PlayStoreURL, a.Config.AppStoreURL).WithAPKURL(a.Config.APKDownloadURL)
 		handler = versionMw.Middleware(handler)
 	}

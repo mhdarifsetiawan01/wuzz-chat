@@ -34,7 +34,7 @@ import {
 import { ConversationItem, ConnectionStatusResponse } from './src/api/types';
 import { getUserProfile, startDirectChat } from './src/api/users';
 import { connectionsApi } from './src/api/connections';
-import { GoogleOnboardingScreen, LoginScreen, RegisterScreen } from './src/screens';
+import { GoogleLinkRequiredScreen, GoogleOnboardingScreen, LoginScreen, RegisterScreen } from './src/screens';
 import type { GooglePending } from './src/screens/GoogleOnboardingScreen';
 import {
   KeyConflictModal,
@@ -72,6 +72,7 @@ initCrashReporting();
 function AppContent() {
   const {
     isAuthenticated,
+    isGoogleLinkFrozen,
     user,
     isLoading,
     sessionReplacedMessage,
@@ -405,6 +406,11 @@ function AppContent() {
           <ActivityIndicator size="large" color="#FFFFFF" style={styles.spinner} />
         </View>
       );
+    }
+
+    // Akun dibekukan (belum menautkan Google setelah batas waktu): layar penautan menggantikan seluruh aplikasi.
+    if (isGoogleLinkFrozen) {
+      return <GoogleLinkRequiredScreen />;
     }
 
     if (isAuthenticated) {

@@ -44,6 +44,9 @@ type Application struct {
 	Config *config.Config
 	Server *http.Server
 
+	// LinkFreeze membekukan akun yang belum menautkan Google setelah tenggat; nil bila tidak aktif.
+	LinkFreeze *authz.LinkFreezePolicy
+
 	// Infrastructure & Stores
 	Broker        broker.MessageBroker
 	MessageStore  store.MessageStore
@@ -194,6 +197,16 @@ func New(cfg *config.Config) (*Application, error) {
 				store.NewSQLOAuthStore(sqlStore.DB(), sqlStore.DriverName()),
 			)
 			log.Printf("🔐 Login Google aktif (%d client ID)", len(cfg.GoogleOAuthClientIDs))
+
+			// Pembekuan akun yang belum menautkan Google setelah tenggat (kill switch GOOGLE_LINK_FREEZE, default mati).
+			if cfg.GoogleLinkFreeze {
+				if cfg.GoogleLinkDeadline.IsZero() {
+					log.Printf("⚠️ GOOGLE_LINK_FREEZE=true diabaikan: GOOGLE_LINK_DEADLINE belum diatur")
+				} else {
+					app.LinkFreeze = authz.NewLinkFreezePolicy(true, cfg.GoogleLinkDeadline, store.NewSQLOAuthStore(sqlStore.DB(), sqlStore.DriverName()))
+					log.Printf("🧊 Pembekuan akun belum menautkan Google AKTIF mulai %s", cfg.GoogleLinkDeadline.Format(time.RFC3339))
+				}
+			}
 		}
 		app.AuthHandler = api.NewAuthHandlerWithService(authSvc, userStore)
 		if tokenStore != nil {
@@ -202,6 +215,7 @@ func New(cfg *config.Config) (*Application, error) {
 		if accountEraser != nil {
 			app.AuthHandler.SetAccountEraser(accountEraser)
 		}
+		app.AuthHandler.SetLinkFreeze(app.LinkFreeze)
 		if cfg != nil && !cfg.GoogleLinkDeadline.IsZero() {
 			app.AuthHandler.SetGoogleLinkDeadline(cfg.GoogleLinkDeadline)
 			log.Printf("📣 Pengumuman penautan Google aktif (batas waktu: %s)", cfg.GoogleLinkDeadline.Format(time.RFC3339))
@@ -343,6 +357,30 @@ func New(cfg *config.Config) (*Application, error) {
 		hub.SetUserStore(userStore)
 	}
 	hub.SetPushService(pushService)
+	if app.LinkFreeze != nil {
+		freeze := app.LinkFreeze
+		// Koneksi yang sudah terbuka sebelum tenggat diputus begitu akun beku mengirim apa pun.
+		hub.SetAccessGate(func(userID, tenantID string) bool {
+			return !freeze.IsFrozen(context.Background(), userID, tenantID)
+		})
+		// Akun beku tidak menerima notifikasi push (isinya pesan terenkripsi yang didekripsi di perangkat).
+		pushService.SetRecipientFilter(func(userIDs []string) []string {
+			if !freeze.Active() {
+				return userIDs
+			}
+			allowed := make([]string, 0, len(userIDs))
+			for _, id := range userIDs {
+				tenantID := ""
+				if u, err := userStore.GetUserByID(id); err == nil && u != nil {
+					tenantID = u.TenantID
+				}
+				if !freeze.IsFrozen(context.Background(), id, tenantID) {
+					allowed = append(allowed, id)
+				}
+			}
+			return allowed
+		})
+	}
 	hub.SetBroker(messageBroker)
 	app.Hub = hub
 

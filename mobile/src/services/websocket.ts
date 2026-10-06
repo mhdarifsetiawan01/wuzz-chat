@@ -8,6 +8,7 @@
 import { Platform } from 'react-native';
 import { getBaseWsUrl } from '../api/config';
 import { APP_CHANNEL, getAppVersionInfo, notifyForceUpdateRequired } from '../utils/appVersion';
+import { isLinkRequiredClose, notifyGoogleLinkRequired } from '../utils/linkFrozen';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'terminated';
 
@@ -202,6 +203,18 @@ class WebSocketClient {
           console.warn(`[WS] Terminal Close Code ${event.code} received: Account opened on another device.`);
           const reason = event.reason || 'Sesi Anda telah digantikan oleh login di perangkat baru.';
           this.handleSessionReplaced(reason);
+          return;
+        }
+
+        // Close Code 4003 + alasan GOOGLE_LINK_REQUIRED: akun dibekukan (belum menautkan Google setelah batas waktu).
+        // Dibedakan dari 4003 DEVICE_MISMATCH lewat alasan; keduanya terminal (tidak menyambung ulang).
+        if (isLinkRequiredClose(event.code, event.reason)) {
+          console.warn('[WS] Terminal Close Code 4003 (GOOGLE_LINK_REQUIRED): akun dibekukan.');
+          this.isTerminated = true;
+          this.destroyed = true;
+          this.setState('terminated');
+          this.clearReconnectTimer();
+          notifyGoogleLinkRequired();
           return;
         }
 

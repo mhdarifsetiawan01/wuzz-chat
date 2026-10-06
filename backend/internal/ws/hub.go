@@ -93,6 +93,15 @@ type Hub struct {
 	privacyChecker   PrivacyCallChecker
 	pushService      *push.Service
 	broker           broker.MessageBroker
+
+	// accessGate dipanggil untuk setiap pesan masuk dari klien; false berarti akun dibekukan dan koneksinya diputus.
+	// Diatur sekali saat wiring, sebelum Hub melayani koneksi.
+	accessGate func(userID, tenantID string) bool
+}
+
+// SetAccessGate memasang pemeriksa akses (nil = semua boleh). Dipakai untuk memutus koneksi akun yang dibekukan.
+func (h *Hub) SetAccessGate(gate func(userID, tenantID string) bool) {
+	h.accessGate = gate
 }
 
 // NewHub membuat Hub baru dengan dependency yang disuntikkan.
