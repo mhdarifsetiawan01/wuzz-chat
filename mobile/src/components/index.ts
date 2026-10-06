@@ -48,3 +48,4 @@ export * from './DeleteAccountModal';
 export * from './ReportModal';
 export * from './GoogleLinkBanner';
 export * from './GoogleLinkBannerView';
+export * from './OptionCard';

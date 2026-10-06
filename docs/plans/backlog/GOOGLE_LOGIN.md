@@ -281,3 +281,14 @@ Dilakukan dua cara: (1) render komponen asli dari repo di browser (harness Vite 
 **Belum diverifikasi di HP:** perbaikan 3-6 (butuh build baru), layar akun beku (hanya bisa muncul setelah tenggat, atau di server uji), font scale aksesibilitas Android.
 
 **Catatan versi:** `~/wuzz-releases/1.25.0-39/` berisi build 08:49 (teks lama, tanpa perbaikan di atas); build 09:53 yang terpasang di HP juga `versionCode 39` tetapi biner berbeda. Dua APK berbeda dengan versionCode sama berbahaya bila yang lama sudah beredar (pengguna tak akan "diperbarui" ke yang baru). Gunakan versionCode baru untuk rilis berikutnya.
+
+## 14. Polesan UI Google (tombol resmi + onboarding), 2026-10-06
+
+**Kode selesai di `dev`, belum di-commit/dibuild/diuji di HP** (diperiksa lewat render komponen asli di browser: tombol 5 keadaan, chip, onboarding tiap langkah di 320 dan 360dp).
+- Logo "G" resmi (SVG empat warna, dibuktikan visual) di tombol login dan layar akun beku; warna merek hanya di `theme/brand/google.ts`.
+- **Fleksibel untuk desain sendiri:** `googleUi.tsx` (default global: `buttonAppearance` brand/app, `renderLogo`), props per tombol, `copy.ts` untuk teks, tampilan onboarding murni terpisah dari logika. Panduan di `mobile/DESIGN.md` bagian 7.
+- Onboarding: kartu pilihan (ikon + judul + deskripsi) menggantikan dua tombol; chip akun Google di atas; tombol "Kembali" dengan ikon; petunjuk username langsung (aturan sama dengan server, tidak menjanjikan ketersediaan); kotak bantuan "Lupa password?" sesuai keputusan (akun baru, atau hubungi support untuk hapus akun lama; email di `SUPPORT_EMAIL`).
+- Layar akun beku: tombol Google resmi sebagai aksi utama, "Keluar" menjadi tautan.
+- `Input` mendapat prop `hint` (teks bantuan kecil).
+
+**Belum:** verifikasi di HP (butuh build baru), UI putuskan/ganti akun Google (endpoint backend ada), ikon logo di baris Pengaturan "Akun Google".

@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActiveDeviceItem } from '../api/types';
 import { Button, DeviceLimitModal, Input } from '../components';
+import { GoogleSignInButton } from '../components/google';
 import { useAuth } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
 import { isGoogleSignInAvailable, GoogleAuthError } from '../services/googleAuth';
@@ -170,9 +171,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister, 
 
             {googleAvailable && (
               <>
-                <Button
+                <GoogleSignInButton
                   title="Lanjutkan dengan Google"
-                  variant="secondary"
                   isLoading={isGoogleLoading}
                   disabled={isLoading}
                   onPress={handleGoogle}

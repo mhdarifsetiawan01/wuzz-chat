@@ -6,20 +6,15 @@
  */
 
 import React, { useCallback, useRef, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Linking, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActiveDeviceItem } from '../api/types';
-import { Button, DeviceLimitModal, Input } from '../components';
+import { DeviceLimitModal } from '../components';
 import { useAuth } from '../context';
-import { colors, radius, spacing, typography } from '../theme';
+import { SUPPORT_EMAIL } from '../api/config';
+import { colors } from '../theme';
+import { getUsernameHint } from '../utils/usernameRules';
+import { GoogleOnboardingView } from './googleOnboarding/GoogleOnboardingView';
 import {
   GoogleFlowError,
   googleErrorMessage,
@@ -178,105 +173,41 @@ export const GoogleOnboardingScreen: React.FC<GoogleOnboardingScreenProps> = ({ 
     else setStep('choose');
   };
 
-  const renderChoose = () => (
-    <>
-      <Text style={styles.cardTitle}>Akun Google belum terhubung</Text>
-      <Text style={styles.cardText}>
-        {pending.email ? `${pending.email} belum terhubung ke akun WuzzChat mana pun.` : 'Akun Google ini belum terhubung ke akun WuzzChat mana pun.'}{' '}
-        Pilih salah satu:
-      </Text>
-      <Button title="Buat akun baru" onPress={() => setStep('new')} style={styles.stackButton} />
-      <Button
-        title="Saya sudah punya akun WuzzChat"
-        variant="secondary"
-        onPress={() => setStep('link')}
-        style={styles.stackButton}
-      />
-    </>
-  );
-
-  const renderNew = () => (
-    <>
-      <Text style={styles.cardTitle}>Buat akun baru</Text>
-      <Text style={styles.cardText}>
-        Anda masuk dengan Google, jadi tidak perlu membuat password. Pilih username yang akan dilihat teman Anda.
-      </Text>
-      <Input
-        label="Username"
-        placeholder="pilih_username"
-        autoCapitalize="none"
-        autoCorrect={false}
-        value={username}
-        onChangeText={(t) => {
-          setUsername(t);
-          clearError();
-        }}
-      />
-      <Input
-        label="Nama Tampilan (Opsional)"
-        placeholder="Contoh: Alice Smith"
-        value={displayName}
-        onChangeText={(t) => {
-          setDisplayName(t);
-          clearError();
-        }}
-      />
-      <Button title="Buat Akun" isLoading={isLoading} onPress={handleCreate} style={styles.stackButton} />
-    </>
-  );
-
-  const renderLink = () => (
-    <>
-      <Text style={styles.cardTitle}>Tautkan ke akun lama</Text>
-      <Text style={styles.cardText}>
-        Masukkan username dan password akun WuzzChat Anda. Setelah itu Anda bisa masuk dengan Google.
-      </Text>
-      <Input
-        label="Username"
-        placeholder="Masukkan username"
-        autoCapitalize="none"
-        autoCorrect={false}
-        value={username}
-        onChangeText={(t) => {
-          setUsername(t);
-          clearError();
-        }}
-      />
-      <Input
-        label="Password"
-        placeholder="Masukkan password"
-        secureTextEntry
-        autoCapitalize="none"
-        autoCorrect={false}
-        value={password}
-        onChangeText={(t) => {
-          setPassword(t);
-          clearError();
-        }}
-      />
-      <Button title="Tautkan & Masuk" isLoading={isLoading} onPress={handleLink} style={styles.stackButton} />
-    </>
-  );
+  const handleSelectStep = (next: Exclude<Step, 'choose'>) => {
+    setErrorMessage(null);
+    setStep(next);
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardView}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <View style={styles.formCard}>
-            {errorMessage && (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerText}>{errorMessage}</Text>
-              </View>
-            )}
-            {step === 'choose' && renderChoose()}
-            {step === 'new' && renderNew()}
-            {step === 'link' && renderLink()}
-
-            <TouchableOpacity onPress={goBack} activeOpacity={0.7} style={styles.backLink} disabled={isLoading}>
-              <Text style={styles.backLinkText}>{step === 'choose' ? 'Batal' : 'Kembali'}</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+        <GoogleOnboardingView
+          step={step}
+          email={pending.email}
+          username={username}
+          displayName={displayName}
+          password={password}
+          usernameHint={getUsernameHint(username)}
+          errorMessage={errorMessage}
+          isLoading={isLoading}
+          onChangeUsername={(t) => {
+            setUsername(t);
+            clearError();
+          }}
+          onChangeDisplayName={(t) => {
+            setDisplayName(t);
+            clearError();
+          }}
+          onChangePassword={(t) => {
+            setPassword(t);
+            clearError();
+          }}
+          onSelectStep={handleSelectStep}
+          onSubmitNew={handleCreate}
+          onSubmitLink={handleLink}
+          onBack={goBack}
+          onOpenSupport={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {})}
+        />
       </KeyboardAvoidingView>
 
       <DeviceLimitModal
@@ -296,31 +227,4 @@ export const GoogleOnboardingScreen: React.FC<GoogleOnboardingScreenProps> = ({ 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bgBase },
   keyboardView: { flex: 1 },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxl,
-  },
-  formCard: {
-    backgroundColor: colors.bgSurface,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.borderDefault,
-    padding: spacing.xxl,
-  },
-  cardTitle: { ...typography.h2, color: colors.textPrimary, marginBottom: spacing.sm },
-  cardText: { ...typography.bodySecondary, color: colors.textSecondary, marginBottom: spacing.lg },
-  errorBanner: {
-    backgroundColor: colors.tintError10,
-    borderWidth: 1,
-    borderColor: colors.colorError,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  errorBannerText: { ...typography.caption, color: colors.colorError, fontWeight: '500' },
-  stackButton: { marginTop: spacing.sm },
-  backLink: { alignSelf: 'center', marginTop: spacing.xl, padding: spacing.sm },
-  backLinkText: { ...typography.captionBold, color: colors.accentPrimary },
 });

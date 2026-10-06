@@ -7,6 +7,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors, radius, spacing, typography } from '../theme';
 import { Button } from './Button';
+import { GoogleSignInButton } from './google/GoogleSignInButton';
 
 export interface GoogleLinkRequiredViewProps {
   username?: string;
@@ -35,8 +36,8 @@ export const GoogleLinkRequiredView: React.FC<GoogleLinkRequiredViewProps> = ({
         Pesan, teman, dan data Anda aman dan tidak dihapus. Hubungkan akun Google untuk membuka kembali akun Anda.
       </Text>
 
-      <Button title="Hubungkan Akun Google" isLoading={isLinking} onPress={onLink} style={styles.button} />
-      <Button title="Keluar" variant="secondary" disabled={isLinking || isLoggingOut} onPress={onLogout} style={styles.button} />
+      <GoogleSignInButton title="Hubungkan Akun Google" isLoading={isLinking} onPress={onLink} style={styles.button} />
+      <Button title="Keluar" variant="ghost" disabled={isLinking || isLoggingOut} onPress={onLogout} style={styles.button} />
 
       <TouchableOpacity onPress={onDelete} activeOpacity={0.7} style={styles.deleteLink} disabled={isLinking}>
         <Text style={styles.deleteLinkText}>Hapus akun saya</Text>

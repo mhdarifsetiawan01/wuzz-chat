@@ -17,12 +17,15 @@ import { colors, radius, spacing, typography } from '../theme';
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string | null;
+  /** Teks bantuan kecil di bawah kolom; disembunyikan saat ada error. */
+  hint?: string | null;
   containerStyle?: ViewStyle;
 }
 
 export const Input: React.FC<InputProps> = ({
   label,
   error,
+  hint,
   containerStyle,
   onFocus,
   onBlur,
@@ -55,7 +58,7 @@ export const Input: React.FC<InputProps> = ({
           {...rest}
         />
       </View>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : hint ? <Text style={styles.hintText}>{hint}</Text> : null}
     </View>
   );
 };
@@ -93,6 +96,11 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.caption,
     color: colors.colorError,
+    marginTop: spacing.xs,
+  },
+  hintText: {
+    ...typography.caption,
+    color: colors.textMuted,
     marginTop: spacing.xs,
   },
 });

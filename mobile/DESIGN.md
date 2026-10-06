@@ -288,3 +288,26 @@ Untuk mencegah teks tidak terbaca (*white-on-white* atau warna sama dengan tombo
 - Visualizer waveform 24-bar vertikal dengan scrubber progress pendar neon.
 - Tombol toggle kecepatan putar dinamis: `1x`, `1.5x`, `2x`.
 
+
+---
+
+## 🔗 7. Merek Pihak Ketiga: Tombol & Logo Google
+
+Logo dan tombol "Lanjutkan dengan Google" mengikuti [pedoman merek Google](https://developers.google.com/identity/branding-guidelines): logo "G" empat warna tidak boleh diwarnai ulang atau diubah bentuknya. Karena itu warna hex logo dan tombol resmi dikurung di **satu berkas** (`src/theme/brand/google.ts`), satu-satunya pengecualian dari larangan hex mentah. Selain berkas itu, tetap wajib memakai token tema.
+
+**Struktur (semua di `src/components/google/`):**
+
+| Berkas | Isi |
+|---|---|
+| `GoogleLogo.tsx` | SVG "G" resmi; hanya `size` yang bisa diatur |
+| `GoogleSignInButton.tsx` | Tombol; tinggi (50) dan radius sama dengan `<Button>`; judul panjang dipotong elipsis, logo tidak menyusut |
+| `GoogleAccountChip.tsx` | Pil logo + email akun yang dipilih |
+| `googleUi.tsx` | **Konfigurasi tampilan global** (lihat di bawah) |
+
+**Mengganti desain nanti (tanpa menyentuh logika layar):**
+1. **Seluruh aplikasi sekaligus:** ubah `GOOGLE_UI` di `googleUi.tsx`. `buttonAppearance: 'brand'` (putih bergaris resmi) atau `'app'` (bergaya token DESIGN.md); `renderLogo` untuk logo buatan sendiri.
+2. **Satu tombol saja:** beri props `appearance` / `renderLogo` pada `<GoogleSignInButton>`.
+3. **Teks layar onboarding:** `src/screens/googleOnboarding/copy.ts`.
+4. **Tata letak onboarding:** `GoogleOnboardingView.tsx` (tampilan murni, tanpa hook; logika ada di `GoogleOnboardingScreen.tsx`). Selama props-nya sama, desain boleh diganti total. Hal yang sama berlaku untuk `GoogleLinkBannerView` dan `GoogleLinkRequiredView`.
+
+Bila logo diganti dengan buatan sendiri, periksa ulang kepatuhan pedoman merek Google sebelum rilis Play Store.
