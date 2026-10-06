@@ -92,6 +92,9 @@ func TestModerationRoutes_WiredAndProtected(t *testing.T) {
 		{http.MethodPost, "/api/admin/reports/rpt_x/action"},
 		{http.MethodPost, "/api/admin/users/u9/unsuspend"},
 		{http.MethodPost, "/api/admin/notify/test"},
+		{http.MethodGet, "/api/admin/staff"},
+		{http.MethodGet, "/api/admin/staff/lookup?username=x"},
+		{http.MethodPost, "/api/admin/staff/u9/grant"},
 	} {
 		if rr := call(h, tc.method, tc.path, "", `{}`); rr.Code != http.StatusUnauthorized {
 			t.Errorf("%s %s tanpa token: want 401, got %d", tc.method, tc.path, rr.Code)
@@ -105,6 +108,15 @@ func TestModerationRoutes_WiredAndProtected(t *testing.T) {
 	}
 	if rr := call(h, http.MethodGet, "/api/admin/reports/rpt_tak_ada", mod, ""); rr.Code != http.StatusNotFound {
 		t.Fatalf("detail tak ada: want 404, got %d", rr.Code)
+	}
+	// Pengelolaan staf: moderator biasa ditolak, hanya wuzz_admin (diverifikasi ke database) yang boleh.
+	if rr := call(h, http.MethodGet, "/api/admin/staff", mod, ""); rr.Code != http.StatusForbidden {
+		t.Fatalf("moderator mengelola staf: want 403, got %d", rr.Code)
+	}
+	admin := staffToken(t, app, h, "boss_one", "wuzz_admin")
+	rr := call(h, http.MethodGet, "/api/admin/staff", admin, "")
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"boss_one"`) || !strings.Contains(rr.Body.String(), `"mod_one"`) {
+		t.Fatalf("admin melihat daftar staf: %d %s", rr.Code, rr.Body.String())
 	}
 	// Notifikasi belum dikonfigurasi: tes dijawab 503, bukan galat server.
 	if rr := call(h, http.MethodPost, "/api/admin/notify/test", mod, ""); rr.Code != http.StatusServiceUnavailable {

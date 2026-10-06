@@ -401,6 +401,8 @@ func (a *Application) setupRouter() http.Handler {
 			{"/api/admin/reports", a.ModerationHandler.HandleReports},
 			{"/api/admin/reports/", a.ModerationHandler.HandleReportItem},
 			{"/api/admin/users/", a.ModerationHandler.HandleUser},
+			{"/api/admin/staff", a.ModerationHandler.HandleStaff},
+			{"/api/admin/staff/", a.ModerationHandler.HandleStaff},
 		} {
 			fn := route.fn
 			mux.HandleFunc(route.path, withCORS(func(w http.ResponseWriter, r *http.Request) {

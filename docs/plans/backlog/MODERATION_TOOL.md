@@ -195,3 +195,20 @@ Bila variabel kurang lengkap, saluran dilewati dengan peringatan di log (server 
 - `wuzz_admin` dan `wuzz_moderator` setara di alat moderasi; `wuzz_admin` tambahan punya fitur admin di Linimasa.
 
 **Belum:** halaman "Kelola moderator" di `/admin` (khusus `wuzz_admin`, angkat/cabut lewat username dengan audit dan `Invalidate`). Layak dikerjakan sebelum moderator bertambah banyak.
+
+## 13. Halaman Kelola Moderator (2026-10-06)
+
+**Selesai di `dev` (belum di-commit/dideploy).** `/admin/staff` (menu "Moderator" hanya tampil untuk admin): daftar admin dan moderator, cari akun lewat username (tak peka huruf besar/kecil) dengan kartu konfirmasi, angkat jadi moderator, cabut moderator, catatan opsional yang masuk audit, peringatan bila akun hanya punya login Google (belum bisa masuk ke `/admin` web).
+
+**Aturan keamanan (diuji):**
+- Hanya **`wuzz_admin`** (peran efektif, diverifikasi ke database) yang boleh; moderator biasa 403.
+- UI hanya **mengangkat `wuzz_moderator`** dan **mencabut `wuzz_moderator`**. Peran `wuzz_admin` tidak bisa diberikan/dicabut lewat alat ini (hanya SQL): tidak ada eskalasi hak lewat antarmuka dan admin tidak bisa saling mencabut.
+- Tidak boleh mengubah peran akun sendiri; akun yang sudah staf tidak diangkat ulang (409); akun yang ditangguhkan tidak bisa diangkat (409); akun tenant lain 404.
+- Perubahan dan audit (`grant_moderator` / `revoke_moderator`, memuat siapa, siapa target, catatan, waktu) dalam satu transaksi; UPDATE bersyarat peran saat ini melindungi dari perubahan bersamaan.
+- Cache peran dibuang saat peran diubah, sehingga **pencabutan berlaku seketika** pada token yang sama (terbukti di browser: sesi moderator lama langsung ditolak). Yang baru diangkat **harus login ulang** di `/admin` (token lama berperan `user` tidak naik sendiri).
+
+**Endpoint:** `GET /api/admin/staff`, `GET /api/admin/staff/lookup?username=`, `POST /api/admin/staff/{id}/grant`, `POST /api/admin/staff/{id}/revoke`. Kode: `store/moderation_staff_store.go`, `api/moderation_staff_handler.go`, `frontend/app/admin/staff/page.tsx`.
+
+**Dites:** SQLite dan PostgreSQL 16, seluruh suite; 6 mutasi keamanan tertangkap (termasuk pengaman ganda pada pencabutan admin, yang sengaja berlapis); browser nyata dua sesi (admin mengangkat, moderator baru login, admin mencabut, akses lama hilang), tata letak 390px. Satu cacat tampilan ditemukan dan diperbaiki saat uji (`.btn-primary` berlebar 100% menghimpit nama di baris flex) dan dijaga tes.
+
+**Belum:** mengangkat `wuzz_admin` lewat UI (sengaja), riwayat staf di halaman (audit ada di tabel `moderation_actions`).

@@ -132,6 +132,7 @@ func New(cfg *config.Config) (*Application, error) {
 	var reportStore store.ReportStore
 	var moderationStore store.ModerationStore
 	var suspension *authz.SuspensionPolicy
+	var rolePolicy *authz.RolePolicy
 	var roleResolver auth.RoleResolver // peran istimewa diverifikasi ke database; nil bila alat moderasi tidak aktif
 	var feedRepo feed.FeedRepository
 	var connRepo connection.ConnectionRepository
@@ -159,7 +160,8 @@ func New(cfg *config.Config) (*Application, error) {
 		} else {
 			moderationStore = ms
 			suspension = authz.NewSuspensionPolicy(ms)
-			roleResolver = authz.NewRolePolicy(ms)
+			rolePolicy = authz.NewRolePolicy(ms)
+			roleResolver = rolePolicy
 		}
 		sqlUserStore.SetCredentialStore(credentialStore)
 
@@ -303,6 +305,7 @@ func New(cfg *config.Config) (*Application, error) {
 	auth.SetRoleResolver(roleResolver)
 	if moderationStore != nil {
 		app.ModerationHandler = api.NewModerationHandler(moderationStore, suspension)
+		app.ModerationHandler.SetRolePolicy(rolePolicy)
 	}
 	if cfg != nil && len(cfg.ModerationNotify) > 0 {
 		app.Notifier = notify.Build(notify.Settings{

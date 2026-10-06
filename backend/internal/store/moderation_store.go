@@ -111,6 +111,12 @@ type ModerationStore interface {
 	ApplyAction(ctx context.Context, in ApplyActionInput) (*ApplyActionResult, error)
 	// Unsuspend memulihkan akun dan mencatat audit.
 	Unsuspend(ctx context.Context, tenantID, moderatorID, userID, note string) error
+
+	// Pengelolaan staf (khusus admin; lihat moderation_staff_store.go).
+	ListStaff(ctx context.Context, tenantID string) ([]StaffMember, error)
+	LookupUser(ctx context.Context, tenantID, username string) (*StaffMember, error)
+	GrantModerator(ctx context.Context, tenantID, actorID, userID, note string) (*StaffMember, error)
+	RevokeModerator(ctx context.Context, tenantID, actorID, userID, note string) (*StaffMember, error)
 }
 
 // SQLModerationStore adalah implementasi untuk SQLite & PostgreSQL.

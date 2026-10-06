@@ -184,6 +184,8 @@ Halaman internal staf (`/admin/reports`, `/admin/reports/[id]`) dengan login sen
 | `.adm-content`, `.adm-pre` | Teks pengguna **selalu sebagai teks** (`pre-wrap`, tanpa `dangerouslySetInnerHTML`) |
 | `.adm-btn-danger`, `.adm-link-btn` | Tombol destruktif dan tombol teks header (`.btn-ghost` bawaan gelap, tidak terbaca di latar gelap) |
 
+Catatan: `.btn-primary` bawaan berlebar 100%; di dalam baris flex (`.adm-row`) tombol diberi `width:auto; flex:0 0 auto` (`.adm-row > .btn`) agar teks di sebelahnya tidak terhimpit. Halaman `/admin/staff` (khusus admin) memakai kelas yang sama ditambah `.adm-nav`, `.adm-inline-form`, `.adm-staff-main`.
+
 Aturan keamanan tampilan: tautan dari konten pengguna hanya `http(s)` dengan `rel="noopener noreferrer nofollow"` dan **tidak pernah dimuat otomatis** (tanpa `<img>`); `robots: noindex`; `/admin` dikecualikan dari gerbang jeda web (`WEB_PAUSED_EXEMPT_PREFIXES`). Pemeriksaan peran sebenarnya di backend.
 
 ---

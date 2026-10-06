@@ -35,6 +35,30 @@
 
 .adm-header-user { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 
+.adm-nav {
+  display: flex;
+  gap: var(--space-2);
+  max-width: 880px;
+  margin: var(--space-3) auto 0;
+  padding: 0 var(--space-4);
+}
+.adm-nav a {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+.adm-nav a.is-active { background: var(--tint-accent-20); border-color: var(--border-strong); color: var(--text-primary); }
+
+.adm-inline-form { display: flex; gap: var(--space-2); align-items: stretch; }
+.adm-inline-form .form-input { flex: 1; min-width: 0; }
+.adm-staff-main { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; flex: 1; }
+.adm-staff-name { font-weight: 600; overflow-wrap: anywhere; }
+/* .btn-primary bawaan berlebar 100%; di dalam baris flex tombol harus selebar isinya agar teks di sebelahnya tidak terhimpit. */
+.adm-row > .btn, .adm-row-side > .btn { width: auto; flex: 0 0 auto; }
+
 .adm-main {
   max-width: 880px;
   margin: 0 auto;

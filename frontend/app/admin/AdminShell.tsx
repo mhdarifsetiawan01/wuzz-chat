@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
   adminLogin,
   adminLogout,
@@ -35,6 +36,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [username, setUsername] = useState('')
   const [role, setRole] = useState('')
   const [notice, setNotice] = useState('')
+  const pathname = usePathname() || ''
 
   useEffect(() => {
     const token = getAdminToken()
@@ -102,6 +104,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </button>
           </div>
         </header>
+        <nav className="adm-nav" aria-label="Menu moderasi">
+          <Link href="/admin/reports" className={pathname.startsWith('/admin/reports') ? 'is-active' : ''}>Laporan</Link>
+          {/* Hanya tampilan; backend menolak non-admin di /api/admin/staff. */}
+          {role === 'wuzz_admin' && (
+            <Link href="/admin/staff" className={pathname.startsWith('/admin/staff') ? 'is-active' : ''}>Moderator</Link>
+          )}
+        </nav>
         <main className="adm-main">{children}</main>
       </div>
     </AdminSessionContext.Provider>

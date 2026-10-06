@@ -28,9 +28,13 @@ type ModerationHandler struct {
 	store      store.ModerationStore
 	suspension *authz.SuspensionPolicy
 	notifier   NotifyTester
+	roles      *authz.RolePolicy           // dibuang cache-nya saat peran diubah lewat alat ini (nil = hanya TTL)
 	revoke     func(userID string) error   // mencabut semua token akun (nil = dilewati)
 	kick       func(userID, reason string) // memutus semua koneksi WebSocket akun (nil = dilewati)
 }
+
+// SetRolePolicy memasang kebijakan peran agar perubahan peran langsung berlaku di instans ini.
+func (h *ModerationHandler) SetRolePolicy(p *authz.RolePolicy) { h.roles = p }
 
 // NotifyTester menguji saluran pemberitahuan (notify.Dispatcher).
 type NotifyTester interface {

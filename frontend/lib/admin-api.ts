@@ -84,6 +84,8 @@ export const ACTION_LABEL: Record<string, string> = {
   delete_content: 'Konten dihapus',
   suspend_user: 'Akun ditangguhkan',
   unsuspend_user: 'Akun dipulihkan',
+  grant_moderator: 'Diangkat jadi moderator',
+  revoke_moderator: 'Moderator dicabut',
 }
 
 // Alasan yang ditinjau paling dulu (selaras dengan urutan prioritas di backend).
@@ -196,6 +198,44 @@ export function unsuspendUser(userId: string, note: string) {
     method: 'POST',
     body: JSON.stringify({ note }),
   })
+}
+
+export interface StaffMember {
+  id: string
+  username: string
+  display_name: string
+  system_role: string
+  suspended: boolean
+  // false = akun hanya bisa masuk lewat Google, jadi belum bisa masuk ke /admin (web).
+  has_password: boolean
+  created_at: string
+}
+
+export function listStaff() {
+  return adminFetch<{ staff: StaffMember[] }>('/api/admin/staff')
+}
+
+export function lookupStaff(username: string) {
+  return adminFetch<{ user: StaffMember }>(`/api/admin/staff/lookup?username=${encodeURIComponent(username.trim())}`)
+}
+
+export function grantModerator(userId: string, note: string) {
+  return adminFetch<{ status: string; user: StaffMember }>(`/api/admin/staff/${encodeURIComponent(userId)}/grant`, {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  })
+}
+
+export function revokeModerator(userId: string, note: string) {
+  return adminFetch<{ status: string; user: StaffMember }>(`/api/admin/staff/${encodeURIComponent(userId)}/revoke`, {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  })
+}
+
+export const ROLE_LABEL: Record<string, string> = {
+  wuzz_admin: 'Admin',
+  wuzz_moderator: 'Moderator',
 }
 
 export interface NotifyTestResult {
