@@ -55,6 +55,20 @@
 .adm-inline-form { display: flex; gap: var(--space-2); align-items: stretch; }
 .adm-inline-form .form-input { flex: 1; min-width: 0; }
 .adm-staff-main { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; flex: 1; }
+.adm-suspend-box { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.adm-suspend-box > .btn { width: auto; flex: 0 0 auto; }
+.adm-inline-link {
+  align-self: flex-start;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--color-verified);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
 .adm-staff-name { font-weight: 600; overflow-wrap: anywhere; }
 /* .btn-primary bawaan berlebar 100%; di dalam baris flex tombol harus selebar isinya agar teks di sebelahnya tidak terhimpit. */
 .adm-row > .btn, .adm-row-side > .btn { width: auto; flex: 0 0 auto; }
@@ -208,5 +222,7 @@ a.adm-row:hover { background: var(--bg-surface-hover); border-color: var(--borde
   .adm-row { flex-direction: column; align-items: flex-start; }
   .adm-row-side { align-items: flex-start; }
   .adm-meta { grid-template-columns: 1fr; gap: var(--space-1); }
+  .adm-suspend-box { flex-direction: column; align-items: stretch; }
+  .adm-suspend-box > .btn { width: 100%; }
   .adm-meta dd { margin-bottom: var(--space-2); }
 }

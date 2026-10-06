@@ -104,6 +104,11 @@ export default function ReportDetailPage() {
   const isOpen = r.status === 'open'
   const canDelete = CONTENT_ACTION_TARGETS.includes(r.target_type)
   const needNote = noteTrim === ''
+  const focusNote = () => {
+    const el = document.getElementById('adm-note')
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el?.focus()
+  }
 
   return (
     <section aria-labelledby="adm-detail-title">
@@ -122,6 +127,27 @@ export default function ReportDetailPage() {
       </div>
 
       {message && <div className="adm-alert adm-alert-ok" role="status">{message}</div>}
+
+      {/* Pemulihan akun dibuat mencolok dan terpisah dari "Buka kembali laporan" (dua hal berbeda yang mudah tertukar). */}
+      {owner && detail.target_user_suspended && (
+        <div className="adm-alert adm-alert-warn adm-suspend-box" role="status">
+          <div className="adm-staff-main">
+            <strong>Akun pemilik sedang ditangguhkan.</strong>
+            <span className="adm-muted">
+              Pemilik hanya melihat layar penangguhan. &ldquo;Buka kembali laporan&rdquo; hanya mengubah status laporan dan
+              TIDAK memulihkan akun.
+            </span>
+            {needNote && (
+              <button type="button" className="adm-inline-link" onClick={focusNote}>
+                Isi catatan terlebih dahulu agar tombol Pulihkan akun aktif
+              </button>
+            )}
+          </div>
+          <button type="button" className="btn btn-primary" disabled={busy || needNote} onClick={() => setPending({ kind: 'unsuspend' })}>
+            Pulihkan akun
+          </button>
+        </div>
+      )}
 
       <div className="adm-card">
         <h2 className="adm-h2">Isi yang dilaporkan</h2>
@@ -217,7 +243,7 @@ export default function ReportDetailPage() {
               <button type="button" className="btn btn-primary" disabled={busy} onClick={() => run('resolve')}>Tandai selesai</button>
             </>
           ) : (
-            <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => run('reopen')}>Buka kembali</button>
+            <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => run('reopen')}>Buka kembali laporan</button>
           )}
           {canDelete && (
             <button type="button" className="btn adm-btn-danger" disabled={busy || needNote} onClick={() => setPending({ kind: 'delete_content' })}>
@@ -239,12 +265,10 @@ export default function ReportDetailPage() {
               {r.evidence_hold ? 'Lepas tahanan bukti' : 'Tahan bukti'}
             </button>
           )}
-          {owner && detail.target_user_suspended && (
-            <button type="button" className="btn btn-secondary" disabled={busy || needNote} onClick={() => setPending({ kind: 'unsuspend' })}>
-              Pulihkan akun
-            </button>
-          )}
         </div>
+        {needNote && (
+          <p className="adm-muted">Hapus konten, tangguhkan, pulihkan akun, dan tahan bukti aktif setelah catatan diisi.</p>
+        )}
       </div>
 
       <div className="adm-card">
