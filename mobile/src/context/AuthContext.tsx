@@ -21,6 +21,7 @@ import { E2EEKeyPair, generateE2EEKeyPair } from '../services/crypto';
 import { deviceIdService } from '../services/deviceIdService';
 import { signInWithGoogle, signOutGoogleLocal } from '../services/googleAuth';
 import { isGoogleLinkRequiredError, onGoogleLinkRequired } from '../utils/linkFrozen';
+import { isAccountSuspendedError, onAccountSuspended } from '../utils/accountSuspended';
 import { mediaCache } from '../services/mediaCache';
 import { notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
@@ -59,6 +60,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   /** Akun masuk tetapi dibekukan: belum menautkan Google setelah batas waktu. isAuthenticated bernilai false selama ini. */
   isGoogleLinkFrozen: boolean;
+  /** Akun masuk tetapi ditangguhkan moderator. isAuthenticated bernilai false selama ini; hanya keluar, hubungi support, dan hapus akun yang diizinkan server. */
+  isAccountSuspended: boolean;
   isLoading: boolean;
   sessionReplacedMessage: string | null;
   e2eeKeyPair: E2EEKeyPair | null;
@@ -76,6 +79,8 @@ interface AuthContextType {
   linkGoogleToExistingAccount: (payload: { linkToken: string; username: string; password: string } & GoogleLoginOptions) => Promise<void>;
   /** Menautkan Google ke akun yang sedang login (Pengaturan). false = pengguna membatalkan pemilih akun. */
   linkGoogleToCurrentAccount: () => Promise<boolean>;
+  /** Memeriksa ulang status akun ke server (untuk layar akun ditangguhkan). true bila penangguhan sudah dicabut; melempar bila tidak dapat dijangkau. */
+  recheckAccountStatus: () => Promise<boolean>;
   logout: () => Promise<void>;
   deleteAccount: (proof: ProofInput) => Promise<void>;
   dismissSessionAlert: () => void | Promise<void>;
@@ -121,6 +126,7 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   isAuthenticated: false,
   isGoogleLinkFrozen: false,
+  isAccountSuspended: false,
   isLoading: true,
   sessionReplacedMessage: null,
   e2eeKeyPair: null,
@@ -134,6 +140,7 @@ const AuthContext = createContext<AuthContextType>({
   registerWithGoogle: async () => {},
   linkGoogleToExistingAccount: async () => {},
   linkGoogleToCurrentAccount: async () => false,
+  recheckAccountStatus: async () => false,
   logout: async () => {},
   deleteAccount: async () => {},
   dismissSessionAlert: () => {},
@@ -156,6 +163,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     googleLinkFrozenRef.current = googleLinkFrozen;
   }, [googleLinkFrozen]);
+
+  // Akun ditangguhkan moderator. Perilaku sama dengan pembekuan: isAuthenticated=false, tanpa pengambilan data/E2EE/WebSocket.
+  const [accountSuspended, setAccountSuspended] = useState<boolean>(false);
+
+  // Sinyal global: HTTP 403 ACCOUNT_SUSPENDED dari mana pun, atau penutupan WebSocket 4004.
+  useEffect(
+    () =>
+      onAccountSuspended(() => {
+        setAccountSuspended(true);
+        websocketClient.disconnect();
+      }),
+    []
+  );
 
   // Sinyal global: HTTP 403 GOOGLE_LINK_REQUIRED dari mana pun, atau penutupan WebSocket 4003.
   useEffect(
@@ -183,6 +203,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (isGoogleLinkRequiredError(err)) {
             // Akun beku: server menolak. Jangan tandai siap dan jangan sentuh kunci; sinkronisasi diulang setelah Google tertaut.
             setGoogleLinkFrozen(true);
+            setE2eeStatus('uninitialized');
+            return;
+          }
+          if (isAccountSuspendedError(err)) {
+            // Akun ditangguhkan: sama seperti beku, jangan sentuh kunci lokal; layar penangguhan menggantikan aplikasi.
+            setAccountSuspended(true);
             setE2eeStatus('uninitialized');
             return;
           }
@@ -220,6 +246,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setE2eeStatus('uninitialized');
           return;
         }
+        if (isAccountSuspendedError(err)) {
+          // Alasan sama: kunci baru belum terdaftar di server, jangan disimpan lokal selagi ditangguhkan.
+          setAccountSuspended(true);
+          setE2eeStatus('uninitialized');
+          return;
+        }
         if (
           err?.status === 409 ||
           err?.title === 'KEY_ALREADY_REGISTERED' ||
@@ -243,12 +275,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Auto-init E2EE keys whenever user is authenticated but e2eeKeyPair is not yet loaded and status is uninitialized
   useEffect(() => {
-    if (!user?.id || e2eeKeyPair || e2eeStatus !== 'uninitialized' || googleLinkFrozen) return;
+    if (!user?.id || e2eeKeyPair || e2eeStatus !== 'uninitialized' || googleLinkFrozen || accountSuspended) return;
     const currentDeviceId = deviceId || '';
     if (currentDeviceId) {
       initE2EEForUser(user.id, currentDeviceId);
     }
-  }, [user?.id, e2eeKeyPair, e2eeStatus, deviceId, initE2EEForUser, googleLinkFrozen]);
+  }, [user?.id, e2eeKeyPair, e2eeStatus, deviceId, initE2EEForUser, googleLinkFrozen, accountSuspended]);
 
   const initE2EEKeys = useCallback(async () => {
     if (!user?.id) return;
@@ -350,6 +382,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       setToken(null);
       setGoogleLinkFrozen(false);
+      setAccountSuspended(false);
       setE2eeKeyPair(null);
       setE2eeStatus('conflict');
       setSessionReplacedMessage(reason || 'Akun Anda sedang aktif di perangkat lain. Sesi pada perangkat ini telah dihentikan.');
@@ -394,9 +427,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               await secureStorage.setUserData(freshUser);
               await secureStorage.setCurrentUserId(freshUser.id);
               const frozen = freshUser.google_link_frozen === true;
+              const suspended = freshUser.account_suspended === true;
               setGoogleLinkFrozen(frozen);
-              // Akun beku tidak menyambung WebSocket (ditolak server); disambung setelah Google tertaut.
-              if (!frozen) {
+              setAccountSuspended(suspended);
+              // Akun beku/ditangguhkan tidak menyambung WebSocket (ditolak server); beku disambung setelah Google tertaut.
+              if (!frozen && !suspended) {
                 websocketClient.reset();
                 websocketClient.connect(savedToken, currentDeviceId);
               }
@@ -465,6 +500,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // baru dijalankan setelah Google tertaut (linkGoogleToCurrentAccount); layar penautan menggantikan aplikasi.
       const frozen = response.google_link_frozen === true;
       setGoogleLinkFrozen(frozen);
+      // Login yang berhasil berarti akun tidak ditangguhkan (server menolak login akun ditangguhkan).
+      setAccountSuspended(false);
       if (frozen) return;
 
       // Initialize E2EE Keys
@@ -607,6 +644,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   }, [deviceId]);
 
+  // Akun ditangguhkan lalu dipulihkan moderator: pemilik cukup menekan "Periksa Status Akun", tanpa menutup aplikasi.
+  // GET /api/auth/me diizinkan server untuk akun ditangguhkan, dan token tidak pernah dicabut saat penangguhan.
+  const recheckAccountStatus = useCallback(async (): Promise<boolean> => {
+    const fresh = await authApi.getMe();
+    setUser(fresh);
+    await secureStorage.setUserData(fresh);
+    if (fresh.account_suspended === true) return false;
+
+    // Mulai seperti login baru: kunci E2EE di-reset di state (bukan di penyimpanan) dan status dikembalikan ke
+    // 'uninitialized' supaya efek inisialisasi memuat kunci tersimpan TEPAT SEKALI.
+    const frozen = fresh.google_link_frozen === true;
+    setE2eeKeyPair(null);
+    setE2eeStatus('uninitialized');
+    setGoogleLinkFrozen(frozen);
+    setAccountSuspended(false);
+    if (!frozen) {
+      try {
+        const currentToken = await secureStorage.getAuthToken();
+        const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
+        notificationService.subscribeDevice().catch((err) => {
+          console.warn('[AuthContext] Push subscribe setelah penangguhan dicabut dilewati:', err);
+        });
+        if (currentToken) {
+          websocketClient.reset();
+          websocketClient.connect(currentToken, currentDeviceId);
+        }
+      } catch (err) {
+        console.warn('[AuthContext] Gagal memulai ulang koneksi setelah penangguhan dicabut:', err);
+      }
+    }
+    return true;
+  }, [deviceId]);
+
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -640,6 +710,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setE2eeKeyPair(null);
       setE2eeStatus('uninitialized');
       setGoogleLinkFrozen(false);
+      setAccountSuspended(false);
       setSessionReplacedMessage(null);
       websocketClient.reset();
 
@@ -678,6 +749,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setE2eeKeyPair(null);
       setE2eeStatus('uninitialized');
       setGoogleLinkFrozen(false);
+      setAccountSuspended(false);
       setSessionReplacedMessage(null);
       websocketClient.reset();
       await clearLocalAccountData(deletedUserId);
@@ -720,6 +792,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setE2eeKeyPair(null);
       setE2eeStatus('uninitialized');
       setGoogleLinkFrozen(false);
+      setAccountSuspended(false);
       setSessionReplacedMessage(null);
       await clearLocalAccountData(cancelledUserId);
     } finally {
@@ -737,8 +810,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         token,
-        isAuthenticated: !!token && !!user && !googleLinkFrozen,
-        isGoogleLinkFrozen: !!token && !!user && googleLinkFrozen,
+        isAuthenticated: !!token && !!user && !googleLinkFrozen && !accountSuspended,
+        // Penangguhan didahulukan dari pembekuan Google bila keduanya berlaku (menautkan Google tidak membuka penangguhan).
+        isGoogleLinkFrozen: !!token && !!user && googleLinkFrozen && !accountSuspended,
+        isAccountSuspended: !!token && !!user && accountSuspended,
         isLoading,
         sessionReplacedMessage,
         deleteAccount,
@@ -753,6 +828,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         registerWithGoogle,
         linkGoogleToExistingAccount,
         linkGoogleToCurrentAccount,
+        recheckAccountStatus,
         logout,
         dismissSessionAlert,
         cancelKeyConflict,

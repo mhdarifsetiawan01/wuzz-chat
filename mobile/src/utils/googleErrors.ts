@@ -38,6 +38,7 @@ const MESSAGES: Record<string, string> = {
   PASSWORD_LOGIN_UNAVAILABLE: 'Akun ini tidak memiliki password, sehingga akun Google tidak dapat diputus.',
   GOOGLE_SAME_ACCOUNT: 'Akun Google yang dipilih sama dengan yang sudah terhubung.',
   GOOGLE_TENANT_NOT_ALLOWED: 'Login Google tidak tersedia untuk akun ini.',
+  ACCOUNT_SUSPENDED: 'Akun ini ditangguhkan karena melanggar ketentuan layanan. Ajukan banding lewat email ke support.',
 };
 
 /**

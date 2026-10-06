@@ -10,6 +10,7 @@ import { API_CONFIG, getBaseApiUrl } from './config';
 import { ApiError } from './types';
 import { APP_CHANNEL, getAppVersionInfo, notifyForceUpdateRequired } from '../utils/appVersion';
 import { GOOGLE_LINK_REQUIRED, notifyGoogleLinkRequired } from '../utils/linkFrozen';
+import { ACCOUNT_SUSPENDED, notifyAccountSuspended } from '../utils/accountSuspended';
 
 export interface RequestOptions extends RequestInit {
   timeoutMs?: number;
@@ -94,6 +95,11 @@ export async function apiClient<T>(
       // Akun dibekukan (belum menautkan Google setelah batas waktu): beri tahu seluruh aplikasi agar menampilkan layar penautan.
       if (response.status === 403 && data?.code === GOOGLE_LINK_REQUIRED) {
         notifyGoogleLinkRequired();
+      }
+
+      // Akun ditangguhkan moderator: seluruh aplikasi menampilkan layar khusus (hanya keluar, hubungi support, hapus akun).
+      if (response.status === 403 && data?.code === ACCOUNT_SUSPENDED) {
+        notifyAccountSuspended();
       }
 
       const error: ApiError = {

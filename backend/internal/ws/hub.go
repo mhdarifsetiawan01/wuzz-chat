@@ -1362,7 +1362,7 @@ func (h *Hub) kickClientByUserIDLocal(userID, exceptDeviceID, reason string, ten
 			c.SafeSend(kickMsg)
 			time.Sleep(500 * time.Millisecond)
 			if c.conn != nil {
-				closeMsg := websocket.FormatCloseMessage(4001, reason)
+				closeMsg := websocket.FormatCloseMessage(kickCloseCode(reason), reason)
 				_ = c.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(1000*time.Millisecond))
 				time.Sleep(100 * time.Millisecond)
 				_ = c.conn.Close()
@@ -1460,7 +1460,7 @@ func (h *Hub) kickClientByDeviceIDLocal(userID, deviceID, reason string, tenantI
 		c.SafeSend(kickMsg)
 		time.Sleep(500 * time.Millisecond)
 		if c.conn != nil {
-			closeMsg := websocket.FormatCloseMessage(4001, reason)
+			closeMsg := websocket.FormatCloseMessage(kickCloseCode(reason), reason)
 			_ = c.conn.WriteControl(websocket.CloseMessage, closeMsg, time.Now().Add(1000*time.Millisecond))
 			time.Sleep(100 * time.Millisecond)
 			_ = c.conn.Close()
@@ -1469,3 +1469,13 @@ func (h *Hub) kickClientByDeviceIDLocal(userID, deviceID, reason string, tenantI
 }
 
 
+
+// kickCloseCode memilih kode penutupan untuk tendangan paksa. Penangguhan akun memakai CloseCodeSuspended (4004), BUKAN
+// 4001: klien menganggap 4001 sebagai "sesi digantikan" dan menghapus kunci E2EE serta data lokal, padahal akun yang
+// ditangguhkan bisa dipulihkan dan pemiliknya tidak boleh kehilangan pesan lamanya.
+func kickCloseCode(reason string) int {
+	if strings.HasPrefix(reason, "ACCOUNT_SUSPENDED") {
+		return CloseCodeSuspended
+	}
+	return 4001
+}

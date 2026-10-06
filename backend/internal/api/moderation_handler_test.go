@@ -63,7 +63,7 @@ func newModEnv(t *testing.T) *modEnv {
 	}
 	e.suspension = authz.NewSuspensionPolicy(e.mod)
 	e.handler = api.NewModerationHandler(e.mod, e.suspension)
-	e.handler.SetSessionControl(e.tokens.RevokeAllUserTokens, func(userID, reason string) {
+	e.handler.SetSessionControl(func(userID, reason string) {
 		e.mu.Lock()
 		e.kicked = append(e.kicked, userID+"|"+reason)
 		e.mu.Unlock()
@@ -496,13 +496,44 @@ func TestModeration_SuspendEnforcedEverywhereAndReversible(t *testing.T) {
 		t.Fatalf("kode galat harus ACCOUNT_SUSPENDED: %s", w.Body.String())
 	}
 
-	// 2) Token lama dicabut di lapisan JWT (tanpa middleware).
+	// 2) Token SENGAJA tidak dicabut (akun ditangguhkan tetap berhak keluar, melihat status, dan menghapus akun; semuanya
+	// lewat RequireJWT). Refresh ditolak oleh layanan, bukan oleh pencabutan token.
 	reqOld := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", nil)
 	reqOld.Header.Set("Authorization", "Bearer "+reg.Token)
 	wOld := httptest.NewRecorder()
 	auth.RequireJWT()(http.HandlerFunc(e.auth.Refresh)).ServeHTTP(wOld, reqOld)
-	if wOld.Code != http.StatusUnauthorized {
-		t.Fatalf("token lama harus dicabut: got %d", wOld.Code)
+	if wOld.Code != http.StatusForbidden || !strings.Contains(wOld.Body.String(), "ACCOUNT_SUSPENDED") {
+		t.Fatalf("refresh akun ditangguhkan: want 403 ACCOUNT_SUSPENDED, got %d %s", wOld.Code, wOld.Body.String())
+	}
+
+	// 2b) Rantai produksi (SuspensionMiddleware di luar, RequireJWT di dalam): hak hapus akun, /me, dan logout HARUS tetap
+	// terjangkau dengan token yang sama; rute lain ditolak. Dulu penangguhan mencabut token sehingga ketiganya 401.
+	reached := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	chain := api.NewSuspensionMiddleware(e.suspension).Middleware(auth.RequireJWT()(reached))
+	through := func(method, path string) int {
+		req := httptest.NewRequest(method, path, nil)
+		req.Header.Set("Authorization", "Bearer "+reg.Token)
+		w := httptest.NewRecorder()
+		chain.ServeHTTP(w, req)
+		return w.Code
+	}
+	for _, tc := range []struct{ method, path string }{
+		{http.MethodDelete, "/api/auth/me"}, {http.MethodGet, "/api/auth/me"}, {http.MethodPost, "/api/auth/logout"},
+	} {
+		if c := through(tc.method, tc.path); c != http.StatusNoContent {
+			t.Fatalf("%s %s harus tetap terjangkau oleh akun ditangguhkan, got %d", tc.method, tc.path, c)
+		}
+	}
+	if c := through(http.MethodGet, "/api/feed"); c != http.StatusForbidden {
+		t.Fatalf("rute biasa harus 403, got %d", c)
+	}
+	// /me yang sebenarnya memberi tahu klien lewat flag (dasar layar "akun ditangguhkan" saat aplikasi dibuka).
+	wMe := httptest.NewRecorder()
+	reqMe := httptest.NewRequest(http.MethodGet, "/api/auth/me", nil)
+	reqMe.Header.Set("Authorization", "Bearer "+reg.Token)
+	api.NewSuspensionMiddleware(e.suspension).Middleware(auth.RequireJWT()(http.HandlerFunc(e.auth.Me))).ServeHTTP(wMe, reqMe)
+	if wMe.Code != http.StatusOK || !strings.Contains(wMe.Body.String(), `"account_suspended":true`) {
+		t.Fatalf("/me akun ditangguhkan: want 200 dengan account_suspended, got %d %s", wMe.Code, wMe.Body.String())
 	}
 
 	// 3) Login: password benar ditolak 403 ACCOUNT_SUSPENDED; password salah tetap 401 (status tidak bocor).
@@ -532,6 +563,10 @@ func TestModeration_SuspendEnforcedEverywhereAndReversible(t *testing.T) {
 	if w := login("supersecret123"); w.Code != http.StatusOK {
 		t.Fatalf("login setelah pulih: want 200, got %d %s", w.Code, w.Body.String())
 	}
+	// Token lama (tidak pernah dicabut) langsung berlaku lagi tanpa login ulang.
+	if c := through(http.MethodGet, "/api/feed"); c != http.StatusNoContent {
+		t.Fatalf("setelah dipulihkan token lama harus berlaku lagi, got %d", c)
+	}
 	var unsus int
 	_ = e.sqlStore.DB().QueryRow(e.rb(`SELECT COUNT(*) FROM moderation_actions WHERE action = 'unsuspend_user' AND target_user_id = ? AND note = 'banding diterima'`), victim.ID).Scan(&unsus)
 	if unsus != 1 {
@@ -560,4 +595,33 @@ type failingLookup struct{}
 
 func (failingLookup) IsSuspended(context.Context, string) (bool, error) {
 	return true, context.DeadlineExceeded
+}
+
+// GET /api/auth/me memberi tahu klien bahwa akun ditangguhkan, supaya aplikasi langsung menampilkan layar khusus.
+func TestAuthMe_ReportsAccountSuspended(t *testing.T) {
+	e := newModEnv(t)
+	u := e.user("tersangka")
+	tok := e.token(u, "default", "user")
+	me := func() map[string]any {
+		w := e.call(http.MethodGet, "/api/auth/me", "", tok, e.auth.Me)
+		if w.Code != http.StatusOK {
+			t.Fatalf("me: %d %s", w.Code, w.Body.String())
+		}
+		var m map[string]any
+		_ = json.Unmarshal(w.Body.Bytes(), &m)
+		return m
+	}
+	if _, has := me()["account_suspended"]; has {
+		t.Fatal("akun normal tidak boleh membawa account_suspended")
+	}
+	e.exec(`UPDATE users SET suspended_at = CURRENT_TIMESTAMP WHERE id = ?`, u.ID)
+	e.suspension.Invalidate(u.ID)
+	if me()["account_suspended"] != true {
+		t.Fatalf("akun ditangguhkan harus membawa account_suspended=true: %v", me())
+	}
+	e.exec(`UPDATE users SET suspended_at = NULL WHERE id = ?`, u.ID)
+	e.suspension.Invalidate(u.ID)
+	if _, has := me()["account_suspended"]; has {
+		t.Fatal("setelah dipulihkan flag harus hilang")
+	}
 }

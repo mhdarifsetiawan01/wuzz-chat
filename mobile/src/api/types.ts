@@ -51,6 +51,8 @@ export interface User {
   google_link_required_by?: string;
   /** true bila akun dibekukan: belum menautkan Google setelah batas waktu (hanya ada dari server saat pembekuan aktif). */
   google_link_frozen?: boolean;
+  /** true bila akun ditangguhkan moderator (hanya ada pada respons GET /api/auth/me saat ditangguhkan). */
+  account_suspended?: boolean;
 }
 
 export interface UpdateProfileRequest {

@@ -54,7 +54,7 @@ satu-satunya cara saat ini adalah memanggil API dengan token moderator atau SQL 
 | `POST /api/admin/reports/{id}/action` | `{action, note}` untuk `dismiss`/`resolve`/`delete_content`/`suspend_user`; satu transaksi: ubah konten/akun + tutup laporan + tulis `moderation_actions` |
 | `POST /api/admin/users/{id}/unsuspend` | buka tangguhan (tulis audit) |
 
-**Penangguhan akun (efek yang harus ada):** (1) login ditolak dengan pesan jelas; (2) JWT yang sudah terbit dicabut (pakai `RevokeAllUserTokens`, seperti hapus akun) dan koneksi WebSocket ditendang; (3) pemeriksaan di `RequireJWT`/refresh agar token baru tidak bisa diterbitkan; (4) konten pengguna tetap, tetapi pengirim tidak bisa mengirim baru.
+**Penangguhan akun (efek yang harus ada):** (1) login ditolak dengan pesan jelas; (2) koneksi WebSocket ditendang dengan kode 4004 (token TIDAK dicabut, lihat bagian 15: pencabutan memblokir hapus akun/`me`/logout); (3) pemeriksaan di `RequireJWT`/refresh agar token baru tidak bisa diterbitkan; (4) konten pengguna tetap, tetapi pengirim tidak bisa mengirim baru.
 Penangguhan **tidak** menghapus data (beda dengan hapus akun); harus bisa dibalik.
 
 ### 3.2 Membaca isi yang dilaporkan, per jenis target
@@ -228,3 +228,19 @@ Bila variabel kurang lengkap, saluran dilewati dengan peringatan di log (server 
 **Belum:** layar akun ditangguhkan di aplikasi mobile (butuh build APK baru), pencarian laporan per pengguna, UI banding, saluran email. Catatan: `moderation_actions.note` (tulisan moderator) tidak dihapus otomatis; jangan menulis data pribadi di catatan.
 
 **Uji siaran realtime dengan klien WebSocket sungguhan (6 Okt 2026):** backend asli (SQLite terisolasi), tiga klien WS nyata (penulis, anggota lain, moderator yang bukan anggota ruang). Moderator menghapus pesan grup lewat `POST /api/admin/reports/{id}/action`: penulis dan anggota menerima frame `message_deleted` (`id`, `room`, `is_deleted:true`, isi "🚫 Pesan ini telah dihapus") dalam 8 ms; non-anggota tidak menerima apa pun; frame tidak memuat isi asli; klien yang masuk belakangan melihat riwayat dengan tombstone dan pesan lain utuh. Dengan siaran dimatikan di wiring, tes yang sama gagal (frame tidak pernah tiba). Format frame sudah cocok dengan pembaca di mobile (`MessageContext.handleWsMessageDeleted`: `room`, `id`, `content`, `is_deleted`); belum diuji pada aplikasi di HP.
+
+## 15. Layar akun ditangguhkan di aplikasi mobile + perbaikan hasil uji nyata (2026-10-06)
+
+**Selesai di `dev` (belum di-commit/dideploy; butuh build APK baru untuk aplikasi):**
+- **Layar `AccountSuspendedScreen`** (tampilan murni `AccountSuspendedView`, teks di `accountSuspendedCopy.ts`) menggantikan seluruh aplikasi bila akun ditangguhkan: penjelasan (data tidak dihapus), **Ajukan Banding** (email ke `SUPPORT_EMAIL` dengan subjek berisi username), **Periksa Status Akun** (memanggil `/me`; bila sudah dipulihkan aplikasi terbuka lagi tanpa ditutup), **Keluar**, dan **Hapus akun saya**. Penangguhan didahulukan dari pembekuan Google bila keduanya berlaku.
+- **Sinyal**: `utils/accountSuspended.ts` (pola `linkFrozen.ts`) dipicu HTTP 403 `ACCOUNT_SUSPENDED` (`api/client.ts`), penutupan WebSocket (`services/websocket.ts`), dan flag `account_suspended` di `GET /api/auth/me` (saat aplikasi dibuka). `AuthContext`: `isAccountSuspended`, `isAuthenticated=false` selama ditangguhkan, tanpa inisialisasi E2EE/WS/push (kunci lokal tidak disentuh), `recheckAccountStatus()`.
+- Login (password/Google) yang ditolak menampilkan pesan server/terjemahan `ACCOUNT_SUSPENDED` di layar login.
+
+**Tiga cacat nyata ditemukan oleh uji ujung ke ujung (klien WebSocket sungguhan + rantai middleware asli) dan diperbaiki:**
+1. **Kick penangguhan memakai kode WS 4001** (`hub.KickClientByUserID`), padahal aplikasi menganggap 4001 = "sesi digantikan" dan **menghapus kunci E2EE serta data lokal**: akun yang dipulihkan akan kehilangan pesan lamanya. Kini kick dengan alasan `ACCOUNT_SUSPENDED` memakai **4004** (`kickCloseCode`), dan aplikasi memeriksa penangguhan SEBELUM cabang "sesi digantikan" (juga mengenali 4001 + alasan itu dari server lama).
+2. **Penangguhan mencabut semua token**, sehingga `RequireJWT` menjawab **401 untuk hapus akun, `me`, dan logout** walau `SuspensionMiddleware` mengizinkannya (janji hak hapus akun/Google Play tidak terpenuhi; tes lama hanya menguji middleware tanpa `RequireJWT`). Pencabutan dihapus; penegakan tetap lewat middleware, penolakan login/refresh, gerbang WS, dan filter push. Bonus: setelah dipulihkan token dan kunci lama langsung berlaku.
+3. **Handler `/me` tidak menerima kebijakan penangguhan** (hanya service yang dipasang), sehingga flag `account_suspended` tidak pernah terkirim. Dipasang di wiring dan dijaga tes di tingkat router aplikasi.
+
+**Catatan penerapan:** cacat 1 dan 2 ada di backend yang SUDAH dideploy (71fccbf); belum ada akun yang ditangguhkan di produksi, jadi belum merugikan siapa pun, tetapi **deploy perbaikan ini sebelum menangguhkan akun pertama**.
+
+**Dites:** SQLite dan PostgreSQL 16 (seluruh suite), 24 berkas tes unit mobile (+`account-suspended`, kontras bubble, pesan galat), mutasi (allow-list hapus akun, flag `/me`, penolakan refresh, wiring handler, predikat penutupan WS), uji nyata: klien WS menerima `4004`, `/me` dengan token lama memuat flag, hapus akun terjangkau, login 403 berpesan Indonesia, token lama berlaku lagi setelah dipulihkan; tampilan layar di 320 dan 360dp tanpa overflow (komponen asli di preview web). **Belum diuji di HP.**

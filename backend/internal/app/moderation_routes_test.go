@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -200,5 +201,45 @@ func TestConfig_ReportEvidenceRetentionDefaults(t *testing.T) {
 	t.Setenv("REPORT_EVIDENCE_RETENTION_DAYS", "abc")
 	if cfg, _ := config.Load(); cfg.ReportEvidenceRetentionDays != 90 {
 		t.Fatalf("nilai rusak kembali ke 90, got %d", cfg.ReportEvidenceRetentionDays)
+	}
+}
+
+// Wiring nyata: GET /api/auth/me untuk akun ditangguhkan harus membawa account_suspended (dasar layar khusus di aplikasi),
+// dan hak hapus akun tetap terjangkau dengan token yang sama. Dulu handler /me tidak menerima kebijakan penangguhan.
+func TestSuspendedAccount_MeFlagAndDeleteReachableThroughRealRouter(t *testing.T) {
+	app, h := newModerationApp(t, config.Config{})
+	rr := call(h, http.MethodPost, "/api/auth/register", "", `{"username":"ditangguh","display_name":"D","password":"password123","device_id":"d_dt"}`)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("register: %d %s", rr.Code, rr.Body.String())
+	}
+	var reg struct {
+		Token string `json:"token"`
+		User  struct {
+			ID string `json:"id"`
+		} `json:"user"`
+	}
+	_ = json.Unmarshal(rr.Body.Bytes(), &reg)
+
+	me := func() *httptest.ResponseRecorder { return call(h, http.MethodGet, "/api/auth/me", reg.Token, "") }
+	if r := me(); r.Code != http.StatusOK || strings.Contains(r.Body.String(), "account_suspended") {
+		t.Fatalf("akun normal: 200 tanpa flag, got %d %s", r.Code, r.Body.String())
+	}
+
+	db := app.MessageStore.(*store.SQLMessageStore).DB()
+	if _, err := db.Exec(`UPDATE users SET suspended_at = CURRENT_TIMESTAMP WHERE id = ?`, reg.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	app.Suspension.Invalidate(reg.User.ID)
+
+	if r := me(); r.Code != http.StatusOK || !strings.Contains(r.Body.String(), `"account_suspended":true`) {
+		t.Fatalf("akun ditangguhkan: /me harus 200 dengan account_suspended=true, got %d %s", r.Code, r.Body.String())
+	}
+	// Hak hapus akun terjangkau (dijawab 400 "password wajib" karena badan kosong, bukan 401/403).
+	if r := call(h, http.MethodDelete, "/api/auth/me", reg.Token, `{}`); r.Code != http.StatusBadRequest {
+		t.Fatalf("DELETE /api/auth/me harus terjangkau (400), got %d %s", r.Code, r.Body.String())
+	}
+	// Rute biasa ditolak dengan kode yang dibaca aplikasi.
+	if r := call(h, http.MethodGet, "/api/feed", reg.Token, ""); r.Code != http.StatusForbidden || !strings.Contains(r.Body.String(), "ACCOUNT_SUSPENDED") {
+		t.Fatalf("rute biasa: 403 ACCOUNT_SUSPENDED, got %d %s", r.Code, r.Body.String())
 	}
 }

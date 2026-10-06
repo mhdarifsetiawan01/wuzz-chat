@@ -1,6 +1,7 @@
 export * from './LoginScreen';
 export * from './RegisterScreen';
 export * from './GoogleOnboardingScreen';
+export * from './AccountSuspendedScreen';
 export * from './GoogleLinkRequiredScreen';
 export * from './RecentChatsScreen';
 export * from './ChatScreen';

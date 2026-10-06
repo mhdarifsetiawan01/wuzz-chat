@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 import { getBaseWsUrl } from '../api/config';
 import { APP_CHANNEL, getAppVersionInfo, notifyForceUpdateRequired } from '../utils/appVersion';
 import { isLinkRequiredClose, notifyGoogleLinkRequired } from '../utils/linkFrozen';
+import { isSuspendedClose, notifyAccountSuspended } from '../utils/accountSuspended';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'terminated';
 
@@ -197,6 +198,18 @@ class WebSocketClient {
 
       ws.onclose = (event) => {
         console.log(`[WS] Socket closed with code ${event.code}, reason: "${event.reason}"`);
+
+        // Penangguhan moderator (kode 4004, atau 4001 dari server lama dengan alasan ACCOUNT_SUSPENDED). Wajib diperiksa SEBELUM
+        // cabang SESSION_REPLACED di bawah: cabang itu menghapus kunci E2EE dan data lokal. Terminal: tidak menyambung ulang.
+        if (isSuspendedClose(event.code, event.reason)) {
+          console.warn('[WS] Terminal Close Code 4004 (ACCOUNT_SUSPENDED): akun ditangguhkan.');
+          this.isTerminated = true;
+          this.destroyed = true;
+          this.setState('terminated');
+          this.clearReconnectTimer();
+          notifyAccountSuspended();
+          return;
+        }
 
         // Close Code 4001: SESSION_REPLACED (MANDATORY TERMINAL GUARD)
         if (event.code === 4001 || event.reason?.includes('SESSION_REPLACED') || event.reason?.includes('DEVICE_KICKED')) {

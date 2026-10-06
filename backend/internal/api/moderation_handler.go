@@ -32,7 +32,6 @@ type ModerationHandler struct {
 	retention  time.Duration               // masa simpan bukti setelah laporan ditutup (0 = tidak dihapus otomatis)
 	onDeleted  func(store.DeletedMessage)  // dipanggil setelah pesan grup dihapus moderator (siaran realtime)
 	roles      *authz.RolePolicy           // dibuang cache-nya saat peran diubah lewat alat ini (nil = hanya TTL)
-	revoke     func(userID string) error   // mencabut semua token akun (nil = dilewati)
 	kick       func(userID, reason string) // memutus semua koneksi WebSocket akun (nil = dilewati)
 }
 
@@ -63,9 +62,14 @@ func NewModerationHandler(s store.ModerationStore, suspension *authz.SuspensionP
 	return &ModerationHandler{store: s, suspension: suspension}
 }
 
-// SetSessionControl memasang pencabut token dan pemutus koneksi yang dipakai saat akun ditangguhkan.
-func (h *ModerationHandler) SetSessionControl(revoke func(userID string) error, kick func(userID, reason string)) {
-	h.revoke, h.kick = revoke, kick
+// SetSessionControl memasang pemutus koneksi WebSocket yang dipakai saat akun ditangguhkan.
+//
+// Token SENGAJA tidak dicabut saat penangguhan: akun yang ditangguhkan masih berhak keluar, melihat statusnya
+// (GET /api/auth/me) dan menghapus akunnya (syarat Google Play), dan semua rute itu lewat RequireJWT yang menolak token
+// tercabut. Penegakannya cukup lewat SuspensionMiddleware, penolakan login/refresh, gerbang WebSocket, dan filter push.
+// Bonus: setelah dipulihkan, token dan kunci E2EE yang ada langsung berlaku tanpa login ulang.
+func (h *ModerationHandler) SetSessionControl(kick func(userID, reason string)) {
+	h.kick = kick
 }
 
 func (h *ModerationHandler) staff(w http.ResponseWriter, r *http.Request) (*auth.UserClaims, bool) {
@@ -202,14 +206,9 @@ func (h *ModerationHandler) applyAction(w http.ResponseWriter, r *http.Request, 
 	writeFeedJSON(w, http.StatusOK, map[string]any{"status": "ok", "report_status": res.Report.Status, "content_already_gone": res.ContentGone})
 }
 
-// enforceSuspension membuat penangguhan langsung berlaku: cache dibuang, token dicabut, koneksi diputus.
+// enforceSuspension membuat penangguhan langsung berlaku: cache dibuang dan koneksi WebSocket diputus (kode 4004).
 func (h *ModerationHandler) enforceSuspension(userID string) {
 	h.suspension.Invalidate(userID)
-	if h.revoke != nil {
-		if err := h.revoke(userID); err != nil {
-			log.Printf("⚠️ [Moderation] gagal mencabut token %s: %v", userID, err)
-		}
-	}
 	if h.kick != nil {
 		h.kick(userID, "ACCOUNT_SUSPENDED: Akun Anda ditangguhkan.")
 	}

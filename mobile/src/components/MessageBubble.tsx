@@ -25,6 +25,7 @@ import { getSenderNameColor } from './Avatar';
 import { mediaCache } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
 import { colors } from '../theme/colors';
+import { deletedBubblePalette } from '../theme/deletedBubble';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
@@ -659,9 +660,9 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   deletedBubble: {
-    backgroundColor: 'rgba(30, 41, 59, 0.45)',
+    backgroundColor: deletedBubblePalette.background,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    borderColor: deletedBubblePalette.border,
   },
   deletedRow: {
     flexDirection: 'row',
@@ -676,11 +677,10 @@ const styles = StyleSheet.create({
   deletedText: {
     fontSize: 13,
     fontStyle: 'italic',
-    color: colors.textMuted,
+    color: deletedBubblePalette.text,
   },
   timeTextDeleted: {
-    color: colors.textMuted,
-    opacity: 0.7,
+    color: deletedBubblePalette.time,
   },
   reactionsRow: {
     flexDirection: 'row',

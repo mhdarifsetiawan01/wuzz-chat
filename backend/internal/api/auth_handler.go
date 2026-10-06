@@ -29,6 +29,9 @@ type AuthHandler struct {
 
 	// linkFreeze: kebijakan pembekuan akun yang belum menautkan Google (nil = tidak ada pembekuan).
 	linkFreeze *authz.LinkFreezePolicy
+	// suspension: kebijakan penangguhan oleh moderator (nil = tidak ada). Dipakai GET /api/auth/me agar klien langsung
+	// menampilkan layar "akun ditangguhkan" tanpa menunggu galat 403 dari rute lain.
+	suspension *authz.SuspensionPolicy
 }
 
 func (h *AuthHandler) syncAuthRepo() {
@@ -90,6 +93,7 @@ func (h *AuthHandler) SetGoogleLinkDeadline(deadline time.Time) {
 
 // SetSuspension menyuntikkan kebijakan penangguhan akun ke service auth (nil = tidak ada penangguhan).
 func (h *AuthHandler) SetSuspension(p *authz.SuspensionPolicy) {
+	h.suspension = p
 	h.authSvc.SetSuspension(p)
 }
 
@@ -406,6 +410,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		HasPassword:          user.PasswordHash != "",
 		GoogleLinkRequiredBy: h.googleLinkRequiredBy(user, googleLinked),
 		GoogleLinkFrozen:     h.googleLinkFrozen(r, user),
+		AccountSuspended:     h.suspension.IsSuspended(r.Context(), claims.UserID),
 	})
 }
 
@@ -417,6 +422,9 @@ type meResponse struct {
 	// GoogleLinkRequiredBy dan GoogleLinkFrozen: lihat AuthResponse.
 	GoogleLinkRequiredBy string `json:"google_link_required_by,omitempty"`
 	GoogleLinkFrozen     bool   `json:"google_link_frozen,omitempty"`
+	// AccountSuspended true bila akun ditangguhkan moderator: klien menampilkan layar "akun ditangguhkan" (hanya keluar,
+	// hubungi support, atau hapus akun yang masih diizinkan server).
+	AccountSuspended bool `json:"account_suspended,omitempty"`
 }
 
 type UpdateProfileRequest struct {

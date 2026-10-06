@@ -237,6 +237,8 @@ func New(cfg *config.Config) (*Application, error) {
 			app.AuthHandler.SetAccountEraser(accountEraser)
 		}
 		app.AuthHandler.SetLinkFreeze(app.LinkFreeze)
+		// Handler juga butuh kebijakan penangguhan (bukan hanya service) agar GET /api/auth/me memberi tahu klien lewat flag.
+		app.AuthHandler.SetSuspension(suspension)
 		if cfg != nil && !cfg.GoogleLinkDeadline.IsZero() {
 			app.AuthHandler.SetGoogleLinkDeadline(cfg.GoogleLinkDeadline)
 			log.Printf("📣 Pengumuman penautan Google aktif (batas waktu: %s)", cfg.GoogleLinkDeadline.Format(time.RFC3339))
@@ -461,11 +463,7 @@ func New(cfg *config.Config) (*Application, error) {
 				Content: "🚫 Pesan ini telah dihapus", IsDeleted: true, Timestamp: time.Now().UTC(),
 			}, "")
 		})
-		var revoke func(string) error
-		if tokenStore != nil {
-			revoke = tokenStore.RevokeAllUserTokens
-		}
-		app.ModerationHandler.SetSessionControl(revoke, func(userID, reason string) { hub.KickClientByUserID(userID, "", reason) })
+		app.ModerationHandler.SetSessionControl(func(userID, reason string) { hub.KickClientByUserID(userID, "", reason) })
 	}
 
 	if app.ConnectionService != nil {
