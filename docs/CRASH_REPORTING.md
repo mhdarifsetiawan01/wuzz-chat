@@ -42,11 +42,15 @@ Build rilis memakai Hermes bytecode, jadi jejak di Crashlytics tidak menyebut fi
 4. Setiap build rilis mengunggah `mapping.txt` otomatis (plugin Gradle `com.google.firebase.crashlytics`); build butuh akses internet.
 
 ## 5. Verifikasi setelah rilis pertama (checklist)
-- [ ] Pasang build rilis di HP uji, buka aplikasi sekali, tutup. (Pengaturan koleksi tersimpan.)
-- [ ] Picu satu crash sintetis (sementara) lewat build uji khusus yang memanggil `crash(getCrashlytics())`; buka ulang aplikasi agar laporan terkirim.
-- [ ] Laporan muncul di Firebase Console dalam beberapa menit, dengan versi (`versionName/versionCode`) yang benar dan jejak Java terbaca.
-- [ ] Periksa bahwa laporan **tidak memuat** data pribadi (bagian 2).
-- [ ] Hapus kode crash sintetis sebelum rilis publik.
+**Status 8 Okt 2026 (build 1.32.0/54, HP Realme RMX3506, Android 11): alur dasar TERBUKTI.** Crashlytics diaktifkan di Firebase Console `wuzz-chat-fcm`; crash sintetis dipicu tanpa build khusus lewat `adb shell am crash com.wuzzchat.mobile` (menghasilkan `android.app.RemoteServiceException: shell-induced crash` di thread `main`). Log HP: koleksi aktif, crash ditangani Crashlytics, laporan masuk antrean DataTransport, lalu terunggah ke `crashlyticsreports-pa.googleapis.com` dengan **HTTP 200**; isu muncul di Console (dikonfirmasi pemilik). Log juga menyatakan "no Firebase Analytics". Cara ulang: `adb shell setprop log.tag.FirebaseCrashlytics DEBUG`, buka aplikasi sekali, `adb shell am crash <paket>`, lalu `adb logcat -d | grep -i crashlytics` (kembalikan `setprop ... INFO` setelahnya).
+
+- [x] Pasang build rilis di HP uji, buka aplikasi sekali (pengaturan koleksi tersimpan).
+- [x] Picu satu crash sintetis (lewat `am crash`, tanpa kode uji di aplikasi, jadi tidak ada yang perlu dihapus sebelum rilis publik).
+- [x] Laporan muncul di Firebase Console.
+- [ ] Versi (`versionName/versionCode`) dan perangkat di laporan benar, belum dikonfirmasi pemilik.
+- [ ] Periksa bahwa laporan **tidak memuat** data pribadi (bagian 2), belum dikonfirmasi. Dari log HP, ID pengguna berupa UUID acak.
+
+**Yang crash ini TIDAK menguji:** crash berasal dari kode sistem Android, bukan kode aplikasi, sehingga tidak menguji (1) deobfuscation jejak Java lewat `mapping.txt` yang diunggah plugin Gradle (plugin terpasang dan ID mapping disuntikkan saat build, tetapi keberhasilan unggahannya belum terbukti) dan (2) jejak error JS Hermes dengan source map (bagian 3). Keduanya butuh crash dari kode aplikasi (mis. error JS fatal di build uji); belum dikerjakan dan bukan syarat untuk lolos Play.
 
 ## 6. Dampak lain
 - Tidak menambah izin Android atau Foreground Service (diverifikasi pada manifest hasil merge).
