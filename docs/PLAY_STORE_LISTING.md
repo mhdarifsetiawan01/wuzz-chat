@@ -64,7 +64,7 @@ bila ragu, lebih aman mendeklarasikan "Dibagikan" untuk Pesan (penyedia LLM, han
 ## 3. Deklarasi lain di Play Console
 | Bagian | Jawaban yang disarankan |
 |---|---|
-| **Akses aplikasi** | Aplikasi memerlukan login. Berikan **akun uji khusus peninjau** (buat akun demo, mis. `reviewer_wuzz`, dengan sandi kuat) beserta petunjuk: "Login lalu buka tab Obrolan". **Jangan** pakai akun nyata. |
+| **Akses aplikasi** | Aplikasi memerlukan login. Berikan **akun uji khusus peninjau** (akun demo `peninjau_play` sudah dibuat di produksi 7 Okt 2026; **sandi TIDAK disimpan di repo atau memori**, isi langsung ke Play Console; `reviewer_wuzz` ditolak karena kata `wuzz` terlarang sebagai akhiran username) beserta petunjuk: "Di layar awal ketuk tautan **Login menggunakan username** (di bawah tombol Google), masukkan username dan sandi, lalu buka tab Obrolan." Tautan itu terlihat semua pengguna (bukan fitur tersembunyi). Akun ini masuk **daftar putih pembekuan** (`GOOGLE_LINK_FREEZE_EXEMPT=peninjau_play` di `.env` VPS) sehingga tetap bisa dipakai setelah 30 Okt 2026. **Jangan** pakai akun nyata. |
 | **Iklan** | Tidak ada iklan |
 | **Target audiens** | **13+** (pilih 13-15, 16-17, 18+); bukan untuk anak di bawah 13 (selaras dengan Syarat Layanan) |
 | **Rating konten (IARC)** | Kategori *Komunikasi/Jejaring sosial*. Jawab: pengguna berinteraksi **Ya**; berbagi konten buatan pengguna **Ya**; berbagi lokasi **Tidak**; pembelian digital **Tidak**; konten dewasa/kekerasan **Tidak ada dari aplikasi** (konten dari pengguna dimoderasi lewat laporan dan blokir). Perkiraan hasil: Remaja (Teen)/12+ |
@@ -143,7 +143,7 @@ Rekam via adb: `adb exec-out screencap -p > shot.png` (lihat catatan alur build)
 - [x] Alat moderasi **sudah live** (6 Okt 2026, `docs/plans/backlog/MODERATION_TOOL.md`). Tinggal pastikan SOP tinjauan harian disepakati dan janji `/child-safety` dapat dipenuhi.
 - [ ] `support@semanticdigital.id` aktif (default kode sudah ini) dan `NEXT_PUBLIC_SUPPORT_EMAIL` di Vercel diisi bila ingin alamat lain (lalu rebuild frontend). Belum terverifikasi.
 - [ ] Halaman `/privacy`, `/terms`, `/delete-account` terbuka dari jaringan luar (tanpa gate). Teks privasi sudah dicocokkan dengan produksi 7 Okt 2026 (retensi media 1 hari, pemroses netral-penyedia); **cocokkan sekali lagi dengan jawaban Data Safety saat mengisi Console**, dan perbarui keduanya bila penyedia infrastruktur berganti.
-- [ ] Akun demo peninjau dibuat dan dites login di build Play.
+- [~] Akun demo peninjau `peninjau_play` dibuat 7 Okt 2026 (login password diuji lewat API, perangkat uji sudah dibersihkan). **Akun tanpa tautan Google DIBEKUKAN mulai 30 Okt 2026 23:59 WIB** (`GOOGLE_LINK_FREEZE=true`); pengecualiannya kini ada di kode (daftar putih `GOOGLE_LINK_FREEZE_EXEMPT`), tinggal diisi `peninjau_play` di `.env` VPS dan backend dideploy/di-restart. Belum dites login di build Play.
 - [ ] ~~Putuskan Crashlytics/Sentry~~ **Crashlytics dipilih dan dipasang** (jawaban 2.2 sudah memuatnya); aktifkan Crashlytics di Firebase Console (lihat `docs/CRASH_REPORTING.md` bagian 4).
 - [x] Gerbang usia 13+ dipasang di aplikasi (7 Okt 2026; belum diuji visual di HP) sehingga klaim "13+" di Target audiens punya penegakan pernyataan diri.
 - [ ] Cocokkan butir bertanda ⚠️ dengan teks pertanyaan terbaru di Console.

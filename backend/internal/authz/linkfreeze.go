@@ -3,6 +3,7 @@ package authz
 import (
 	"context"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,13 +31,34 @@ type LinkFreezePolicy struct {
 	oauth    OAuthStore
 	now      func() time.Time
 
+	// exempt: username (huruf kecil) yang tidak pernah dibekukan walau belum menautkan Google (daftar putih, mis. akun
+	// demo peninjau Play yang tidak punya akun Google). usernameOf mencari username dari ID akun; keduanya diisi lewat
+	// SetExempt. Kosong = tidak ada pengecualian.
+	exempt     map[string]struct{}
+	usernameOf func(ctx context.Context, userID string) (string, error)
+
 	mu    sync.Mutex
 	cache map[string]freezeEntry
 }
 
 type freezeEntry struct {
-	linked  bool
+	frozen  bool
 	expires time.Time
+}
+
+// SetExempt mengatur daftar putih username yang dikecualikan dari pembekuan. Panggil sebelum kebijakan dipakai
+// (tidak aman untuk dipanggil bersamaan dengan IsFrozen). Perbandingan tidak peka huruf besar/kecil.
+func (p *LinkFreezePolicy) SetExempt(usernames []string, usernameOf func(ctx context.Context, userID string) (string, error)) {
+	if p == nil {
+		return
+	}
+	p.exempt = map[string]struct{}{}
+	for _, u := range usernames {
+		if u = strings.ToLower(strings.TrimSpace(u)); u != "" {
+			p.exempt[u] = struct{}{}
+		}
+	}
+	p.usernameOf = usernameOf
 }
 
 // NewLinkFreezePolicy membuat kebijakan. oauth nil atau enabled=false berarti tidak pernah membekukan.
@@ -65,7 +87,7 @@ func (p *LinkFreezePolicy) IsFrozen(ctx context.Context, userID, tenantID string
 	p.mu.Lock()
 	if e, ok := p.cache[userID]; ok && now.Before(e.expires) {
 		p.mu.Unlock()
-		return !e.linked
+		return e.frozen
 	}
 	p.mu.Unlock()
 
@@ -75,17 +97,31 @@ func (p *LinkFreezePolicy) IsFrozen(ctx context.Context, userID, tenantID string
 		return false
 	}
 
+	frozen := !linked
 	ttl := unlinkedCacheTTL
 	if linked {
 		ttl = linkedCacheTTL
+	}
+	// Akun belum tertaut yang ada di daftar putih tidak dibekukan. Kegagalan mencari username berarti TIDAK dibekukan
+	// (gagal terbuka) dan tidak disimpan di cache supaya dicoba lagi.
+	if frozen && len(p.exempt) > 0 && p.usernameOf != nil {
+		name, err := p.usernameOf(ctx, userID)
+		if err != nil {
+			log.Printf("⚠️ [LinkFreeze] gagal mencari username %s untuk daftar putih, tidak dibekukan: %v", userID, err)
+			return false
+		}
+		if _, ok := p.exempt[strings.ToLower(strings.TrimSpace(name))]; ok {
+			frozen = false
+			ttl = linkedCacheTTL
+		}
 	}
 	p.mu.Lock()
 	if len(p.cache) >= freezeCacheMax {
 		p.cache = map[string]freezeEntry{} // batas memori sederhana: isi ulang dari database
 	}
-	p.cache[userID] = freezeEntry{linked: linked, expires: now.Add(ttl)}
+	p.cache[userID] = freezeEntry{frozen: frozen, expires: now.Add(ttl)}
 	p.mu.Unlock()
-	return !linked
+	return frozen
 }
 
 // Invalidate membuang cache satu akun; dipanggil setelah menautkan/memutus Google supaya perubahan langsung berlaku.

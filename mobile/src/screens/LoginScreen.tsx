@@ -39,6 +39,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister, 
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   // ID token Google dipertahankan untuk percobaan ulang konfirmasi ganti perangkat (tanpa pemilih akun kedua).
   const googleIdTokenRef = useRef<string | null>(null);
+  // Login Google adalah jalur utama: form username+password disembunyikan di balik tautan "Login menggunakan username"
+  // (dipakai akun lama dan akun demo peninjau Play). Build tanpa Google langsung menampilkan form.
+  const [showUsernameForm, setShowUsernameForm] = useState(!googleAvailable);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -185,43 +188,59 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister, 
                   onPress={handleGoogle}
                 />
                 <Text style={styles.googleHint}>Akun baru dibuat lewat Google.</Text>
-                <View style={styles.divider}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerText}>atau masuk dengan username</Text>
-                  <View style={styles.dividerLine} />
-                </View>
+                {showUsernameForm ? (
+                  <View style={styles.divider}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>atau masuk dengan username</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setShowUsernameForm(true)}
+                    disabled={isGoogleLoading}
+                    hitSlop={{ top: 10, bottom: 10, left: 16, right: 16 }}
+                    accessibilityRole="link"
+                    style={styles.usernameLink}
+                  >
+                    <Text style={styles.usernameLinkText}>Login menggunakan username</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
 
-            <Input
-              label="Username"
-              placeholder="Masukkan username"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={username}
-              onChangeText={(text) => {
-                setUsername(text);
-                if (errorMessage) setErrorMessage(null);
-              }}
-            />
+            {showUsernameForm && (
+              <>
+                <Input
+                  label="Username"
+                  placeholder="Masukkan username"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  value={username}
+                  onChangeText={(text) => {
+                    setUsername(text);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                />
 
-            <Input
-              label="Password"
-              placeholder="Masukkan password"
-              secureTextEntry
-              value={password}
-              onChangeText={(text) => {
-                setPassword(text);
-                if (errorMessage) setErrorMessage(null);
-              }}
-            />
+                <Input
+                  label="Password"
+                  placeholder="Masukkan password"
+                  secureTextEntry
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                />
 
-            <Button
-              title="Masuk"
-              isLoading={isLoading}
-              onPress={handleLogin}
-              style={styles.submitButton}
-            />
+                <Button
+                  title="Masuk"
+                  isLoading={isLoading}
+                  onPress={handleLogin}
+                  style={styles.submitButton}
+                />
+              </>
+            )}
 
             {!googleAvailable && (
               <View style={styles.footer}>
@@ -319,6 +338,15 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  usernameLink: {
+    alignSelf: 'center',
+    marginTop: spacing.lg,
+    paddingVertical: spacing.xs,
+  },
+  usernameLinkText: {
+    ...typography.captionBold,
+    color: colors.accentPrimary,
   },
   divider: {
     flexDirection: 'row',

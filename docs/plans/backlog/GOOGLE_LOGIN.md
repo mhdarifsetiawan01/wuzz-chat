@@ -299,6 +299,8 @@ Kartu "Saya sudah punya akun" (langkah `link` di onboarding) dan login username 
 
 **Kenapa belum:** akun lama punya dua jalan menautkan Google, yaitu kartu ini dan layar akun beku. Layar akun beku muncul setelah login username + password. Setelah pembekuan 30 Okt 2026 akun yang belum menautkan hanya dibekukan (tidak dihapus), sehingga login username masih dibutuhkan agar pemiliknya bisa menautkan.
 
+**Keputusan 7 Okt 2026 (mengubah rencana di atas):** form username+password TIDAK lagi tampil di layar awal; layar awal hanya tombol Google dan tautan teks "Login menggunakan username" yang membuka form yang sama (`LoginScreen.tsx`, state `showUsernameForm`). Akun lama tetap bisa menautkan lewat Google lalu kartu "Saya sudah punya akun". Backend login password TIDAK dihapus/dibatasi: `/admin` web (login username+password, belum ada Google web) dan akun demo peninjau Play bergantung padanya. Akun demo `peninjau_play` dikecualikan dari pembekuan lewat `GOOGLE_LINK_FREEZE_EXEMPT`. **Syarat sebelum jalur password dihapus/dibatasi:** sediakan jalur akses peninjau Play yang tetap berfungsi (peninjau Play meninjau setiap pembaruan, bukan sekali) dan pastikan `/admin` punya login lain.
+
 **Kriteria aman dihapus (salah satu):**
 1. Tidak ada lagi akun yang belum punya kredensial `google:` (hitung di database), atau
 2. Keputusan sadar melepas sisa akun beku (terkait fase 5, bagian 12; tinjau paling lambat kuartal 2 2027). Lupa password tetap: daftar baru atau minta support menghapus akun lama.
