@@ -31,6 +31,7 @@ import {
   saveStoredConversations,
   updateStoredConversationPin as persistConversationPin,
   deleteStoredConversation,
+  pruneStoredConversations,
   updateStoredConversationUnread,
 } from '../services/sqliteStorage';
 import { secureStorage } from '../services/secureStorage';
@@ -61,6 +62,8 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const activeRoomIdRef = useRef<string | null>(null);
 
   const hasLoadedOnceRef = useRef<boolean>(false);
+  // True setelah daftar server berhasil diambil; hidrasi cache lokal yang telat selesai tidak boleh menimpanya
+  const serverLoadedRef = useRef<boolean>(false);
   const isFetchingRef = useRef<boolean>(false);
   const pendingRefreshRef = useRef<boolean>(false);
 
@@ -329,10 +332,20 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const processed = await processConversations(rawData);
           const sorted = sortConversations(processed);
           setConversations(sorted);
+          serverLoadedRef.current = true;
           if (user?.id) {
-            saveStoredConversations(user.id, sorted).catch((e) =>
-              console.warn('[ConversationContext] Failed to persist conversations to SQLite:', e)
-            );
+            const userId = user.id;
+            saveStoredConversations(userId, sorted)
+              .then(() =>
+                // Daftar server adalah kebenaran: buang baris cache yang sudah tidak ada di server
+                pruneStoredConversations(
+                  userId,
+                  sorted.map((c) => c.id || c.room_id).filter((id): id is string => !!id)
+                )
+              )
+              .catch((e) =>
+                console.warn('[ConversationContext] Failed to persist conversations to SQLite:', e)
+              );
           }
         }
         setError(null);
@@ -431,6 +444,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!isAuthenticated || !user?.id) {
       setConversations([]);
       hasLoadedOnceRef.current = false;
+      serverLoadedRef.current = false;
       setIsLoading(false);
       setIsRefreshing(false);
       setError(null);
@@ -443,9 +457,11 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       let hasLocalData = false;
       try {
         const localData = await getStoredConversations(user.id);
-        if (isMounted && localData && localData.length > 0) {
+        if (isMounted && localData && localData.length > 0 && !serverLoadedRef.current) {
           // Process decryption on local data immediately before setting state
           const processedLocal = await processConversations(localData);
+          // Fetch server bisa selesai selama dekripsi; jangan timpa daftar segar dengan cache lama
+          if (!isMounted || serverLoadedRef.current) return;
           const sorted = sortConversations(processedLocal);
           setConversations(sorted);
           hasLoadedOnceRef.current = true;
@@ -488,6 +504,8 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!hasEncrypted) return;
 
     processConversations(conversations).then((processed) => {
+      // State berubah selama dekripsi (mis. fetch server selesai): buang hasil basi, efek ini jalan lagi
+      if (conversationsRef.current !== conversations) return;
       const sorted = sortConversations(processed);
       setConversations(sorted);
       if (user?.id) {
