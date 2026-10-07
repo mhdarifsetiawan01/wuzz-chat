@@ -32,6 +32,8 @@ interface KeyConflictModalProps {
   onConfirmReset: (proof: OwnershipProof) => Promise<void>;
   /** false = akun Google-only: reset dikonfirmasi lewat pemilih akun Google. Default true. */
   hasPassword?: boolean;
+  /** true = akun punya password DAN tertaut Google: pengguna boleh memilih bukti mana yang dipakai. */
+  googleLinked?: boolean;
   onOpenDeviceTransfer?: () => void;
   onCancel: () => void | Promise<void>;
 }
@@ -40,6 +42,7 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   visible,
   onConfirmReset,
   hasPassword = true,
+  googleLinked = false,
   onOpenDeviceTransfer,
   onCancel,
 }) => {
@@ -49,6 +52,10 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   const [password, setPassword] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // Akun dengan dua metode: pengguna memilih password atau Google. Akun Google-only selalu Google.
+  const [preferGoogle, setPreferGoogle] = useState<boolean>(false);
+  const canChoose = hasPassword && googleLinked;
+  const usePassword = hasPassword && !(canChoose && preferGoogle);
 
   // Auto-dismiss software keyboard when modal appears so modal buttons are never obscured
   useEffect(() => {
@@ -60,6 +67,7 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   const handleStartReset = () => {
     setErrorMessage(null);
     setPassword('');
+    setPreferGoogle(false);
     setIsPromptingPassword(true);
   };
 
@@ -71,7 +79,7 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   };
 
   const handleSubmitReset = async () => {
-    if (hasPassword && !password.trim()) {
+    if (usePassword && !password.trim()) {
       setErrorMessage('Harap masukkan password akun Anda untuk konfirmasi reset.');
       return;
     }
@@ -81,7 +89,7 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
 
     try {
       let proof: OwnershipProof;
-      if (hasPassword) {
+      if (usePassword) {
         proof = { password };
       } else {
         // Akun Google-only: ID token baru dari pemilih akun Google (server memeriksa akunnya sama).
@@ -97,7 +105,7 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
       setPassword('');
     } catch (err: any) {
       setErrorMessage(
-        hasPassword
+        usePassword
           ? err?.detail || err?.message || 'Password salah atau gagal mereset kunci keamanan. Periksa password Anda.'
           : googleErrorMessage(err, 'Gagal mereset kunci keamanan. Silakan coba lagi.')
       );
@@ -166,7 +174,7 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
 
             {isPromptingPassword ? (
               <View style={styles.formContainer}>
-                {hasPassword ? (
+                {usePassword ? (
                   <Input
                     label="Kata Sandi Akun"
                     placeholder="Masukkan kata sandi akun Anda"
@@ -191,13 +199,26 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
                 )}
 
                 <Button
-                  title={hasPassword ? 'Saya Mengerti, Reset Kunci' : 'Konfirmasi dengan Google & Reset Kunci'}
+                  title={usePassword ? 'Saya Mengerti, Reset Kunci' : 'Konfirmasi dengan Google & Reset Kunci'}
                   variant="danger"
                   isLoading={isLoading}
                   disabled={isLoading}
                   style={styles.actionButton}
                   onPress={handleSubmitReset}
                 />
+
+                {canChoose && (
+                  <Button
+                    title={usePassword ? 'Lupa kata sandi? Gunakan Google' : 'Gunakan kata sandi'}
+                    variant="secondary"
+                    disabled={isLoading}
+                    style={styles.actionButton}
+                    onPress={() => {
+                      setErrorMessage(null);
+                      setPreferGoogle(usePassword);
+                    }}
+                  />
+                )}
 
                 <Button
                   title="Kembali"

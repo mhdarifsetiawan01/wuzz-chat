@@ -485,6 +485,7 @@ function AppContent() {
           visible={e2eeStatus === 'conflict'}
           onConfirmReset={resetE2EEKeys}
           hasPassword={user?.has_password !== false}
+          googleLinked={user?.google_linked === true}
           onOpenDeviceTransfer={() => setIsKeyTransferModalOpen(true)}
           onCancel={handleCancelKeyConflict}
         />
