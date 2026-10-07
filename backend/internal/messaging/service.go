@@ -412,13 +412,33 @@ func (s *MessageService) GetRoomHistory(ctx context.Context, roomID, userID stri
 	if strings.TrimSpace(roomID) == "" {
 		return nil, ErrMissingRoomID
 	}
-	if s.convRepo != nil && userID != "" {
-		isMember, err := s.convRepo.IsUserInConversation(roomID, userID)
-		if err != nil || !isMember {
-			return nil, errors.New("Anda bukan anggota dari percakapan ini")
-		}
+	return s.historyForMember(roomID, userID, func() ([]Message, error) {
+		return s.msgRepo.GetRoomHistoryForUser(roomID, userID, limit)
+	})
+}
+
+// historyForMember menjalankan pemeriksaan keanggotaan dan pengambilan riwayat BERSAMAAN (bukan berurutan), karena
+// setiap kueri membayar satu putaran jaringan ke DB. Gerbang akses tetap utuh: hasil riwayat dibuang bila user bukan
+// anggota atau pemeriksaan gagal, sehingga tidak ada isi pesan yang keluar tanpa keanggotaan terbukti.
+func (s *MessageService) historyForMember(roomID, userID string, fetch func() ([]Message, error)) ([]Message, error) {
+	if s.convRepo == nil || userID == "" {
+		return fetch()
 	}
-	return s.msgRepo.GetRoomHistoryForUser(roomID, userID, limit)
+	type result struct {
+		msgs []Message
+		err  error
+	}
+	fetched := make(chan result, 1)
+	go func() {
+		msgs, err := fetch()
+		fetched <- result{msgs, err}
+	}()
+	isMember, err := s.convRepo.IsUserInConversation(roomID, userID)
+	res := <-fetched
+	if err != nil || !isMember {
+		return nil, errors.New("Anda bukan anggota dari percakapan ini")
+	}
+	return res.msgs, res.err
 }
 
 // GetRoomHistorySince mengambil riwayat pesan baru sejak timestamp tertentu (delta offline sync).
@@ -434,13 +454,9 @@ func (s *MessageService) GetRoomHistoryBefore(ctx context.Context, roomID, userI
 	if strings.TrimSpace(roomID) == "" {
 		return nil, ErrMissingRoomID
 	}
-	if s.convRepo != nil && userID != "" {
-		isMember, err := s.convRepo.IsUserInConversation(roomID, userID)
-		if err != nil || !isMember {
-			return nil, errors.New("Anda bukan anggota dari percakapan ini")
-		}
-	}
-	return s.msgRepo.GetRoomHistoryBefore(roomID, userID, before, limit)
+	return s.historyForMember(roomID, userID, func() ([]Message, error) {
+		return s.msgRepo.GetRoomHistoryBefore(roomID, userID, before, limit)
+	})
 }
 
 // MarkUserMessagesAsDelivered menandai semua pesan 'sent' yang ditujukan ke user menjadi 'delivered'.

@@ -392,15 +392,22 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Status tautan Google hanya butuh UserID, jadi dibaca bersamaan dengan profil (bukan berurutan):
+	// setiap kueri ke DB membayar satu putaran jaringan penuh.
+	googleLinked := false
+	googleDone := make(chan struct{})
+	go func() {
+		defer close(googleDone)
+		if h.authSvc != nil {
+			googleLinked, _ = h.authSvc.IsGoogleLinked(r.Context(), claims.UserID)
+		}
+	}()
+
 	user, err := h.userStore.GetUserByID(claims.UserID)
+	<-googleDone
 	if err != nil || user == nil {
 		http.Error(w, `{"error":"User tidak ditemukan"}`, http.StatusNotFound)
 		return
-	}
-
-	googleLinked := false
-	if h.authSvc != nil {
-		googleLinked, _ = h.authSvc.IsGoogleLinked(r.Context(), claims.UserID)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
