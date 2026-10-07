@@ -15,8 +15,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input } from '../components';
+import { AgeConsentCheckbox } from '../components/AgeConsentCheckbox';
 import { useAuth } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
+import { validateAgeConfirmed } from '../utils/ageGate';
 
 interface RegisterScreenProps {
   onNavigateToLogin: () => void;
@@ -28,6 +30,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -54,6 +57,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
     }
     if (password !== confirmPassword) {
       setErrorMessage('Konfirmasi password tidak cocok.');
+      return;
+    }
+    const ageError = validateAgeConfirmed(ageConfirmed);
+    if (ageError) {
+      setErrorMessage(ageError);
       return;
     }
 
@@ -138,6 +146,16 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
               value={confirmPassword}
               onChangeText={(text) => {
                 setConfirmPassword(text);
+                if (errorMessage) setErrorMessage(null);
+              }}
+            />
+
+            <AgeConsentCheckbox
+              checked={ageConfirmed}
+              disabled={isLoading}
+              hasError={!!errorMessage && !ageConfirmed}
+              onToggle={() => {
+                setAgeConfirmed((v) => !v);
                 if (errorMessage) setErrorMessage(null);
               }}
             />

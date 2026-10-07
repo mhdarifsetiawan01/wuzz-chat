@@ -7,6 +7,7 @@
 
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AgeConsentCheckbox } from '../../components/AgeConsentCheckbox';
 import { Button } from '../../components/Button';
 import { Icon } from '../../components/Icon';
 import { Input } from '../../components/Input';
@@ -24,12 +25,14 @@ export interface GoogleOnboardingViewProps {
   username: string;
   displayName: string;
   password: string;
+  ageConfirmed: boolean;
   usernameHint: UsernameHint;
   errorMessage: string | null;
   isLoading: boolean;
   onChangeUsername: (v: string) => void;
   onChangeDisplayName: (v: string) => void;
   onChangePassword: (v: string) => void;
+  onToggleAgeConfirmed: () => void;
   onSelectStep: (step: Exclude<OnboardingStep, 'choose'>) => void;
   onSubmitNew: () => void;
   onSubmitLink: () => void;
@@ -116,6 +119,12 @@ export const GoogleOnboardingView: React.FC<GoogleOnboardingViewProps> = (p) => 
               placeholder={copy.newAccount.displayNamePlaceholder}
               value={p.displayName}
               onChangeText={p.onChangeDisplayName}
+            />
+            <AgeConsentCheckbox
+              checked={p.ageConfirmed}
+              disabled={p.isLoading}
+              hasError={!!p.errorMessage && !p.ageConfirmed}
+              onToggle={p.onToggleAgeConfirmed}
             />
             <Button title={copy.newAccount.submit} isLoading={p.isLoading} onPress={p.onSubmitNew} />
           </View>

@@ -13,6 +13,7 @@ import { DeviceLimitModal } from '../components';
 import { useAuth } from '../context';
 import { SUPPORT_EMAIL } from '../api/config';
 import { colors } from '../theme';
+import { validateAgeConfirmed } from '../utils/ageGate';
 import { getUsernameHint } from '../utils/usernameRules';
 import { GoogleOnboardingView } from './googleOnboarding/GoogleOnboardingView';
 import {
@@ -44,6 +45,7 @@ export const GoogleOnboardingScreen: React.FC<GoogleOnboardingScreenProps> = ({ 
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -97,6 +99,11 @@ export const GoogleOnboardingScreen: React.FC<GoogleOnboardingScreenProps> = ({ 
     const cleanUsername = username.trim().toLowerCase();
     if (cleanUsername.length < 3) {
       setErrorMessage('Username minimal 3 karakter.');
+      return;
+    }
+    const ageError = validateAgeConfirmed(ageConfirmed);
+    if (ageError) {
+      setErrorMessage(ageError);
       return;
     }
     setErrorMessage(null);
@@ -187,6 +194,7 @@ export const GoogleOnboardingScreen: React.FC<GoogleOnboardingScreenProps> = ({ 
           username={username}
           displayName={displayName}
           password={password}
+          ageConfirmed={ageConfirmed}
           usernameHint={getUsernameHint(username)}
           errorMessage={errorMessage}
           isLoading={isLoading}
@@ -200,6 +208,10 @@ export const GoogleOnboardingScreen: React.FC<GoogleOnboardingScreenProps> = ({ 
           }}
           onChangePassword={(t) => {
             setPassword(t);
+            clearError();
+          }}
+          onToggleAgeConfirmed={() => {
+            setAgeConfirmed((v) => !v);
             clearError();
           }}
           onSelectStep={handleSelectStep}
