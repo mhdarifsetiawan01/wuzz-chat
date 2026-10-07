@@ -130,6 +130,10 @@ func (h *GroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"Nama grup maksimal 128 karakter"}`, http.StatusBadRequest)
 			return
 		}
+		if errors.Is(err, group.ErrDescriptionTooLong) {
+			writeGroupJSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		if errors.Is(err, group.ErrInvalidGroupUsername) {
 			writeGroupJSONError(w, http.StatusBadRequest, err.Error())
 			return
@@ -615,6 +619,10 @@ func (h *GroupHandler) handleCreateSubGroup(w http.ResponseWriter, r *http.Reque
 	}
 	if len([]rune(req.Title)) > 128 {
 		writeGroupJSONError(w, http.StatusBadRequest, "Nama subgrup maksimal 128 karakter")
+		return
+	}
+	if len([]rune(req.Description)) > 500 {
+		writeGroupJSONError(w, http.StatusBadRequest, "Deskripsi subgrup maksimal 500 karakter")
 		return
 	}
 

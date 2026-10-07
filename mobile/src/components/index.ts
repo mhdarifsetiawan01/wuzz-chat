@@ -11,6 +11,7 @@ export * from './AudioPlayerBubble';
 export * from './SubGroupListModal';
 export * from './CreateSubGroupModal';
 export * from './EditGroupInfoModal';
+export * from './CollapsibleText';
 export * from './JoinRequestsModal';
 export * from './GroupPreviewModal';
 export * from './AuthorizationShield';

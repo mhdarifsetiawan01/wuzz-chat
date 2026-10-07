@@ -26,6 +26,7 @@ import { Avatar } from './Avatar';
 import { colors } from '../theme/colors';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
+import { CollapsibleText } from './CollapsibleText';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -184,11 +185,14 @@ export const GroupPreviewModal: React.FC<GroupPreviewModalProps> = ({
             {/* Description Card */}
             <View style={styles.descCard}>
               <Text style={styles.descLabel}>TENTANG GRUP</Text>
-              <Text style={styles.descText}>
-                {group.description && group.description.trim().length > 0
-                  ? group.description.trim()
-                  : 'Tidak ada deskripsi untuk grup ini.'}
-              </Text>
+              <CollapsibleText
+                text={
+                  group.description && group.description.trim().length > 0
+                    ? group.description.trim()
+                    : 'Tidak ada deskripsi untuk grup ini.'
+                }
+                style={styles.descText}
+              />
             </View>
 
             {/* Info notice */}

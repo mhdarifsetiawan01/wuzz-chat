@@ -23,6 +23,7 @@ import { groupsApi } from '../api/groups';
 import { searchUsers } from '../api/users';
 import { Conversation, GroupDetails, GroupMember, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
+import { CollapsibleText } from '../components/CollapsibleText';
 import { EditGroupInfoModal } from '../components/EditGroupInfoModal';
 import { SubGroupListModal } from '../components/SubGroupListModal';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
@@ -450,7 +451,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
           ) : null}
 
           {group?.description ? (
-            <Text style={styles.groupDescText}>{group.description}</Text>
+            <CollapsibleText text={group.description} style={styles.groupDescText} />
           ) : (
             <Text style={styles.noDescText}>Belum ada deskripsi grup</Text>
           )}

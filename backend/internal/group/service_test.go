@@ -572,3 +572,25 @@ func TestGroupService_UpdateToPrivateClearsUsername(t *testing.T) {
 		t.Fatalf("expected username dikosongkan saat privat, got %v", got)
 	}
 }
+
+func TestGroupService_DescriptionLimit(t *testing.T) {
+	svc := NewGroupService(&mockGroupRepo{updateGroupInfoFunc: func(_, _, _, _, _ string, _ *bool, _ *string) error { return nil }},
+		&mockUserRepo{users: make(map[string]*User)}, &mockBroadcaster{}, nil)
+	ctx := context.Background()
+
+	ok := strings.Repeat("é", 500) // dihitung per karakter, bukan per byte
+	tooLong := strings.Repeat("a", 501)
+
+	if _, err := svc.CreateGroup(ctx, CreateGroupInput{Title: "G", CreatorID: "usr_1", Description: ok}); err != nil {
+		t.Errorf("500 karakter harus diterima: %v", err)
+	}
+	if _, err := svc.CreateGroup(ctx, CreateGroupInput{Title: "G", CreatorID: "usr_1", Description: tooLong}); !errors.Is(err, ErrDescriptionTooLong) {
+		t.Errorf("create 501 karakter: expected ErrDescriptionTooLong, got %v", err)
+	}
+	if err := svc.UpdateGroupInfo(ctx, UpdateGroupInput{ConversationID: "grp_1", ActorUserID: "usr_1", Title: "G", Description: tooLong}); !errors.Is(err, ErrDescriptionTooLong) {
+		t.Errorf("update 501 karakter: expected ErrDescriptionTooLong, got %v", err)
+	}
+	if err := svc.UpdateGroupInfo(ctx, UpdateGroupInput{ConversationID: "grp_1", ActorUserID: "usr_1", Title: "G", Description: ok}); err != nil {
+		t.Errorf("update 500 karakter harus diterima: %v", err)
+	}
+}

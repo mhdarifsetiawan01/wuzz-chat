@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -89,6 +90,9 @@ func (s *GroupService) resolveDisplayName(userID string) string {
 	return userID
 }
 
+// maxGroupDescriptionRunes membatasi deskripsi (sama dengan batas formulir web).
+const maxGroupDescriptionRunes = 500
+
 var groupUsernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]{3,32}$`)
 
 // CreateGroup membuat grup baru dan mengambil daftar anggota lengkap.
@@ -99,6 +103,9 @@ func (s *GroupService) CreateGroup(ctx context.Context, input CreateGroupInput) 
 	}
 	if len(title) > 128 {
 		return nil, ErrTitleTooLong
+	}
+	if utf8.RuneCountInString(input.Description) > maxGroupDescriptionRunes {
+		return nil, ErrDescriptionTooLong
 	}
 
 	// Username hanya bermakna untuk grup publik; validasi format di server
@@ -253,6 +260,9 @@ func (s *GroupService) UpdateMemberRole(ctx context.Context, input UpdateMemberR
 func (s *GroupService) UpdateGroupInfo(ctx context.Context, input UpdateGroupInput) error {
 	if input.Title != "" && len(strings.TrimSpace(input.Title)) > 128 {
 		return ErrTitleTooLong
+	}
+	if utf8.RuneCountInString(input.Description) > maxGroupDescriptionRunes {
+		return ErrDescriptionTooLong
 	}
 
 	// Username kosong berarti menghapus username; selain itu wajib valid.

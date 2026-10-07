@@ -296,9 +296,13 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
               placeholderTextColor={colors.textMuted}
               value={description}
               onChangeText={setDescription}
-              maxLength={256}
+              maxLength={500}
               multiline
+              textAlignVertical="top"
             />
+            {description.length > 0 ? (
+              <Text style={styles.descCounterText}>{description.length}/500</Text>
+            ) : null}
           </View>
         </View>
 
@@ -510,6 +514,12 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 10,
     marginLeft: spacing.xs,
+  },
+  descCounterText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    fontSize: 10,
+    textAlign: 'right',
   },
   descInput: {
     ...typography.bodySecondary,

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { GroupDetails, GroupMember, User } from '@/lib/types'
 import { apiRequest } from '@/lib/api'
 import { UserAvatar } from './UserAvatar'
@@ -43,6 +43,11 @@ export function GroupInfoDrawer({
   const [editError, setEditError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
+  // Deskripsi panjang diringkas 3 baris dengan tombol "Selengkapnya"
+  const [descExpanded, setDescExpanded] = useState(false)
+  const [descTruncated, setDescTruncated] = useState(false)
+  const descRef = useRef<HTMLParagraphElement>(null)
+
   // Leave / Kick Confirmation
   const [confirmAction, setConfirmAction] = useState<{ type: 'leave' | 'kick'; targetUser?: GroupMember } | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
@@ -80,6 +85,15 @@ export function GroupInfoDrawer({
       setConfirmAction(null)
     }
   }, [isOpen, groupId])
+
+  useLayoutEffect(() => {
+    setDescExpanded(false)
+  }, [group?.description, isOpen])
+
+  useLayoutEffect(() => {
+    const el = descRef.current
+    if (el && !descExpanded) setDescTruncated(el.scrollHeight > el.clientHeight + 1)
+  }, [group?.description, descExpanded, isOpen, isEditing])
 
   if (!isOpen) return null
 
@@ -249,6 +263,7 @@ export function GroupInfoDrawer({
                       type="text"
                       className="group-form-input"
                       value={editTitle}
+                      maxLength={128}
                       onChange={e => setEditTitle(e.target.value)}
                       placeholder="Nama grup"
                       style={{ textAlign: 'center', fontWeight: 600 }}
@@ -256,11 +271,15 @@ export function GroupInfoDrawer({
                     <textarea
                       className="group-form-textarea"
                       value={editDesc}
+                      maxLength={500}
                       onChange={e => setEditDesc(e.target.value)}
                       placeholder="Deskripsi grup"
                       rows={2}
                       style={{ fontSize: '0.85rem' }}
                     />
+                    <div style={{ textAlign: 'right', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: -6 }}>
+                      {editDesc.length}/500
+                    </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         type="button"
@@ -344,9 +363,47 @@ export function GroupInfoDrawer({
                     </div>
 
                     {group.description && (
-                      <p style={{ margin: '12px 0 0', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4, maxWidth: 360 }}>
-                        {group.description}
-                      </p>
+                      <>
+                        <p
+                          ref={descRef}
+                          style={{
+                            margin: '12px 0 0',
+                            fontSize: '0.85rem',
+                            color: 'var(--text-muted)',
+                            lineHeight: 1.4,
+                            maxWidth: 360,
+                            whiteSpace: 'pre-wrap',
+                            overflowWrap: 'anywhere',
+                            ...(descExpanded ? {} : {
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical' as const,
+                              overflow: 'hidden',
+                            }),
+                          }}
+                        >
+                          {group.description}
+                        </p>
+                        {(descTruncated || descExpanded) && (
+                          <button
+                            type="button"
+                            onClick={() => setDescExpanded(v => !v)}
+                            aria-expanded={descExpanded}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--accent-500)',
+                              fontSize: '0.8rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              marginTop: 4,
+                              padding: 0,
+                            }}
+                          >
+                            {descExpanded ? 'Sembunyikan' : 'Selengkapnya'}
+                          </button>
+                        )}
+                      </>
                     )}
 
                     {isCreatorOrAdmin && (

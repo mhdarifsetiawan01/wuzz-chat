@@ -5,7 +5,7 @@
  * tombol dikunci selama proses simpan (anti double-action).
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -36,30 +36,35 @@ export interface EditGroupInfoModalProps {
   onSaved: () => void;
 }
 
-export const EditGroupInfoModal: React.FC<EditGroupInfoModalProps> = ({
-  visible,
+interface EditGroupInfoSheetProps {
+  group: GroupDetails;
+  onClose: () => void;
+  onSaved: () => void;
+  /** Diisi true selama menyimpan agar tombol back perangkat tidak menutup modal. */
+  savingRef: React.MutableRefObject<boolean>;
+}
+
+// Formulir dipasang segar setiap modal dibuka (lihat `key` di EditGroupInfoModal) dan state
+// awalnya langsung berisi data grup. Dengan begitu kotak deskripsi sudah berisi teks saat pertama
+// dipasang dan Android menampilkan baris pertama, bukan menggulir ke ujung teks.
+const EditGroupInfoSheet: React.FC<EditGroupInfoSheetProps> = ({
   group,
   onClose,
   onSaved,
+  savingRef,
 }) => {
   const insets = useSafeAreaInsets();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
-  const [username, setUsername] = useState('');
+  const [title, setTitle] = useState(group.title || '');
+  const [description, setDescription] = useState(group.description || '');
+  const [isPublic, setIsPublic] = useState(!!group.is_public);
+  const [username, setUsername] = useState(group.group_username || '');
   const [isSaving, setIsSaving] = useState(false);
+  // Kursor awal di posisi 0; dilepas saat kotak difokuskan supaya kursor bebas dipindah.
+  const [descSelection, setDescSelection] = useState<{ start: number; end: number } | undefined>({
+    start: 0,
+    end: 0,
+  });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Isi ulang form dari data terbaru setiap modal dibuka.
-  useEffect(() => {
-    if (visible) {
-      setTitle(group.title || '');
-      setDescription(group.description || '');
-      setIsPublic(!!group.is_public);
-      setUsername(group.group_username || '');
-      setErrorMessage(null);
-    }
-  }, [visible, group]);
 
   const handleClose = useCallback(() => {
     if (!isSaving) onClose();
@@ -79,6 +84,7 @@ export const EditGroupInfoModal: React.FC<EditGroupInfoModalProps> = ({
     }
 
     setIsSaving(true);
+    savingRef.current = true;
     setErrorMessage(null);
     try {
       await groupsApi.updateGroupInfo(group.id, {
@@ -93,11 +99,145 @@ export const EditGroupInfoModal: React.FC<EditGroupInfoModalProps> = ({
       console.warn('[EditGroupInfoModal] Update failed:', err);
       setErrorMessage(err?.message || 'Gagal menyimpan info grup');
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
-  }, [isSaving, title, description, isPublic, username, group.id, onSaved, onClose]);
+  }, [isSaving, title, description, isPublic, username, group.id, onSaved, onClose, savingRef]);
 
   const canSave = !!title.trim() && !isSaving;
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.keyboardAvoider}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.backdrop}>
+        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Edit Info Grup</Text>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={handleClose}
+              disabled={isSaving}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Icon name="close" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {errorMessage ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.labelRow}>
+              <Text style={styles.fieldLabelInline}>Nama Grup *</Text>
+              <Text style={styles.counterText}>{title.length}/128</Text>
+            </View>
+            <TextInput
+              style={styles.textInput}
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Nama grup"
+              placeholderTextColor={colors.textMuted}
+              maxLength={128}
+              editable={!isSaving}
+            />
+
+            <View style={[styles.labelRow, styles.fieldGap]}>
+              <Text style={styles.fieldLabelInline}>Deskripsi</Text>
+              <Text style={styles.counterText}>{description.length}/500</Text>
+            </View>
+            <TextInput
+              style={[styles.textInput, styles.textArea]}
+              value={description}
+              onChangeText={setDescription}
+              selection={descSelection}
+              onFocus={() => setDescSelection(undefined)}
+              textAlignVertical="top"
+              placeholder="Deskripsi grup (opsional)"
+              placeholderTextColor={colors.textMuted}
+              maxLength={500}
+              multiline
+              editable={!isSaving}
+            />
+
+            <View style={[styles.toggleRow, styles.fieldGap]}>
+              <View style={styles.toggleInfo}>
+                <Text style={styles.toggleTitle}>{isPublic ? 'Grup Publik' : 'Grup Privat'}</Text>
+                <Text style={styles.toggleHint}>
+                  {isPublic
+                    ? 'Bisa ditemukan lewat pencarian dan siapa pun dapat bergabung.'
+                    : 'Hanya anggota yang bisa masuk. @username akan dilepas.'}
+                </Text>
+              </View>
+              <Switch
+                value={isPublic}
+                onValueChange={setIsPublic}
+                disabled={isSaving}
+                trackColor={{ false: colors.borderSubtle, true: colors.accentPrimary }}
+                thumbColor="#ffffff"
+              />
+            </View>
+
+            {isPublic && (
+              <View style={[styles.usernameRow, styles.fieldGap]}>
+                <Text style={styles.usernamePrefix}>@</Text>
+                <TextInput
+                  style={styles.usernameInput}
+                  value={username}
+                  onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_@]/g, ''))}
+                  placeholder="username_grup (opsional)"
+                  placeholderTextColor={colors.textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  maxLength={33}
+                  editable={!isSaving}
+                />
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
+              onPress={handleSave}
+              disabled={!canSave}
+              activeOpacity={0.8}
+            >
+              {isSaving ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.saveButtonText}>Simpan</Text>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+  );
+};
+
+export const EditGroupInfoModal: React.FC<EditGroupInfoModalProps> = ({
+  visible,
+  group,
+  onClose,
+  onSaved,
+}) => {
+  const savingRef = useRef(false);
+  // Naik setiap kali modal dibuka, sehingga formulir dipasang ulang dengan data terbaru.
+  const openCount = useRef(0);
+  const wasVisible = useRef(false);
+  if (visible && !wasVisible.current) openCount.current += 1;
+  wasVisible.current = visible;
+
+  const handleRequestClose = useCallback(() => {
+    if (!savingRef.current) onClose();
+  }, [onClose]);
 
   return (
     <Modal
@@ -105,111 +245,15 @@ export const EditGroupInfoModal: React.FC<EditGroupInfoModalProps> = ({
       animationType="slide"
       transparent
       statusBarTranslucent
-      onRequestClose={handleClose}
+      onRequestClose={handleRequestClose}
     >
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoider}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={styles.backdrop}>
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Edit Info Grup</Text>
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={handleClose}
-                disabled={isSaving}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              >
-                <Icon name="close" size={16} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.scrollContent}
-            >
-              {errorMessage ? (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                </View>
-              ) : null}
-
-              <Text style={styles.fieldLabel}>Nama Grup *</Text>
-              <TextInput
-                style={styles.textInput}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Nama grup"
-                placeholderTextColor={colors.textMuted}
-                maxLength={128}
-                editable={!isSaving}
-              />
-
-              <Text style={[styles.fieldLabel, styles.fieldGap]}>Deskripsi</Text>
-              <TextInput
-                style={[styles.textInput, styles.textArea]}
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Deskripsi grup (opsional)"
-                placeholderTextColor={colors.textMuted}
-                maxLength={256}
-                multiline
-                editable={!isSaving}
-              />
-
-              <View style={[styles.toggleRow, styles.fieldGap]}>
-                <View style={styles.toggleInfo}>
-                  <Text style={styles.toggleTitle}>{isPublic ? 'Grup Publik' : 'Grup Privat'}</Text>
-                  <Text style={styles.toggleHint}>
-                    {isPublic
-                      ? 'Bisa ditemukan lewat pencarian dan siapa pun dapat bergabung.'
-                      : 'Hanya anggota yang bisa masuk. @username akan dilepas.'}
-                  </Text>
-                </View>
-                <Switch
-                  value={isPublic}
-                  onValueChange={setIsPublic}
-                  disabled={isSaving}
-                  trackColor={{ false: colors.borderSubtle, true: colors.accentPrimary }}
-                  thumbColor="#ffffff"
-                />
-              </View>
-
-              {isPublic && (
-                <View style={[styles.usernameRow, styles.fieldGap]}>
-                  <Text style={styles.usernamePrefix}>@</Text>
-                  <TextInput
-                    style={styles.usernameInput}
-                    value={username}
-                    onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9_@]/g, ''))}
-                    placeholder="username_grup (opsional)"
-                    placeholderTextColor={colors.textMuted}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    maxLength={33}
-                    editable={!isSaving}
-                  />
-                </View>
-              )}
-
-              <TouchableOpacity
-                style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
-                onPress={handleSave}
-                disabled={!canSave}
-                activeOpacity={0.8}
-              >
-                {isSaving ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.saveButtonText}>Simpan</Text>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
+      <EditGroupInfoSheet
+        key={openCount.current}
+        group={group}
+        onClose={onClose}
+        onSaved={onSaved}
+        savingRef={savingRef}
+      />
     </Modal>
   );
 };
@@ -278,6 +322,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  fieldLabelInline: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  counterText: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
   fieldGap: {
     marginTop: spacing.lg,
   },
@@ -292,7 +353,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   textArea: {
-    height: 80,
+    height: 120,
     textAlignVertical: 'top',
   },
   toggleRow: {
