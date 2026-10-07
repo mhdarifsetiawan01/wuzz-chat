@@ -27,11 +27,11 @@ export default function PrivacyPage() {
         <li><strong>Masuk dengan Google:</strong> bila Anda masuk atau menautkan akun Google, kami menyimpan pengenal akun Google Anda (ID unik) dan alamat email Google, semata-mata untuk mengenali akun Anda saat masuk dan menampilkan akun Google mana yang tertaut. Kami tidak membaca kontak, Drive, atau data Google lainnya, dan tidak menyimpan nama atau foto Google Anda.</li>
         <li><strong>Laporan dan moderasi:</strong> jika Anda melaporkan konten atau pengguna, kami menyimpan laporan itu beserta keterangan dan bukti yang Anda tulis. Tim moderasi mencatat tindakan yang diambil (misalnya konten dihapus atau akun ditangguhkan) beserta waktu dan alasannya.</li>
       </ul>
-      <p>Kami <strong>tidak</strong> menampilkan iklan, tidak menjual data, dan tidak memakai SDK analitik atau pelacak pihak ketiga.</p>
+      <p>Saat ini kami tidak menampilkan iklan dan tidak menjual data. Kami tidak memakai SDK analitik perilaku atau pelacak iklan. Kami memakai Google Firebase Crashlytics untuk laporan kerusakan teknis dan Google ML Kit untuk memindai kode QR (lihat bagian 4). Bila nanti kami menambahkan iklan atau layanan analitik, kebijakan ini akan diperbarui sebelum fitur itu dirilis.</p>
 
       <h2>2. Izin perangkat</h2>
       <ul>
-        <li><strong>Kamera:</strong> hanya untuk memindai kode QR (pemindahan kunci E2EE dan tautan undangan).</li>
+        <li><strong>Kamera:</strong> hanya untuk memindai kode QR (pemindahan kunci E2EE dan tautan undangan). Pemindaian memakai Google ML Kit yang berjalan di perangkat.</li>
         <li><strong>Mikrofon:</strong> hanya untuk pesan suara dan panggilan suara.</li>
         <li><strong>Notifikasi:</strong> untuk memberi tahu pesan dan panggilan masuk.</li>
         <li><strong>Foto/berkas:</strong> hanya berkas yang Anda pilih sendiri untuk dikirim atau dijadikan foto profil.</li>
@@ -50,6 +50,7 @@ export default function PrivacyPage() {
         <li>Google (Masuk dengan Google): memverifikasi identitas Anda saat Anda memilih masuk dengan akun Google.</li>
         <li>Google Firebase Cloud Messaging: mengantar notifikasi push (menerima token perangkat dan isi notifikasi).</li>
         <li>Google Firebase Crashlytics: menerima laporan kerusakan teknis seperti dijelaskan di atas, semata-mata untuk memperbaiki aplikasi.</li>
+        <li>Google ML Kit (pemindai kode QR): SDK Google yang berjalan di perangkat Anda dan dapat mengirim data teknis penggunaan SDK ke Google.</li>
         <li>Penyedia model bahasa (LLM) untuk fitur AI Memory (saat ini Groq): hanya menerima teks pesan dari forum terbuka bila fitur diaktifkan, seperti dijelaskan di atas. Saat ini fitur tersebut dinonaktifkan.</li>
         <li>Telegram: dipakai untuk pemberitahuan internal kepada tim moderasi bahwa ada laporan baru. Pesan hanya memuat jenis dan alasan laporan serta tautan ke halaman moderator; tidak memuat isi pesan, bukti, nama pengguna, atau data pribadi Anda.</li>
         <li>Penyedia basis data dan penyimpanan berkas media kami (saat ini Supabase).</li>
