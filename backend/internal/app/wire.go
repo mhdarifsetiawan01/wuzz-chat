@@ -124,6 +124,9 @@ func New(cfg *config.Config) (*Application, error) {
 	var groupStore store.GroupStore
 	var transferStore store.TransferStore
 	var memoryStore store.MemoryStore
+	// jobStore dipakai semua jalur yang MEMBUAT atau MEMPROSES job AI Memory; nil bila MEMORY_WORKER_ENABLED=false.
+	// Handler baca/setujui draf tetap memakai memoryStore karena tidak membuat job dan tidak memanggil LLM.
+	var jobStore store.MemoryStore
 	var tokenStore store.TokenStore
 	var sessionStore store.SessionStore
 	var deviceStore store.DeviceStore
@@ -182,6 +185,11 @@ func New(cfg *config.Config) (*Application, error) {
 	app.UserStore = userStore
 	app.GroupStore = groupStore
 	app.MemoryStore = memoryStore
+	jobStore = memoryStore
+	if memoryStore != nil && cfg != nil && cfg.MemoryWorkerDisabled {
+		jobStore = nil
+		log.Printf("⏸️ AI Memory DINONAKTIFKAN (MEMORY_WORKER_ENABLED=false): job tidak dibuat dan tidak ada teks pesan yang dikirim ke penyedia LLM")
+	}
 	app.TenantRepo = tenantRepo
 	app.TenantService = tenantSvc
 
@@ -285,7 +293,7 @@ func New(cfg *config.Config) (*Application, error) {
 
 		groupRepo := groupinfra.NewSQLGroupRepository(groupStore, userStore)
 		groupSvc := group.NewGroupService(groupRepo, groupRepo, nil, nil)
-		forumSvc := group.NewForumService(groupRepo, groupRepo, memoryStore, nil, nil)
+		forumSvc := group.NewForumService(groupRepo, groupRepo, jobStore, nil, nil)
 		app.GroupHandler = api.NewGroupHandlerWithServices(groupSvc, forumSvc, groupStore, userStore)
 
 		app.NotificationHandler = api.NewNotificationHandler(pushService, userStore)
@@ -387,13 +395,13 @@ func New(cfg *config.Config) (*Application, error) {
 	if groupStore != nil {
 		groupRepo := groupinfra.NewSQLGroupRepository(groupStore, userStore)
 		app.SubGroupWorker = groupworker.NewSubGroupTTLWorker(groupRepo, cfg.SubGroupWorkerInterval)
-		if memoryStore != nil {
-			app.SubGroupWorker.SetMemoryStore(memoryStore)
+		if jobStore != nil {
+			app.SubGroupWorker.SetMemoryStore(jobStore)
 		}
 	}
 
 	// 5.4 Group Memory AI Job Worker (Analisis LLM latar belakang)
-	if memoryStore != nil {
+	if jobStore != nil {
 		aiService := ai.NewAIServiceFromEnv()
 		memoryProcessor := ai.NewMemoryProcessor(memoryStore, messageStore, groupStore, aiService)
 		if memoryRegistry != nil {

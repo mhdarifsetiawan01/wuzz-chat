@@ -36,7 +36,10 @@ type Config struct {
 	AuthRateLimitUser int
 
 	// Background Worker Intervals & Batch
-	MemoryWorkerInterval    time.Duration
+	MemoryWorkerInterval time.Duration
+	// MemoryWorkerDisabled mematikan seluruh jalur AI Memory (env MEMORY_WORKER_ENABLED=false): job tidak dibuat saat topik
+	// forum kedaluwarsa/ditutup dan tidak ada teks pesan yang dikirim ke penyedia LLM. Zero value (false) = tetap aktif.
+	MemoryWorkerDisabled    bool
 	MemoryJobBatchSize      int
 	SubGroupWorkerInterval  time.Duration
 	PurgeWorkerInterval     time.Duration
@@ -110,6 +113,7 @@ func Load() (*Config, error) {
 
 		MemoryWorkerInterval:    getEnvDurationSeconds("MEMORY_WORKER_INTERVAL_SECONDS", 15*time.Second),
 		MemoryJobBatchSize:      getEnvInt("MEMORY_JOB_BATCH_SIZE", 5),
+		MemoryWorkerDisabled:    isFalseEnv(os.Getenv("MEMORY_WORKER_ENABLED")),
 		SubGroupWorkerInterval:  15 * time.Minute,
 		PurgeWorkerInterval:     1 * time.Hour,
 		TokenCleanupInterval:    1 * time.Hour,
@@ -188,6 +192,15 @@ func splitCSV(v string) []string {
 }
 
 // getEnv membaca environment variable string dengan fallback ke default.
+// isFalseEnv true bila nilai env secara eksplisit "mati" (false/0/no/off). Kosong atau nilai lain = bukan mati.
+func isFalseEnv(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "false", "0", "no", "off":
+		return true
+	}
+	return false
+}
+
 func getEnv(key, defaultVal string) string {
 	if val := os.Getenv(key); val != "" {
 		return val

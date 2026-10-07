@@ -213,3 +213,20 @@ func TestConfig_GoogleLinkFreezeExemptParsing(t *testing.T) {
 		t.Fatalf("env kosong harus tanpa pengecualian, got %v", cfg.GoogleLinkFreezeExempt)
 	}
 }
+
+func TestConfig_MemoryWorkerEnabledSwitch(t *testing.T) {
+	cases := map[string]bool{
+		"": false, "true": false, "TRUE": false, "1": false, "yes": false, "garbage": false, // aktif secara default
+		"false": true, "False": true, " false ": true, "0": true, "no": true, "off": true, "OFF": true, // mati eksplisit
+	}
+	for val, wantDisabled := range cases {
+		t.Setenv("MEMORY_WORKER_ENABLED", val)
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() error = %v", err)
+		}
+		if cfg.MemoryWorkerDisabled != wantDisabled {
+			t.Errorf("MEMORY_WORKER_ENABLED=%q: MemoryWorkerDisabled=%v, want %v", val, cfg.MemoryWorkerDisabled, wantDisabled)
+		}
+	}
+}
