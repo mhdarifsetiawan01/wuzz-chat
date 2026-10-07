@@ -476,3 +476,17 @@ Query tetap sebelum handler berjalan (diukur dengan `log_statement=all` di Postg
 **Hasil ukur (jumlah query per permintaan, lokal):** `/me` 5 menjadi 2; `users/search` 5 menjadi 2; `connections/friends` 5 menjadi 2; `conversations` 6 menjadi 3; `messages/pinned` 8 menjadi 5. Setiap permintaan menghemat 3 putaran berurutan (±0,3 sampai 0,7 detik pada jarak sekarang). **Ukur ulang di produksi setelah deploy** (rata-rata sebelumnya: `/me` 1219 ms, `conversations` 1457 ms, `users/search` 942 ms, `admin/reports` 955 ms).
 
 **Penyebab akar yang belum ditangani (butuh keputusan):** jarak VPS ke Supabase Seoul. Wilayah proyek Supabase tidak bisa diubah; memindahkannya berarti proyek baru di wilayah dekat VPS (mis. Singapura) dan migrasi data, atau memindahkan VPS dekat Seoul. Dengan jarak ±10 ms, setiap permintaan turun menjadi ±100 ms. Opsi lanjutan yang lebih berisiko (cache negatif pencabutan dengan TTL pendek dan invalidasi saat pencabutan) sengaja belum dilakukan karena menunda efek logout/ganti password pada instans lain.
+
+**Hasil ukur produksi setelah deploy (6 Okt 2026, 036154e, pemakaian nyata selama ±30 menit, 0 respons 5xx, login/logout normal):**
+
+| Endpoint | Sebelum (rata-rata, n) | Sesudah (rata-rata, n) |
+|---|---|---|
+| `GET /api/conversations` | 1457 ms (30) | 971 ms (20) |
+| `POST /api/messages/receipt` | 1367 ms (16) | 993 ms (18) |
+| `GET /api/messages/pinned` | 1508 ms (6) | 974 ms (6) |
+| `GET /api/feed` | 1079 ms (8) | 346 ms (1) |
+| `GET /api/connections/friends` | 1143 ms (8) | 335 ms (1) |
+| `GET /api/connections/pending` | 1357 ms (8) | 513 ms (1) |
+| `PUT /api/users/public-key` | 956 ms (13) | 511 ms (1) |
+
+Endpoint yang sering dipanggil turun ±27-35%; yang sampelnya satu (kemungkinan koneksi hangat) terlihat turun lebih dari separuh. Endpoint berat tetap ±1 detik (`conversations`, `messages/receipt`, `media/ack`) karena query di dalam handler masih berurutan dan setiap putaran ke Seoul ±100 ms. Langkah berikutnya yang paling besar dampaknya: memindahkan database dekat VPS (lihat di atas), lalu mengurangi query berurutan di handler terberat.

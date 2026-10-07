@@ -10,7 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
@@ -966,17 +968,34 @@ func (s *SQLUserStore) UnpinConversation(conversationID, userID string) error {
 func (s *SQLUserStore) GetUserConversationsWithContext(ctx context.Context, userID string) ([]ConversationItem, error) {
 	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 
-	// Jika tenant context bernilai default, cek apakah user terdaftar pada tenant kustom
-	if tenantID == tenantshared.DefaultTenantID {
-		var uTenant string
+	// Semua kueri di bawah hanya bergantung pada userID, jadi dijalankan bersamaan: DB bisa berjarak
+	// puluhan ms dari server, sehingga kueri berurutan menumpuk menjadi hitungan detik.
+	var wg sync.WaitGroup
+	var lastMessages map[string]convLastMsg
+	var unreadCounts map[string]int
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		lastMessages = s.queryConversationLastMessages(userID)
+	}()
+	go func() {
+		defer wg.Done()
+		unreadCounts = s.queryConversationUnreadCounts(userID)
+	}()
+
+	// Tenant default: tenant asli user (bila terdaftar pada tenant kustom) dicari lewat subkueri
+	// di kueri utama, bukan lewat kueri terpisah sebelumnya.
+	tenantExpr := "?"
+	if s.driverName == "postgres" {
+		tenantExpr = "$2"
+	}
+	tenantInline := tenantID == tenantshared.DefaultTenantID
+	if tenantInline {
+		userRef := "?"
 		if s.driverName == "postgres" {
-			_ = s.db.QueryRow(`SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $1`, userID).Scan(&uTenant)
-		} else {
-			_ = s.db.QueryRow(`SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?`, userID).Scan(&uTenant)
+			userRef = "$1"
 		}
-		if uTenant != "" {
-			tenantID = uTenant
-		}
+		tenantExpr = `COALESCE(NULLIF((SELECT tenant_id FROM users WHERE id = ` + userRef + `), ''), 'default')`
 	}
 
 	// 1. Ambil seluruh percakapan beserta data lawan bicara (peer) jika direct chat dalam 1 query
@@ -1007,7 +1026,7 @@ func (s *SQLUserStore) GetUserConversationsWithContext(ctx context.Context, user
 			JOIN conversation_members cm ON c.id = cm.conversation_id AND cm.user_id = $1
 			LEFT JOIN conversation_members peer_cm ON c.id = peer_cm.conversation_id AND peer_cm.user_id != $1 AND c.type = 'direct'
 			LEFT JOIN users peer ON peer_cm.user_id = peer.id
-			WHERE c.tenant_id = $2 AND (c.parent_id IS NULL OR c.parent_id = '')
+			WHERE c.tenant_id = {{TENANT}} AND (c.parent_id IS NULL OR c.parent_id = '')
 			ORDER BY c.updated_at DESC
 		`
 	} else {
@@ -1036,19 +1055,27 @@ func (s *SQLUserStore) GetUserConversationsWithContext(ctx context.Context, user
 			JOIN conversation_members cm ON c.id = cm.conversation_id AND cm.user_id = ?
 			LEFT JOIN conversation_members peer_cm ON c.id = peer_cm.conversation_id AND peer_cm.user_id != ? AND c.type = 'direct'
 			LEFT JOIN users peer ON peer_cm.user_id = peer.id
-			WHERE c.tenant_id = ? AND (c.parent_id IS NULL OR c.parent_id = '')
+			WHERE c.tenant_id = {{TENANT}} AND (c.parent_id IS NULL OR c.parent_id = '')
 			ORDER BY c.updated_at DESC
 		`
 	}
 
-	var rows *sql.Rows
-	var err error
-	if s.driverName == "postgres" {
-		rows, err = s.db.Query(query, userID, tenantID)
-	} else {
-		rows, err = s.db.Query(query, userID, userID, tenantID)
+	query = strings.Replace(query, "{{TENANT}}", tenantExpr, 1)
+
+	var args []any
+	switch {
+	case s.driverName == "postgres" && tenantInline:
+		args = []any{userID}
+	case s.driverName == "postgres":
+		args = []any{userID, tenantID}
+	case tenantInline:
+		args = []any{userID, userID, userID}
+	default:
+		args = []any{userID, userID, tenantID}
 	}
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
+		wg.Wait()
 		return nil, err
 	}
 	defer rows.Close()
@@ -1101,19 +1128,65 @@ func (s *SQLUserStore) GetUserConversationsWithContext(ctx context.Context, user
 	rows.Close()
 
 	if len(rawConvs) == 0 {
+		wg.Wait()
 		return []ConversationItem{}, nil
 	}
 
-	// 2. Ambil pesan terakhir untuk semua percakapan dalam 1 query menggunakan CTE & ROW_NUMBER()
-	type lastMsg struct {
-		snippet   string
-		senderID  string
-		sender    string
-		status    string
-		createdAt time.Time
-	}
-	lastMessages := make(map[string]lastMsg)
+	wg.Wait()
 
+	// 4. Susun item hasil dengan filter privacy (cleared_at)
+	var items []ConversationItem
+	for _, rc := range rawConvs {
+		lm, hasMsg := lastMessages[rc.item.ID]
+		if rc.clearedAt.Valid && !hasMsg {
+			// Percakapan telah di-clear oleh user dan belum ada pesan baru -> sembunyikan dari sidebar
+			continue
+		}
+
+		if hasMsg {
+			rc.item.LastMessage = lm.snippet
+			rc.item.LastSender = lm.sender
+			rc.item.LastSenderID = lm.senderID
+			rc.item.LastStatus = lm.status
+			rc.item.UpdatedAt = lm.createdAt
+		}
+
+		rc.item.UnreadCount = unreadCounts[rc.item.ID]
+		items = append(items, rc.item)
+	}
+
+	// Urutkan percakapan secara dinamis:
+	// Prioritaskan percakapan yang di-pin (IsPinned = true),
+	// jika keduanya di-pin, urutkan berdasarkan PinnedAt terbaru (atau UpdatedAt),
+	// jika tidak di-pin, urutkan berdasarkan UpdatedAt terbaru.
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].IsPinned != items[j].IsPinned {
+			return items[i].IsPinned
+		}
+		if items[i].IsPinned && items[j].IsPinned {
+			if items[i].PinnedAt != nil && items[j].PinnedAt != nil {
+				return items[i].PinnedAt.After(*items[j].PinnedAt)
+			}
+		}
+		return items[i].UpdatedAt.After(items[j].UpdatedAt)
+	})
+
+	return items, nil
+}
+
+// convLastMsg adalah pesan terakhir sebuah percakapan untuk daftar obrolan.
+type convLastMsg struct {
+	snippet   string
+	senderID  string
+	sender    string
+	status    string
+	createdAt time.Time
+}
+
+// queryConversationLastMessages mengambil pesan terakhir semua percakapan user dalam 1 query (CTE + ROW_NUMBER).
+// Galat diabaikan: daftar obrolan tetap tampil tanpa cuplikan pesan.
+func (s *SQLUserStore) queryConversationLastMessages(userID string) map[string]convLastMsg {
+	out := make(map[string]convLastMsg)
 	var lastMsgQuery string
 	if s.driverName == "postgres" {
 		lastMsgQuery = `
@@ -1170,20 +1243,24 @@ func (s *SQLUserStore) GetUserConversationsWithContext(ctx context.Context, user
 	}
 
 	msgRows, err := s.db.Query(lastMsgQuery, userID)
-	if err == nil {
-		defer msgRows.Close()
-		for msgRows.Next() {
-			var roomID string
-			var lm lastMsg
-			if err := msgRows.Scan(&roomID, &lm.snippet, &lm.senderID, &lm.sender, &lm.status, &lm.createdAt); err == nil {
-				lastMessages[roomID] = lm
-			}
-		}
-		msgRows.Close()
+	if err != nil {
+		return out
 	}
+	defer msgRows.Close()
+	for msgRows.Next() {
+		var roomID string
+		var lm convLastMsg
+		if err := msgRows.Scan(&roomID, &lm.snippet, &lm.senderID, &lm.sender, &lm.status, &lm.createdAt); err == nil {
+			out[roomID] = lm
+		}
+	}
+	return out
+}
 
-	// 3. Ambil unread count untuk semua percakapan dalam 1 query (UUID-based filter)
-	unreadCounts := make(map[string]int)
+// queryConversationUnreadCounts menghitung pesan belum dibaca per percakapan dalam 1 query.
+// Galat diabaikan: hitungan belum dibaca dianggap 0.
+func (s *SQLUserStore) queryConversationUnreadCounts(userID string) map[string]int {
+	out := make(map[string]int)
 	var unreadQuery string
 	if s.driverName == "postgres" {
 		unreadQuery = `
@@ -1212,61 +1289,24 @@ func (s *SQLUserStore) GetUserConversationsWithContext(ctx context.Context, user
 	}
 
 	var unreadRows *sql.Rows
+	var err error
 	if s.driverName == "postgres" {
 		unreadRows, err = s.db.Query(unreadQuery, userID)
 	} else {
 		unreadRows, err = s.db.Query(unreadQuery, userID, userID)
 	}
-	if err == nil {
-		defer unreadRows.Close()
-		for unreadRows.Next() {
-			var roomID string
-			var count int
-			if err := unreadRows.Scan(&roomID, &count); err == nil {
-				unreadCounts[roomID] = count
-			}
-		}
-		unreadRows.Close()
+	if err != nil {
+		return out
 	}
-
-	// 4. Susun item hasil dengan filter privacy (cleared_at)
-	var items []ConversationItem
-	for _, rc := range rawConvs {
-		lm, hasMsg := lastMessages[rc.item.ID]
-		if rc.clearedAt.Valid && !hasMsg {
-			// Percakapan telah di-clear oleh user dan belum ada pesan baru -> sembunyikan dari sidebar
-			continue
+	defer unreadRows.Close()
+	for unreadRows.Next() {
+		var roomID string
+		var count int
+		if err := unreadRows.Scan(&roomID, &count); err == nil {
+			out[roomID] = count
 		}
-
-		if hasMsg {
-			rc.item.LastMessage = lm.snippet
-			rc.item.LastSender = lm.sender
-			rc.item.LastSenderID = lm.senderID
-			rc.item.LastStatus = lm.status
-			rc.item.UpdatedAt = lm.createdAt
-		}
-
-		rc.item.UnreadCount = unreadCounts[rc.item.ID]
-		items = append(items, rc.item)
 	}
-
-	// Urutkan percakapan secara dinamis:
-	// Prioritaskan percakapan yang di-pin (IsPinned = true),
-	// jika keduanya di-pin, urutkan berdasarkan PinnedAt terbaru (atau UpdatedAt),
-	// jika tidak di-pin, urutkan berdasarkan UpdatedAt terbaru.
-	sort.SliceStable(items, func(i, j int) bool {
-		if items[i].IsPinned != items[j].IsPinned {
-			return items[i].IsPinned
-		}
-		if items[i].IsPinned && items[j].IsPinned {
-			if items[i].PinnedAt != nil && items[j].PinnedAt != nil {
-				return items[i].PinnedAt.After(*items[j].PinnedAt)
-			}
-		}
-		return items[i].UpdatedAt.After(items[j].UpdatedAt)
-	})
-
-	return items, nil
+	return out
 }
 
 // GetUserConversations mengambil daftar obrolan aktif milik seorang user (default context).
@@ -1317,97 +1357,75 @@ func (s *SQLUserStore) IsUserInConversation(conversationID, userID string) (bool
 	if conversationID == "" || userID == "" {
 		return false, nil
 	}
+	isDM := strings.HasPrefix(conversationID, "dm_")
 
-	// 1. Cek apakah ini subgrup (punya parent_id)
+	// Semua fakta yang dibutuhkan diambil dalam 1 kueri (bukan 2-3 kueri berurutan): pemeriksaan ini dipanggil
+	// hampir di setiap permintaan pesan dan DB bisa berjarak puluhan ms dari server.
+	blockedExpr := "0"
+	args := []any{conversationID, conversationID, conversationID, userID, conversationID, userID}
+	if isDM {
+		// Pihak yang diblokir lawan bicaranya kehilangan akses ke DM tersebut (kirim maupun terima).
+		blockedExpr = `(SELECT COUNT(1) FROM user_connections uc
+			JOIN conversation_members m ON m.conversation_id = ? AND m.user_id = uc.requester_id
+			WHERE uc.status = 'blocked' AND uc.receiver_id = ?)`
+		args = append(args, conversationID, userID)
+	}
+	query := s.rebindQuery(`SELECT
+		(SELECT COUNT(*) FROM conversations WHERE id = ?),
+		(SELECT COALESCE(parent_id, '') FROM conversations WHERE id = ?),
+		(SELECT COUNT(*) FROM conversation_members WHERE conversation_id = ? AND user_id = ?),
+		(SELECT COUNT(*) FROM conversation_members cm
+			JOIN conversations c ON c.id = ? AND cm.conversation_id = c.parent_id AND cm.user_id = ?),
+		` + blockedExpr)
+
+	var convCount, memberCount, parentMemberCount, blocked int
 	var parentID sql.NullString
-	var convExists bool
-	var parentCheckQuery string
-	if s.driverName == "postgres" {
-		parentCheckQuery = `SELECT parent_id FROM conversations WHERE id = $1`
-	} else {
-		parentCheckQuery = `SELECT parent_id FROM conversations WHERE id = ?`
-	}
-	err := s.db.QueryRow(parentCheckQuery, conversationID).Scan(&parentID)
-	if err == nil {
-		convExists = true
-		// Strict Parent-Membership Gate: Jika ini subgrup, user WAJIB terdaftar di grup induk!
-		if parentID.Valid && strings.TrimSpace(parentID.String) != "" {
-			var pCount int
-			var pQuery string
-			if s.driverName == "postgres" {
-				pQuery = `SELECT COUNT(*) FROM conversation_members WHERE conversation_id = $1 AND user_id = $2`
-			} else {
-				pQuery = `SELECT COUNT(*) FROM conversation_members WHERE conversation_id = ? AND user_id = ?`
-			}
-			if pErr := s.db.QueryRow(pQuery, parentID.String, userID).Scan(&pCount); pErr != nil || pCount == 0 {
-				return false, nil
-			}
-		}
-	}
-
-	// 2. Cek apakah user terdaftar sebagai member di tabel conversation_members
-	var query string
-	if s.driverName == "postgres" {
-		query = `SELECT COUNT(*) FROM conversation_members WHERE conversation_id = $1 AND user_id = $2`
-	} else {
-		query = `SELECT COUNT(*) FROM conversation_members WHERE conversation_id = ? AND user_id = ?`
-	}
-
-	var count int
-	err = s.db.QueryRow(query, conversationID, userID).Scan(&count)
-	if err != nil {
+	if err := s.db.QueryRow(query, args...).Scan(&convCount, &parentID, &memberCount, &parentMemberCount, &blocked); err != nil {
 		return false, err
 	}
-	if count > 0 {
-		// Pihak yang diblokir lawan bicaranya kehilangan akses ke DM tersebut (kirim maupun terima).
-		if strings.HasPrefix(conversationID, "dm_") {
-			var blockQuery string
-			if s.driverName == "postgres" {
-				blockQuery = `SELECT COUNT(1) FROM user_connections uc
-					JOIN conversation_members m ON m.conversation_id = $1 AND m.user_id = uc.requester_id
-					WHERE uc.status = 'blocked' AND uc.receiver_id = $2`
-			} else {
-				blockQuery = `SELECT COUNT(1) FROM user_connections uc
-					JOIN conversation_members m ON m.conversation_id = ? AND m.user_id = uc.requester_id
-					WHERE uc.status = 'blocked' AND uc.receiver_id = ?`
-			}
-			var blocked int
-			if bErr := s.db.QueryRow(blockQuery, conversationID, userID).Scan(&blocked); bErr != nil {
-				return false, bErr
-			}
-			if blocked > 0 {
-				return false, nil
-			}
-		}
-		return true, nil
+	convExists := convCount > 0
+
+	// Strict Parent-Membership Gate: jika ini subgrup, user WAJIB terdaftar di grup induk.
+	if convExists && parentID.Valid && strings.TrimSpace(parentID.String) != "" && parentMemberCount == 0 {
+		return false, nil
 	}
 
-	// 3. Cek apakah room ini terdaftar di tabel conversations
-	// Jika room adalah percakapan terdaftar dan user BUKAN anggota -> tolak (false)
+	// User terdaftar sebagai member di tabel conversation_members.
+	if memberCount > 0 {
+		return blocked == 0, nil
+	}
+
+	// Room terdaftar sebagai percakapan tetapi user BUKAN anggota -> tolak.
 	if convExists {
 		return false, nil
 	}
-	var convQuery string
-	if s.driverName == "postgres" {
-		convQuery = `SELECT COUNT(*) FROM conversations WHERE id = $1`
-	} else {
-		convQuery = `SELECT COUNT(*) FROM conversations WHERE id = ?`
-	}
 
-	var convCount int
-	_ = s.db.QueryRow(convQuery, conversationID).Scan(&convCount)
-	if convCount > 0 {
+	// Direct message pattern 'dm_...' yang belum tersimpan di DB: tolak untuk mencegah akses liar.
+	if isDM {
 		return false, nil
 	}
 
-	// 4. Jika berupa direct message pattern 'dm_...' tapi belum tersimpan di DB
-	// Tolak akses jika formatnya direct message untuk mencegah akses liar
-	if strings.HasPrefix(conversationID, "dm_") {
-		return false, nil
-	}
-
-	// 5. Untuk room publik / ad-hoc group biasa (misal 'room-123', 'room-kopi'), siapapun yang memegang link diizinkan
+	// Room publik / ad-hoc group biasa (misal 'room-123', 'room-kopi'): siapapun yang memegang link diizinkan.
 	return true, nil
+}
+
+// rebindQuery mengubah placeholder `?` menjadi `$n` untuk PostgreSQL.
+func (s *SQLUserStore) rebindQuery(query string) string {
+	if s.driverName != "postgres" {
+		return query
+	}
+	var b strings.Builder
+	n := 0
+	for _, r := range query {
+		if r == '?' {
+			n++
+			b.WriteByte('$')
+			b.WriteString(strconv.Itoa(n))
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // IsConversationExpired memeriksa apakah suatu percakapan / subgrup telah mencapai batas masa aktif (expires_at) atau berstatus 'expired'.
