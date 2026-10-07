@@ -368,6 +368,9 @@ func New(cfg *config.Config) (*Application, error) {
 	// 5.2 Purge Worker (Pembersihan file media kedaluwarsa sesuai retensi)
 	if mediaStorage != nil && messageStore != nil {
 		app.PurgeWorker = storage.NewPurgeWorker(mediaStorage, messageStore, cfg.MediaRetentionDays, cfg.PurgeWorkerInterval)
+		if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
+			app.PurgeWorker.SetQueue(store.NewSQLMediaPurgeQueue(sqlStore.DB(), sqlStore.DriverName()))
+		}
 	}
 
 	// 5.3 SubGroup TTL Worker (Auto-expire topik subgrup/forum)

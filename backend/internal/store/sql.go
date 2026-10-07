@@ -471,6 +471,15 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_feed_comments_tenant_post ON feed_comments(tenant_id, post_id, created_at ASC);`,
 
+		// Antrean penghapusan berkas fisik yang barisnya sudah hilang (mis. hapus akun); dikosongkan PurgeWorker.
+		`CREATE TABLE IF NOT EXISTS media_purge_queue (
+			media_url TEXT PRIMARY KEY,
+			attempts INT NOT NULL DEFAULT 0,
+			next_attempt_at TIMESTAMP NOT NULL,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_media_purge_queue_due ON media_purge_queue(next_attempt_at);`,
+
 		// Tabel User Connections (Milestone M-Mobile-10)
 		`CREATE TABLE IF NOT EXISTS user_connections (
 			id VARCHAR(64) PRIMARY KEY,

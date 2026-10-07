@@ -82,3 +82,47 @@ func TestPurgeWorker_PurgeOnce(t *testing.T) {
 		}
 	}
 }
+
+func TestPurgeWorker_DrainQueue_DeletesFilesAndEmptiesQueue(t *testing.T) {
+	tempDir, _ := os.MkdirTemp("", "wuzz_test_queue_*")
+	defer os.RemoveAll(tempDir)
+	ls, err := NewLocalStorage(tempDir, "/uploads")
+	if err != nil {
+		t.Fatal(err)
+	}
+	url, err := ls.Upload(context.Background(), strings.NewReader("x"), "orphan.png", "image/png")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ms, err := store.NewSQLMessageStore("sqlite", tempDir+"/q.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ms.Close()
+	now := time.Now().UTC()
+	if _, err := ms.DB().Exec(`INSERT INTO media_purge_queue (media_url, attempts, next_attempt_at, created_at) VALUES (?,0,?,?)`, url, now, now); err != nil {
+		t.Fatal(err)
+	}
+
+	w := NewPurgeWorker(ls, ms, 0, time.Hour) // retensi permanen: antrean tetap harus jalan
+	w.SetQueue(store.NewSQLMediaPurgeQueue(ms.DB(), ms.DriverName()))
+	if n := w.DrainQueue(context.Background()); n != 1 {
+		t.Fatalf("want 1 berkas terhapus, got %d", n)
+	}
+	var left int
+	_ = ms.DB().QueryRow(`SELECT COUNT(1) FROM media_purge_queue`).Scan(&left)
+	if left != 0 {
+		t.Fatalf("antrean harus kosong, sisa %d", left)
+	}
+	if entries, _ := os.ReadDir(tempDir); func() bool {
+		for _, e := range entries {
+			if strings.HasSuffix(e.Name(), ".png") {
+				return true
+			}
+		}
+		return false
+	}() {
+		t.Fatal("berkas fisik harus sudah terhapus dari disk")
+	}
+}
