@@ -4,4 +4,4 @@ export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@s
 
 // Tanggal berlaku dokumen; perbarui setiap kali isi kebijakan berubah.
 // Ganti penyedia infrastruktur (DB/storage/Redis/VPS), penyedia LLM AI Memory, atau mulai memakai cadangan = perbarui /privacy bagian 4-5 juga.
-export const LEGAL_EFFECTIVE_DATE = '7 Oktober 2026'
+export const LEGAL_EFFECTIVE_DATE = '8 Oktober 2026'

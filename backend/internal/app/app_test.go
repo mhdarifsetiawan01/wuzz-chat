@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
 	"github.com/bms-del112/wuzz-chat/internal/shared/config"
@@ -112,7 +113,6 @@ func TestRequestLoggerMiddleware_HijackAndFlush(t *testing.T) {
 	}
 }
 
-
 // T6: guard tenant pada router harus aktif walau TenantService tidak terpasang (fail-closed terhadap salah wiring).
 func TestRouter_TenantGuardActiveWithoutTenantService(t *testing.T) {
 	os.Setenv("DATABASE_URL", "")
@@ -142,5 +142,41 @@ func TestRouter_TenantGuardActiveWithoutTenantService(t *testing.T) {
 
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("LEAK! tanpa TenantService, mismatch header/token lolos (status=%d)", rr.Code)
+	}
+}
+
+// Saklar MEMORY_WORKER_ENABLED=false harus memutus jalur AI Memory: worker pemroses (yang memanggil LLM) tidak dibuat,
+// sedangkan handler baca/setujui draf tetap ada. Aktif (default) = worker dibuat.
+func TestApplication_MemoryWorkerSwitch(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		disabled bool
+	}{{"aktif", false}, {"nonaktif", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "")
+			t.Setenv("DB_DRIVER", "sqlite")
+			t.Setenv("SQLITE_DB_PATH", t.TempDir()+"/memsw.db")
+
+			cfg := &config.Config{
+				Port: "8080", CORSAllowedOrigins: "*", JWTSecret: "test_secret", UploadDir: t.TempDir(),
+				MediaRetentionDays: 7, AuthRateLimitIP: 100, AuthRateLimitUser: 15,
+				MemoryWorkerInterval: time.Minute, MemoryWorkerDisabled: tc.disabled,
+			}
+			application, err := New(cfg)
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+			defer application.Close()
+
+			if tc.disabled && application.MemoryWorker != nil {
+				t.Fatal("MEMORY_WORKER_ENABLED=false: MemoryWorker tidak boleh dibuat (akan memanggil LLM)")
+			}
+			if !tc.disabled && application.MemoryWorker == nil {
+				t.Fatal("default: MemoryWorker harus dibuat")
+			}
+			if application.MemoryHandler == nil {
+				t.Fatal("handler baca/setujui draf harus tetap ada walau worker dimatikan")
+			}
+		})
 	}
 }

@@ -42,7 +42,7 @@ export default function PrivacyPage() {
         <li>Menjalankan layanan: autentikasi, mengirim pesan, panggilan, dan notifikasi.</li>
         <li>Stabilitas: memperbaiki crash dan kesalahan aplikasi berdasarkan laporan kerusakan teknis.</li>
         <li>Keamanan: membatasi jumlah perangkat, mencabut sesi, mencegah penyalahgunaan, dan menindaklanjuti laporan. Akun yang melanggar ketentuan dapat ditangguhkan; kami menyimpan tanggal dan alasan penangguhan, dan akun dapat dipulihkan bila penangguhan dibatalkan.</li>
-        <li>Fitur AI Memory: pada <strong>ruang diskusi terbuka dan topik forum</strong>, teks pesan dapat dikirim ke layanan model bahasa (LLM) pihak ketiga (saat ini Groq) untuk menyusun ringkasan. Hasilnya hanya terbit setelah disetujui admin. Pesan langsung E2EE tidak pernah dibaca AI.</li>
+        <li>Fitur AI Memory <strong>(saat ini dinonaktifkan, tidak ada teks pesan yang dikirim)</strong>: bila nanti diaktifkan, pada <strong>ruang diskusi terbuka dan topik forum</strong> teks pesan dapat dikirim ke layanan model bahasa (LLM) pihak ketiga (saat ini Groq) untuk menyusun ringkasan. Kami akan memperbarui kebijakan ini sebelum fitur diaktifkan. Hasilnya hanya terbit setelah disetujui admin. Pesan langsung E2EE tidak pernah dibaca AI.</li>
       </ul>
 
       <h2>4. Pihak ketiga yang memproses data</h2>
@@ -50,7 +50,7 @@ export default function PrivacyPage() {
         <li>Google (Masuk dengan Google): memverifikasi identitas Anda saat Anda memilih masuk dengan akun Google.</li>
         <li>Google Firebase Cloud Messaging: mengantar notifikasi push (menerima token perangkat dan isi notifikasi).</li>
         <li>Google Firebase Crashlytics: menerima laporan kerusakan teknis seperti dijelaskan di atas, semata-mata untuk memperbaiki aplikasi.</li>
-        <li>Penyedia model bahasa (LLM) untuk fitur AI Memory (saat ini Groq): menerima teks pesan dari forum terbuka untuk ringkasan, seperti dijelaskan di atas.</li>
+        <li>Penyedia model bahasa (LLM) untuk fitur AI Memory (saat ini Groq): hanya menerima teks pesan dari forum terbuka bila fitur diaktifkan, seperti dijelaskan di atas. Saat ini fitur tersebut dinonaktifkan.</li>
         <li>Telegram: dipakai untuk pemberitahuan internal kepada tim moderasi bahwa ada laporan baru. Pesan hanya memuat jenis dan alasan laporan serta tautan ke halaman moderator; tidak memuat isi pesan, bukti, nama pengguna, atau data pribadi Anda.</li>
         <li>Penyedia basis data dan penyimpanan berkas media kami (saat ini Supabase).</li>
         <li>Penyedia layanan Redis yang meneruskan pesan sementara antar-server dan tidak dipakai sebagai penyimpanan permanen (saat ini Upstash).</li>

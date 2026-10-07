@@ -62,9 +62,9 @@ export const AboutWuzzChatModal: React.FC<AboutWuzzChatModalProps> = ({
           <View style={styles.pillarItem}>
             <Text style={styles.pillarIcon}>🧠</Text>
             <View style={styles.pillarContent}>
-              <Text style={styles.pillarTitle}>Knowledge Memory</Text>
+              <Text style={styles.pillarTitle}>Knowledge Memory (segera hadir)</Text>
               <Text style={styles.pillarDesc}>
-                Menangkap intisari percakapan agar dapat dicari, divalidasi manusia, dan diingat kembali secara kontekstual.
+                Rencana: merangkum intisari percakapan terbuka agar dapat dicari dan diingat kembali, dengan validasi manusia. Fitur ini belum tersedia di aplikasi.
               </Text>
             </View>
           </View>
