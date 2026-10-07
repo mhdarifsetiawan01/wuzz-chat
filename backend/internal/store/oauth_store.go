@@ -111,6 +111,22 @@ func (s *SQLOAuthStore) GetLinkedSubject(ctx context.Context, userID, provider s
 	return strings.TrimPrefix(ident, provider+":"), true, nil
 }
 
+// GetLinkedLabel membaca label tampilan (email) kredensial oauth yang tertaut; kosong bila tidak tersimpan.
+// Satu kueri menjawab "tertaut?" sekaligus "email apa?", sehingga /me tidak menambah putaran DB.
+func (s *SQLOAuthStore) GetLinkedLabel(ctx context.Context, userID, provider string) (string, bool, error) {
+	var label sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		s.q(`SELECT name FROM user_credentials WHERE type = 'oauth' AND user_id = ? AND identifier LIKE ? LIMIT 1`),
+		userID, provider+":%").Scan(&label)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("gagal membaca label oauth: %w", err)
+	}
+	return label.String, true, nil
+}
+
 func (s *SQLOAuthStore) CreateUserWithOAuth(ctx context.Context, username, displayName, provider, subject, label string) (string, error) {
 	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 

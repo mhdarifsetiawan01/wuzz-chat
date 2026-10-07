@@ -42,6 +42,7 @@ import { fetchAppUpdateInfo, getLatestVersionLabel, isUpdateAvailable } from '..
 import { showAlert } from '../services/dialog';
 import { isGoogleSignInAvailable } from '../services/googleAuth';
 import { useLinkGoogle } from '../hooks/useLinkGoogle';
+import { useReplaceGoogle } from '../hooks/useReplaceGoogle';
 import { formatDeadlineDate, getLinkDeadlineState } from '../utils/googleLinkDeadline';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -139,6 +140,7 @@ export const SettingsScreen: React.FC = () => {
   const { user, logout, deleteAccount, e2eeStatus, updateCurrentUser } = useAuth();
   const googleAvailable = isGoogleSignInAvailable();
   const { link: linkGoogle, isLinking: isLinkingGoogle } = useLinkGoogle();
+  const { replace: replaceGoogle, isReplacing: isReplacingGoogle } = useReplaceGoogle();
   const linkDeadline = getLinkDeadlineState(user?.google_link_required_by, user?.google_linked, new Date());
   const { friends, pendingCount } = useConnection();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -154,7 +156,27 @@ export const SettingsScreen: React.FC = () => {
 
   const handleLinkGoogle = async () => {
     if (user?.google_linked) {
-      showAlert('Akun Google Terhubung', 'Akun ini sudah terhubung ke Google. Anda dapat masuk dengan Google dari layar login.');
+      showAlert(
+        'Akun Google Terhubung',
+        user.google_email
+          ? `Akun ini tertaut ke ${user.google_email}. Anda dapat masuk dengan Google dari layar login menggunakan akun tersebut.`
+          : 'Akun ini sudah terhubung ke Google. Anda dapat masuk dengan Google dari layar login.',
+        [
+          { text: 'Tutup', style: 'cancel' },
+          {
+            text: 'Ganti Akun Google',
+            onPress: () =>
+              showAlert(
+                'Ganti Akun Google',
+                'Pilih akun Google yang saat ini tertaut sebagai bukti, lalu pilih akun Google yang baru. Setelah itu Anda masuk dengan akun yang baru.',
+                [
+                  { text: 'Batal', style: 'cancel' },
+                  { text: 'Lanjut', onPress: () => void replaceGoogle() },
+                ],
+              ),
+          },
+        ],
+      );
       return;
     }
     await linkGoogle();
@@ -327,11 +349,13 @@ export const SettingsScreen: React.FC = () => {
                 subtitle={
                   isLinkingGoogle
                     ? 'Menghubungkan…'
-                    : user?.google_linked
-                      ? 'Terhubung · bisa masuk dengan Google'
-                      : linkDeadline.urgency !== 'none' && user?.google_link_required_by
-                        ? `Hubungkan paling lambat ${formatDeadlineDate(new Date(user.google_link_required_by))}`
-                        : 'Hubungkan untuk masuk dengan Google'
+                    : isReplacingGoogle
+                      ? 'Mengganti…'
+                      : user?.google_linked
+                        ? user.google_email ?? 'Terhubung · bisa masuk dengan Google'
+                        : linkDeadline.urgency !== 'none' && user?.google_link_required_by
+                          ? `Hubungkan paling lambat ${formatDeadlineDate(new Date(user.google_link_required_by))}`
+                          : 'Hubungkan untuk masuk dengan Google'
                 }
                 onPress={handleLinkGoogle}
                 tintColor={colors.accentPrimary}

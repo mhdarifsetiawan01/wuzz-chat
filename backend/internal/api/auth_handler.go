@@ -17,12 +17,12 @@ import (
 
 type AuthHandler struct {
 	accountEraser store.AccountEraser
-	userStore    store.UserStore
-	tokenStore   store.TokenStore
-	sessionStore store.SessionStore
-	deviceStore  store.DeviceStore
-	hub          WebSocketHub
-	authSvc      *authz.AuthService
+	userStore     store.UserStore
+	tokenStore    store.TokenStore
+	sessionStore  store.SessionStore
+	deviceStore   store.DeviceStore
+	hub           WebSocketHub
+	authSvc       *authz.AuthService
 
 	// googleLinkDeadline: batas waktu pengumuman penautan Google (zero = tidak ada pengumuman).
 	googleLinkDeadline time.Time
@@ -160,6 +160,8 @@ type AuthResponse struct {
 	// akun Google-only (has_password=false) harus memakai re-auth Google, bukan password.
 	HasPassword  bool `json:"has_password"`
 	GoogleLinked bool `json:"google_linked"`
+	// GoogleEmail: email akun Google yang tertaut (hanya untuk pemilik akun; kosong bila tak diketahui).
+	GoogleEmail string `json:"google_email,omitempty"`
 	// GoogleLinkRequiredBy diisi hanya bila akun diminta menautkan Google sebelum batas waktu tersebut (RFC3339 UTC).
 	GoogleLinkRequiredBy string `json:"google_link_required_by,omitempty"`
 	// GoogleLinkFrozen true bila akun dibekukan: klien harus menampilkan layar "tautkan Google untuk melanjutkan".
@@ -172,7 +174,7 @@ func (h *AuthHandler) newAuthResponse(r *http.Request, token string, user *store
 	if user != nil {
 		resp.HasPassword = user.PasswordHash != ""
 		if h.authSvc != nil {
-			resp.GoogleLinked, _ = h.authSvc.IsGoogleLinked(r.Context(), user.ID)
+			resp.GoogleLinked, resp.GoogleEmail, _ = h.authSvc.GoogleLinkInfo(r.Context(), user.ID)
 		}
 		resp.GoogleLinkRequiredBy = h.googleLinkRequiredBy(user, resp.GoogleLinked)
 		resp.GoogleLinkFrozen = h.googleLinkFrozen(r, user)
@@ -395,11 +397,12 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	// Status tautan Google hanya butuh UserID, jadi dibaca bersamaan dengan profil (bukan berurutan):
 	// setiap kueri ke DB membayar satu putaran jaringan penuh.
 	googleLinked := false
+	googleEmail := ""
 	googleDone := make(chan struct{})
 	go func() {
 		defer close(googleDone)
 		if h.authSvc != nil {
-			googleLinked, _ = h.authSvc.IsGoogleLinked(r.Context(), claims.UserID)
+			googleLinked, googleEmail, _ = h.authSvc.GoogleLinkInfo(r.Context(), claims.UserID)
 		}
 	}()
 
@@ -414,6 +417,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(meResponse{
 		User:                 user,
 		GoogleLinked:         googleLinked,
+		GoogleEmail:          googleEmail,
 		HasPassword:          user.PasswordHash != "",
 		GoogleLinkRequiredBy: h.googleLinkRequiredBy(user, googleLinked),
 		GoogleLinkFrozen:     h.googleLinkFrozen(r, user),
@@ -425,7 +429,9 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 type meResponse struct {
 	*store.User
 	GoogleLinked bool `json:"google_linked"`
-	HasPassword  bool `json:"has_password"`
+	// GoogleEmail: lihat AuthResponse.
+	GoogleEmail string `json:"google_email,omitempty"`
+	HasPassword bool   `json:"has_password"`
 	// GoogleLinkRequiredBy dan GoogleLinkFrozen: lihat AuthResponse.
 	GoogleLinkRequiredBy string `json:"google_link_required_by,omitempty"`
 	GoogleLinkFrozen     bool   `json:"google_link_frozen,omitempty"`
@@ -923,9 +929,6 @@ func (h *AuthHandler) RevokeAllOtherSessions(w http.ResponseWriter, r *http.Requ
 		"message": "Seluruh sesi lain berhasil dicabut",
 	})
 }
-
-
-
 
 // DeleteAccountRequest adalah payload DELETE /api/auth/me.
 type DeleteAccountRequest struct {

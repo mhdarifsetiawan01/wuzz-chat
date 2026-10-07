@@ -23,6 +23,10 @@ func (f *fakeOAuth) GetLinkedSubject(_ context.Context, userID, _ string) (strin
 	return "sub", f.linked[userID], nil
 }
 
+func (f *fakeOAuth) GetLinkedLabel(_ context.Context, userID, _ string) (string, bool, error) {
+	return "", f.linked[userID], f.err
+}
+
 var freezeDeadline = time.Date(2026, 12, 31, 16, 59, 59, 0, time.UTC)
 
 func newPolicy(enabled bool, deadline time.Time, oauth OAuthStore, now time.Time) (*LinkFreezePolicy, *time.Time) {

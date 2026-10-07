@@ -79,6 +79,8 @@ interface AuthContextType {
   linkGoogleToExistingAccount: (payload: { linkToken: string; username: string; password: string } & GoogleLoginOptions) => Promise<void>;
   /** Menautkan Google ke akun yang sedang login (Pengaturan). false = pengguna membatalkan pemilih akun. */
   linkGoogleToCurrentAccount: () => Promise<boolean>;
+  /** Mengganti akun Google tertaut (Pengaturan): pilih akun lama sebagai bukti, lalu akun baru. false = dibatalkan pengguna. */
+  replaceGoogleOnCurrentAccount: () => Promise<boolean>;
   /** Memeriksa ulang status akun ke server (untuk layar akun ditangguhkan). true bila penangguhan sudah dicabut; melempar bila tidak dapat dijangkau. */
   recheckAccountStatus: () => Promise<boolean>;
   logout: () => Promise<void>;
@@ -140,6 +142,7 @@ const AuthContext = createContext<AuthContextType>({
   registerWithGoogle: async () => {},
   linkGoogleToExistingAccount: async () => {},
   linkGoogleToCurrentAccount: async () => false,
+  replaceGoogleOnCurrentAccount: async () => false,
   recheckAccountStatus: async () => false,
   logout: async () => {},
   deleteAccount: async () => {},
@@ -484,6 +487,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...response.user,
         has_password: response.has_password ?? response.user.has_password,
         google_linked: response.google_linked ?? response.user.google_linked,
+        google_email: response.google_email ?? response.user.google_email,
         google_link_required_by: response.google_link_required_by ?? response.user.google_link_required_by,
         google_link_frozen: response.google_link_frozen ?? response.user.google_link_frozen,
       };
@@ -643,6 +647,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return true;
   }, [deviceId]);
+
+  const replaceGoogleOnCurrentAccount = useCallback(async () => {
+    const oldIdentity = await signInWithGoogle();
+    if (!oldIdentity) return false;
+    const newIdentity = await signInWithGoogle();
+    if (!newIdentity) return false;
+    await authApi.replaceGoogle(oldIdentity.idToken, newIdentity.idToken);
+    try {
+      const fresh = await authApi.getMe();
+      setUser(fresh);
+      await secureStorage.setUserData(fresh);
+    } catch (err) {
+      console.warn('[AuthContext] Refresh profil setelah mengganti akun Google gagal:', err);
+    }
+    return true;
+  }, []);
 
   // Akun ditangguhkan lalu dipulihkan moderator: pemilik cukup menekan "Periksa Status Akun", tanpa menutup aplikasi.
   // GET /api/auth/me diizinkan server untuk akun ditangguhkan, dan token tidak pernah dicabut saat penangguhan.
@@ -828,6 +848,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         registerWithGoogle,
         linkGoogleToExistingAccount,
         linkGoogleToCurrentAccount,
+        replaceGoogleOnCurrentAccount,
         recheckAccountStatus,
         logout,
         dismissSessionAlert,

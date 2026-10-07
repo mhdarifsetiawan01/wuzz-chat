@@ -38,6 +38,8 @@ var (
 type OAuthStore interface {
 	FindUserIDBySubject(ctx context.Context, provider, subject string) (userID string, found bool, err error)
 	GetLinkedSubject(ctx context.Context, userID, provider string) (subject string, found bool, err error)
+	// GetLinkedLabel mengembalikan label tampilan (email) tautan; found=false bila belum tertaut.
+	GetLinkedLabel(ctx context.Context, userID, provider string) (label string, found bool, err error)
 	CreateUserWithOAuth(ctx context.Context, username, displayName, provider, subject, label string) (userID string, err error)
 	LinkOAuth(ctx context.Context, userID, provider, subject, label string) error
 	UnlinkOAuth(ctx context.Context, userID, provider string) error
@@ -288,6 +290,15 @@ func (s *AuthService) IsGoogleLinked(ctx context.Context, userID string) (bool, 
 	}
 	_, found, err := s.oauth.GetLinkedSubject(ctx, userID, providerGoogle)
 	return found, err
+}
+
+// GoogleLinkInfo memberi tahu apakah akun tertaut ke Google beserta email Google-nya (kosong bila tak tersimpan).
+func (s *AuthService) GoogleLinkInfo(ctx context.Context, userID string) (linked bool, email string, err error) {
+	if !s.GoogleEnabled() {
+		return false, "", nil
+	}
+	email, linked, err = s.oauth.GetLinkedLabel(ctx, userID, providerGoogle)
+	return linked, email, err
 }
 
 // LinkGoogleToAccount menautkan akun Google ke akun yang sedang login (tanpa password; butuh sesi aktif + ID token segar).
