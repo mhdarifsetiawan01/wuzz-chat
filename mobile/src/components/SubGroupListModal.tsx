@@ -43,6 +43,7 @@ import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { showAlert } from '../services/dialog';
+import { formatTtlRemaining } from '../utils/ttlCountdown';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -60,23 +61,6 @@ export interface SubGroupListModalProps {
 }
 
 // ─── TTL Countdown Helpers ────────────────────────────────────────────────────
-
-/**
- * Returns a human-readable countdown string for the remaining TTL.
- * e.g. "23 jam lagi", "5 hari lagi", "Kedaluwarsa"
- */
-function formatTTL(expiresAt: string): string {
-  const now = Date.now();
-  const diff = new Date(expiresAt).getTime() - now;
-  if (diff <= 0) return 'Kedaluwarsa';
-
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 60) return `${minutes} menit lagi`;
-  const hours = Math.floor(diff / 3_600_000);
-  if (hours < 24) return `${hours} jam lagi`;
-  const days = Math.floor(diff / 86_400_000);
-  return `${days} hari lagi`;
-}
 
 function isExpired(expiresAt: string): boolean {
   return new Date(expiresAt).getTime() <= Date.now();
@@ -242,7 +226,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
   const renderSubGroup = useCallback(
     ({ item: sub }: { item: SubGroup }) => {
       const expired = isExpired(sub.expires_at) || sub.status === 'expired';
-      const ttlLabel = formatTTL(sub.expires_at);
+      const ttlLabel = formatTtlRemaining(sub.expires_at);
       const isJoining = joiningId === sub.id;
       const isRequesting = requestingId === sub.id;
 

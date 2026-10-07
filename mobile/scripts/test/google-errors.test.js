@@ -43,3 +43,21 @@ assert.strictEqual(g.googleErrorMessage(undefined, 'F'), 'F');
 assert.strictEqual(g.googleErrorMessage({}, 'F'), 'F');
 
 console.log(`google-errors: ${known.length} kode server berpesan unik, predikat dan fallback benar`);
+
+// ID token Google ditempel pada galat 409 supaya "Keluarkan & Masuk" mengulang lewat jalur Google (bukan password).
+{
+  const err = Object.assign(new Error('409'), { status: 409, code: 'DEVICE_LIMIT_REACHED', active_devices: [{ id: 'd1' }] });
+  assert.strictEqual(g.googleIdTokenFromError(err), null, 'tanpa token: null');
+  assert.strictEqual(g.withGoogleIdToken(err, 'tok-123'), err, 'mengembalikan galat yang sama');
+  assert.strictEqual(g.googleIdTokenFromError(err), 'tok-123', 'token terbaca kembali');
+  assert.ok(g.isDeviceLimitError(err), 'predikat konflik perangkat tetap benar');
+  assert.ok(!JSON.stringify(err).includes('tok-123'), 'token tidak boleh ikut JSON.stringify (tak-enumerable)');
+  assert.ok(!Object.keys(err).includes('googleIdToken'), 'token tidak boleh terlihat di Object.keys');
+  assert.strictEqual(g.googleIdTokenFromError(null), null);
+  assert.strictEqual(g.googleIdTokenFromError('bukan objek'), null);
+  assert.strictEqual(g.withGoogleIdToken(null, 'x'), null, 'galat null tidak boleh meledak');
+  const frozen = Object.freeze({ code: 'DEVICE_LIMIT_REACHED' });
+  assert.doesNotThrow(() => g.withGoogleIdToken(frozen, 'tok'), 'objek beku tidak boleh melempar');
+  assert.strictEqual(g.googleIdTokenFromError(frozen), null);
+  console.log('google-errors: token Google pada galat konflik perangkat OK');
+}

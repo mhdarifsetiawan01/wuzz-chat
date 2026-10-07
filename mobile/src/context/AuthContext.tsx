@@ -27,6 +27,7 @@ import { notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
 import { clearFeedPosts, clearUserCache } from '../services/sqliteStorage';
 import { websocketClient } from '../services/websocket';
+import { withGoogleIdToken } from '../utils/googleErrors';
 import { shouldRefreshToken } from '../utils/jwt';
 import { useDevice } from './DeviceContext';
 
@@ -555,11 +556,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
-      const response = await authApi.googleSignIn(idToken, {
-        device_id: currentDeviceId,
-        confirm_override: options.confirm_override,
-        kick_device_id: options.kick_device_id,
-      });
+      let response;
+      try {
+        response = await authApi.googleSignIn(idToken, {
+          device_id: currentDeviceId,
+          confirm_override: options.confirm_override,
+          kick_device_id: options.kick_device_id,
+        });
+      } catch (err) {
+        // Konflik perangkat (409) harus bisa diulang dengan token yang sama: tempelkan pada galat.
+        throw withGoogleIdToken(err, idToken);
+      }
 
       if (isGoogleNotLinked(response)) {
         return {

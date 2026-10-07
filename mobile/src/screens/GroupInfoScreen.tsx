@@ -330,6 +330,9 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
     );
   };
 
+  // Label peran berbahasa Indonesia untuk teks biasa (lencana memakai render sendiri di bawah).
+  const roleLabel = (role?: string) => (role === 'creator' ? 'Pembuat' : role === 'admin' ? 'Admin' : 'Anggota');
+
   const renderRoleBadge = (role: string) => {
     if (role === 'creator') {
       return (
@@ -697,7 +700,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
                 {selectedMember?.display_name || selectedMember?.username}
               </Text>
               <Text style={styles.actionSheetSubtitle}>
-                Peran saat ini: {selectedMember?.role}
+                Peran saat ini: {roleLabel(selectedMember?.role)}
               </Text>
             </View>
 

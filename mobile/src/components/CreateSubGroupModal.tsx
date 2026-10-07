@@ -48,7 +48,7 @@ export interface CreateSubGroupModalProps {
 
 const TTL_OPTIONS: { value: SubGroupTTL; label: string; description: string }[] = [
   { value: '7_days', label: '7 Hari', description: 'Topik aktif selama 1 minggu' },
-  { value: '30_days', label: '30 Hari', description: 'Topik aktif selama 1 bulan' },
+  { value: '30_days', label: '1 Bulan', description: 'Topik aktif selama 1 bulan kalender' },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────

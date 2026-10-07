@@ -535,6 +535,14 @@ func parseDeviceName(userAgent, platform string) string {
 		}
 	}
 
+	// Aplikasi mobile native: UA-nya memuat "Android" sehingga tanpa ini tampil "Browser on Android" di daftar perangkat.
+	if strings.Contains(ua, "wuzzchat") || strings.Contains(ua, "okhttp") || strings.Contains(ua, "react-native") || strings.Contains(ua, "expo") {
+		if strings.Contains(ua, "ios") || strings.Contains(ua, "iphone") || strings.Contains(ua, "ipad") {
+			return "Aplikasi WuzzChat di iOS"
+		}
+		return "Aplikasi WuzzChat di Android"
+	}
+
 	osName := "Unknown OS"
 	switch {
 	case strings.Contains(ua, "windows"):

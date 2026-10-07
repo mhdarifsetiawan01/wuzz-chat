@@ -12,6 +12,28 @@ export interface GoogleFlowError {
   message?: string;
 }
 
+/**
+ * Menempelkan ID token Google ke galat (properti tak-enumerable, jadi tidak ikut JSON.stringify atau log objek) supaya
+ * layar dapat mengulang login dengan token yang sama setelah pengguna memilih perangkat yang dikeluarkan, tanpa
+ * pemilih akun kedua. Tanpa ini token hilang bersama galat 409 dan konfirmasi jatuh ke jalur password.
+ */
+export function withGoogleIdToken<T>(err: T, idToken: string): T {
+  if (err && typeof err === 'object' && idToken) {
+    try {
+      Object.defineProperty(err, 'googleIdToken', { value: idToken, enumerable: false, configurable: true });
+    } catch {
+      // objek beku: tidak ada yang bisa ditempel, pemanggil akan meminta pengguna mengulang login
+    }
+  }
+  return err;
+}
+
+/** Mengambil ID token yang ditempel withGoogleIdToken, atau null. */
+export function googleIdTokenFromError(err: unknown): string | null {
+  const v = err && typeof err === 'object' ? (err as { googleIdToken?: unknown }).googleIdToken : undefined;
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
 /** Konflik batas 2 perangkat (HTTP 409 dengan code DEVICE_LIMIT_REACHED). */
 export function isDeviceLimitError(err: GoogleFlowError | null | undefined): boolean {
   return err?.code === 'DEVICE_LIMIT_REACHED';
