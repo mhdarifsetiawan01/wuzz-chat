@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"bytes"
 	"context"
+	"log"
 	"os"
 	"strings"
 	"testing"
@@ -124,5 +126,50 @@ func TestPurgeWorker_DrainQueue_DeletesFilesAndEmptiesQueue(t *testing.T) {
 		return false
 	}() {
 		t.Fatal("berkas fisik harus sudah terhapus dari disk")
+	}
+}
+
+// DrainQueue mencatat satu baris ringkasan per siklus bila ada pekerjaan, dan senyap saat antrean kosong.
+func TestPurgeWorker_DrainQueue_LogsOneSummaryLine(t *testing.T) {
+	tempDir, _ := os.MkdirTemp("", "wuzz_test_queue_log_*")
+	defer os.RemoveAll(tempDir)
+	ls, _ := NewLocalStorage(tempDir, "/uploads")
+	ms, err := store.NewSQLMessageStore("sqlite", tempDir+"/q.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ms.Close()
+	now := time.Now().UTC()
+	for _, name := range []string{"a.png", "b.png", "c.png"} {
+		url, _ := ls.Upload(context.Background(), strings.NewReader("x"), name, "image/png")
+		if _, err := ms.DB().Exec(`INSERT INTO media_purge_queue (media_url, attempts, next_attempt_at, created_at) VALUES (?,0,?,?)`, url, now, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var buf bytes.Buffer
+	prev := log.Writer()
+	log.SetOutput(&buf)
+	defer log.SetOutput(prev)
+
+	w := NewPurgeWorker(ls, ms, 1, time.Hour)
+	w.SetQueue(store.NewSQLMediaPurgeQueue(ms.DB(), ms.DriverName()))
+
+	if n := w.DrainQueue(context.Background()); n != 3 {
+		t.Fatalf("want 3 terhapus, got %d", n)
+	}
+	if got := strings.Count(buf.String(), "Antrean berkas yatim"); got != 1 {
+		t.Fatalf("harus tepat 1 baris ringkasan untuk 3 berkas, got %d: %q", got, buf.String())
+	}
+	if !strings.Contains(buf.String(), "3 terhapus, 0 gagal") {
+		t.Fatalf("ringkasan harus memuat jumlah: %q", buf.String())
+	}
+
+	buf.Reset()
+	if n := w.DrainQueue(context.Background()); n != 0 {
+		t.Fatalf("antrean kosong: want 0, got %d", n)
+	}
+	if strings.Contains(buf.String(), "Antrean berkas yatim") {
+		t.Fatalf("antrean kosong harus senyap, tapi ada log: %q", buf.String())
 	}
 }
