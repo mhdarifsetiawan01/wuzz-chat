@@ -15,6 +15,20 @@ type PurgeWorker struct {
 	retentionDays int
 	interval      time.Duration
 	stopCh        chan struct{}
+	queue         store.MediaPurgeQueue
+}
+
+const (
+	// queueBatchSize/queueMaxBatches membatasi kerja antrean per siklus agar database dan storage tidak terbebani.
+	queueBatchSize  = 100
+	queueMaxBatches = 10
+	// queueMaxAttempts: setelah sekian kali gagal berkas dibuang dari antrean dan dicatat di log.
+	queueMaxAttempts = 10
+)
+
+// SetQueue menyambungkan antrean penghapusan berkas yatim (mis. dari hapus akun). Panggil sebelum Start.
+func (w *PurgeWorker) SetQueue(q store.MediaPurgeQueue) {
+	w.queue = q
 }
 
 // NewPurgeWorker membuat instance baru PurgeWorker.
@@ -33,7 +47,7 @@ func NewPurgeWorker(storage MediaStorage, msgStore store.MessageStore, retention
 
 // Start menjalankan loop worker di latar belakang.
 func (w *PurgeWorker) Start() {
-	if w.retentionDays <= 0 {
+	if w.retentionDays <= 0 && w.queue == nil {
 		log.Printf("ℹ️ [PurgeWorker] Retensi media diset permanen (retentionDays=%d), worker auto-purge nonaktif.", w.retentionDays)
 		return
 	}
@@ -46,12 +60,12 @@ func (w *PurgeWorker) Start() {
 
 		// Jalankan sekali saat startup setelah delay singkat
 		time.Sleep(10 * time.Second)
-		w.PurgeOnce(context.Background())
+		w.runCycle(context.Background())
 
 		for {
 			select {
 			case <-ticker.C:
-				w.PurgeOnce(context.Background())
+				w.runCycle(context.Background())
 			case <-w.stopCh:
 				log.Println("🛑 [PurgeWorker] Worker dihentikan.")
 				return
@@ -63,6 +77,52 @@ func (w *PurgeWorker) Start() {
 // Stop menghentikan worker.
 func (w *PurgeWorker) Stop() {
 	close(w.stopCh)
+}
+
+// runCycle menjalankan satu siklus: berkas kedaluwarsa lalu antrean berkas yatim.
+func (w *PurgeWorker) runCycle(ctx context.Context) {
+	w.PurgeOnce(ctx)
+	w.DrainQueue(ctx)
+}
+
+// DrainQueue menghapus berkas fisik dari antrean (dibatasi per siklus) dan mengembalikan jumlah yang terhapus.
+// Berkas yang gagal dijadwalkan ulang dengan jeda bertambah, lalu dibuang dari antrean setelah queueMaxAttempts.
+func (w *PurgeWorker) DrainQueue(ctx context.Context) int {
+	if w.queue == nil || w.storage == nil {
+		return 0
+	}
+	done := 0
+	for i := 0; i < queueMaxBatches; i++ {
+		urls, err := w.queue.ClaimDue(ctx, queueBatchSize)
+		if err != nil {
+			log.Printf("⚠️ [PurgeWorker] Gagal membaca antrean hapus media: %v", err)
+			return done
+		}
+		if len(urls) == 0 {
+			return done
+		}
+		for _, u := range urls {
+			if err := w.storage.Delete(ctx, u); err != nil {
+				gaveUp, ferr := w.queue.Fail(ctx, u, queueMaxAttempts)
+				if ferr != nil {
+					log.Printf("⚠️ [PurgeWorker] Gagal menjadwalkan ulang berkas antrean (%s): %v", u, ferr)
+				}
+				if gaveUp {
+					log.Printf("❌ [PurgeWorker] Menyerah menghapus berkas %s setelah %d percobaan: %v", u, queueMaxAttempts, err)
+				}
+				continue
+			}
+			if err := w.queue.Complete(ctx, u); err != nil {
+				log.Printf("⚠️ [PurgeWorker] Berkas terhapus tapi gagal dibuang dari antrean (%s): %v", u, err)
+				continue
+			}
+			done++
+		}
+		if len(urls) < queueBatchSize {
+			return done
+		}
+	}
+	return done
 }
 
 // PurgeOnce mengeksekusi satu siklus pembersihan berkas media kedaluwarsa.

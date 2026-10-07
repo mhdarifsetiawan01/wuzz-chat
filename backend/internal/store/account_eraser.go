@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,6 +14,8 @@ import (
 type AccountEraser interface {
 	// EraseUser menghapus data pribadi user dalam satu transaksi dan menganonimkan barisnya di tabel users.
 	// Baris users sengaja dipertahankan (tombstone) agar referensi dari data milik orang lain tidak rusak.
+	// Berkas media milik user (lampiran pesan, media postingan, foto profil) yang kini tak dirujuk baris mana pun
+	// dimasukkan ke media_purge_queue dalam transaksi yang sama; PurgeWorker menghapus berkas fisiknya.
 	EraseUser(ctx context.Context, userID string) error
 }
 
@@ -79,6 +82,53 @@ func (s *SQLAccountEraser) EraseUser(ctx context.Context, userID string) error {
 
 	now := time.Now().UTC()
 
+	// Kandidat berkas media milik user, dikumpulkan SEBELUM barisnya dihapus (PurgeWorker mencari berkas lewat
+	// tabel messages, jadi berkas yang barisnya sudah hilang tidak akan pernah dibersihkan).
+	candidates := map[string]struct{}{}
+	addCandidate := func(u string) {
+		if u = strings.TrimSpace(u); u != "" && !strings.HasPrefix(u, "data:") {
+			candidates[u] = struct{}{}
+		}
+	}
+	collect := func(query string, args ...any) error {
+		rs, err := tx.QueryContext(ctx, s.rebind(query), args...)
+		if err != nil {
+			return fmt.Errorf("gagal membaca media user: %w", err)
+		}
+		defer rs.Close()
+		for rs.Next() {
+			var v string
+			if err := rs.Scan(&v); err != nil {
+				return err
+			}
+			addCandidate(v)
+		}
+		return rs.Err()
+	}
+	if err := collect(`SELECT COALESCE(media_url, '') FROM messages WHERE from_id = ? AND COALESCE(media_url, '') <> '' AND COALESCE(media_status, 'active') <> 'expired'`, userID); err != nil {
+		return err
+	}
+	if err := collect(`SELECT COALESCE(avatar_url, '') FROM users WHERE id = ?`, userID); err != nil {
+		return err
+	}
+	var postMedia []string
+	if err := collect(`SELECT COALESCE(media_urls, '') FROM feed_posts WHERE user_id = ?`, userID); err != nil {
+		return err
+	}
+	// media_urls berupa array JSON; baris mentah tadi masuk sebagai kandidat, uraikan dan gantikan.
+	for u := range candidates {
+		if strings.HasPrefix(u, "[") {
+			delete(candidates, u)
+			var arr []string
+			if json.Unmarshal([]byte(u), &arr) == nil {
+				postMedia = append(postMedia, arr...)
+			}
+		}
+	}
+	for _, u := range postMedia {
+		addCandidate(u)
+	}
+
 	// 1. Serah-terima peran creator grup ke anggota lain (admin dulu, lalu anggota tertua).
 	rows, err := tx.QueryContext(ctx, s.rebind(`SELECT conversation_id FROM conversation_members WHERE user_id = ? AND role = 'creator'`), userID)
 	if err != nil {
@@ -107,6 +157,9 @@ func (s *SQLAccountEraser) EraseUser(ctx context.Context, userID string) error {
 		switch {
 		case err == sql.ErrNoRows:
 			// Tidak ada anggota tersisa: hapus percakapan beserta isinya.
+			if err := collect(`SELECT COALESCE(media_url, '') FROM messages WHERE room_id = ? AND COALESCE(media_url, '') <> '' AND COALESCE(media_status, 'active') <> 'expired'`, convID); err != nil {
+				return err
+			}
 			if err := exec(`DELETE FROM messages WHERE room_id = ?`, convID); err != nil {
 				return err
 			}
@@ -202,6 +255,44 @@ func (s *SQLAccountEraser) EraseUser(ctx context.Context, userID string) error {
 		is_private_account = TRUE
 		WHERE id = ?`, tombstone, userID); err != nil {
 		return err
+	}
+
+	// Masukkan semua kandidat (INSERT per kelompok agar hemat round-trip), lalu keluarkan kembali yang masih dirujuk
+	// baris lain (mis. pesan teruskan milik orang lain, foto profil dipakai ulang) dengan satu DELETE set-based per
+	// tabel. Jangan diganti pemeriksaan per berkas: itu memindai tabel besar berkali-kali (3 menit untuk 5.000 berkas).
+	// Media postingan feed tidak dicek karena tiap postingan mengunggah berkasnya sendiri, bukan memakai ulang.
+	urls := make([]string, 0, len(candidates))
+	for u := range candidates {
+		urls = append(urls, u)
+	}
+	const insertChunk = 200
+	for i := 0; i < len(urls); i += insertChunk {
+		end := i + insertChunk
+		if end > len(urls) {
+			end = len(urls)
+		}
+		var sb strings.Builder
+		args := make([]any, 0, (end-i)*3)
+		sb.WriteString(`INSERT INTO media_purge_queue (media_url, attempts, next_attempt_at, created_at) VALUES `)
+		for j, u := range urls[i:end] {
+			if j > 0 {
+				sb.WriteByte(',')
+			}
+			sb.WriteString(`(?, 0, ?, ?)`)
+			args = append(args, u, now, now)
+		}
+		sb.WriteString(` ON CONFLICT(media_url) DO NOTHING`)
+		if err := exec(sb.String(), args...); err != nil {
+			return err
+		}
+	}
+	if len(urls) > 0 {
+		if err := exec(`DELETE FROM media_purge_queue WHERE media_url IN (SELECT media_url FROM messages WHERE media_url IS NOT NULL AND media_url <> '')`); err != nil {
+			return err
+		}
+		if err := exec(`DELETE FROM media_purge_queue WHERE media_url IN (SELECT avatar_url FROM users WHERE avatar_url IS NOT NULL AND avatar_url <> '')`); err != nil {
+			return err
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

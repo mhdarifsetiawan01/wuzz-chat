@@ -34,6 +34,12 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Pengelolaan Berkas, Foto
   - `LocalStorageDriver`: Fallback penyimpanan disk lokal untuk development offline.
 - **Background Purge Worker (`worker/purge_worker.go`)**:
   - Berjalan berkala (`24h ticker`) untuk membersihkan berkas grup yang telah melewati batas `MEDIA_RETENTION_DAYS=7`.
+- **Antrean berkas yatim (`media_purge_queue`, `store/media_purge_queue.go`)**: hapus akun (`EraseUser`) menghapus baris pesan, sehingga berkas fisiknya tak terjangkau `GetExpiredMediaMessages`. Karena itu `EraseUser` memasukkan berkas milik user (lampiran pesan, lampiran grup yang ikut terhapus, `media_urls` postingan, `avatar_url`) ke tabel `media_purge_queue` dalam transaksi yang sama; `PurgeWorker.DrainQueue` menghapus berkas fisiknya tiap siklus (maks 100 berkas x 10 kelompok), antrean tetap jalan walau retensi diset permanen.
+  - Gagal hapus: dicoba ulang dengan jeda 1, 2, 4 jam (maks 24 jam); setelah 10 kali dibuang dari antrean dan dicatat di log `❌ [PurgeWorker] Menyerah`.
+  - Berkas yang masih dirujuk `messages.media_url` atau `users.avatar_url` milik orang lain tidak dihapus. Media feed tidak dicek rujukannya (diasumsikan tak dipakai ulang).
+  - **Jangan** mengganti pengecekan rujukan menjadi per berkas: terukur 3 menit 7 detik untuk 5.000 berkas (100 ribu pesan), versi set-based 0,29 detik.
+  - Berkas yatim dari akun yang dihapus sebelum fitur ini tidak ikut dibersihkan.
+  - **Catatan skala (ditunda, belum perlu):** produksi 1 node, penghapusan berkas berurutan. Bila antrean menumpuk, naikkan paralelisme `DrainQueue` (goroutine, disarankan diatur lewat env) atau batas/intervalnya. Bila node ditambah, `ClaimDue` perlu `FOR UPDATE SKIP LOCKED` + sewa lewat `next_attempt_at` (PostgreSQL) agar node tak mengambil berkas yang sama.
 
 ---
 
