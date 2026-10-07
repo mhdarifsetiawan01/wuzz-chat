@@ -38,8 +38,8 @@ export default function DeleteAccountPage() {
       <h2>Data yang dapat bertahan sementara</h2>
       <ul>
         <li>Pesan sandi (E2EE) yang sudah tersimpan di perangkat lawan bicara, karena berada di luar kendali kami.</li>
-        <li>Berkas media yang menunggu masa hapus otomatis (maksimal 24 jam untuk pesan langsung, 7 hari untuk grup).</li>
-        <li>Salinan cadangan sistem, sampai siklus rotasi berikutnya, dan catatan laporan moderasi seperlunya untuk keamanan.</li>
+        <li>Berkas media yang sedang menunggu penghapusan otomatis (biasanya terhapus dalam waktu kurang dari satu hari).</li>
+        <li>Salinan cadangan teknis untuk pemulihan bencana (mengikuti siklus rotasinya), dan catatan laporan moderasi seperlunya untuk keamanan.</li>
       </ul>
       <p>Lihat juga <a href="/privacy">Kebijakan Privasi</a>.</p>
     </LegalPage>

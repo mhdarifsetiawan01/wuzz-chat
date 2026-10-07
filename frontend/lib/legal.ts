@@ -3,4 +3,5 @@
 export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@semanticdigital.id'
 
 // Tanggal berlaku dokumen; perbarui setiap kali isi kebijakan berubah.
-export const LEGAL_EFFECTIVE_DATE = '6 Oktober 2026'
+// Ganti penyedia infrastruktur (DB/storage/Redis/VPS) atau mulai memakai cadangan = perbarui /privacy bagian 4-5 juga.
+export const LEGAL_EFFECTIVE_DATE = '7 Oktober 2026'
