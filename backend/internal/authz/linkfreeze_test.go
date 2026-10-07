@@ -148,3 +148,71 @@ func TestLinkFreeze_CacheAndInvalidate(t *testing.T) {
 		t.Fatal("setelah TTL singkat, status baru harus dibaca")
 	}
 }
+
+func TestLinkFreeze_ExemptUsernamesNotFrozen(t *testing.T) {
+	ctx := context.Background()
+	f := &fakeOAuth{linked: map[string]bool{}}
+	names := map[string]string{"demo-id": "Peninjau_Play", "other-id": "budi"}
+	lookups := 0
+	lookup := func(_ context.Context, id string) (string, error) {
+		lookups++
+		n, ok := names[id]
+		if !ok {
+			return "", errors.New("tidak ada")
+		}
+		return n, nil
+	}
+	p, _ := newPolicy(true, freezeDeadline, f, freezeDeadline.Add(time.Hour))
+	p.SetExempt([]string{" peninjau_play ", "", "STAF"}, lookup)
+
+	if p.IsFrozen(ctx, "demo-id", "default") {
+		t.Fatal("akun di daftar putih (beda huruf besar/kecil) tidak boleh dibekukan")
+	}
+	if !p.IsFrozen(ctx, "other-id", "default") {
+		t.Fatal("akun belum tertaut yang tidak ada di daftar putih tetap dibekukan")
+	}
+	// Hasil di-cache: pemeriksaan ulang tidak mencari username lagi.
+	before := lookups
+	if p.IsFrozen(ctx, "demo-id", "default") || lookups != before {
+		t.Fatal("pemeriksaan kedua harus dari cache")
+	}
+
+	// Gagal mencari username: gagal terbuka (tidak dibekukan), dan tidak di-cache.
+	if p.IsFrozen(ctx, "tak-dikenal", "default") {
+		t.Fatal("galat pencarian username harus gagal terbuka")
+	}
+	names["tak-dikenal"] = "budi2"
+	if !p.IsFrozen(ctx, "tak-dikenal", "default") {
+		t.Fatal("setelah username ditemukan dan bukan daftar putih, akun harus dibekukan (galat tidak boleh di-cache)")
+	}
+}
+
+func TestLinkFreeze_ExemptDoesNotAffectLinkedOrEmptyList(t *testing.T) {
+	ctx := context.Background()
+	f := &fakeOAuth{linked: map[string]bool{"linked-id": true}}
+	lookups := 0
+	lookup := func(context.Context, string) (string, error) { lookups++; return "siapa", nil }
+	p, _ := newPolicy(true, freezeDeadline, f, freezeDeadline.Add(time.Hour))
+	p.SetExempt([]string{"peninjau_play"}, lookup)
+
+	if p.IsFrozen(ctx, "linked-id", "default") {
+		t.Fatal("akun tertaut tidak pernah dibekukan")
+	}
+	if lookups != 0 {
+		t.Fatal("akun tertaut tidak perlu pencarian username")
+	}
+
+	// Daftar putih kosong: tidak ada pencarian username sama sekali dan tidak ada pengecualian.
+	p2, _ := newPolicy(true, freezeDeadline, f, freezeDeadline.Add(time.Hour))
+	p2.SetExempt(nil, lookup)
+	if !p2.IsFrozen(ctx, "x", "default") || lookups != 0 {
+		t.Fatal("daftar putih kosong: akun belum tertaut dibekukan tanpa pencarian username")
+	}
+
+	// Sebelum tenggat, daftar putih tidak mengubah apa pun (tidak aktif).
+	p3, _ := newPolicy(true, freezeDeadline, f, freezeDeadline.Add(-time.Hour))
+	p3.SetExempt([]string{"peninjau_play"}, lookup)
+	if p3.Active() || p3.IsFrozen(ctx, "x", "default") {
+		t.Fatal("sebelum tenggat tidak ada pembekuan")
+	}
+}

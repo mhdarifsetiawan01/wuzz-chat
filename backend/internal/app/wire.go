@@ -230,6 +230,16 @@ func New(cfg *config.Config) (*Application, error) {
 				} else {
 					app.LinkFreeze = authz.NewLinkFreezePolicy(true, cfg.GoogleLinkDeadline, store.NewSQLOAuthStore(sqlStore.DB(), sqlStore.DriverName()))
 					log.Printf("🧊 Pembekuan akun belum menautkan Google AKTIF mulai %s", cfg.GoogleLinkDeadline.Format(time.RFC3339))
+					if len(cfg.GoogleLinkFreezeExempt) > 0 {
+						app.LinkFreeze.SetExempt(cfg.GoogleLinkFreezeExempt, func(_ context.Context, userID string) (string, error) {
+							u, err := userStore.GetUserByID(userID)
+							if err != nil || u == nil {
+								return "", fmt.Errorf("user %s tidak ditemukan: %v", userID, err)
+							}
+							return u.Username, nil
+						})
+						log.Printf("🧊 Daftar putih pembekuan: %d username dikecualikan", len(cfg.GoogleLinkFreezeExempt))
+					}
 				}
 			}
 		}

@@ -190,3 +190,26 @@ func TestConfig_GoogleLinkDeadline(t *testing.T) {
 		t.Fatal("kosong harus berarti tanpa tenggat")
 	}
 }
+
+func TestConfig_GoogleLinkFreezeExemptParsing(t *testing.T) {
+	t.Setenv("GOOGLE_LINK_FREEZE_EXEMPT", " Peninjau_Play , ,STAF ,peninjau_play")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	want := []string{"peninjau_play", "staf", "peninjau_play"}
+	if len(cfg.GoogleLinkFreezeExempt) != len(want) {
+		t.Fatalf("daftar putih: want %v, got %v", want, cfg.GoogleLinkFreezeExempt)
+	}
+	for i := range want {
+		if cfg.GoogleLinkFreezeExempt[i] != want[i] {
+			t.Fatalf("daftar putih: want %v, got %v", want, cfg.GoogleLinkFreezeExempt)
+		}
+	}
+
+	t.Setenv("GOOGLE_LINK_FREEZE_EXEMPT", "")
+	cfg, _ = Load()
+	if len(cfg.GoogleLinkFreezeExempt) != 0 {
+		t.Fatalf("env kosong harus tanpa pengecualian, got %v", cfg.GoogleLinkFreezeExempt)
+	}
+}

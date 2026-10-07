@@ -72,6 +72,11 @@ type Config struct {
 	// menghapus data dan berakhir begitu Google ditautkan.
 	GoogleLinkFreeze bool
 
+	// GoogleLinkFreezeExempt adalah daftar putih username yang TIDAK dibekukan walau belum menautkan Google
+	// (env GOOGLE_LINK_FREEZE_EXEMPT, CSV, tidak peka huruf besar/kecil). Untuk akun yang memang tidak bisa memakai Google,
+	// mis. akun demo peninjau Play Store. Kosong = tidak ada pengecualian. Berlaku hanya bila pembekuan aktif.
+	GoogleLinkFreezeExempt []string
+
 	// ModerationNotify adalah daftar saluran pemberitahuan laporan baru (env MODERATION_NOTIFY, CSV; saat ini: telegram).
 	// Kosong = tanpa pemberitahuan. Token dan chat id TIDAK pernah dicatat di log.
 	ModerationNotify []string
@@ -136,6 +141,12 @@ func Load() (*Config, error) {
 		ModerationAdminURL: getEnv("MODERATION_ADMIN_URL", "https://chat.wuzzhub.id/admin"),
 
 		ReportEvidenceRetentionDays: getEnvInt("REPORT_EVIDENCE_RETENTION_DAYS", 90),
+	}
+
+	for _, name := range strings.Split(os.Getenv("GOOGLE_LINK_FREEZE_EXEMPT"), ",") {
+		if name = strings.ToLower(strings.TrimSpace(name)); name != "" {
+			cfg.GoogleLinkFreezeExempt = append(cfg.GoogleLinkFreezeExempt, name)
+		}
 	}
 
 	if raw := strings.TrimSpace(os.Getenv("GOOGLE_LINK_DEADLINE")); raw != "" {
