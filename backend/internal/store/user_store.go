@@ -1122,6 +1122,10 @@ func (s *SQLUserStore) GetUserConversationsWithContext(ctx context.Context, user
 
 		if rc.item.Type == "direct" && rc.item.Title == "" {
 			rc.item.Title = rc.item.PeerNickname
+			if rc.item.Title == "" {
+				// Akun lawan bicara sudah dihapus: tanpa ini klien menampilkan id percakapan mentah.
+				rc.item.Title = "Akun dihapus"
+			}
 		}
 		rawConvs = append(rawConvs, rc)
 	}

@@ -230,6 +230,10 @@ func (h *ChatHandler) ClearConversation(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
 			return
 		}
+		if strings.Contains(err.Error(), "tidak ditemukan") {
+			http.Error(w, `{"error":"Percakapan tidak ditemukan","code":"CONVERSATION_NOT_FOUND"}`, http.StatusNotFound)
+			return
+		}
 		http.Error(w, `{"error":"Gagal menghapus percakapan: `+err.Error()+`"}`, http.StatusInternalServerError)
 		return
 	}

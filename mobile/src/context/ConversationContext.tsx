@@ -406,7 +406,13 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     async (roomId: string) => {
       if (!roomId) return;
 
-      await conversationsApi.clearConversation(roomId);
+      try {
+        await conversationsApi.clearConversation(roomId);
+      } catch (err: any) {
+        // 404/403: percakapan sudah tidak ada atau bukan milik akun ini di server. Baris lokal itu "hantu"
+        // yang tak bisa dihapus lewat server, jadi cukup bersihkan di sini alih-alih menampilkan galat.
+        if (err?.status !== 404 && err?.status !== 403) throw err;
+      }
 
       setConversations((prev) => prev.filter((c) => c.id !== roomId && c.room_id !== roomId));
       if (user?.id) {
