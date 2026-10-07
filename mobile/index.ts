@@ -1,3 +1,4 @@
+import './src/utils/androidTextFix';
 import { registerRootComponent } from 'expo';
 import { LogBox } from 'react-native';
 
