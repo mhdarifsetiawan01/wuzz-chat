@@ -1,6 +1,6 @@
 # PLAY_STORE_LISTING.md — Draf Data Safety, Deklarasi, dan Naskah Toko
 
-> **Status: DRAF per 5 Okt 2026**, disusun dari kode (izin manifest, tabel data, penyedia pihak ketiga). Belum dimasukkan ke Play Console
+> **Status: DRAF (dibuat 5 Okt 2026, diperbarui 7 Okt 2026)**, disusun dari kode (izin manifest, tabel data, penyedia pihak ketiga). Belum dimasukkan ke Play Console
 > (akun masih diverifikasi). Formulir Play berubah dari waktu ke waktu: **cocokkan setiap isian dengan pertanyaan yang tampil di Console**
 > dan tandai bagian bertanda ⚠️ sebelum mengirim. Bila kode berubah (mis. menambah Crashlytics/Sentry, lokasi, kontak), perbarui dokumen ini.
 > Sumber kebenaran isi privasi: `frontend/app/privacy/page.tsx`. Jawaban di formulir **tidak boleh bertentangan** dengan halaman itu.
@@ -14,7 +14,7 @@
   `RECEIVE_BOOT_COMPLETED`, `READ_APP_BADGE` (badge ikon, dari expo-notifications), `USE_BIOMETRIC`/`USE_FINGERPRINT` (dari expo-secure-store),
   `BLUETOOTH` (<= Android 11), `READ/WRITE_EXTERNAL_STORAGE` (<= Android 12L). Tidak ada Foreground Service, `SYSTEM_ALERT_WINDOW`, `READ_MEDIA_*`, SMS, log panggilan, atau lokasi.
   Foto dipilih lewat pemilih foto sistem (tanpa izin media).
-- Pihak ketiga yang menerima data: **Google Firebase Cloud Messaging** (token perangkat dan isi notifikasi), **Groq** (teks pesan **hanya** dari topik forum terbuka untuk AI Memory),
+- Pihak ketiga yang menerima data: **Google Firebase Cloud Messaging** (token perangkat dan isi notifikasi), **penyedia LLM untuk AI Memory, saat ini Groq** (teks pesan **hanya** dari topik forum terbuka),
   penyedia infrastruktur sendiri (VPS, basis data, penyimpanan berkas Supabase, Redis, relay TURN milik sendiri).
 
 ## 2. Data Safety (jawaban yang disarankan)
@@ -50,9 +50,9 @@ Masuk dengan Google **sudah aktif** (email Google dan ID akun Google tersimpan; 
 Crashlytics **sudah dipasang** (baris Log kerusakan/Diagnostik di atas) dan `/privacy` sudah diperbarui. Bila menambah SDK atau data baru, perbarui tabel ini dan `/privacy`.
 
 ### 2.3 Soal "dibagikan" ⚠️
-Play tidak menghitung pengiriman data ke **penyedia layanan yang memprosesnya atas nama Anda** sebagai "berbagi". FCM (notifikasi), Groq (ringkasan AI Memory), dan penyedia infrastruktur
+Play tidak menghitung pengiriman data ke **penyedia layanan yang memprosesnya atas nama Anda** sebagai "berbagi". FCM (notifikasi), penyedia LLM (ringkasan AI Memory; saat ini Groq), dan penyedia infrastruktur
 termasuk kategori itu, sehingga jawaban "Tidak dibagikan" dapat dipertanggungjawabkan, **asalkan** halaman `/privacy` menyebutkan mereka (sudah). Verifikasi definisi terkini di Console;
-bila ragu, lebih aman mendeklarasikan "Dibagikan" untuk Pesan (Groq, hanya teks forum terbuka).
+bila ragu, lebih aman mendeklarasikan "Dibagikan" untuk Pesan (penyedia LLM, hanya teks forum terbuka). **Ganti penyedia LLM (mis. ke Gemini/Claude) = perbarui `/privacy` bagian 3-4, `LEGAL_EFFECTIVE_DATE`, dan jawaban Data Safety.**
 
 ### 2.4 Praktik keamanan dan retensi (isi kolom tambahan bila ada)
 - Data dienkripsi saat transit; kata sandi disimpan sebagai hash bcrypt.
@@ -140,10 +140,11 @@ Rekam via adb: `adb exec-out screencap -p > shot.png` (lihat catatan alur build)
 **Short description** (71/80): `Chat, groups and voice calls. Direct messages are end-to-end encrypted.`
 
 ## 6. Daftar periksa sebelum mengirim ke Play
-- [ ] Proses moderasi nyata tersedia (alat moderasi: `docs/plans/backlog/MODERATION_TOOL.md`) dan SOP disepakati; janji `/child-safety` dapat dipenuhi.
-- [ ] `support@semanticdigital.id` aktif dan `NEXT_PUBLIC_SUPPORT_EMAIL` di Vercel diisi (lalu rebuild frontend).
-- [ ] Halaman `/privacy`, `/terms`, `/delete-account` terbuka dari jaringan luar (tanpa gate), dan teks privasi cocok dengan jawaban Data Safety.
+- [x] Alat moderasi **sudah live** (6 Okt 2026, `docs/plans/backlog/MODERATION_TOOL.md`). Tinggal pastikan SOP tinjauan harian disepakati dan janji `/child-safety` dapat dipenuhi.
+- [ ] `support@semanticdigital.id` aktif (default kode sudah ini) dan `NEXT_PUBLIC_SUPPORT_EMAIL` di Vercel diisi bila ingin alamat lain (lalu rebuild frontend). Belum terverifikasi.
+- [ ] Halaman `/privacy`, `/terms`, `/delete-account` terbuka dari jaringan luar (tanpa gate). Teks privasi sudah dicocokkan dengan produksi 7 Okt 2026 (retensi media 1 hari, pemroses netral-penyedia); **cocokkan sekali lagi dengan jawaban Data Safety saat mengisi Console**, dan perbarui keduanya bila penyedia infrastruktur berganti.
 - [ ] Akun demo peninjau dibuat dan dites login di build Play.
 - [ ] ~~Putuskan Crashlytics/Sentry~~ **Crashlytics dipilih dan dipasang** (jawaban 2.2 sudah memuatnya); aktifkan Crashlytics di Firebase Console (lihat `docs/CRASH_REPORTING.md` bagian 4).
+- [x] Gerbang usia 13+ dipasang di aplikasi (7 Okt 2026; belum diuji visual di HP) sehingga klaim "13+" di Target audiens punya penegakan pernyataan diri.
 - [ ] Cocokkan butir bertanda ⚠️ dengan teks pertanyaan terbaru di Console.
 - [ ] Build rilis memakai `EXPO_PUBLIC_UPDATE_CHANNEL=play`; `PLAY_STORE_URL` backend sesuai paket; banner pembaruan APK dimatikan untuk channel Play (sudah di kode).
