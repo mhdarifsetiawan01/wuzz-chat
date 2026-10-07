@@ -31,4 +31,7 @@ var (
 
 	// ErrOAuthNotLinked: akun Wuzz ini belum punya akun pihak ketiga tertaut.
 	ErrOAuthNotLinked = errors.New("akun ini belum terhubung ke akun Google")
+
+	// ErrOAuthReplaceLimit: batas penggantian akun pihak ketiga per jendela waktu sudah tercapai.
+	ErrOAuthReplaceLimit = errors.New("batas penggantian akun Google tercapai (maksimal 3 kali per 7 hari), coba lagi nanti")
 )

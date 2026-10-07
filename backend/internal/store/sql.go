@@ -388,6 +388,15 @@ func (s *SQLMessageStore) autoMigrate() error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_oauth_subject ON user_credentials(identifier) WHERE type = 'oauth';`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_oauth_user ON user_credentials(user_id) WHERE type = 'oauth';`,
 
+		// Log penggantian akun oauth: dasar pembatasan "maksimal N kali per jendela" (lihat ReplaceOAuth).
+		`CREATE TABLE IF NOT EXISTS oauth_replace_log (
+			id VARCHAR(64) PRIMARY KEY,
+			user_id VARCHAR(64) NOT NULL,
+			provider VARCHAR(32) NOT NULL,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_oauth_replace_log_user ON oauth_replace_log(user_id, provider, created_at);`,
+
 		// Tabel Tenants (Milestone 1: Multi-Tenant Architecture)
 		`CREATE TABLE IF NOT EXISTS tenants (
 			id VARCHAR(64) PRIMARY KEY,

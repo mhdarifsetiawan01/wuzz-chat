@@ -3,8 +3,10 @@ package store_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	"github.com/bms-del112/wuzz-chat/internal/store"
@@ -170,6 +172,47 @@ func TestOAuthStore_ReplaceOAuth(t *testing.T) {
 	}
 	if id, found, _ := oas.FindUserIDBySubject(ctx, "google", "sub-C"); !found || id != a {
 		t.Fatal("sub baru harus tertaut ke akun")
+	}
+}
+
+func TestOAuthStore_ReplaceOAuth_LimitPerWindow(t *testing.T) {
+	ms := openMessageStore(t, "oauth_limit.db")
+	oas := store.NewSQLOAuthStore(ms.DB(), ms.DriverName())
+	ctx := tenantshared.WithTenant(context.Background(), "default")
+
+	a, err := mkUser(ctx, oas, "google", "sub-0", "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Penggantian gagal (old salah) tidak dihitung ke batas.
+	for i := 0; i < 5; i++ {
+		_ = oas.ReplaceOAuth(ctx, a, "google", "sub-salah", "sub-x", "x")
+	}
+	prev := "sub-0"
+	for i := 1; i <= store.OAuthReplaceMaxPerWindow; i++ {
+		next := fmt.Sprintf("sub-%d", i)
+		if err := oas.ReplaceOAuth(ctx, a, "google", prev, next, "e"); err != nil {
+			t.Fatalf("ganti ke-%d seharusnya sukses: %v", i, err)
+		}
+		prev = next
+	}
+	if err := oas.ReplaceOAuth(ctx, a, "google", prev, "sub-baru", "e"); !errors.Is(err, store.ErrOAuthReplaceLimit) {
+		t.Fatalf("seharusnya ErrOAuthReplaceLimit, dapat %v", err)
+	}
+	if sub, ok, _ := oas.GetLinkedSubject(ctx, a, "google"); !ok || sub != prev {
+		t.Fatalf("tautan harus utuh saat dibatasi, dapat (%q,%v)", sub, ok)
+	}
+	// Di luar jendela 7 hari, penggantian diizinkan lagi.
+	old := time.Now().UTC().Add(-store.OAuthReplaceWindow - time.Hour)
+	upd := `UPDATE oauth_replace_log SET created_at = ?`
+	if ms.DriverName() == "postgres" {
+		upd = `UPDATE oauth_replace_log SET created_at = $1`
+	}
+	if _, err := ms.DB().Exec(upd, old); err != nil {
+		t.Fatal(err)
+	}
+	if err := oas.ReplaceOAuth(ctx, a, "google", prev, "sub-baru", "e"); err != nil {
+		t.Fatalf("setelah jendela lewat seharusnya sukses: %v", err)
 	}
 }
 

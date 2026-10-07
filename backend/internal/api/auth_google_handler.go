@@ -30,6 +30,7 @@ const (
 	codeTenantNotAllowed     = "GOOGLE_TENANT_NOT_ALLOWED"
 	codePasswordUnavailable  = "PASSWORD_LOGIN_UNAVAILABLE"
 	codeGoogleSameAccount    = "GOOGLE_SAME_ACCOUNT"
+	codeGoogleReplaceLimit   = "GOOGLE_REPLACE_LIMIT"
 	codeDeviceLimitReached   = "DEVICE_LIMIT_REACHED"
 	codeValidation           = "VALIDATION_ERROR"
 	codeServer               = "SERVER_ERROR"
@@ -75,6 +76,8 @@ func writeGoogleError(w http.ResponseWriter, err error, context string) {
 		writeAuthError(w, http.StatusForbidden, codeTenantNotAllowed, err.Error())
 	case errors.Is(err, authz.ErrPasswordLoginUnavailable):
 		writeAuthError(w, http.StatusConflict, codePasswordUnavailable, err.Error())
+	case errors.Is(err, sharederrors.ErrOAuthReplaceLimit):
+		writeAuthError(w, http.StatusTooManyRequests, codeGoogleReplaceLimit, err.Error())
 	case errors.Is(err, authz.ErrGoogleSame):
 		writeAuthError(w, http.StatusBadRequest, codeGoogleSameAccount, err.Error())
 	case sharedvalidator.IsValidationError(err):

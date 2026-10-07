@@ -38,6 +38,7 @@ const MESSAGES: Record<string, string> = {
   ACCOUNT_ALREADY_HAS_GOOGLE: 'Akun Wuzz ini sudah terhubung ke sebuah akun Google.',
   USERNAME_TAKEN: 'Username sudah digunakan, silakan pilih username lain.',
   PASSWORD_LOGIN_UNAVAILABLE: 'Akun ini tidak memiliki password, sehingga akun Google tidak dapat diputus.',
+  GOOGLE_REPLACE_LIMIT: 'Penggantian akun Google dibatasi maksimal 3 kali per 7 hari. Coba lagi nanti.',
   GOOGLE_SAME_ACCOUNT: 'Akun Google yang dipilih sama dengan yang sudah terhubung.',
   GOOGLE_TENANT_NOT_ALLOWED: 'Login Google tidak tersedia untuk akun ini.',
   ACCOUNT_SUSPENDED: ACCOUNT_SUSPENDED_LOGIN_MESSAGE,

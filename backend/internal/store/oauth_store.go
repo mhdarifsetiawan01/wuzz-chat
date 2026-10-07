@@ -22,6 +22,13 @@ var (
 	ErrOAuthSubjectTaken  = sharederrors.ErrOAuthSubjectTaken
 	ErrOAuthAlreadyLinked = sharederrors.ErrOAuthAlreadyLinked
 	ErrOAuthNotLinked     = sharederrors.ErrOAuthNotLinked
+	ErrOAuthReplaceLimit  = sharederrors.ErrOAuthReplaceLimit
+)
+
+// Pembatasan penggantian akun oauth: maksimal OAuthReplaceMaxPerWindow kali dalam OAuthReplaceWindow per akun.
+const (
+	OAuthReplaceMaxPerWindow = 3
+	OAuthReplaceWindow       = 7 * 24 * time.Hour
 )
 
 // OAuthIdentifier membentuk nilai kolom identifier untuk kredensial oauth ("google:<sub>").
@@ -51,6 +58,7 @@ type OAuthStore interface {
 	UnlinkOAuth(ctx context.Context, userID, provider string) error
 
 	// ReplaceOAuth mengganti identitas tertaut (oldSubject harus cocok) secara atomik.
+	// Mengembalikan ErrOAuthReplaceLimit bila akun sudah mengganti OAuthReplaceMaxPerWindow kali dalam OAuthReplaceWindow.
 	ReplaceOAuth(ctx context.Context, userID, provider, oldSubject, newSubject, label string) error
 }
 
@@ -188,6 +196,17 @@ func (s *SQLOAuthStore) ReplaceOAuth(ctx context.Context, userID, provider, oldS
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	now := time.Now().UTC()
+	var recent int
+	if err := tx.QueryRowContext(ctx,
+		s.q(`SELECT COUNT(*) FROM oauth_replace_log WHERE user_id = ? AND provider = ? AND created_at > ?`),
+		userID, provider, now.Add(-OAuthReplaceWindow)).Scan(&recent); err != nil {
+		return fmt.Errorf("gagal membaca log penggantian oauth: %w", err)
+	}
+	if recent >= OAuthReplaceMaxPerWindow {
+		return ErrOAuthReplaceLimit
+	}
+
 	res, err := tx.ExecContext(ctx,
 		s.q(`DELETE FROM user_credentials WHERE type = 'oauth' AND user_id = ? AND identifier = ?`),
 		userID, OAuthIdentifier(provider, oldSubject))
@@ -197,8 +216,13 @@ func (s *SQLOAuthStore) ReplaceOAuth(ctx context.Context, userID, provider, oldS
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrOAuthNotLinked
 	}
-	if err := insertOAuth(ctx, tx, s, userID, provider, newSubject, label, time.Now().UTC()); err != nil {
+	if err := insertOAuth(ctx, tx, s, userID, provider, newSubject, label, now); err != nil {
 		return err
+	}
+	if _, err := tx.ExecContext(ctx,
+		s.q(`INSERT INTO oauth_replace_log (id, user_id, provider, created_at) VALUES (?, ?, ?, ?)`),
+		uuid.New().String(), userID, provider, now); err != nil {
+		return fmt.Errorf("gagal mencatat penggantian oauth: %w", err)
 	}
 	return tx.Commit()
 }
