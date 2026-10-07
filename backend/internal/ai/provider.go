@@ -25,12 +25,28 @@ var (
 	ErrAIRateLimited     = errors.New("ai provider rate limit (429)")
 	ErrAITimeout         = errors.New("ai provider request timeout")
 	ErrAIBadAuth         = errors.New("ai provider authentication failed (invalid api key)")
+	// ErrAIProviderUnknown: AI_PROVIDER berisi nilai yang tidak diimplementasikan (mis. salah ketik atau "claude"
+	// yang belum ada). Sengaja galat, bukan MockAIService, agar produksi tidak diam-diam membuat ringkasan palsu.
+	ErrAIProviderUnknown = errors.New("AI_PROVIDER tidak dikenal; tidak ada ringkasan yang dibuat")
 )
+
+// supportedAIProviders adalah nilai AI_PROVIDER yang benar-benar diimplementasikan di NewAIServiceFromEnv.
+const supportedAIProviders = "gemini, groq, mock"
+
+// unsupportedAIService menggantikan penyedia yang tidak dikenal: selalu mengembalikan galat yang jelas.
+type unsupportedAIService struct{ provider string }
+
+func (u *unsupportedAIService) GenerateMemory(_ context.Context, _ MemoryGenerationInput) (*MemoryGenerationOutput, error) {
+	return nil, fmt.Errorf("%w: %q (didukung: %s)", ErrAIProviderUnknown, u.provider, supportedAIProviders)
+}
 
 // IsRetryableAIError menentukan apakah error AI layak untuk di-retry.
 func IsRetryableAIError(err error) bool {
 	if err == nil {
 		return false
+	}
+	if errors.Is(err, ErrAIProviderUnknown) {
+		return false // salah konfigurasi, mengulang tidak akan membantu
 	}
 	if errors.Is(err, ErrAIRateLimited) || errors.Is(err, ErrAITimeout) || errors.Is(err, ErrInvalidJSONOutput) || errors.Is(err, ErrEmptyAIResponse) {
 		return true
@@ -465,8 +481,9 @@ func (g *GroqProvider) GenerateMemory(ctx context.Context, input MemoryGeneratio
 }
 
 // NewAIServiceFromEnv menginisialisasi AIService berdasarkan environment variable.
-// Mendukung AI_PROVIDER (default "gemini", opsi "groq", "openai", "claude", "ollama", "mock") dan AI_MODEL.
-// Jika API key tidak ditemukan, fallback ke MockAIService yang aman dan deterministik untuk development/test.
+// Mendukung AI_PROVIDER (default "gemini"; opsi yang diimplementasikan: "gemini", "groq", "mock") dan AI_MODEL.
+// Nilai lain TIDAK jatuh ke mock: dikembalikan layanan yang selalu galat (ErrAIProviderUnknown) agar salah konfigurasi terlihat.
+// Jika API key penyedia yang valid tidak ditemukan, fallback ke MockAIService (deterministik) untuk development/test.
 func NewAIServiceFromEnv() AIService {
 	provider := strings.ToLower(strings.TrimSpace(os.Getenv("AI_PROVIDER")))
 	if provider == "" {
@@ -512,10 +529,10 @@ func NewAIServiceFromEnv() AIService {
 		log.Printf("🧪 [AIService] Mode eksplisit mock dipilih. Menggunakan MockAIService.")
 		return &MockAIService{}
 	default:
-		log.Printf("⚠️ [AIService] Provider '%s' belum dikonfigurasi aktif. Menggunakan MockAIService.", provider)
-		return &MockAIService{}
+		log.Printf("❌ [AIService] AI_PROVIDER=%q tidak dikenal (didukung: %s). AI Memory akan GAGAL (bukan memakai mock) sampai env diperbaiki.", provider, supportedAIProviders)
+		return &unsupportedAIService{provider: provider}
 	}
 
-	log.Printf("🧪 [AIService] API Key tidak ditemukan. Menggunakan MockAIService (Deterministic Test Mode)")
+	log.Printf("⚠️ [AIService] API key untuk provider %q tidak ditemukan. Menggunakan MockAIService (ringkasan tiruan, hanya untuk development/test); di produksi ini berarti env belum lengkap.", provider)
 	return &MockAIService{}
 }

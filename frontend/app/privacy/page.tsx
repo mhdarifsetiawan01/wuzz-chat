@@ -42,7 +42,7 @@ export default function PrivacyPage() {
         <li>Menjalankan layanan: autentikasi, mengirim pesan, panggilan, dan notifikasi.</li>
         <li>Stabilitas: memperbaiki crash dan kesalahan aplikasi berdasarkan laporan kerusakan teknis.</li>
         <li>Keamanan: membatasi jumlah perangkat, mencabut sesi, mencegah penyalahgunaan, dan menindaklanjuti laporan. Akun yang melanggar ketentuan dapat ditangguhkan; kami menyimpan tanggal dan alasan penangguhan, dan akun dapat dipulihkan bila penangguhan dibatalkan.</li>
-        <li>Fitur AI Memory: pada <strong>ruang diskusi terbuka dan topik forum</strong>, teks pesan dapat dikirim ke layanan model bahasa (LLM) pihak ketiga, yaitu Groq, untuk menyusun ringkasan. Hasilnya hanya terbit setelah disetujui admin. Pesan langsung E2EE tidak pernah dibaca AI.</li>
+        <li>Fitur AI Memory: pada <strong>ruang diskusi terbuka dan topik forum</strong>, teks pesan dapat dikirim ke layanan model bahasa (LLM) pihak ketiga (saat ini Groq) untuk menyusun ringkasan. Hasilnya hanya terbit setelah disetujui admin. Pesan langsung E2EE tidak pernah dibaca AI.</li>
       </ul>
 
       <h2>4. Pihak ketiga yang memproses data</h2>
@@ -50,13 +50,13 @@ export default function PrivacyPage() {
         <li>Google (Masuk dengan Google): memverifikasi identitas Anda saat Anda memilih masuk dengan akun Google.</li>
         <li>Google Firebase Cloud Messaging: mengantar notifikasi push (menerima token perangkat dan isi notifikasi).</li>
         <li>Google Firebase Crashlytics: menerima laporan kerusakan teknis seperti dijelaskan di atas, semata-mata untuk memperbaiki aplikasi.</li>
-        <li>Groq (penyedia inferensi model bahasa): menerima teks pesan dari forum terbuka untuk ringkasan AI Memory, seperti dijelaskan di atas.</li>
+        <li>Penyedia model bahasa (LLM) untuk fitur AI Memory (saat ini Groq): menerima teks pesan dari forum terbuka untuk ringkasan, seperti dijelaskan di atas.</li>
         <li>Telegram: dipakai untuk pemberitahuan internal kepada tim moderasi bahwa ada laporan baru. Pesan hanya memuat jenis dan alasan laporan serta tautan ke halaman moderator; tidak memuat isi pesan, bukti, nama pengguna, atau data pribadi Anda.</li>
         <li>Penyedia basis data dan penyimpanan berkas media kami (saat ini Supabase).</li>
         <li>Penyedia layanan Redis yang meneruskan pesan sementara antar-server dan tidak dipakai sebagai penyimpanan permanen (saat ini Upstash).</li>
         <li>Penyedia server (VPS) tempat aplikasi backend kami berjalan.</li>
       </ul>
-      <p>Penyedia infrastruktur di atas hanya memproses data atas perintah kami. Kami dapat berganti penyedia (termasuk memindahkan data ke server kami sendiri); daftar ini mencerminkan penyedia saat ini dan akan diperbarui, bersama tanggal berlaku, bila berubah. Kami dapat mengungkapkan data bila diwajibkan hukum yang berlaku.</p>
+      <p>Penyedia di atas hanya memproses data atas perintah kami. Kami dapat berganti penyedia, termasuk penyedia model bahasa dan pemindahan data ke server kami sendiri; daftar ini mencerminkan penyedia saat ini dan akan diperbarui, bersama tanggal berlaku, bila berubah. Kami dapat mengungkapkan data bila diwajibkan hukum yang berlaku.</p>
 
       <h2>5. Penyimpanan dan penghapusan</h2>
       <ul>

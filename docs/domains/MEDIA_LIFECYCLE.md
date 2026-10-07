@@ -6,17 +6,12 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Pengelolaan Berkas, Foto
 
 ## 📋 1. Aturan Bisnis & Invarian (*Business Invariants*)
 
-1. **Arsitektur Dual Media (1-on-1 vs Grup/Forum)**:
-   - **Obrolan 1-on-1 (WhatsApp Store-and-Forward dengan 24h Multi-Device Grace Period / $0 Long-term Cost)**:
-     - Berkas di server hanya bersifat persinggahan sementara.
-     - Saat salah satu perangkat mengunduh berkas, klien mengirimkan konfirmasi `POST /api/media/ack`. Status pesan beralih menjadi `'downloaded'`.
-     - Berkas fisik **TIDAK langsung dihapus seketika (0ms)**, melainkan dipertahankan selama masa retensi tenggang **24 jam (1 hari)** agar perangkat kedua (Multi-Device: Web atau HP lain) memiliki waktu luang untuk mengunduh berkas ke penyimpanan lokal masing-masing secara independen.
-     - Setelah 24 jam terlewati, goroutine latar belakang `PurgeWorker` secara otomatis menghapus berkas fisik dari storage Supabase S3 dan memperbarui status di database menjadi `'expired'`.
-     - Berkas tetap dapat diakses di perangkat yang telah mengunduh karena tersimpan di cache lokal (`IndexedDB` di Web / internal SQLite/filesystem di Mobile).
-   - **Obrolan Grup & Topik Forum (Shared Media Hub / TTL 7 Hari)**:
-     - Panggilan ACK unduhan dari salah satu anggota **DILARANG** menghapus berkas dari server.
-     - Berkas dipertahankan selama masa retensi TTL (7 hari) agar seluruh anggota grup dapat mengunduh secara bergantian.
-     - Berkas dibersihkan secara massal oleh goroutine `PurgeWorker` setelah 7 hari.
+1. **Satu retensi untuk semua media pesan (dikoreksi 7 Okt 2026)**:
+   - `PurgeWorker` menghapus berkas media pesan yang lebih tua dari `MEDIA_RETENTION_DAYS` (bawaan kode `config.go`: **1 hari**; produksi: 1) dan menandai pesannya `'expired'`. Aturan ini **sama untuk 1-on-1 maupun grup/forum**: tidak ada TTL 7 hari khusus grup di kode. (`backend/.env.example` masih bernilai 7; nilai itu hanya contoh dan tidak dipakai bila env produksi diset.)
+   - **ACK unduhan** (`POST /api/media/ack`, `AcknowledgeMediaDownload`): pada 1-on-1 hanya mengubah status pesan menjadi `'downloaded'`; berkas **tidak** dihapus saat itu, supaya perangkat kedua (multi-device) sempat mengunduh sebelum masa retensi habis. Pada grup/subgrup/forum ACK **DILARANG** menghapus berkas atau mengubah status (anggota lain masih perlu mengunduh). Pemeriksaan ganda ada di handler (`grp_`/`sub_` selalu `canDelete=false`).
+   - Berkas tetap dapat diakses di perangkat yang telah mengunduh karena tersimpan di cache lokal (`IndexedDB` di Web / internal SQLite/filesystem di Mobile).
+   - Penerima yang belum mengunduh sebelum retensi habis kehilangan berkasnya (status `'expired'`); ini disengaja untuk menekan biaya penyimpanan.
+   - **Tidak ikut purge ini:** foto profil dan media postingan Linimasa (tidak terikat baris pesan); disimpan selama akun aktif dan dibersihkan saat akun dihapus (lihat antrean berkas yatim di bagian 2).
 2. **Kompresi Gambar Sisi Klien (*Pre-Upload WebP Compressor*)**:
    - Gambar yang diunggah dikompresi di sisi klien via `imageCompressor.ts` (resolusi maks 1600px, format WebP kualitas 0.82) untuk menghemat bandwidth hingga 80%.
 3. **Pesan Suara (*Voice Notes*)**:
@@ -32,8 +27,8 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Pengelolaan Berkas, Foto
 - **Implementasi Driver**:
   - `SupabaseStorageDriver`: Berkomunikasi dengan bucket S3 Supabase Storage.
   - `LocalStorageDriver`: Fallback penyimpanan disk lokal untuk development offline.
-- **Background Purge Worker (`worker/purge_worker.go`)**:
-  - Berjalan berkala (`24h ticker`) untuk membersihkan berkas grup yang telah melewati batas `MEDIA_RETENTION_DAYS=7`.
+- **Background Purge Worker (`storage/purge_worker.go`)**:
+  - Berjalan berkala (interval tetap 1 jam, `PurgeWorkerInterval` di `shared/config/config.go`, bukan env; sekali juga ±10 detik setelah server naik) untuk membersihkan berkas media pesan (DM dan grup) yang melewati `MEDIA_RETENTION_DAYS` (bawaan dan produksi 1 hari). Nilai `<= 0` menonaktifkan purge TTL, tetapi antrean berkas yatim di bawah tetap berjalan.
 - **Antrean berkas yatim (`media_purge_queue`, `store/media_purge_queue.go`)**: hapus akun (`EraseUser`) menghapus baris pesan, sehingga berkas fisiknya tak terjangkau `GetExpiredMediaMessages`. Karena itu `EraseUser` memasukkan berkas milik user (lampiran pesan, lampiran grup yang ikut terhapus, `media_urls` postingan, `avatar_url`) ke tabel `media_purge_queue` dalam transaksi yang sama; `PurgeWorker.DrainQueue` menghapus berkas fisiknya tiap siklus (maks 100 berkas x 10 kelompok), antrean tetap jalan walau retensi diset permanen.
   - Gagal hapus: dicoba ulang dengan jeda 1, 2, 4 jam (maks 24 jam); setelah 10 kali dibuang dari antrean dan dicatat di log `❌ [PurgeWorker] Menyerah`.
   - Berkas yang masih dirujuk `messages.media_url` atau `users.avatar_url` milik orang lain tidak dihapus. Media feed tidak dicek rujukannya (diasumsikan tak dipakai ulang).
