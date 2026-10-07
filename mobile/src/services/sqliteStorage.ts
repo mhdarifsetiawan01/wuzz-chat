@@ -884,6 +884,42 @@ export function deleteStoredConversation(userId: string, roomId: string): Promis
 }
 
 /**
+ * Memangkas baris percakapan (dan pesan cache-nya) yang tidak lagi ada di daftar server. saveStoredConversations
+ * hanya meng-upsert, jadi percakapan yang hilang dari server (grup dibubarkan, keluar/dikeluarkan, dihapus di
+ * perangkat lain) tertinggal di SQLite dan "muncul sesaat" setiap cold start sebelum fetch menghapusnya dari state.
+ * Hanya dipanggil dengan daftar server yang sukses diambil.
+ */
+export function pruneStoredConversations(userId: string, keepIds: string[]): Promise<void> {
+  return runExclusive(async () => {
+    if (!userId) return;
+
+    try {
+      const db = await getDatabase();
+      const keep = new Set(keepIds);
+      const rows = await db.getAllAsync<{ id: string }>(
+        `SELECT id FROM local_conversations WHERE user_id = ?`,
+        [userId]
+      );
+      const stale = rows.map((r) => r.id).filter((id) => !keep.has(id));
+      if (stale.length === 0) return;
+
+      await db.withTransactionAsync(async () => {
+        for (const id of stale) {
+          await db.runAsync(`DELETE FROM local_messages WHERE user_id = ? AND room_id = ?`, [userId, id]);
+          await db.runAsync(`DELETE FROM local_conversations WHERE user_id = ? AND id = ?`, [userId, id]);
+        }
+      });
+      for (const id of stale) {
+        forgetRoomSignatures(userId, id);
+        forgetConversationSignature(userId, id);
+      }
+    } catch (error) {
+      console.warn('[sqliteStorage] Failed to pruneStoredConversations:', error);
+    }
+  });
+}
+
+/**
  * Clears all cached conversations and messages for a specific user.
  * Used during logout to guarantee user isolation and privacy protection.
  */
