@@ -43,7 +43,7 @@ export const AboutWuzzChatModal: React.FC<AboutWuzzChatModalProps> = ({
         <View style={styles.missionCard}>
           <IconText style={styles.missionIcon}>💡</IconText>
           <Text style={styles.missionText}>
-            WuzzChat adalah messenger modern yang membantu individu, tim, dan komunitas mengubah percakapan menjadi pengetahuan yang dapat dicari, dipahami, dan diingat kembali.
+            WuzzChat adalah aplikasi percakapan untuk individu, tim, dan komunitas: pesan langsung terenkripsi ujung-ke-ujung, grup dengan topik forum, dan panggilan suara.
           </Text>
         </View>
 

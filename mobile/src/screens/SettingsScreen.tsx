@@ -408,7 +408,7 @@ export const SettingsScreen: React.FC = () => {
           <SettingsItem
             icon="💡"
             title="Tentang WuzzChat"
-            subtitle="Visi, privasi & pengetahuan percakapan"
+            subtitle="Tentang aplikasi, privasi & keamanan"
             onPress={() => setIsAboutVisible(true)}
             tintColor={colors.accentPrimary}
           />
@@ -463,7 +463,7 @@ export const SettingsScreen: React.FC = () => {
         <View style={styles.footer}>
           <Text style={styles.footerBrand}>WuzzChat</Text>
           <Text style={styles.footerTagline}>
-            Mengubah percakapan menjadi pengetahuan
+            Chat, grup, dan panggilan suara
           </Text>
           <Text style={styles.footerVersion}>
             v{appVersion.version} (Build {appVersion.buildNumber}) · Aurora Build
