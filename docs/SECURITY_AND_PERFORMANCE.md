@@ -490,3 +490,31 @@ Query tetap sebelum handler berjalan (diukur dengan `log_statement=all` di Postg
 | `PUT /api/users/public-key` | 956 ms (13) | 511 ms (1) |
 
 Endpoint yang sering dipanggil turun ±27-35%; yang sampelnya satu (kemungkinan koneksi hangat) terlihat turun lebih dari separuh. Endpoint berat tetap ±1 detik (`conversations`, `messages/receipt`, `media/ack`) karena query di dalam handler masih berurutan dan setiap putaran ke Seoul ±100 ms. Langkah berikutnya yang paling besar dampaknya: memindahkan database dekat VPS (lihat di atas), lalu mengurangi query berurutan di handler terberat.
+
+## Putaran kedua: kurangi query berurutan di handler dan pemeriksaan keanggotaan (7 Okt 2026)
+
+**Cara membaca latensi:** durasi sisi server di log (`[HTTP] ... 342ms`) berkelipatan hampir persis **±171 ms per putaran ke database** (343 = 2 putaran, 515 = 3, 686 = 4). Angka ini lebih besar dari 85-118 ms yang diukur 6 Okt (TCP connect saja; satu query penuh lewat pooler lebih mahal). Jadi latensi sebuah endpoint = jumlah putaran DB x ±171 ms, dan mengurangi putaran adalah satu-satunya cara menurunkannya selama DB tetap di Seoul. Satu putaran selalu dipakai pemeriksaan pencabutan token di `RequireJWT` (lihat keputusan di bawah).
+
+**Perubahan (commit `9bc0584`, `92ab5ab`; semantik akses tidak berubah):**
+- `GetUserConversationsWithContext`: pesan terakhir dan hitungan belum dibaca dijalankan **bersamaan** dengan query utama, dan pencarian tenant asli user (untuk konteks tenant `default`) dilipat ke query utama sebagai subkueri. 4 giliran DB berurutan menjadi 1.
+- `SQLUserStore.IsUserInConversation`: 2-3 query (induk, hitung anggota, cek blokir DM) menjadi **1 query**. Aturannya sama: gerbang anggota induk untuk subgrup, pihak yang memblokir/diblokir kehilangan akses DM, `dm_` yang tidak tersimpan ditolak, room ad-hoc tak terdaftar diizinkan. Dipakai di 16 tempat (receipt, ACK media, kirim pesan, riwayat, WebSocket).
+- `GET /api/auth/me`: profil dan status tautan Google dibaca bersamaan (keduanya hanya butuh `UserID`).
+- `MessageService.GetRoomHistory` / `GetRoomHistoryBefore`: cek keanggotaan dan pengambilan riwayat bersamaan (`historyForMember`). Hasil riwayat **dibuang** bila user bukan anggota atau pemeriksaan galat, sehingga isi pesan tidak pernah keluar tanpa keanggotaan terbukti. Konsekuensi: non-anggota yang meminta riwayat memicu satu query riwayat (maks 100 baris) sebelum ditolak 403.
+
+**Tes:** `user_conversations_test.go` (lookup tenant default vs kustom, pesan terakhir, belum dibaca, user tak dikenal), `user_membership_test.go` (semua cabang keanggotaan termasuk subgrup tanpa induk), `history_gate_test.go` (anggota, bukan anggota, galat pemeriksaan). `go test ./...` lolos di SQLite dan paket `store`/`api`/`messaging`/`ws`/`authz` lolos di PostgreSQL 16 (container sekali pakai), sebagian dengan `-race`.
+
+**Hasil ukur produksi (7 Okt 2026, akun uji, 6 sampel hangat per endpoint, durasi sisi server dari log):**
+
+| Endpoint | Sebelum | Sesudah | Putaran DB (sesudah, terukur di log) |
+|---|---|---|---|
+| `GET /api/conversations` | 1457 ms (rata-rata sebelum optimasi 6 Okt), 971 ms (6 Okt, `036154e`) | **342 ms** | 2 |
+| `GET /api/auth/me` | 1219 ms (rata-rata sebelum optimasi 6 Okt), 515 ms (7 Okt, `9bc0584`, 3 putaran) | **341 ms** | 2 |
+| `GET /api/messages` (riwayat) | tidak terukur sebelumnya | **342 ms** | 2 |
+| `POST /api/messages/receipt` | 1367 ms (rata-rata sebelum optimasi 6 Okt), 993 ms (6 Okt), 530 ms (7 Okt, `9bc0584`) | **528 ms** | 3 |
+| `POST /api/media/ack` (pesan tak ada) | tidak terukur | 343 ms | 2 |
+
+Terasa di klien (dari Indonesia, termasuk jaringan ±130 ms): `/me` ±470 ms, riwayat ±490 ms, `conversations` ±475 ms, `receipt` ±660 ms. Permintaan pertama yang dingin (cache tenant/peran/penangguhan kosong, mis. setelah deploy) lebih lambat, ±510-1500 ms, lalu turun ke angka di atas. Gerbang akses diverifikasi di produksi: meminta riwayat room yang bukan milik akun mengembalikan 403 tanpa isi pesan.
+
+**Keputusan keamanan: pemeriksaan pencabutan token TIDAK di-cache.** Itu satu-satunya putaran DB tak ter-cache di rantai middleware (tenant, penangguhan, peran, dan pembekuan Google sudah ter-cache) dan memakan ±171 ms (separuh `conversations`). Cache "tidak dicabut" sengaja tidak dibuat: pencabutan token adalah tombol darurat (token dicuri, perangkat dikeluarkan, ganti password, hapus akun) dan ditulis dari banyak tempat (token store, session store, penghapus akun, alat moderasi, worker). Invalidasi eksplisit hanya aman bila semua jalur melewati satu tempat, dan satu jalur yang terlewat gagal diam-diam (token mati tetap diterima sampai TTL habis); pada multi-instance cache di memori instance lain tidak ikut terhapus. Layak dipertimbangkan hanya bila token akses dibuat berumur sangat pendek (+ refresh) atau pencabutan disiarkan lewat Redis pub/sub.
+
+**Lantai saat ini:** 2 putaran (±340 ms) = cek token + query handler, selama DB di Seoul. `receipt` masih 3 (keanggotaan dan update berurutan). Sisa penurunan besar hanya dari memindahkan DB dekat VPS (jarak ±10 ms membuat satu putaran ±15-20 ms), yang menunggu keputusan biaya.
