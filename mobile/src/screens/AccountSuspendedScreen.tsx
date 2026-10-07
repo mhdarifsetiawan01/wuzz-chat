@@ -71,6 +71,7 @@ export const AccountSuspendedScreen: React.FC = () => {
         onClose={() => setIsDeleteVisible(false)}
         onConfirm={deleteAccount}
         hasPassword={user?.has_password !== false}
+        googleLinked={user?.google_linked === true}
       />
     </SafeAreaView>
   );

@@ -46,6 +46,7 @@ export const GoogleLinkRequiredScreen: React.FC = () => {
         onClose={() => setIsDeleteVisible(false)}
         onConfirm={deleteAccount}
         hasPassword={user?.has_password !== false}
+        googleLinked={user?.google_linked === true}
       />
     </SafeAreaView>
   );

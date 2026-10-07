@@ -458,6 +458,7 @@ export const SettingsScreen: React.FC = () => {
         onClose={() => setIsDeleteAccountVisible(false)}
         onConfirm={deleteAccount}
         hasPassword={user?.has_password !== false}
+        googleLinked={user?.google_linked === true}
       />
 
       <DeviceTransferModal

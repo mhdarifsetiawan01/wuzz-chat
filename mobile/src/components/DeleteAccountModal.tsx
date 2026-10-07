@@ -1,6 +1,6 @@
 /**
  * WuzzChat Mobile UI - DeleteAccountModal
- * Konfirmasi hapus akun permanen dengan re-autentikasi password (syarat kebijakan Google Play).
+ * Konfirmasi hapus akun permanen dengan re-autentikasi password atau akun Google (syarat kebijakan Google Play).
  */
 
 import React, { useEffect, useState } from 'react';
@@ -20,23 +20,30 @@ export interface DeleteAccountModalProps {
   onConfirm: (proof: OwnershipProof) => Promise<void>;
   /** false = akun Google-only: konfirmasi lewat pemilih akun Google, bukan password. Default true. */
   hasPassword?: boolean;
+  /** true = akun punya password DAN tertaut Google: pengguna boleh memilih bukti mana yang dipakai. */
+  googleLinked?: boolean;
 }
 
-export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible, onClose, onConfirm, hasPassword = true }) => {
+export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible, onClose, onConfirm, hasPassword = true, googleLinked = false }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Akun dengan dua metode: pengguna memilih password atau Google. Akun Google-only selalu Google.
+  const [preferGoogle, setPreferGoogle] = useState(false);
+  const canChoose = hasPassword && googleLinked;
+  const usePassword = hasPassword && !(canChoose && preferGoogle);
 
   useEffect(() => {
     if (!visible) {
       setPassword('');
       setError(null);
       setIsDeleting(false);
+      setPreferGoogle(false);
     }
   }, [visible]);
 
   const handleConfirm = async () => {
-    if (hasPassword && !password) {
+    if (usePassword && !password) {
       setError('Masukkan kata sandi untuk melanjutkan.');
       return;
     }
@@ -44,10 +51,10 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
     setError(null);
     try {
       let proof: OwnershipProof;
-      if (hasPassword) {
+      if (usePassword) {
         proof = { password };
       } else {
-        // Akun Google-only: minta ID token baru dari pemilih akun Google (server memeriksa akunnya sama).
+        // Akun Google: minta ID token baru dari pemilih akun Google (server memeriksa akunnya sama).
         const identity = await signInWithGoogle();
         if (!identity) {
           setIsDeleting(false); // pengguna menutup pemilih akun
@@ -57,7 +64,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
       }
       await onConfirm(proof);
     } catch (err: any) {
-      if (hasPassword && err?.status === 401) {
+      if (usePassword && err?.status === 401) {
         setError('Kata sandi salah.');
       } else {
         setError(googleErrorMessage(err, 'Gagal menghapus akun. Periksa koneksi lalu coba lagi.'));
@@ -84,7 +91,7 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
               <Text style={styles.listItem}>• Daftar teman dan keanggotaan grup (kepemilikan grup dialihkan)</Text>
               <Text style={styles.listItem}>• Riwayat chat dan media di perangkat ini</Text>
             </View>
-            {hasPassword ? (
+            {usePassword ? (
               <Input
                 label="Kata sandi"
                 placeholder="Masukkan kata sandi Anda"
@@ -102,12 +109,24 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
               />
             ) : (
               <Text style={styles.googleNote}>
-                Akun ini masuk dengan Google. Untuk konfirmasi, Anda akan diminta memilih akun Google yang sama.
+                {canChoose ? 'Anda memilih konfirmasi dengan Google. ' : 'Akun ini masuk dengan Google. '}Untuk konfirmasi, Anda akan diminta memilih akun Google yang sama.
               </Text>
             )}
-            {!hasPassword && error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {!usePassword && error ? <Text style={styles.errorText}>{error}</Text> : null}
             <View style={styles.actions}>
-              <Button title={hasPassword ? 'Hapus Akun Saya' : 'Konfirmasi dengan Google & Hapus'} variant="danger" isLoading={isDeleting} onPress={handleConfirm} style={styles.btn} />
+              <Button title={usePassword ? 'Hapus Akun Saya' : 'Konfirmasi dengan Google & Hapus'} variant="danger" isLoading={isDeleting} onPress={handleConfirm} style={styles.btn} />
+              {canChoose ? (
+                <Button
+                  title={usePassword ? 'Lupa kata sandi? Gunakan Google' : 'Gunakan kata sandi'}
+                  variant="secondary"
+                  disabled={isDeleting}
+                  onPress={() => {
+                    setError(null);
+                    setPreferGoogle(usePassword);
+                  }}
+                  style={styles.btn}
+                />
+              ) : null}
               <Button title="Batal" variant="secondary" disabled={isDeleting} onPress={onClose} style={styles.btn} />
             </View>
           </ScrollView>
