@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -347,6 +348,23 @@ func TestAI_ProviderFactoryAndErrors(t *testing.T) {
 	svc := NewAIServiceFromEnv()
 	if _, ok := svc.(*MockAIService); !ok {
 		t.Errorf("expected MockAIService from env")
+	}
+
+	// Provider tidak dikenal (mis. "claude" yang belum ada) harus galat jelas, BUKAN mock diam-diam.
+	t.Setenv("AI_PROVIDER", "claude")
+	unknownSvc := NewAIServiceFromEnv()
+	if _, ok := unknownSvc.(*MockAIService); ok {
+		t.Fatalf("provider tidak dikenal tidak boleh jatuh ke MockAIService")
+	}
+	_, genErr := unknownSvc.GenerateMemory(context.Background(), MemoryGenerationInput{})
+	if !errors.Is(genErr, ErrAIProviderUnknown) {
+		t.Errorf("expected ErrAIProviderUnknown, got %v", genErr)
+	}
+	if IsRetryableAIError(genErr) {
+		t.Errorf("salah konfigurasi provider tidak boleh di-retry")
+	}
+	if !strings.Contains(genErr.Error(), "claude") {
+		t.Errorf("pesan galat harus menyebut nilai AI_PROVIDER yang salah: %v", genErr)
 	}
 
 	// Test Groq provider factory
