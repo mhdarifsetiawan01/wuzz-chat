@@ -36,7 +36,7 @@
 | Info pribadi | **Alamat email** (email Google yang tertaut, hanya sebagai label akun saat memakai Masuk dengan Google) ⚠️ | Ya | Tidak | Manajemen akun, Keamanan | **Dikoreksi 6 Okt 2026:** sebelumnya tertulis "email tidak dikumpulkan", padahal login Google menyimpan email (`user_credentials.label`). Tidak dipakai untuk pemasaran dan tidak dikirim ke pihak lain. Wajib dideklarasikan sebelum rilis Play |
 | Info pribadi | **Info pribadi lain** (bio, pesan status, tautan sosial opsional) | Ya | Tidak | Fungsi aplikasi | **Opsional** |
 | Pesan | **Pesan lain dalam aplikasi** | Ya | Tidak ⚠️ | Fungsi aplikasi | Pesan grup/forum tersimpan terbaca di server; pesan langsung tersimpan sebagai teks sandi (E2EE) |
-| Foto dan video | **Foto** (gambar kiriman, avatar) | Ya | Tidak | Fungsi aplikasi | Media dihapus otomatis 24 jam (DM) / 7 hari (grup); avatar opsional |
+| Foto dan video | **Foto** (gambar kiriman, avatar) | Ya | Tidak | Fungsi aplikasi | Media dalam pesan dihapus otomatis paling lama 1 hari (`MEDIA_RETENTION_DAYS=1` di produksi); avatar opsional dan disimpan selama akun aktif |
 | Audio | **Pesan suara / file audio** | Ya | Tidak | Fungsi aplikasi | Hanya pesan suara yang dikirim; **panggilan tidak direkam** |
 | File dan dokumen | **File dan dokumen** | Ya | Tidak | Fungsi aplikasi | Lampiran yang dikirim pengguna |
 | Aktivitas aplikasi | **Konten buatan pengguna lain** (postingan, komentar, suka, laporan, blokir) | Ya | Tidak | Fungsi aplikasi, Keamanan | |
@@ -57,7 +57,7 @@ bila ragu, lebih aman mendeklarasikan "Dibagikan" untuk Pesan (Groq, hanya teks 
 ### 2.4 Praktik keamanan dan retensi (isi kolom tambahan bila ada)
 - Data dienkripsi saat transit; kata sandi disimpan sebagai hash bcrypt.
 - Penghapusan: akun, profil, kata sandi, sesi, perangkat, token push, kunci publik, relasi pertemanan, keanggotaan grup, pesan, postingan, komentar, suka dihapus segera;
-  media menunggu pembersihan otomatis (maks 24 jam/7 hari); salinan cadangan sampai rotasi berikutnya ⚠️ (cocokkan dengan fakta cadangan produksi).
+  berkas media dibersihkan lewat antrean `media_purge_queue` (biasanya <1 hari setelah akun dihapus); teks privasi sengaja tidak menyebut angka rotasi cadangan maupun lokasi/paket penyedia karena infrastruktur dapat berganti (saat 7 Okt 2026: Supabase Free untuk DB+Storage, Upstash, VPS). **Perbarui `/privacy` bagian 4-5 dan `LEGAL_EFFECTIVE_DATE` setiap kali penyedia berganti atau cadangan mulai dipakai (mis. Supabase Pro, Postgres di VPS).**
 - Laporan moderasi: teks bukti dan keterangan pelapor dihapus otomatis 90 hari setelah laporan ditutup (`REPORT_EVIDENCE_RETENTION_DAYS`), kecuali ditahan (bukti yang mungkin diteruskan ke pihak berwenang); catatan tindakan moderator dan metadata laporan dapat disimpan seperlunya untuk keamanan.
 - Pemberitahuan moderasi lewat Telegram hanya memuat metadata laporan (jenis, alasan, tautan), tanpa isi pesan, bukti, atau identitas pengguna; bukan "berbagi data pengguna".
 

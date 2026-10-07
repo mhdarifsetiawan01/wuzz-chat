@@ -20,7 +20,7 @@ export default function PrivacyPage() {
         <li><strong>Akun:</strong> username, nama tampilan, kata sandi (disimpan sebagai hash bcrypt, tidak pernah sebagai teks asli), foto profil, bio, dan pesan status yang Anda isi.</li>
         <li><strong>Pesan langsung (1-on-1):</strong> dienkripsi ujung-ke-ujung (E2EE). Server hanya menyimpan teks sandi; kunci privat berada di perangkat Anda dan tidak dapat kami baca.</li>
         <li><strong>Pesan grup, topik forum, dan Linimasa komunitas:</strong> disimpan di server dalam bentuk yang dapat dibaca agar dapat dikirim ke anggota, dicari, dan dimoderasi. Jangan membagikan rahasia di ruang ini.</li>
-        <li><strong>Berkas media</strong> (foto, pesan suara): disimpan sementara di server, otomatis dihapus setelah 24 jam untuk pesan langsung dan 7 hari untuk grup.</li>
+        <li><strong>Berkas media dalam pesan</strong> (foto, pesan suara, dokumen): disimpan sementara di penyimpanan server dan otomatis dihapus paling lama 1 hari setelah dikirim. <strong>Foto profil dan media postingan Linimasa</strong> disimpan selama akun Anda aktif.</li>
         <li><strong>Perangkat dan sesi:</strong> ID perangkat, nama dan platform perangkat, user agent, alamat IP, waktu aktif terakhir, serta token notifikasi push (Firebase Cloud Messaging).</li>
         <li><strong>Relasi sosial:</strong> daftar teman, permintaan pertemanan, dan pemblokiran.</li>
         <li><strong>Laporan kerusakan:</strong> bila aplikasi mengalami crash, data teknis dikirim otomatis ke Google Firebase Crashlytics: jenis dan model perangkat, versi Android dan aplikasi, jejak kesalahan, dan ID akun acak. Tidak ada isi pesan, nama pengguna, atau kata sandi yang disertakan.</li>
@@ -52,16 +52,18 @@ export default function PrivacyPage() {
         <li>Google Firebase Crashlytics: menerima laporan kerusakan teknis seperti dijelaskan di atas, semata-mata untuk memperbaiki aplikasi.</li>
         <li>Groq (penyedia inferensi model bahasa): menerima teks pesan dari forum terbuka untuk ringkasan AI Memory, seperti dijelaskan di atas.</li>
         <li>Telegram: dipakai untuk pemberitahuan internal kepada tim moderasi bahwa ada laporan baru. Pesan hanya memuat jenis dan alasan laporan serta tautan ke halaman moderator; tidak memuat isi pesan, bukti, nama pengguna, atau data pribadi Anda.</li>
-        <li>Penyedia infrastruktur kami (server, basis data, penyimpanan berkas, dan Redis) yang hanya memproses data atas perintah kami.</li>
+        <li>Penyedia basis data dan penyimpanan berkas media kami (saat ini Supabase).</li>
+        <li>Penyedia layanan Redis yang meneruskan pesan sementara antar-server dan tidak dipakai sebagai penyimpanan permanen (saat ini Upstash).</li>
+        <li>Penyedia server (VPS) tempat aplikasi backend kami berjalan.</li>
       </ul>
-      <p>Kami dapat mengungkapkan data bila diwajibkan hukum yang berlaku.</p>
+      <p>Penyedia infrastruktur di atas hanya memproses data atas perintah kami. Kami dapat berganti penyedia (termasuk memindahkan data ke server kami sendiri); daftar ini mencerminkan penyedia saat ini dan akan diperbarui, bersama tanggal berlaku, bila berubah. Kami dapat mengungkapkan data bila diwajibkan hukum yang berlaku.</p>
 
       <h2>5. Penyimpanan dan penghapusan</h2>
       <ul>
         <li>Data disimpan selama akun Anda aktif.</li>
         <li>Anda dapat menghapus akun kapan saja di aplikasi: <strong>Pengaturan → Hapus Akun</strong>, atau lewat halaman <a href="/delete-account">Hapus Akun</a>.</li>
         <li>Saat akun dihapus, kami menghapus: profil, kata sandi, sesi dan perangkat, token push, kunci publik, relasi pertemanan, keanggotaan grup, pesan yang Anda kirim, serta postingan, komentar, dan suka Anda di Linimasa. Nama pengguna Anda dilepas dan dapat dipakai orang lain.</li>
-        <li>Pesan sandi yang tersimpan di perangkat orang lain, berkas media yang menunggu masa hapus otomatis, dan salinan cadangan sistem dapat bertahan sementara sampai siklus penghapusan/rotasi berikutnya. </li>
+        <li>Pesan sandi yang sudah tersimpan di perangkat orang lain tidak dapat kami hapus. Berkas media Anda yang sedang menunggu penghapusan otomatis biasanya terhapus dalam waktu kurang dari satu hari. Salinan cadangan teknis untuk pemulihan bencana, baik yang kami kelola maupun yang dikelola penyedia infrastruktur, mengikuti siklus rotasinya dan tidak kami pakai untuk tujuan lain.</li>
         <li><strong>Laporan moderasi:</strong> teks bukti dan keterangan pelapor dihapus otomatis <strong>90 hari setelah laporan ditutup</strong>, kecuali ditahan karena dapat diteruskan ke pihak berwenang. Catatan tindakan moderator dan data dasar laporan (jenis, alasan, status, waktu) dapat disimpan seperlunya untuk keamanan dan penegakan aturan, termasuk setelah akun yang dilaporkan dihapus.</li>
       </ul>
 
