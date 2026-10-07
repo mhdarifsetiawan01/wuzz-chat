@@ -7,7 +7,7 @@ export default function LegalPage({ title, children }: { title: string; children
     <main className="legal-page">
       <article className="legal-card">
         <div className="legal-header">
-          <Link href="/" className="legal-brand">Wuzz Chat</Link>
+          <Link href="/" className="legal-brand">WuzzChat</Link>
           <h1>{title}</h1>
           <p className="legal-meta">Berlaku sejak {LEGAL_EFFECTIVE_DATE}</p>
         </div>

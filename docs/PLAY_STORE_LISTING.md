@@ -134,8 +134,8 @@ Versi 1.32.0: masuk sekarang lewat Google (akun lama tetap bisa memakai username
 ### Aset grafis (yang perlu Anda siapkan)
 | Aset | Spesifikasi | Status |
 |---|---|---|
-| Ikon aplikasi | 512x512 PNG, maks 1 MB | ⚠️ ikon mobile masih placeholder (menunggu SVG buatan Anda) |
-| Feature graphic | 1024x500 JPG/PNG | belum |
+| Ikon aplikasi | 512x512 PNG 32-bit, maks 1 MB | **Sudah ada**: `mobile/assets/store/play-store-icon-512.png` (512x512, RGBA, 60 KB), sama dengan ikon peluncur aplikasi. (Catatan lama "placeholder" keliru: itu tentang set ikon antarmuka di `icons/registry.ts`, bukan ikon toko.) |
+| Feature graphic | 1024x500 JPG/PNG 24-bit tanpa alfa | **Sudah ada**: `mobile/assets/store/feature-graphic-1024x500.png` (RGB, 112 KB; logo lengkap + "Chat, grup, dan panggilan suara. Pesan langsung terenkripsi ujung-ke-ujung."; dibuat 8 Okt 2026 dari `assets/logo-full.png`). Teks cocok dengan deskripsi singkat dan tidak menyebut AI Memory |
 | Screenshot ponsel | minimal 2, disarankan 6-8, portrait 1080x1920 (rasio 9:16) | belum |
 | (Opsional) Screenshot tablet | 7"/10" | tidak wajib |
 
