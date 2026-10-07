@@ -50,7 +50,7 @@ export default function PrivacyPage() {
         <li>Google (Masuk dengan Google): memverifikasi identitas Anda saat Anda memilih masuk dengan akun Google.</li>
         <li>Google Firebase Cloud Messaging: mengantar notifikasi push (menerima token perangkat dan isi notifikasi).</li>
         <li>Google Firebase Crashlytics: menerima laporan kerusakan teknis seperti dijelaskan di atas, semata-mata untuk memperbaiki aplikasi.</li>
-        <li>Google ML Kit (pemindai kode QR): SDK Google yang berjalan di perangkat Anda dan dapat mengirim data teknis penggunaan SDK ke Google.</li>
+        <li>Google ML Kit (pemindai kode QR): SDK Google yang memindai di perangkat Anda. SDK ini mengirim data teknis ke Google untuk diagnostik dan analitik penggunaan SDK: informasi perangkat (produsen, model, versi OS), nama paket dan versi aplikasi, pengenal per-instalasi yang tidak dimaksudkan mengidentifikasi Anda secara unik, serta metrik kinerja. Isi gambar kamera atau kode QR yang dipindai tidak termasuk dalam data itu menurut dokumentasi Google.</li>
         <li>Penyedia model bahasa (LLM) untuk fitur AI Memory (saat ini Groq): hanya menerima teks pesan dari forum terbuka bila fitur diaktifkan, seperti dijelaskan di atas. Saat ini fitur tersebut dinonaktifkan.</li>
         <li>Telegram: dipakai untuk pemberitahuan internal kepada tim moderasi bahwa ada laporan baru. Pesan hanya memuat jenis dan alasan laporan serta tautan ke halaman moderator; tidak memuat isi pesan, bukti, nama pengguna, atau data pribadi Anda.</li>
         <li>Penyedia basis data dan penyimpanan berkas media kami (saat ini Supabase).</li>
