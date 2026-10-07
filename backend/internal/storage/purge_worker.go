@@ -87,11 +87,17 @@ func (w *PurgeWorker) runCycle(ctx context.Context) {
 
 // DrainQueue menghapus berkas fisik dari antrean (dibatasi per siklus) dan mengembalikan jumlah yang terhapus.
 // Berkas yang gagal dijadwalkan ulang dengan jeda bertambah, lalu dibuang dari antrean setelah queueMaxAttempts.
-func (w *PurgeWorker) DrainQueue(ctx context.Context) int {
+// Mencatat SATU baris ringkasan per siklus, hanya bila ada pekerjaan (antrean kosong = senyap), bukan satu baris per berkas.
+func (w *PurgeWorker) DrainQueue(ctx context.Context) (done int) {
 	if w.queue == nil || w.storage == nil {
 		return 0
 	}
-	done := 0
+	var failed, gaveUpCount int
+	defer func() {
+		if done > 0 || failed > 0 {
+			log.Printf("🧹 [PurgeWorker] Antrean berkas yatim: %d terhapus, %d gagal (dijadwalkan ulang), %d menyerah", done, failed-gaveUpCount, gaveUpCount)
+		}
+	}()
 	for i := 0; i < queueMaxBatches; i++ {
 		urls, err := w.queue.ClaimDue(ctx, queueBatchSize)
 		if err != nil {
@@ -103,11 +109,13 @@ func (w *PurgeWorker) DrainQueue(ctx context.Context) int {
 		}
 		for _, u := range urls {
 			if err := w.storage.Delete(ctx, u); err != nil {
+				failed++
 				gaveUp, ferr := w.queue.Fail(ctx, u, queueMaxAttempts)
 				if ferr != nil {
 					log.Printf("⚠️ [PurgeWorker] Gagal menjadwalkan ulang berkas antrean (%s): %v", u, ferr)
 				}
 				if gaveUp {
+					gaveUpCount++
 					log.Printf("❌ [PurgeWorker] Menyerah menghapus berkas %s setelah %d percobaan: %v", u, queueMaxAttempts, err)
 				}
 				continue
