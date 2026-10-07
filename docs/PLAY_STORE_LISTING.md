@@ -9,7 +9,8 @@
 
 ## 1. Fakta dasar (dari kode)
 - Paket `com.wuzzchat.mobile`; kategori **Komunikasi** (Communication).
-- **Tidak ada**: iklan, SDK analitik/pelacak, izin lokasi, akses kontak/buku telepon, pembelian dalam aplikasi, pembayaran.
+- **Tidak ada** (diverifikasi di APK 1.32.0): iklan dan SDK iklan, izin `AD_ID`, Firebase Analytics/GA4 (komponen `measurement` tidak ada), izin lokasi, akses kontak/buku telepon, pembelian dalam aplikasi, pembayaran.
+- **SDK Google yang ada di build**: Firebase Cloud Messaging, **Crashlytics** (beserta Firebase Installations dan Firebase Sessions), dan **ML Kit barcode** (`com.google.mlkit:barcode-scanning` 17.3.0, dibawa `expo-camera` untuk pemindai QR). ML Kit dapat mengirim data teknis penggunaan ke Google: ⚠️ cocokkan halaman pengungkapan data ML Kit (developers.google.com/ml-kit/android-data-disclosure) dengan kuesioner Data Safety, dan tambahkan ke tabel 2.2 bila disebut sebagai data dikumpulkan.
 - Izin di manifest hasil merge: `INTERNET`, `ACCESS_NETWORK_STATE`, `RECORD_AUDIO`, `CAMERA`, `POST_NOTIFICATIONS`, `MODIFY_AUDIO_SETTINGS`, `VIBRATE`, `WAKE_LOCK`,
   `RECEIVE_BOOT_COMPLETED`, `READ_APP_BADGE` (badge ikon, dari expo-notifications), `USE_BIOMETRIC`/`USE_FINGERPRINT` (dari expo-secure-store),
   `BLUETOOTH` (<= Android 11), `READ/WRITE_EXTERNAL_STORAGE` (<= Android 12L). Tidak ada Foreground Service, `SYSTEM_ALERT_WINDOW`, `READ_MEDIA_*`, SMS, log panggilan, atau lokasi.
@@ -41,7 +42,7 @@
 | File dan dokumen | **File dan dokumen** | Ya | Tidak | Fungsi aplikasi | Lampiran yang dikirim pengguna |
 | Aktivitas aplikasi | **Konten buatan pengguna lain** (postingan, komentar, suka, laporan, blokir) | Ya | Tidak | Fungsi aplikasi, Keamanan | |
 | Aktivitas aplikasi | **Interaksi aplikasi** | Ya | Tidak | Fungsi aplikasi | Hanya status sesi/perangkat; tanpa analitik |
-| App info dan kinerja | **Log kerusakan** dan **Diagnostik** (Firebase Crashlytics: jenis/model perangkat, versi OS/aplikasi, jejak kesalahan, ID akun acak) | Ya | Tidak ⚠️ | Analitik, Fungsi aplikasi (memperbaiki crash) | Crashlytics dipasang 5 Okt 2026; lihat `docs/CRASH_REPORTING.md`. Pengumpulan hanya pada build rilis |
+| App info dan kinerja | **Log kerusakan** dan **Diagnostik** (Firebase Crashlytics: jenis/model perangkat, versi OS/aplikasi, jejak kesalahan, ID akun acak) | Ya | Tidak ⚠️ | Analitik, Fungsi aplikasi (memperbaiki crash) | Crashlytics dipasang 5 Okt 2026 (membawa Firebase Installations dan Firebase Sessions, jadi ID instalasi dan data sesi ikut terkirim); lihat `docs/CRASH_REPORTING.md`. Pengumpulan hanya pada build rilis. Tidak ada Firebase Analytics |
 | ID perangkat/lainnya | **ID perangkat atau ID lain** (ID perangkat dibuat aplikasi, token FCM, alamat IP pada sesi) ⚠️ | Ya | Tidak ⚠️ | Fungsi aplikasi (notifikasi), Keamanan (pembatasan 2 perangkat, pencabutan sesi) | Cek panduan Google terkini soal alamat IP |
 | Kontak | (tidak dideklarasikan) ⚠️ | - | - | - | Daftar teman hanya di dalam aplikasi; tidak membaca buku telepon. Bila Console menanyakan, relasi teman dapat dianggap "Konten pengguna lain" |
 
@@ -50,9 +51,14 @@ Masuk dengan Google **sudah aktif** (email Google dan ID akun Google tersimpan; 
 Crashlytics **sudah dipasang** (baris Log kerusakan/Diagnostik di atas) dan `/privacy` sudah diperbarui. Bila menambah SDK atau data baru, perbarui tabel ini dan `/privacy`.
 
 ### 2.3 Soal "dibagikan" ⚠️
+**Per 8 Okt 2026 AI Memory dijeda (`MEMORY_WORKER_ENABLED=false`): tidak ada teks pesan yang dikirim ke penyedia LLM, jadi jawaban "Dibagikan: Tidak" untuk Pesan tidak lagi memerlukan catatan Groq.** Bagian di bawah berlaku bila AI Memory diaktifkan lagi.
+
 Play tidak menghitung pengiriman data ke **penyedia layanan yang memprosesnya atas nama Anda** sebagai "berbagi". FCM (notifikasi), penyedia LLM (ringkasan AI Memory; saat ini Groq), dan penyedia infrastruktur
 termasuk kategori itu, sehingga jawaban "Tidak dibagikan" dapat dipertanggungjawabkan, **asalkan** halaman `/privacy` menyebutkan mereka (sudah). Verifikasi definisi terkini di Console;
 bila ragu, lebih aman mendeklarasikan "Dibagikan" untuk Pesan (penyedia LLM, hanya teks forum terbuka). **Ganti penyedia LLM (mis. ke Gemini/Claude) = perbarui `/privacy` bagian 3-4, `LEGAL_EFFECTIVE_DATE`, dan jawaban Data Safety.**
+
+### 2.3b Bila kelak menambah iklan atau analitik (checklist wajib SEBELUM rilis versi itu)
+"Tidak ada iklan" hanya kondisi saat ini, bukan pembatasan. Bila menambah AdMob/iklan lain: (1) Console: deklarasi Iklan menjadi "mengandung iklan" dan deklarasi penggunaan ID iklan; (2) manifest: izin `com.google.android.gms.permission.AD_ID`; (3) Data Safety: ID iklan/ID perangkat dan "Dibagikan: Ya" ke jaringan iklan; (4) `/privacy` (kalimat "Saat ini kami tidak menampilkan iklan" dan bagian 4), `LEGAL_EFFECTIVE_DATE`; (5) naskah toko ("Saat ini tanpa iklan"); (6) kuesioner rating konten; (7) target audiens mencakup 13-17: periksa kebijakan iklan Google untuk pengguna di bawah 18 (belum diperiksa); (8) persetujuan (mis. UMP) bila berlaku. Hal yang sama untuk analitik (mis. Firebase Analytics).
 
 ### 2.4 Praktik keamanan dan retensi (isi kolom tambahan bila ada)
 - Data dienkripsi saat transit; kata sandi disimpan sebagai hash bcrypt.
@@ -85,13 +91,14 @@ bila ragu, lebih aman mendeklarasikan "Dibagikan" untuk Pesan (penyedia LLM, han
 Chat, grup, dan panggilan suara. Pesan langsung terenkripsi ujung-ke-ujung.
 ```
 
-**Deskripsi lengkap** (1726/4000):
+**Deskripsi lengkap** (1759/4000):
 ```
 WuzzChat adalah aplikasi percakapan untuk individu, tim, dan komunitas: kirim pesan, buat grup, dan telepon langsung dari satu aplikasi.
 
 FITUR UTAMA
 • Pesan langsung terenkripsi ujung-ke-ujung (E2EE). Kunci enkripsi tersimpan di perangkat Anda, sehingga server tidak dapat membaca isi pesan langsung.
 • Grup dan topik forum: ngobrol dengan banyak orang, balas pesan tertentu, sematkan pesan penting, dan atur peran admin.
+• Masuk dengan Google. Akun lama tetap bisa masuk dengan username.
 • Panggilan suara satu lawan satu.
 • Pesan suara, foto, dan berkas.
 • Linimasa komunitas: bagikan postingan, beri komentar, dan suka.
@@ -99,7 +106,7 @@ FITUR UTAMA
 • Verifikasi Nomor Keamanan dan pemindahan kunci lewat kode QR antar perangkat Anda.
 
 PRIVASI DAN KENDALI ANDA
-• Tanpa iklan dan tanpa pelacak pihak ketiga.
+• Saat ini tanpa iklan. Laporan kerusakan teknis dikirim ke Google Firebase Crashlytics untuk memperbaiki aplikasi.
 • Blokir pengguna dan laporkan pesan, postingan, komentar, atau akun yang melanggar.
 • Hapus akun dan data pribadi kapan saja dari Pengaturan, atau lewat halaman hapus akun kami.
 • Media pesan dihapus otomatis dari server setelah masa simpan singkat.
@@ -108,13 +115,14 @@ PERHATIAN
 • Pesan di grup, topik forum, dan Linimasa tidak dienkripsi ujung-ke-ujung agar dapat dicari dan dimoderasi. Jangan membagikan rahasia di sana.
 • Jika kunci enkripsi hilang dan Anda tidak punya perangkat lain, pesan langsung lama tidak dapat dipulihkan. Pindahkan kunci ke perangkat lain sebelum mengganti atau menghapus aplikasi.
 • Satu akun dapat dipakai di maksimal 2 perangkat.
+• Untuk pengguna berusia 13 tahun ke atas.
 
 Butuh bantuan atau ingin melaporkan masalah? Hubungi support@semanticdigital.id. Kebijakan Privasi: https://chat.wuzzhub.id/privacy
 ```
 
-**Catatan rilis (Apa yang baru)** (221/500):
+**Catatan rilis (Apa yang baru)** (249/500):
 ```
-Versi ini memperbaiki panggilan suara: koneksi lebih andal dan status "Menyambungkan audio" ditampilkan dengan jujur. Ditambahkan juga hapus akun, laporkan konten, dan blokir pengguna. Terima kasih sudah membantu menguji!
+Versi 1.32.0: masuk sekarang lewat Google (akun lama tetap bisa memakai username). Ditambahkan pernyataan usia 13+ saat membuat akun, hapus akun, laporkan konten, dan blokir pengguna. Panggilan suara lebih andal. Terima kasih sudah membantu menguji!
 ```
 
 ### Panduan penulisan (jangan dilanggar; Play menolak klaim menyesatkan)
