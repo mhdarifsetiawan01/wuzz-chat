@@ -38,6 +38,9 @@ export function GroupInfoDrawer({
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editDesc, setEditDesc] = useState('')
+  const [editPublic, setEditPublic] = useState(false)
+  const [editUsername, setEditUsername] = useState('')
+  const [editError, setEditError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
   // Leave / Kick Confirmation
@@ -59,6 +62,8 @@ export function GroupInfoDrawer({
     setGroup(groupData)
     setEditTitle(groupData.title)
     setEditDesc(groupData.description || '')
+    setEditPublic(!!groupData.is_public)
+    setEditUsername(groupData.group_username || '')
 
     const { data: membersData } = await apiRequest<GroupMember[]>(`/api/groups/${groupId}/members`)
     if (membersData && Array.isArray(membersData)) {
@@ -81,25 +86,57 @@ export function GroupInfoDrawer({
   const isCreatorOrAdmin = group?.my_role === 'creator' || group?.my_role === 'admin'
   const isCreator = group?.my_role === 'creator'
 
+  const startEditing = () => {
+    if (group) {
+      setEditTitle(group.title)
+      setEditDesc(group.description || '')
+      setEditPublic(!!group.is_public)
+      setEditUsername(group.group_username || '')
+    }
+    setEditError('')
+    setIsEditing(true)
+  }
+
   const handleSaveInfo = async () => {
     if (!editTitle.trim() || isSaving) return
+
+    const cleanUsername = editPublic ? editUsername.trim().replace(/^@/, '') : ''
+    if (cleanUsername && !/^[a-zA-Z0-9_]{3,32}$/.test(cleanUsername)) {
+      setEditError('Username grup harus 3-32 karakter alfanumerik / underscore')
+      return
+    }
+
+    setEditError('')
     setIsSaving(true)
 
-    const { error: err } = await apiRequest(`/api/groups/${groupId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        title: editTitle.trim(),
-        description: editDesc.trim(),
-      }),
-    })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-    setIsSaving(false)
-    if (!err) {
-      setIsEditing(false)
-      loadGroupData()
-      if (onGroupUpdated) onGroupUpdated()
-    } else {
-      alert(err)
+    try {
+      const { error: err } = await apiRequest(`/api/groups/${groupId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDesc.trim(),
+          avatar_url: group?.avatar_url || '',
+          is_public: editPublic,
+          group_username: cleanUsername,
+        }),
+        signal: controller.signal,
+      })
+
+      if (!err) {
+        setIsEditing(false)
+        loadGroupData()
+        if (onGroupUpdated) onGroupUpdated()
+      } else {
+        setEditError(err)
+      }
+    } catch (e: any) {
+      setEditError(e?.name === 'AbortError' ? 'Koneksi server lambat (timeout 15 detik). Coba lagi.' : 'Terjadi kesalahan jaringan.')
+    } finally {
+      clearTimeout(timeoutId)
+      setIsSaving(false)
     }
   }
 
@@ -224,6 +261,52 @@ export function GroupInfoDrawer({
                       rows={2}
                       style={{ fontSize: '0.85rem' }}
                     />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => setEditPublic(false)}
+                        disabled={isSaving}
+                        style={{
+                          flex: 1, padding: '8px 10px', borderRadius: 10, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                          border: !editPublic ? '2px solid var(--accent-500)' : '1px solid rgba(255,255,255,0.08)',
+                          background: !editPublic ? 'var(--tint-accent-15)' : 'rgba(255,255,255,0.03)',
+                          color: !editPublic ? 'var(--text-on-accent)' : 'var(--text-muted)',
+                        }}
+                      >
+                        🔒 Privat
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditPublic(true)}
+                        disabled={isSaving}
+                        style={{
+                          flex: 1, padding: '8px 10px', borderRadius: 10, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600,
+                          border: editPublic ? '2px solid var(--accent-secondary)' : '1px solid rgba(255,255,255,0.08)',
+                          background: editPublic ? 'rgba(129,140,248,0.15)' : 'rgba(255,255,255,0.03)',
+                          color: editPublic ? 'var(--text-on-accent)' : 'var(--text-muted)',
+                        }}
+                      >
+                        🌐 Publik
+                      </button>
+                    </div>
+                    {editPublic && (
+                      <input
+                        type="text"
+                        className="group-form-input"
+                        value={editUsername}
+                        onChange={e => setEditUsername(e.target.value.replace(/[^a-zA-Z0-9_@]/g, ''))}
+                        placeholder="@username_grup (opsional)"
+                        maxLength={33}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        style={{ fontSize: '0.85rem' }}
+                      />
+                    )}
+                    {editError && (
+                      <div role="alert" style={{ color: 'var(--color-error)', fontSize: '0.8rem', textAlign: 'center' }}>
+                        {editError}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 4 }}>
                       <button type="button" className="btn btn-secondary" onClick={() => setIsEditing(false)} style={{ padding: '6px 14px', fontSize: '0.85rem' }}>
                         Batal
@@ -269,7 +352,7 @@ export function GroupInfoDrawer({
                     {isCreatorOrAdmin && (
                       <button
                         type="button"
-                        onClick={() => setIsEditing(true)}
+                        onClick={startEditing}
                         style={{
                           background: 'none',
                           border: 'none',

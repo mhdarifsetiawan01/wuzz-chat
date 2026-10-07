@@ -3,6 +3,7 @@ package group
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -88,6 +89,8 @@ func (s *GroupService) resolveDisplayName(userID string) string {
 	return userID
 }
 
+var groupUsernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_]{3,32}$`)
+
 // CreateGroup membuat grup baru dan mengambil daftar anggota lengkap.
 func (s *GroupService) CreateGroup(ctx context.Context, input CreateGroupInput) (*GroupDetails, error) {
 	title := strings.TrimSpace(input.Title)
@@ -96,6 +99,15 @@ func (s *GroupService) CreateGroup(ctx context.Context, input CreateGroupInput) 
 	}
 	if len(title) > 128 {
 		return nil, ErrTitleTooLong
+	}
+
+	// Username hanya bermakna untuk grup publik; validasi format di server
+	// agar tidak bergantung pada klien.
+	input.GroupUsername = strings.TrimPrefix(strings.TrimSpace(input.GroupUsername), "@")
+	if !input.IsPublic {
+		input.GroupUsername = ""
+	} else if input.GroupUsername != "" && !groupUsernamePattern.MatchString(input.GroupUsername) {
+		return nil, ErrInvalidGroupUsername
 	}
 
 	group, err := s.repo.CreateGroupWithContext(
@@ -241,6 +253,20 @@ func (s *GroupService) UpdateMemberRole(ctx context.Context, input UpdateMemberR
 func (s *GroupService) UpdateGroupInfo(ctx context.Context, input UpdateGroupInput) error {
 	if input.Title != "" && len(strings.TrimSpace(input.Title)) > 128 {
 		return ErrTitleTooLong
+	}
+
+	// Username kosong berarti menghapus username; selain itu wajib valid.
+	if input.GroupUsername != nil {
+		clean := strings.TrimPrefix(strings.TrimSpace(*input.GroupUsername), "@")
+		if clean != "" && !groupUsernamePattern.MatchString(clean) {
+			return ErrInvalidGroupUsername
+		}
+		input.GroupUsername = &clean
+	}
+	// Grup yang dijadikan privat melepas username-nya agar nama tidak tertahan.
+	if input.IsPublic != nil && !*input.IsPublic {
+		empty := ""
+		input.GroupUsername = &empty
 	}
 
 	if err := s.repo.UpdateGroupInfo(

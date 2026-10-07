@@ -324,6 +324,13 @@ export interface CreateGroupRequest {
   member_ids?: string[];
 }
 
+export interface UpdateGroupInfoRequest {
+  title: string;
+  description: string;
+  is_public: boolean;
+  group_username: string;
+}
+
 export interface CreateGroupResponse {
   success: boolean;
   group: GroupDetails;

@@ -7,6 +7,7 @@ import { apiClient } from './client';
 import {
   CreateGroupRequest,
   CreateGroupResponse,
+  UpdateGroupInfoRequest,
   GroupDetails,
   GroupMember,
 } from './types';
@@ -72,6 +73,24 @@ export const groupsApi = {
       `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(targetUserId)}`,
       {
         method: 'DELETE',
+      }
+    );
+  },
+
+  /**
+   * PATCH /api/groups/{id}
+   * Updates group info & visibility (Creator / Admin only).
+   * An empty group_username clears it; a private group never keeps a username.
+   */
+  async updateGroupInfo(
+    groupId: string,
+    input: UpdateGroupInfoRequest
+  ): Promise<{ success: boolean; message: string }> {
+    return apiClient<{ success: boolean; message: string }>(
+      `/api/groups/${encodeURIComponent(groupId)}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(input),
       }
     );
   },

@@ -23,6 +23,7 @@ import { groupsApi } from '../api/groups';
 import { searchUsers } from '../api/users';
 import { Conversation, GroupDetails, GroupMember, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
+import { EditGroupInfoModal } from '../components/EditGroupInfoModal';
 import { SubGroupListModal } from '../components/SubGroupListModal';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { useAuth } from '../context/AuthContext';
@@ -71,6 +72,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   const [showForumModal, setShowForumModal] = useState(false);
   // Milestone M-Mobile-8.30: Media Gallery Modal state
   const [showMediaGallery, setShowMediaGallery] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const onGroupUpdatedRef = useRef(onGroupUpdated);
   useEffect(() => {
@@ -453,6 +455,22 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
             <Text style={styles.noDescText}>Belum ada deskripsi grup</Text>
           )}
 
+          <View style={styles.visibilityBadge}>
+            <IconText style={styles.visibilityBadgeText}>
+              {group?.is_public ? '🌐 Grup Publik' : '🔒 Grup Privat'}
+            </IconText>
+          </View>
+
+          {isAdmin && group ? (
+            <TouchableOpacity
+              style={styles.editInfoButton}
+              onPress={() => setShowEditModal(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.editInfoButtonText}>Edit Info Grup</Text>
+            </TouchableOpacity>
+          ) : null}
+
           <View style={styles.metaRow}>
             <Text style={styles.createdDateText}>
               Dibuat pada {formatDate(group?.created_at)}
@@ -722,6 +740,16 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
         </TouchableOpacity>
       </Modal>
 
+      {/* Edit info grup (admin / creator) */}
+      {group ? (
+        <EditGroupInfoModal
+          visible={showEditModal}
+          group={group}
+          onClose={() => setShowEditModal(false)}
+          onSaved={() => loadGroupData(false)}
+        />
+      ) : null}
+
       {/* Milestone M-Mobile-8.30: Group Media & Document Gallery */}
       <ChatMediaGalleryModal
         visible={showMediaGallery}
@@ -806,6 +834,29 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.colorCyanNeon,
     marginTop: 2,
+  },
+  visibilityBadge: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+    backgroundColor: colors.tintAccent10,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
+  visibilityBadgeText: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  editInfoButton: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  editInfoButtonText: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.accentPrimary,
   },
   groupDescText: {
     ...typography.bodySecondary,

@@ -127,6 +127,9 @@ func (s *SQLGroupStore) CreateGroupWithContext(ctx context.Context, title, descr
 		groupID, title, isPublic, groupUsername, creatorID, avatarURL, description, now, now, tenantID,
 	)
 	if err != nil {
+		if isUniqueViolation(err) && groupUsername != "" {
+			return nil, ErrGroupUsernameTaken
+		}
 		return nil, fmt.Errorf("gagal membuat entitas grup: %w", err)
 	}
 
@@ -639,7 +642,7 @@ func (s *SQLGroupStore) UpdateGroupInfo(conversationID, actorUserID, title, desc
 	if s.driverName == "postgres" {
 		updateQuery = `
 			UPDATE conversations
-			SET title = $1, description = $2, avatar_url = $3,
+			SET title = $1, description = $2, avatar_url = COALESCE(NULLIF($3, ''), avatar_url),
 			    is_public = COALESCE($4::boolean, is_public),
 			    group_username = COALESCE($5::text, group_username),
 			    updated_at = $6
@@ -648,7 +651,7 @@ func (s *SQLGroupStore) UpdateGroupInfo(conversationID, actorUserID, title, desc
 	} else {
 		updateQuery = `
 			UPDATE conversations
-			SET title = ?, description = ?, avatar_url = ?,
+			SET title = ?, description = ?, avatar_url = COALESCE(NULLIF(?, ''), avatar_url),
 			    is_public = COALESCE(?, is_public),
 			    group_username = COALESCE(?, group_username),
 			    updated_at = ?
@@ -666,6 +669,9 @@ func (s *SQLGroupStore) UpdateGroupInfo(conversationID, actorUserID, title, desc
 	}
 
 	_, err = s.db.ExecContext(ctx, updateQuery, title, description, avatarURL, pubVal, uVal, now, conversationID)
+	if isUniqueViolation(err) {
+		return ErrGroupUsernameTaken
+	}
 	return err
 }
 
@@ -1636,4 +1642,15 @@ func (s *SQLGroupStore) ExpireSubGroupNow(subGroupID string) error {
 	}
 	_, err := s.db.ExecContext(ctx, query, past, subGroupID)
 	return err
+}
+
+// isUniqueViolation mendeteksi pelanggaran UNIQUE untuk Postgres (23505) dan SQLite.
+func isUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "23505") ||
+		strings.Contains(msg, "duplicate key value") ||
+		strings.Contains(msg, "UNIQUE constraint failed")
 }

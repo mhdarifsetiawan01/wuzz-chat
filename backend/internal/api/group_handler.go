@@ -130,6 +130,10 @@ func (h *GroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"Nama grup maksimal 128 karakter"}`, http.StatusBadRequest)
 			return
 		}
+		if errors.Is(err, group.ErrInvalidGroupUsername) {
+			writeGroupJSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		if errors.Is(err, store.ErrGroupUsernameTaken) {
 			writeGroupJSONError(w, http.StatusConflict, "Username grup sudah digunakan oleh grup lain")
 			return

@@ -14,6 +14,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -30,6 +31,8 @@ import { IconText } from '../components/IconText';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
 
+const GROUP_USERNAME_REGEX = /^[a-zA-Z0-9_]{3,32}$/;
+
 export interface NewGroupScreenProps {
   onBack: () => void;
   onSelectChat: (conversation: Conversation) => void;
@@ -39,6 +42,8 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
   const { user: currentUser } = useAuth();
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+  const [isPublic, setIsPublic] = useState<boolean>(false);
+  const [groupUsername, setGroupUsername] = useState<string>('');
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [contacts, setContacts] = useState<User[]>([]);
@@ -137,6 +142,12 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
       return;
     }
 
+    const cleanUsername = isPublic ? groupUsername.trim().replace(/^@/, '') : '';
+    if (cleanUsername && !GROUP_USERNAME_REGEX.test(cleanUsername)) {
+      setErrorMessage('Username grup harus 3-32 karakter alfanumerik / underscore');
+      return;
+    }
+
     if (isSubmitting) return; // Anti-double-action guard
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -147,6 +158,8 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
       const res = await groupsApi.createGroup({
         title: trimmedTitle,
         description: description.trim() || undefined,
+        is_public: isPublic,
+        group_username: cleanUsername || undefined,
         member_ids: memberIds,
       });
 
@@ -287,6 +300,44 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
               multiline
             />
           </View>
+        </View>
+
+        {/* Group Visibility */}
+        <View style={styles.visibilitySection}>
+          <View style={styles.visibilityRow}>
+            <View style={styles.visibilityTextWrap}>
+              <Text style={styles.visibilityTitle}>
+                {isPublic ? 'Grup Publik' : 'Grup Privat'}
+              </Text>
+              <Text style={styles.visibilityHint}>
+                {isPublic
+                  ? 'Bisa ditemukan lewat pencarian dan siapa pun dapat bergabung.'
+                  : 'Hanya anggota yang Anda tambahkan yang bisa masuk.'}
+              </Text>
+            </View>
+            <Switch
+              value={isPublic}
+              onValueChange={setIsPublic}
+              disabled={isSubmitting}
+              trackColor={{ false: colors.borderSubtle, true: colors.accentPrimary }}
+              thumbColor="#ffffff"
+            />
+          </View>
+          {isPublic && (
+            <View style={styles.usernameRow}>
+              <Text style={styles.usernamePrefix}>@</Text>
+              <TextInput
+                style={styles.usernameInput}
+                placeholder="username_grup (opsional)"
+                placeholderTextColor={colors.textMuted}
+                value={groupUsername}
+                onChangeText={(t) => setGroupUsername(t.replace(/[^a-zA-Z0-9_@]/g, ''))}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={33}
+              />
+            </View>
+          )}
         </View>
 
         {/* Selected Members Chips */}
@@ -466,6 +517,52 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     paddingVertical: spacing.xs,
     maxHeight: 60,
+  },
+  visibilitySection: {
+    backgroundColor: colors.bgSurface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderSubtle,
+  },
+  visibilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  visibilityTextWrap: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  visibilityTitle: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  visibilityHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  usernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    backgroundColor: colors.bgInput,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    paddingHorizontal: spacing.sm,
+    height: 40,
+  },
+  usernamePrefix: {
+    ...typography.body,
+    color: colors.accentPrimary,
+    marginRight: 2,
+  },
+  usernameInput: {
+    flex: 1,
+    ...typography.bodySecondary,
+    color: colors.textPrimary,
   },
   chipsSection: {
     backgroundColor: colors.bgBase,

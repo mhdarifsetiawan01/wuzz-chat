@@ -164,3 +164,44 @@ func TestGroupStore_PublicGroupAndSearch(t *testing.T) {
 		t.Errorf("Expected ErrAlreadyGroupMember, got %v", err)
 	}
 }
+
+// Index UNIQUE di DB harus menolak username ganda walau pengecekan aplikasi terlewati (race).
+func TestGroupUsernameUniqueIndexEnforced(t *testing.T) {
+	gs, us, cleanup := setupTestGroupStore(t)
+	defer cleanup()
+
+	userA, _ := us.Register("alice_uq", "Alice", "password123")
+	g, err := gs.CreateGroup("Grup Satu", "", "", userA.ID, "uniq_name", true, nil)
+	if err != nil {
+		t.Fatalf("CreateGroup gagal: %v", err)
+	}
+
+	// Lewati cek aplikasi: insert langsung dengan username yang sama (beda huruf).
+	_, err = gs.db.Exec(`INSERT INTO conversations (id, type, title, is_public, group_username, tenant_id, created_at, updated_at)
+		VALUES ('grp_race', 'group', 'Race', 1, 'UNIQ_NAME', (SELECT tenant_id FROM conversations WHERE id = ?), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, g.ID)
+	if err == nil || !isUniqueViolation(err) {
+		t.Fatalf("Expected unique violation dari index DB, got %v", err)
+	}
+}
+
+// Update info tanpa avatar_url tidak boleh menghapus avatar yang sudah ada.
+func TestUpdateGroupInfoKeepsAvatarWhenOmitted(t *testing.T) {
+	gs, us, cleanup := setupTestGroupStore(t)
+	defer cleanup()
+
+	u, _ := us.Register("alice_av", "Alice", "password123")
+	g, err := gs.CreateGroup("Grup Avatar", "", "emoji:🚀", u.ID, "", false, nil)
+	if err != nil {
+		t.Fatalf("CreateGroup gagal: %v", err)
+	}
+	if err := gs.UpdateGroupInfo(g.ID, u.ID, "Grup Avatar Baru", "desc", "", nil, nil); err != nil {
+		t.Fatalf("UpdateGroupInfo gagal: %v", err)
+	}
+	var avatar string
+	if err := gs.db.QueryRow(`SELECT avatar_url FROM conversations WHERE id = ?`, g.ID).Scan(&avatar); err != nil {
+		t.Fatal(err)
+	}
+	if avatar != "emoji:🚀" {
+		t.Fatalf("avatar terhapus, got %q", avatar)
+	}
+}

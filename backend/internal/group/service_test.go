@@ -514,3 +514,61 @@ func TestForumService_InstantExpireSubGroup(t *testing.T) {
 		t.Fatalf("expected 1 memory job created, got: %d", len(memCreator.createdJobs))
 	}
 }
+
+func TestGroupService_GroupUsernameValidation(t *testing.T) {
+	var gotUpdate *string
+	repo := &mockGroupRepo{
+		updateGroupInfoFunc: func(_, _, _, _, _ string, _ *bool, u *string) error {
+			gotUpdate = u
+			return nil
+		},
+	}
+	svc := NewGroupService(repo, &mockUserRepo{users: make(map[string]*User)}, &mockBroadcaster{}, nil)
+	ctx := context.Background()
+
+	bad := []string{"ab", strings.Repeat("a", 33), "has space", "emoji😀", "a-b-c", "x;DROP"}
+	for _, u := range bad {
+		if _, err := svc.CreateGroup(ctx, CreateGroupInput{Title: "G", CreatorID: "usr_1", IsPublic: true, GroupUsername: u}); !errors.Is(err, ErrInvalidGroupUsername) {
+			t.Errorf("create %q: expected ErrInvalidGroupUsername, got %v", u, err)
+		}
+		v := u
+		if err := svc.UpdateGroupInfo(ctx, UpdateGroupInput{ConversationID: "grp_1", ActorUserID: "usr_1", GroupUsername: &v}); !errors.Is(err, ErrInvalidGroupUsername) {
+			t.Errorf("update %q: expected ErrInvalidGroupUsername, got %v", u, err)
+		}
+	}
+
+	// Valid (dengan @), kosong (hapus username), dan privat mengabaikan username.
+	if _, err := svc.CreateGroup(ctx, CreateGroupInput{Title: "G", CreatorID: "usr_1", IsPublic: true, GroupUsername: "@Valid_1"}); err != nil {
+		t.Errorf("valid create ditolak: %v", err)
+	}
+	if _, err := svc.CreateGroup(ctx, CreateGroupInput{Title: "G", CreatorID: "usr_1", IsPublic: false, GroupUsername: "x;"}); err != nil {
+		t.Errorf("grup privat harus mengabaikan username: %v", err)
+	}
+	ok := "@abc"
+	if err := svc.UpdateGroupInfo(ctx, UpdateGroupInput{ConversationID: "grp_1", ActorUserID: "usr_1", GroupUsername: &ok}); err != nil || gotUpdate == nil || *gotUpdate != "abc" {
+		t.Errorf("update valid: err=%v got=%v", err, gotUpdate)
+	}
+	empty := ""
+	if err := svc.UpdateGroupInfo(ctx, UpdateGroupInput{ConversationID: "grp_1", ActorUserID: "usr_1", GroupUsername: &empty}); err != nil {
+		t.Errorf("username kosong harus boleh: %v", err)
+	}
+}
+
+func TestGroupService_UpdateToPrivateClearsUsername(t *testing.T) {
+	var got *string
+	repo := &mockGroupRepo{
+		updateGroupInfoFunc: func(_, _, _, _, _ string, _ *bool, u *string) error {
+			got = u
+			return nil
+		},
+	}
+	svc := NewGroupService(repo, &mockUserRepo{users: make(map[string]*User)}, &mockBroadcaster{}, nil)
+	priv := false
+	name := "masih_ada"
+	if err := svc.UpdateGroupInfo(context.Background(), UpdateGroupInput{ConversationID: "grp_1", ActorUserID: "usr_1", IsPublic: &priv, GroupUsername: &name}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got == nil || *got != "" {
+		t.Fatalf("expected username dikosongkan saat privat, got %v", got)
+	}
+}
