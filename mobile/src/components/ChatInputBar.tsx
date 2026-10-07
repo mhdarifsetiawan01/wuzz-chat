@@ -193,13 +193,16 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     };
   }, []);
 
-  // Focus text input immediately when a reply is initiated
+  // Focus text input immediately when a reply is initiated.
+  // Keyed on the id: ChatScreen passes a fresh replyTo object every render, and
+  // re-running this on each render closed the emoji picker while replying.
+  const replyToId = replyTo?.id;
   useEffect(() => {
-    if (replyTo) {
+    if (replyToId) {
       setShowEmojiPicker(false);
       inputRef.current?.focus();
     }
-  }, [replyTo]);
+  }, [replyToId]);
 
   const handleSend = () => {
     if (disabled || isUploading) return;
