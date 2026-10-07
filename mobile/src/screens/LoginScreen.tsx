@@ -21,7 +21,7 @@ import { GoogleSignInButton } from '../components/google';
 import { useAuth } from '../context';
 import { colors, radius, spacing, typography } from '../theme';
 import { isGoogleSignInAvailable, GoogleAuthError } from '../services/googleAuth';
-import { GoogleFlowError, googleErrorMessage, isDeviceLimitError } from '../utils/googleErrors';
+import { GoogleFlowError, googleErrorMessage, googleIdTokenFromError, isDeviceLimitError } from '../utils/googleErrors';
 import { ACCOUNT_SUSPENDED_LOGIN_MESSAGE, isAccountSuspendedError } from '../utils/accountSuspended';
 import type { GooglePending } from './GoogleOnboardingScreen';
 
@@ -108,6 +108,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister, 
       // signed_in: AuthProvider mengganti layar.
     } catch (err: any) {
       if (isDeviceLimitError(err)) {
+        // Simpan token dari galat: tanpa ini "Keluarkan & Masuk" jatuh ke jalur password (username kosong).
+        googleIdTokenRef.current = googleIdTokenFromError(err);
         setActiveDevices(err?.active_devices || err?.data?.active_devices || []);
         setDeviceLimitError(null);
         setIsDeviceLimitModalOpen(true);
@@ -125,6 +127,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister, 
     setIsOverriding(true);
     setDeviceLimitError(null);
     try {
+      if (!googleIdTokenRef.current && !username.trim()) {
+        // Konflik datang dari login Google tetapi tokennya tidak tersedia: jangan memanggil login password kosong.
+        setDeviceLimitError('Sesi Google berakhir. Tutup dialog ini lalu ketuk "Lanjutkan dengan Google" lagi.');
+        return;
+      }
       if (googleIdTokenRef.current) {
         // Konflik datang dari login Google: ulangi dengan ID token yang sama.
         await loginWithGoogle({
