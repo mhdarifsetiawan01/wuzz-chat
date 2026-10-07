@@ -1,8 +1,9 @@
 package store_test
 
 import (
-	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,11 +11,7 @@ import (
 )
 
 func TestEraseUser_QueuesOrphanedMedia(t *testing.T) {
-	ms, err := store.NewSQLMessageStore("sqlite", filepath.Join(t.TempDir(), "q.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ms.Close()
+	ms := openMessageStore(t, "q.db")
 	db := ms.DB()
 	us := store.NewSQLUserStore(db, ms.DriverName())
 	alice, _ := us.Register("alice_q", "Alice", "password123")
@@ -23,7 +20,7 @@ func TestEraseUser_QueuesOrphanedMedia(t *testing.T) {
 	now := time.Now().UTC()
 	ex := func(q string, a ...any) {
 		t.Helper()
-		if _, err := db.Exec(q, a...); err != nil {
+		if _, err := db.Exec(rebindPG(ms, q), a...); err != nil {
 			t.Fatalf("seed (%s): %v", q, err)
 		}
 	}
@@ -56,14 +53,10 @@ func TestEraseUser_QueuesOrphanedMedia(t *testing.T) {
 }
 
 func TestMediaPurgeQueue_RetryAndGiveUp(t *testing.T) {
-	ms, err := store.NewSQLMessageStore("sqlite", filepath.Join(t.TempDir(), "q2.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ms.Close()
+	ms := openMessageStore(t, "q2.db")
 	q := store.NewSQLMediaPurgeQueue(ms.DB(), ms.DriverName())
 	now := time.Now().UTC()
-	if _, err := ms.DB().Exec(`INSERT INTO media_purge_queue (media_url, attempts, next_attempt_at, created_at) VALUES ('/uploads/x.jpg',0,?,?)`, now, now); err != nil {
+	if _, err := ms.DB().Exec(rebindPG(ms, `INSERT INTO media_purge_queue (media_url, attempts, next_attempt_at, created_at) VALUES ('/uploads/x.jpg',0,?,?)`), now, now); err != nil {
 		t.Fatal(err)
 	}
 
@@ -75,7 +68,7 @@ func TestMediaPurgeQueue_RetryAndGiveUp(t *testing.T) {
 	if due, _ := q.ClaimDue(t.Context(), 10); len(due) != 0 {
 		t.Fatalf("berkas gagal tidak boleh langsung jatuh tempo, got %v", due)
 	}
-	_, _ = ms.DB().Exec(`UPDATE media_purge_queue SET next_attempt_at = ?`, now.Add(-time.Minute))
+	_, _ = ms.DB().Exec(rebindPG(ms, `UPDATE media_purge_queue SET next_attempt_at = ?`), now.Add(-time.Minute))
 	if gaveUp, _ = q.Fail(t.Context(), "/uploads/x.jpg", 3); gaveUp {
 		t.Fatal("percobaan 2 belum boleh menyerah")
 	}
@@ -87,4 +80,22 @@ func TestMediaPurgeQueue_RetryAndGiveUp(t *testing.T) {
 	if n != 0 {
 		t.Fatalf("berkas yang menyerah harus keluar dari antrean, sisa %d", n)
 	}
+}
+
+// rebindPG mengubah placeholder ? menjadi $n bila store uji memakai PostgreSQL.
+func rebindPG(ms *store.SQLMessageStore, q string) string {
+	if ms.DriverName() != "postgres" {
+		return q
+	}
+	var b strings.Builder
+	n := 0
+	for _, r := range q {
+		if r == '?' {
+			n++
+			b.WriteString("$" + strconv.Itoa(n))
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
