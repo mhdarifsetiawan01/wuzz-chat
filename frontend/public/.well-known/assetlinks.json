@@ -7,7 +7,8 @@
       "namespace": "android_app",
       "package_name": "com.wuzzchat.mobile",
       "sha256_cert_fingerprints": [
-        "D7:6A:3D:56:FD:14:C0:17:4A:73:06:C8:EA:70:15:54:D2:DE:DE:6A:74:5E:50:11:A4:02:19:78:28:9E:24:B3"
+        "D7:6A:3D:56:FD:14:C0:17:4A:73:06:C8:EA:70:15:54:D2:DE:DE:6A:74:5E:50:11:A4:02:19:78:28:9E:24:B3",
+        "81:03:D7:62:54:73:94:5B:7D:87:9C:B1:3F:6C:07:D1:93:49:14:82:E3:30:ED:84:6F:F3:80:47:0B:FB:69:8D"
       ]
     }
   }
