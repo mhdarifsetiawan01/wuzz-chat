@@ -3,20 +3,20 @@ import LegalPage from '../_legal/LegalPage'
 import { SUPPORT_EMAIL } from '@/lib/legal'
 
 export const metadata: Metadata = {
-  title: 'Hapus Akun — Wuzz Chat',
-  description: 'Cara menghapus akun Wuzz Chat beserta data pribadi Anda.',
+  title: 'Hapus Akun — WuzzChat',
+  description: 'Cara menghapus akun WuzzChat beserta data pribadi Anda.',
 }
 
 export default function DeleteAccountPage() {
   return (
-    <LegalPage title="Hapus Akun Wuzz Chat">
+    <LegalPage title="Hapus Akun WuzzChat">
       <p>Anda dapat menghapus akun dan data pribadi Anda kapan saja. Penghapusan bersifat <strong>permanen dan tidak dapat dibatalkan</strong>.</p>
 
       <h2>Cara 1: lewat aplikasi (tercepat)</h2>
       <ol>
-        <li>Buka aplikasi Wuzz Chat dan login.</li>
+        <li>Buka aplikasi WuzzChat dan login.</li>
         <li>Masuk ke <strong>Pengaturan → Hapus Akun</strong>.</li>
-        <li>Baca peringatan, masukkan kata sandi Anda, lalu konfirmasi.</li>
+        <li>Baca peringatan, lalu konfirmasi kepemilikan akun: pilih akun Google yang sama bila Anda masuk dengan Google, atau masukkan kata sandi bila akun Anda masih memakai kata sandi.</li>
       </ol>
 
       <h2>Cara 2: tidak bisa membuka aplikasi</h2>
