@@ -14,7 +14,7 @@
   `RECEIVE_BOOT_COMPLETED`, `READ_APP_BADGE` (badge ikon, dari expo-notifications), `USE_BIOMETRIC`/`USE_FINGERPRINT` (dari expo-secure-store),
   `BLUETOOTH` (<= Android 11), `READ/WRITE_EXTERNAL_STORAGE` (<= Android 12L). Tidak ada Foreground Service, `SYSTEM_ALERT_WINDOW`, `READ_MEDIA_*`, SMS, log panggilan, atau lokasi.
   Foto dipilih lewat pemilih foto sistem (tanpa izin media).
-- Pihak ketiga yang menerima data: **Google Firebase Cloud Messaging** (token perangkat dan isi notifikasi), **penyedia LLM untuk AI Memory, saat ini Groq** (teks pesan **hanya** dari topik forum terbuka),
+- Pihak ketiga yang menerima data: **Google Firebase Cloud Messaging** (token perangkat dan isi notifikasi), **penyedia LLM untuk AI Memory, saat ini Groq** (teks pesan **hanya** dari topik forum terbuka; **dijeda sejak 8 Okt 2026** lewat `MEMORY_WORKER_ENABLED=false`, jadi sekarang tidak ada teks yang dikirim; aktifkan lagi = perbarui `/privacy`, tanggal berlaku, dan Data Safety),
   penyedia infrastruktur sendiri (VPS, basis data, penyimpanan berkas Supabase, Redis, relay TURN milik sendiri).
 
 ## 2. Data Safety (jawaban yang disarankan)
@@ -97,7 +97,6 @@ FITUR UTAMA
 • Linimasa komunitas: bagikan postingan, beri komentar, dan suka.
 • Teman dan akun privat: kendalikan siapa yang boleh mengirim pesan atau menelepon Anda.
 • Verifikasi Nomor Keamanan dan pemindahan kunci lewat kode QR antar perangkat Anda.
-• Ringkasan pengetahuan (AI Memory) untuk topik forum terbuka. Ringkasan hanya terbit setelah disetujui admin, dan pesan langsung tidak pernah dibaca AI.
 
 PRIVASI DAN KENDALI ANDA
 • Tanpa iklan dan tanpa pelacak pihak ketiga.
@@ -121,7 +120,7 @@ Versi ini memperbaiki panggilan suara: koneksi lebih andal dan status "Menyambun
 ### Panduan penulisan (jangan dilanggar; Play menolak klaim menyesatkan)
 - Jangan membandingkan dengan WhatsApp/Telegram atau memakai nama merek lain. Jangan tulis "paling aman", "kelas industri", atau klaim yang tidak bisa dibuktikan.
 - **E2EE hanya untuk pesan langsung.** Pesan grup/forum/Linimasa **tidak** E2EE; naskah di atas sengaja menyatakannya agar tidak menyesatkan.
-- Jangan menjanjikan fitur yang belum ada (panggilan grup, video, panggilan saat layar mati yang andal).
+- Jangan menjanjikan fitur yang belum ada (panggilan grup, video, panggilan saat layar mati yang andal). **AI Memory TIDAK boleh disebut di naskah toko**: aplikasi mobile belum punya tampilannya dan pemrosesannya dijeda di backend (`MEMORY_WORKER_ENABLED=false`, 8 Okt 2026). Tambahkan lagi hanya setelah tampilan mobile ada.
 - Sebut batas 2 perangkat dan peringatan kunci hilang (sudah ada di bagian PERHATIAN).
 
 ### Aset grafis (yang perlu Anda siapkan)

@@ -4,6 +4,8 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Group Memory AI (Forum I
 
 ---
 
+> **Status produksi (8 Okt 2026): DIJEDA.** Saklar `MEMORY_WORKER_ENABLED=false` (`backend/.env`, `config.MemoryWorkerDisabled`) memutus seluruh jalur: job tidak dibuat saat topik forum kedaluwarsa/ditutup (`jobStore` nil di `wire.go`), `MemoryJobWorker` tidak dibuat, dan tidak ada teks yang dikirim ke penyedia LLM. Handler baca/setujui draf tetap hidup. Alasan: aplikasi mobile belum punya tampilan AI Memory, jadi teks pengguna tidak perlu dikirim ke pihak ketiga. Default kode tetap aktif (env kosong atau `true`). **Mengaktifkan kembali** berarti: pastikan tampilan mobile ada, perbarui `/privacy` bagian 3-4 (hapus "saat ini dinonaktifkan"), `LEGAL_EFFECTIVE_DATE`, Data Safety, dan naskah toko, baru set `MEMORY_WORKER_ENABLED=true` dan restart. Job yang tertunda sebelum jeda tidak diproses selama dijeda.
+
 ## 📋 1. Aturan Bisnis & Invarian (*Business Invariants*)
 
 1. **Prinsip Human-in-the-Loop**:
