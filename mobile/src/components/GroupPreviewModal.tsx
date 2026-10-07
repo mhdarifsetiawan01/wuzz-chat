@@ -252,7 +252,7 @@ export const GroupPreviewModal: React.FC<GroupPreviewModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    backgroundColor: 'rgba(9, 13, 22, 0.80)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
@@ -264,9 +264,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     maxHeight: '85%',
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    backgroundColor: colors.bgCardSolid,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: colors.borderDefault,
     borderRadius: radius.xl,
     overflow: 'hidden',
     ...shadows.modal,
