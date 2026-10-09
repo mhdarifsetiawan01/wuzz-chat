@@ -33,6 +33,7 @@ type ModerationHandler struct {
 	onDeleted  func(store.DeletedMessage)  // dipanggil setelah pesan grup dihapus moderator (siaran realtime)
 	roles      *authz.RolePolicy           // dibuang cache-nya saat peran diubah lewat alat ini (nil = hanya TTL)
 	kick       func(userID, reason string) // memutus semua koneksi WebSocket akun (nil = dilewati)
+	eraser     store.AccountEraser         // hapus akun paksa oleh admin (nil = dinonaktifkan)
 }
 
 // SetEvidenceRetention memberi tahu halaman detail kapan bukti akan dihapus otomatis (days <= 0 = tidak dihapus).
@@ -214,36 +215,232 @@ func (h *ModerationHandler) enforceSuspension(userID string) {
 	}
 }
 
-// HandleUser melayani POST /api/admin/users/{id}/unsuspend.
+// SetAccountEraser memasang penghapus akun untuk hapus paksa oleh admin (nil = endpoint menjawab 501).
+func (h *ModerationHandler) SetAccountEraser(e store.AccountEraser) { h.eraser = e }
+
+// HandleUser melayani pengelolaan pengguna (staf; hapus akun dan cabut sesi khusus admin):
+//
+//	GET    /api/admin/users?q=&status=&limit=&offset=  daftar pengguna
+//	GET    /api/admin/users/{id}                       detail akun
+//	POST   /api/admin/users/{id}/suspend               tangguhkan (catatan wajib)
+//	POST   /api/admin/users/{id}/unsuspend             pulihkan
+//	POST   /api/admin/users/{id}/revoke-sessions       paksa keluar dari semua perangkat (admin, catatan wajib)
+//	DELETE /api/admin/users/{id}                       hapus akun permanen (admin; {note, confirm_username})
 func (h *ModerationHandler) HandleUser(w http.ResponseWriter, r *http.Request) {
 	claims, ok := h.staff(w, r)
 	if !ok {
 		return
 	}
-	parts := strings.Split(strings.Trim(strings.TrimPrefix(r.URL.Path, adminUsersPath), "/"), "/")
-	if len(parts) != 2 || parts[0] == "" || len(parts[0]) > 64 || parts[1] != "unsuspend" || r.Method != http.MethodPost {
+	rest := strings.Trim(strings.TrimPrefix(r.URL.Path, strings.TrimSuffix(adminUsersPath, "/")), "/")
+	if rest == "" {
+		if r.Method != http.MethodGet {
+			writeFeedError(w, http.StatusMethodNotAllowed, "Method tidak diizinkan")
+			return
+		}
+		h.listUsers(w, r, claims)
+		return
+	}
+	parts := strings.Split(rest, "/")
+	id := parts[0]
+	if id == "" || len(id) > 64 || len(parts) > 2 {
 		writeFeedError(w, http.StatusNotFound, "Tidak ditemukan")
 		return
 	}
-	var body struct {
-		Note string `json:"note"`
+	op := ""
+	if len(parts) == 2 {
+		op = parts[1]
 	}
-	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body)
-	if utf8.RuneCountInString(body.Note) > maxModNoteRunes {
-		writeFeedError(w, http.StatusBadRequest, "Catatan terlalu panjang")
-		return
-	}
-	if err := h.store.Unsuspend(r.Context(), claims.TenantID, claims.UserID, parts[0], body.Note); err != nil {
+	switch {
+	case op == "" && r.Method == http.MethodGet:
+		d, err := h.store.GetUserDetail(r.Context(), claims.TenantID, id)
 		if errors.Is(err, store.ErrModerationUserNotFound) {
 			writeFeedError(w, http.StatusNotFound, "Pengguna tidak ditemukan")
 			return
 		}
-		log.Printf("⚠️ [Moderation] unsuspend %s gagal: %v", parts[0], err)
+		if err != nil {
+			log.Printf("⚠️ [Moderation] detail user %s gagal: %v", id, err)
+			writeFeedError(w, http.StatusInternalServerError, "Gagal memuat akun")
+			return
+		}
+		writeFeedJSON(w, http.StatusOK, d)
+	case op == "unsuspend" && r.Method == http.MethodPost:
+		h.unsuspend(w, r, claims, id)
+	case op == "suspend" && r.Method == http.MethodPost:
+		h.suspendUser(w, r, claims, id)
+	case op == "revoke-sessions" && r.Method == http.MethodPost:
+		if !store.IsAdmin(claims.SystemRole) {
+			writeFeedError(w, http.StatusForbidden, "Khusus admin")
+			return
+		}
+		h.revokeSessions(w, r, claims, id)
+	case op == "" && r.Method == http.MethodDelete:
+		if !store.IsAdmin(claims.SystemRole) {
+			writeFeedError(w, http.StatusForbidden, "Khusus admin")
+			return
+		}
+		h.deleteUser(w, r, claims, id)
+	default:
+		writeFeedError(w, http.StatusNotFound, "Tidak ditemukan")
+	}
+}
+
+func (h *ModerationHandler) listUsers(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims) {
+	q := r.URL.Query()
+	status := q.Get("status")
+	if status != "" && status != "active" && status != "suspended" && status != "deleted" {
+		writeFeedError(w, http.StatusBadRequest, "Status tidak valid")
+		return
+	}
+	query := strings.TrimSpace(q.Get("q"))
+	if utf8.RuneCountInString(query) > 64 {
+		writeFeedError(w, http.StatusBadRequest, "Kata kunci terlalu panjang")
+		return
+	}
+	limit, _ := strconv.Atoi(q.Get("limit"))
+	offset, _ := strconv.Atoi(q.Get("offset"))
+	list, err := h.store.ListUsers(r.Context(), claims.TenantID, store.UserFilter{Query: query, Status: status}, limit, offset)
+	if err != nil {
+		log.Printf("⚠️ [Moderation] gagal memuat daftar pengguna: %v", err)
+		writeFeedError(w, http.StatusInternalServerError, "Gagal memuat daftar pengguna")
+		return
+	}
+	writeFeedJSON(w, http.StatusOK, map[string]any{"users": list})
+}
+
+// readNote membaca catatan dari body; required=true menolak catatan kosong. Mengembalikan false bila sudah menjawab.
+func readNote(w http.ResponseWriter, r *http.Request, required bool) (string, bool) {
+	var body struct {
+		Note string `json:"note"`
+	}
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body)
+	note := strings.TrimSpace(body.Note)
+	if utf8.RuneCountInString(note) > maxModNoteRunes {
+		writeFeedError(w, http.StatusBadRequest, "Catatan terlalu panjang")
+		return "", false
+	}
+	if required && note == "" {
+		writeFeedError(w, http.StatusBadRequest, store.ErrModerationNoteRequired.Error())
+		return "", false
+	}
+	return note, true
+}
+
+// writeUserActionError menerjemahkan galat store aksi pengguna; true bila galat sudah dijawab.
+func writeUserActionError(w http.ResponseWriter, err error, what, id string) bool {
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, store.ErrModerationUserNotFound):
+		writeFeedError(w, http.StatusNotFound, "Pengguna tidak ditemukan")
+	case errors.Is(err, store.ErrModerationProtectedUser):
+		writeFeedError(w, http.StatusForbidden, store.ErrModerationProtectedUser.Error())
+	case errors.Is(err, store.ErrModerationAlreadyDeleted):
+		writeFeedError(w, http.StatusConflict, err.Error())
+	case errors.Is(err, store.ErrModerationNoteRequired):
+		writeFeedError(w, http.StatusBadRequest, err.Error())
+	default:
+		log.Printf("⚠️ [Moderation] %s %s gagal: %v", what, id, err)
+		writeFeedError(w, http.StatusInternalServerError, "Gagal memproses permintaan")
+	}
+	return true
+}
+
+func (h *ModerationHandler) unsuspend(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims, id string) {
+	note, ok := readNote(w, r, false)
+	if !ok {
+		return
+	}
+	if err := h.store.Unsuspend(r.Context(), claims.TenantID, claims.UserID, id, note); err != nil {
+		if errors.Is(err, store.ErrModerationUserNotFound) {
+			writeFeedError(w, http.StatusNotFound, "Pengguna tidak ditemukan")
+			return
+		}
+		log.Printf("⚠️ [Moderation] unsuspend %s gagal: %v", id, err)
 		writeFeedError(w, http.StatusInternalServerError, "Gagal memulihkan akun")
 		return
 	}
-	h.suspension.Invalidate(parts[0])
-	log.Printf("🛡️ [Moderation] unsuspend: user=%s moderator=%s", parts[0], claims.UserID)
+	h.suspension.Invalidate(id)
+	log.Printf("🛡️ [Moderation] unsuspend: user=%s moderator=%s", id, claims.UserID)
+	writeFeedJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *ModerationHandler) suspendUser(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims, id string) {
+	note, ok := readNote(w, r, true)
+	if !ok {
+		return
+	}
+	if writeUserActionError(w, h.store.SuspendUser(r.Context(), claims.TenantID, claims.UserID, id, note), "suspend", id) {
+		return
+	}
+	h.enforceSuspension(id)
+	log.Printf("🛡️ [Moderation] suspend langsung: user=%s moderator=%s", id, claims.UserID)
+	writeFeedJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *ModerationHandler) revokeSessions(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims, id string) {
+	note, ok := readNote(w, r, true)
+	if !ok {
+		return
+	}
+	if writeUserActionError(w, h.store.RevokeUserSessions(r.Context(), claims.TenantID, claims.UserID, id, note), "revoke-sessions", id) {
+		return
+	}
+	if h.kick != nil {
+		h.kick(id, "SESSION_REVOKED: Sesi Anda dicabut oleh moderator.")
+	}
+	log.Printf("🛡️ [Moderation] cabut sesi: user=%s admin=%s", id, claims.UserID)
+	writeFeedJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// deleteUser menghapus akun permanen (logika sama dengan hapus akun oleh pemilik). Admin harus mengetik ulang username
+// sasaran dan menulis alasan; jejak audit menyimpan username asli karena barisnya dianonimkan.
+func (h *ModerationHandler) deleteUser(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims, id string) {
+	if h.eraser == nil {
+		writeFeedError(w, http.StatusNotImplemented, "Hapus akun tidak tersedia")
+		return
+	}
+	var body struct {
+		Note            string `json:"note"`
+		ConfirmUsername string `json:"confirm_username"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil {
+		writeFeedError(w, http.StatusBadRequest, "Payload tidak valid")
+		return
+	}
+	note := strings.TrimSpace(body.Note)
+	if note == "" {
+		writeFeedError(w, http.StatusBadRequest, store.ErrModerationNoteRequired.Error())
+		return
+	}
+	if utf8.RuneCountInString(note) > maxModNoteRunes {
+		writeFeedError(w, http.StatusBadRequest, "Catatan terlalu panjang")
+		return
+	}
+	username, err := h.store.PrepareAccountDeletion(r.Context(), claims.TenantID, claims.UserID, id)
+	if writeUserActionError(w, err, "hapus akun", id) {
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(body.ConfirmUsername), username) {
+		writeFeedError(w, http.StatusBadRequest, "Konfirmasi username tidak cocok")
+		return
+	}
+	if err := h.eraser.EraseUser(r.Context(), id); err != nil {
+		if errors.Is(err, store.ErrUserNotFound) {
+			writeFeedError(w, http.StatusNotFound, "Pengguna tidak ditemukan")
+			return
+		}
+		log.Printf("⚠️ [Moderation] hapus akun %s gagal: %v", id, err)
+		writeFeedError(w, http.StatusInternalServerError, "Gagal menghapus akun")
+		return
+	}
+	if err := h.store.RecordAccountDeletion(r.Context(), claims.TenantID, claims.UserID, id, username, note); err != nil {
+		log.Printf("⚠️ [Moderation] akun %s terhapus tetapi audit gagal ditulis: %v", id, err)
+	}
+	if h.kick != nil {
+		h.kick(id, "ACCOUNT_DELETED: Akun telah dihapus.")
+	}
+	h.suspension.Invalidate(id)
+	log.Printf("🛡️ [Moderation] hapus akun: user=%s admin=%s", id, claims.UserID)
 	writeFeedJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

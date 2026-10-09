@@ -99,6 +99,9 @@ export const ACTION_LABEL: Record<string, string> = {
   unsuspend_user: 'Akun dipulihkan',
   hold_evidence: 'Bukti ditahan',
   release_evidence: 'Tahanan bukti dilepas',
+  suspend_account: 'Akun ditangguhkan',
+  revoke_sessions: 'Sesi dicabut',
+  delete_account: 'Akun dihapus',
   grant_moderator: 'Diangkat jadi moderator',
   revoke_moderator: 'Moderator dicabut',
 }
@@ -292,4 +295,60 @@ export function formatDate(iso?: string): string {
 export function ownerOf(detail: ReportDetail): string {
   const r = detail.report
   return r.target_user_id || (r.target_type === 'user' ? r.target_id : '') || detail.content.author_id || ''
+}
+
+export interface UserSummary {
+  id: string
+  username: string
+  display_name: string
+  system_role: string
+  suspended: boolean
+  suspended_reason?: string
+  has_password: boolean
+  google_linked: boolean
+  deleted: boolean
+  created_at: string
+}
+
+export interface UserDetail {
+  user: UserSummary
+  reports_against: number
+  open_reports: number
+  active_sessions: number
+  devices: { name: string; platform: string; last_seen_at?: string }[]
+  history: ModerationHistoryItem[]
+}
+
+export type UserStatusFilter = '' | 'active' | 'suspended' | 'deleted'
+
+export function listUsers(p: { q: string; status: UserStatusFilter; offset?: number; limit?: number }) {
+  const q = new URLSearchParams({ limit: String(p.limit ?? 30), offset: String(p.offset ?? 0) })
+  if (p.q.trim()) q.set('q', p.q.trim())
+  if (p.status) q.set('status', p.status)
+  return adminFetch<{ users: UserSummary[] }>(`/api/admin/users?${q.toString()}`)
+}
+
+export function getUser(id: string) {
+  return adminFetch<UserDetail>(`/api/admin/users/${encodeURIComponent(id)}`)
+}
+
+export function suspendAccount(id: string, note: string) {
+  return adminFetch<{ status: string }>(`/api/admin/users/${encodeURIComponent(id)}/suspend`, {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  })
+}
+
+export function revokeUserSessions(id: string, note: string) {
+  return adminFetch<{ status: string }>(`/api/admin/users/${encodeURIComponent(id)}/revoke-sessions`, {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  })
+}
+
+export function deleteAccount(id: string, note: string, confirmUsername: string) {
+  return adminFetch<{ status: string }>(`/api/admin/users/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ note, confirm_username: confirmUsername }),
+  })
 }

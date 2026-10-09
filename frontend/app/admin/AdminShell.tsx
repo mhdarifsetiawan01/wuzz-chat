@@ -106,6 +106,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </header>
         <nav className="adm-nav" aria-label="Menu moderasi">
           <Link href="/admin/reports" className={pathname.startsWith('/admin/reports') ? 'is-active' : ''}>Laporan</Link>
+          <Link href="/admin/users" className={pathname.startsWith('/admin/users') ? 'is-active' : ''}>Pengguna</Link>
           {/* Hanya tampilan; backend menolak non-admin di /api/admin/staff. */}
           {role === 'wuzz_admin' && (
             <Link href="/admin/staff" className={pathname.startsWith('/admin/staff') ? 'is-active' : ''}>Moderator</Link>

@@ -400,6 +400,7 @@ func (a *Application) setupRouter() http.Handler {
 		}{
 			{"/api/admin/reports", a.ModerationHandler.HandleReports},
 			{"/api/admin/reports/", a.ModerationHandler.HandleReportItem},
+			{"/api/admin/users", a.ModerationHandler.HandleUser},
 			{"/api/admin/users/", a.ModerationHandler.HandleUser},
 			{"/api/admin/staff", a.ModerationHandler.HandleStaff},
 			{"/api/admin/staff/", a.ModerationHandler.HandleStaff},

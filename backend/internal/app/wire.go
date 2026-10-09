@@ -332,6 +332,9 @@ func New(cfg *config.Config) (*Application, error) {
 	if moderationStore != nil {
 		app.ModerationHandler = api.NewModerationHandler(moderationStore, suspension)
 		app.ModerationHandler.SetRolePolicy(rolePolicy)
+		if accountEraser != nil {
+			app.ModerationHandler.SetAccountEraser(accountEraser)
+		}
 		app.ModerationHandler.SetEvidenceRetention(cfg.ReportEvidenceRetentionDays)
 		if cfg.ReportEvidenceRetentionDays > 0 {
 			app.EvidenceWorker = worker.NewEvidenceRetentionWorker(moderationStore, time.Duration(cfg.ReportEvidenceRetentionDays)*24*time.Hour, 0)
