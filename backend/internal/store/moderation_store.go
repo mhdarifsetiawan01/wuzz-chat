@@ -130,6 +130,14 @@ type ModerationStore interface {
 	// Unsuspend memulihkan akun dan mencatat audit.
 	Unsuspend(ctx context.Context, tenantID, moderatorID, userID, note string) error
 
+	// Pengelolaan pengguna (moderation_users_store.go).
+	ListUsers(ctx context.Context, tenantID string, f UserFilter, limit, offset int) ([]UserSummary, error)
+	GetUserDetail(ctx context.Context, tenantID, userID string) (*UserDetail, error)
+	SuspendUser(ctx context.Context, tenantID, actorID, userID, note string) error
+	RevokeUserSessions(ctx context.Context, tenantID, actorID, userID, note string) error
+	PrepareAccountDeletion(ctx context.Context, tenantID, actorID, userID string) (string, error)
+	RecordAccountDeletion(ctx context.Context, tenantID, actorID, userID, username, note string) error
+
 	// Pengelolaan staf (khusus admin; lihat moderation_staff_store.go).
 	ListStaff(ctx context.Context, tenantID string) ([]StaffMember, error)
 	LookupUser(ctx context.Context, tenantID, username string) (*StaffMember, error)

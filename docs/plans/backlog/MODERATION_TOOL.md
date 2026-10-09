@@ -246,3 +246,13 @@ Bila variabel kurang lengkap, saluran dilewati dengan peringatan di log (server 
 **Dites:** SQLite dan PostgreSQL 16 (seluruh suite), 24 berkas tes unit mobile (+`account-suspended`, kontras bubble, pesan galat), mutasi (allow-list hapus akun, flag `/me`, penolakan refresh, wiring handler, predikat penutupan WS), uji nyata: klien WS menerima `4004`, `/me` dengan token lama memuat flag, hapus akun terjangkau, login 403 berpesan Indonesia, token lama berlaku lagi setelah dipulihkan; tampilan layar di 320 dan 360dp tanpa overflow (komponen asli di preview web). **Belum diuji di HP.**
 
 **Perbaikan UX hasil uji nyata di produksi (6 Okt 2026):** pemilik akun yang diuji menekan "Buka kembali" (status laporan) mengira itu memulihkan akun, dan "Pulihkan akun" nonaktif karena catatan kosong sehingga tombol yang bisa ditekan hanyalah yang salah (log produksi hanya mencatat `reopen`, tanpa `unsuspend`). Kini di halaman detail laporan: kotak peringatan mencolok "Akun pemilik sedang ditangguhkan" memuat tombol **Pulihkan akun** (satu-satunya, tidak lagi di deretan aksi), penjelasan bahwa "Buka kembali laporan" TIDAK memulihkan akun, tautan yang memfokuskan kolom catatan, dan petunjuk "aktif setelah catatan diisi". Tombol status laporan diganti nama menjadi **Buka kembali laporan**. Teruji di browser nyata (skenario yang sama: tangguhkan, buka kembali laporan, akun tetap ditangguhkan, isi catatan, pulihkan, korban bisa login).
+
+## 17. Menu Pengguna `/admin/users` (2026-10-09)
+Admin/moderator kini bisa menelusuri akun tanpa menunggu laporan.
+- `GET /api/admin/users?q=&status=active|suspended|deleted&limit=&offset=` (staf): daftar terbaru dulu; pencarian username/nama (karakter `%` `_` dibaca harfiah, tenant dari JWT).
+- `GET /api/admin/users/{id}` (staf): ringkasan, jumlah laporan terhadap akun, sesi aktif, perangkat, riwayat tindakan. Tidak memuat hash/kunci/isi pesan.
+- `POST .../{id}/suspend` (staf, catatan wajib) dan `.../unsuspend`: tangguh langsung tanpa laporan (audit `suspend_account`).
+- `POST .../{id}/revoke-sessions` (admin, catatan wajib): cabut semua token + hapus sesi + putus WS; akun bisa login lagi.
+- `DELETE .../{id}` (admin; `{note, confirm_username}`): hapus permanen dengan `SQLAccountEraser.EraseUser` yang sama dengan hapus akun oleh pemilik. Audit `delete_account` menyimpan username asli di catatan.
+- Perlindungan di store (`guardTarget`): akun sendiri, staf, tenant lain, dan akun yang sudah dihapus ditolak.
+- Berkas: `store/moderation_users_store.go`, `api/moderation_handler.go` (`HandleUser`), `api/moderation_users_test.go` (lulus di SQLite dan PostgreSQL), `frontend/app/admin/users/`.
