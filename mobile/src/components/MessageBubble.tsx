@@ -25,6 +25,7 @@ import { getSenderNameColor } from './Avatar';
 import { mediaCache } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
 import { colors } from '../theme/colors';
+import { bubblePalette } from '../theme/bubblePalette';
 import { deletedBubblePalette } from '../theme/deletedBubble';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
@@ -156,6 +157,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     outputRange: [0.5, 1, 1.15],
     extrapolate: 'clamp',
   });
+
+  // Warna sekunder (jam, ikon, label) mengikuti sisi bubble: putih kebiruan di bubble Anda, slate di bubble lawan
+  const subColor = isSelf ? bubblePalette.self.textSecondary : bubblePalette.other.textSecondary;
 
   const isE2EE = typeof message.content === 'string' && message.content.startsWith('e2ee:v1:');
   // Pesan E2EE yang kuncinya tidak cocok (mis. setelah reset kunci): permanen, bukan "sedang sinkron"
@@ -297,6 +301,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       !isE2EE
   );
 
+  // Jam di atas gambar tanpa keterangan duduk di chip gelap, jadi putih di kedua sisi
+  const footerOverImage = isImage && !isExpired && !hasCaption && !isDeleted;
+  const footerColor = footerOverImage ? '#ffffff' : subColor;
+
   return (
     <View style={[styles.container, isSelf ? styles.selfContainer : styles.otherContainer]}>
       {/* Swipe to reply reveal icon */}
@@ -327,7 +335,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             isSelf ? styles.selfBubble : styles.otherBubble,
             isImage ? styles.imageBubblePadding : null,
             isAudio ? styles.audioBubblePadding : null,
-            isHighlighted ? styles.highlightedBubble : null,
+            isHighlighted ? [styles.highlightedBubble, isSelf ? styles.highlightedSelf : styles.highlightedOther] : null,
             isDeleted ? styles.deletedBubble : null,
           ]}
         >
@@ -345,8 +353,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           {/* Forwarded Message Header */}
           {message.is_forwarded && !isDeleted ? (
             <View style={styles.forwardedRow}>
-              <IconText style={styles.forwardedIcon}>↪</IconText>
-              <Text style={styles.forwardedText}>Diteruskan</Text>
+              <IconText style={[styles.forwardedIcon, { color: subColor }]}>↪</IconText>
+              <Text style={[styles.forwardedText, { color: subColor }]}>Diteruskan</Text>
             </View>
           ) : null}
 
@@ -377,7 +385,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                         ? message.reply_to.nickname
                         : 'Pengguna'}
                     </Text>
-                    <IconText style={styles.quoteText} numberOfLines={2}>
+                    <IconText style={[styles.quoteText, isSelf && styles.quoteTextSelf]} numberOfLines={2}>
                       {quotePreviewText(message.reply_to)}
                     </IconText>
                   </View>
@@ -458,9 +466,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   accessibilityRole="button"
                   accessibilityLabel="Pesan tidak dapat dibuka karena kunci enkripsi berubah. Ketuk untuk info"
                 >
-                  <Icon name="lock" size={14} color="rgba(255, 255, 255, 0.75)" />
-                  <Text style={styles.undecryptableTitle}>Pesan tidak dapat dibuka</Text>
-                  <Icon name="info" size={14} color="rgba(255, 255, 255, 0.75)" />
+                  <Icon name="lock" size={14} color={subColor} />
+                  <Text style={[styles.undecryptableTitle, { color: isSelf ? bubblePalette.self.text : bubblePalette.other.text }]}>Pesan tidak dapat dibuka</Text>
+                  <Icon name="info" size={14} color={subColor} />
                 </TouchableOpacity>
               ) : isE2EE && message.decrypt_failed ? (
                 <TouchableOpacity
@@ -468,16 +476,16 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   activeOpacity={0.7}
                   onPress={() => onRetryDecrypt?.(message)}
                 >
-                  <Icon name="lock" size={14} color={colors.textSecondary} />
-                  <Text style={[styles.messageText, styles.e2eeText]}>
+                  <Icon name="lock" size={14} color={subColor} />
+                  <Text style={[styles.messageText, styles.e2eeText, { color: subColor }]}>
                     Pesan terenkripsi gagal dibuka.{' '}
-                    <Text style={styles.e2eeRetryText}>Ketuk untuk coba lagi</Text>
+                    <Text style={[styles.e2eeRetryText, { color: isSelf ? bubblePalette.self.link : bubblePalette.other.link }]}>Ketuk untuk coba lagi</Text>
                   </Text>
                 </TouchableOpacity>
               ) : isE2EE ? (
                 <View style={styles.e2eeRow}>
-                  <Icon name="lock" size={14} color={colors.textSecondary} />
-                  <Text style={[styles.messageText, styles.e2eeText]}>
+                  <Icon name="lock" size={14} color={subColor} />
+                  <Text style={[styles.messageText, styles.e2eeText, { color: subColor }]}>
                     Pesan terenkripsi (sedang menyinkronkan kunci...)
                   </Text>
                 </View>
@@ -502,11 +510,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
 
           {/* Bubble Footer: Timestamp & Receipt Checkmarks */}
-          <View style={[styles.footerRow, isImage && !isExpired && !hasCaption && !isDeleted ? styles.footerOverImage : null]}>
-            {message.is_pinned && !isDeleted ? <Icon name="pin" size={12} color="rgba(255, 255, 255, 0.75)" /> : null}
-            {message.is_edited && !isDeleted ? <Text style={[styles.editedLabel, !isSelf && styles.editedLabelOther]}>(diedit)</Text> : null}
-            {message.is_encrypted && !isDeleted ? <Icon name="lock" size={11} color="rgba(255, 255, 255, 0.75)" /> : null}
-            <Text style={[styles.timeText, !isSelf && styles.timeTextOther, isDeleted && styles.timeTextDeleted]}>{timeString}</Text>
+          <View style={[styles.footerRow, footerOverImage ? styles.footerOverImage : null]}>
+            {message.is_pinned && !isDeleted ? <Icon name="pin" size={12} color={footerColor} /> : null}
+            {message.is_edited && !isDeleted ? <Text style={[styles.editedLabel, !isSelf && styles.editedLabelOther, footerOverImage && styles.footerOverImageText]}>(diedit)</Text> : null}
+            {message.is_encrypted && !isDeleted ? <Icon name="lock" size={11} color={footerColor} /> : null}
+            <Text style={[styles.timeText, !isSelf && styles.timeTextOther, footerOverImage && styles.footerOverImageText, isDeleted && styles.timeTextDeleted]}>{timeString}</Text>
             {isSelf && !isDeleted ? (
               <Icon
                 name={
@@ -517,7 +525,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     : 'check'
                 }
                 size={14}
-                color={message.status === 'read' ? '#ffffff' : 'rgba(255, 255, 255, 0.65)'}
+                color={message.status === 'read' ? '#ffffff' : '#bae6fd'}
               />
             ) : null}
           </View>
@@ -606,14 +614,20 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   // Margin negatif = lebar border, jadi isi bubble tidak bergeser saat disorot (hasil pencarian / lompat ke kutipan)
+  // (bubble sudah punya border 1, jadi tebal 2 dengan margin -1)
   highlightedBubble: {
-    borderWidth: 1.5,
-    margin: -1.5,
-    borderColor: colors.accentPrimary,
-    backgroundColor: '#1e3a8a',
+    borderWidth: 2,
+    margin: -1,
+    borderColor: bubblePalette.highlight.border,
+  },
+  highlightedSelf: {
+    backgroundColor: bubblePalette.highlight.self,
+  },
+  highlightedOther: {
+    backgroundColor: bubblePalette.highlight.other,
   },
   quoteBox: {
-    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+    backgroundColor: bubblePalette.other.quoteBox,
     borderRadius: 8,
     paddingVertical: 4,
     paddingHorizontal: 8,
@@ -622,15 +636,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  // Bubble Anda biru terang (#30AFFF): kotak kutipan digelapkan (hitam 40%) agar teks putih memenuhi WCAG AA 4,5:1
+  // Bubble Anda biru dalam (#0a6cb8): kotak kutipan sedikit digelapkan, teks putih tetap >= 4,5:1
   quoteBoxSelf: {
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: bubblePalette.self.quoteBox,
   },
   quoteAccentBarSelf: {
-    backgroundColor: '#ffffff',
+    backgroundColor: bubblePalette.self.accent,
   },
   quoteSenderSelf: {
-    color: '#ffffff',
+    color: bubblePalette.self.accent,
+  },
+  quoteTextSelf: {
+    color: bubblePalette.self.text,
   },
   quoteAccentBar: {
     position: 'absolute',
@@ -638,7 +655,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 3.5,
-    backgroundColor: '#38bdf8',
+    backgroundColor: bubblePalette.other.accent,
     borderTopLeftRadius: 8,
     borderBottomLeftRadius: 8,
   },
@@ -651,12 +668,12 @@ const styles = StyleSheet.create({
   quoteSender: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: bubblePalette.other.accent,
     marginBottom: 1,
   },
   quoteText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.92)',
+    color: bubblePalette.other.text,
     lineHeight: 16,
   },
   deletedBubble: {
@@ -732,17 +749,21 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   selfBubble: {
-    backgroundColor: '#30AFFF', // Wuzz Identity Blue
+    backgroundColor: bubblePalette.self.background,
+    borderWidth: 1,
+    borderColor: bubblePalette.self.border,
     borderBottomRightRadius: 3,
   },
   otherBubble: {
-    backgroundColor: '#334155',
+    backgroundColor: bubblePalette.other.background,
+    borderWidth: 1,
+    borderColor: bubblePalette.other.border,
     borderBottomLeftRadius: 3,
   },
   senderName: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.colorCyanNeon,
+    color: bubblePalette.other.accent,
     marginBottom: 4,
     marginLeft: 6,
   },
@@ -796,20 +817,20 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 15,
     lineHeight: 20,
-    color: '#ffffff',
+    color: bubblePalette.self.text,
   },
   messageTextOther: {
-    color: '#ffffff',
+    color: bubblePalette.other.text,
   },
   linkText: {
     textDecorationLine: 'underline',
     fontWeight: '600',
   },
   linkTextSelf: {
-    color: '#e0f2fe',
+    color: bubblePalette.self.link,
   },
   linkTextOther: {
-    color: '#38bdf8',
+    color: bubblePalette.other.link,
   },
 
   captionText: {
@@ -819,9 +840,9 @@ const styles = StyleSheet.create({
   expiredBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: '#fef2f2',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: '#fecaca',
     borderRadius: 8,
     padding: 8,
     gap: 8,
@@ -830,7 +851,7 @@ const styles = StyleSheet.create({
   },
   expiredIcon: {
     fontSize: 18,
-    color: '#f87171',
+    color: '#b91c1c',
   },
   expiredTextCol: {
     flex: 1,
@@ -838,11 +859,11 @@ const styles = StyleSheet.create({
   expiredTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#f87171',
+    color: '#b91c1c',
   },
   expiredSubtitle: {
     fontSize: 10,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     marginTop: 1,
   },
   e2eeRow: {
@@ -852,18 +873,16 @@ const styles = StyleSheet.create({
   },
   e2eeText: {
     fontStyle: 'italic',
-    color: colors.textSecondary,
   },
   undecryptableTitle: {
     flexShrink: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
   },
   e2eeRetryText: {
     fontStyle: 'normal',
     fontWeight: '600',
-    color: colors.accentPrimary,
+    textDecorationLine: 'underline',
   },
   footerRow: {
     flexDirection: 'row',
@@ -888,10 +907,13 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.65)',
+    color: bubblePalette.self.textSecondary,
+  },
+  footerOverImageText: {
+    color: '#ffffff',
   },
   timeTextOther: {
-    color: 'rgba(255, 255, 255, 0.60)',
+    color: bubblePalette.other.textSecondary,
   },
   forwardedRow: {
     flexDirection: 'row',
@@ -902,20 +924,20 @@ const styles = StyleSheet.create({
   },
   forwardedIcon: {
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.65)',
+    color: bubblePalette.self.textSecondary,
   },
   forwardedText: {
     fontSize: 11,
     fontStyle: 'italic',
-    color: 'rgba(255, 255, 255, 0.65)',
+    color: bubblePalette.self.textSecondary,
   },
   editedLabel: {
     fontSize: 10,
     fontStyle: 'italic',
-    color: 'rgba(255, 255, 255, 0.65)',
+    color: bubblePalette.self.textSecondary,
   },
   editedLabelOther: {
-    color: '#94a3b8',
+    color: bubblePalette.other.textSecondary,
   },
   systemContainer: {
     alignItems: 'center',

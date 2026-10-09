@@ -261,7 +261,7 @@ Untuk mencegah teks tidak terbaca (*white-on-white* atau warna sama dengan tombo
    - Tombol terang (`secondary`, `ghost`): gunakan spinner biru aksen (`colors.accentPrimary`).
 3. **State Loading Tombol Primer**:
    - Saat `isLoading={true}`, background tombol primer **DILARANG** berubah menjadi putih/pucat yang menyamarkan spinner putih. Background harus tetap `colors.accentPrimary` dengan `activeOpacity`.
-4. **Isi Bubble Chat (`MessageBubble.tsx`)**: teks sekunder di dalam bubble (kutipan balasan, keterangan) juga wajib ≥ 4.5:1. Jangan memakai `colors.textSecondary` (`#64748b`, untuk latar terang) di dalam bubble: terukur 1.2:1 di bubble Anda (`#30AFFF`) dan 2.7:1 di bubble lawan (`#334155`). Pola yang dipakai: teks putih `rgba(255,255,255,0.92)`; di bubble Anda, kotak kutipan digelapkan `rgba(0,0,0,0.4)` (karena `#30AFFF` terang, putih di atas kotak `0.22` hanya 3.5:1, di atas `0.4` 5.3:1) dengan nama pengirim dan bar aksen putih; di bubble lawan nama pengirim tetap `#38bdf8` (6.0:1).
+4. **Isi Bubble Chat (`MessageBubble.tsx`)**: semua warna bubble berasal dari `src/theme/bubblePalette.ts` (jangan hardcode hex/rgba putih di komponen bubble). Bubble Anda biru dalam `#0a6cb8` (teks putih 5.45:1, teks sekunder `#e0f2fe` 4.75:1); bubble lawan putih `bgCardSolid` bertepi `borderDefault` dengan teks `textPrimary`, sekunder `#475569`, tautan/aksen `#0369a1`. Card (link preview, postingan, kutipan, audio) diturunkan dari sisi bubble-nya: overlay putih di bubble Anda, `bgBase` di bubble lawan. Jangan memakai bubble slate gelap di kanvas terang (blok pekat 9.6:1) atau `#30AFFF` dengan teks putih (2.4:1); keduanya dikeluhkan user 9 Okt 2026 sebagai "menyakitkan mata". Dijaga `scripts/test/bubble-palette-contrast.test.js` (teks >= 4.5:1, bubble lawan tidak boleh kontras tajam terhadap kanvas).
    - **Bubble "Pesan ini telah dihapus"**: bukan bubble berwarna. Memakai satu permukaan netral terang untuk bubble Anda dan lawan, palet di `src/theme/deletedBubble.ts` (`bgCard` putih, tepi `borderStrong`, teks dan jam `textSecondary` 4.76:1). Jangan memakai latar slate gelap semi-transparan atau `textMuted` di sini: gaya lama mengukur 1.1:1 (nyaris tak terbaca, dilaporkan dari uji penghapusan oleh admin 6 Okt 2026). Dijaga `scripts/test/deleted-bubble-contrast.test.js` (teks dan jam >= 4.5:1, palet harus hex opak).
 
 ---
@@ -271,10 +271,10 @@ Untuk mencegah teks tidak terbaca (*white-on-white* atau warna sama dengan tombo
 ### A. Bubble Chat (`MessageBubble.tsx`)
 - **Dasar bubble**: `borderRadius: 14`, padding `12/8/12/6`; sudut sisi pengirim dipertajam menjadi `3` (lihat `styles.bubble`, `selfBubble`, `otherBubble`).
 - **Pesan Keluar (*Outgoing / Self*)**:
-  - Background: `#30AFFF` (identitas biru Wuzz, nilai sama dengan `colors.accentPrimary`).
+  - Background: `#0a6cb8` (`bubblePalette.self.background`), teks putih. `#30AFFF` tetap warna aksen (tombol, FAB), bukan latar bubble.
   - Alignment: Kanan (`alignSelf: 'flex-end'`), `borderBottomRightRadius: 3`.
 - **Pesan Masuk (*Incoming / Peer*)**:
-  - Background: `#334155` (GELAP, bukan putih `bgSurface`); teks putih. Kontras isi bubble: lihat butir 4 aturan kontras di atas.
+  - Background: putih `bgCardSolid` + border `borderDefault` (`bubblePalette.other`); teks `textPrimary`. Kontras isi bubble: lihat butir 4 aturan kontras di atas.
   - Alignment: Kiri (`alignSelf: 'flex-start'`), `borderBottomLeftRadius: 3`.
   - Dilengkapi mini avatar pengirim deterministik (26dp) pada obrolan grup.
 - **Tanda Terima Neon Cyan**:

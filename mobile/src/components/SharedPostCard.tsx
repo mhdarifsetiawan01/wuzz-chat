@@ -10,6 +10,7 @@ import { Image } from 'expo-image';
 import { feedApi } from '../api/feedApi';
 import { FeedPost } from '../api/types';
 import { colors } from '../theme/colors';
+import { bubblePalette } from '../theme/bubblePalette';
 import { IconText } from './IconText';
 import { spacing } from '../theme/spacing';
 
@@ -89,7 +90,7 @@ export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, is
           <IconText icon="megaphone" style={[styles.label, isSelf && styles.labelSelf]} numberOfLines={1}>
             {authorName ? `Postingan @${authorName}` : 'Postingan Komunitas'}
           </IconText>
-          {state === null ? <ActivityIndicator size="small" color={isSelf ? 'rgba(255,255,255,0.7)' : colors.accentPrimary} /> : null}
+          {state === null ? <ActivityIndicator size="small" color={isSelf ? bubblePalette.self.textSecondary : colors.accentPrimary} /> : null}
         </View>
 
         {gone ? (
@@ -118,12 +119,12 @@ const styles = StyleSheet.create({
     minWidth: 220,
   },
   cardSelf: {
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
-    borderColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: bubblePalette.self.card,
+    borderColor: bubblePalette.self.cardBorder,
   },
   cardOther: {
-    backgroundColor: colors.bgInput,
-    borderColor: colors.borderDefault,
+    backgroundColor: bubblePalette.other.card,
+    borderColor: bubblePalette.other.cardBorder,
   },
   cardGone: {
     opacity: 0.65,
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   labelSelf: {
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: bubblePalette.self.textSecondary,
   },
   snippet: {
     fontSize: 13,
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   textSelf: {
-    color: '#ffffff',
+    color: bubblePalette.self.text,
   },
   goneText: {
     fontSize: 13,
@@ -168,6 +169,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 11,
     fontWeight: '600',
-    color: colors.accentPrimary,
+    color: bubblePalette.other.link,
   },
 });
