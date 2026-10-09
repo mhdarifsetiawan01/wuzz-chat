@@ -20,6 +20,7 @@ import { createAudioPlayer, AudioPlayer, AudioStatus } from 'expo-audio';
 import { audioManager } from '../services/audioManager';
 import { mediaCache } from '../services/mediaCache';
 import { colors } from '../theme/colors';
+import { bubblePalette } from '../theme/bubblePalette';
 import { IconText } from './IconText';
 
 // Waveform bar heights mimicking human speech patterns (24 bars)
@@ -230,11 +231,11 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
         disabled={isLoading}
       >
         {isLoading ? (
-          <ActivityIndicator size="small" color="#ffffff" />
+          <ActivityIndicator size="small" color={isSelf ? bubblePalette.self.background : '#ffffff'} />
         ) : isPlaying ? (
-          <IconText style={styles.pauseIcon}>⏸</IconText>
+          <IconText style={[styles.pauseIcon, isSelf && styles.playIconSelf]}>⏸</IconText>
         ) : (
-          <IconText style={styles.playIcon}>▶</IconText>
+          <IconText style={[styles.playIcon, isSelf && styles.playIconSelf]}>▶</IconText>
         )}
       </TouchableOpacity>
 
@@ -258,8 +259,12 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
                   {
                     height: Math.max(height * 0.26, 4),
                     backgroundColor: isFilled
-                      ? colors.accentPrimary
-                      : 'rgba(255, 255, 255, 0.25)',
+                      ? isSelf
+                      ? '#ffffff'
+                      : colors.accentPrimary
+                      : isSelf
+                      ? 'rgba(255, 255, 255, 0.4)'
+                      : colors.borderStrong,
                   },
                 ]}
               />
@@ -269,19 +274,19 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
 
         {/* Info Row: Time & Speed */}
         <View style={styles.infoRow}>
-          <Text style={styles.timeText}>
+          <Text style={[styles.timeText, isSelf && styles.timeTextSelf]}>
             {isPlaying || currentTime > 0
               ? `${audioManager.formatTime(currentTime)} / ${audioManager.formatTime(duration)}`
               : audioManager.formatTime(duration || 0)}
           </Text>
 
           <TouchableOpacity
-            style={styles.speedButton}
+            style={[styles.speedButton, isSelf && styles.speedButtonSelf]}
             onPress={handleToggleSpeed}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.speedText}>{playbackRate}x</Text>
+            <Text style={[styles.speedText, isSelf && styles.speedTextSelf]}>{playbackRate}x</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -313,14 +318,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   selfMicBadge: {
-    backgroundColor: colors.tintAccent20,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
     borderWidth: 1,
-    borderColor: colors.borderStrong,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   otherMicBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.tintAccent10,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    borderColor: colors.borderDefault,
   },
   micBadgeIcon: {
     fontSize: 18,
@@ -333,16 +338,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 10,
   },
+  // Tombol putih di bubble biru; di bubble putih tetap biru identitas dengan ikon putih
   selfPlayButton: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: '#ffffff',
   },
   otherPlayButton: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: '#0a6cb8',
   },
   playIcon: {
     fontSize: 14,
     color: '#ffffff',
     marginLeft: 2, // Centering play triangle
+  },
+  playIconSelf: {
+    color: bubblePalette.self.background,
   },
   pauseIcon: {
     fontSize: 14,
@@ -375,15 +384,24 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     fontWeight: '500',
   },
+  timeTextSelf: {
+    color: bubblePalette.self.textSecondary,
+  },
   speedButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: colors.bgInput,
     borderRadius: 8,
     paddingVertical: 1,
     paddingHorizontal: 5,
+  },
+  speedButtonSelf: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   speedText: {
     fontSize: 10,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  speedTextSelf: {
+    color: bubblePalette.self.text,
   },
 });

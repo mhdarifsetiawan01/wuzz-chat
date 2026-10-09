@@ -7,6 +7,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { colors, radius } from '../theme';
+import { bubblePalette } from '../theme/bubblePalette';
 import { IconText } from './IconText';
 
 interface AvatarProps {
@@ -31,15 +32,8 @@ const AVATAR_PALETTE = [
 
 // Nama pengirim di bubble lawan (#334155): tiap warna ≥ 4,5:1 (WCAG AA). Palet avatar di atas
 // untuk latar berinisial putih, terlalu gelap untuk teks di bubble gelap (indigo/sky/teal ±1,5-3:1).
-const SENDER_NAME_PALETTE = [
-  '#38bdf8', // Sky 400
-  '#2dd4bf', // Teal 400
-  '#a5b4fc', // Indigo 300
-  '#fbbf24', // Amber 400
-  '#f9a8d4', // Pink 300
-  '#c4b5fd', // Violet 300
-  '#86efac', // Green 300
-];
+// Varian gelap (bubble lawan kini putih); lihat theme/bubblePalette.ts
+const SENDER_NAME_PALETTE = bubblePalette.senderNames;
 
 function hashName(name: string): number {
   let hash = 0;

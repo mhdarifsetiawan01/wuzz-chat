@@ -17,6 +17,7 @@ import { LinkPreview } from '../api/types';
 import { fetchLinkPreview } from '../api/linkPreview';
 import { safeOpenUrl } from '../utils/linkUtils';
 import { colors } from '../theme/colors';
+import { bubblePalette } from '../theme/bubblePalette';
 import { IconText } from './IconText';
 import { spacing } from '../theme/spacing';
 
@@ -61,7 +62,7 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ url, isSelf = 
   if (loading) {
     return (
       <View style={[styles.skeletonContainer, isSelf ? styles.skeletonSelf : styles.skeletonOther]}>
-        <ActivityIndicator size="small" color={isSelf ? 'rgba(255,255,255,0.7)' : colors.accentPrimary} />
+        <ActivityIndicator size="small" color={isSelf ? bubblePalette.self.textSecondary : colors.accentPrimary} />
         <Text style={[styles.skeletonText, isSelf && styles.skeletonTextSelf]}>
           Memuat pratinjau...
         </Text>
@@ -156,12 +157,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   cardSelf: {
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
-    borderColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: bubblePalette.self.card,
+    borderColor: bubblePalette.self.cardBorder,
   },
   cardOther: {
-    backgroundColor: colors.bgInput,
-    borderColor: colors.borderDefault,
+    backgroundColor: bubblePalette.other.card,
+    borderColor: bubblePalette.other.cardBorder,
   },
   imageWrapper: {
     width: '100%',
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   siteNameSelf: {
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: bubblePalette.self.textSecondary,
   },
   title: {
     fontSize: 13,
@@ -208,7 +209,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   titleSelf: {
-    color: colors.textOnAccent,
+    color: bubblePalette.self.text,
   },
   description: {
     fontSize: 11,
@@ -216,7 +217,7 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   descriptionSelf: {
-    color: 'rgba(255, 255, 255, 0.75)',
+    color: bubblePalette.self.textSecondary,
   },
   skeletonContainer: {
     flexDirection: 'row',
@@ -234,11 +235,11 @@ const styles = StyleSheet.create({
   },
   skeletonText: {
     fontSize: 11,
-    color: colors.textMuted,
+    color: colors.textSecondary,
     marginLeft: 6,
     fontStyle: 'italic',
   },
   skeletonTextSelf: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: bubblePalette.self.textSecondary,
   },
 });
