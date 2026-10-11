@@ -86,7 +86,7 @@ export interface ChatScreenProps {
   /** M-Mobile-8.2B: Directly enter a sub-group conversation from the forum modal */
   onEnterSubGroup?: (subConv: Conversation) => void;
   /** Opens UserProfileScreen for the direct chat peer */
-  onOpenUserProfile?: (userId: string) => void;
+  onOpenUserProfile?: (userId: string, username?: string) => void;
   /** Opens PostReader for a feed post shared into the chat */
   onOpenPost?: (postId: string, post?: FeedPost) => void;
 }
@@ -924,7 +924,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // 4. Handle Send Message (Optimistic UI + Media Upload + Transparent E2EE)
   const handleSendMessage = useCallback(
-    async (text: string, media?: StagedMedia | null) => {
+    async (text: string, media?: StagedMedia | null, mentions?: string[]) => {
       const trimmedText = text.trim();
       if (!trimmedText && !media) return;
 
@@ -1001,6 +1001,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         timestamp: nowIso,
         status: 'sending',
         reply_to: replyPayload,
+        mentions,
         media_url: media ? media.uri : undefined,
         media_type: media ? 'image' : undefined,
         file_name: uploadedFileName || media?.fileName,
@@ -1031,7 +1032,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         msgId,
         mediaOptions,
         replyPayload,
-        msgId
+        msgId,
+        mentions
       );
       if (!sent) {
         setMessages((prev) =>
@@ -1190,6 +1192,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   );
 
   // 7. Handle Press Quote (Scroll to target message with highlight pulse)
+  // Ketuk @username: buka profil (bukan langsung chat) agar akun privat tetap lewat alur permintaan pertemanan
+  const handlePressMention = useCallback(
+    (mentionedUsername: string) => {
+      if (!onOpenUserProfile) return;
+      const uname = mentionedUsername.toLowerCase();
+      const member = groupDetails?.members?.find((m) => m.username.toLowerCase() === uname);
+      onOpenUserProfile(member?.user_id || '', member ? undefined : mentionedUsername);
+    },
+    [onOpenUserProfile, groupDetails?.members]
+  );
+
   const handleRetryDecrypt = useCallback(
     async (msg: Message) => {
       setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, decrypt_failed: false } : m)));
@@ -1279,6 +1292,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onPressQuote={handlePressQuote}
           onReact={handleReact}
           onPressPost={onOpenPost}
+          onPressMention={handlePressMention}
           onRetryDecrypt={handleRetryDecrypt}
         />
       );
@@ -1303,6 +1317,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       handleReact,
       onOpenPost,
       handleRetryDecrypt,
+      handlePressMention,
     ]
   );
 
@@ -2030,6 +2045,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           editingMessage={editingMessage}
           onSaveEdit={handleSaveEdit}
           onCancelEdit={() => setEditingMessage(null)}
+          mentionMembers={isDirect ? undefined : groupDetails?.members}
+          currentUserId={currentUserId}
         />
       </KeyboardAvoidingView>
 

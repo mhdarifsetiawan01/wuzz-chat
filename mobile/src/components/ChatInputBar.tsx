@@ -16,6 +16,7 @@ import {
   Image,
   Modal,
   Pressable,
+  ScrollView,
   ActivityIndicator,
   Keyboard,
   Animated,
@@ -26,7 +27,15 @@ import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
 } from 'expo-audio';
-import { Message } from '../api/types';
+import { GroupMember, Message } from '../api/types';
+import { Avatar } from './Avatar';
+import {
+  collectMentionIds,
+  detectMentionTrigger,
+  filterMentionMembers,
+  insertMention,
+  MentionTrigger,
+} from '../utils/mentionUtils';
 import { EmojiPicker } from './EmojiPicker';
 import { audioManager } from '../services';
 import { colors } from '../theme/colors';
@@ -47,7 +56,7 @@ export interface StagedMedia {
 }
 
 export interface ChatInputBarProps {
-  onSend: (text: string, media?: StagedMedia | null) => void;
+  onSend: (text: string, media?: StagedMedia | null, mentions?: string[]) => void;
   onSendAudio?: (uri: string, durationSeconds: number, fileSize?: number) => void;
   disabled?: boolean;
   stagedMedia?: StagedMedia | null;
@@ -65,6 +74,9 @@ export interface ChatInputBarProps {
   editingMessage?: Message | null;
   onSaveEdit?: (messageId: string, newContent: string) => void;
   onCancelEdit?: () => void;
+  /** Anggota room (grup/topik) untuk autocomplete @mention; kosong/undefined = fitur mati (DM) */
+  mentionMembers?: GroupMember[];
+  currentUserId?: string;
 }
 
 // Sama dengan web (MessageInput.tsx): satu event typing per 2 dtk
@@ -100,11 +112,26 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   editingMessage,
   onSaveEdit,
   onCancelEdit,
+  mentionMembers,
+  currentUserId = '',
 }) => {
   const [text, setText] = useState('');
+  const [mentionTrigger, setMentionTrigger] = useState<MentionTrigger | null>(null);
+  const selectionRef = useRef({ start: 0, end: 0 });
+  // username (lowercase) -> user_id, hanya untuk anggota yang dipilih dari daftar (DEC-013)
+  const trackedMentionsRef = useRef<Map<string, string>>(new Map());
+  const mentionMatches = mentionTrigger
+    ? filterMentionMembers(mentionMembers, mentionTrigger.query, currentUserId)
+    : [];
   const lastTypingSentRef = useRef(0);
 
   const handleChangeText = (value: string) => {
+    if (mentionMembers && mentionMembers.length > 0 && !editingMessage) {
+      const cursor = Math.max(0, Math.min(value.length, selectionRef.current.end + (value.length - text.length)));
+      setMentionTrigger(detectMentionTrigger(value, cursor));
+    } else if (mentionTrigger) {
+      setMentionTrigger(null);
+    }
     setText(value);
     // Tidak mengirim saat mengedit pesan lama atau teks kosong; server membatasi 3 event/2 dtk
     if (!onTyping || editingMessage || value.trim().length === 0) return;
@@ -204,6 +231,17 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     }
   }, [replyToId]);
 
+  const handleSelectMention = (member: GroupMember) => {
+    if (!mentionTrigger) return;
+    const cursor = mentionTrigger.startIdx + 1 + mentionTrigger.query.length;
+    const next = insertMention(text, mentionTrigger.startIdx, cursor, member.username);
+    trackedMentionsRef.current.set(member.username.toLowerCase(), member.user_id);
+    setText(next.text);
+    setMentionTrigger(null);
+    selectionRef.current = { start: next.cursor, end: next.cursor };
+    inputRef.current?.focus();
+  };
+
   const handleSend = () => {
     if (disabled || isUploading) return;
     const trimmed = text.trim();
@@ -218,7 +256,10 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
 
     if (!trimmed && !stagedMedia) return;
 
-    onSend(trimmed, stagedMedia);
+    const mentionIds = collectMentionIds(trimmed, trackedMentionsRef.current);
+    onSend(trimmed, stagedMedia, mentionIds.length > 0 ? mentionIds : undefined);
+    trackedMentionsRef.current.clear();
+    setMentionTrigger(null);
     setText('');
     setShowEmojiPicker(false);
   };
@@ -373,6 +414,30 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
         </View>
       ) : null}
 
+      {/* Mention autocomplete (@) - anggota room aktif saja */}
+      {mentionMatches.length > 0 ? (
+        <ScrollView style={styles.mentionList} keyboardShouldPersistTaps="always">
+          {mentionMatches.map((m) => (
+            <TouchableOpacity
+              key={m.user_id}
+              style={styles.mentionRow}
+              onPress={() => handleSelectMention(m)}
+              activeOpacity={0.7}
+            >
+              <Avatar name={m.display_name || m.username} avatarUrl={m.avatar_url} size={32} />
+              <View style={styles.mentionInfo}>
+                <Text style={styles.mentionName} numberOfLines={1}>
+                  {m.display_name || m.username}
+                </Text>
+                <Text style={styles.mentionUsername} numberOfLines={1}>
+                  @{m.username}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : null}
+
       {/* Quoted Reply Preview Banner (WhatsApp Style) */}
       {replyTo ? (
         <View style={styles.replyBanner}>
@@ -499,6 +564,9 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
             placeholderTextColor={colors.textMuted}
             value={text}
             onChangeText={handleChangeText}
+            onSelectionChange={(e) => {
+              selectionRef.current = e.nativeEvent.selection;
+            }}
             onFocus={() => setShowEmojiPicker(false)}
             multiline
             maxLength={4000}
@@ -598,6 +666,33 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderSubtle,
     paddingTop: 8,
     paddingHorizontal: spacing.sm,
+  },
+  mentionList: {
+    maxHeight: 220,
+    backgroundColor: colors.bgCardSolid,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    marginBottom: 8,
+  },
+  mentionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  mentionInfo: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  mentionName: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  mentionUsername: {
+    color: colors.textMuted,
+    fontSize: 12,
   },
   stagedBanner: {
     flexDirection: 'row',

@@ -156,6 +156,8 @@ export interface Message {
     media_url?: string;
     media_type?: string;
   };
+  /** UUID pengguna yang di-tag (@mention) pada pesan ini (DEC-013) */
+  mentions?: string[];
   is_encrypted?: boolean;
   media_url?: string;
   media_type?: string;
