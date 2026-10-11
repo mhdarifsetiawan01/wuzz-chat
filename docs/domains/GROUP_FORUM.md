@@ -71,3 +71,16 @@ backend/internal/group/
 - **Breadcrumb Header Interaktif**: `↖ [Nama Grup Induk] • Forum • X anggota` (tap untuk navigasi kembali).
 - **Collapsible Action Menu (`⋮`)**: Icon-icon sekunder terlipat rapi di layar mobile agar judul room tidak terpotong.
 - **Drawer Forum**: `SubGroupListDrawer.tsx` menampilkan daftar topik, badge sisa waktu TTL, dan panel peninjauan izin admin.
+
+---
+
+## 🧭 6. Backlog: Izin Gabung Grup Privat (`grp_`) via Tautan
+
+**Status saat ini**: Tombol "Bagikan Grup" mobile sudah ada (`GroupInfoScreen.tsx`; publik: semua anggota, privat: admin/creator). Non-anggota yang membuka tautan grup privat `grp_` mendapat 403 + `AuthorizationShield` (buntu, hanya disuruh minta admin menambahkan). `join-request` backend baru berlaku untuk `sub_`.
+
+**Rencana (ditunda)**: non-anggota bisa **Ajukan Gabung** lalu disetujui admin.
+- **Backend**: buka `join-request` untuk `grp_` (tenant sama); sesuaikan `join-requests` & `/action`; `GetGroupDetails` mengembalikan pratinjau minimal untuk non-anggota (bukan 403); satu pending per user + rate limit.
+- **Mobile**: ganti `AuthorizationShield` dengan alur "Ajukan Gabung" (status menunggu/ditolak); admin meninjau di panel yang sudah ada.
+- **Dokumen**: ubah aturan 6 di atas setelah diimplementasi.
+- **Keputusan terbuka**: pratinjau privat menampilkan jumlah anggota & deskripsi, atau hanya nama + avatar?
+- Deploy backend butuh izin eksplisit pengguna.

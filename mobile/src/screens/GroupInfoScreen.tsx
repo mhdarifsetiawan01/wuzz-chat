@@ -12,6 +12,7 @@ import {
   FlatList,
   Modal,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -19,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { APP_LINK_CONFIG } from '../api/config';
 import { groupsApi } from '../api/groups';
 import { searchUsers } from '../api/users';
 import { Conversation, GroupDetails, GroupMember, User } from '../api/types';
@@ -160,6 +162,28 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   const myRole = group?.my_role || members.find((m) => m.user_id === currentUser?.id)?.role;
   const isCreator = myRole === 'creator';
   const isAdmin = myRole === 'admin' || isCreator;
+  // Grup publik: semua anggota boleh membagikan. Grup privat: hanya admin/creator,
+  // dan tautannya tetap tidak membuka akses (non-anggota ditolak 403 di server).
+  const canShareGroup = Boolean(group && myRole && (group.is_public || isAdmin));
+
+  const handleShareGroup = useCallback(async () => {
+    if (!group) return;
+    try {
+      const isSub = groupId.startsWith('sub_');
+      const shareUrl = isSub
+        ? APP_LINK_CONFIG.getSubGroupShareUrl(groupId)
+        : APP_LINK_CONFIG.getGroupShareUrl(groupId);
+      const privateNote = group.is_public
+        ? ''
+        : '\n(Grup privat: hanya anggota yang dapat membuka tautan ini)';
+      await Share.share({
+        message: `Gabung grup WuzzChat: ${group.title}\n${shareUrl}${privateNote}`,
+        title: `Bagikan Grup ${group.title}`,
+      });
+    } catch (err) {
+      console.warn('[GroupInfoScreen] Failed to share group:', err);
+    }
+  }, [group, groupId]);
 
   // Open Add Member Modal & search contacts
   const handleOpenAddModal = async () => {
@@ -484,11 +508,10 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
           </View>
         </View>
 
-        {/* Action Buttons (Forum, Add Members & Leave) */}
-        <View style={styles.actionButtonsSection}>
-          {/* 🏛️ Forum button — M-Mobile-8.2B */}
+        {/* Baris aksi ringkas: Forum, Bagikan, Tambah Anggota (admin), Media */}
+        <View style={styles.quickActionsRow}>
           <TouchableOpacity
-            style={[styles.actionCardButton, styles.forumCardButton]}
+            style={styles.quickActionButton}
             onPress={() => {
               if (onOpenForum) {
                 onOpenForum(groupId);
@@ -497,39 +520,49 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
               }
             }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Forum"
           >
-            <IconText style={styles.actionCardIcon}>🏛️</IconText>
-            <Text style={styles.forumCardText}>Forum</Text>
+            <Icon name="forum" size={22} color={colors.accentPrimary} />
+            <Text style={styles.quickActionText} numberOfLines={1}>Forum</Text>
           </TouchableOpacity>
+
+          {canShareGroup && (
+            <TouchableOpacity
+              style={styles.quickActionButton}
+              onPress={handleShareGroup}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Bagikan Grup"
+            >
+              <Icon name="share" size={22} color={colors.accentPrimary} />
+              <Text style={styles.quickActionText} numberOfLines={1}>Bagikan</Text>
+            </TouchableOpacity>
+          )}
 
           {isAdmin && (
             <TouchableOpacity
-              style={styles.actionCardButton}
+              style={styles.quickActionButton}
               onPress={handleOpenAddModal}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Tambah Anggota"
             >
-              <IconText style={styles.actionCardIcon}>👥➕</IconText>
-              <Text style={styles.actionCardText}>Tambah Anggota</Text>
+              <Icon name="userPlus" size={22} color={colors.accentPrimary} />
+              <Text style={styles.quickActionText} numberOfLines={1}>Tambah</Text>
             </TouchableOpacity>
           )}
 
           {/* Milestone M-Mobile-8.30: Media & Berkas Grup */}
           <TouchableOpacity
-            style={styles.actionCardButton}
+            style={styles.quickActionButton}
             onPress={() => setShowMediaGallery(true)}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Media dan Berkas Grup"
           >
-            <IconText style={styles.actionCardIcon}>🖼️</IconText>
-            <Text style={styles.actionCardText}>Media & Berkas Grup</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionCardButton, styles.leaveCardButton]}
-            onPress={handleLeaveGroup}
-            activeOpacity={0.7}
-          >
-            <IconText style={styles.leaveCardIcon}>🚪</IconText>
-            <Text style={styles.leaveCardText}>Keluar dari Grup</Text>
+            <Icon name="image" size={22} color={colors.accentPrimary} />
+            <Text style={styles.quickActionText} numberOfLines={1}>Media</Text>
           </TouchableOpacity>
         </View>
 
@@ -547,6 +580,20 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
               {renderMemberRow({ item })}
             </React.Fragment>
           ))}
+        </View>
+
+        {/* Aksi destruktif dipisah dari aksi biasa, di paling bawah */}
+        <View style={styles.leaveSection}>
+          <TouchableOpacity
+            style={styles.leaveButton}
+            onPress={handleLeaveGroup}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Keluar dari Grup"
+          >
+            <Icon name="exit" size={20} color={colors.colorDanger} />
+            <Text style={styles.leaveButtonText}>Keluar dari Grup</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.footerSpacing} />
@@ -887,52 +934,50 @@ const makeStyles = (colors: ColorTokens) => {
     color: colors.textMuted,
     fontSize: 11,
   },
-  actionButtonsSection: {
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    gap: spacing.sm,
     backgroundColor: colors.bgBase,
   },
-  actionCardButton: {
-    flexDirection: 'row',
+  quickActionButton: {
+    flex: 1,
     alignItems: 'center',
-    backgroundColor: colors.bgCardSolid,
+    justifyContent: 'center',
+    gap: spacing.xs,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.bgCardSolid,
     borderRadius: radius.lg,
     borderWidth: 1,
-    // borderSubtle (#f1f5f9) nyaris sama dengan latar bgBase (#f4f7fb) sehingga kartu tampak tanpa border
+    // borderSubtle nyaris sama dengan latar bgBase sehingga kartu tampak tanpa border
     borderColor: colors.borderDefault,
   },
-  actionCardIcon: {
-    fontSize: 18,
-    marginRight: spacing.md,
-  },
-  actionCardText: {
-    ...typography.body,
+  quickActionText: {
+    ...typography.caption,
     fontWeight: '600',
     color: colors.accentPrimary,
   },
-  leaveCardButton: {
+  leaveSection: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+    backgroundColor: colors.bgBase,
+  },
+  leaveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
     borderColor: colors.tintError20,
+    backgroundColor: colors.tintError10,
   },
-  leaveCardIcon: {
-    fontSize: 18,
-    marginRight: spacing.md,
-  },
-  leaveCardText: {
+  leaveButtonText: {
     ...typography.body,
     fontWeight: '600',
     color: colors.colorDanger,
-  },
-  // M-Mobile-8.2B: Forum action card
-  forumCardButton: {
-    borderColor: colors.borderStrong,
-  },
-  forumCardText: {
-    ...typography.body,
-    fontWeight: '700',
-    color: colors.accentPrimary,
   },
   membersSectionHeader: {
     paddingHorizontal: spacing.lg,
