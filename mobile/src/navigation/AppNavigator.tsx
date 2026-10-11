@@ -62,8 +62,8 @@ export const AppNavigator: React.FC = () => {
             conversation={route.params.conversation}
             parentGroupConversation={route.params.parentGroupConversation}
             onBack={() => navigation.goBack()}
-            onOpenUserProfile={(peerUserId) => {
-              navigation.navigate('UserProfile', { userId: peerUserId });
+            onOpenUserProfile={(peerUserId, peerUsername) => {
+              navigation.navigate('UserProfile', { userId: peerUserId || undefined, username: peerUsername });
             }}
             onOpenPost={(postId, post) => {
               navigation.navigate('PostReader', { postId, initialPost: post });

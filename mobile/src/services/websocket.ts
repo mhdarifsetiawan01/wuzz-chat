@@ -342,7 +342,8 @@ class WebSocketClient {
     requestId?: string,
     media?: SendMediaOptions,
     replyTo?: SendReplyOptions,
-    messageId?: string
+    messageId?: string,
+    mentions?: string[]
   ): boolean {
     const reqId = requestId || messageId || `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const msgId = messageId || requestId;
@@ -359,6 +360,10 @@ class WebSocketClient {
       payload.media_type = media.media_type || 'image';
       if (media.file_name) payload.file_name = media.file_name;
       if (media.file_size) payload.file_size = media.file_size;
+    }
+
+    if (mentions && mentions.length > 0) {
+      payload.mentions = mentions;
     }
 
     if (replyTo && replyTo.id) {

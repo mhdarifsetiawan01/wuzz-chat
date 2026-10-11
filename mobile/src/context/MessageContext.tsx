@@ -488,6 +488,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
             timestamp: m.timestamp || m.created_at || new Date().toISOString(),
             status: m.status || 'sent',
             reply_to: replyToObj,
+            mentions: Array.isArray(m.mentions) ? m.mentions : undefined,
             reactions: normalizeReactions(m.reactions),
             is_deleted: Boolean(m.is_deleted),
             is_pinned: Boolean(m.is_pinned),
@@ -601,6 +602,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
             timestamp: m.timestamp || m.created_at || new Date().toISOString(),
             status: m.status || 'sent',
             reply_to: replyToObj,
+            mentions: Array.isArray(m.mentions) ? m.mentions : undefined,
             reactions: normalizeReactions(m.reactions),
             is_deleted: Boolean(m.is_deleted),
             is_pinned: Boolean(m.is_pinned),
@@ -757,6 +759,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ? 'sent'
             : 'delivered',
         reply_to: replyToObj,
+        mentions: Array.isArray(incoming.mentions) ? incoming.mentions : undefined,
         reactions: normalizeReactions(incoming.reactions),
         is_deleted: Boolean(incoming.is_deleted),
         is_pinned: Boolean(incoming.is_pinned),

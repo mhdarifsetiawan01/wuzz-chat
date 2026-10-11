@@ -34,6 +34,7 @@ import { LinkPreviewCard } from './LinkPreviewCard';
 import { SharedPostCard } from './SharedPostCard';
 import { parseSharedPost } from '../utils/feedShare';
 import { quotePreviewText } from '../utils/quotePreview';
+import { splitMentions } from '../utils/mentionUtils';
 import {
   UNDECRYPTABLE_INFO_BODY,
   UNDECRYPTABLE_INFO_TITLE,
@@ -56,6 +57,8 @@ export interface MessageBubbleProps {
   onReact?: (messageId: string, emoji: string) => void;
   onPressMedia?: (message: Message, uri: string) => void;
   /** Dipanggil saat kartu postingan feed yang dibagikan diketuk */
+  /** Ketuk @username pada pesan: induk membuka profil (privasi ditegakkan di layar profil). */
+  onPressMention?: (username: string) => void;
   onPressPost?: (postId: string, post?: import('../api/types').FeedPost) => void;
   /** Dipanggil saat pesan E2EE yang gagal didekripsi diketuk untuk dicoba lagi */
   onRetryDecrypt?: (message: Message) => void;
@@ -75,6 +78,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   onReact,
   onPressMedia,
   onPressPost,
+  onPressMention,
   onRetryDecrypt,
 }) => {
   const insets = useSafeAreaInsets();
@@ -196,11 +200,31 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   ) => {
     if (!content) return null;
 
+    // Sorot @username hanya bila pesan memang membawa mentions (hindari menyorot email dsb.)
+    const hasMentions = Array.isArray(message.mentions) && message.mentions.length > 0;
+    const mentionedSelf = Boolean(currentUserId && hasMentions && message.mentions!.includes(currentUserId));
+    const renderPlain = (text: string, keyPrefix: string) =>
+      hasMentions
+        ? splitMentions(text).map((seg, i) =>
+            seg.isMention ? (
+              <Text
+                key={`${keyPrefix}${i}`}
+                onPress={onPressMention ? () => onPressMention(seg.text.slice(1)) : undefined}
+                style={[styles.mentionText, mentionedSelf && styles.mentionTextSelfTagged, isSelfBubble ? styles.mentionTextSelf : styles.mentionTextOther]}
+              >
+                {seg.text}
+              </Text>
+            ) : (
+              <Text key={`${keyPrefix}${i}`}>{seg.text}</Text>
+            )
+          )
+        : text;
+
     const parts = content.split(URL_REGEX);
     if (parts.length === 1) {
       return (
         <Text style={[styles.messageText, !isSelfBubble && styles.messageTextOther, isImageCaption ? styles.captionText : null]}>
-          {content}
+          {renderPlain(content, 'm')}
         </Text>
       );
     }
@@ -229,7 +253,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             );
           }
 
-          return <Text key={index}>{part}</Text>;
+          return <Text key={index}>{renderPlain(part, `p${index}-`)}</Text>;
         })}
       </Text>
     );
@@ -577,6 +601,18 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 export const MessageBubble = React.memo(MessageBubbleComponent);
 
 const styles = StyleSheet.create({
+  mentionText: {
+    fontWeight: '700',
+  },
+  mentionTextSelf: {
+    color: bubblePalette.self.link,
+  },
+  mentionTextOther: {
+    color: bubblePalette.other.link,
+  },
+  mentionTextSelfTagged: {
+    textDecorationLine: 'underline',
+  },
   container: {
     marginVertical: 3,
     paddingHorizontal: spacing.sm,
