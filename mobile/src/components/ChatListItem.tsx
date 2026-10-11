@@ -19,13 +19,15 @@ interface ChatListItemProps {
   conversation: Conversation;
   onPress: (conversation: Conversation) => void;
   onLongPress?: (conversation: Conversation) => void;
+  /** Cache lokal sedang didekripsi: snippet e2ee: tampil "Memuat pesan…" (bukan gembok, yang berarti gagal). */
+  decrypting?: boolean;
 }
 
 function getConversationName(conv: Conversation): string {
   return conv.title || conv.peer_nickname || conv.name || conv.id || 'Obrolan';
 }
 
-function getMessagePreview(conversation: Conversation, currentUserId?: string): string {
+function getMessagePreview(conversation: Conversation, currentUserId?: string, decrypting = false): string {
   if (!conversation.last_message) {
     return 'Belum ada pesan';
   }
@@ -53,7 +55,7 @@ function getMessagePreview(conversation: Conversation, currentUserId?: string): 
   } else if (!raw) {
     body = 'Belum ada pesan';
   } else if (raw.startsWith('e2ee:')) {
-    body = '🔒 Pesan terenkripsi';
+    body = decrypting ? 'Memuat pesan…' : '🔒 Pesan terenkripsi';
   } else if (isUndecryptablePlaceholder(raw)) {
     body = UNDECRYPTABLE_PREVIEW;
   } else if (parseSharedPost(raw)) {
@@ -93,6 +95,7 @@ const ChatListItemComponent: React.FC<ChatListItemProps> = ({
   conversation,
   onPress,
   onLongPress,
+  decrypting = false,
 }) => {
   const { user } = useAuth();
   const unreadCount = conversation.unread_count || 0;
@@ -102,7 +105,7 @@ const ChatListItemComponent: React.FC<ChatListItemProps> = ({
       ? conversation.last_message.created_at
       : conversation.updated_at
   );
-  const previewText = getMessagePreview(conversation, user?.id);
+  const previewText = getMessagePreview(conversation, user?.id, decrypting);
   const displayName = getConversationName(conversation);
   const avatarUrl = conversation.avatar_url || conversation.peer_avatar_url;
   const isGroup =

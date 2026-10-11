@@ -40,6 +40,8 @@ export interface ConversationContextType {
   conversations: Conversation[];
   isLoading: boolean;
   isRefreshing: boolean;
+  /** True selama cache lokal belum selesai didekripsi (pratinjau e2ee: tampil "Memuat pesan…"). */
+  isDecrypting: boolean;
   error: string | null;
   activeRoomId: string | null;
   refreshConversations: (isSilent?: boolean) => Promise<void>;
@@ -57,6 +59,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isDecrypting, setIsDecrypting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [activeRoomId, setActiveRoomIdState] = useState<string | null>(null);
   const activeRoomIdRef = useRef<string | null>(null);
@@ -445,6 +448,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setConversations([]);
       hasLoadedOnceRef.current = false;
       serverLoadedRef.current = false;
+      setIsDecrypting(false);
       setIsLoading(false);
       setIsRefreshing(false);
       setError(null);
@@ -453,21 +457,37 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     let isMounted = true;
 
+    // Provider bisa aktif sebelum sesi pulih (isLoading sempat dimatikan di cabang di atas): tandai memuat lagi
+    // supaya layar tidak menampilkan "Belum Ada Pesan" sebelum cache SQLite terbaca.
+    if (!hasLoadedOnceRef.current) setIsLoading(true);
+
     const hydrateFromLocalDB = async () => {
+      const t0 = Date.now();
       let hasLocalData = false;
       try {
         const localData = await getStoredConversations(user.id);
+        const tRead = Date.now() - t0;
         if (isMounted && localData && localData.length > 0 && !serverLoadedRef.current) {
-          // Process decryption on local data immediately before setting state
-          const processedLocal = await processConversations(localData);
-          // Fetch server bisa selesai selama dekripsi; jangan timpa daftar segar dengan cache lama
-          if (!isMounted || serverLoadedRef.current) return;
-          const sorted = sortConversations(processedLocal);
-          setConversations(sorted);
+          // Tampilkan cache apa adanya SEKARANG; dekripsi (SecureStore/ECDH per room) jangan memblokir daftar
+          setConversations(sortConversations(localData));
           hasLoadedOnceRef.current = true;
           hasLocalData = true;
-          // INSTANT COLD START RENDER: eliminate loading spinner immediately
           setIsLoading(false);
+          setIsDecrypting(true);
+          console.warn(`[ConversationContext] cold start: SQLite ${tRead}ms, daftar tampil ${Date.now() - t0}ms (${localData.length} room)`);
+
+          let processedLocal: Conversation[];
+          try {
+            processedLocal = await processConversations(localData);
+          } finally {
+            if (isMounted) setIsDecrypting(false);
+          }
+          // Fetch server bisa selesai selama dekripsi; jangan timpa daftar segar dengan cache lama
+          if (!isMounted || serverLoadedRef.current) return;
+          setConversations(sortConversations(processedLocal));
+          console.warn(`[ConversationContext] cold start: dekripsi cache selesai ${Date.now() - t0}ms`);
+        } else {
+          console.warn(`[ConversationContext] cold start: cache lokal kosong (SQLite ${tRead}ms)`);
         }
       } catch (err) {
         console.warn('[ConversationContext] Local SQLite hydration error:', err);
@@ -475,7 +495,9 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       // Revalidate in background: silent if local data was loaded, or full spinner if first install
       if (isMounted) {
-        refreshConversations(hasLocalData);
+        refreshConversations(hasLocalData).finally(() => {
+          console.warn(`[ConversationContext] cold start: server selesai ${Date.now() - t0}ms`);
+        });
       }
     };
 
@@ -545,6 +567,7 @@ export const ConversationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         conversations,
         isLoading,
         isRefreshing,
+        isDecrypting,
         error,
         activeRoomId,
         refreshConversations,
