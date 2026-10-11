@@ -24,7 +24,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
-import { Conversation, FeedPost, ConversationItem, GroupDetails, Message, PinnedMessage, ConnectionStatusResponse } from '../api/types';
+import { Conversation, FeedPost, ConversationItem, GroupDetails, GroupMember, Message, PinnedMessage, ConnectionStatusResponse } from '../api/types';
 import { getUserPublicKey } from '../api/users';
 import { groupsApi } from '../api/groups';
 import { mediaApi } from '../api/media';
@@ -89,6 +89,39 @@ export interface ChatScreenProps {
   onOpenUserProfile?: (userId: string, username?: string) => void;
   /** Opens PostReader for a feed post shared into the chat */
   onOpenPost?: (postId: string, post?: FeedPost) => void;
+}
+
+// Cache anggota untuk @mention per room: TTL 5 menit, satu request berjalan per room, jeda 60 dtk setelah gagal
+const MENTION_MEMBERS_TTL_MS = 5 * 60 * 1000;
+const MENTION_MEMBERS_RETRY_MS = 60 * 1000;
+const mentionMembersCache = new Map<string, { at: number; members: GroupMember[] }>();
+const mentionMembersInFlight = new Map<string, Promise<GroupMember[] | null>>();
+const mentionMembersFailedAt = new Map<string, number>();
+
+function loadMentionMembers(roomId: string): Promise<GroupMember[] | null> {
+  const cached = mentionMembersCache.get(roomId);
+  if (cached && Date.now() - cached.at < MENTION_MEMBERS_TTL_MS) return Promise.resolve(cached.members);
+  const failedAt = mentionMembersFailedAt.get(roomId);
+  if (failedAt && Date.now() - failedAt < MENTION_MEMBERS_RETRY_MS) return Promise.resolve(null);
+  const pending = mentionMembersInFlight.get(roomId);
+  if (pending) return pending;
+  const task = groupsApi
+    .getGroupMembers(roomId)
+    .then((res) => {
+      const list: GroupMember[] = Array.isArray(res) ? res : (res as any)?.members ?? [];
+      mentionMembersCache.set(roomId, { at: Date.now(), members: list });
+      mentionMembersFailedAt.delete(roomId);
+      return list;
+    })
+    .catch(() => {
+      mentionMembersFailedAt.set(roomId, Date.now());
+      return null;
+    })
+    .finally(() => {
+      mentionMembersInFlight.delete(roomId);
+    });
+  mentionMembersInFlight.set(roomId, task);
+  return task;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
@@ -177,6 +210,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [memberCount, setMemberCount] = useState<number>(conversation.member_count || 0);
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
+  // Anggota untuk autocomplete @mention: dimuat malas (baru saat pengguna mengetik "@"), bukan saat membuka room
+  const [fetchedMentionMembers, setFetchedMentionMembers] = useState<GroupMember[] | undefined>(undefined);
 
   // Milestone 8.3: Message Management Suite States
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
@@ -470,6 +505,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     );
   }, [isSubGroup, parentGroupDetails, parentGroupConversation]);
 
+  // onBack (fungsi inline dari navigator) dan isKnownGroupMember berubah tiap render; bila jadi dependensi effect
+  // di bawah, request detail grup yang sedang jalan dibatalkan lalu diulang, hasilnya terbuang dan server
+  // menerima request berulang. Dibaca lewat ref agar effect hanya jalan sekali per room.
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
+  const isKnownGroupMemberRef = useRef(isKnownGroupMember);
+  isKnownGroupMemberRef.current = isKnownGroupMember;
+
+  const handleRequestMentionMembers = useCallback(() => {
+    if (!isGroup || fetchedMentionMembers) return;
+    loadMentionMembers(roomId)
+      .then((members) => {
+        if (members) setFetchedMentionMembers(members);
+      })
+      .catch(() => {});
+  }, [isGroup, roomId, fetchedMentionMembers]);
+
   // Load & verify group details if group room
   useEffect(() => {
     if (!isGroup) {
@@ -477,7 +529,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       return;
     }
     let mounted = true;
-    if (!isKnownGroupMember) {
+    if (!isKnownGroupMemberRef.current) {
       setIsVerifyingGroup(true);
     }
 
@@ -515,9 +567,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         if (isForbidden) {
           setIsAccessDenied(true);
           setAccessDeniedError(err?.detail || err?.message || 'Akses ditolak: Anda bukan anggota grup ini');
-        } else if (!isKnownGroupMember) {
+        } else if (!isKnownGroupMemberRef.current) {
           showAlert('Gagal Memuat Grup', err?.detail || err?.message || 'Grup tidak dapat diakses.');
-          onBack();
+          onBackRef.current();
         } else {
           // Resilient SWR: if network failed on an already known group, keep viewing cached messages
           console.warn('[ChatScreen] Could not refresh group details in background, keeping local view');
@@ -529,7 +581,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     return () => {
       mounted = false;
     };
-  }, [isGroup, roomId, onBack, isKnownGroupMember]);
+  }, [isGroup, roomId]);
 
   // M-Mobile-8.2C: Fetch parent group info for breadcrumb when in a sub-group
   useEffect(() => {
@@ -2045,7 +2097,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           editingMessage={editingMessage}
           onSaveEdit={handleSaveEdit}
           onCancelEdit={() => setEditingMessage(null)}
-          mentionMembers={isDirect ? undefined : groupDetails?.members}
+          mentionMembers={
+            isDirect
+              ? undefined
+              : groupDetails?.members && groupDetails.members.length > 0
+                ? groupDetails.members
+                : fetchedMentionMembers
+          }
+          onRequestMentionMembers={isDirect ? undefined : handleRequestMentionMembers}
           currentUserId={currentUserId}
         />
       </KeyboardAvoidingView>

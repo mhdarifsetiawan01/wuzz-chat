@@ -76,6 +76,8 @@ export interface ChatInputBarProps {
   onCancelEdit?: () => void;
   /** Anggota room (grup/topik) untuk autocomplete @mention; kosong/undefined = fitur mati (DM) */
   mentionMembers?: GroupMember[];
+  /** Dipanggil saat pengguna mengetik "@" di grup tetapi daftar anggota belum ada (pemuatan malas oleh induk) */
+  onRequestMentionMembers?: () => void;
   currentUserId?: string;
 }
 
@@ -113,6 +115,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onSaveEdit,
   onCancelEdit,
   mentionMembers,
+  onRequestMentionMembers,
   currentUserId = '',
 }) => {
   const [text, setText] = useState('');
@@ -125,7 +128,22 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     : [];
   const lastTypingSentRef = useRef(0);
 
+  // Anggota tiba setelah "@" sudah diketik (dimuat malas): tampilkan dropdown tanpa menunggu ketikan berikutnya
+  const hasMentionMembers = Boolean(mentionMembers && mentionMembers.length > 0);
+  useEffect(() => {
+    if (!hasMentionMembers || editingMessage) return;
+    const cursor = Math.max(0, Math.min(text.length, selectionRef.current.end || text.length));
+    setMentionTrigger(detectMentionTrigger(text, cursor));
+    // hanya saat anggota baru tersedia; teks berikutnya ditangani handleChangeText
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMentionMembers]);
+
   const handleChangeText = (value: string) => {
+    if (onRequestMentionMembers && !editingMessage && (!mentionMembers || mentionMembers.length === 0)) {
+      const cursor = Math.max(0, Math.min(value.length, selectionRef.current.end + (value.length - text.length)));
+      // Anggota belum ada: minta induk memuatnya (sekali, ber-cache), dropdown muncul setelah props terisi
+      if (detectMentionTrigger(value, cursor)) onRequestMentionMembers();
+    }
     if (mentionMembers && mentionMembers.length > 0 && !editingMessage) {
       const cursor = Math.max(0, Math.min(value.length, selectionRef.current.end + (value.length - text.length)));
       setMentionTrigger(detectMentionTrigger(value, cursor));
