@@ -547,6 +547,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
           // DEC-012: If group is public and current user is not a member yet, show preview modal
           const isUserMember = Boolean(details.my_role || (details as any).is_member);
+          // Subgrup privat via tautan: anggota grup induk pun tidak boleh masuk tanpa
+          // keanggotaan subgrup (ajukan izin lewat daftar forum).
+          if (!details.is_public && !isUserMember) {
+            setIsAccessDenied(true);
+            setAccessDeniedError('Akses ditolak: Anda bukan anggota grup ini');
+            setIsVerifyingGroup(false);
+            markRoomLoading(roomId, false);
+            return;
+          }
           if (details.is_public && !isUserMember) {
             console.log('[ChatScreen] Direct link to unjoined public group -> show preview modal');
             setDirectPreviewGroup(details);
