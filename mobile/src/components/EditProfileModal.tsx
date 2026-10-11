@@ -24,7 +24,7 @@ import { authApi } from '../api/auth';
 import { mediaApi } from '../api/media';
 import { User, UserMetadata } from '../api/types';
 import { Avatar } from './Avatar';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
@@ -55,6 +55,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   currentMetadata = {},
   onProfileUpdated,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
 
   const [displayName, setDisplayName] = useState(currentDisplayName);
@@ -588,7 +590,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -666,7 +670,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -832,3 +836,4 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 });
+};

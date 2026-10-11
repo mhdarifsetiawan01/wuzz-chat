@@ -4,9 +4,10 @@
  */
 
 import { TextStyle } from 'react-native';
-import { colors } from './colors';
+import { ColorTokens, lightColors } from './colors';
 
-export const typography = {
+/** Skala tipografi untuk satu palet; warna teks mengikuti tema aktif. */
+export const makeTypography = (colors: ColorTokens) => ({
   h1: {
     fontSize: 28,
     fontWeight: '700',
@@ -58,4 +59,9 @@ export const typography = {
     fontWeight: '400',
     color: colors.textPrimary,
   } as TextStyle,
-} as const;
+} as const);
+
+export type Typography = ReturnType<typeof makeTypography>;
+
+/** Skala terang statis, untuk kode yang tidak berada dalam komponen. Di komponen pakai `useTheme().typography`. */
+export const typography: Typography = makeTypography(lightColors);

@@ -30,7 +30,7 @@ import { RecentChatsScreen } from '../screens/RecentChatsScreen';
 import { CallsHistoryScreen } from '../screens/CallsHistoryScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { FeedScreen } from '../screens/FeedScreen';
-import { colors, spacing, radius } from '../theme';
+import { spacing, radius, useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { Icon } from '../components/Icon';
 import type { IconName } from '../components/icons/registry';
 import { useConversations } from '../context/ConversationContext';
@@ -80,6 +80,8 @@ const TabItem: React.FC<TabItemProps> = ({
   accessibilityLabel,
   onPress,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const focus = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
   const press = useRef(new Animated.Value(1)).current;
 
@@ -151,6 +153,7 @@ const TabItem: React.FC<TabItemProps> = ({
 //  - Indikator kapsul meluncur halus (spring) mengikuti tab aktif
 // ─────────────────────────────────────────────────────────────────────────────
 function AuroraTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { conversations } = useConversations();
   const [barWidth, setBarWidth] = useState(0);
@@ -277,7 +280,7 @@ export const MainTabNavigator: React.FC = () => {
 const BAR_PADDING = spacing.xs;
 const ICON_SIZE = 24;
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   tabBarOuter: {
     backgroundColor: colors.bgBase,
     paddingTop: spacing.sm,

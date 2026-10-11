@@ -31,7 +31,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mediaApi } from '../api/media';
 import { CreateFeedPostRequest, FeedPostType } from '../api/types';
 import { useAuth, useFeed } from '../context';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
@@ -64,6 +64,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   onClose,
   onPostCreated,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { createPost } = useFeed();
@@ -302,7 +304,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
                   <Switch
                     value={isPinned}
                     onValueChange={setIsPinned}
-                    trackColor={{ false: '#e2e8f0', true: colors.accentPrimary }}
+                    trackColor={{ false: colors.borderDefault, true: colors.accentPrimary }}
                     thumbColor="#ffffff"
                   />
                 </View>
@@ -341,7 +343,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
             <TextInput
               style={styles.textInput}
               placeholder="Apa yang sedang terjadi di komunitasmu hari ini?..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textMuted}
               multiline
               maxLength={MAX_CHARS}
               value={content}
@@ -415,7 +417,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -425,7 +427,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.55)',
   },
   modalCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '90%',
@@ -443,7 +445,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.borderDefault,
   },
   closeBtn: {
     paddingVertical: 6,
@@ -451,16 +453,16 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 15,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   submitBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 20,
@@ -490,30 +492,30 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   adminBadge: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.tintAccent10,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
     alignSelf: 'flex-start',
     marginTop: 3,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: colors.tintAccent30,
   },
   adminBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1d4ed8',
+    color: colors.colorInfoText,
   },
   adminControlCard: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bgBase,
     borderRadius: 16,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.borderDefault,
   },
   adminControlHeader: {
     marginBottom: 8,
@@ -521,7 +523,7 @@ const styles = StyleSheet.create({
   adminControlTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -531,7 +533,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.borderDefault,
     marginBottom: 8,
   },
   settingLabelCol: {
@@ -541,17 +543,17 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1e293b',
+    color: colors.textPrimary,
   },
   settingSubLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   typeSelectorLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   typeSelectorRow: {
@@ -562,9 +564,9 @@ const styles = StyleSheet.create({
   typeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: colors.borderStrong,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -580,7 +582,7 @@ const styles = StyleSheet.create({
   typeChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   typeChipTextSelected: {
     color: colors.accentPrimary,
@@ -589,7 +591,7 @@ const styles = StyleSheet.create({
   textInput: {
     fontSize: 16,
     lineHeight: 24,
-    color: '#0f172a',
+    color: colors.textPrimary,
     minHeight: 130,
     paddingTop: 4,
   },
@@ -629,7 +631,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: colors.borderDefault,
   },
   mediaButtonsRow: {
     flexDirection: 'row',
@@ -648,7 +650,7 @@ const styles = StyleSheet.create({
   iconBtnLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   mediaCountBadge: {
     fontSize: 12,
@@ -660,14 +662,14 @@ const styles = StyleSheet.create({
   charCounter: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   charCounterWarning: {
-    color: '#f59e0b',
+    color: colors.colorWarning,
     fontWeight: '700',
   },
   charCounterError: {
-    color: '#ef4444',
+    color: colors.colorError,
     fontWeight: '700',
   },
 });

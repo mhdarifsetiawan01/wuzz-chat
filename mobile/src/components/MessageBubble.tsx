@@ -24,9 +24,9 @@ import { AudioPlayerBubble } from './AudioPlayerBubble';
 import { getSenderNameColor } from './Avatar';
 import { mediaCache } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
-import { colors } from '../theme/colors';
-import { bubblePalette } from '../theme/bubblePalette';
-import { deletedBubblePalette } from '../theme/deletedBubble';
+import { useTheme, useThemedStyles, ColorTokens, ResolvedScheme } from '../theme';
+import { getBubblePalette } from '../theme/bubblePalette';
+import { getDeletedBubblePalette } from '../theme/deletedBubble';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
@@ -81,6 +81,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   onPressMention,
   onRetryDecrypt,
 }) => {
+  const { colors, scheme } = useTheme();
+  const bubblePalette = getBubblePalette(scheme);
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
@@ -367,7 +370,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
             <Text
               style={[
                 styles.senderName,
-                { color: getSenderNameColor(senderName || message.from || 'User') },
+                { color: getSenderNameColor(senderName || message.from || 'User', scheme) },
               ]}
             >
               {senderName}
@@ -600,7 +603,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 // Memoized: bubble hanya re-render bila prop-nya berubah (callback dari ChatScreen harus stabil)
 export const MessageBubble = React.memo(MessageBubbleComponent);
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens, scheme: ResolvedScheme) => {
+  const bubblePalette = getBubblePalette(scheme);
+  const deletedBubblePalette = getDeletedBubblePalette(colors);
+  return StyleSheet.create({
   mentionText: {
     fontWeight: '700',
   },
@@ -876,9 +882,9 @@ const styles = StyleSheet.create({
   expiredBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef2f2',
+    backgroundColor: colors.tintError10,
     borderWidth: 1,
-    borderColor: '#fecaca',
+    borderColor: colors.tintError20,
     borderRadius: 8,
     padding: 8,
     gap: 8,
@@ -887,7 +893,7 @@ const styles = StyleSheet.create({
   },
   expiredIcon: {
     fontSize: 18,
-    color: '#b91c1c',
+    color: colors.colorError,
   },
   expiredTextCol: {
     flex: 1,
@@ -895,7 +901,7 @@ const styles = StyleSheet.create({
   expiredTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#b91c1c',
+    color: colors.colorError,
   },
   expiredSubtitle: {
     fontSize: 10,
@@ -1043,3 +1049,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+};

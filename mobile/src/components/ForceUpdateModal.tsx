@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { fetchAppUpdateInfo } from '../services/appUpdate';
 import {
   ForceUpdatePayload,
@@ -23,6 +23,8 @@ import {
 } from '../utils/appVersion';
 
 export const ForceUpdateModal: React.FC = () => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [updateInfo, setUpdateInfo] = useState<ForceUpdatePayload | null>(null);
 
   useEffect(() => {
@@ -131,7 +133,9 @@ export const ForceUpdateModal: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
@@ -198,7 +202,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     width: '100%',
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingVertical: spacing.md,
     borderRadius: 12,
     alignItems: 'center',
@@ -217,3 +221,4 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 });
+};

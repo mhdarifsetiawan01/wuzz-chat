@@ -19,8 +19,8 @@ import {
 import { createAudioPlayer, AudioPlayer, AudioStatus } from 'expo-audio';
 import { audioManager } from '../services/audioManager';
 import { mediaCache } from '../services/mediaCache';
-import { colors } from '../theme/colors';
-import { bubblePalette } from '../theme/bubblePalette';
+import { useTheme, useThemedStyles, ColorTokens, ResolvedScheme } from '../theme';
+import { getBubblePalette } from '../theme/bubblePalette';
 import { IconText } from './IconText';
 
 // Waveform bar heights mimicking human speech patterns (24 bars)
@@ -44,6 +44,9 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
   isSelf = false,
   onLoaded,
 }) => {
+  const { colors, scheme } = useTheme();
+  const bubblePalette = getBubblePalette(scheme);
+  const styles = useThemedStyles(makeStyles);
   const [effectiveUrl, setEffectiveUrl] = useState<string>(audioUrl);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -294,7 +297,9 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens, scheme: ResolvedScheme) => {
+  const bubblePalette = getBubblePalette(scheme);
+  return StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -340,7 +345,7 @@ const styles = StyleSheet.create({
   },
   // Tombol putih di bubble biru; di bubble putih tetap biru identitas dengan ikon putih
   selfPlayButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
   },
   otherPlayButton: {
     backgroundColor: '#0a6cb8',
@@ -405,3 +410,4 @@ const styles = StyleSheet.create({
     color: bubblePalette.self.text,
   },
 });
+};

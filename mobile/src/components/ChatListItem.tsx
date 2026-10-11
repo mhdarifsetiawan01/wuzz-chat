@@ -7,7 +7,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Conversation, Message } from '../api/types';
 import { UNDECRYPTABLE_PREVIEW, isUndecryptablePlaceholder } from '../utils/undecryptable';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Avatar } from './Avatar';
 import { VerifiedBadge } from './VerifiedBadge';
@@ -97,6 +97,7 @@ const ChatListItemComponent: React.FC<ChatListItemProps> = ({
   onLongPress,
   decrypting = false,
 }) => {
+  const styles = useThemedStyles(makeStyles);
   const { user } = useAuth();
   const unreadCount = conversation.unread_count || 0;
   const hasUnread = unreadCount > 0;
@@ -172,18 +173,18 @@ const ChatListItemComponent: React.FC<ChatListItemProps> = ({
 // Memoized: baris hanya re-render bila conversation/callback berubah
 export const ChatListItem = React.memo(ChatListItemComponent);
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   rowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 20,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.borderSubtle,
   },
   rowUnread: {
-    backgroundColor: '#fbfdff',
+    backgroundColor: colors.bgBase,
   },
   content: {
     flex: 1,
@@ -212,7 +213,7 @@ const styles = StyleSheet.create({
   },
   nameUnread: {
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   groupTypeTag: {
     backgroundColor: colors.tintAccent10,
@@ -247,7 +248,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   previewUnread: {
-    color: '#334155',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   pinIcon: {

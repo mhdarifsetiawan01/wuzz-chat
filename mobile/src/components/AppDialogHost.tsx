@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import {
   DialogButton,
   DialogRequest,
@@ -29,7 +29,7 @@ function resolveTone(request: DialogRequest): { tone: Tone; icon: string } {
   return { tone: 'info', icon: 'ℹ️' };
 }
 
-const toneStyle = (tone: Tone) => {
+const toneStyle = (tone: Tone, styles: ReturnType<typeof makeStyles>) => {
   switch (tone) {
     case 'danger':
       return styles.iconDangerBg;
@@ -43,6 +43,7 @@ const toneStyle = (tone: Tone) => {
 };
 
 export const AppDialogHost: React.FC = () => {
+  const styles = useThemedStyles(makeStyles);
   const [request, setRequest] = useState<DialogRequest | null>(null);
 
   useEffect(() => subscribeDialog(setRequest), []);
@@ -52,7 +53,10 @@ export const AppDialogHost: React.FC = () => {
   const cancelButton = request.buttons.find((b) => b.style === 'cancel');
   // Cancel selalu paling bawah, urutan tombol lain dipertahankan.
   const ordered = [...request.buttons.filter((b) => b.style !== 'cancel'), ...(cancelButton ? [cancelButton] : [])];
-  const firstDefaultIndex = ordered.findIndex((b) => b.style !== 'cancel' && b.style !== 'destructive');
+  const hasExplicitEmphasis = ordered.some((b) => b.emphasized !== undefined);
+  const firstDefaultIndex = hasExplicitEmphasis
+    ? ordered.findIndex((b) => b.emphasized === true)
+    : ordered.findIndex((b) => b.style !== 'cancel' && b.style !== 'destructive');
   const { tone, icon } = resolveTone(request);
 
   const close = (button?: DialogButton) => {
@@ -79,7 +83,7 @@ export const AppDialogHost: React.FC = () => {
     >
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <View style={[styles.iconContainer, toneStyle(tone)]}>
+          <View style={[styles.iconContainer, toneStyle(tone, styles)]}>
             <IconText style={styles.icon}>{icon}</IconText>
           </View>
 
@@ -118,7 +122,9 @@ export const AppDialogHost: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: colors.bgOverlay,
@@ -197,3 +203,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
 });
+};

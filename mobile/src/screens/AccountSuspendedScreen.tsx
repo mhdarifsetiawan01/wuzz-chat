@@ -13,9 +13,10 @@ import { DeleteAccountModal } from '../components';
 import { AccountSuspendedView } from '../components/AccountSuspendedView';
 import { accountSuspendedCopy } from '../components/accountSuspendedCopy';
 import { useAuth } from '../context';
-import { colors } from '../theme';
+import { useThemedStyles, ColorTokens } from '../theme';
 
 export const AccountSuspendedScreen: React.FC = () => {
+  const styles = useThemedStyles(makeStyles);
   const { user, logout, deleteAccount, recheckAccountStatus } = useAuth();
   const [isDeleteVisible, setIsDeleteVisible] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -77,6 +78,6 @@ export const AccountSuspendedScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bgBase },
 });

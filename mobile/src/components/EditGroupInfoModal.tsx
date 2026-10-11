@@ -22,7 +22,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { groupsApi } from '../api/groups';
 import { GroupDetails } from '../api/types';
-import { colors } from '../theme/colors';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { radius, shadows, spacing } from '../theme/spacing';
 import { Icon } from './Icon';
 
@@ -53,6 +53,8 @@ const EditGroupInfoSheet: React.FC<EditGroupInfoSheetProps> = ({
   onSaved,
   savingRef,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState(group.title || '');
   const [description, setDescription] = useState(group.description || '');
@@ -258,7 +260,7 @@ export const EditGroupInfoModal: React.FC<EditGroupInfoModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   keyboardAvoider: { flex: 1 },
   backdrop: {
     flex: 1,
@@ -395,7 +397,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   saveButton: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     borderRadius: radius.md,
     height: 46,
     alignItems: 'center',

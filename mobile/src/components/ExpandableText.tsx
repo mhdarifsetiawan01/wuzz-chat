@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { StyleProp, StyleSheet, Text, TextStyle } from 'react-native';
 import { LinkifiedText } from './LinkifiedText';
-import { colors } from '../theme/colors';
+import { useThemedStyles, ColorTokens } from '../theme';
 
 export interface ExpandableTextProps {
   text: string;
@@ -40,6 +40,7 @@ export const ExpandableText: React.FC<ExpandableTextProps> = ({
   style,
   onExpand,
 }) => {
+  const styles = useThemedStyles(makeStyles);
   const key = cacheKeyFor(cacheKey, text, numberOfLines);
   const [measured, setMeasured] = useState<boolean | undefined>(() =>
     truncationCache.has(key) ? truncationCache.get(key) : mayOverflow(text, numberOfLines) ? undefined : false
@@ -83,7 +84,7 @@ export const ExpandableText: React.FC<ExpandableTextProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   more: {
     color: colors.accentPrimary,
     fontSize: 13.5,

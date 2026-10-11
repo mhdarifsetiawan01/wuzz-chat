@@ -17,7 +17,7 @@ import { PostCommentsModal } from '../components/PostCommentsModal';
 import { PostMedia } from '../components/PostMedia';
 import { SharePostToChatModal } from '../components/SharePostToChatModal';
 import { useAuth, useFeed } from '../context';
-import { colors } from '../theme';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from '../components/IconText';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
@@ -33,6 +33,7 @@ export interface PostReaderScreenProps {
 }
 
 export const PostReaderScreen: React.FC<PostReaderScreenProps> = ({ postId, initialPost, onBack }) => {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { posts, toggleLike, deletePost } = useFeed();
@@ -143,24 +144,28 @@ export const PostReaderScreen: React.FC<PostReaderScreenProps> = ({ postId, init
   );
 };
 
-const Header: React.FC<{ onBack: () => void; onDelete?: () => void }> = ({ onBack, onDelete }) => (
-  <View style={styles.header}>
-    <TouchableOpacity onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Kembali">
-      <Icon name="back" size={24} color="#0f172a" />
-    </TouchableOpacity>
-    <Text style={styles.headerTitle}>Postingan</Text>
-    {onDelete ? (
-      <TouchableOpacity onPress={onDelete} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Hapus postingan">
-        <IconText style={styles.trash}>🗑️</IconText>
+const Header: React.FC<{ onBack: () => void; onDelete?: () => void }> = ({ onBack, onDelete }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.header}>
+      <TouchableOpacity onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Kembali">
+        <Icon name="back" size={24} color={colors.textPrimary} />
       </TouchableOpacity>
-    ) : (
-      <View style={styles.headerSpacer} />
-    )}
-  </View>
-);
+      <Text style={styles.headerTitle}>Postingan</Text>
+      {onDelete ? (
+        <TouchableOpacity onPress={onDelete} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Hapus postingan">
+          <IconText style={styles.trash}>🗑️</IconText>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.headerSpacer} />
+      )}
+    </View>
+  );
+};
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' },
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bgSurface },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -168,42 +173,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e8edf3',
+    borderBottomColor: colors.borderDefault,
   },
-  back: { fontSize: 24, color: '#0f172a' },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
+  back: { fontSize: 24, color: colors.textPrimary },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   trash: { fontSize: 18 },
   headerSpacer: { width: 24 },
   content: { paddingHorizontal: 20, paddingTop: 16 },
   authorRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   authorInfo: { marginLeft: 12, flex: 1 },
-  authorName: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
+  authorName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
   authorNameRow: { flexDirection: 'row', alignItems: 'center' },
   authorNameText: { flexShrink: 1 },
   authorBadge: { marginLeft: 6 },
-  meta: { fontSize: 12, color: '#64748b', marginTop: 2 },
-  body: { fontSize: 17, lineHeight: 27, color: '#1e293b', marginBottom: 16 },
+  meta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  body: { fontSize: 17, lineHeight: 27, color: colors.textPrimary, marginBottom: 16 },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e8edf3',
+    borderTopColor: colors.borderDefault,
     paddingTop: 14,
     marginTop: 4,
   },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionIcon: { fontSize: 17 },
-  actionCount: { fontSize: 13, fontWeight: '600', color: '#64748b' },
-  liked: { color: '#ef4444' },
+  actionCount: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  liked: { color: colors.colorError },
   shareBtn: {
     marginLeft: 'auto',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bgBase,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
   },
   shareText: { fontSize: 12.5, fontWeight: '600', color: colors.accentPrimary },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
-  missingText: { fontSize: 14, color: '#64748b', textAlign: 'center' },
+  missingText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
 });

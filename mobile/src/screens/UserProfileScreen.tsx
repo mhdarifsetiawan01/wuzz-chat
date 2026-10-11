@@ -33,7 +33,7 @@ import { generateSafetyNumber, isContactSafetyVerified } from '../services/e2eeS
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
 import { useConnection } from '../context/ConnectionContext';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from '../components/IconText';
 import { Icon } from '../components/Icon';
 
@@ -52,6 +52,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onBack,
   onStartChat,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { user: currentUser, updateCurrentUser, e2eeKeyPair } = useAuth();
   const { startCall } = useCall();
@@ -917,7 +919,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   )}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.socialIconBox, { backgroundColor: '#F1F5F9' }]}>
+                  <View style={[styles.socialIconBox, { backgroundColor: colors.bgInput }]}>
                     <IconText style={styles.socialIconEmoji}>🎵</IconText>
                   </View>
                   <View style={styles.socialInfo}>
@@ -1081,7 +1083,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -1165,7 +1169,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.full,
@@ -1234,7 +1238,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   primaryActionBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1322,7 +1326,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   miniAcceptBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: radius.sm,
@@ -1536,7 +1540,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   safetyVerifyBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingVertical: spacing.sm + 2,
     borderRadius: radius.md,
     alignItems: 'center',
@@ -1547,3 +1551,4 @@ const styles = StyleSheet.create({
     color: colors.textOnAccent,
   },
 });
+};

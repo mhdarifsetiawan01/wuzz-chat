@@ -6,9 +6,9 @@
 
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { enableScreens } from 'react-native-screens';
-import { NavigationContainer } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import './src/services/notificationBackgroundTask';
 import { initCrashReporting, setCrashUser } from './src/services/crashReporting';
 import { AppErrorBoundary } from './src/components/AppErrorBoundary';
@@ -48,7 +48,7 @@ import {
 } from './src/components';
 import { AppNavigator as MainAppNavigator, navigationRef } from './src/navigation';
 import { notificationService } from './src/services/notificationService';
-import { colors } from './src/theme';
+import { colors, ThemeProvider, useTheme } from './src/theme';
 import { AppDialogHost } from './src/components/AppDialogHost';
 import { showAlert } from './src/services/dialog';
 
@@ -82,6 +82,22 @@ function AppContent() {
     resetE2EEKeys,
     cancelKeyConflict,
   } = useAuth();
+  const { isDark, colors: themeColors } = useTheme();
+  // Latar/warna dasar react-navigation mengikuti tema agar tidak berkedip terang saat transisi layar.
+  const navigationTheme = useMemo(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: {
+        ...base.colors,
+        primary: themeColors.accentPrimary,
+        background: themeColors.bgBase,
+        card: themeColors.bgElevated,
+        text: themeColors.textPrimary,
+        border: themeColors.borderDefault,
+      },
+    };
+  }, [isDark, themeColors]);
   const { conversations } = useConversations();
   const { triggerIncomingCall } = useCall();
   const [authRoute, setAuthRoute] = useState<AuthRoute>('login');
@@ -422,6 +438,7 @@ function AppContent() {
       return (
         <NavigationContainer
           ref={navigationRef}
+          theme={navigationTheme}
           onStateChange={handleNavigationStateChange}
         >
           <MainAppNavigator />
@@ -462,7 +479,7 @@ function AppContent() {
   return (
     <View style={styles.rootContainer}>
       {/* Ikon status bar: putih hanya di splash biru; gelap di UI terang (putih di atas latar terang nyaris tak terbaca). */}
-      <StatusBar style={isLoading ? 'light' : 'dark'} />
+      <StatusBar style={isLoading || isDark ? 'light' : 'dark'} />
       <GoogleLinkBannerLayout enabled={isAuthenticated}>
         <UpdateBannerLayout enabled={isAuthenticated}>
           {renderContent()}
@@ -512,22 +529,24 @@ export default function App() {
   return (
     <AppErrorBoundary>
     <SafeAreaProvider>
-      <DeviceProvider>
-        <AuthProvider>
-          <ConversationProvider>
-            <MessageProvider>
-              <CallProvider>
-                <FeedProvider>
-                  <ConnectionProvider>
-                    <AppContent />
-                  </ConnectionProvider>
-                </FeedProvider>
-              </CallProvider>
-            </MessageProvider>
-          </ConversationProvider>
-        </AuthProvider>
-      </DeviceProvider>
-      <AppDialogHost />
+      <ThemeProvider>
+        <DeviceProvider>
+          <AuthProvider>
+            <ConversationProvider>
+              <MessageProvider>
+                <CallProvider>
+                  <FeedProvider>
+                    <ConnectionProvider>
+                      <AppContent />
+                    </ConnectionProvider>
+                  </FeedProvider>
+                </CallProvider>
+              </MessageProvider>
+            </ConversationProvider>
+          </AuthProvider>
+        </DeviceProvider>
+        <AppDialogHost />
+      </ThemeProvider>
     </SafeAreaProvider>
     </AppErrorBoundary>
   );

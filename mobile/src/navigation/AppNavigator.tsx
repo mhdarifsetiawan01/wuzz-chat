@@ -9,7 +9,7 @@
  *  so they slide OVER the tab bar naturally — no tabBarStyle toggling needed.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createNativeStackNavigator, NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import { RootStackParamList } from './types';
 import { ConversationItem } from '../api/types';
@@ -23,20 +23,24 @@ import {
   PostReaderScreen,
 } from '../screens';
 import { MainTabNavigator } from './MainTabNavigator';
-import { colors } from '../theme';
+import { useTheme } from '../theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const defaultScreenOptions: NativeStackNavigationOptions = {
-  headerShown: false,
-  animation: 'slide_from_right',
-  gestureEnabled: true,
-  contentStyle: {
-    backgroundColor: colors.bgBase,
-  },
-};
-
 export const AppNavigator: React.FC = () => {
+  const { colors } = useTheme();
+  const defaultScreenOptions = useMemo<NativeStackNavigationOptions>(
+    () => ({
+      headerShown: false,
+      animation: 'slide_from_right',
+      gestureEnabled: true,
+      contentStyle: {
+        backgroundColor: colors.bgBase,
+      },
+    }),
+    [colors],
+  );
+
   return (
     <Stack.Navigator
       initialRouteName="MainTabs"

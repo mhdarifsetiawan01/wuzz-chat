@@ -16,7 +16,7 @@ import {
   Platform,
 } from 'react-native';
 import { ActiveDeviceItem } from '../api/types';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 
@@ -101,6 +101,8 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
   isLoading = false,
   errorMessage = null,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   // Default pilih perangkat terakhir (perangkat terlama / FIFO)
   const defaultSelectedId =
     activeDevices.length > 0 ? activeDevices[activeDevices.length - 1].id : '';
@@ -266,7 +268,9 @@ export const DeviceLimitModal: React.FC<DeviceLimitModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: colors.bgOverlay,
@@ -417,7 +421,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
   },
   noticeBox: {
     backgroundColor: colors.bgInput,
@@ -456,7 +460,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   btnConfirm: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     flex: 1,
   },
   btnConfirmText: {
@@ -468,3 +472,4 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 });
+};

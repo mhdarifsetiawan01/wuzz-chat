@@ -13,7 +13,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Message, PinnedMessage } from '../api/types';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { quotePreviewText } from '../utils/quotePreview';
@@ -31,6 +31,8 @@ export const PinnedMessagesBanner: React.FC<PinnedMessagesBannerProps> = ({
   onUnpinMessage,
   canUnpin = true,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Keep currentIndex in bounds when pinnedMessages changes
@@ -131,7 +133,9 @@ export const PinnedMessagesBanner: React.FC<PinnedMessagesBannerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -216,3 +220,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+};

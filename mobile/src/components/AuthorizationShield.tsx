@@ -17,7 +17,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
 } from 'react-native';
-import { colors } from '../theme/colors';
+import { useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { typography } from '../theme/typography';
@@ -33,6 +33,7 @@ export const AuthorizationShield: React.FC<AuthorizationShieldProps> = ({
   errorDetail,
   groupId,
 }) => {
+  const styles = useThemedStyles(makeStyles);
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -81,7 +82,7 @@ export const AuthorizationShield: React.FC<AuthorizationShieldProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 48,
     borderRadius: radius.lg,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.card,

@@ -8,7 +8,7 @@
 import React from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { colors } from '../theme';
+import { useTheme } from '../theme';
 import { ICONS, IconDef, IconName } from './icons/registry';
 
 /** Ketebalan garis standar Wuzz pada kanvas 24×24. */
@@ -27,10 +27,12 @@ interface IconProps {
 export const Icon: React.FC<IconProps> = ({
   name,
   size = 22,
-  color = colors.textSecondary,
+  color: colorProp,
   active = false,
   style,
 }) => {
+  const { colors } = useTheme();
+  const color = colorProp ?? colors.textSecondary;
   const def = ICONS[name] as IconDef;
   const hasFilledVariant = active && !!def.filled && def.filled.length > 0;
   const useFilled = hasFilledVariant || !!def.solid;

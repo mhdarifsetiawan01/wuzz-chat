@@ -15,7 +15,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { EMOJI_CATEGORIES, EmojiCategory } from '../constants/emojis';
-import { colors } from '../theme/colors';
+import { useThemedStyles, ColorTokens } from '../theme';
 import { spacing } from '../theme/spacing';
 
 export interface EmojiPickerProps {
@@ -34,6 +34,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
   onBackspace,
   height = 280,
 }) => {
+  const styles = useThemedStyles(makeStyles);
   const [activeCategory, setActiveCategory] = useState<string>(CATEGORIES[0].id);
 
   const currentCategory =
@@ -105,7 +106,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   container: {
     backgroundColor: colors.bgCardSolid,
     borderTopWidth: 1,
@@ -147,7 +148,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 2.5,
     borderRadius: 2,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
   },
   backspaceButton: {
     paddingHorizontal: 14,

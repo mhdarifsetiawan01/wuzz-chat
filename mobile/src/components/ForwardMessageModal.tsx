@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Conversation, Message } from '../api/types';
 import { conversationsApi } from '../api/conversations';
 import { Avatar } from './Avatar';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { showAlert } from '../services/dialog';
@@ -40,6 +40,8 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
   onClose,
   onForward,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -239,7 +241,9 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
@@ -383,7 +387,7 @@ const styles = StyleSheet.create({
   },
   checkboxActive: {
     borderColor: colors.accentPrimary,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
   },
   checkboxCheck: {
     color: '#ffffff',
@@ -416,7 +420,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderSubtle,
   },
   submitBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingVertical: 14,
     borderRadius: radius.lg,
     alignItems: 'center',
@@ -432,3 +436,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+};

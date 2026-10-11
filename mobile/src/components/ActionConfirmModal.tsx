@@ -13,7 +13,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Button } from './Button';
 
@@ -44,6 +44,7 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
   icon = '⚠️',
   iconBgVariant = 'warning',
 }) => {
+  const styles = useThemedStyles(makeStyles);
   if (!visible) return null;
 
   const getIconBgStyle = () => {
@@ -101,7 +102,9 @@ export const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: colors.bgOverlay,
@@ -175,3 +178,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
 });
+};

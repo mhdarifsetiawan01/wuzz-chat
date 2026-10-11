@@ -38,7 +38,7 @@ import {
 } from '../utils/mentionUtils';
 import { EmojiPicker } from './EmojiPicker';
 import { audioManager } from '../services';
-import { colors } from '../theme/colors';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
@@ -118,6 +118,8 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   onRequestMentionMembers,
   currentUserId = '',
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [text, setText] = useState('');
   const [mentionTrigger, setMentionTrigger] = useState<MentionTrigger | null>(null);
   const selectionRef = useRef({ start: 0, end: 0 });
@@ -677,7 +679,7 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   wrapper: {
     backgroundColor: colors.bgBase,
     borderTopWidth: 1,
@@ -731,7 +733,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#38bdf8',
+    borderColor: colors.colorCyanNeon,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -741,7 +743,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    backgroundColor: '#38bdf8',
+    backgroundColor: colors.colorCyanNeon,
     borderTopLeftRadius: 10,
     borderBottomLeftRadius: 10,
   },
@@ -753,7 +755,7 @@ const styles = StyleSheet.create({
   editSender: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#38bdf8',
+    color: colors.colorCyanNeon,
     marginBottom: 2,
   },
   editSnippet: {
@@ -779,7 +781,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     borderTopLeftRadius: 10,
     borderBottomLeftRadius: 10,
   },
@@ -901,7 +903,7 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   sendButtonActive: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
   },
   sendButtonDisabled: {
     backgroundColor: colors.bgCardSolid,
@@ -969,7 +971,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 1,
@@ -1014,7 +1016,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.colorDanger,
+    backgroundColor: colors.dangerFill,
   },
   recordingTimerText: {
     fontSize: 15,
@@ -1026,7 +1028,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     justifyContent: 'center',
     alignItems: 'center',
   },

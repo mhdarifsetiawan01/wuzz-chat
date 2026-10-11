@@ -4,7 +4,7 @@
  */
 
 import type { ViewStyle } from 'react-native';
-import { colors } from './colors';
+import { ColorTokens } from './colors';
 
 export const FAB_SIZE = 56;
 export const FAB_RIGHT = 20;
@@ -14,13 +14,13 @@ export function getFabBottom(safeAreaBottom: number): number {
   return Math.max(safeAreaBottom + 70, 85);
 }
 
-export const fabStyle: ViewStyle = {
+export const makeFabStyle = (colors: ColorTokens): ViewStyle => ({
   position: 'absolute',
   right: FAB_RIGHT,
   width: FAB_SIZE,
   height: FAB_SIZE,
   borderRadius: FAB_SIZE / 2,
-  backgroundColor: colors.accentPrimary,
+  backgroundColor: colors.accentFill,
   alignItems: 'center',
   justifyContent: 'center',
   elevation: 6,
@@ -29,4 +29,4 @@ export const fabStyle: ViewStyle = {
   shadowOpacity: 0.35,
   shadowRadius: 8,
   zIndex: 90,
-};
+});

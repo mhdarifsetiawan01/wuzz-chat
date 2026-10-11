@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { Button } from './Button';
 import { Input } from './Input';
 import { IconText } from './IconText';
@@ -25,6 +25,7 @@ export interface DeleteAccountModalProps {
 }
 
 export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible, onClose, onConfirm, hasPassword = true, googleLinked = false }) => {
+  const styles = useThemedStyles(makeStyles);
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -136,7 +137,9 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: colors.bgOverlay,
@@ -177,3 +180,4 @@ const styles = StyleSheet.create({
   actions: { width: '100%', gap: spacing.sm, marginTop: spacing.md },
   btn: { width: '100%', height: 48, borderRadius: radius.lg },
 });
+};

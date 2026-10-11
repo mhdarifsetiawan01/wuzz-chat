@@ -26,7 +26,7 @@ import { ConversationItem, FriendItem, PendingRequestItem } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { useConnection } from '../context/ConnectionContext';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from '../components/IconText';
 import { Icon } from '../components/Icon';
 import { showAlert } from '../services/dialog';
@@ -46,6 +46,8 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
   onStartChat,
   onNavigateToNewChat,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const {
     friends,
     incomingRequests,
@@ -591,7 +593,9 @@ export const FriendsListScreen: React.FC<FriendsListScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -667,7 +671,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   badgeCount: {
-    backgroundColor: colors.colorError,
+    backgroundColor: colors.dangerFill,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: radius.full,
@@ -757,7 +761,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   chatButton: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingHorizontal: spacing.md,
     paddingVertical: 7,
     borderRadius: radius.full,
@@ -852,7 +856,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   acceptBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
   },
   acceptBtnText: {
     color: '#FFFFFF',
@@ -902,7 +906,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   emptyActionBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radius.full,
@@ -915,3 +919,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+};

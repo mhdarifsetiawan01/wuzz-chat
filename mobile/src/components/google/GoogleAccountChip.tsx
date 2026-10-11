@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../../theme';
+import { radius, spacing, useThemedStyles, ColorTokens, makeTypography } from '../../theme';
 import { GOOGLE_UI } from './googleUi';
 
 interface GoogleAccountChipProps {
@@ -10,6 +10,7 @@ interface GoogleAccountChipProps {
 }
 
 export const GoogleAccountChip: React.FC<GoogleAccountChipProps> = ({ email }) => {
+  const styles = useThemedStyles(makeStyles);
   if (!email) return null;
   return (
     <View style={styles.chip} accessibilityLabel={`Akun Google ${email}`}>
@@ -21,7 +22,9 @@ export const GoogleAccountChip: React.FC<GoogleAccountChipProps> = ({ email }) =
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -45,3 +48,4 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 });
+};

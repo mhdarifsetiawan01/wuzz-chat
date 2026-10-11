@@ -19,7 +19,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 
@@ -41,6 +41,8 @@ export const BottomSheetModal: React.FC<BottomSheetModalProps> = ({
   avoidKeyboard = false,
   children,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -220,6 +222,7 @@ export const ActionMenuItem: React.FC<ActionMenuItemProps> = ({
   destructive = false,
   badge,
 }) => {
+  const styles = useThemedStyles(makeStyles);
   return (
     <TouchableOpacity
       style={[styles.menuItem, destructive && styles.menuItemDestructive]}
@@ -249,7 +252,9 @@ export const ActionMenuItem: React.FC<ActionMenuItemProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   modalRoot: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -363,3 +368,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+};

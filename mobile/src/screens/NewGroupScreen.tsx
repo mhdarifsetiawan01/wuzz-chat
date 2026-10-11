@@ -26,7 +26,7 @@ import { searchUsers } from '../api/users';
 import { Conversation, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { useAuth } from '../context/AuthContext';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from '../components/IconText';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
@@ -39,6 +39,8 @@ export interface NewGroupScreenProps {
 }
 
 export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelectChat }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { user: currentUser } = useAuth();
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
@@ -419,7 +421,9 @@ export const NewGroupScreen: React.FC<NewGroupScreenProps> = ({ onBack, onSelect
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -453,7 +457,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   createHeaderButton: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
     borderRadius: radius.md,
@@ -673,7 +677,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   checkboxSelected: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     borderColor: colors.accentPrimary,
   },
   checkMark: {
@@ -692,3 +696,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+};

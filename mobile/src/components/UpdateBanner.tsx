@@ -9,7 +9,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AppState, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, typography } from '../theme';
+import { spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { Icon } from './Icon';
 import { AppUpdateInfo, fetchAppUpdateInfo, getLatestVersionLabel, isUpdateAvailable } from '../services/appUpdate';
 import { useCall } from '../context';
@@ -21,6 +21,8 @@ export interface UpdateBannerLayoutProps {
 }
 
 export const UpdateBannerLayout: React.FC<UpdateBannerLayoutProps> = ({ enabled, children }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { activeCall } = useCall();
   const [info, setInfo] = useState<AppUpdateInfo | null>(null);
@@ -91,7 +93,9 @@ export const UpdateBannerLayout: React.FC<UpdateBannerLayoutProps> = ({ enabled,
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   root: {
     flex: 1,
   },
@@ -116,3 +120,4 @@ const styles = StyleSheet.create({
     color: colors.accentHover,
   },
 });
+};

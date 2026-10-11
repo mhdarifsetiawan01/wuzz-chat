@@ -9,8 +9,8 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Image } from 'expo-image';
 import { feedApi } from '../api/feedApi';
 import { FeedPost } from '../api/types';
-import { colors } from '../theme/colors';
-import { bubblePalette } from '../theme/bubblePalette';
+import { useTheme, useThemedStyles, ColorTokens, ResolvedScheme } from '../theme';
+import { getBubblePalette } from '../theme/bubblePalette';
 import { IconText } from './IconText';
 import { spacing } from '../theme/spacing';
 
@@ -47,6 +47,9 @@ interface SharedPostCardProps {
 }
 
 export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, isSelf = false, onPress, onLongPress }) => {
+  const { colors, scheme } = useTheme();
+  const bubblePalette = getBubblePalette(scheme);
+  const styles = useThemedStyles(makeStyles);
   const [state, setState] = useState<PostState | null>(postCache.get(postId) ?? null);
   const [imageError, setImageError] = useState(false);
 
@@ -109,7 +112,9 @@ export const SharedPostCard: React.FC<SharedPostCardProps> = ({ postId, text, is
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens, scheme: ResolvedScheme) => {
+  const bubblePalette = getBubblePalette(scheme);
+  return StyleSheet.create({
   card: {
     marginTop: spacing.xs,
     marginBottom: spacing.xs,
@@ -172,3 +177,4 @@ const styles = StyleSheet.create({
     color: bubblePalette.other.link,
   },
 });
+};

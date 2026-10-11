@@ -23,7 +23,7 @@ import {
   PanResponderGestureState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
@@ -60,6 +60,8 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
   mediaType = 'image',
   onClose,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -458,7 +460,7 @@ export const MediaViewerModal: React.FC<MediaViewerModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.95)',

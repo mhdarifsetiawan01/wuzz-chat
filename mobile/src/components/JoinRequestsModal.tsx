@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { subgroupsApi } from '../api/subgroups';
 import { JoinRequest } from '../api/types';
 import { Avatar } from './Avatar';
-import { colors } from '../theme/colors';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
@@ -49,6 +49,8 @@ export const JoinRequestsModal: React.FC<JoinRequestsModalProps> = ({
   onClose,
   onRequestActioned,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
 
   const [requests, setRequests] = useState<JoinRequest[]>([]);
@@ -227,7 +229,7 @@ export const JoinRequestsModal: React.FC<JoinRequestsModalProps> = ({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(9, 13, 22, 0.80)',

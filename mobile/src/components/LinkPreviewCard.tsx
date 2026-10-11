@@ -16,8 +16,8 @@ import { Image } from 'expo-image';
 import { LinkPreview } from '../api/types';
 import { fetchLinkPreview } from '../api/linkPreview';
 import { safeOpenUrl } from '../utils/linkUtils';
-import { colors } from '../theme/colors';
-import { bubblePalette } from '../theme/bubblePalette';
+import { useTheme, useThemedStyles, ColorTokens, ResolvedScheme } from '../theme';
+import { getBubblePalette } from '../theme/bubblePalette';
 import { IconText } from './IconText';
 import { spacing } from '../theme/spacing';
 
@@ -29,6 +29,9 @@ interface LinkPreviewCardProps {
 }
 
 export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ url, isSelf = false, onLongPress }) => {
+  const { colors, scheme } = useTheme();
+  const bubblePalette = getBubblePalette(scheme);
+  const styles = useThemedStyles(makeStyles);
   const [preview, setPreview] = useState<LinkPreview | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [imageError, setImageError] = useState<boolean>(false);
@@ -148,7 +151,9 @@ export const LinkPreviewCard: React.FC<LinkPreviewCardProps> = ({ url, isSelf = 
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens, scheme: ResolvedScheme) => {
+  const bubblePalette = getBubblePalette(scheme);
+  return StyleSheet.create({
   card: {
     marginTop: spacing.xs,
     marginBottom: spacing.xs,
@@ -243,3 +248,4 @@ const styles = StyleSheet.create({
     color: bubblePalette.self.textSecondary,
   },
 });
+};

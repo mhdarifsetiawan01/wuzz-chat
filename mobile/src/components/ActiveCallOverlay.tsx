@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useCall } from '../context';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Avatar } from './Avatar';
 
@@ -28,6 +28,8 @@ function formatCallDuration(seconds: number): string {
 }
 
 export const ActiveCallOverlay: React.FC = () => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const {
     activeCall,
     callDuration,
@@ -170,7 +172,9 @@ export const ActiveCallOverlay: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -265,7 +269,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: colors.colorError,
+    backgroundColor: colors.dangerFill,
     borderColor: colors.colorError,
     shadowColor: colors.colorError,
     shadowOffset: { width: 0, height: 6 },
@@ -285,3 +289,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+};

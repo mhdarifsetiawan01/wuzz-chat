@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { groupsApi } from '../api/groups';
 import { GroupDetails } from '../api/types';
 import { Avatar } from './Avatar';
-import { colors } from '../theme/colors';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { CollapsibleText } from './CollapsibleText';
@@ -43,6 +43,8 @@ export const GroupPreviewModal: React.FC<GroupPreviewModalProps> = ({
   onClose,
   onJoined,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -249,7 +251,7 @@ export const GroupPreviewModal: React.FC<GroupPreviewModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(9, 13, 22, 0.80)',
@@ -459,7 +461,7 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   joinBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
   },
   memberBtn: {
     backgroundColor: colors.tintAccent20,

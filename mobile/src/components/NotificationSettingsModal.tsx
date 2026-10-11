@@ -17,7 +17,7 @@ import {
 import * as Device from 'expo-device';
 import { isExpoGo, notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
@@ -32,6 +32,8 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
   visible,
   onClose,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [isEnabled, setIsEnabled] = useState<boolean>(true);
   const [permissionStatus, setPermissionStatus] = useState<string>('checking');
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
@@ -244,7 +246,9 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsModalProps>
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: colors.bgOverlay,
@@ -394,3 +398,4 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 });
+};

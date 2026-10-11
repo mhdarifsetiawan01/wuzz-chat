@@ -38,7 +38,7 @@ import { SubGroup, GroupRole, Conversation } from '../api/types';
 import { Avatar } from './Avatar';
 import { CreateSubGroupModal } from './CreateSubGroupModal';
 import { JoinRequestsModal } from './JoinRequestsModal';
-import { colors } from '../theme/colors';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
@@ -77,6 +77,8 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
   onClose,
   onEnterSubGroup,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
 
   const [subGroups, setSubGroups] = useState<SubGroup[]>([]);
@@ -445,7 +447,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(9, 13, 22, 0.80)',
@@ -614,7 +616,7 @@ const styles = StyleSheet.create({
   },
   actionBtnDisabled: { opacity: 0.55 },
   actionBtnPrimary: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
   },
   actionBtnPrimaryText: {
     fontSize: 13,

@@ -15,12 +15,14 @@ import {
   View,
 } from 'react-native';
 import { useCall } from '../context';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
 
 export const IncomingCallModal: React.FC = () => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { activeCall, acceptCall, rejectCall } = useCall();
   const isVisible = activeCall?.status === 'incoming_ringing';
 
@@ -115,7 +117,9 @@ export const IncomingCallModal: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(5, 7, 15, 0.88)',
@@ -197,7 +201,7 @@ const styles = StyleSheet.create({
     borderColor: colors.colorError,
   },
   acceptButton: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     borderWidth: 1,
     borderColor: '#059669',
   },
@@ -211,3 +215,4 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
 });
+};

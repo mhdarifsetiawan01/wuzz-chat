@@ -12,9 +12,10 @@ import { DeleteAccountModal } from '../components';
 import { GoogleLinkRequiredView } from '../components/GoogleLinkRequiredView';
 import { useAuth } from '../context';
 import { useLinkGoogle } from '../hooks/useLinkGoogle';
-import { colors } from '../theme';
+import { useThemedStyles, ColorTokens } from '../theme';
 
 export const GoogleLinkRequiredScreen: React.FC = () => {
+  const styles = useThemedStyles(makeStyles);
   const { user, logout, deleteAccount } = useAuth();
   const { link, isLinking } = useLinkGoogle();
   const [isDeleteVisible, setIsDeleteVisible] = useState(false);
@@ -52,6 +53,6 @@ export const GoogleLinkRequiredScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bgBase },
 });

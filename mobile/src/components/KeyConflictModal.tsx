@@ -17,7 +17,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
@@ -46,6 +46,8 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   onOpenDeviceTransfer,
   onCancel,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   if (!visible) return null;
 
   const [isPromptingPassword, setIsPromptingPassword] = useState<boolean>(false);
@@ -263,7 +265,9 @@ export const KeyConflictModal: React.FC<KeyConflictModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   googleNote: {
     ...typography.bodySecondary,
     color: colors.textSecondary,
@@ -361,3 +365,4 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
 });
+};

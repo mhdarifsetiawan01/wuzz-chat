@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateSafetyNumber, isContactSafetyVerified, setContactSafetyVerified } from '../services/e2eeService';
 import { QRCodeView } from './QRCodeView';
 import { CameraQRScannerModal } from './CameraQRScannerModal';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { showAlert } from '../services/dialog';
@@ -85,6 +85,8 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
   myPublicKeyJWK,
   onVerificationChanged,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [safetyNumber, setSafetyNumber] = useState<string>('00000 00000 00000 00000 00000 00000');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -414,7 +416,9 @@ export const SafetyNumberModal: React.FC<SafetyNumberModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
@@ -515,7 +519,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   tabBtnActive: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
   },
   tabBtnText: {
     ...typography.caption,
@@ -641,7 +645,7 @@ const styles = StyleSheet.create({
   },
   qrWrapper: {
     padding: spacing.xs,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderRadius: radius.lg,
     marginBottom: spacing.sm,
   },
@@ -653,7 +657,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   scanCameraPrimaryBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.md,
@@ -687,7 +691,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   closeMainBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingVertical: spacing.sm + 2,
     borderRadius: radius.md,
     alignItems: 'center',
@@ -699,3 +703,4 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 });
+};

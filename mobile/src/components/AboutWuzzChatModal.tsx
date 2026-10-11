@@ -7,7 +7,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { BottomSheetModal } from './BottomSheetModal';
 import { Button } from './Button';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { getAppVersionInfo } from '../utils/appVersion';
 
@@ -20,6 +20,8 @@ export const AboutWuzzChatModal: React.FC<AboutWuzzChatModalProps> = ({
   visible,
   onClose,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const appVersion = getAppVersionInfo();
 
   return (
@@ -99,7 +101,9 @@ export const AboutWuzzChatModal: React.FC<AboutWuzzChatModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   container: {
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
@@ -194,3 +198,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 });
+};
