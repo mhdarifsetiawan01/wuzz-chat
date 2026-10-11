@@ -50,6 +50,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
     conversations,
     isLoading,
     isRefreshing,
+    isDecrypting,
     refreshConversations,
     updateConversationPin,
     clearConversation,
@@ -59,6 +60,17 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
   const { favoriteIds, toggleFavorite, maxFavorites } = useFavoriteChats(user?.id);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState<boolean>(false);
   const [isDeviceTransferModalOpen, setIsDeviceTransferModalOpen] = useState<boolean>(false);
+  // Spinner baru tampil bila memuat tanpa data lebih dari 350 ms; baca cache SQLite (±100 ms) cukup layar kosong
+  const isBlankLoading = isLoading && !isRefreshing && conversations.length === 0;
+  const [showLoadingSpinner, setShowLoadingSpinner] = useState<boolean>(false);
+  useEffect(() => {
+    if (!isBlankLoading) {
+      setShowLoadingSpinner(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowLoadingSpinner(true), 350);
+    return () => clearTimeout(timer);
+  }, [isBlankLoading]);
   const [chatMenuTarget, setChatMenuTarget] = useState<Conversation | null>(null);
   const [isActionMenuOpen, setIsActionMenuOpen] = useState<boolean>(false);
   const [wsState, setWsState] = useState<ConnectionState>(websocketClient.getState());
@@ -170,9 +182,10 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
         conversation={item}
         onPress={handleChatPress}
         onLongPress={handleChatLongPress}
+        decrypting={isDecrypting}
       />
     ),
-    [handleChatPress, handleChatLongPress]
+    [handleChatPress, handleChatLongPress, isDecrypting]
   );
 
   const getStatusText = () => {
@@ -531,10 +544,14 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
       </View>
 
       {/* Main Conversation List (Pure White Rows with subtle dividers) */}
-      {isLoading && !isRefreshing ? (
+      {isBlankLoading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.accentPrimary} />
-          <Text style={styles.loadingText}>Loading messages...</Text>
+          {showLoadingSpinner && (
+            <>
+              <ActivityIndicator size="large" color={colors.accentPrimary} />
+              <Text style={styles.loadingText}>Loading messages...</Text>
+            </>
+          )}
         </View>
       ) : (
         <View style={styles.listWrapper}>

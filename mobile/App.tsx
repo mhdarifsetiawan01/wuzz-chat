@@ -12,7 +12,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import './src/services/notificationBackgroundTask';
 import { initCrashReporting, setCrashUser } from './src/services/crashReporting';
 import { AppErrorBoundary } from './src/components/AppErrorBoundary';
-import { ActivityIndicator, Image, Linking, StyleSheet, View } from 'react-native';
+import { Image, Linking, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   AuthProvider,
@@ -404,7 +404,6 @@ function AppContent() {
       return (
         <View style={styles.splashContainer}>
           <Image source={SPLASH_ICON} style={styles.splashLogo} resizeMode="contain" />
-          <ActivityIndicator size="large" color="#FFFFFF" style={styles.spinner} />
         </View>
       );
     }
@@ -549,9 +548,5 @@ const styles = StyleSheet.create({
   splashLogo: {
     width: 200,
     height: 200,
-  },
-  spinner: {
-    position: 'absolute',
-    bottom: '25%',
   },
 });
