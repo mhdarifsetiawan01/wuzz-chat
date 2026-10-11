@@ -12,7 +12,7 @@ import { ActiveDeviceItem } from '../api/types';
 import { DeviceLimitModal } from '../components';
 import { useAuth } from '../context';
 import { SUPPORT_EMAIL } from '../api/config';
-import { colors } from '../theme';
+import { useThemedStyles, ColorTokens } from '../theme';
 import { validateAgeConfirmed } from '../utils/ageGate';
 import { getUsernameHint } from '../utils/usernameRules';
 import { GoogleOnboardingView } from './googleOnboarding/GoogleOnboardingView';
@@ -40,6 +40,7 @@ interface GoogleOnboardingScreenProps {
 type Step = 'choose' | 'new' | 'link';
 
 export const GoogleOnboardingScreen: React.FC<GoogleOnboardingScreenProps> = ({ pending, onCancel }) => {
+  const styles = useThemedStyles(makeStyles);
   const { registerWithGoogle, linkGoogleToExistingAccount, loginWithGoogle } = useAuth();
   const [step, setStep] = useState<Step>('choose');
   const [username, setUsername] = useState('');
@@ -236,7 +237,7 @@ export const GoogleOnboardingScreen: React.FC<GoogleOnboardingScreenProps> = ({ 
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.bgBase },
   keyboardView: { flex: 1 },
 });

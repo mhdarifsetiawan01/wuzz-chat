@@ -28,7 +28,7 @@ import { feedApi } from '../api/feedApi';
 import { FeedComment, FeedPost } from '../api/types';
 import { useAuth, useFeed } from '../context';
 import { ReportModal, ReportTarget } from './ReportModal';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { VerifiedBadge } from './VerifiedBadge';
 import { formatPostTime } from '../utils/feedTime';
@@ -50,6 +50,8 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
   post,
   onClose,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { updatePostCommentsCount } = useFeed();
   const { user: currentUser } = useAuth();
@@ -199,7 +201,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
                 Komentar {headerCount > 0 ? `(${headerCount})` : ''}
               </Text>
               <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <Icon name="close" size={18} color="#94a3b8" />
+                <Icon name="close" size={18} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
           </View>
@@ -284,7 +286,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
             <TextInput
               style={styles.textInput}
               placeholder="Tulis tanggapan atau komentar..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textMuted}
               value={commentText}
               onChangeText={setCommentText}
               maxLength={MAX_COMMENT_CHARS}
@@ -313,7 +315,7 @@ export const PostCommentsModal: React.FC<PostCommentsModalProps> = ({
 };
 
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -323,7 +325,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.55)',
   },
   modalCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     height: '75%',
@@ -338,13 +340,13 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.borderSubtle,
   },
   headerIndicator: {
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#cbd5e1',
+    backgroundColor: colors.borderStrong,
     marginBottom: 8,
   },
   headerRow: {
@@ -357,13 +359,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   closeBtn: {
     padding: 6,
   },
   postSnippet: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bgBase,
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginHorizontal: 16,
@@ -380,7 +382,7 @@ const styles = StyleSheet.create({
   },
   snippetContent: {
     fontSize: 13,
-    color: '#475569',
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   loadingContainer: {
@@ -391,7 +393,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   emptyContainer: {
     flex: 1,
@@ -406,12 +408,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1e293b',
+    color: colors.textPrimary,
     marginBottom: 4,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   listContent: {
@@ -426,11 +428,11 @@ const styles = StyleSheet.create({
   commentBody: {
     flex: 1,
     marginLeft: 10,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bgBase,
     padding: 10,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: colors.borderSubtle,
   },
   commentMetaRow: {
     flexDirection: 'row',
@@ -441,16 +443,16 @@ const styles = StyleSheet.create({
   commentAuthor: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   commentTime: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
     marginLeft: 'auto',
   },
   commentText: {
     fontSize: 13,
-    color: '#334155',
+    color: colors.textPrimary,
     lineHeight: 19,
   },
   inputBar: {
@@ -459,22 +461,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e2e8f0',
-    backgroundColor: '#ffffff',
+    borderTopColor: colors.borderDefault,
+    backgroundColor: colors.bgSurface,
     gap: 10,
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bgInput,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
     fontSize: 14,
-    color: '#0f172a',
+    color: colors.textPrimary,
     maxHeight: 90,
   },
   sendBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingHorizontal: 16,
     paddingVertical: 9,
     borderRadius: 20,
@@ -498,12 +500,12 @@ const styles = StyleSheet.create({
   },
   footerLoaderText: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   footerEnd: {
     textAlign: 'center',
     fontSize: 11,
-    color: '#cbd5e1',
+    color: colors.textMuted,
     paddingVertical: 16,
     fontStyle: 'italic',
   },

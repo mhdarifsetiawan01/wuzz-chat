@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Input } from '../components';
 import { AgeConsentCheckbox } from '../components/AgeConsentCheckbox';
 import { useAuth } from '../context';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { validateAgeConfirmed } from '../utils/ageGate';
 
 interface RegisterScreenProps {
@@ -25,6 +25,7 @@ interface RegisterScreenProps {
 }
 
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogin }) => {
+  const styles = useThemedStyles(makeStyles);
   const { register } = useAuth();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -180,7 +181,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ onNavigateToLogi
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -248,3 +251,4 @@ const styles = StyleSheet.create({
     color: colors.accentPrimary,
   },
 });
+};

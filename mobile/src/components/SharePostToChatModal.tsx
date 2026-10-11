@@ -25,7 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { conversationsApi } from '../api/conversations';
 import { Conversation, FeedPost } from '../api/types';
 import { websocketClient } from '../services/websocket';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
@@ -47,6 +47,8 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
   onClose,
   onShared,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -158,7 +160,7 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
               onPress={onClose}
               disabled={isSubmitting}
             >
-              <Icon name="close" size={18} color="#64748b" />
+              <Icon name="close" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -176,7 +178,7 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
             <TextInput
               style={styles.searchInput}
               placeholder="Cari kontak atau grup..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoCorrect={false}
@@ -282,14 +284,14 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.55)',
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: '82%',
@@ -308,7 +310,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.borderDefault,
   },
   headerTitleRow: {
     flexDirection: 'row',
@@ -318,7 +320,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   counterBadge: {
     backgroundColor: colors.tintAccent10,
@@ -335,7 +337,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   previewBox: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bgBase,
     marginHorizontal: 16,
     marginTop: 10,
     padding: 10,
@@ -345,19 +347,19 @@ const styles = StyleSheet.create({
   },
   previewLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '600',
     marginBottom: 2,
   },
   previewContent: {
     fontSize: 13,
-    color: '#1e293b',
+    color: colors.textPrimary,
     lineHeight: 18,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bgInput,
     marginHorizontal: 16,
     marginVertical: 10,
     paddingHorizontal: 12,
@@ -371,7 +373,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#0f172a',
+    color: colors.textPrimary,
     padding: 0,
   },
   centerContainer: {
@@ -382,7 +384,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 8,
   },
   emptyIcon: {
@@ -391,7 +393,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   list: {
     flex: 1,
@@ -422,11 +424,11 @@ const styles = StyleSheet.create({
   convTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
     flexShrink: 1,
   },
   groupBadge: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.bgInputFocused,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 6,
@@ -434,11 +436,11 @@ const styles = StyleSheet.create({
   groupBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#475569',
+    color: colors.textSecondary,
   },
   convSub: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   checkbox: {
@@ -446,13 +448,13 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: '#cbd5e1',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
   },
   checkboxSelected: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     borderColor: colors.accentPrimary,
   },
   checkmark: {
@@ -464,10 +466,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: colors.borderDefault,
   },
   sendBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingVertical: 13,
     borderRadius: 16,
     alignItems: 'center',

@@ -19,7 +19,7 @@ import { ActiveDeviceItem } from '../api/types';
 import { Button, DeviceLimitModal, Input } from '../components';
 import { GoogleSignInButton } from '../components/google';
 import { useAuth } from '../context';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { isGoogleSignInAvailable, GoogleAuthError } from '../services/googleAuth';
 import { GoogleFlowError, googleErrorMessage, googleIdTokenFromError, isDeviceLimitError } from '../utils/googleErrors';
 import { ACCOUNT_SUSPENDED_LOGIN_MESSAGE, isAccountSuspendedError } from '../utils/accountSuspended';
@@ -34,6 +34,7 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister, onGoogleNotLinked, initialMessage }) => {
+  const styles = useThemedStyles(makeStyles);
   const { login, loginWithGoogle } = useAuth();
   const googleAvailable = isGoogleSignInAvailable();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -278,7 +279,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigateToRegister, 
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -386,3 +389,4 @@ const styles = StyleSheet.create({
     color: colors.accentPrimary,
   },
 });
+};

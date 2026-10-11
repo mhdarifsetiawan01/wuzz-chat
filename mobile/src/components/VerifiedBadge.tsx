@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { colors, radius, typography } from '../theme';
+import { radius, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 
 export interface VerifiedBadgeProps {
@@ -22,6 +22,7 @@ export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({
   label = 'Terverifikasi',
   style,
 }) => {
+  const styles = useThemedStyles(makeStyles);
   const iconSize = Math.max(9, Math.floor(size * 0.65));
 
   return (
@@ -53,7 +54,9 @@ export const VerifiedBadge: React.FC<VerifiedBadgeProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -84,3 +87,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+};

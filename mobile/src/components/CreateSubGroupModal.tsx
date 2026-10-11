@@ -27,7 +27,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { subgroupsApi } from '../api/subgroups';
 import { SubGroup, SubGroupTTL, CreateSubGroupRequest } from '../api/types';
-import { colors } from '../theme/colors';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
@@ -60,6 +60,8 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
   onClose,
   onCreated,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
 
   const [title, setTitle] = useState('');
@@ -266,7 +268,7 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   keyboardAvoider: { flex: 1 },
   backdrop: {
     flex: 1,
@@ -392,7 +394,7 @@ const styles = StyleSheet.create({
   },
   submitBtn: {
     marginTop: spacing.xxl,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     borderRadius: radius.md,
     paddingVertical: spacing.lg,
     alignItems: 'center',

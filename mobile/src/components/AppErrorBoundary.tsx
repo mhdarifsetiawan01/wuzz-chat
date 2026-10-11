@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, ColorTokens, lightColors, makeTypography } from '../theme';
 import { recordNonFatal } from '../services/crashReporting';
 
 interface State {
@@ -42,7 +42,10 @@ export class AppErrorBoundary extends React.Component<{ children: React.ReactNod
   }
 }
 
-const styles = StyleSheet.create({
+// Berada di luar ThemeProvider (membungkus seluruh aplikasi), jadi memakai palet terang statis.
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -53,10 +56,13 @@ const styles = StyleSheet.create({
   title: { ...typography.h2, color: colors.textPrimary, marginBottom: spacing.sm, textAlign: 'center' },
   message: { ...typography.bodySecondary, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.xl },
   button: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xxl,
     borderRadius: radius.lg,
   },
   buttonText: { color: colors.textOnAccent, fontSize: 15, fontWeight: '600' },
 });
+};
+
+const styles = makeStyles(lightColors);

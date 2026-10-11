@@ -8,6 +8,8 @@ export interface DialogButton {
   text?: string;
   style?: 'default' | 'cancel' | 'destructive';
   onPress?: () => void | Promise<void>;
+  /** Bila ada tombol yang menyetel ini, hanya yang bernilai true yang disorot sebagai tombol utama (mis. pilihan aktif). */
+  emphasized?: boolean;
 }
 
 export interface DialogOptions {

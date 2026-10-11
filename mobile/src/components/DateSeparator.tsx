@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { useThemedStyles, ColorTokens } from '../theme';
 import { spacing } from '../theme/spacing';
 import { formatDayLabel } from '../utils/dayLabel';
 
@@ -14,6 +14,7 @@ interface DateSeparatorProps {
 }
 
 export const DateSeparator: React.FC<DateSeparatorProps> = React.memo(({ timestamp }) => {
+  const styles = useThemedStyles(makeStyles);
   const label = formatDayLabel(timestamp);
   if (!label) return null;
   return (
@@ -25,7 +26,7 @@ export const DateSeparator: React.FC<DateSeparatorProps> = React.memo(({ timesta
   );
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   row: {
     alignItems: 'center',
     marginTop: spacing.md,

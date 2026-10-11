@@ -7,6 +7,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
+import { useThemedStyles, ColorTokens } from '../theme';
 
 export interface PostMediaProps {
   urls?: string[];
@@ -18,6 +19,7 @@ export interface PostMediaProps {
 const isHttpUrl = (u: string) => /^https?:\/\//i.test(u);
 
 export const PostMedia: React.FC<PostMediaProps> = React.memo(({ urls, onPressImage, large }) => {
+  const styles = useThemedStyles(makeStyles);
   const safe = (urls ?? []).filter(isHttpUrl).slice(0, 4);
   if (safe.length === 0) return null;
 
@@ -63,21 +65,21 @@ export const PostMedia: React.FC<PostMediaProps> = React.memo(({ urls, onPressIm
   );
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   stack: { gap: 8, marginBottom: 12 },
   singleWrapper: {
     width: '100%',
     height: 200,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bgInput,
   },
   largeWrapper: {
     width: '100%',
     aspectRatio: 4 / 3,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bgInput,
   },
   fill: { width: '100%', height: '100%' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
@@ -86,7 +88,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bgInput,
   },
   moreOverlay: {
     ...StyleSheet.absoluteFill,

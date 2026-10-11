@@ -24,7 +24,7 @@ import { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
 import { useConnection } from '../context/ConnectionContext';
 import { APP_LINK_CONFIG, LEGAL_URLS } from '../api/config';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography, SELECTABLE_THEME_MODES, ThemeMode } from '../theme';
 import { IconText } from '../components/IconText';
 import {
   DeviceTransferModal,
@@ -66,46 +66,50 @@ const SettingsItem: React.FC<SettingsItemProps> = ({
   tintColor,
   showChevron = true,
   destructive = false,
-}) => (
-  <TouchableOpacity
-    style={styles.settingsItem}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    {/* Icon */}
-    <View
-      style={[
-        styles.settingsIcon,
-        { backgroundColor: tintColor ? `${tintColor}20` : colors.tintAccent10 },
-      ]}
+}) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <TouchableOpacity
+      style={styles.settingsItem}
+      onPress={onPress}
+      activeOpacity={0.7}
     >
-      <IconText style={styles.settingsIconText}>{icon}</IconText>
-    </View>
-
-    {/* Text */}
-    <View style={styles.settingsText}>
-      <Text
+      {/* Icon */}
+      <View
         style={[
-          styles.settingsTitle,
-          destructive && { color: colors.colorError },
+          styles.settingsIcon,
+          { backgroundColor: tintColor ? `${tintColor}20` : colors.tintAccent10 },
         ]}
-        numberOfLines={1}
       >
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text style={styles.settingsSubtitle} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      ) : null}
-    </View>
+        <IconText style={styles.settingsIconText}>{icon}</IconText>
+      </View>
 
-    {/* Chevron */}
-    {showChevron && (
-      <Text style={styles.chevron}>›</Text>
-    )}
-  </TouchableOpacity>
-);
+      {/* Text */}
+      <View style={styles.settingsText}>
+        <Text
+          style={[
+            styles.settingsTitle,
+            destructive && { color: colors.colorError },
+          ]}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text style={styles.settingsSubtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+
+      {/* Chevron */}
+      {showChevron && (
+        <Text style={styles.chevron}>›</Text>
+      )}
+    </TouchableOpacity>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Section Wrapper
@@ -113,12 +117,15 @@ const SettingsItem: React.FC<SettingsItemProps> = ({
 const SettingsSection: React.FC<{
   title?: string;
   children: React.ReactNode;
-}> = ({ title, children }) => (
-  <View style={styles.section}>
-    {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
-    <View style={styles.sectionCard}>{children}</View>
-  </View>
-);
+}> = ({ title, children }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.section}>
+      {title ? <Text style={styles.sectionTitle}>{title}</Text> : null}
+      <View style={styles.sectionCard}>{children}</View>
+    </View>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Avatar Initials
@@ -134,7 +141,15 @@ function getInitials(name: string): string {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Screen
 // ─────────────────────────────────────────────────────────────────────────────
+const THEME_MODE_LABEL: Record<ThemeMode, string> = {
+  light: 'Terang',
+  dark: 'Gelap',
+  system: 'Ikuti sistem',
+};
+
 export const SettingsScreen: React.FC = () => {
+  const { colors, mode: themeMode, scheme, setMode: setThemeMode } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, logout, deleteAccount, e2eeStatus, updateCurrentUser } = useAuth();
@@ -398,6 +413,27 @@ export const SettingsScreen: React.FC = () => {
 
         <SettingsSection title="Preferensi & Info">
           <SettingsItem
+            icon="🌗"
+            title="Tampilan"
+            subtitle={
+              themeMode === 'system'
+                ? `Tema: Ikuti sistem (${scheme === 'dark' ? 'Gelap' : 'Terang'})`
+                : `Tema: ${THEME_MODE_LABEL[themeMode]}`
+            }
+            onPress={() =>
+              showAlert('Tema Tampilan', 'Pilih tema aplikasi.', [
+                ...SELECTABLE_THEME_MODES.map((m) => ({
+                  text: m === themeMode ? `${THEME_MODE_LABEL[m]} ✓` : THEME_MODE_LABEL[m],
+                  emphasized: m === themeMode,
+                  onPress: () => setThemeMode(m),
+                })),
+                { text: 'Batal', style: 'cancel' as const },
+              ])
+            }
+            tintColor={colors.accentPrimary}
+          />
+          <View style={styles.itemDivider} />
+          <SettingsItem
             icon="🔔"
             title="Notifikasi & Suara"
             subtitle="FCM v1, nada dering & hening"
@@ -535,7 +571,9 @@ export const SettingsScreen: React.FC = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Styles
 // ─────────────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -759,3 +797,4 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
 });
+};

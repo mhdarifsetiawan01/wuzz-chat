@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { Button } from './Button';
 import { GoogleSignInButton } from './google/GoogleSignInButton';
 
@@ -25,28 +25,33 @@ export const GoogleLinkRequiredView: React.FC<GoogleLinkRequiredViewProps> = ({
   onLink,
   onLogout,
   onDelete,
-}) => (
-  <ScrollView contentContainerStyle={styles.scrollContent}>
-    <View style={styles.card}>
-      <Text style={styles.title}>Hubungkan akun Google untuk melanjutkan</Text>
-      <Text style={styles.body}>
-        Batas waktu menautkan akun Google sudah lewat, sehingga akun{username ? ` @${username}` : ''} dibatasi sementara.
-      </Text>
-      <Text style={styles.body}>
-        Pesan, teman, dan data Anda aman dan tidak dihapus. Hubungkan akun Google untuk membuka kembali akun Anda.
-      </Text>
+}) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      <View style={styles.card}>
+        <Text style={styles.title}>Hubungkan akun Google untuk melanjutkan</Text>
+        <Text style={styles.body}>
+          Batas waktu menautkan akun Google sudah lewat, sehingga akun{username ? ` @${username}` : ''} dibatasi sementara.
+        </Text>
+        <Text style={styles.body}>
+          Pesan, teman, dan data Anda aman dan tidak dihapus. Hubungkan akun Google untuk membuka kembali akun Anda.
+        </Text>
 
-      <GoogleSignInButton title="Hubungkan Akun Google" isLoading={isLinking} onPress={onLink} style={styles.button} />
-      <Button title="Keluar" variant="ghost" disabled={isLinking || isLoggingOut} onPress={onLogout} style={styles.button} />
+        <GoogleSignInButton title="Hubungkan Akun Google" isLoading={isLinking} onPress={onLink} style={styles.button} />
+        <Button title="Keluar" variant="ghost" disabled={isLinking || isLoggingOut} onPress={onLogout} style={styles.button} />
 
-      <TouchableOpacity onPress={onDelete} activeOpacity={0.7} style={styles.deleteLink} disabled={isLinking}>
-        <Text style={styles.deleteLinkText}>Hapus akun saya</Text>
-      </TouchableOpacity>
-    </View>
-  </ScrollView>
-);
+        <TouchableOpacity onPress={onDelete} activeOpacity={0.7} style={styles.deleteLink} disabled={isLinking}>
+          <Text style={styles.deleteLinkText}>Hapus akun saya</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -66,3 +71,4 @@ const styles = StyleSheet.create({
   deleteLink: { alignSelf: 'center', marginTop: spacing.xl, padding: spacing.sm },
   deleteLinkText: { ...typography.captionBold, color: colors.colorError },
 });
+};

@@ -15,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { ConnectionStatus } from '../api/types';
 import { Avatar } from './Avatar';
@@ -49,6 +49,7 @@ export const PrivateAccountNoticeModal: React.FC<PrivateAccountNoticeModalProps>
   isAddingFriend = false,
   onAddFriend,
 }) => {
+  const styles = useThemedStyles(makeStyles);
   if (!visible) return null;
 
   const displayName = targetUser?.display_name || 'Pengguna ini';
@@ -145,7 +146,9 @@ export const PrivateAccountNoticeModal: React.FC<PrivateAccountNoticeModalProps>
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: colors.bgOverlay,
@@ -240,3 +243,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
 });
+};

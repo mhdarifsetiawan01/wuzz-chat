@@ -24,7 +24,7 @@ import {
   MAX_LOCAL_MESSAGES_PER_ROOM,
 } from '../services/sqliteStorage';
 import { mediaCache } from '../services/mediaCache';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
@@ -73,6 +73,8 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
   onClose,
   userId,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [dbBytes, setDbBytes] = useState<number>(0);
@@ -394,7 +396,9 @@ export const StorageSettingsModal: React.FC<StorageSettingsModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
@@ -578,3 +582,4 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderSubtle,
   },
 });
+};

@@ -56,7 +56,7 @@ import { PinnedMessagesBanner } from '../components/PinnedMessagesBanner';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { PrivateAccountNoticeModal } from '../components/PrivateAccountNoticeModal';
-import { colors } from '../theme/colors';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from '../components/IconText';
 import { Icon } from '../components/Icon';
 import { radius, spacing } from '../theme/spacing';
@@ -134,6 +134,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onOpenUserProfile,
   onOpenPost,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
 
   const insets = useSafeAreaInsets();
   const { user, e2eeKeyPair } = useAuth();
@@ -2216,7 +2218,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -2492,7 +2494,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -5,
     right: -5,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -2540,7 +2542,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   privatePeerBannerBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingHorizontal: spacing.sm + 2,
     paddingVertical: 4,
     borderRadius: radius.md,

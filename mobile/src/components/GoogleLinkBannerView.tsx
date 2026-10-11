@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, spacing, typography } from '../theme';
+import { spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { Icon } from './Icon';
 import type { LinkDeadlineState, LinkUrgency } from '../utils/googleLinkDeadline';
 
@@ -18,16 +18,18 @@ export interface GoogleLinkBannerViewProps {
   onDismiss: () => void;
 }
 
-const TONE: Record<Exclude<LinkUrgency, 'none'>, { bg: string; border: string }> = {
+const toneColors = (colors: ColorTokens): Record<Exclude<LinkUrgency, 'none'>, { bg: string; border: string }> => ({
   info: { bg: colors.tintAccent20, border: colors.borderDefault },
   warning: { bg: colors.tintWarning10, border: colors.colorWarning },
   urgent: { bg: colors.tintError10, border: colors.colorError },
   expired: { bg: colors.tintError20, border: colors.colorError },
-};
+});
 
 export const GoogleLinkBannerView: React.FC<GoogleLinkBannerViewProps> = ({ state, topInset, isLinking, onLink, onDismiss }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   if (state.urgency === 'none') return null;
-  const tone = TONE[state.urgency];
+  const tone = toneColors(colors)[state.urgency];
   return (
     <View style={[styles.banner, { paddingTop: topInset + spacing.xs, backgroundColor: tone.bg, borderBottomColor: tone.border }]}>
       <Text style={styles.text} numberOfLines={2}>
@@ -45,7 +47,9 @@ export const GoogleLinkBannerView: React.FC<GoogleLinkBannerViewProps> = ({ stat
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -71,3 +75,4 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
+};

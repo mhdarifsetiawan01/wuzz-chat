@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { Button } from './Button';
 import { Icon } from './Icon';
 import { accountSuspendedCopy as copy } from './accountSuspendedCopy';
@@ -34,50 +34,56 @@ export const AccountSuspendedView: React.FC<AccountSuspendedViewProps> = ({
   onAppeal,
   onLogout,
   onDelete,
-}) => (
-  <ScrollView contentContainerStyle={styles.scrollContent}>
-    <View style={styles.card}>
-      <View style={styles.iconCircle}>
-        <Icon name="ban" size={28} color={colors.colorError} />
-      </View>
-      <Text style={styles.title} accessibilityRole="header">
-        {copy.title}
-      </Text>
-      <Text style={styles.body}>{copy.body(username)}</Text>
-      <Text style={styles.body}>{copy.safeData}</Text>
-
-      <Button title={copy.appeal} onPress={onAppeal} style={styles.button} />
-      {/* Alamat di baris sendiri agar tidak terpotong di tengah dan bisa disalin. */}
-      <Text style={styles.contactLine}>{copy.contactIntro}</Text>
-      <Text style={styles.contactEmail} selectable>
-        {supportEmail}
-      </Text>
-      <Text style={styles.contactLine}>{copy.contactHint}</Text>
-      {onCheck ? (
-        <Button
-          title={copy.checkStatus}
-          variant="secondary"
-          isLoading={isChecking}
-          disabled={isChecking || isLoggingOut}
-          onPress={onCheck}
-          style={styles.button}
-        />
-      ) : null}
-      {statusMessage ? (
-        <Text style={styles.statusMessage} accessibilityLiveRegion="polite">
-          {statusMessage}
+}) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+      <View style={styles.card}>
+        <View style={styles.iconCircle}>
+          <Icon name="ban" size={28} color={colors.colorError} />
+        </View>
+        <Text style={styles.title} accessibilityRole="header">
+          {copy.title}
         </Text>
-      ) : null}
-      <Button title={copy.logout} variant="ghost" disabled={isLoggingOut} onPress={onLogout} style={styles.button} />
+        <Text style={styles.body}>{copy.body(username)}</Text>
+        <Text style={styles.body}>{copy.safeData}</Text>
 
-      <TouchableOpacity onPress={onDelete} activeOpacity={0.7} style={styles.deleteLink}>
-        <Text style={styles.deleteLinkText}>{copy.deleteAccount}</Text>
-      </TouchableOpacity>
-    </View>
-  </ScrollView>
-);
+        <Button title={copy.appeal} onPress={onAppeal} style={styles.button} />
+        {/* Alamat di baris sendiri agar tidak terpotong di tengah dan bisa disalin. */}
+        <Text style={styles.contactLine}>{copy.contactIntro}</Text>
+        <Text style={styles.contactEmail} selectable>
+          {supportEmail}
+        </Text>
+        <Text style={styles.contactLine}>{copy.contactHint}</Text>
+        {onCheck ? (
+          <Button
+            title={copy.checkStatus}
+            variant="secondary"
+            isLoading={isChecking}
+            disabled={isChecking || isLoggingOut}
+            onPress={onCheck}
+            style={styles.button}
+          />
+        ) : null}
+        {statusMessage ? (
+          <Text style={styles.statusMessage} accessibilityLiveRegion="polite">
+            {statusMessage}
+          </Text>
+        ) : null}
+        <Button title={copy.logout} variant="ghost" disabled={isLoggingOut} onPress={onLogout} style={styles.button} />
 
-const styles = StyleSheet.create({
+        <TouchableOpacity onPress={onDelete} activeOpacity={0.7} style={styles.deleteLink}>
+          <Text style={styles.deleteLinkText}>{copy.deleteAccount}</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+};
+
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -109,3 +115,4 @@ const styles = StyleSheet.create({
   deleteLink: { alignSelf: 'center', marginTop: spacing.xl, padding: spacing.sm },
   deleteLinkText: { ...typography.captionBold, color: colors.colorError },
 });
+};

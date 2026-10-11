@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { ActivityIndicator, StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
-import { colors, radius, spacing, typography } from '../../theme';
+import { radius, spacing, useTheme, useThemedStyles, makeTypography, ColorTokens } from '../../theme';
 import { GOOGLE_BRAND } from '../../theme/brand/google';
 import { GOOGLE_UI, GoogleButtonAppearance } from './googleUi';
 
@@ -30,6 +30,8 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   renderLogo = GOOGLE_UI.renderLogo,
   style,
 }) => {
+  const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const palette =
     appearance === 'brand'
       ? { fill: GOOGLE_BRAND.button.fill, stroke: GOOGLE_BRAND.button.stroke, text: GOOGLE_BRAND.button.text }
@@ -59,7 +61,9 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   base: {
     height: 50,
     borderRadius: radius.md,
@@ -89,3 +93,4 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
+};

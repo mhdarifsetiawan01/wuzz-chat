@@ -8,7 +8,7 @@
 
 import React, { useState } from 'react';
 import { StyleProp, StyleSheet, Text, TextStyle, TouchableOpacity, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { useThemedStyles, ColorTokens } from '../theme';
 import { spacing } from '../theme/spacing';
 import { typography } from '../theme/typography';
 
@@ -24,6 +24,7 @@ export const CollapsibleText: React.FC<CollapsibleTextProps> = ({
   style,
   collapsedLines = 3,
 }) => {
+  const styles = useThemedStyles(makeStyles);
   const [expanded, setExpanded] = useState(false);
   const [totalLines, setTotalLines] = useState(0);
   const isTruncatable = totalLines > collapsedLines;
@@ -60,7 +61,7 @@ export const CollapsibleText: React.FC<CollapsibleTextProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   container: {
     alignSelf: 'stretch',
     alignItems: 'center',

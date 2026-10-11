@@ -15,7 +15,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, TextProps, TextStyle } from 'react-native';
-import { colors } from '../theme';
+import { useTheme } from '../theme';
 import { Icon } from './Icon';
 import type { IconName } from './icons/registry';
 
@@ -167,6 +167,7 @@ export const IconText: React.FC<IconTextProps> = ({
   numberOfLines,
   ...textProps
 }) => {
+  const { colors } = useTheme();
   let name = icon;
   let content: React.ReactNode = children;
 

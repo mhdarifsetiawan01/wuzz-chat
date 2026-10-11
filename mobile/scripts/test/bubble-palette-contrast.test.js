@@ -4,7 +4,12 @@
 const assert = require('assert');
 const { loadFresh } = require('./_harness');
 
-const { bubblePalette: bp, colors: colorsModule } = loadFresh(['theme/colors.ts', 'theme/bubblePalette.ts']);
+const { bubblePalette: bp, colors: colorsModule, darkColors: darkModule, themeMode } = loadFresh([
+  'theme/colors.ts',
+  'theme/darkColors.ts',
+  'theme/themeMode.ts',
+  'theme/bubblePalette.ts',
+]);
 const c = colorsModule.colors;
 const P = bp.bubblePalette;
 
@@ -49,4 +54,28 @@ assert.ok(ratio(P.self.background, c.bgBase) >= 3, 'bubble Anda harus terlihat j
 // Referensi regresi lama
 assert.ok(ratio('#ffffff', '#30AFFF') < 4.5, 'gaya lama (#30AFFF + putih) memang gagal AA');
 assert.ok(ratio('#334155', c.bgBase) > 8, 'gaya lama (slate gelap) memang blok pekat');
+
+// Varian gelap: aturan keterbacaan yang sama, kanvas = bgBase palet gelap.
+const D = bp.bubblePaletteDark;
+const d = darkModule.darkColors;
+for (const side of ['self', 'other']) {
+  const s = D[side];
+  atLeast(s.text, s.background, 4.5, `gelap ${side} teks`);
+  atLeast(s.textSecondary, s.background, 4.5, `gelap ${side} teks sekunder`);
+  atLeast(s.link, s.background, 4.5, `gelap ${side} tautan`);
+  atLeast(s.accent, s.background, 4.5, `gelap ${side} aksen`);
+}
+atLeast(D.other.text, D.other.quoteBox, 4.5, 'gelap lawan teks kutipan');
+atLeast(D.other.accent, D.other.quoteBox, 4.5, 'gelap lawan nama kutipan');
+atLeast(D.other.text, D.other.card, 4.5, 'gelap lawan teks card');
+atLeast(D.other.textSecondary, D.other.card, 4.5, 'gelap lawan teks sekunder card');
+atLeast(D.other.link, D.other.card, 4.5, 'gelap lawan CTA card');
+atLeast(D.self.text, D.highlight.self, 4.5, 'gelap disorot Anda');
+atLeast(D.other.text, D.highlight.other, 4.5, 'gelap disorot lawan');
+for (const n of D.senderNames) atLeast(n, D.other.background, 4.5, `gelap nama pengirim ${n}`);
+assert.ok(ratio(D.self.background, d.bgBase) >= 3, 'gelap: bubble Anda harus terlihat jelas di kanvas');
+assert.ok(ratio(D.other.background, d.bgBase) >= 1.1, 'gelap: bubble lawan harus terpisah dari kanvas');
+assert.strictEqual(bp.getBubblePalette('dark'), D);
+assert.strictEqual(bp.getBubblePalette('light'), P);
+assert.ok(themeMode.resolveScheme('dark', null) === 'dark');
 console.log('bubble-palette-contrast: OK');

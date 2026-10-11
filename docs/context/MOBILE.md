@@ -49,6 +49,7 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
   - Sticky header di layar obrolan wajib berada di luar KAV agar tidak terdorong naik saat keyboard muncul di Android lama.
 - **Standar Sistem Desain & Kontras Mobile**:
   - Seluruh perancangan UI/UX wajib mematuhi token dan kaidah di [`mobile/DESIGN.md`](../../mobile/DESIGN.md).
+  - **Tema Terang/Gelap**: warna dari `useTheme()` / `useThemedStyles(makeStyles)`, bukan `colors` statis; aturan lengkap di `mobile/DESIGN.md` bagian 8.
   - **Kontras Teks Tombol (Anti White-on-White)**: Tombol berlatar terang (`variant="secondary"`) wajib menggunakan teks gelap `colors.textPrimary` (`#0f172a`), dilarang menggunakan teks putih.
   - **Bottom Sheet Flush Alignment**: Seluruh modal tipe bottom sheet wajib menyertakan `statusBarTranslucent={true}`, KAV sebagai overlay terluar (`flex: 1, justifyContent: 'flex-end'`), backdrop `StyleSheet.absoluteFill`, kartu menempel rapat di dasar layar (`bottom: 0`) dengan padding aman `Math.max(insets.bottom, spacing.lg)`, dan form scrollable ber-`flexShrink: 1` (dilarang celah mengambang / floating gap).
 

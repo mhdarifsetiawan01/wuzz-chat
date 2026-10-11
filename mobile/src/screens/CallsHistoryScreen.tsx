@@ -26,10 +26,10 @@ import { searchUsers } from '../api/users';
 import { Conversation, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { BottomSheetModal } from '../components/BottomSheetModal';
-import { fabStyle, getFabBottom } from '../theme/fab';
+import { makeFabStyle, getFabBottom } from '../theme/fab';
 import { useAuth, useCall, useConversations } from '../context';
 import { LocalCallRecord } from '../services';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from '../components/IconText';
 import { showAlert } from '../services/dialog';
 
@@ -38,10 +38,10 @@ import { showAlert } from '../services/dialog';
 // ─────────────────────────────────────────────────────────────────────────────
 type CallType = 'incoming' | 'outgoing' | 'missed';
 
-const CALL_META: Record<CallType, { icon: string; label: string; color: string }> = {
-  incoming: { icon: '↙️', label: 'Masuk', color: colors.colorOnline },
-  outgoing: { icon: '↗️', label: 'Keluar', color: colors.accentPrimary },
-  missed: { icon: '📵', label: 'Tak Terjawab', color: colors.colorError },
+const CALL_META: Record<CallType, { icon: string; label: string; color: 'colorOnline' | 'accentPrimary' | 'colorError' }> = {
+  incoming: { icon: '↙️', label: 'Masuk', color: 'colorOnline' },
+  outgoing: { icon: '↗️', label: 'Keluar', color: 'accentPrimary' },
+  missed: { icon: '📵', label: 'Tak Terjawab', color: 'colorError' },
 };
 
 function formatDuration(seconds: number): string {
@@ -82,6 +82,8 @@ interface CallListItemProps {
 
 const CallListItem = React.memo<CallListItemProps>(
   ({ item, onPress, onLongPress, onCallback }) => {
+    const { colors } = useTheme();
+    const styles = useThemedStyles(makeStyles);
     const meta = CALL_META[item.call_type] || CALL_META.missed;
     const displayName = item.peer_display_name || item.peer_username || 'Kontak WuzzChat';
 
@@ -103,7 +105,7 @@ const CallListItem = React.memo<CallListItemProps>(
           </Text>
           <View style={styles.callMeta}>
             <IconText style={styles.callTypeIcon}>{meta.icon}</IconText>
-            <Text style={[styles.callTypeLabel, { color: meta.color }]}>
+            <Text style={[styles.callTypeLabel, { color: colors[meta.color] }]}>
               {meta.label}
             </Text>
             {item.call_type !== 'missed' && item.duration_seconds > 0 && (
@@ -143,6 +145,8 @@ const CallListItem = React.memo<CallListItemProps>(
 // Main Screen
 // ─────────────────────────────────────────────────────────────────────────────
 export const CallsHistoryScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { conversations } = useConversations();
@@ -571,7 +575,9 @@ export const CallsHistoryScreen: React.FC = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Styles
 // ─────────────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -711,7 +717,7 @@ const styles = StyleSheet.create({
   },
 
   // ── FAB ───────────────────────────────────────────────────────────────────
-  fab: fabStyle,
+  fab: makeFabStyle(colors),
   fabIcon: {
     fontSize: 24,
   },
@@ -802,4 +808,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+};
 

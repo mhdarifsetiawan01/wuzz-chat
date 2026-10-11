@@ -27,8 +27,8 @@ import { BottomSheetModal, ActionMenuItem } from '../components/BottomSheetModal
 import { useAuth, useConversations, useMessageActions } from '../context';
 import { useFavoriteChats } from '../hooks/useFavoriteChats';
 import { ConnectionState, websocketClient } from '../services/websocket';
-import { colors, radius, spacing, typography } from '../theme';
-import { fabStyle, getFabBottom } from '../theme/fab';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
+import { makeFabStyle, getFabBottom } from '../theme/fab';
 import { IconText } from '../components/IconText';
 import { Icon } from '../components/Icon';
 import { showAlert } from '../services/dialog';
@@ -44,6 +44,8 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
   onStartNewChat,
   onStartNewGroup,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const { user, logout } = useAuth();
   const {
@@ -396,7 +398,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
         <View style={styles.headerTitleRow}>
           <Text style={styles.headerTitle}>
             <Text style={{ color: colors.accentPrimary }}>Wuzz</Text>
-            <Text style={{ color: '#f59e0b' }}>Chat</Text>
+            <Text style={{ color: colors.colorWarning }}>Chat</Text>
           </Text>
           <View style={styles.statusDotIndicator}>
             <View
@@ -428,7 +430,7 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
           <TextInput
             style={styles.searchInput}
             placeholder="Cari pesan..."
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
             returnKeyType="search"
@@ -730,7 +732,9 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -778,7 +782,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 1,
@@ -789,9 +793,9 @@ const styles = StyleSheet.create({
   },
   headerActionIcon: {
     fontSize: 18,
-    color: '#475569',
+    color: colors.textSecondary,
   },
-  fab: fabStyle,
+  fab: makeFabStyle(colors),
   fabIcon: {
     fontSize: 26,
   },
@@ -804,7 +808,7 @@ const styles = StyleSheet.create({
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eef2f6',
+    backgroundColor: colors.bgInput,
     borderRadius: 14,
     paddingHorizontal: 14,
     height: 42,
@@ -829,14 +833,14 @@ const styles = StyleSheet.create({
   favoritesSectionTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: colors.textMuted,
     letterSpacing: 0.8,
     paddingHorizontal: 20,
     marginBottom: 10,
   },
   favoritesEmptyHint: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.textMuted,
     paddingHorizontal: 20,
   },
   favoritesScrollContent: {
@@ -845,7 +849,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   favoriteCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderRadius: 16,
     width: 72,
     paddingVertical: 10,
@@ -856,7 +860,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     borderWidth: Platform.OS === 'ios' ? 0.5 : 0,
-    borderColor: '#edf2f7',
+    borderColor: colors.borderDefault,
   },
   favoriteCardName: {
     fontSize: 11,
@@ -879,13 +883,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 3,
     borderRadius: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.borderDefault,
     minHeight: 24,
   },
   filterChipActive: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     borderColor: colors.accentPrimary,
   },
   filterChipText: {
@@ -899,7 +903,7 @@ const styles = StyleSheet.create({
   },
   filterBadge: {
     marginLeft: 6,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderRadius: 10,
     minWidth: 16,
     height: 16,
@@ -914,7 +918,7 @@ const styles = StyleSheet.create({
   },
   filterCountTag: {
     marginLeft: 6,
-    backgroundColor: '#edf2f7',
+    backgroundColor: colors.bgSurfaceHover,
     borderRadius: 10,
     minWidth: 16,
     height: 16,
@@ -925,11 +929,11 @@ const styles = StyleSheet.create({
   filterCountTagText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   listWrapper: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: 'hidden',
@@ -941,7 +945,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
   },
   loadingText: {
     fontSize: 13,
@@ -977,7 +981,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
   },
   startChatBtnText: {
     fontSize: 13,
@@ -989,7 +993,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 18,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.bgInputFocused,
   },
   clearFilterBtnText: {
     fontSize: 12,
@@ -999,12 +1003,12 @@ const styles = StyleSheet.create({
   actionProfileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bgBase,
     borderRadius: 16,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.borderDefault,
   },
   actionProfileInfo: {
     marginLeft: spacing.md,
@@ -1037,5 +1041,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
 });
+};
 
 

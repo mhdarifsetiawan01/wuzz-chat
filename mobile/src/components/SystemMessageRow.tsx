@@ -5,22 +5,25 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { ColorTokens, useThemedStyles } from '../theme';
 import { spacing } from '../theme/spacing';
 
 interface SystemMessageRowProps {
   text: string;
 }
 
-export const SystemMessageRow: React.FC<SystemMessageRowProps> = React.memo(({ text }) => (
-  <View style={styles.row}>
-    <View style={styles.pill}>
-      <Text style={styles.text}>{text}</Text>
+export const SystemMessageRow: React.FC<SystemMessageRowProps> = React.memo(({ text }) => {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.row}>
+      <View style={styles.pill}>
+        <Text style={styles.text}>{text}</Text>
+      </View>
     </View>
-  </View>
-));
+  );
+});
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   row: {
     alignItems: 'center',
     marginVertical: spacing.xs,

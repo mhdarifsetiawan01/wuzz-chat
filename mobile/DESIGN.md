@@ -312,3 +312,24 @@ Logo dan tombol "Lanjutkan dengan Google" mengikuti [pedoman merek Google](https
 4. **Tata letak onboarding:** `GoogleOnboardingView.tsx` (tampilan murni, tanpa hook; logika ada di `GoogleOnboardingScreen.tsx`). Selama props-nya sama, desain boleh diganti total. Hal yang sama berlaku untuk `GoogleLinkBannerView` dan `GoogleLinkRequiredView`.
 
 Bila logo diganti dengan buatan sendiri, periksa ulang kepatuhan pedoman merek Google sebelum rilis Play Store.
+
+## 8. Tema Terang / Gelap
+
+Warna dan tipografi **mengikuti tema aktif**; jangan mengimpor palet statis ke komponen.
+
+- Model preferensi: `'light' | 'dark' | 'system'` (`src/theme/themeMode.ts`). Default `'system'` (ikuti pengaturan OS); pilihan pengguna disimpan per perangkat. UI pemilih menampilkan `SELECTABLE_THEME_MODES` (Ikuti sistem, Terang, Gelap). `userInterfaceStyle` di `app.json` = `"automatic"`. `ThemeProvider` juga menyelaraskan `Appearance.setColorScheme` supaya komponen native (dialog, picker) ikut.
+- Palet: `lightColors` / `darkColors` (kunci wajib identik, dijaga tipe `ColorTokens` dan `scripts/test/theme-palettes.test.js`). `colors` statis tetap ada hanya sebagai palet terang untuk kode di luar komponen.
+- Pola komponen:
+  ```tsx
+  const makeStyles = (colors: ColorTokens) => StyleSheet.create({ box: { backgroundColor: colors.bgSurface } });
+  function Comp() {
+    const { colors, typography } = useTheme();      // untuk nilai inline
+    const styles = useThemedStyles(makeStyles);     // untuk StyleSheet
+  }
+  ```
+  Factory `makeStyles(colors, scheme)` boleh menerima `scheme` kedua (dipakai `getBubblePalette(scheme)`).
+- Dilarang hex/rgba mentah untuk warna netral (latar, teks, garis). Boleh mentah: scrim modal (`rgba(0,0,0,.x)`), teks putih di atas aksen/foto, bayangan, warna merek Google, QR code (harus putih/hitam).
+- **Isian bertulisan putih** (tombol primer/bahaya, FAB, chip terpilih, badge, kotak centang) memakai `accentFill` / `dangerFill` / `successFill` / `warningFill`, bukan `accentPrimary`/`colorError`/dst. Di mode terang nilainya sama; di mode gelap lebih dalam agar teks putih >= 4.5:1. `accentPrimary` dan warna status tetap untuk **teks, ikon, dan garis**. Audit kontras kedua palet dijaga `scripts/test/theme-palettes.test.js`.
+- Palet khusus: bubble `getBubblePalette(scheme)`, bubble terhapus `getDeletedBubblePalette(colors)`, FAB `makeFabStyle(colors)`. Kontras teks >= 4.5:1 di kedua tema dijaga tes `bubble-palette-contrast` dan `deleted-bubble-contrast`.
+- `AppErrorBoundary` berada di luar `ThemeProvider` sehingga memakai palet terang statis.
+

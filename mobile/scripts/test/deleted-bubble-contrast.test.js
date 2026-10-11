@@ -28,4 +28,10 @@ assert.ok(ratio(p.time, p.background) >= 4.5, `jam ${ratio(p.time, p.background)
 // Pengukuran referensi supaya perhitungan kontras sendiri tidak diam-diam salah.
 assert.ok(Math.abs(ratio('#000000', '#ffffff') - 21) < 0.01);
 assert.ok(ratio(c.textMuted, '#949aa5') < 1.2, 'gaya lama memang tidak terbaca (referensi regresi)');
+
+// Varian gelap diturunkan dari token palet gelap; tetap harus terbaca.
+const dk = loadFresh(['theme/colors.ts', 'theme/darkColors.ts', 'theme/deletedBubble.ts']);
+const dp = dk.deletedBubble.getDeletedBubblePalette(dk.darkColors.darkColors);
+assert.ok(ratio(dp.text, dp.background) >= 4.5, `gelap teks ${ratio(dp.text, dp.background).toFixed(2)}:1 < 4.5:1`);
+assert.ok(ratio(dp.time, dp.background) >= 4.5, `gelap jam ${ratio(dp.time, dp.background).toFixed(2)}:1 < 4.5:1`);
 console.log('deleted-bubble-contrast: OK');

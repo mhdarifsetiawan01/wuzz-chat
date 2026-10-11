@@ -18,7 +18,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
 import { QUICK_REACTIONS } from '../constants/emojis';
-import { colors } from '../theme/colors';
+import { useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { spacing } from '../theme/spacing';
 import { showAlert } from '../services/dialog';
@@ -53,6 +53,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   onReport,
   onDelete,
 }) => {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -331,7 +332,7 @@ export const MessageActionSheet: React.FC<MessageActionSheetProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
@@ -396,7 +397,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   deleteMenuLabel: {
-    color: '#ef4444', // Danger Red
+    color: colors.colorError, // Danger Red
   },
   deleteConfirmBox: {
     paddingVertical: spacing.sm,
@@ -451,7 +452,7 @@ const styles = StyleSheet.create({
   deleteForEveryoneText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#ef4444',
+    color: colors.colorError,
   },
   deleteForMeText: {
     fontSize: 14,
@@ -469,7 +470,7 @@ const styles = StyleSheet.create({
   deleteCountdownText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#f87171',
+    color: colors.colorError,
     marginTop: 2,
   },
   deleteExpiredText: {

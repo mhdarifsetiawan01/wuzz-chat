@@ -12,7 +12,7 @@ import {
   TouchableOpacityProps,
   ViewStyle,
 } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens } from '../theme';
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
@@ -29,6 +29,8 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   ...rest
 }) => {
+  const { colors, typography } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const getBackgroundColor = () => {
     if (disabled) {
       return colors.bgInput;
@@ -36,28 +38,28 @@ export const Button: React.FC<ButtonProps> = ({
     if (isLoading) {
       switch (variant) {
         case 'primary':
-          return colors.accentPrimary;
+          return colors.accentFill;
         case 'secondary':
           return colors.bgSurface;
         case 'danger':
-          return colors.colorDanger;
+          return colors.dangerFill;
         case 'ghost':
           return 'transparent';
         default:
-          return colors.accentPrimary;
+          return colors.accentFill;
       }
     }
     switch (variant) {
       case 'primary':
-        return colors.accentPrimary;
+        return colors.accentFill;
       case 'secondary':
         return colors.bgSurface;
       case 'danger':
-        return colors.colorDanger;
+        return colors.dangerFill;
       case 'ghost':
         return 'transparent';
       default:
-        return colors.accentPrimary;
+        return colors.accentFill;
     }
   };
 
@@ -102,7 +104,7 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   base: {
     height: 50,
     borderRadius: radius.md,

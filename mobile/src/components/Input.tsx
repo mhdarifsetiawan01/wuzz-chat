@@ -12,7 +12,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -31,6 +31,8 @@ export const Input: React.FC<InputProps> = ({
   onBlur,
   ...rest
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [isFocused, setIsFocused] = useState(false);
 
   return (
@@ -63,7 +65,9 @@ export const Input: React.FC<InputProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   container: {
     marginBottom: spacing.lg,
   },
@@ -104,3 +108,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 });
+};

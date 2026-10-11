@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { Icon } from './Icon';
 import type { IconName } from './icons/registry';
 
@@ -17,27 +17,33 @@ interface OptionCardProps {
   disabled?: boolean;
 }
 
-export const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, onPress, disabled = false }) => (
-  <TouchableOpacity
-    activeOpacity={0.75}
-    onPress={onPress}
-    disabled={disabled}
-    accessibilityRole="button"
-    accessibilityLabel={`${title}. ${description}`}
-    style={[styles.card, disabled && styles.disabled]}
-  >
-    <View style={styles.iconCircle}>
-      <Icon name={icon} size={22} color={colors.accentHover} />
-    </View>
-    <View style={styles.texts}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
-    </View>
-    <Icon name="forward" size={16} color={colors.textMuted} />
-  </TouchableOpacity>
-);
+export const OptionCard: React.FC<OptionCardProps> = ({ icon, title, description, onPress, disabled = false }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <TouchableOpacity
+      activeOpacity={0.75}
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}. ${description}`}
+      style={[styles.card, disabled && styles.disabled]}
+    >
+      <View style={styles.iconCircle}>
+        <Icon name={icon} size={22} color={colors.accentHover} />
+      </View>
+      <View style={styles.texts}>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.description}>{description}</Text>
+      </View>
+      <Icon name="forward" size={16} color={colors.textMuted} />
+    </TouchableOpacity>
+  );
+};
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -61,3 +67,4 @@ const styles = StyleSheet.create({
   description: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   disabled: { opacity: 0.5 },
 });
+};

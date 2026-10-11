@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { usePeerTyping } from '../hooks/usePeerTyping';
 import { describeTypers } from '../utils/typingTracker';
 import { TypingDots } from './TypingDots';
@@ -19,6 +19,8 @@ interface ChatHeaderStatusProps {
 }
 
 export const ChatHeaderStatus: React.FC<ChatHeaderStatusProps> = ({ roomId, isDirect, children }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const typers = usePeerTyping(roomId);
   if (typers.length === 0) return <>{children}</>;
 
@@ -32,7 +34,7 @@ export const ChatHeaderStatus: React.FC<ChatHeaderStatusProps> = ({ roomId, isDi
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   text: {
     fontSize: 12,
     color: colors.colorOnline,

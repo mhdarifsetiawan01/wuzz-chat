@@ -28,7 +28,7 @@ import { EditGroupInfoModal } from '../components/EditGroupInfoModal';
 import { SubGroupListModal } from '../components/SubGroupListModal';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { useAuth } from '../context/AuthContext';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from '../components/IconText';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
@@ -64,6 +64,8 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   onOpenUserProfile,
   onEnterSubGroup,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { user: currentUser } = useAuth();
   const [group, setGroup] = useState<GroupDetails | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
@@ -766,7 +768,9 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -995,7 +999,7 @@ const styles = StyleSheet.create({
   },
   creatorBadgeText: {
     ...typography.caption,
-    color: '#c084fc',
+    color: colors.colorPurple,
     fontWeight: '700',
     fontSize: 11,
   },
@@ -1040,7 +1044,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderSubtle,
   },
   confirmAddButton: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
     borderRadius: radius.md,
@@ -1119,7 +1123,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   checkboxSelected: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     borderColor: colors.accentPrimary,
   },
   checkMark: {
@@ -1199,3 +1203,4 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 });
+};

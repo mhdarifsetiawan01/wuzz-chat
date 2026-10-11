@@ -1,4 +1,4 @@
-import { colors } from './colors';
+import { ColorTokens, lightColors } from './colors';
 
 /**
  * Palet bubble "Pesan ini telah dihapus". Satu permukaan netral terang untuk bubble Anda maupun lawan, karena bubble
@@ -8,9 +8,12 @@ import { colors } from './colors';
  * Teks dan jam wajib >= 4.5:1 terhadap latar (WCAG 2.1 AA, lihat mobile/DESIGN.md); dijaga tes
  * `scripts/test/deleted-bubble-contrast.test.js`.
  */
-export const deletedBubblePalette = {
+export const getDeletedBubblePalette = (colors: ColorTokens) => ({
   background: colors.bgCard,
   border: colors.borderStrong,
   text: colors.textSecondary,
   time: colors.textSecondary,
-} as const;
+} as const);
+
+/** Palet terang statis (kompatibilitas/tes). */
+export const deletedBubblePalette = getDeletedBubblePalette(lightColors);

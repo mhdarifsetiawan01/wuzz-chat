@@ -25,7 +25,7 @@ import { Avatar } from '../components/Avatar';
 import { GroupPreviewModal } from '../components/GroupPreviewModal';
 import { useAuth } from '../context/AuthContext';
 import { useConnection } from '../context/ConnectionContext';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from '../components/IconText';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { Icon } from '../components/Icon';
@@ -58,6 +58,8 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
   onNavigateToNewGroup,
   onNavigateToFriends,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { user: currentUser } = useAuth();
   const { friends, sendFriendRequest } = useConnection();
 
@@ -514,7 +516,9 @@ export const NewChatScreen: React.FC<NewChatScreenProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bgBase,
@@ -725,7 +729,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: radius.full,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -747,3 +751,4 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
+};

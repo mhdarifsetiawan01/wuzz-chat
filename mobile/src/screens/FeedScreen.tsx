@@ -37,8 +37,8 @@ import { PostCommentsModal } from '../components/PostCommentsModal';
 import { SharePostToChatModal } from '../components/SharePostToChatModal';
 import { useAuth, useFeed } from '../context';
 import { RootStackParamList } from '../navigation/types';
-import { colors, spacing } from '../theme';
-import { fabStyle, getFabBottom } from '../theme/fab';
+import { spacing, useTheme, useThemedStyles, ColorTokens } from '../theme';
+import { makeFabStyle, getFabBottom } from '../theme/fab';
 import { IconText } from '../components/IconText';
 import { VerifiedBadge } from '../components/VerifiedBadge';
 import { formatPostTime } from '../utils/feedTime';
@@ -48,6 +48,8 @@ import { showAlert } from '../services/dialog';
 const COLLAPSED_LINES = 6;
 
 export const FeedScreen: React.FC = () => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
@@ -425,10 +427,10 @@ export const FeedScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f4f7fb',
+    backgroundColor: colors.bgBase,
   },
   header: {
     flexDirection: 'row',
@@ -437,23 +439,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 12,
-    backgroundColor: '#f4f7fb',
+    backgroundColor: colors.bgBase,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.textPrimary,
     letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   headerNewPostBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
@@ -478,7 +480,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 10,
     gap: 8,
-    backgroundColor: '#f4f7fb',
+    backgroundColor: colors.bgBase,
   },
   tabPill: {
     flexDirection: 'row',
@@ -486,10 +488,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: '#e8edf3',
+    backgroundColor: colors.bgSurfaceHover,
   },
   tabPillActive: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     elevation: 2,
     shadowColor: colors.accentPrimary,
     shadowOffset: { width: 0, height: 2 },
@@ -499,7 +501,7 @@ const styles = StyleSheet.create({
   tabPillText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   tabPillTextActive: {
     color: '#ffffff',
@@ -511,7 +513,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   postCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderRadius: 22,
     padding: 16,
     elevation: 1,
@@ -520,11 +522,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
     borderWidth: 1,
-    borderColor: '#e8edf3',
+    borderColor: colors.borderDefault,
   },
   postCardPinned: {
-    borderColor: '#93c5fd',
-    backgroundColor: '#fafcff',
+    borderColor: colors.tintAccent30,
+    backgroundColor: colors.tintAccent10,
   },
   pinnedHeader: {
     flexDirection: 'row',
@@ -538,7 +540,7 @@ const styles = StyleSheet.create({
   pinnedText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#2563eb',
+    color: colors.colorInfoText,
     letterSpacing: 0.2,
   },
   postAuthorRow: {
@@ -559,7 +561,7 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
   },
   badgeBase: {
     paddingHorizontal: 7,
@@ -567,34 +569,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   announcementBadge: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.tintAccent10,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: colors.tintAccent30,
   },
   announcementBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#1d4ed8',
+    color: colors.colorInfoText,
   },
   sponsoredBadge: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.tintWarning10,
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: colors.colorWarning,
   },
   sponsoredBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#b45309',
+    color: colors.colorWarningText,
   },
   articleBadge: {
-    backgroundColor: '#f3e8ff',
+    backgroundColor: colors.tintPurple10,
     borderWidth: 1,
-    borderColor: '#e9d5ff',
+    borderColor: colors.colorPurple,
   },
   articleBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#7e22ce',
+    color: colors.colorPurple,
   },
   authorSubRow: {
     flexDirection: 'row',
@@ -603,12 +605,12 @@ const styles = StyleSheet.create({
   },
   authorRole: {
     fontSize: 11,
-    color: '#64748b',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   postTimeAgo: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: colors.textMuted,
   },
   modDeleteBtn: {
     padding: 6,
@@ -620,14 +622,14 @@ const styles = StyleSheet.create({
   postContent: {
     fontSize: 14.5,
     lineHeight: 22,
-    color: '#1e293b',
+    color: colors.textPrimary,
     marginBottom: 12,
   },
   postActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.borderSubtle,
     paddingTop: 10,
     gap: 18,
   },
@@ -642,17 +644,17 @@ const styles = StyleSheet.create({
   actionCount: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   actionCountLiked: {
-    color: '#ef4444',
+    color: colors.colorError,
   },
   actionBtnShare: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     marginLeft: 'auto',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.bgBase,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
@@ -673,7 +675,7 @@ const styles = StyleSheet.create({
   },
   centerText: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
   },
   emptyContainer: {
     paddingVertical: 60,
@@ -688,18 +690,18 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.textPrimary,
     marginBottom: 6,
   },
   emptySubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 16,
   },
   emptyCreateBtn: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
@@ -713,7 +715,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
-  fab: fabStyle,
+  fab: makeFabStyle(colors),
   fabIcon: {
     fontSize: 30,
     color: '#ffffff',

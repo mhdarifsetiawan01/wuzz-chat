@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CreateReportRequest, ReportReason, reportsApi } from '../api';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { showAlert } from '../services/dialog';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -39,6 +39,7 @@ export interface ReportModalProps {
 }
 
 export const ReportModal: React.FC<ReportModalProps> = ({ visible, target, onClose }) => {
+  const styles = useThemedStyles(makeStyles);
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -116,7 +117,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({ visible, target, onClo
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: { flex: 1, backgroundColor: colors.bgOverlay, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
   card: {
     width: '100%',
@@ -143,9 +146,10 @@ const styles = StyleSheet.create({
   },
   optionSelected: { backgroundColor: colors.tintAccent10, borderColor: colors.tintAccent20 },
   radio: { width: 18, height: 18, borderRadius: radius.full, borderWidth: 2, borderColor: colors.textMuted },
-  radioSelected: { borderColor: colors.accentPrimary, backgroundColor: colors.accentPrimary },
+  radioSelected: { borderColor: colors.accentPrimary, backgroundColor: colors.accentFill },
   optionText: { ...typography.body, color: colors.textPrimary, flexShrink: 1 },
   details: { marginTop: spacing.md },
   actions: { gap: spacing.sm, marginTop: spacing.md },
   btn: { width: '100%', height: 48, borderRadius: radius.lg },
 });
+};

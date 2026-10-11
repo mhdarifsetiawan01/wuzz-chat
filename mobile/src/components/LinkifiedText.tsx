@@ -7,7 +7,7 @@
 import React, { useMemo } from 'react';
 import { StyleProp, StyleSheet, Text, TextLayoutEventData, TextStyle, NativeSyntheticEvent } from 'react-native';
 import { safeOpenUrl, tokenizeLinks } from '../utils/linkUtils';
-import { colors } from '../theme/colors';
+import { useThemedStyles, ColorTokens } from '../theme';
 
 export interface LinkifiedTextProps {
   text: string;
@@ -20,6 +20,7 @@ export interface LinkifiedTextProps {
 
 export const LinkifiedText: React.FC<LinkifiedTextProps> = React.memo(
   ({ text, style, linkStyle, numberOfLines, selectable, onTextLayout }) => {
+    const styles = useThemedStyles(makeStyles);
     const tokens = useMemo(() => tokenizeLinks(text), [text]);
 
     return (
@@ -49,7 +50,7 @@ export const LinkifiedText: React.FC<LinkifiedTextProps> = React.memo(
   }
 );
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   link: {
     color: colors.accentPrimary,
     textDecorationLine: 'underline',

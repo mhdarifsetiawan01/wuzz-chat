@@ -6,8 +6,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import { colors, radius } from '../theme';
-import { bubblePalette } from '../theme/bubblePalette';
+import { radius, useTheme, useThemedStyles, ColorTokens, ResolvedScheme } from '../theme';
+import { getBubblePalette } from '../theme/bubblePalette';
 import { IconText } from './IconText';
 
 interface AvatarProps {
@@ -32,8 +32,6 @@ const AVATAR_PALETTE = [
 
 // Nama pengirim di bubble lawan (#334155): tiap warna ≥ 4,5:1 (WCAG AA). Palet avatar di atas
 // untuk latar berinisial putih, terlalu gelap untuk teks di bubble gelap (indigo/sky/teal ±1,5-3:1).
-// Varian gelap (bubble lawan kini putih); lihat theme/bubblePalette.ts
-const SENDER_NAME_PALETTE = bubblePalette.senderNames;
 
 function hashName(name: string): number {
   let hash = 0;
@@ -48,9 +46,11 @@ export function getAvatarColor(name: string): string {
   return AVATAR_PALETTE[hashName(name) % AVATAR_PALETTE.length];
 }
 
-export function getSenderNameColor(name: string): string {
-  if (!name) return SENDER_NAME_PALETTE[0];
-  return SENDER_NAME_PALETTE[hashName(name) % SENDER_NAME_PALETTE.length];
+// Warna nama pengirim mengikuti skema (varian per tema; lihat theme/bubblePalette.ts).
+export function getSenderNameColor(name: string, scheme: ResolvedScheme): string {
+  const palette = getBubblePalette(scheme).senderNames;
+  if (!name) return palette[0];
+  return palette[hashName(name) % palette.length];
 }
 
 function getInitials(name: string): string {
@@ -71,6 +71,8 @@ export const Avatar: React.FC<AvatarProps> = ({
   shape = 'circle',
   unreadCount,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [hasImageError, setHasImageError] = React.useState(false);
   const bgColor = isGroup ? colors.accentPrimary : getAvatarColor(name);
   const initials = getInitials(name);
@@ -147,7 +149,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   container: {
     position: 'relative',
     justifyContent: 'center',
@@ -171,7 +173,7 @@ const styles = StyleSheet.create({
     right: -4,
     backgroundColor: colors.unreadBadgeBg,
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: colors.bgSurface,
     borderRadius: 12,
     minWidth: 20,
     height: 20,
@@ -195,13 +197,13 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: colors.colorOnline,
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: colors.bgSurface,
   },
   groupBadge: {
     position: 'absolute',
     bottom: -1,
     right: -1,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     borderWidth: 1.5,
     borderColor: colors.borderDefault,
     justifyContent: 'center',

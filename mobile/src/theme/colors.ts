@@ -3,7 +3,7 @@
  * Single Source of Truth: frontend/DESIGN.md & app/globals.css
  */
 
-export const colors = {
+export const lightColors = {
   // Background & Surface (Clean Soft-Blue Modern - Image Reference)
   bgBase: '#f4f7fb',          // Soft Ice-Blue clean canvas
   bgSurface: '#ffffff',       // Pure clean white cards & list rows
@@ -38,6 +38,14 @@ export const colors = {
   tintError20: 'rgba(239, 68, 68, 0.16)',
   tintSuccess10: 'rgba(16, 185, 129, 0.08)',
   tintWarning10: 'rgba(245, 158, 11, 0.08)',
+  tintPurple10: 'rgba(168, 85, 247, 0.10)',
+
+  // Isian (permukaan berisi teks putih: tombol, FAB, chip terpilih, badge). Di mode terang sama dengan warna aksennya;
+  // di mode gelap lebih dalam supaya teks putih >= 4.5:1 dan tidak menyilaukan.
+  accentFill: '#30AFFF',
+  dangerFill: '#ef4444',
+  successFill: '#10b981',
+  warningFill: '#f59e0b',
 
   // Status & Semantic
   colorOnline: '#10b981',     // Vibrant Emerald green dot
@@ -47,6 +55,9 @@ export const colors = {
   colorDanger: '#ef4444',
   colorVerified: '#30AFFF',
   colorCyanNeon: '#0ea5e9',
+  colorPurple: '#7e22ce',     // Badge artikel, teks ungu di atas tint
+  colorInfoText: '#1d4ed8',   // Teks biru informasi di atas tint aksen
+  colorWarningText: '#b45309', // Teks amber di atas tint peringatan
 
   // Compatibility & Key Accents
   monoAmber: '#f59e0b',
@@ -59,4 +70,11 @@ export const colors = {
   unreadBadgeText: '#ffffff',
 } as const;
 
-export type ColorTokens = typeof colors;
+/** Bentuk token yang wajib dipenuhi setiap palet (terang/gelap); nilainya string biasa, bukan literal. */
+export type ColorTokens = { readonly [K in keyof typeof lightColors]: string };
+
+/**
+ * Palet terang statis. Dipertahankan untuk kode yang belum dimigrasi ke tema dinamis (`useTheme`/`useThemedStyles`);
+ * kode baru memakai `useTheme().colors` agar ikut berganti tema.
+ */
+export const colors: ColorTokens = lightColors;

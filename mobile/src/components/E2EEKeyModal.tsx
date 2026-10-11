@@ -18,7 +18,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { secureStorage } from '../services/secureStorage';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
@@ -54,6 +54,8 @@ export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
   userId,
   e2eeStatus,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [fingerprint, setFingerprint] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -219,7 +221,9 @@ export const E2EEKeyModal: React.FC<E2EEKeyModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
@@ -394,3 +398,4 @@ const styles = StyleSheet.create({
     borderTopColor: colors.borderSubtle,
   },
 });
+};

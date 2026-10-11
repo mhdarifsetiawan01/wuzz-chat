@@ -13,7 +13,7 @@ import { Icon } from '../../components/Icon';
 import { Input } from '../../components/Input';
 import { OptionCard } from '../../components/OptionCard';
 import { GoogleAccountChip } from '../../components/google/GoogleAccountChip';
-import { colors, radius, spacing, typography } from '../../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../../theme';
 import type { UsernameHint } from '../../utils/usernameRules';
 import { onboardingCopy as copy } from './copy';
 
@@ -47,6 +47,8 @@ const HEADER: Record<OnboardingStep, { title: string; subtitle: string }> = {
 };
 
 export const GoogleOnboardingView: React.FC<GoogleOnboardingViewProps> = (p) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const header = HEADER[p.step];
   const showUsernameError = p.usernameHint.state === 'error';
 
@@ -168,7 +170,9 @@ export const GoogleOnboardingView: React.FC<GoogleOnboardingViewProps> = (p) => 
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -214,3 +218,4 @@ const styles = StyleSheet.create({
   helpBody: { ...typography.caption, color: colors.textSecondary, marginTop: 2 },
   helpLink: { ...typography.captionBold, color: colors.accentHover, marginTop: spacing.sm },
 });
+};

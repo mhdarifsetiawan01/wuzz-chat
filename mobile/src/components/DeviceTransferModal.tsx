@@ -37,7 +37,7 @@ import {
   parseTransferQRData,
 } from '../services/keyTransfer';
 import { secureStorage } from '../services/secureStorage';
-import { colors, radius, shadows, spacing, typography } from '../theme';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Button } from './Button';
@@ -60,6 +60,8 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
   onClose,
   onTransferSuccess,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   if (!visible) return null;
 
   const { user, e2eeKeyPair, importTransferredKeyPair } = useAuth();
@@ -526,7 +528,9 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: colors.bgOverlay,
@@ -597,7 +601,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   tabButtonActive: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
   },
   tabText: {
     ...typography.captionBold,
@@ -676,7 +680,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   qrWrapper: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.bgSurface,
     padding: 8,
     borderRadius: radius.lg,
     alignItems: 'center',
@@ -760,7 +764,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: radius.full,
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -835,3 +839,4 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 });
+};

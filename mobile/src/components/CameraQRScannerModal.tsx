@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 
@@ -42,6 +42,8 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
   onScan,
   title = 'Pindai Kode QR Keamanan',
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [torchEnabled, setTorchEnabled] = useState(false);
@@ -236,7 +238,9 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
 const CORNER_THICKNESS = 4;
 const CORNER_LENGTH = 28;
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000000',
@@ -281,7 +285,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   grantButton: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: radius.lg,
@@ -341,7 +345,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderDefault,
   },
   circleIconButtonActive: {
-    backgroundColor: colors.accentPrimary,
+    backgroundColor: colors.accentFill,
     borderColor: colors.colorCyanNeon,
   },
   torchIconText: {
@@ -438,3 +442,4 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 });
+};

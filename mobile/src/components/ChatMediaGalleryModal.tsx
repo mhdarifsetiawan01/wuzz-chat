@@ -23,7 +23,7 @@ import { Message } from '../api/types';
 import { getRoomMediaMessages } from '../services/sqliteStorage';
 import { mediaCache } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
-import { colors } from '../theme/colors';
+import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { spacing } from '../theme/spacing';
@@ -48,6 +48,8 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
   roomTitle,
   onClose,
 }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'media' | 'files'>('media');
   const [isLoading, setIsLoading] = useState(true);
@@ -356,7 +358,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.bgBase,

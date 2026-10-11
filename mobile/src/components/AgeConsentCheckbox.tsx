@@ -6,7 +6,7 @@
 import React from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LEGAL_URLS } from '../api/config';
-import { colors, radius, spacing, typography } from '../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { MIN_AGE_YEARS } from '../utils/ageGate';
 import { Icon } from './Icon';
 
@@ -19,35 +19,41 @@ interface AgeConsentCheckboxProps {
 
 const open = (url: string) => Linking.openURL(url).catch(() => {});
 
-export const AgeConsentCheckbox: React.FC<AgeConsentCheckboxProps> = ({ checked, onToggle, disabled = false, hasError = false }) => (
-  <View style={styles.row}>
-    <TouchableOpacity
-      onPress={onToggle}
-      disabled={disabled}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      activeOpacity={0.7}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked, disabled }}
-      accessibilityLabel={`Saya berusia ${MIN_AGE_YEARS} tahun atau lebih`}
-      style={[styles.box, checked && styles.boxChecked, hasError && !checked && styles.boxError]}
-    >
-      {checked && <Icon name="check" size={16} color={colors.textInverse} />}
-    </TouchableOpacity>
-    <Text style={styles.text}>
-      Saya berusia {MIN_AGE_YEARS} tahun atau lebih, dan menyetujui{' '}
-      <Text style={styles.link} onPress={() => open(LEGAL_URLS.terms)} accessibilityRole="link">
-        Syarat Layanan
-      </Text>{' '}
-      dan{' '}
-      <Text style={styles.link} onPress={() => open(LEGAL_URLS.privacy)} accessibilityRole="link">
-        Kebijakan Privasi
+export const AgeConsentCheckbox: React.FC<AgeConsentCheckboxProps> = ({ checked, onToggle, disabled = false, hasError = false }) => {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.row}>
+      <TouchableOpacity
+        onPress={onToggle}
+        disabled={disabled}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        activeOpacity={0.7}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked, disabled }}
+        accessibilityLabel={`Saya berusia ${MIN_AGE_YEARS} tahun atau lebih`}
+        style={[styles.box, checked && styles.boxChecked, hasError && !checked && styles.boxError]}
+      >
+        {checked && <Icon name="check" size={16} color={colors.textOnAccent} />}
+      </TouchableOpacity>
+      <Text style={styles.text}>
+        Saya berusia {MIN_AGE_YEARS} tahun atau lebih, dan menyetujui{' '}
+        <Text style={styles.link} onPress={() => open(LEGAL_URLS.terms)} accessibilityRole="link">
+          Syarat Layanan
+        </Text>{' '}
+        dan{' '}
+        <Text style={styles.link} onPress={() => open(LEGAL_URLS.privacy)} accessibilityRole="link">
+          Kebijakan Privasi
+        </Text>
+        .
       </Text>
-      .
-    </Text>
-  </View>
-);
+    </View>
+  );
+};
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ColorTokens) => {
+  const typography = makeTypography(colors);
+  return StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, marginTop: spacing.sm, marginBottom: spacing.md },
   box: {
     width: 24,
@@ -60,8 +66,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  boxChecked: { backgroundColor: colors.accentPrimary, borderColor: colors.accentPrimary },
+  boxChecked: { backgroundColor: colors.accentFill, borderColor: colors.accentPrimary },
   boxError: { borderColor: colors.colorError },
   text: { ...typography.caption, color: colors.textSecondary, flex: 1 },
   link: { color: colors.accentHover, fontWeight: '600' },
 });
+};
