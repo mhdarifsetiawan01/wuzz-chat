@@ -13,15 +13,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { conversationsApi } from '../api/conversations';
 import { Conversation, FeedPost } from '../api/types';
 import { websocketClient } from '../services/websocket';
@@ -29,6 +26,7 @@ import { radius, spacing, useTheme, useThemedStyles, ColorTokens } from '../them
 import { IconText } from './IconText';
 import { Icon } from './Icon';
 import { Avatar } from './Avatar';
+import { BottomSheetModal } from './BottomSheetModal';
 import { buildSharedPostMessage } from '../utils/feedShare';
 import { showAlert } from '../services/dialog';
 
@@ -49,14 +47,12 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
 }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   useEffect(() => {
     if (visible && post) {
       setSelectedRoomIds([]);
@@ -131,198 +127,148 @@ export const SharePostToChatModal: React.FC<SharePostToChatModalProps> = ({
   if (!post) return null;
 
   return (
-    <Modal
+    <BottomSheetModal
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      onClose={onClose}
+      title="Bagikan ke Obrolan"
+      avoidKeyboard
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          style={[
-            styles.modalCard,
-            { paddingBottom: Math.max(insets.bottom, spacing.md) },
-          ]}
-          onPress={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerTitleRow}>
-              <Text style={styles.headerTitle}>Bagikan ke Obrolan</Text>
-              <View style={styles.counterBadge}>
-                <Text style={styles.counterText}>
-                  {selectedRoomIds.length}/{MAX_TARGETS} dipilih
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={onClose}
-              disabled={isSubmitting}
-            >
-              <Icon name="close" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
+      <View style={styles.body}>
+        <View style={styles.counterBadge}>
+          <Text style={styles.counterText}>
+            {selectedRoomIds.length}/{MAX_TARGETS} dipilih
+          </Text>
+        </View>
+
+        {/* Snippet Preview */}
+        <View style={styles.previewBox}>
+          <Text style={styles.previewLabel}>Cuplikan yang akan dikirim:</Text>
+          <IconText style={styles.previewContent} numberOfLines={2}>
+            📢 @{post.author?.username || post.author?.display_name}: {post.content}
+          </IconText>
+        </View>
+
+        {/* Search Box */}
+        <View style={styles.searchContainer}>
+          <IconText style={styles.searchIcon}>🔍</IconText>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Cari kontak atau grup..."
+            placeholderTextColor={colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
+        </View>
+
+        {/* Conversations List */}
+        {isLoading ? (
+          <View style={styles.centerContainer}>
+            <ActivityIndicator size="large" color={colors.accentPrimary} />
+            <Text style={styles.loadingText}>Memuat daftar obrolan...</Text>
           </View>
-
-          {/* Snippet Preview */}
-          <View style={styles.previewBox}>
-            <Text style={styles.previewLabel}>Cuplikan yang akan dikirim:</Text>
-            <IconText style={styles.previewContent} numberOfLines={2}>
-              📢 @{post.author?.username || post.author?.display_name}: {post.content}
-            </IconText>
+        ) : filteredConversations.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <IconText style={styles.emptyIcon}>💬</IconText>
+            <Text style={styles.emptyText}>Tidak ada obrolan ditemukan</Text>
           </View>
+        ) : (
+          <FlatList
+            data={filteredConversations}
+            keyExtractor={(item) => item.id || item.room_id || ''}
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => {
+              const roomId = item.id || item.room_id || '';
+              const isSelected = selectedRoomIds.includes(roomId);
+              const title = item.title || item.peer_nickname || item.name || 'Obrolan';
+              const isGroup = item.is_group || item.type === 'group';
 
-          {/* Search Box */}
-          <View style={styles.searchContainer}>
-            <IconText style={styles.searchIcon}>🔍</IconText>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Cari kontak atau grup..."
-              placeholderTextColor={colors.textMuted}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCorrect={false}
-              clearButtonMode="while-editing"
-            />
-          </View>
+              return (
+                <TouchableOpacity
+                  style={[styles.convItem, isSelected && styles.convItemSelected]}
+                  onPress={() => handleToggleRoom(roomId)}
+                  activeOpacity={0.7}
+                >
+                  <Avatar
+                    name={title}
+                    avatarUrl={item.avatar_url}
+                    size={44}
+                    shape={isGroup ? 'squircle' : 'circle'}
+                  />
 
-          {/* Conversations List */}
-          {isLoading ? (
-            <View style={styles.centerContainer}>
-              <ActivityIndicator size="large" color={colors.accentPrimary} />
-              <Text style={styles.loadingText}>Memuat daftar obrolan...</Text>
-            </View>
-          ) : filteredConversations.length === 0 ? (
-            <View style={styles.centerContainer}>
-              <IconText style={styles.emptyIcon}>💬</IconText>
-              <Text style={styles.emptyText}>Tidak ada obrolan ditemukan</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={filteredConversations}
-              keyExtractor={(item) => item.id || item.room_id || ''}
-              style={styles.list}
-              contentContainerStyle={styles.listContent}
-              keyboardShouldPersistTaps="handled"
-              renderItem={({ item }) => {
-                const roomId = item.id || item.room_id || '';
-                const isSelected = selectedRoomIds.includes(roomId);
-                const title = item.title || item.peer_nickname || item.name || 'Obrolan';
-                const isGroup = item.is_group || item.type === 'group';
-
-                return (
-                  <TouchableOpacity
-                    style={[styles.convItem, isSelected && styles.convItemSelected]}
-                    onPress={() => handleToggleRoom(roomId)}
-                    activeOpacity={0.7}
-                  >
-                    <Avatar
-                      name={title}
-                      avatarUrl={item.avatar_url}
-                      size={44}
-                      shape={isGroup ? 'squircle' : 'circle'}
-                    />
-
-                    <View style={styles.convDetails}>
-                      <View style={styles.convTitleRow}>
-                        <Text style={styles.convTitle} numberOfLines={1}>
-                          {title}
-                        </Text>
-                        {isGroup && (
-                          <View style={styles.groupBadge}>
-                            <Text style={styles.groupBadgeText}>Grup</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.convSub} numberOfLines={1}>
-                        {typeof item.last_message === 'string'
-                          ? item.last_message
-                          : item.last_message?.content || 'Ketuk untuk memilih'}
+                  <View style={styles.convDetails}>
+                    <View style={styles.convTitleRow}>
+                      <Text style={styles.convTitle} numberOfLines={1}>
+                        {title}
                       </Text>
+                      {isGroup && (
+                        <View style={styles.groupBadge}>
+                          <Text style={styles.groupBadgeText}>Grup</Text>
+                        </View>
+                      )}
                     </View>
+                    <Text style={styles.convSub} numberOfLines={1}>
+                      {isGroup
+                        ? item.member_count
+                          ? `${item.member_count} anggota`
+                          : 'Grup'
+                        : 'Obrolan pribadi'}
+                    </Text>
+                  </View>
 
-                    {/* Checkbox indicator */}
-                    <View
-                      style={[
-                        styles.checkbox,
-                        isSelected && styles.checkboxSelected,
-                      ]}
-                    >
-                      {isSelected && <IconText style={styles.checkmark}>✓</IconText>}
-                    </View>
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          )}
+                  {/* Checkbox indicator */}
+                  <View
+                    style={[
+                      styles.checkbox,
+                      isSelected && styles.checkboxSelected,
+                    ]}
+                  >
+                    {isSelected && <IconText style={styles.checkmark}>✓</IconText>}
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
 
-          {/* Action Footer */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={[
-                styles.sendBtn,
-                (selectedRoomIds.length === 0 || isSubmitting) && styles.sendBtnDisabled,
-              ]}
-              onPress={handleSendShare}
-              disabled={selectedRoomIds.length === 0 || isSubmitting}
-              activeOpacity={0.8}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.sendBtnText}>
-                  {selectedRoomIds.length > 0
-                    ? `Kirim (${selectedRoomIds.length})`
-                    : 'Pilih Obrolan Tujuan'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+        {/* Action Footer */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[
+              styles.sendBtn,
+              (selectedRoomIds.length === 0 || isSubmitting) && styles.sendBtnDisabled,
+            ]}
+            onPress={handleSendShare}
+            disabled={selectedRoomIds.length === 0 || isSubmitting}
+            activeOpacity={0.8}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text style={styles.sendBtnText}>
+                {selectedRoomIds.length > 0
+                  ? `Kirim (${selectedRoomIds.length})`
+                  : 'Pilih Obrolan Tujuan'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    </BottomSheetModal>
   );
 };
 
 const makeStyles = (colors: ColorTokens) => StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: colors.bgSurface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    maxHeight: '82%',
-    minHeight: '55%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderDefault,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  body: {
+    height: 520,
+    maxHeight: '100%',
+    flexShrink: 1,
   },
   counterBadge: {
+    alignSelf: 'flex-start',
     backgroundColor: colors.tintAccent10,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -333,12 +279,8 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
     fontWeight: '700',
     color: colors.accentPrimary,
   },
-  closeBtn: {
-    padding: 6,
-  },
   previewBox: {
     backgroundColor: colors.bgBase,
-    marginHorizontal: 16,
     marginTop: 10,
     padding: 10,
     borderRadius: 12,
@@ -360,7 +302,6 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.bgInput,
-    marginHorizontal: 16,
     marginVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 14,
@@ -398,9 +339,7 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   list: {
     flex: 1,
   },
-  listContent: {
-    paddingHorizontal: 16,
-  },
+  listContent: {},
   convItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -463,7 +402,6 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
     fontWeight: '800',
   },
   footer: {
-    paddingHorizontal: 16,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.borderDefault,
