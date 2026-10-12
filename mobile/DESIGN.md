@@ -182,6 +182,22 @@ Untuk memastikan konsistensi tampilan di seluruh versi sistem operasi (**Android
 Komponen `<Modal>` di React Native berjalan pada sub-window native tersendiri. Agar tampilan modal konsisten di seluruh perangkat Android (Android 11 hingga Android 16+ dengan *enforced edge-to-edge*) dan iOS, wajib mematuhi arsitektur baku berikut:
 
 #### 1. Bottom Sheet Modal (Mepet Bawah / Flush Alignment)
+
+> **DEFAULT UNTUK SHEET BARU: pakai komponen `BottomSheetModal` (`mobile/src/components/BottomSheetModal.tsx`), jangan menulis `<Modal>` + `KeyboardAvoidingView` sendiri.** Komponen ini sudah menangani backdrop, animasi buka-tutup, geser-ke-bawah untuk menutup, tombol tutup, padding safe-area, dan keyboard. Terbukti di HP (RMX3506, Android 11) pada halaman Panggilan dan modal Bagikan ke Obrolan: dasar sheet menempel rapat di atas keyboard tanpa celah. **Baru teruji di Android 11; belum diuji di Android 15/16 (edge-to-edge), uji di Infinix sebelum menganggapnya final di sana.**
+>
+> ```tsx
+> <BottomSheetModal visible={visible} onClose={onClose} title="Judul" avoidKeyboard>
+>   {/* flexShrink: 1 pada isi; untuk FlatList beri tinggi tetap + flexShrink: 1 */}
+>   <View style={{ height: 520, maxHeight: '100%', flexShrink: 1 }}>...</View>
+> </BottomSheetModal>
+> ```
+> - `avoidKeyboard` WAJIB dinyalakan bila isi sheet punya `TextInput` (Modal Android tidak ikut `adjustResize`).
+> - Isi tidak perlu header/tombol tutup sendiri; pakai prop `title`. Jangan tambah padding bawah safe-area lagi (sudah ada di kartu).
+> - Contoh pemakaian: `CallsHistoryScreen.tsx`, `SharePostToChatModal.tsx`.
+>
+> **JEBAKAN (kejadian 12 Okt 2026, modal Bagikan ke Obrolan):** formula `<Modal animationType="slide">` + `KeyboardAvoidingView` di bawah, dan juga `paddingBottom = keyboardHeight` buatan sendiri di dalam `<Modal animationType="slide">`, meninggalkan celah ±100 px (±48 dp) antara sheet dan keyboard saat keyboard terbuka. Ukuran dari HP: `endCoordinates.height` benar (323,5 dp), `insets.bottom` di dalam Modal hanya 1, dan wadah luar sheet lebih pendek dari layar. Mengurangi `insets.bottom` TIDAK menolong. `BottomSheetModal` (`animationType="none"`) tidak mengalami ini; penyebab pasti belum dibuktikan (dugaan: `animationType="slide"`). Jangan menebak rumus offset: pakai `BottomSheetModal`, dan bila terpaksa menulis sendiri, uji di HP asli dengan keyboard terbuka sebelum dianggap selesai. Sheet lama yang masih memakai formula KAV di bawah belum diuji ulang untuk celah ini.
+
+**Formula lama (legacy, hanya untuk sheet yang sudah ada):**
 Bottom Sheet (`EditProfileModal`, `CreatePostModal`, `PostCommentsModal`, `CreateSubGroupModal`, `BottomSheetModal`) **WAJIB menempel rapat di tepi bawah layar fisik HP (`bottom: 0`)**.
 - ❌ **DILARANG KERAS**: Membiarkan kartu bottom sheet melayang (*floating*) atau menyisakan celah/gap hitam di atas navigation bar / tab bar.
 - ✅ **3 Syarat Mutlak Bottom Sheet React Native**:
@@ -190,7 +206,7 @@ Bottom Sheet (`EditProfileModal`, `CreatePostModal`, `PostCommentsModal`, `Creat
   3. Kontainer kartu modal (`styles.card`) **WAJIB** memiliki padding bawah dinamis: `paddingBottom: Math.max(insets.bottom, spacing.lg)` agar tombol aksi (Batal & Simpan) berada aman di atas gesture navigation bar Android / home indicator iOS tanpa terpotong, namun latar belakang kartu tetap menempel sempurna ke dasar layar.
   4. Kontainer form yang dapat di-scroll (`formScroll`) **WAJIB** menggunakan `flexShrink: 1` dengan `showsVerticalScrollIndicator={false}`. **DILARANG** menggunakan fixed `maxHeight` (seperti 460) yang memotong input secara kaku.
 
-✅ **Formula Baku Bottom Sheet Modal**:
+Formula Modal manual:
 ```tsx
 <Modal
   visible={visible}

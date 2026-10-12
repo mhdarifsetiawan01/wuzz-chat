@@ -51,6 +51,7 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
   - Seluruh perancangan UI/UX wajib mematuhi token dan kaidah di [`mobile/DESIGN.md`](../../mobile/DESIGN.md).
   - **Tema Terang/Gelap**: warna dari `useTheme()` / `useThemedStyles(makeStyles)`, bukan `colors` statis; aturan lengkap di `mobile/DESIGN.md` bagian 8.
   - **Kontras Teks Tombol (Anti White-on-White)**: Tombol berlatar terang (`variant="secondary"`) wajib menggunakan teks gelap `colors.textPrimary` (`#0f172a`), dilarang menggunakan teks putih.
+  - **Sheet baru WAJIB memakai `BottomSheetModal`** (`avoidKeyboard` bila ada input), bukan `<Modal>` + KAV sendiri; KAV/`paddingBottom` manual di `<Modal animationType="slide">` terbukti meninggalkan celah ±48 dp di atas keyboard (12 Okt 2026). Detail dan jebakan: `mobile/DESIGN.md` bagian B.1.
   - **Bottom Sheet Flush Alignment**: Seluruh modal tipe bottom sheet wajib menyertakan `statusBarTranslucent={true}`, KAV sebagai overlay terluar (`flex: 1, justifyContent: 'flex-end'`), backdrop `StyleSheet.absoluteFill`, kartu menempel rapat di dasar layar (`bottom: 0`) dengan padding aman `Math.max(insets.bottom, spacing.lg)`, dan form scrollable ber-`flexShrink: 1` (dilarang celah mengambang / floating gap).
 
 ### E. State Manajemen & Optimistic Cache Layer (Stale-While-Revalidate)
