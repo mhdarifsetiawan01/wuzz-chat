@@ -12,20 +12,24 @@ export type MemoryConfidence = 'HIGH' | 'MEDIUM' | 'LOW';
 
 // ─── Arsip (disetujui) ───────────────────────────────────────────────────────
 
+/** Bentuk respons GET /api/groups/{id}/memories (lihat memory.GroupMemoryListItem di backend). */
 export interface ApprovedMemoryListItem {
   id: string;
+  draft_id?: string;
   forum_id: string;
   forum_title: string;
   group_id: string;
   approved_by: string;
-  approved_by_name: string;
+  /** Nama tampilan penyetuju; kosong bila penyetuju sudah keluar dari grup. */
+  approved_by_name?: string;
   approved_at: string;
   has_human_edits: boolean;
   snapshot_summary: string;
   snapshot_summary_conf: MemoryConfidence;
-  decision_count: number;
+  decisions_count: number;
   has_journey_lite: boolean;
-  is_journey_lite_removed: boolean;
+  /** Anggota yang sedang membuka sudah pernah membaca memori ini. */
+  has_viewed?: boolean;
 }
 
 export interface ApprovedEvidenceItem {
@@ -43,11 +47,23 @@ export interface ApprovedDecisionItem {
   evidences: ApprovedEvidenceItem[];
 }
 
-export interface ApprovedMemoryDetail extends ApprovedMemoryListItem {
+/** Bentuk respons GET /api/memories/{id} (lihat memory.ApprovedMemoryDetail di backend). */
+export interface ApprovedMemoryDetail {
+  id: string;
   draft_id: string;
+  forum_id: string;
+  forum_title: string;
+  group_id: string;
+  approved_by: string;
+  approved_by_name?: string;
+  approved_at: string;
+  has_human_edits: boolean;
+  snapshot_summary: string;
+  snapshot_summary_conf: MemoryConfidence;
   snapshot_decisions: ApprovedDecisionItem[];
   snapshot_journey_lite?: string;
   snapshot_journey_conf?: MemoryConfidence;
+  is_journey_lite_removed: boolean;
   created_at: string;
 }
 
@@ -61,7 +77,6 @@ export interface MemoryDraftListItem {
   status: string;
   message_count_processed: number;
   was_truncated: boolean;
-  artifact_count: number;
   created_at: string;
 }
 
