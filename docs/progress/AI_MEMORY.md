@@ -38,6 +38,23 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+### 4. Uji Terbatas di Produksi & Mobile (12-13 Oktober 2026)
+- [x] **Mobile**: `MemoryArchiveModal` (arsip, detail, tab Perlu Ditinjau, sunting/setujui/tolak, hapus), tombol Memori di info grup hanya bila `memory_enabled`. Daftar arsip: judul = kalimat pertama ringkasan, "Topik: <nama>", titik Baru, penyetuju. Lihat `docs/progress/MOBILE.md`.
+- [x] **Whitelist per grup induk** (`MEMORY_ENABLED_GROUPS`: kosong = tidak ada, `*` = semua, `id1,id2`): `store.GatedMemoryStore` di `CreateJob`/`GetPendingJobs`/`ClaimJob`; handler menolak 403 untuk review draf di grup luar daftar; baca arsip dan hapus tidak dikunci. Job lama grup non-whitelist tetap QUEUED. `GET /api/groups/{id}` menambah `memory_enabled`.
+- [x] **Hapus**: `DELETE /api/memories/{id}` dan `/api/memory/drafts/{id}` (admin/creator), hapus berantai satu transaksi, audit dipertahankan tanpa isi + baris `DELETED`.
+- [x] **Bug diperbaiki**: judul topik selalu "Forum Diskusi" (`GetGroupDetails(subgrup, "")` ditolak gerbang induk → kini `GetGroupSummary`; pemeriksaan tenant `GetMessages`/`GetAuthorizedViewers` kini berlaku untuk subgrup), `approved_by_name` kosong, kontrak JSON mobile (`decisions_count`, `artifact_count`), pesan "memori AI sedang diproses" hanya bila job benar-benar dibuat, forward ke topik berakhir ditolak (403).
+- [x] **Mobile akhiri topik**: "Akhiri Topik Sekarang" di daftar Forum + penguncian live di ruang topik (ack/ERROR + polling 30 dtk).
+- [x] **Terbukti di produksi 13 Okt 2026** (grup "tester wuzzchat"): lihat bagian status di `docs/domains/AI_MEMORY.md`.
+
+### Catatan temuan / utang teknis
+- Latensi: setujui draf 6 dtk, detail draf 3,7 dtk, daftar memori 1,2-1,9 dtk. Kandidat optimasi: kirim push/siaran di latar belakang, kurangi N+1 (`GetContextMeta`/`HasUserViewedMemory` per baris).
+- `subgroup_expired` disiarkan ke ruang grup INDUK (bukan ruang topik) dan hanya membawa teks; klien memakai ack/polling.
+- Edit/hapus pesan di topik terkunci belum dibatasi (hanya kirim WS dan forward).
+- Judul memori dari AI (field `headline` di skema ekstraksi) ditunda; kini memakai kalimat pertama ringkasan.
+- Belum diuji dari HP: tombol Hapus Memori dan tampilan detail setelah deploy 13 Okt; lompat ke pesan asal dari kutipan bukti belum ada; ketukan notifikasi push draf belum dipastikan membuka layar review.
+
 ## 🎯 Fokus Berikutnya (What's Next)
+- [ ] Buka ke semua pengguna: periksa antrean `forum_memory_jobs`, set `MEMORY_ENABLED_GROUPS=*`, tinjau Data Safety, baru sebut di naskah toko.
+- [ ] Bubble AI (tanya-jawab atas arsip) DITUNDA; draf desain di memori sesi `ai-bubble-chat-on-hold`.
 - [ ] Ringkasan memori *on-demand* pada topik forum yang sedang aktif (sebelum waktu kedaluwarsa berakhir).
 - [ ] Integrasi provider fallback model lokal via Ollama.

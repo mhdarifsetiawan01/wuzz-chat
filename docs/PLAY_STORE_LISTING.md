@@ -15,7 +15,7 @@
   `RECEIVE_BOOT_COMPLETED`, `READ_APP_BADGE` (badge ikon, dari expo-notifications), `USE_BIOMETRIC`/`USE_FINGERPRINT` (dari expo-secure-store),
   `BLUETOOTH` (<= Android 11), `READ/WRITE_EXTERNAL_STORAGE` (<= Android 12L). Tidak ada Foreground Service, `SYSTEM_ALERT_WINDOW`, `READ_MEDIA_*`, SMS, log panggilan, atau lokasi.
   Foto dipilih lewat pemilih foto sistem (tanpa izin media).
-- Pihak ketiga yang menerima data: **Google Firebase Cloud Messaging** (token perangkat dan isi notifikasi), **penyedia LLM untuk AI Memory, saat ini Groq** (teks pesan **hanya** dari topik forum terbuka; **dijeda sejak 8 Okt 2026** lewat `MEMORY_WORKER_ENABLED=false`, jadi sekarang tidak ada teks yang dikirim; aktifkan lagi = perbarui `/privacy`, tanggal berlaku, dan Data Safety),
+- Pihak ketiga yang menerima data: **Google Firebase Cloud Messaging** (token perangkat dan isi notifikasi), **penyedia LLM untuk AI Memory, saat ini Groq** (teks pesan **hanya** dari topik forum terbuka; **uji terbatas sejak 13 Okt 2026**: hanya grup di `MEMORY_ENABLED_GROUPS` yang diproses, `/privacy` sudah diperbarui; membuka ke semua = `MEMORY_ENABLED_GROUPS=*` dan tinjau ulang Data Safety),
   penyedia infrastruktur sendiri (VPS, basis data, penyimpanan berkas Supabase, Redis, relay TURN milik sendiri).
 
 ## 2. Data Safety (jawaban yang disarankan)
@@ -51,7 +51,7 @@ Masuk dengan Google **sudah aktif** (email Google dan ID akun Google tersimpan; 
 Crashlytics **sudah dipasang** (baris Log kerusakan/Diagnostik di atas) dan `/privacy` sudah diperbarui. Bila menambah SDK atau data baru, perbarui tabel ini dan `/privacy`.
 
 ### 2.3 Soal "dibagikan" ⚠️
-**Per 8 Okt 2026 AI Memory dijeda (`MEMORY_WORKER_ENABLED=false`): tidak ada teks pesan yang dikirim ke penyedia LLM, jadi jawaban "Dibagikan: Tidak" untuk Pesan tidak lagi memerlukan catatan Groq.** Bagian di bawah berlaku bila AI Memory diaktifkan lagi.
+**Per 13 Okt 2026 AI Memory dalam uji terbatas (hanya grup whitelist, `MEMORY_ENABLED_GROUPS`); 8 Okt sebelumnya dijeda penuh.** Jawaban Data Safety "Dibagikan: Tidak" tetap berlaku karena penyedia LLM memproses atas nama kita (bukan "berbagi" menurut Play), tetapi `/privacy` wajib menjelaskannya (sudah). Bagian di bawah berlaku penuh bila fitur dibuka untuk semua.
 
 Play tidak menghitung pengiriman data ke **penyedia layanan yang memprosesnya atas nama Anda** sebagai "berbagi". FCM (notifikasi), penyedia LLM (ringkasan AI Memory; saat ini Groq), dan penyedia infrastruktur
 termasuk kategori itu, sehingga jawaban "Tidak dibagikan" dapat dipertanggungjawabkan, **asalkan** halaman `/privacy` menyebutkan mereka (sudah). Verifikasi definisi terkini di Console;
@@ -128,7 +128,7 @@ Versi 1.32.0: masuk sekarang lewat Google (akun lama tetap bisa memakai username
 ### Panduan penulisan (jangan dilanggar; Play menolak klaim menyesatkan)
 - Jangan membandingkan dengan WhatsApp/Telegram atau memakai nama merek lain. Jangan tulis "paling aman", "kelas industri", atau klaim yang tidak bisa dibuktikan.
 - **E2EE hanya untuk pesan langsung.** Pesan grup/forum/Linimasa **tidak** E2EE; naskah di atas sengaja menyatakannya agar tidak menyesatkan.
-- Jangan menjanjikan fitur yang belum ada (panggilan grup, video, panggilan saat layar mati yang andal). **AI Memory TIDAK boleh disebut di naskah toko**: aplikasi mobile belum punya tampilannya dan pemrosesannya dijeda di backend (`MEMORY_WORKER_ENABLED=false`, 8 Okt 2026). Tambahkan lagi hanya setelah tampilan mobile ada.
+- Jangan menjanjikan fitur yang belum ada (panggilan grup, video, panggilan saat layar mati yang andal). **AI Memory TIDAK boleh disebut di naskah toko dan catatan rilis Play**: fitur masih uji terbatas (tombol Memori hanya tampil untuk grup whitelist; reviewer dan penguji lain tidak melihatnya). Tambahkan hanya setelah `MEMORY_ENABLED_GROUPS=*`.
 - Sebut batas 2 perangkat dan peringatan kunci hilang (sudah ada di bagian PERHATIAN).
 
 ### Aset grafis (yang perlu Anda siapkan)
