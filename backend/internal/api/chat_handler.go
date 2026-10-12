@@ -542,6 +542,10 @@ func (h *ChatHandler) ForwardMessage(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		errMsg := err.Error()
+		if errors.Is(err, messaging.ErrTargetRoomExpired) {
+			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusForbidden)
+			return
+		}
 		if strings.Contains(errMsg, "tidak ditemukan") {
 			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusNotFound)
 			return

@@ -19,6 +19,7 @@ var (
 	ErrEmptyContent       = errors.New("content tidak boleh kosong")
 	ErrTargetRoomsEmpty   = errors.New("target_room_ids minimal 1 percakapan")
 	ErrTargetRoomsExceed  = errors.New("maksimal meneruskan pesan ke 5 percakapan sekaligus")
+	ErrTargetRoomExpired  = errors.New("topik forum tujuan sudah berakhir dan terkunci, pesan tidak bisa diteruskan ke sana")
 	ErrMissingRoomID      = errors.New("room_id wajib disertakan")
 	ErrMissingQuery       = errors.New("query pencarian wajib disertakan")
 	ErrInvalidStatus      = errors.New("status tanda terima tidak valid")
@@ -142,6 +143,11 @@ func (s *MessageService) ForwardMessage(ctx context.Context, input ForwardMessag
 			isMember, err := s.convRepo.IsUserInConversation(roomID, input.SenderID)
 			if err != nil || !isMember {
 				return nil, fmt.Errorf("Anda bukan anggota percakapan target %s", roomID)
+			}
+			// Fail-closed: topik forum yang sudah berakhir tidak boleh menerima pesan baru (sama dengan gerbang tulis WebSocket),
+			// agar isi topik tetap cocok dengan ringkasan AI Memory yang dibuat saat topik ditutup.
+			if s.convRepo.IsConversationExpired(roomID) {
+				return nil, ErrTargetRoomExpired
 			}
 		}
 	}
