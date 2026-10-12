@@ -95,7 +95,8 @@ export const MemoryDetailView: React.FC<Props> = ({ memoryId, canDelete = false,
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.forumTitle}>{detail.forum_title}</Text>
       <Text style={styles.meta}>
-        Disetujui {detail.approved_by_name} · {formatMemoryDate(detail.approved_at)}
+        {detail.approved_by_name ? `Disetujui ${detail.approved_by_name} · ` : 'Disetujui '}
+        {formatMemoryDate(detail.approved_at)}
         {detail.has_human_edits ? ' · Disunting' : ''}
       </Text>
 

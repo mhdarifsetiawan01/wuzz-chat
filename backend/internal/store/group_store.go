@@ -97,6 +97,9 @@ type GroupStore interface {
 	CreateGroup(title, description, avatarURL, creatorID, groupUsername string, isPublic bool, memberIDs []string) (*GroupDetails, error)
 	CreateGroupWithContext(ctx context.Context, title, description, avatarURL, creatorID, groupUsername string, isPublic bool, memberIDs []string) (*GroupDetails, error)
 	GetGroupDetails(conversationID, currentUserID string) (*GroupDetails, error)
+	// GetGroupSummary membaca metadata dasar grup/subgrup (judul, induk, tenant, status) TANPA pemeriksaan akses pemanggil.
+	// Hanya untuk kode internal yang sudah/akan mengotorisasi sendiri (mis. AI Memory); jangan diekspos langsung ke klien.
+	GetGroupSummary(conversationID string) (*GroupDetails, error)
 	GetGroupMembers(conversationID string) ([]GroupMemberItem, error)
 	JoinPublicGroup(conversationID, userID string) error
 	AddGroupMembers(conversationID, actorUserID string, userIDs []string) error

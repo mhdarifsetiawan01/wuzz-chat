@@ -72,6 +72,7 @@ type GroupMemoryListItem struct {
 	ForumTitle          string    `json:"forum_title"`
 	GroupID             string    `json:"group_id"`
 	ApprovedBy          string    `json:"approved_by"`
+	ApprovedByName      string    `json:"approved_by_name,omitempty"`
 	ApprovedAt          time.Time `json:"approved_at"`
 	HasHumanEdits       bool      `json:"has_human_edits"`
 	SnapshotSummary     string    `json:"snapshot_summary"`
@@ -151,6 +152,29 @@ func (s *MemoryService) checkAdminRole(ctx context.Context, groupID, userID stri
 		return false, nil
 	}
 	return role == "admin" || role == "creator", nil
+}
+
+// memberNames memetakan user_id → nama tampilan anggota grup induk (display_name, fallback username).
+// Gagal membaca anggota bukan error fatal: nama persetujuan sekadar tidak ditampilkan.
+func (s *MemoryService) memberNames(groupID string) map[string]string {
+	names := map[string]string{}
+	if s.accessCheck == nil {
+		return names
+	}
+	members, err := s.accessCheck.GetGroupMembers(groupID)
+	if err != nil {
+		return names
+	}
+	for _, m := range members {
+		name := strings.TrimSpace(m.DisplayName)
+		if name == "" {
+			name = m.Username
+		}
+		if name != "" {
+			names[m.UserID] = name
+		}
+	}
+	return names
 }
 
 // resolveContextSource mengambil ContextSource yang aktif.
@@ -710,6 +734,7 @@ func (s *MemoryService) GetGroupMemories(ctx context.Context, groupID, currentUs
 	}
 
 	cSource := s.resolveContextSource(ContextTypeForum)
+	names := s.memberNames(groupID)
 	items := make([]GroupMemoryListItem, 0, len(memories))
 	for _, m := range memories {
 		forumTitle := "Forum Diskusi"
@@ -732,6 +757,7 @@ func (s *MemoryService) GetGroupMemories(ctx context.Context, groupID, currentUs
 			ForumTitle:          forumTitle,
 			GroupID:             m.ParentID,
 			ApprovedBy:          m.ApprovedBy,
+			ApprovedByName:      names[m.ApprovedBy],
 			ApprovedAt:          m.ApprovedAt,
 			HasHumanEdits:       m.HasHumanEdits,
 			SnapshotSummary:     m.SnapshotSummary,
@@ -824,6 +850,7 @@ func (s *MemoryService) GetApprovedMemoryDetail(ctx context.Context, memoryID, c
 		ForumTitle:           forumTitle,
 		GroupID:              mem.ParentID,
 		ApprovedBy:           mem.ApprovedBy,
+		ApprovedByName:       s.memberNames(mem.ParentID)[mem.ApprovedBy],
 		ApprovedAt:           mem.ApprovedAt,
 		HasHumanEdits:        mem.HasHumanEdits,
 		SnapshotSummary:      mem.SnapshotSummary,

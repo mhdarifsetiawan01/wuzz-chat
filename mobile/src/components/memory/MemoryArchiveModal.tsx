@@ -34,7 +34,7 @@ import { GroupRole } from '../../api/types';
 import { MemoryConfidenceBadge } from './MemoryConfidenceBadge';
 import { MemoryDetailView } from './MemoryDetailView';
 import { MemoryReviewView } from './MemoryReviewView';
-import { formatMemoryDate } from './memoryFormat';
+import { formatMemoryDate, splitMemoryHeadline } from './memoryFormat';
 import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../../theme';
 
 export interface MemoryArchiveModalProps {
@@ -141,31 +141,48 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
   const title =
     view.kind === 'detail' ? 'Detail Memori' : view.kind === 'review' ? 'Tinjau Draf' : 'Arsip Memori';
 
-  const renderMemory = ({ item }: { item: ApprovedMemoryListItem }) => (
-    <TouchableOpacity
-      style={styles.row}
-      activeOpacity={0.75}
-      onPress={() => setView({ kind: 'detail', id: item.id })}
-      accessibilityRole="button"
-      accessibilityLabel={`Memori ${item.forum_title}`}
-    >
-      <View style={styles.rowTop}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
-          {item.forum_title}
+  const renderMemory = ({ item }: { item: ApprovedMemoryListItem }) => {
+    const { headline, rest } = splitMemoryHeadline(item.snapshot_summary);
+    const isNew = item.has_viewed === false;
+    return (
+      <TouchableOpacity
+        style={styles.row}
+        activeOpacity={0.75}
+        onPress={() => setView({ kind: 'detail', id: item.id })}
+        accessibilityRole="button"
+        accessibilityLabel={`Memori ${headline || item.forum_title}${isNew ? ', belum dibaca' : ''}`}
+      >
+        <View style={styles.rowTop}>
+          <Text style={styles.rowTitle} numberOfLines={2}>
+            {headline || item.forum_title}
+          </Text>
+          {isNew ? <View style={styles.newDot} accessibilityLabel="Baru" /> : null}
+          <Icon name="forward" size={14} color={colors.textMuted} />
+        </View>
+        {rest ? (
+          <Text style={styles.rowSummary} numberOfLines={2}>
+            {rest}
+          </Text>
+        ) : null}
+        <Text style={styles.rowTopic} numberOfLines={1}>
+          Topik: {item.forum_title}
         </Text>
-        <Icon name="forward" size={14} color={colors.textMuted} />
-      </View>
-      <Text style={styles.rowSummary} numberOfLines={3}>
-        {item.snapshot_summary}
-      </Text>
-      <View style={styles.rowMeta}>
-        {item.snapshot_summary_conf ? <MemoryConfidenceBadge level={item.snapshot_summary_conf} /> : null}
-        <Text style={styles.metaText}>
-          {item.decision_count} keputusan · {formatMemoryDate(item.approved_at)}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+        <View style={styles.rowMeta}>
+          {item.snapshot_summary_conf ? <MemoryConfidenceBadge level={item.snapshot_summary_conf} /> : null}
+          <Text style={styles.metaText}>
+            {item.decisions_count ?? 0} keputusan · {formatMemoryDate(item.approved_at)}
+          </Text>
+        </View>
+        {item.approved_by_name || item.has_human_edits ? (
+          <Text style={styles.metaText} numberOfLines={1}>
+            {item.approved_by_name ? `Disetujui ${item.approved_by_name}` : ''}
+            {item.approved_by_name && item.has_human_edits ? ' · ' : ''}
+            {item.has_human_edits ? 'Disunting' : ''}
+          </Text>
+        ) : null}
+      </TouchableOpacity>
+    );
+  };
 
   const renderDraft = ({ item }: { item: MemoryDraftListItem }) => (
     <TouchableOpacity
@@ -182,7 +199,7 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
         <Icon name="forward" size={14} color={colors.textMuted} />
       </View>
       <Text style={styles.metaText}>
-        {item.artifact_count} butir · {item.message_count_processed} pesan · {formatMemoryDate(item.created_at)}
+        {item.message_count_processed} pesan dianalisis · {formatMemoryDate(item.created_at)}
       </Text>
     </TouchableOpacity>
   );
@@ -339,6 +356,8 @@ const makeStyles = (colors: ColorTokens) => {
     rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
     rowTitle: { ...typography.body, fontWeight: '600', color: colors.textPrimary, flex: 1 },
     rowSummary: { ...typography.bodySecondary, color: colors.textSecondary },
+    rowTopic: { ...typography.caption, color: colors.textMuted },
+    newDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accentPrimary },
     rowMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
     metaText: { ...typography.caption, color: colors.textMuted },
   });
