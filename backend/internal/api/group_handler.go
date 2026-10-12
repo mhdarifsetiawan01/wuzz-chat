@@ -347,8 +347,12 @@ func (h *GroupHandler) handleGetGroup(w http.ResponseWriter, currentUserID, grou
 		return
 	}
 
+	// memory_enabled: apakah AI Memory aktif untuk grup ini (mobile menyembunyikan tombol Memori bila false).
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(grp)
+	_ = json.NewEncoder(w).Encode(struct {
+		*store.GroupDetails
+		MemoryEnabled bool `json:"memory_enabled"`
+	}{GroupDetails: grp, MemoryEnabled: h.memoryHandler.IsEnabledForGroup(groupID)})
 }
 
 func (h *GroupHandler) handleJoinGroup(w http.ResponseWriter, currentUserID, groupID string) {

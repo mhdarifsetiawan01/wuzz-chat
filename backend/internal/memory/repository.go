@@ -36,6 +36,7 @@ type MemoryRepository interface {
 	GetArtifactByID(ctx context.Context, id string) (*MemoryArtifact, error)
 	UpdateArtifact(ctx context.Context, artifactID string, content string, isHumanEdited bool) error
 	RemoveJourneyLite(ctx context.Context, draftID string) error
+	DeleteDraftCascade(ctx context.Context, draftID, adminID string) error
 
 	// Review & Validation Actions
 	ApproveDraft(ctx context.Context, draftID, adminID string, approvedMemory *ApprovedMemory, reviewAction *MemoryReviewAction) error

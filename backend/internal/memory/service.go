@@ -627,6 +627,53 @@ func (s *MemoryService) RejectDraft(ctx context.Context, draftID, adminID, reaso
 	return s.repo.RejectDraft(ctx, draftID, adminID, reason)
 }
 
+// DeleteDraft menghapus draf (status apa pun) beserta seluruh turunannya. Hanya admin/creator grup induk.
+func (s *MemoryService) DeleteDraft(ctx context.Context, draftID, userID string) error {
+	draft, err := s.repo.GetDraftByID(ctx, draftID)
+	if err != nil {
+		return err
+	}
+	if err := s.authorizeDelete(ctx, draft.TenantID, draft.ParentID, userID); err != nil {
+		return err
+	}
+	return s.repo.DeleteDraftCascade(ctx, draftID, userID)
+}
+
+// DeleteApprovedMemory menghapus memori terbit beserta draf, artefak, bukti kutipan, dan job asalnya.
+// Hanya admin/creator grup induk. Topik forum yang sama dapat diringkas ulang bila job baru dibuat.
+func (s *MemoryService) DeleteApprovedMemory(ctx context.Context, memoryID, userID string) error {
+	mem, err := s.repo.GetApprovedMemoryByID(ctx, memoryID)
+	if err != nil {
+		return err
+	}
+	if err := s.authorizeDelete(ctx, mem.TenantID, mem.ParentID, userID); err != nil {
+		return err
+	}
+	return s.repo.DeleteDraftCascade(ctx, mem.DraftID, userID)
+}
+
+// authorizeDelete memastikan tenant sama dan pemanggil adalah admin/creator grup induk.
+func (s *MemoryService) authorizeDelete(ctx context.Context, rowTenant, groupID, userID string) error {
+	callerTenant := tenantshared.MustFromContext(ctx).TenantID()
+	if rowTenant == "" {
+		rowTenant = "default"
+	}
+	if callerTenant != rowTenant {
+		return ErrUnauthorizedAccess
+	}
+	isAdmin, err := s.checkAdminRole(ctx, groupID, userID)
+	if err != nil {
+		if errors.Is(err, ErrUnauthorizedAccess) {
+			return ErrUnauthorizedAccess
+		}
+		return fmt.Errorf("gagal verifikasi peran: %w", err)
+	}
+	if !isAdmin {
+		return ErrUnauthorizedAccess
+	}
+	return nil
+}
+
 // GetGroupMemories mengambil seluruh memori yang sudah di-publish untuk anggota grup tertentu.
 func (s *MemoryService) GetGroupMemories(ctx context.Context, groupID, currentUserID string, limit, offset int) ([]GroupMemoryListItem, error) {
 	if groupID == "" {
