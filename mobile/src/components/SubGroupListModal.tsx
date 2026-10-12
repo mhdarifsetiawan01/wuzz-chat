@@ -86,6 +86,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [requestingId, setRequestingId] = useState<string | null>(null);
+  const [expiringId, setExpiringId] = useState<string | null>(null);
 
   // Child modal state
   const [showCreate, setShowCreate] = useState(false);
@@ -130,6 +131,43 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
     setIsRefreshing(true);
     loadSubGroups(true);
   }, [loadSubGroups]);
+
+  // ── Akhiri topik sekarang (admin/creator) ────────────────────────────────
+
+  const handleExpireNow = useCallback(
+    (sub: SubGroup) => {
+      if (expiringId) return;
+      showAlert(
+        'Akhiri topik sekarang?',
+        `Topik "${sub.title}" akan dikunci dan tidak bisa dibuka lagi. Bila AI Memory aktif untuk grup ini, ringkasan topik akan dibuat untuk ditinjau admin.`,
+        [
+          { text: 'Batal', style: 'cancel' },
+          {
+            text: 'Akhiri',
+            style: 'destructive',
+            onPress: async () => {
+              setExpiringId(sub.id);
+              const controller = new AbortController();
+              const timer = setTimeout(() => controller.abort(), 15_000);
+              try {
+                await subgroupsApi.expireSubGroup(parentGroupId, sub.id, controller.signal);
+                await loadSubGroups(true);
+                showAlert('Topik diakhiri', 'Topik forum telah dikunci.');
+              } catch (err: any) {
+                if (err?.name !== 'AbortError') {
+                  showAlert('Gagal mengakhiri topik', err?.detail || 'Silakan coba lagi.');
+                }
+              } finally {
+                clearTimeout(timer);
+                setExpiringId(null);
+              }
+            },
+          },
+        ]
+      );
+    },
+    [expiringId, parentGroupId, loadSubGroups]
+  );
 
   // ── Join public topic ─────────────────────────────────────────────────────
 
@@ -329,10 +367,28 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
               </IconText>
             </TouchableOpacity>
           )}
+
+          {/* Admin: akhiri topik sekarang (bypass TTL) */}
+          {isAdminOrCreator && !expired && (
+            <TouchableOpacity
+              style={[styles.reviewRequestsBtn, expiringId === sub.id && styles.actionBtnDisabled]}
+              onPress={() => handleExpireNow(sub)}
+              disabled={!!expiringId}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={`Akhiri topik ${sub.title}`}
+            >
+              {expiringId === sub.id ? (
+                <ActivityIndicator size="small" color={colors.colorError} />
+              ) : (
+                <Text style={styles.expireBtnText}>Akhiri Topik Sekarang</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       );
     },
-    [joiningId, requestingId, isAdminOrCreator, handleJoinPublic, handleOpenMember, handleRequestJoin]
+    [joiningId, requestingId, expiringId, isAdminOrCreator, handleJoinPublic, handleOpenMember, handleRequestJoin, handleExpireNow]
   );
 
   const ListEmpty = (
@@ -665,6 +721,11 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.accentPrimary,
+  },
+  expireBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.colorError,
   },
   // ── Empty state ─────────────────────────────────────────────────────────────
   emptyContainer: {

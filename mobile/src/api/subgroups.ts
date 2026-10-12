@@ -82,6 +82,22 @@ export const subgroupsApi = {
   },
 
   /**
+   * POST /api/groups/{parent_id}/subgroups/{sub_id}/expire
+   * Mengakhiri topik forum seketika (bypass TTL). Hanya admin/creator grup induk (403 untuk lainnya).
+   * Topik dikunci; bila AI Memory aktif untuk grup induk, job ringkasan dibuat.
+   */
+  async expireSubGroup(
+    parentGroupId: string,
+    subGroupId: string,
+    signal?: AbortSignal
+  ): Promise<void> {
+    await apiClient(
+      `/api/groups/${encodeURIComponent(parentGroupId)}/subgroups/${encodeURIComponent(subGroupId)}/expire`,
+      { method: 'POST', signal }
+    );
+  },
+
+  /**
    * POST /api/groups/{sub_id}/join
    * Directly joins a 🌐 public forum topic (is_public = true).
    * Returns: { success, message }

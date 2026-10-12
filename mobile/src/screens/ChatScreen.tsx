@@ -212,6 +212,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [memberCount, setMemberCount] = useState<number>(conversation.member_count || 0);
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null);
+  // Topik forum dikunci admin saat kita sedang di dalam ruang: server menolak kirim (ack/ERROR "kedaluwarsa") atau
+  // penyegaran berkala melihat expires_at/status berubah. `expiryTick` memaksa hitung ulang saat waktu kedaluwarsa terlewat.
+  const [forumLockedByServer, setForumLockedByServer] = useState(false);
+  const [expiryTick, setExpiryTick] = useState(0);
   // Anggota untuk autocomplete @mention: dimuat malas (baru saat pengguna mengetik "@"), bukan saat membuka room
   const [fetchedMentionMembers, setFetchedMentionMembers] = useState<GroupMember[] | undefined>(undefined);
 
@@ -363,13 +367,45 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // Fail-Closed: a forum topic is locked if expired
   const isForumExpired = useMemo(() => {
     if (!isSubGroup) return false;
+    if (forumLockedByServer) return true;
     const details = groupDetails as any;
     if (details?.status === 'expired') return true;
     if (details?.expires_at) {
       return new Date(details.expires_at).getTime() <= Date.now();
     }
     return false;
-  }, [isSubGroup, groupDetails]);
+    // expiryTick sengaja jadi dependensi: waktu berjalan walau groupDetails tidak berubah.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSubGroup, groupDetails, forumLockedByServer, expiryTick]);
+
+  // Reset kunci lokal saat berpindah ruang.
+  useEffect(() => {
+    setForumLockedByServer(false);
+  }, [roomId]);
+
+  // Topik aktif: segarkan expires_at/status tiap 30 dtk agar penguncian oleh admin (akhiri sekarang) terlihat tanpa
+  // menunggu pengguna mencoba mengirim, dan kunci otomatis saat waktu kedaluwarsa terlewat.
+  useEffect(() => {
+    if (!isSubGroup || isForumExpired || isAccessDenied) return;
+    let cancelled = false;
+    const timer = setInterval(() => {
+      setExpiryTick((t) => t + 1);
+      groupsApi
+        .getGroupDetails(roomId)
+        .then((fresh) => {
+          if (cancelled || !fresh) return;
+          const f = fresh as any;
+          setGroupDetails((prev) =>
+            prev ? ({ ...prev, expires_at: f.expires_at ?? (prev as any).expires_at, status: f.status ?? (prev as any).status } as any) : prev
+          );
+        })
+        .catch(() => {});
+    }, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [isSubGroup, isForumExpired, isAccessDenied, roomId]);
 
   const title =
     groupDetails?.title || conversation.title || conversation.peer_nickname || 'Obrolan';
@@ -856,6 +892,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
     });
 
+    // A2. Server menolak kirim karena topik sudah dikunci (ack error / pesan sistem "ERROR: ... kedaluwarsa")
+    const isExpiredRejection = (text: unknown) =>
+      typeof text === 'string' && /kedaluwarsa/i.test(text) && /terkunci|dikunci|kedaluwarsa/i.test(text);
+    const unsubscribeAck = websocketClient.on('ack', (ack: any) => {
+      if (!isSubGroup) return;
+      if (ack?.status === 'error' && isExpiredRejection(ack?.content) && (!ack.room || ack.room === roomId)) {
+        setForumLockedByServer(true);
+      }
+    });
+    const unsubscribeSystem = websocketClient.on('system', (msg: any) => {
+      if (!isSubGroup) return;
+      const content = msg?.content;
+      if (typeof content === 'string' && content.startsWith('ERROR:') && isExpiredRejection(content)) {
+        setForumLockedByServer(true);
+      }
+    });
+
     // B. Pinned Messages Banner Sync
     const unsubscribePinned = websocketClient.on('message_pinned', (data: any) => {
       const targetRoom = data.room || data.room_id;
@@ -886,10 +939,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     return () => {
       unsubscribeMessage();
+      unsubscribeAck();
+      unsubscribeSystem();
       unsubscribePinned();
       unsubscribeUnpinned();
     };
-  }, [roomId, currentUserId, isAccessDenied]);
+  }, [roomId, currentUserId, isAccessDenied, isSubGroup]);
 
   // 3. Image Picker Handlers
   const handlePickCamera = async () => {
