@@ -153,6 +153,7 @@ func (m *mockMessageRepo) SearchMessages(roomID, userID, query string, limit int
 
 type mockConvRepo struct {
 	allowedRooms  map[string]bool
+	expiredRooms  map[string]bool
 	conversations []messaging.Conversation
 	directRoomID  string
 }
@@ -204,7 +205,7 @@ func (c *mockConvRepo) IsUserInConversation(conversationID, userID string) (bool
 }
 
 func (c *mockConvRepo) IsConversationExpired(conversationID string) bool {
-	return false
+	return c.expiredRooms[conversationID]
 }
 
 type mockUserLookup struct {
@@ -339,6 +340,21 @@ func TestMessageService_ForwardMessage(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("harus error jika user bukan anggota room target")
+	}
+
+	// Gagal jika salah satu target adalah topik forum yang sudah berakhir (tidak ada pesan yang diteruskan sama sekali)
+	convRepo.expiredRooms = map[string]bool{"sub_expired": true}
+	broadcaster.events = nil
+	_, err = svc.ForwardMessage(ctx, messaging.ForwardMessageInput{
+		SourceMessageID: "msg-src",
+		SenderID:        "user-1",
+		TargetRoomIDs:   []string{"room-ok-1", "sub_expired"},
+	})
+	if !errors.Is(err, messaging.ErrTargetRoomExpired) {
+		t.Fatalf("expected ErrTargetRoomExpired, got %v", err)
+	}
+	if len(broadcaster.events) != 0 {
+		t.Fatalf("tidak boleh ada pesan diteruskan saat salah satu target terkunci, got %d", len(broadcaster.events))
 	}
 
 	// Sukses meneruskan ke 2 room
