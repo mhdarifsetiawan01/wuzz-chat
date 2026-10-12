@@ -28,6 +28,7 @@ import { Avatar } from '../components/Avatar';
 import { CollapsibleText } from '../components/CollapsibleText';
 import { EditGroupInfoModal } from '../components/EditGroupInfoModal';
 import { SubGroupListModal } from '../components/SubGroupListModal';
+import { MemoryArchiveModal } from '../components/memory/MemoryArchiveModal';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { useAuth } from '../context/AuthContext';
 import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
@@ -75,6 +76,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // M-Mobile-8.2B: Forum modal state (inline fallback if no onOpenForum prop)
   const [showForumModal, setShowForumModal] = useState(false);
+  const [showMemoryArchive, setShowMemoryArchive] = useState(false);
   // Milestone M-Mobile-8.30: Media Gallery Modal state
   const [showMediaGallery, setShowMediaGallery] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -527,6 +529,19 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
             <Text style={styles.quickActionText} numberOfLines={1}>Forum</Text>
           </TouchableOpacity>
 
+          {group?.memory_enabled === true && (
+            <TouchableOpacity
+              style={styles.quickActionButton}
+              onPress={() => setShowMemoryArchive(true)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Arsip Memori"
+            >
+              <Icon name="bulb" size={22} color={colors.accentPrimary} />
+              <Text style={styles.quickActionText} numberOfLines={1}>Memori</Text>
+            </TouchableOpacity>
+          )}
+
           {canShareGroup && (
             <TouchableOpacity
               style={styles.quickActionButton}
@@ -617,6 +632,16 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
               onBack();
             }
           }}
+        />
+      )}
+
+      {showMemoryArchive && group && (
+        <MemoryArchiveModal
+          visible={showMemoryArchive}
+          groupId={groupId}
+          groupTitle={group.title}
+          currentUserRole={group.my_role}
+          onClose={() => setShowMemoryArchive(false)}
         />
       )}
 

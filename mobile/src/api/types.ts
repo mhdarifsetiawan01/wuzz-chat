@@ -281,6 +281,8 @@ export interface Conversation {
   unread_count?: number;
   member_count?: number;
   my_role?: GroupRole;
+  /** Grup induk: AI Memory aktif (tahap uji terbatas, ditentukan server). Tombol Memori disembunyikan bila bukan true. */
+  memory_enabled?: boolean;
   is_pinned?: boolean;
   pinned?: boolean;
   participants?: User[];
@@ -314,6 +316,8 @@ export interface GroupDetails {
   updated_at?: string;
   member_count: number;
   my_role?: GroupRole;
+  /** AI Memory aktif untuk grup ini (tahap uji terbatas, ditentukan server). */
+  memory_enabled?: boolean;
   members?: GroupMember[];
 }
 
