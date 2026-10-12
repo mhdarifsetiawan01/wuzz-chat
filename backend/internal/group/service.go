@@ -573,12 +573,20 @@ func (s *ForumService) InstantExpireSubGroup(ctx context.Context, userID, groupI
 	}
 
 	// Pemicu seketika ForumMemoryJob
+	// Pesan "memori AI sedang diproses" hanya benar bila job benar-benar dibuat (grup di luar MEMORY_ENABLED_GROUPS ditolak).
+	jobCreated := false
 	if s.memoryStore != nil {
-		_, _ = s.memoryStore.CreateJob(ctx, subID, groupID)
+		if _, err := s.memoryStore.CreateJob(ctx, subID, groupID); err == nil {
+			jobCreated = true
+		}
 	}
 
 	if s.broadcaster != nil {
-		s.broadcaster.BroadcastGroupSystemEvent(groupID, "subgroup_expired", "Topik forum telah berakhir dan memori AI sedang diproses.")
+		msg := "Topik forum telah berakhir."
+		if jobCreated {
+			msg = "Topik forum telah berakhir dan memori AI sedang diproses."
+		}
+		s.broadcaster.BroadcastGroupSystemEvent(groupID, "subgroup_expired", msg)
 	}
 
 	return nil

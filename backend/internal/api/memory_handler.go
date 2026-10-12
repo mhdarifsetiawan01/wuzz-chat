@@ -20,6 +20,7 @@ import (
 type memoryNotifierAdapter struct {
 	hub         *ws.Hub
 	pushService *push.Service
+	gate        *store.MemoryGate
 }
 
 func (n *memoryNotifierAdapter) BroadcastGroupSystemEvent(groupID, eventType, content string) {
@@ -41,6 +42,26 @@ type MemoryHandler struct {
 	memoryStore store.MemoryStore
 	hub         *ws.Hub
 	pushService *push.Service
+	gate        *store.MemoryGate
+}
+
+// SetGate membatasi grup induk yang boleh memakai AI Memory (tinjau/setujui/tolak draf). Tanpa gerbang (nil), semua grup
+// diizinkan (perilaku lama untuk pengujian). Membaca arsip yang sudah disetujui dan menghapus tidak dibatasi gerbang.
+func (h *MemoryHandler) SetGate(g *store.MemoryGate) { h.gate = g }
+
+// IsEnabledForGroup true bila AI Memory aktif untuk grup induk ini (dipakai juga untuk flag memory_enabled di detail grup).
+func (h *MemoryHandler) IsEnabledForGroup(groupID string) bool {
+	if h == nil {
+		return false
+	}
+	if h.gate == nil {
+		return true
+	}
+	return h.gate.Allows(groupID)
+}
+
+func writeMemoryNotEnabled(w http.ResponseWriter) {
+	writeMemoryJSONError(w, http.StatusForbidden, "AI Memory belum diaktifkan untuk grup ini")
 }
 
 // NewMemoryHandler membuat instance baru MemoryHandler dengan inisialisasi default service (backward-compatible).
@@ -120,9 +141,23 @@ func (h *MemoryHandler) RouteMemoryRequest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Gerbang AI Memory untuk seluruh operasi draf kecuali hapus (hak hapus data tidak boleh ikut terkunci gerbang).
+	if len(parts) >= 2 && parts[0] == "drafts" && r.Method != http.MethodDelete {
+		if draft, err := h.memoryStore.GetDraftByID(r.Context(), parts[1]); err == nil && draft != nil {
+			if !h.IsEnabledForGroup(draft.GroupID) {
+				writeMemoryNotEnabled(w)
+				return
+			}
+		}
+	}
+
 	// 2. /api/memory/drafts/{draft_id}
 	if len(parts) == 2 && parts[0] == "drafts" {
 		draftID := parts[1]
+		if r.Method == http.MethodDelete {
+			h.handleDeleteDraft(w, r, claims.UserID, draftID)
+			return
+		}
 		if r.Method == http.MethodGet {
 			h.handleGetDraftDetail(w, r, claims.UserID, draftID)
 		} else {
@@ -197,7 +232,9 @@ func (h *MemoryHandler) RouteApprovedMemoryRequest(w http.ResponseWriter, r *htt
 		return
 	}
 
-	if r.Method == http.MethodGet {
+	if r.Method == http.MethodDelete {
+		h.handleDeleteApprovedMemory(w, r, claims.UserID, memoryID)
+	} else if r.Method == http.MethodGet {
 		h.handleGetApprovedMemoryDetail(w, r, claims.UserID, memoryID)
 	} else {
 		writeMemoryJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
@@ -213,6 +250,11 @@ func (h *MemoryHandler) handleListDrafts(w http.ResponseWriter, r *http.Request,
 	groupID := strings.TrimSpace(r.URL.Query().Get("group_id"))
 	if groupID == "" {
 		writeMemoryJSONError(w, http.StatusBadRequest, "Parameter group_id wajib diisi")
+		return
+	}
+
+	if !h.IsEnabledForGroup(groupID) {
+		writeMemoryNotEnabled(w)
 		return
 	}
 
@@ -430,4 +472,35 @@ func (h *MemoryHandler) handleGetApprovedMemoryDetail(w http.ResponseWriter, r *
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(detail)
+}
+
+// handleDeleteDraft menangani DELETE /api/memory/drafts/{draft_id} (admin/creator grup).
+func (h *MemoryHandler) handleDeleteDraft(w http.ResponseWriter, r *http.Request, currentUserID, draftID string) {
+	if err := h.svc.DeleteDraft(r.Context(), draftID, currentUserID); err != nil {
+		h.writeDeleteError(w, err, "Memory draft tidak ditemukan", "Hanya admin atau creator grup yang dapat menghapus draft")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+// handleDeleteApprovedMemory menangani DELETE /api/memories/{memory_id} (admin/creator grup).
+func (h *MemoryHandler) handleDeleteApprovedMemory(w http.ResponseWriter, r *http.Request, currentUserID, memoryID string) {
+	if err := h.svc.DeleteApprovedMemory(r.Context(), memoryID, currentUserID); err != nil {
+		h.writeDeleteError(w, err, "Memori grup tidak ditemukan", "Hanya admin atau creator grup yang dapat menghapus memori")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+
+func (h *MemoryHandler) writeDeleteError(w http.ResponseWriter, err error, notFoundMsg, forbiddenMsg string) {
+	switch {
+	case errors.Is(err, memory.ErrDraftNotFound), errors.Is(err, memory.ErrApprovedMemoryNotFound):
+		writeMemoryJSONError(w, http.StatusNotFound, notFoundMsg)
+	case errors.Is(err, memory.ErrUnauthorizedAccess):
+		writeMemoryJSONError(w, http.StatusForbidden, forbiddenMsg)
+	default:
+		writeMemoryJSONError(w, http.StatusInternalServerError, "Gagal menghapus memori")
+	}
 }

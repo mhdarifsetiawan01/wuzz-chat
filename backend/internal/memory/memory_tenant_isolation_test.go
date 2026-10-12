@@ -378,6 +378,9 @@ func (m *mockRepoBypassIsolation) GetArtifactByID(ctx context.Context, id string
 func (m *mockRepoBypassIsolation) UpdateArtifact(ctx context.Context, artifactID string, content string, isHumanEdited bool) error {
 	return nil
 }
+func (m *mockRepoBypassIsolation) DeleteDraftCascade(ctx context.Context, draftID, adminID string) error {
+	return nil
+}
 func (m *mockRepoBypassIsolation) RemoveJourneyLite(ctx context.Context, draftID string) error {
 	return nil
 }

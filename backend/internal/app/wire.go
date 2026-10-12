@@ -54,6 +54,7 @@ type Application struct {
 	UserStore     store.UserStore
 	GroupStore    store.GroupStore
 	MemoryStore   store.MemoryStore
+	MemoryGate    *store.MemoryGate
 	Storage       storage.MediaStorage
 	TenantRepo    tenant.TenantRepository
 	TenantService tenant.TenantService
@@ -186,10 +187,25 @@ func New(cfg *config.Config) (*Application, error) {
 	app.GroupStore = groupStore
 	app.MemoryStore = memoryStore
 	jobStore = memoryStore
+	// memoryGate membatasi grup induk yang boleh memakai AI Memory (MEMORY_ENABLED_GROUPS: kosong = tidak ada, "*" = semua).
+	// Tanpa cfg (pengujian) tidak ada pembatas. MEMORY_WORKER_ENABLED=false tetap menjadi saklar mati global.
+	memoryGate := store.AllowAllMemoryGate()
+	if cfg != nil {
+		memoryGate = store.ParseMemoryGate(cfg.MemoryEnabledGroups)
+	}
 	if memoryStore != nil && cfg != nil && cfg.MemoryWorkerDisabled {
 		jobStore = nil
+		memoryGate = store.ParseMemoryGate("")
 		log.Printf("⏸️ AI Memory DINONAKTIFKAN (MEMORY_WORKER_ENABLED=false): job tidak dibuat dan tidak ada teks pesan yang dikirim ke penyedia LLM")
+	} else if memoryStore != nil && cfg != nil {
+		jobStore = store.NewGatedMemoryStore(memoryStore, memoryGate)
+		if cfg.MemoryEnabledGroups == "" {
+			log.Printf("🧠 AI Memory: MEMORY_ENABLED_GROUPS kosong, tidak ada grup yang diproses (tidak ada teks pesan yang dikirim ke penyedia LLM)")
+		} else {
+			log.Printf("🧠 AI Memory aktif untuk grup: %s", cfg.MemoryEnabledGroups)
+		}
 	}
+	app.MemoryGate = memoryGate
 	app.TenantRepo = tenantRepo
 	app.TenantService = tenantSvc
 
@@ -304,6 +320,7 @@ func New(cfg *config.Config) (*Application, error) {
 			memoryRegistry.Register(memory.ContextTypeForum, forumContextSource)
 
 			app.MemoryHandler = api.NewMemoryHandler(memoryStore, groupStore, userStore)
+			app.MemoryHandler.SetGate(memoryGate)
 		}
 	}
 
@@ -416,7 +433,7 @@ func New(cfg *config.Config) (*Application, error) {
 		if pushService != nil {
 			memoryProcessor.SetPushService(pushService)
 		}
-		app.MemoryWorker = worker.NewMemoryJobWorker(memoryStore, messageStore, cfg.MemoryWorkerInterval)
+		app.MemoryWorker = worker.NewMemoryJobWorker(jobStore, messageStore, cfg.MemoryWorkerInterval)
 		if cfg.MemoryJobBatchSize > 0 {
 			app.MemoryWorker.SetBatchSize(cfg.MemoryJobBatchSize)
 		}

@@ -117,6 +117,14 @@ func (m *mockMemoryRepo) UpdateArtifact(ctx context.Context, artifactID string, 
 	return nil
 }
 
+func (m *mockMemoryRepo) DeleteDraftCascade(ctx context.Context, draftID, adminID string) error {
+	if _, ok := m.drafts[draftID]; !ok {
+		return ErrDraftNotFound
+	}
+	delete(m.drafts, draftID)
+	return nil
+}
+
 func (m *mockMemoryRepo) RemoveJourneyLite(ctx context.Context, draftID string) error {
 	for _, a := range m.artifacts {
 		if a.DraftID == draftID && a.Type == ArtifactTypeJourneyLite {

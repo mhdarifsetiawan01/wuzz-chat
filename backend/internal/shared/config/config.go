@@ -39,7 +39,10 @@ type Config struct {
 	MemoryWorkerInterval time.Duration
 	// MemoryWorkerDisabled mematikan seluruh jalur AI Memory (env MEMORY_WORKER_ENABLED=false): job tidak dibuat saat topik
 	// forum kedaluwarsa/ditutup dan tidak ada teks pesan yang dikirim ke penyedia LLM. Zero value (false) = tetap aktif.
-	MemoryWorkerDisabled    bool
+	MemoryWorkerDisabled bool
+	// MemoryEnabledGroups daftar grup induk yang boleh memakai AI Memory (env MEMORY_ENABLED_GROUPS): kosong = tidak ada,
+	// "*" = semua, "id1,id2" = hanya yang disebut. Lihat store.MemoryGate.
+	MemoryEnabledGroups     string
 	MemoryJobBatchSize      int
 	SubGroupWorkerInterval  time.Duration
 	PurgeWorkerInterval     time.Duration
@@ -114,6 +117,7 @@ func Load() (*Config, error) {
 		MemoryWorkerInterval:    getEnvDurationSeconds("MEMORY_WORKER_INTERVAL_SECONDS", 15*time.Second),
 		MemoryJobBatchSize:      getEnvInt("MEMORY_JOB_BATCH_SIZE", 5),
 		MemoryWorkerDisabled:    isFalseEnv(os.Getenv("MEMORY_WORKER_ENABLED")),
+		MemoryEnabledGroups:     strings.TrimSpace(os.Getenv("MEMORY_ENABLED_GROUPS")),
 		SubGroupWorkerInterval:  15 * time.Minute,
 		PurgeWorkerInterval:     1 * time.Hour,
 		TokenCleanupInterval:    1 * time.Hour,

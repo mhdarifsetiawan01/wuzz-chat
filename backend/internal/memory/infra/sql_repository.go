@@ -193,6 +193,17 @@ func (r *SQLMemoryRepository) RemoveJourneyLite(ctx context.Context, draftID str
 	return r.store.RemoveJourneyLite(ctx, draftID)
 }
 
+func (r *SQLMemoryRepository) DeleteDraftCascade(ctx context.Context, draftID, adminID string) error {
+	if r.store == nil {
+		return errors.New("memory store belum diinisialisasi")
+	}
+	err := r.store.DeleteDraftCascade(ctx, draftID, adminID)
+	if errors.Is(err, store.ErrDraftNotFound) {
+		return memory.ErrDraftNotFound
+	}
+	return err
+}
+
 func (r *SQLMemoryRepository) ApproveDraft(ctx context.Context, draftID, adminID string, approvedMemory *memory.ApprovedMemory, reviewAction *memory.MemoryReviewAction) error {
 	if r.store == nil {
 		return errors.New("memory store belum diinisialisasi")
