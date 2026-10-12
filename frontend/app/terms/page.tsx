@@ -46,7 +46,7 @@ export default function TermsPage() {
       <h2>5. Konten Anda</h2>
       <p>
         Anda tetap memiliki konten Anda. Anda memberi kami izin terbatas untuk menyimpan, memproses, dan menampilkannya
-        kepada penerima yang Anda pilih, serta kepada layanan AI Memory pada ruang diskusi terbuka sebagaimana dijelaskan di
+        kepada penerima yang Anda pilih, serta kepada layanan AI Memory pada topik forum di grup yang mengikuti uji terbatas fitur tersebut, sebagaimana dijelaskan di
         <a href="/privacy"> Kebijakan Privasi</a>.
       </p>
 
