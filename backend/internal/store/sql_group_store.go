@@ -216,6 +216,37 @@ func (s *SQLGroupStore) GetUserRoleInGroup(conversationID, userID string) (strin
 }
 
 // GetGroupDetails mengambil detail informasi grup.
+func (s *SQLGroupStore) GetGroupSummary(conversationID string) (*GroupDetails, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT
+			id, COALESCE(tenant_id, 'default'), title, description, avatar_url, is_public,
+			COALESCE(group_username, ''), COALESCE(parent_id, ''),
+			created_by, created_at, updated_at,
+			COALESCE(status, 'active'), expires_at, COALESCE(ai_summary, '')
+		FROM conversations
+		WHERE id = ? AND type = 'group'`
+	if s.driverName == "postgres" {
+		query = strings.Replace(query, "id = ?", "id = $1", 1)
+	}
+
+	var g GroupDetails
+	err := s.db.QueryRowContext(ctx, query, conversationID).Scan(
+		&g.ID, &g.TenantID, &g.Title, &g.Description, &g.AvatarURL, &g.IsPublic,
+		&g.GroupUsername, &g.ParentID, &g.CreatedBy, &g.CreatedAt, &g.UpdatedAt,
+		&g.Status, &g.ExpiresAt, &g.AISummary,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrGroupNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &g, nil
+}
+
 func (s *SQLGroupStore) GetGroupDetails(conversationID, currentUserID string) (*GroupDetails, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

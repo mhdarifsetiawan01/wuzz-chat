@@ -151,3 +151,45 @@ func TestGroupHandler_MemoryEnabledFlag(t *testing.T) {
 		t.Fatalf("memory_enabled harus true untuk grup di whitelist")
 	}
 }
+
+// Judul memori di daftar arsip dan detail harus nama topik forum yang dibuat pengguna, bukan cadangan "Forum Diskusi".
+func TestMemoryHandler_ForumTitleAndApproverName(t *testing.T) {
+	h, _, ms, _, alice, bob, _, group, forum := setupTestMemoryAPI(t)
+	ctx := context.Background()
+
+	draftID := seedDraft(t, ms, forum.ID, group.ID)
+	if err := ms.ApproveDraft(ctx, draftID, alice.ID, &store.ApprovedMemory{
+		ForumID: forum.ID, GroupID: group.ID, SnapshotSummary: "Ringkasan uji", SnapshotSummaryConf: store.ConfidenceHigh,
+	}, &store.MemoryReviewAction{Action: store.ActionApproved}); err != nil {
+		t.Fatalf("ApproveDraft gagal: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/groups/"+group.ID+"/memories", nil)
+	req = req.WithContext(auth.SetUserContext(req.Context(), &auth.UserClaims{UserID: bob.ID}))
+	rr := httptest.NewRecorder()
+	h.HandleGetGroupMemories(rr, req, bob.ID, group.ID)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("daftar memori: expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var list []map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &list); err != nil || len(list) != 1 {
+		t.Fatalf("daftar memori tidak valid: %v %s", err, rr.Body.String())
+	}
+	if list[0]["forum_title"] != forum.Title {
+		t.Errorf("forum_title = %v, want %q (nama topik asli)", list[0]["forum_title"], forum.Title)
+	}
+	if list[0]["approved_by_name"] != "Alice Admin" {
+		t.Errorf("approved_by_name = %v, want %q", list[0]["approved_by_name"], "Alice Admin")
+	}
+	if _, ok := list[0]["decisions_count"]; !ok {
+		t.Errorf("field decisions_count harus ada di daftar memori")
+	}
+
+	mem, _ := ms.GetApprovedMemoryByForumID(ctx, forum.ID)
+	rr2 := memReq(h, h.RouteApprovedMemoryRequest, http.MethodGet, "/api/memories/"+mem.ID, bob.ID)
+	var detail map[string]any
+	_ = json.Unmarshal(rr2.Body.Bytes(), &detail)
+	if detail["forum_title"] != forum.Title || detail["approved_by_name"] != "Alice Admin" {
+		t.Errorf("detail: forum_title=%v approved_by_name=%v", detail["forum_title"], detail["approved_by_name"])
+	}
+}

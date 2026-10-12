@@ -501,6 +501,10 @@ type mockGroupRepoForContextSource struct {
 	roles   map[string]map[string]string
 }
 
+func (m *mockGroupRepoForContextSource) GetGroupSummary(conversationID string) (*store.GroupDetails, error) {
+	return m.GetGroupDetails(conversationID, "")
+}
+
 func (m *mockGroupRepoForContextSource) GetGroupDetails(conversationID, currentUserID string) (*store.GroupDetails, error) {
 	if d, ok := m.details[conversationID]; ok {
 		return d, nil

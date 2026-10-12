@@ -47,6 +47,10 @@ func (m *mockGroupRepo) CreateGroupWithContext(ctx context.Context, title, descr
 	return m.CreateGroup(title, description, avatarURL, creatorID, groupUsername, isPublic, memberIDs)
 }
 
+func (m *mockGroupRepo) GetGroupSummary(conversationID string) (*GroupDetails, error) {
+	return m.GetGroupDetails(conversationID, "")
+}
+
 func (m *mockGroupRepo) GetGroupDetails(conversationID, currentUserID string) (*GroupDetails, error) {
 	if m.getGroupDetailsFunc != nil {
 		return m.getGroupDetailsFunc(conversationID, currentUserID)

@@ -51,6 +51,13 @@ func (r *SQLGroupRepository) GetGroupDetails(conversationID, currentUserID strin
 	return r.groupStore.GetGroupDetails(conversationID, currentUserID)
 }
 
+func (r *SQLGroupRepository) GetGroupSummary(conversationID string) (*group.GroupDetails, error) {
+	if r.groupStore == nil {
+		return nil, errors.New("group store belum diinisialisasi")
+	}
+	return r.groupStore.GetGroupSummary(conversationID)
+}
+
 func (r *SQLGroupRepository) GetGroupMembers(conversationID string) ([]group.GroupMemberItem, error) {
 	if r.groupStore == nil {
 		return nil, errors.New("group store belum diinisialisasi")

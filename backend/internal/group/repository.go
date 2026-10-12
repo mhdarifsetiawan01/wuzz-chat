@@ -8,6 +8,8 @@ type GroupRepository interface {
 	CreateGroup(title, description, avatarURL, creatorID, groupUsername string, isPublic bool, memberIDs []string) (*GroupDetails, error)
 	CreateGroupWithContext(ctx context.Context, title, description, avatarURL, creatorID, groupUsername string, isPublic bool, memberIDs []string) (*GroupDetails, error)
 	GetGroupDetails(conversationID, currentUserID string) (*GroupDetails, error)
+	// GetGroupSummary: metadata dasar tanpa pemeriksaan akses pemanggil (hanya kode internal).
+	GetGroupSummary(conversationID string) (*GroupDetails, error)
 	GetGroupMembers(conversationID string) ([]GroupMemberItem, error)
 	JoinPublicGroup(conversationID, userID string) error
 	AddGroupMembers(conversationID, actorUserID string, userIDs []string) error

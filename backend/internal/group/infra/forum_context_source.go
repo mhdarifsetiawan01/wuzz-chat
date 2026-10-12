@@ -38,7 +38,7 @@ func (s *ForumContextSource) GetMessages(ctx context.Context, contextID string, 
 	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	// Verifikasi kepemilikan tenant konteks percakapan jika groupRepo tersedia
 	if s.groupRepo != nil && tenantID != "" {
-		details, err := s.groupRepo.GetGroupDetails(contextID, "")
+		details, err := s.groupRepo.GetGroupSummary(contextID)
 		if err == nil && details != nil && details.TenantID != "" && details.TenantID != tenantID {
 			return nil, memory.ErrUnauthorizedAccess
 		}
@@ -69,7 +69,7 @@ func (s *ForumContextSource) GetContextMeta(ctx context.Context, contextID strin
 		}, nil
 	}
 
-	details, err := s.groupRepo.GetGroupDetails(contextID, "")
+	details, err := s.groupRepo.GetGroupSummary(contextID)
 	if err != nil || details == nil {
 		return &memory.MemoryContext{
 			ContextID:   contextID,
@@ -113,7 +113,7 @@ func (s *ForumContextSource) GetAuthorizedViewers(ctx context.Context, contextID
 
 	tenantID := tenantshared.MustFromContext(ctx).TenantID()
 	// 0. Validasi kepemilikan tenant forum/subgrup
-	details, err := s.groupRepo.GetGroupDetails(contextID, "")
+	details, err := s.groupRepo.GetGroupSummary(contextID)
 	if err == nil && details != nil && details.TenantID != "" && details.TenantID != tenantID {
 		return false, nil
 	}
