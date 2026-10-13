@@ -31,18 +31,25 @@ import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography
 import { makeFabStyle, getFabBottom } from '../theme/fab';
 import { IconText } from '../components/IconText';
 import { Icon } from '../components/Icon';
+import { ForumBubble } from '../components/forum/ForumBubble';
 import { showAlert } from '../services/dialog';
 
 export interface RecentChatsScreenProps {
   onSelectChat?: (conversation: Conversation) => void;
   onStartNewChat?: () => void;
   onStartNewGroup?: () => void;
+  /** Bubble Forum: buat grup baru lalu lanjut membuat forum di dalamnya. */
+  onCreateGroupForForum?: () => void;
+  /** Bubble Forum: masuk ke topik yang baru dibuat. */
+  onEnterForum?: (subConversation: Conversation, parentGroup: Conversation) => void;
 }
 
 export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
   onSelectChat,
   onStartNewChat,
   onStartNewGroup,
+  onCreateGroupForForum,
+  onEnterForum,
 }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -712,6 +719,15 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
         initialMode="share"
         onClose={() => setIsDeviceTransferModalOpen(false)}
       />
+
+      {/* Bubble Forum — di atas FAB obrolan */}
+      {onCreateGroupForForum && onEnterForum && (
+        <ForumBubble
+          conversations={conversations}
+          onCreateGroupForForum={onCreateGroupForForum}
+          onEnterForum={onEnterForum}
+        />
+      )}
 
       {/* FAB — New Chat Bubble (floating bottom-right, above tab bar) */}
       {onStartNewChat && (

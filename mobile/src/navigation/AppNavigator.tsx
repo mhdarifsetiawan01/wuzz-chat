@@ -24,6 +24,7 @@ import {
 } from '../screens';
 import { MainTabNavigator } from './MainTabNavigator';
 import { useTheme } from '../theme';
+import { setPendingForumGroup } from '../services/forumCreateIntent';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -139,14 +140,20 @@ export const AppNavigator: React.FC = () => {
           gestureEnabled: true,
         }}
       >
-        {({ navigation }) => (
+        {({ route, navigation }) => (
           <NewGroupScreen
             onBack={() => navigation.goBack()}
-            onSelectChat={(chat) =>
+            onSelectChat={(chat) => {
+              // Dari Bubble Forum: kembali ke beranda, form forum untuk grup ini terbuka otomatis
+              if (route.params?.thenCreateForum) {
+                setPendingForumGroup(chat);
+                navigation.goBack();
+                return;
+              }
               navigation.replace('Chat', {
                 conversation: chat as ConversationItem,
-              })
-            }
+              });
+            }}
           />
         )}
       </Stack.Screen>

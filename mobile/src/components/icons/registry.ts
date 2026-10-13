@@ -212,6 +212,7 @@ export const ICONS = {
   heartFilled: { outline: HEART, solid: true },
   star: {
     outline: ['M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9L12 3.5Z'],
+    filled: ['M12 3.5l2.6 5.3 5.9.9-4.2 4.1 1 5.8-5.3-2.8-5.3 2.8 1-5.8-4.2-4.1 5.9-.9L12 3.5Z'],
   },
   bolt: { outline: ['M13 3L5 13.5h6L10 21l9-11h-6.5L13 3Z'] },
   bulb: {

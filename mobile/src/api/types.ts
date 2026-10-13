@@ -396,6 +396,28 @@ export interface SubGroup {
   has_pending_request?: boolean;
 }
 
+/** Satu baris "Forum saya": forum tempat user menjadi anggota topik (GET /api/forums/mine). */
+export interface MyForum {
+  id: string;
+  parent_id: string;
+  parent_title: string;
+  parent_avatar_url?: string;
+  title: string;
+  description?: string;
+  member_count: number;
+  /** Peran user di topik ini. */
+  my_role: GroupRole;
+  is_public: boolean;
+  status: SubGroupStatus;
+  /** Ditentukan server (status + expires_at), bukan dari jam perangkat. */
+  is_active: boolean;
+  expires_at: string | null;
+  remaining_seconds: number;
+  created_at: string;
+  /** Memori topik ini sudah disetujui admin (pintas ke arsip memori). */
+  has_approved_memory: boolean;
+}
+
 /** Payload for creating a new forum topic. */
 export interface CreateSubGroupRequest {
   title: string;
