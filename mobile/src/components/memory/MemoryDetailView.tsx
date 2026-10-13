@@ -50,7 +50,7 @@ export const MemoryDetailView: React.FC<Props> = ({ memoryId, canDelete = false,
   const confirmDelete = () => {
     showAlert(
       'Hapus memori ini?',
-      'Memori beserta kutipan buktinya dihapus permanen dan tidak bisa dikembalikan.',
+      `Memori topik “${detail?.forum_title || 'ini'}” akan dihapus permanen untuk semua anggota grup, termasuk ringkasan, keputusan, dan kutipan buktinya. Percakapan di topik tidak ikut terhapus. Tindakan ini tidak bisa dibatalkan.`,
       [
         { text: 'Batal', style: 'cancel' },
         {
