@@ -443,6 +443,22 @@ func (s *ForumService) GetActiveSubGroups(ctx context.Context, parentID, current
 	return s.repo.GetActiveSubGroups(parentID, currentUserID)
 }
 
+// GetUserForums mengambil forum tempat user menjadi anggota topik ("Forum saya"), aktif maupun berakhir.
+// Isolasi tenant ditegakkan di repository lewat konteks request.
+func (s *ForumService) GetUserForums(ctx context.Context, userID string) ([]UserForumItem, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, ErrForbidden
+	}
+	items, err := s.repo.GetUserForumsWithContext(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		items = []UserForumItem{}
+	}
+	return items, nil
+}
+
 // JoinSubGroup menambahkan current user ke dalam subgrup (khusus subgrup publik).
 func (s *ForumService) JoinSubGroup(ctx context.Context, subGroupID, currentUserID string) error {
 	if err := s.repo.JoinSubGroup(subGroupID, currentUserID); err != nil {

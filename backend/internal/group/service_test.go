@@ -185,6 +185,10 @@ func (m *mockGroupRepo) ExpireSubGroupsBatchDetailed() ([]ExpiredSubGroupItem, e
 	return []ExpiredSubGroupItem{{ID: "sub_1", ParentID: "grp_1"}}, nil
 }
 
+func (m *mockGroupRepo) GetUserForumsWithContext(ctx context.Context, userID string) ([]UserForumItem, error) {
+	return nil, nil
+}
+
 func (m *mockGroupRepo) ExpireSubGroupNow(subGroupID string) error {
 	if m.expireSubGroupNowFunc != nil {
 		return m.expireSubGroupNowFunc(subGroupID)

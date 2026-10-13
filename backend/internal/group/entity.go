@@ -38,6 +38,9 @@ type GroupMemberItem = store.GroupMemberItem
 // SubGroupItem merepresentasikan ringkasan forum/subgrup di bawah grup induk.
 type SubGroupItem = store.SubGroupItem
 
+// UserForumItem merepresentasikan forum tempat user menjadi anggota topik.
+type UserForumItem = store.UserForumItem
+
 // JoinRequestItem merepresentasikan permohonan bergabung ke subgrup privat.
 type JoinRequestItem = store.JoinRequestItem
 
