@@ -142,6 +142,13 @@ func (r *SQLGroupRepository) GetActiveSubGroups(parentID, currentUserID string) 
 	return r.groupStore.GetActiveSubGroups(parentID, currentUserID)
 }
 
+func (r *SQLGroupRepository) GetUserForumsWithContext(ctx context.Context, userID string) ([]group.UserForumItem, error) {
+	if r.groupStore == nil {
+		return nil, errors.New("group store belum diinisialisasi")
+	}
+	return r.groupStore.GetUserForumsWithContext(ctx, userID)
+}
+
 func (r *SQLGroupRepository) IsParentMember(parentID, userID string) (bool, error) {
 	if r.groupStore == nil {
 		return false, errors.New("group store belum diinisialisasi")

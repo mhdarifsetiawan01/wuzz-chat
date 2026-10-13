@@ -43,7 +43,7 @@ export type RootStackParamList = {
   /** Contact discovery */
   NewChat: undefined;
   /** Group creation wizard */
-  NewGroup: undefined;
+  NewGroup: { thenCreateForum?: boolean } | undefined;
   /** Group info & management */
   GroupInfo: {
     groupId: string;

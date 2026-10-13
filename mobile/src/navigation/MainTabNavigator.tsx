@@ -245,6 +245,13 @@ function ChatsTabScreen() {
       }
       onStartNewChat={() => navigation.navigate('NewChat')}
       onStartNewGroup={() => navigation.navigate('NewGroup')}
+      onCreateGroupForForum={() => navigation.navigate('NewGroup', { thenCreateForum: true })}
+      onEnterForum={(sub, parent) =>
+        navigation.navigate('Chat', {
+          conversation: sub as ConversationItem,
+          parentGroupConversation: parent as ConversationItem,
+        })
+      }
     />
   );
 }

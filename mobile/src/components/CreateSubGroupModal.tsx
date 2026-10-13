@@ -39,6 +39,8 @@ export interface CreateSubGroupModalProps {
   visible: boolean;
   parentGroupId: string;
   parentGroupTitle: string;
+  /** Tampilkan keterangan AI Memory; hanya bila server menyatakan fiturnya aktif untuk grup ini. */
+  showMemoryHint?: boolean;
   onClose: () => void;
   /** Called with the newly created sub-group so the list can refresh */
   onCreated: (subGroup: SubGroup) => void;
@@ -57,6 +59,7 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
   visible,
   parentGroupId,
   parentGroupTitle,
+  showMemoryHint = false,
   onClose,
   onCreated,
 }) => {
@@ -245,6 +248,16 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
                 />
               </View>
 
+              {showMemoryHint && (
+                <View style={styles.memoryHint}>
+                  <Icon name="bulb" size={18} color={colors.accentPrimary} />
+                  <Text style={styles.memoryHintText}>
+                    Saat topik berakhir, AI Memory merangkum keputusan dan poin penting. Ringkasan
+                    baru masuk arsip setelah disetujui admin.
+                  </Text>
+                </View>
+              )}
+
               {/* Submit button */}
               <TouchableOpacity
                 style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]}
@@ -391,6 +404,21 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   toggleDesc: {
     fontSize: 12,
     color: colors.textMuted,
+  },
+  memoryHint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.tintAccent10,
+  },
+  memoryHintText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textSecondary,
   },
   submitBtn: {
     marginTop: spacing.xxl,

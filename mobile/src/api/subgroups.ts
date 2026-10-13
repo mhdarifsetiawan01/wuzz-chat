@@ -12,6 +12,7 @@ import {
   CreateSubGroupRequest,
   CreateSubGroupResponse,
   JoinRequest,
+  MyForum,
 } from './types';
 
 // ─── Internal timeout helper ─────────────────────────────────────────────────
@@ -44,6 +45,19 @@ export const subgroupsApi = {
     );
     if (Array.isArray(res)) return res;
     return res?.subgroups ?? [];
+  },
+
+  /**
+   * GET /api/forums/mine
+   * Forum tempat user menjadi anggota topik, aktif maupun berakhir. Tenant ditentukan server dari sesi.
+   */
+  async listMyForums(signal?: AbortSignal): Promise<MyForum[]> {
+    const res = await apiClient<{ success?: boolean; forums?: MyForum[] } | MyForum[]>(
+      '/api/forums/mine',
+      { method: 'GET', signal }
+    );
+    if (Array.isArray(res)) return res;
+    return res?.forums ?? [];
   },
 
   /**

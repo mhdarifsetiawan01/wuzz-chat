@@ -70,6 +70,27 @@ type SubGroupItem struct {
 	PendingRequestsCount int        `json:"pending_requests_count,omitempty"`
 }
 
+// UserForumItem merepresentasikan satu forum tempat user menjadi anggota topik ("Forum saya").
+// Aktif/tidak aktif ditentukan server (IsActive) agar klien tidak menebak dari jam perangkat.
+type UserForumItem struct {
+	ID               string     `json:"id"`
+	ParentID         string     `json:"parent_id"`
+	ParentTitle      string     `json:"parent_title"`
+	ParentAvatarURL  string     `json:"parent_avatar_url,omitempty"`
+	Title            string     `json:"title"`
+	Description      string     `json:"description"`
+	MemberCount      int        `json:"member_count"`
+	MyRole           string     `json:"my_role"`
+	IsPublic         bool       `json:"is_public"`
+	Status           string     `json:"status"`
+	IsActive         bool       `json:"is_active"`
+	ExpiresAt        *time.Time `json:"expires_at"`
+	RemainingSeconds int64      `json:"remaining_seconds"`
+	CreatedAt        time.Time  `json:"created_at"`
+	// HasApprovedMemory: topik ini sudah punya memori yang disetujui admin (pintas ke arsip memori).
+	HasApprovedMemory bool `json:"has_approved_memory"`
+}
+
 // JoinRequestItem merepresentasikan permohonan bergabung ke subgrup privat.
 type JoinRequestItem struct {
 	ID             string    `json:"id"`
@@ -115,6 +136,8 @@ type GroupStore interface {
 	GetActiveSubGroups(parentID, currentUserID string) ([]SubGroupItem, error)
 	GetActiveSubGroupsWithContext(ctx context.Context, parentID, currentUserID string) ([]SubGroupItem, error)
 	IsParentMember(parentID, userID string) (bool, error)
+	// GetUserForumsWithContext mengembalikan forum tempat user menjadi anggota topik, terisolasi per tenant.
+	GetUserForumsWithContext(ctx context.Context, userID string) ([]UserForumItem, error)
 	JoinSubGroup(subGroupID, userID string) error
 	RequestToJoinSubGroup(subGroupID, userID string) error
 	GetPendingJoinRequests(subGroupID, adminUserID string) ([]JoinRequestItem, error)

@@ -333,6 +333,9 @@ func (a *Application) setupRouter() http.Handler {
 				http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 			}
 		}))
+		mux.HandleFunc("/api/forums/mine", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(a.GroupHandler.GetMyForums)).ServeHTTP(w, r)
+		}))
 		mux.HandleFunc("/api/groups/search", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(http.HandlerFunc(a.GroupHandler.SearchPublicGroups)).ServeHTTP(w, r)
 		}))

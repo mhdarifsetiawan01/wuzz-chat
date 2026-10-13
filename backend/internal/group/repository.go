@@ -25,6 +25,7 @@ type GroupRepository interface {
 	CreateSubGroupWithContext(ctx context.Context, parentID, title, description, creatorID, duration string, isPublic bool) (*GroupDetails, error)
 	GetActiveSubGroups(parentID, currentUserID string) ([]SubGroupItem, error)
 	IsParentMember(parentID, userID string) (bool, error)
+	GetUserForumsWithContext(ctx context.Context, userID string) ([]UserForumItem, error)
 	JoinSubGroup(subGroupID, userID string) error
 	RequestToJoinSubGroup(subGroupID, userID string) error
 	GetPendingJoinRequests(subGroupID, adminUserID string) ([]JoinRequestItem, error)

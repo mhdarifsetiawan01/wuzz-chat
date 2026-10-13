@@ -575,6 +575,32 @@ func (h *GroupHandler) resolveDisplayName(userID string) string {
 	return userID
 }
 
+// GetMyForums menangani GET /api/forums/mine: forum tempat user menjadi anggota topik, aktif maupun berakhir.
+// Konteks request (tenant) diteruskan ke service; tenant tidak pernah dibaca dari parameter klien.
+func (h *GroupHandler) GetMyForums(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		http.Error(w, `{"error":"Unauthorized"}`, http.StatusUnauthorized)
+		return
+	}
+
+	forums, err := h.forumSvc.GetUserForums(r.Context(), claims.UserID)
+	if err != nil {
+		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal memuat forum")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"forums":  forums,
+	})
+}
+
 // handleGetSubGroups memuat daftar subgrup aktif di bawah grup induk.
 func (h *GroupHandler) handleGetSubGroups(w http.ResponseWriter, currentUserID, parentID string) {
 	subgroups, err := h.forumSvc.GetActiveSubGroups(context.Background(), parentID, currentUserID)
