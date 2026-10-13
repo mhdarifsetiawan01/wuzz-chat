@@ -66,6 +66,7 @@ export const AppNavigator: React.FC = () => {
           <ChatScreen
             conversation={route.params.conversation}
             parentGroupConversation={route.params.parentGroupConversation}
+            backToOrigin={route.params.fromForumBubble === true}
             onBack={() => navigation.goBack()}
             onOpenUserProfile={(peerUserId, peerUsername) => {
               navigation.navigate('UserProfile', { userId: peerUserId || undefined, username: peerUsername });

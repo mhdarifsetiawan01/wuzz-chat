@@ -250,6 +250,7 @@ function ChatsTabScreen() {
         navigation.navigate('Chat', {
           conversation: sub as ConversationItem,
           parentGroupConversation: parent as ConversationItem,
+          fromForumBubble: true,
         })
       }
     />

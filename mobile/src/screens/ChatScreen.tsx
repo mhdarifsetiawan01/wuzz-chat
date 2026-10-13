@@ -83,6 +83,8 @@ export interface ChatScreenProps {
    * Used to fetch parent info for breadcrumb display.
    */
   parentGroupConversation?: ConversationItem | null;
+  /** Panah kembali header topik langsung memanggil onBack (bukan ke grup induk); dipakai bila dibuka dari Bubble Forum. */
+  backToOrigin?: boolean;
   /** M-Mobile-8.2B: Directly enter a sub-group conversation from the forum modal */
   onEnterSubGroup?: (subConv: Conversation) => void;
   /** Opens UserProfileScreen for the direct chat peer */
@@ -130,6 +132,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onOpenGroupInfo,
   onNavigateToParent,
   parentGroupConversation,
+  backToOrigin = false,
   onEnterSubGroup,
   onOpenUserProfile,
   onOpenPost,
@@ -1858,7 +1861,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => {
-              if (isSubGroup && onNavigateToParent) {
+              if (isSubGroup && onNavigateToParent && !backToOrigin) {
                 const parentId =
                   (groupDetails as any)?.parent_id ||
                   conversation.parent_id ||
