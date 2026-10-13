@@ -39,6 +39,8 @@ export type RootStackParamList = {
   Chat: {
     conversation: ConversationItem;
     parentGroupConversation?: ConversationItem | null;
+    /** Topik dibuka dari Bubble Forum: panah kembali di header langsung kembali ke asal, bukan ke grup induk. */
+    fromForumBubble?: boolean;
   };
   /** Contact discovery */
   NewChat: undefined;
