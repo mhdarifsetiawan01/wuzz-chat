@@ -34,7 +34,7 @@ import { GroupRole } from '../../api/types';
 import { MemoryConfidenceBadge } from './MemoryConfidenceBadge';
 import { MemoryDetailView } from './MemoryDetailView';
 import { MemoryReviewView } from './MemoryReviewView';
-import { formatMemoryDate, splitMemoryHeadline } from './memoryFormat';
+import { formatMemoryDate } from './memoryFormat';
 import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../../theme';
 
 export interface MemoryArchiveModalProps {
@@ -43,6 +43,8 @@ export interface MemoryArchiveModalProps {
   groupId: string;
   groupTitle: string;
   currentUserRole: GroupRole | undefined;
+  /** Bila diisi, langsung membuka detail memori topik ini begitu arsip termuat (sekali per pembukaan). */
+  initialForumId?: string;
   onClose: () => void;
 }
 
@@ -59,10 +61,12 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
   groupId,
   groupTitle,
   currentUserRole,
+  initialForumId,
   onClose,
 }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const initialForumHandledRef = useRef(false);
   const isAdmin = currentUserRole === 'admin' || currentUserRole === 'creator';
 
   const [tab, setTab] = useState<Tab>('archive');
@@ -93,6 +97,12 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
         setMemories(archive);
         setHasMore(archive.length >= MEMORY_PAGE_SIZE);
         setDrafts(pending);
+        // Dibuka dari "Forum saya": lompat ke memori topik itu; bila tidak ada di halaman pertama, tetap di daftar.
+        if (initialForumId && !initialForumHandledRef.current) {
+          initialForumHandledRef.current = true;
+          const hit = archive.find((m) => m.forum_id === initialForumId);
+          if (hit) setView({ kind: 'detail', id: hit.id });
+        }
       } catch (err: any) {
         if (err?.name !== 'AbortError') setError(err?.detail || 'Gagal memuat arsip memori.');
       } finally {
@@ -100,11 +110,12 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
         setIsRefreshing(false);
       }
     },
-    [groupId, isAdmin]
+    [groupId, isAdmin, initialForumId]
   );
 
   useEffect(() => {
     if (visible) {
+      initialForumHandledRef.current = false;
       setTab('archive');
       setView({ kind: 'list' });
       loadFirstPage();
@@ -142,7 +153,6 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
     view.kind === 'detail' ? 'Detail Memori' : view.kind === 'review' ? 'Tinjau Draf' : 'Arsip Memori';
 
   const renderMemory = ({ item }: { item: ApprovedMemoryListItem }) => {
-    const { headline, rest } = splitMemoryHeadline(item.snapshot_summary);
     const isNew = item.has_viewed === false;
     return (
       <TouchableOpacity
@@ -150,23 +160,20 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
         activeOpacity={0.75}
         onPress={() => setView({ kind: 'detail', id: item.id })}
         accessibilityRole="button"
-        accessibilityLabel={`Memori ${headline || item.forum_title}${isNew ? ', belum dibaca' : ''}`}
+        accessibilityLabel={`Memori ${item.forum_title}${isNew ? ', belum dibaca' : ''}`}
       >
         <View style={styles.rowTop}>
           <Text style={styles.rowTitle} numberOfLines={2}>
-            {headline || item.forum_title}
+            {item.forum_title}
           </Text>
           {isNew ? <View style={styles.newDot} accessibilityLabel="Baru" /> : null}
           <Icon name="forward" size={14} color={colors.textMuted} />
         </View>
-        {rest ? (
+        {item.snapshot_summary ? (
           <Text style={styles.rowSummary} numberOfLines={2}>
-            {rest}
+            {item.snapshot_summary}
           </Text>
         ) : null}
-        <Text style={styles.rowTopic} numberOfLines={1}>
-          Topik: {item.forum_title}
-        </Text>
         <View style={styles.rowMeta}>
           {item.snapshot_summary_conf ? <MemoryConfidenceBadge level={item.snapshot_summary_conf} /> : null}
           <Text style={styles.metaText}>
@@ -356,7 +363,6 @@ const makeStyles = (colors: ColorTokens) => {
     rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
     rowTitle: { ...typography.body, fontWeight: '600', color: colors.textPrimary, flex: 1 },
     rowSummary: { ...typography.bodySecondary, color: colors.textSecondary },
-    rowTopic: { ...typography.caption, color: colors.textMuted },
     newDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accentPrimary },
     rowMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
     metaText: { ...typography.caption, color: colors.textMuted },

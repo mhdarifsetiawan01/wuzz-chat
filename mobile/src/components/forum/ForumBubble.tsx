@@ -56,7 +56,7 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
   const [step, setStep] = useState<SheetStep>(null);
   const [targetGroup, setTargetGroup] = useState<Conversation | null>(null);
   const [memoryEnabled, setMemoryEnabled] = useState(false);
-  const [memoryTarget, setMemoryTarget] = useState<{ groupId: string; title: string; role?: GroupRole } | null>(null);
+  const [memoryTarget, setMemoryTarget] = useState<{ groupId: string; title: string; role?: GroupRole; forumId: string } | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -129,7 +129,7 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
   const handleOpenMemory = useCallback((forum: MyForum) => {
     const parent = groups.find((g) => g.id === forum.parent_id);
     setStep(null);
-    setMemoryTarget({ groupId: forum.parent_id, title: forum.parent_title, role: parent ? roleOf(parent) : undefined });
+    setMemoryTarget({ groupId: forum.parent_id, title: forum.parent_title, role: parent ? roleOf(parent) : undefined, forumId: forum.id });
   }, [groups]);
 
   const handleCreated = useCallback((sub: SubGroup) => {
@@ -209,6 +209,7 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
           groupId={memoryTarget.groupId}
           groupTitle={memoryTarget.title}
           currentUserRole={memoryTarget.role}
+          initialForumId={memoryTarget.forumId}
           onClose={() => setMemoryTarget(null)}
         />
       )}
