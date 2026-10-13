@@ -281,6 +281,8 @@ export interface Conversation {
   unread_count?: number;
   member_count?: number;
   my_role?: GroupRole;
+  /** Peran user pada item daftar obrolan: server mengirim `role` (bukan `my_role`) di GET /api/conversations. */
+  role?: GroupRole;
   /** Grup induk: AI Memory aktif (tahap uji terbatas, ditentukan server). Tombol Memori disembunyikan bila bukan true. */
   memory_enabled?: boolean;
   is_pinned?: boolean;

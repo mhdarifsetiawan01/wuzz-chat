@@ -36,7 +36,13 @@ type SheetStep = 'hub' | 'picker' | 'mine' | null;
 const isGroupChat = (c: Conversation): boolean =>
   (c.type === 'group' || c.is_group === true) && !c.is_subgroup && !c.parent_id;
 
-const canManage = (c: Conversation): boolean => c.my_role === 'admin' || c.my_role === 'creator';
+// Daftar obrolan dari server membawa peran di `role`; `my_role` datang dari detail grup atau objek buatan klien.
+const roleOf = (c: Conversation): GroupRole | undefined => c.my_role ?? c.role;
+
+const canManage = (c: Conversation): boolean => {
+  const role = roleOf(c);
+  return role === 'admin' || role === 'creator';
+};
 
 export const ForumBubble: React.FC<ForumBubbleProps> = ({
   conversations,
@@ -123,7 +129,7 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
   const handleOpenMemory = useCallback((forum: MyForum) => {
     const parent = groups.find((g) => g.id === forum.parent_id);
     setStep(null);
-    setMemoryTarget({ groupId: forum.parent_id, title: forum.parent_title, role: parent?.my_role });
+    setMemoryTarget({ groupId: forum.parent_id, title: forum.parent_title, role: parent ? roleOf(parent) : undefined });
   }, [groups]);
 
   const handleCreated = useCallback((sub: SubGroup) => {
@@ -140,7 +146,7 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
       is_subgroup: true,
       parent_id: parent.id,
       member_count: sub.member_count || 1,
-      my_role: sub.my_role ?? parent.my_role,
+      my_role: sub.my_role ?? roleOf(parent),
     };
     onEnterForum(conv, parent);
   }, [targetGroup, onEnterForum]);
@@ -154,7 +160,7 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
         accessibilityRole="button"
         accessibilityLabel="Forum"
       >
-        <Icon name="forum" size={22} color={colors.accentPrimary} />
+        <Icon name="forum" size={22} color={colors.textOnAccent} />
       </TouchableOpacity>
 
       <BottomSheetModal
@@ -228,9 +234,6 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.bgElevated,
-    borderWidth: 1,
-    borderColor: colors.borderDefault,
   },
   explainer: {
     fontSize: 13,
