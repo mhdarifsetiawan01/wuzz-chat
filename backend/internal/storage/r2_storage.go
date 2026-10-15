@@ -124,6 +124,11 @@ func (s *R2Storage) CreateSignedUploadURLSized(ctx context.Context, filename str
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
+	// Video hidup di bawah awalan sendiri supaya aturan lifecycle R2 (jaring pengaman berkas yatim) bisa dibatasi ke
+	// "video/" tanpa menyentuh foto profil dan media Feed yang disimpan selama akun aktif.
+	if strings.HasPrefix(strings.ToLower(contentType), "video/") {
+		key = VideoKeyPrefix + key
+	}
 
 	headers := map[string]string{"content-type": contentType}
 	if size > 0 {

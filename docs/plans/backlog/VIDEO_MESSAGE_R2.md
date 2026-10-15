@@ -43,7 +43,7 @@
 - Tiket unggah video (`?purpose=video`) mengembalikan juga `thumb_signed_url`/`thumb_public_url` (request wajib memuat `file_size` dan `thumb_size` <= 512 KB; keduanya ikut ditandatangani).
 - Pembersihan: `PurgeWorker` (retensi dan antrean berkas yatim dari hapus akun) menghapus thumbnail turunan bersama video. Selama masa transisi `R2Storage.Delete` meneruskan URL non-R2 (Supabase lama) ke driver Supabase bila env Supabase masih diisi; berkas lama habis dalam 1 hari.
 - Periksa juga: bukti moderasi/laporan (`content_reports`, retensi bukti) agar tidak mengabaikan video; penghitungan di `StorageSettingsModal`.
-- Status (16 Okt 2026): **Tahap 1-4 (kode) selesai di `dev`, belum di-commit** (`go test ./...` lulus). Penanda tangan SigV4 diuji dengan vektor resmi AWS; kecocokan dengan bucket R2 nyata (termasuk penandatanganan `content-length`) baru bisa dipastikan di Tahap 5 langkah 2.
+- Status (16 Okt 2026): **Tahap 1-4 (kode) selesai dan sudah di `main`; Tahap 5 berjalan: R2 + backend produksi aktif, uji HP lulus sebagian (lihat `docs/progress/MOBILE.md`); sisi web ditunda** (`go test ./...` lulus). Penanda tangan SigV4 diuji dengan vektor resmi AWS; kecocokan dengan bucket R2 nyata (termasuk penandatanganan `content-length`) baru bisa dipastikan di Tahap 5 langkah 2.
 - Tes Go: pembuatan presigned URL (tanpa jaringan), turunan kunci, fail-closed, penolakan `/api/media/upload` saat `r2`, penolakan ukuran/tipe, migrasi kolom, forward menyalin metadata, purge menghapus thumbnail.
 
 ### Tahap 2 — Mobile: pilih, kompres, unggah

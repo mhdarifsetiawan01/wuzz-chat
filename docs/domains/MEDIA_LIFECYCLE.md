@@ -22,6 +22,8 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Pengelolaan Berkas, Foto
 4. **Video chat (16 Okt 2026, kode di `dev`)**:
    - Video ≤ 60 detik dan ≤ 25 MB (`MAX_VIDEO_UPLOAD_MB`, `MAX_VIDEO_DURATION_SEC`), diunggah **langsung ke Cloudflare R2** lewat URL presigned (`POST /api/media/signed-upload-url?purpose=video`). Bila `STORAGE_DRIVER=r2`, `POST /api/media/upload` mengembalikan 410: **tidak ada fallback upload lewat VPS**.
    - Thumbnail JPEG (≤ 512 KB) tidak disimpan di database: URL-nya diturunkan dari `media_url` (`<kunci>.mp4` menjadi `<kunci>.thumb.jpg`; `storage.VideoThumbnailURL`, aturan sama di mobile dan web). `PurgeWorker` menghapus thumbnail bersama video.
+   - **Awalan kunci (16 Okt 2026):** video di R2 berkunci `video/<uuid>.mp4` (atau `video/<tenant>/<uuid>.mp4`), thumbnail mewarisinya. Foto profil dan media Feed tidak berawalan ini (disimpan selama akun aktif). Awalan ini memungkinkan aturan lifecycle R2 khusus video sebagai jaring pengaman berkas yatim (unggahan yang tak pernah dikirim sebagai pesan, penghapusan moderasi yang hanya mengosongkan `media_url`): di dashboard R2, bucket, Settings, Object Lifecycle Rules, awalan `video/`, hapus setelah 3 hari. JANGAN memasang aturan tanpa awalan: foto profil dan media Feed ikut terhapus. Video lama berkunci tanpa awalan tidak tercakup aturan ini.
+   - **Hapus gagal tidak lagi menjadi yatim:** bila `PurgeWorker` gagal menghapus berkas (video atau thumbnail), berkas dimasukkan ke `media_purge_queue` (`Enqueue`) dan dicoba ulang 1, 2, 4... jam hingga 10 kali. Bila antrean pun gagal, pesan tidak ditandai `expired` sehingga siklus berikutnya mencoba lagi.
    - Durasi tidak disimpan di server (dibaca pemutar). Rencana dan status: `docs/plans/backlog/VIDEO_MESSAGE_R2.md`.
 
 ---
