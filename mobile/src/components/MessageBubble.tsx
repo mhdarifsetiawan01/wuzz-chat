@@ -515,6 +515,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 <View style={styles.imageContainer}>
                   <VideoMessageCard
                     videoUrl={effectiveMediaUrl}
+                    remoteUrl={message.media_url}
                     localThumbUri={message.local_thumb_uri}
                     fileSize={message.file_size}
                     needsDownload={!isLocalMediaUri(effectiveMediaUrl)}

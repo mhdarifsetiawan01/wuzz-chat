@@ -13,6 +13,11 @@ import { formatVideoSize, getVideoThumbnailUrl } from '../utils/videoMedia';
 
 export interface VideoMessageCardProps {
   videoUrl: string;
+  /**
+   * URL video JARAK JAUH (message.media_url), dasar penurunan URL thumbnail. `videoUrl` bisa berupa path lokal (salinan
+   * cache) yang tidak punya thumbnail di storage, jadi jangan dipakai untuk itu.
+   */
+  remoteUrl?: string;
   /** Pratinjau lokal (pesan yang baru kita kirim). */
   localThumbUri?: string;
   fileSize?: number;
@@ -26,6 +31,7 @@ export interface VideoMessageCardProps {
 
 export const VideoMessageCard: React.FC<VideoMessageCardProps> = ({
   videoUrl,
+  remoteUrl,
   localThumbUri,
   fileSize,
   needsDownload = false,
@@ -35,7 +41,7 @@ export const VideoMessageCard: React.FC<VideoMessageCardProps> = ({
 }) => {
   const styles = useThemedStyles(makeStyles);
   const [thumbFailed, setThumbFailed] = useState(false);
-  const thumbUri = localThumbUri || getVideoThumbnailUrl(videoUrl);
+  const thumbUri = localThumbUri || getVideoThumbnailUrl(remoteUrl ?? videoUrl);
   const sizeLabel = formatVideoSize(fileSize);
 
   return (
