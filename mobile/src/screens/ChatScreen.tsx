@@ -46,6 +46,7 @@ import { ensureRoomAESKey } from '../services/roomKeyStore';
 import { Avatar } from '../components/Avatar';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInputBar, StagedMedia } from '../components/ChatInputBar';
+import { prepareVideo, VideoPrepError, VIDEO_MAX_DURATION_SEC } from '../services/videoPrep';
 import { MessageActionSheet } from '../components/MessageActionSheet';
 import { ReportModal, ReportTarget } from '../components/ReportModal';
 import { SubGroupListModal } from '../components/SubGroupListModal';
@@ -208,6 +209,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [stagedMedia, setStagedMedia] = useState<StagedMedia | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const [isPreparingMedia, setIsPreparingMedia] = useState(false);
+  const [mediaProgress, setMediaProgress] = useState<number | null>(null);
   const [roomAESKey, setRoomAESKey] = useState<Uint8Array | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [actionSheetMessage, setActionSheetMessage] = useState<Message | null>(null);
@@ -986,6 +989,66 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
   };
 
+  // Menyiapkan video (validasi durasi, kompres, thumbnail) lalu menaruhnya sebagai lampiran siap kirim.
+  const stageVideoAsset = async (asset: ImagePicker.ImagePickerAsset) => {
+    setIsPreparingMedia(true);
+    setMediaProgress(0);
+    try {
+      const prepared = await prepareVideo(asset.uri, {
+        fileName: asset.fileName,
+        durationMs: asset.duration,
+        onProgress: setMediaProgress,
+      });
+      setStagedMedia({
+        uri: prepared.uri,
+        fileName: prepared.fileName,
+        fileSize: prepared.fileSize,
+        mimeType: prepared.mimeType,
+        width: prepared.width,
+        height: prepared.height,
+        mediaType: 'video',
+        thumbUri: prepared.thumbUri,
+        thumbSize: prepared.thumbSize,
+        durationMs: prepared.durationMs,
+      });
+    } catch (err) {
+      console.warn('[ChatScreen] Gagal menyiapkan video:', err);
+      showAlert(
+        'Video Tidak Bisa Dikirim',
+        err instanceof VideoPrepError ? err.message : 'Terjadi kesalahan saat menyiapkan video. Coba video lain.'
+      );
+    } finally {
+      setIsPreparingMedia(false);
+      setMediaProgress(null);
+    }
+  };
+
+  const handlePickVideo = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        showAlert(
+          'Izin Kamera Dibutuhkan',
+          'Aplikasi membutuhkan izin kamera untuk merekam video secara langsung.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['videos'],
+        videoMaxDuration: VIDEO_MAX_DURATION_SEC,
+        allowsEditing: false,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        void stageVideoAsset(result.assets[0]);
+      }
+    } catch (err) {
+      console.warn('[ChatScreen] Error launching video camera:', err);
+      showAlert('Gagal Mengakses Kamera', 'Terjadi kesalahan saat membuka kamera perangkat.');
+    }
+  };
+
   const handlePickGallery = async () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -998,14 +1061,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ['images', 'videos'],
         quality: 0.8,
-        base64: true,
+        base64: true, // hanya berlaku untuk gambar; video diabaikan oleh picker
         allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
+        if (asset.type === 'video') {
+          void stageVideoAsset(asset);
+          return;
+        }
         setStagedMedia({
           uri: asset.uri,
           fileName: asset.fileName || `gallery_${Date.now()}.jpg`,
@@ -1059,13 +1126,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       // A. Jika ada lampiran media, unggah ke backend storage terlebih dahulu
       if (media) {
         setIsUploadingMedia(true);
+        setMediaProgress(0);
         try {
-          const uploadRes = await mediaApi.uploadMedia(
-            media.uri,
-            media.fileName,
-            media.mimeType,
-            media.base64
-          );
+          const uploadRes =
+            media.mediaType === 'video' && media.thumbUri && media.thumbSize && media.fileSize
+              ? await mediaApi.uploadVideo({
+                  uri: media.uri,
+                  fileName: media.fileName || `video_${Date.now()}.mp4`,
+                  fileSize: media.fileSize,
+                  thumbUri: media.thumbUri,
+                  thumbSize: media.thumbSize,
+                  onProgress: setMediaProgress,
+                })
+              : await mediaApi.uploadMedia(media.uri, media.fileName, media.mimeType, media.base64);
           uploadedMediaUrl = uploadRes.url;
           uploadedFileName = uploadRes.file_name;
           uploadedFileSize = uploadRes.file_size;
@@ -1077,13 +1150,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         } catch (err: any) {
           console.error('[ChatScreen] Media upload failed:', err);
           showAlert(
-            'Gagal Mengunggah Gambar',
-            err.detail || err.message || 'Terjadi kesalahan saat mengunggah gambar ke server.'
+            media.mediaType === 'video' ? 'Gagal Mengunggah Video' : 'Gagal Mengunggah Gambar',
+            err.detail || err.message || 'Terjadi kesalahan saat mengunggah ke server. Coba lagi.'
           );
           setIsUploadingMedia(false);
           return;
         } finally {
           setIsUploadingMedia(false);
+          setMediaProgress(null);
         }
       }
 
@@ -1124,7 +1198,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         reply_to: replyPayload,
         mentions,
         media_url: media ? media.uri : undefined,
-        media_type: media ? 'image' : undefined,
+        media_type: media ? (media.mediaType ?? 'image') : undefined,
+        local_thumb_uri: media?.mediaType === 'video' ? media.thumbUri : undefined,
         file_name: uploadedFileName || media?.fileName,
         file_size: uploadedFileSize || media?.fileSize,
       };
@@ -1141,7 +1216,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const mediaOptions = uploadedMediaUrl
         ? {
             media_url: uploadedMediaUrl,
-            media_type: 'image',
+            media_type: media?.mediaType ?? 'image',
             file_name: uploadedFileName,
             file_size: uploadedFileSize,
           }
@@ -2151,10 +2226,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         <ChatInputBar
           onSend={handleSendMessage}
           onSendAudio={handleSendAudio}
-          disabled={isSending || isUploadingMedia || isForumExpired}
+          disabled={isSending || isUploadingMedia || isPreparingMedia || isForumExpired}
           stagedMedia={stagedMedia}
           isUploading={isUploadingMedia}
+          isPreparingMedia={isPreparingMedia}
+          mediaProgress={mediaProgress}
           onPickCamera={isForumExpired ? undefined : handlePickCamera}
+          onPickVideo={isForumExpired ? undefined : handlePickVideo}
           onPickGallery={isForumExpired ? undefined : handlePickGallery}
           onCancelStagedMedia={handleCancelStagedMedia}
           replyTo={replyingTo ? { ...replyingTo, content: safeQuotePreview(replyingTo) } : null}

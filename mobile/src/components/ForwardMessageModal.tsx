@@ -146,6 +146,8 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
             <IconText style={styles.previewContent} numberOfLines={2}>
               {message.media_type === 'audio'
                 ? '🎙️ Pesan Suara'
+                : message.media_type === 'video'
+                ? '🎥 Video'
                 : message.media_url
                 ? '📷 Foto'
                 : message.content || 'Pesan'}

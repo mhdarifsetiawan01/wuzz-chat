@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,6 +31,8 @@ type SignedUploadURLRequest struct {
 	FileName string `json:"file_name"`
 	FileSize int64  `json:"file_size"`
 	MIMEType string `json:"mime_type"`
+	// ThumbSize: ukuran thumbnail JPEG (byte). Wajib untuk purpose=video pada driver yang mendukung thumbnail.
+	ThumbSize int64 `json:"thumb_size,omitempty"`
 }
 
 // SignedUploadURLResponse adalah struktur response JSON tiket direct signed upload.
@@ -38,12 +41,18 @@ type SignedUploadURLResponse struct {
 	PublicURL string `json:"public_url"`
 	ObjectKey string `json:"object_key"`
 	Token     string `json:"token"`
+	// Hanya untuk purpose=video: tiket unggah thumbnail. URL publiknya selalu sama dengan media_url video dengan
+	// ekstensi diganti ".thumb.jpg", sehingga tidak disimpan di database.
+	ThumbSignedURL string `json:"thumb_signed_url,omitempty"`
+	ThumbPublicURL string `json:"thumb_public_url,omitempty"`
 }
 
 // AppConfigResponse adalah struktur JSON konfigurasi publik untuk frontend.
 type AppConfigResponse struct {
 	MediaUploadEnabled   bool   `json:"media_upload_enabled"`
 	MaxFileSizeMB        int64  `json:"max_file_size_mb"`
+	MaxVideoSizeMB       int64  `json:"max_video_size_mb"`
+	MaxVideoDurationSec  int    `json:"max_video_duration_seconds"`
 	StorageDriver        string `json:"storage_driver"`
 	MediaRetentionDays   int    `json:"media_retention_days"`
 	AutoDeleteOnDownload bool   `json:"auto_delete_on_download"`
@@ -62,6 +71,8 @@ type MediaHandler struct {
 	userStore            store.UserStore
 	enabled              bool
 	maxFileSizeMB        int64
+	maxVideoSizeMB       int64
+	maxVideoDurationSec  int
 	retentionDays        int
 	autoDeleteOnDownload bool
 }
@@ -82,6 +93,19 @@ func NewMediaHandler(mediaStorage storage.MediaStorage, msgStore store.MessageSt
 		}
 	}
 
+	maxVideoSize := int64(25) // Default 25 MB per video
+	if envMax := os.Getenv("MAX_VIDEO_UPLOAD_MB"); envMax != "" {
+		if val, err := strconv.ParseInt(envMax, 10, 64); err == nil && val > 0 {
+			maxVideoSize = val
+		}
+	}
+	maxVideoDuration := 60 // Default 60 detik (ditegakkan klien; server hanya menyajikan nilainya)
+	if envDur := os.Getenv("MAX_VIDEO_DURATION_SEC"); envDur != "" {
+		if val, err := strconv.Atoi(envDur); err == nil && val > 0 {
+			maxVideoDuration = val
+		}
+	}
+
 	retentionDays := 7 // Default TTL 7 hari
 	if envRetention := os.Getenv("MEDIA_RETENTION_DAYS"); envRetention != "" {
 		if val, err := strconv.Atoi(envRetention); err == nil && val >= 0 {
@@ -99,6 +123,8 @@ func NewMediaHandler(mediaStorage storage.MediaStorage, msgStore store.MessageSt
 		msgStore:             msgStore,
 		enabled:              enabled,
 		maxFileSizeMB:        maxSize,
+		maxVideoSizeMB:       maxVideoSize,
+		maxVideoDurationSec:  maxVideoDuration,
 		retentionDays:        retentionDays,
 		autoDeleteOnDownload: autoDelete,
 	}
@@ -125,6 +151,8 @@ func (h *MediaHandler) Config(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(AppConfigResponse{
 		MediaUploadEnabled:   h.enabled,
 		MaxFileSizeMB:        h.maxFileSizeMB,
+		MaxVideoSizeMB:       h.maxVideoSizeMB,
+		MaxVideoDurationSec:  h.maxVideoDurationSec,
 		StorageDriver:        driverName,
 		MediaRetentionDays:   h.retentionDays,
 		AutoDeleteOnDownload: h.autoDeleteOnDownload,
@@ -150,6 +178,16 @@ func (h *MediaHandler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	if h.storage == nil {
 		http.Error(w, `{"error":"Media storage engine tidak terkonfigurasi"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// 1b. Driver yang mewajibkan direct upload (R2) menolak relay lewat VPS sebelum membaca body.
+	if rd, ok := h.storage.(interface{ RelayUploadDisabled() bool }); ok && rd.RelayUploadDisabled() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusGone)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Unggah lewat server tidak tersedia. Perbarui aplikasi atau coba lagi (unggah langsung ke penyimpanan).",
+		})
 		return
 	}
 
@@ -284,13 +322,26 @@ func (h *MediaHandler) CreateSignedUploadURL(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// 3. Validasi batas ukuran file (MAX_UPLOAD_SIZE_MB)
-	maxBytes := h.maxFileSizeMB * 1024 * 1024
+	// 3. Validasi batas ukuran file (MAX_UPLOAD_SIZE_MB; video: MAX_VIDEO_UPLOAD_MB)
+	isVideo := r.URL.Query().Get("purpose") == uploadPurposeVideo
+	limitMB := h.maxFileSizeMB
+	if isVideo {
+		limitMB = h.maxVideoSizeMB
+	}
+	maxBytes := limitMB * 1024 * 1024
 	if req.FileSize > maxBytes {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{
-			"error": fmt.Sprintf("Ukuran file (%d byte) melebihi batas maksimal (%d MB)", req.FileSize, h.maxFileSizeMB),
+			"error": fmt.Sprintf("Ukuran file (%d byte) melebihi batas maksimal (%d MB)", req.FileSize, limitMB),
+		})
+		return
+	}
+	if isVideo && req.FileSize <= 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Ukuran video wajib diisi pada field 'file_size'",
 		})
 		return
 	}
@@ -316,12 +367,31 @@ func (h *MediaHandler) CreateSignedUploadURL(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	if isVideo && (!videoUploadExts[ext] || !strings.HasPrefix(strings.ToLower(req.MIMEType), "video/")) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"error": "Video hanya boleh berformat MP4, MOV, M4V, atau WebM.",
+		})
+		return
+	}
+
 	if req.MIMEType == "" {
 		req.MIMEType = "application/octet-stream"
 	}
 
-	// 5. Mint signed upload URL dari storage provider
-	res, err := h.storage.CreateSignedUploadURL(r.Context(), req.FileName, req.MIMEType)
+	// 5. Mint signed upload URL dari storage provider (driver yang mendukung mengunci Content-Length)
+	var (
+		res *storage.SignedUploadResult
+		err error
+	)
+	if sized, ok := h.storage.(interface {
+		CreateSignedUploadURLSized(ctx context.Context, filename, contentType string, size int64) (*storage.SignedUploadResult, error)
+	}); ok {
+		res, err = sized.CreateSignedUploadURLSized(r.Context(), req.FileName, req.MIMEType, req.FileSize)
+	} else {
+		res, err = h.storage.CreateSignedUploadURL(r.Context(), req.FileName, req.MIMEType)
+	}
 	if err != nil {
 		if err == storage.ErrSignedUploadNotSupported {
 			w.Header().Set("Content-Type", "application/json")
@@ -342,6 +412,25 @@ func (h *MediaHandler) CreateSignedUploadURL(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// 5b. Video: terbitkan juga tiket thumbnail (URL turunan dari kunci video).
+	var thumbSigned, thumbPublic string
+	if isVideo {
+		if ts, ok := h.storage.(interface {
+			CreateSignedThumbnailURL(ctx context.Context, videoKey string, size int64) (*storage.SignedUploadResult, error)
+		}); ok {
+			thumb, terr := ts.CreateSignedThumbnailURL(r.Context(), res.ObjectKey, req.ThumbSize)
+			if terr != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"error": fmt.Sprintf("Thumbnail video tidak valid: ukuran wajib 1..%d byte (field 'thumb_size')", storage.MaxThumbnailBytes),
+				})
+				return
+			}
+			thumbSigned, thumbPublic = thumb.SignedURL, thumb.PublicURL
+		}
+	}
+
 	// 6. Respon sukses dengan tiket upload
 	userTag := "anonymous"
 	if claims, ok := auth.GetUserFromContext(r.Context()); ok && claims != nil && claims.Username != "" {
@@ -358,6 +447,9 @@ func (h *MediaHandler) CreateSignedUploadURL(w http.ResponseWriter, r *http.Requ
 		PublicURL: res.PublicURL,
 		ObjectKey: res.ObjectKey,
 		Token:     res.Token,
+
+		ThumbSignedURL: thumbSigned,
+		ThumbPublicURL: thumbPublic,
 	})
 }
 

@@ -27,7 +27,7 @@ export function PinnedMessageBanner({
   const senderName = msg?.nickname || (currentPin?.pinned_by ? 'Pesan Tersemat' : 'Pesan')
   let previewText = msg?.content || ''
   if (!previewText && msg?.media_type) {
-    previewText = `📎 ${msg.media_type === 'image' ? 'Foto' : msg.file_name || 'Berkas'}`
+    previewText = `📎 ${msg.media_type === 'image' ? 'Foto' : msg.media_type === 'video' ? 'Video' : msg.file_name || 'Berkas'}`
   }
   if (!previewText) {
     previewText = 'Pesan disematkan'

@@ -148,6 +148,8 @@ export interface Message {
   created_at?: string;
   timestamp?: string;
   local_media_uri?: string;
+  /** Hanya pesan video yang baru kita kirim: pratinjau lokal sebelum thumbnail di storage dipakai. */
+  local_thumb_uri?: string;
   status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
   reply_to?: {
     id: string;
@@ -233,6 +235,9 @@ export interface SignedUploadTicketResponse {
   public_url: string;
   object_key: string;
   token: string;
+  /** Hanya untuk purpose=video: tiket unggah thumbnail (URL publiknya = media_url dengan ekstensi .thumb.jpg). */
+  thumb_signed_url?: string;
+  thumb_public_url?: string;
 }
 
 export interface MediaAckRequest {

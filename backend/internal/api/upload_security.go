@@ -33,6 +33,12 @@ var feedImageExts = map[string]bool{
 
 const uploadPurposeFeed = "feed"
 
+// uploadPurposeVideo menandai unggahan video pesan: ekstensi/MIME video + batas ukuran khusus (MAX_VIDEO_UPLOAD_MB).
+const uploadPurposeVideo = "video"
+
+// videoUploadExts: ekstensi video yang boleh dikirim lewat chat.
+var videoUploadExts = map[string]bool{".mp4": true, ".mov": true, ".m4v": true, ".webm": true}
+
 // validateFeedImage memastikan file benar-benar gambar: ekstensi ada di allowlist DAN magic bytes cocok.
 // head adalah awal file (maks 512 byte); MIME dari header klien sengaja diabaikan.
 func validateFeedImage(ext string, head []byte) bool {

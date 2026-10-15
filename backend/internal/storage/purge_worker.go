@@ -108,7 +108,7 @@ func (w *PurgeWorker) DrainQueue(ctx context.Context) (done int) {
 			return done
 		}
 		for _, u := range urls {
-			if err := w.storage.Delete(ctx, u); err != nil {
+			if err := w.deleteWithThumbnail(ctx, u); err != nil {
 				failed++
 				gaveUp, ferr := w.queue.Fail(ctx, u, queueMaxAttempts)
 				if ferr != nil {
@@ -156,7 +156,7 @@ func (w *PurgeWorker) PurgeOnce(ctx context.Context) int {
 		}
 
 		// Hapus berkas fisik dari storage
-		if err := w.storage.Delete(ctx, msg.MediaURL); err != nil {
+		if err := w.deleteWithThumbnail(ctx, msg.MediaURL); err != nil {
 			log.Printf("⚠️ [PurgeWorker] Gagal menghapus berkas fisik (%s): %v", msg.MediaURL, err)
 		} else {
 			log.Printf("🗑️ [PurgeWorker] Berkas media kedaluwarsa berhasil dihapus dari storage: %s", msg.MediaURL)
@@ -172,4 +172,16 @@ func (w *PurgeWorker) PurgeOnce(ctx context.Context) int {
 
 	log.Printf("✨ [PurgeWorker] Siklus purge selesai: %d berkas media kedaluwarsa diproses.", purgedCount)
 	return purgedCount
+}
+
+// deleteWithThumbnail menghapus berkas media; untuk video, thumbnail turunannya ikut dihapus (kegagalan thumbnail diabaikan
+// karena berkasnya bisa saja memang tidak ada).
+func (w *PurgeWorker) deleteWithThumbnail(ctx context.Context, mediaURL string) error {
+	if err := w.storage.Delete(ctx, mediaURL); err != nil {
+		return err
+	}
+	if thumb, ok := VideoThumbnailURL(mediaURL); ok {
+		_ = w.storage.Delete(ctx, thumb)
+	}
+	return nil
 }

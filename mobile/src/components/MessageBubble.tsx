@@ -24,6 +24,9 @@ import { AudioPlayerBubble } from './AudioPlayerBubble';
 import { getSenderNameColor } from './Avatar';
 import { mediaCache } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
+import { VideoMessageCard } from './VideoMessageCard';
+import { VideoPlayerModal } from './VideoPlayerModal';
+import { isVideoMessage } from '../utils/videoMedia';
 import { useTheme, useThemedStyles, ColorTokens, ResolvedScheme } from '../theme';
 import { getBubblePalette } from '../theme/bubblePalette';
 import { getDeletedBubblePalette } from '../theme/deletedBubble';
@@ -86,6 +89,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [cachedMediaUri, setCachedMediaUri] = useState<string | null>(null);
@@ -174,14 +178,17 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const isSystem = message.type === 'system';
   const effectiveMediaUrl = cachedMediaUri || message.media_url;
 
+  const isVideo = Boolean(effectiveMediaUrl && isVideoMessage(message));
   const isImage = Boolean(
     effectiveMediaUrl &&
+      !isVideo &&
       (message.media_type === 'image' ||
         message.type === 'image' ||
         /\.(jpg|jpeg|png|webp|gif)$/i.test(effectiveMediaUrl))
   );
   const isAudio = Boolean(
     effectiveMediaUrl &&
+      !isVideo &&
       (message.media_type === 'audio' ||
         message.type === 'audio' ||
         /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(effectiveMediaUrl) ||
@@ -329,7 +336,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   );
 
   // Jam di atas gambar tanpa keterangan duduk di chip gelap, jadi putih di kedua sisi
-  const footerOverImage = isImage && !isExpired && !hasCaption && !isDeleted;
+  const footerOverImage = (isImage || isVideo) && !isExpired && !hasCaption && !isDeleted;
   const footerColor = footerOverImage ? '#ffffff' : subColor;
 
   return (
@@ -360,7 +367,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           style={[
             styles.bubble,
             isSelf ? styles.selfBubble : styles.otherBubble,
-            isImage ? styles.imageBubblePadding : null,
+            isImage || isVideo ? styles.imageBubblePadding : null,
             isAudio ? styles.audioBubblePadding : null,
             isHighlighted ? [styles.highlightedBubble, isSelf ? styles.highlightedSelf : styles.highlightedOther] : null,
             isDeleted ? styles.deletedBubble : null,
@@ -469,6 +476,25 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 </View>
               ) : null}
 
+              {/* Video Attachment Card (diputar di VideoPlayerModal saat diketuk) */}
+              {isVideo && !isExpired && effectiveMediaUrl ? (
+                <View style={styles.imageContainer}>
+                  <VideoMessageCard
+                    videoUrl={effectiveMediaUrl}
+                    localThumbUri={message.local_thumb_uri}
+                    fileSize={message.file_size}
+                    onPress={() => {
+                      setIsVideoOpen(true);
+                      // Terima video: simpan ke cache lokal + ACK saat pertama dibuka (bukan saat bubble tampil, hemat kuota)
+                      if (!isSelf) {
+                        onMediaLoaded?.(message);
+                      }
+                    }}
+                    onLongPress={handleBubbleLongPress}
+                  />
+                </View>
+              ) : null}
+
               {/* Voice Note Audio Player */}
               {isAudio && !isExpired && effectiveMediaUrl ? (
                 <AudioPlayerBubble
@@ -525,7 +551,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   onLongPress={handleBubbleLongPress}
                 />
               ) : hasCaption ? (
-                renderMessageTextWithLinks(message.content, isSelf, isImage)
+                renderMessageTextWithLinks(message.content, isSelf, isImage || isVideo)
               ) : null}
 
               {/* Web Link Preview Card (WhatsApp pattern: 1 card per message) */}
@@ -583,6 +609,16 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           </View>
         ) : null}
       </Animated.View>
+
+      {/* Pemutar video layar penuh */}
+      {isVideo && effectiveMediaUrl ? (
+        <VideoPlayerModal
+          visible={isVideoOpen}
+          videoUrl={effectiveMediaUrl}
+          senderName={senderName || message.nickname || message.from}
+          onClose={() => setIsVideoOpen(false)}
+        />
+      ) : null}
 
       {/* Fullscreen Interactive Pinch-to-Zoom Media Viewer */}
       {isImage && effectiveMediaUrl ? (

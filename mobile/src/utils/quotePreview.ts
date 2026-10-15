@@ -14,6 +14,7 @@ interface QuoteSource {
 
 export function quotePreviewText(source: QuoteSource): string {
   if (source.media_type === 'audio') return '🎙️ Pesan Suara';
+  if (source.media_type === 'video') return '🎥 Video';
   if (source.media_url) return '📷 Foto';
   if (parseSharedPost(source.content)) return '📢 Postingan Komunitas';
   return source.content || 'Pesan';

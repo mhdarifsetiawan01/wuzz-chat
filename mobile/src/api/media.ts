@@ -36,9 +36,9 @@ function classifyMediaType(mimeType: string, filename: string): string {
 
 export const mediaApi = {
   /**
-   * Uploads an image, video, audio, or document file.
-   * Priority: Direct Signed Upload to Supabase Storage (0 MB Egress VPS).
-   * Fallback: POST /api/media/upload on VPS.
+   * Uploads an image, audio, or document file langsung ke storage via signed URL (0 MB egress VPS).
+   * TIDAK ADA fallback lewat VPS: gagal = galat, pemanggil menampilkan pesan dan pengguna dapat mencoba lagi.
+   * Video memakai uploadVideo().
    */
   async uploadMedia(
     uri: string,
@@ -82,118 +82,141 @@ export const mediaApi = {
       }
     }
 
-    // =========================================================================
-    // 1. Direct Signed Upload ke Supabase Storage (0 MB Egress VPS)
-    // =========================================================================
+    // Direct Signed Upload ke storage (R2/Supabase). Tidak ada fallback ke VPS.
+    const fileSize = bytes ? bytes.length : 0;
+    const ticket = await apiClient<SignedUploadTicketResponse>(`/api/media/signed-upload-url${purposeQuery}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        file_name: cleanFileName,
+        file_size: fileSize,
+        mime_type: cleanMimeType,
+      }),
+      timeoutMs: 15000,
+    });
+
+    if (!ticket?.signed_url || !ticket?.public_url) {
+      throw new Error('Server tidak menerbitkan tiket unggah. Coba lagi sebentar lagi.');
+    }
+
+    let putBody: any = bytes;
+    if (!putBody && uri) {
+      const fileRes = await fetch(uri);
+      if (fileRes.ok) {
+        putBody = await fileRes.blob();
+      }
+    }
+    if (!putBody) {
+      throw new Error('Berkas tidak dapat dibaca dari perangkat.');
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
     try {
-      const fileSize = bytes ? bytes.length : 0;
-      const ticket = await apiClient<SignedUploadTicketResponse>(`/api/media/signed-upload-url${purposeQuery}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          file_name: cleanFileName,
-          file_size: fileSize,
-          mime_type: cleanMimeType,
-        }),
-        timeoutMs: 15000,
+      const directRes = await fetch(ticket.signed_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': cleanMimeType },
+        body: putBody,
+        signal: controller.signal,
       });
+      if (!directRes.ok) {
+        throw new Error(`Unggah ke penyimpanan gagal (status ${directRes.status}). Coba lagi.`);
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        throw new Error('Unggah terlalu lama. Periksa koneksi lalu coba lagi.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
-      if (ticket?.signed_url && ticket?.public_url) {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
+    return {
+      url: ticket.public_url,
+      file_name: cleanFileName,
+      file_size: fileSize,
+      media_type: classifyMediaType(cleanMimeType, cleanFileName),
+      mime_type: cleanMimeType,
+    };
+  },
 
-        try {
-          let putBody: any = bytes;
-          if (!putBody && uri) {
-            const fileRes = await fetch(uri);
-            if (fileRes.ok) {
-              putBody = await fileRes.blob();
-            }
-          }
+  /**
+   * Mengunggah video + thumbnail langsung ke R2 dari berkas (tanpa memuat ke memori), dengan progres.
+   * Tidak ada fallback ke VPS. Thumbnail tersimpan di URL turunan video (<kunci>.thumb.jpg).
+   */
+  async uploadVideo(params: {
+    uri: string;
+    fileName: string;
+    fileSize: number;
+    thumbUri: string;
+    thumbSize: number;
+    onProgress?: (fraction: number) => void;
+    signal?: AbortSignal;
+  }): Promise<MediaUploadResponse> {
+    const { uri, fileName, fileSize, thumbUri, thumbSize, onProgress, signal } = params;
+    const mimeType = 'video/mp4';
 
-          if (putBody) {
-            const directRes = await fetch(ticket.signed_url, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': cleanMimeType,
-              },
-              body: putBody,
-              signal: controller.signal,
-            });
+    const ticket = await apiClient<SignedUploadTicketResponse>('/api/media/signed-upload-url?purpose=video', {
+      method: 'POST',
+      body: JSON.stringify({
+        file_name: fileName,
+        file_size: fileSize,
+        mime_type: mimeType,
+        thumb_size: thumbSize,
+      }),
+      timeoutMs: 15000,
+    });
+    if (!ticket?.signed_url || !ticket?.public_url || !ticket?.thumb_signed_url) {
+      throw new Error('Server belum mendukung unggah video. Perbarui aplikasi atau coba lagi nanti.');
+    }
 
-            if (directRes.ok) {
-              return {
-                url: ticket.public_url,
-                file_name: cleanFileName,
-                file_size: fileSize,
-                media_type: classifyMediaType(cleanMimeType, cleanFileName),
-                mime_type: cleanMimeType,
-              };
-            }
-            console.warn('[mediaApi] Direct upload ke Supabase gagal (status %d), mencoba fallback ke VPS...', directRes.status);
-          }
-        } finally {
-          clearTimeout(timeoutId);
+    // Thumbnail dulu (kecil): bila gagal, video besar tidak sempat terunggah sia-sia.
+    const thumbRes = await FileSystem.uploadAsync(ticket.thumb_signed_url, thumbUri, {
+      httpMethod: 'PUT',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: { 'Content-Type': 'image/jpeg' },
+    });
+    if (thumbRes.status < 200 || thumbRes.status >= 300) {
+      throw new Error(`Unggah pratinjau video gagal (status ${thumbRes.status}). Coba lagi.`);
+    }
+
+    const task = FileSystem.createUploadTask(
+      ticket.signed_url,
+      uri,
+      {
+        httpMethod: 'PUT',
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: { 'Content-Type': mimeType },
+      },
+      (p) => {
+        if (p.totalBytesExpectedToSend > 0) {
+          onProgress?.(p.totalBytesSent / p.totalBytesExpectedToSend);
         }
       }
-    } catch (signedErr) {
-      console.warn('[mediaApi] Direct signed upload tidak tersedia/gagal, fallback ke VPS upload:', signedErr);
+    );
+    const onAbort = () => {
+      task.cancelAsync().catch(() => {});
+    };
+    signal?.addEventListener('abort', onAbort);
+    try {
+      const res = await task.uploadAsync();
+      if (signal?.aborted || !res) {
+        throw new Error('Unggah video dibatalkan.');
+      }
+      if (res.status < 200 || res.status >= 300) {
+        throw new Error(`Unggah video gagal (status ${res.status}). Coba lagi.`);
+      }
+    } finally {
+      signal?.removeEventListener('abort', onAbort);
     }
+    onProgress?.(1);
 
-    // =========================================================================
-    // 2. Graceful Fallback: VPS Multipart Upload (/api/media/upload)
-    // =========================================================================
-    const formData = new FormData();
-
-    if (bytes) {
-      // Menggunakan objek part dengan method bytes() yang didukung penuh oleh Expo WinterCG fetch (convertFormDataAsync).
-      // Pendekatan ini menyelesaikan 3 masalah sekaligus:
-      // 1. Bug React Native Blob: "Creating blobs from 'ArrayBuffer' and 'ArrayBufferView' are not supported"
-      // 2. Bug React Native File: "Cannot assign to property 'name' which has only a getter"
-      // 3. Bug Android Scoped Storage: fetch(local_uri) mengembalikan 404 "File not found"
-      const filePart = {
-        name: cleanFileName,
-        type: cleanMimeType,
-        size: bytes.length,
-        bytes: async () => bytes,
-      };
-      formData.append('file', filePart as any);
-    } else {
-      const fileRes = await fetch(uri);
-      if (!fileRes.ok) {
-        throw new Error(`Gagal membaca file lokal (${fileRes.status} ${fileRes.statusText})`);
-      }
-      const blob = await fileRes.blob();
-
-      try {
-        Object.defineProperty(blob, 'name', {
-          value: cleanFileName,
-          writable: true,
-          configurable: true,
-          enumerable: true,
-        });
-      } catch {
-        // Abaikan jika tidak diizinkan
-      }
-
-      try {
-        Object.defineProperty(blob, 'type', {
-          value: cleanMimeType,
-          writable: true,
-          configurable: true,
-          enumerable: true,
-        });
-      } catch {
-        // Abaikan jika tidak diizinkan
-      }
-
-      formData.append('file', blob, cleanFileName);
-    }
-
-    return apiClient<MediaUploadResponse>(`/api/media/upload${purposeQuery}`, {
-      method: 'POST',
-      body: formData,
-      timeoutMs: 60000, // 60s timeout for media uploads
-    });
+    return {
+      url: ticket.public_url,
+      file_name: fileName,
+      file_size: fileSize,
+      media_type: 'video',
+      mime_type: mimeType,
+    };
   },
 
   /**

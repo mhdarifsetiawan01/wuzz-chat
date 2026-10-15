@@ -36,7 +36,7 @@ type MediaStorage interface {
 }
 
 // NewMediaStorageFromEnv menginisialisasi MediaStorage sesuai konfigurasi environment variable STORAGE_DRIVER.
-// Pilihan: "local" (default), "supabase", "s3".
+// Pilihan: "local" (default), "supabase", "r2".
 func NewMediaStorageFromEnv() (MediaStorage, error) {
 	driver := strings.ToLower(os.Getenv("STORAGE_DRIVER"))
 	if driver == "" {
@@ -63,6 +63,26 @@ func NewMediaStorageFromEnv() (MediaStorage, error) {
 		log.Printf("☁️ Inisialisasi Supabase Media Storage (Bucket: %s)", bucket)
 		return NewSupabaseStorage(supabaseURL, serviceKey, bucket), nil
 
+	case "r2":
+		// Fail-closed: konfigurasi tidak lengkap = galat (TIDAK jatuh ke penyimpanan lokal/VPS).
+		r2, err := NewR2Storage(R2Config{
+			AccountID:       os.Getenv("R2_ACCOUNT_ID"),
+			AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
+			SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
+			Bucket:          os.Getenv("R2_BUCKET"),
+			PublicBaseURL:   os.Getenv("R2_PUBLIC_BASE_URL"),
+			Endpoint:        os.Getenv("R2_ENDPOINT"),
+		})
+		if err != nil {
+			return nil, err
+		}
+		// Masa transisi: media lama masih berupa URL Supabase; purge tetap bisa menghapusnya.
+		if supabaseURL, serviceKey := os.Getenv("SUPABASE_URL"), firstNonEmpty(os.Getenv("SUPABASE_SERVICE_KEY"), os.Getenv("SUPABASE_KEY")); supabaseURL != "" && serviceKey != "" {
+			r2.SetLegacyDeleter(NewSupabaseStorage(supabaseURL, serviceKey, os.Getenv("SUPABASE_STORAGE_BUCKET")))
+		}
+		log.Printf("☁️ Inisialisasi Cloudflare R2 Media Storage (Bucket: %s)", r2.bucket)
+		return r2, nil
+
 	case "local":
 		fallthrough
 	default:
@@ -85,4 +105,13 @@ func EnsureDir(dir string) error {
 		return fmt.Errorf("gagal membuat direktori (%s): %w", dir, err)
 	}
 	return nil
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

@@ -112,6 +112,8 @@ export interface PinnedMessage {
 export interface AppConfig {
   media_upload_enabled: boolean
   max_file_size_mb: number
+  max_video_size_mb?: number
+  max_video_duration_seconds?: number
   storage_driver: string
   media_retention_days?: number
   auto_delete_on_download?: boolean

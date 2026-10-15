@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { uploadMedia, getAppConfig } from '@/lib/api'
+import { uploadMedia, uploadVideo, getAppConfig } from '@/lib/api'
+import { inspectVideo, isVideoFile, formatDuration, VideoPrepError, VIDEO_DEFAULT_MAX_BYTES, VIDEO_DEFAULT_MAX_DURATION_SEC } from '@/lib/videoPrep'
 import { compressImage } from '@/lib/imageCompressor'
 import { setCachedMediaBlob } from '@/lib/mediaCache'
 import type { Message, MediaUploadResponse, GroupMember } from '@/lib/types'
@@ -16,6 +17,13 @@ interface StagedMedia {
   isUploading: boolean
   uploadedData?: MediaUploadResponse
   error?: string
+  // Khusus video
+  isVideo?: boolean
+  isPreparing?: boolean
+  invalid?: boolean
+  thumb?: Blob
+  durationSec?: number
+  progress?: number
 }
 
 interface MessageInputProps {
@@ -53,6 +61,7 @@ export function MessageInput({
   const [text, setText] = useState('')
   const [mediaEnabled, setMediaEnabled] = useState(true)
   const [stagedMedia, setStagedMedia] = useState<StagedMedia | null>(null)
+  const videoLimitsRef = useRef({ maxBytes: VIDEO_DEFAULT_MAX_BYTES, maxDurationSec: VIDEO_DEFAULT_MAX_DURATION_SEC })
   const [isSending, setIsSending] = useState(false)
   const [isRecordingVoice, setIsRecordingVoice] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -141,6 +150,10 @@ export function MessageInput({
     getAppConfig().then((cfg) => {
       if (cfg) {
         setMediaEnabled(cfg.media_upload_enabled)
+        videoLimitsRef.current = {
+          maxBytes: (cfg.max_video_size_mb ?? VIDEO_DEFAULT_MAX_BYTES / 1024 / 1024) * 1024 * 1024,
+          maxDurationSec: cfg.max_video_duration_seconds ?? VIDEO_DEFAULT_MAX_DURATION_SEC,
+        }
       }
     })
   }, [])
@@ -178,7 +191,30 @@ export function MessageInput({
     ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'
   }, [text])
 
+  // Video: periksa durasi/ukuran dan buat thumbnail sebelum boleh dikirim
+  const stageVideo = async (file: File) => {
+    setStagedMedia({ file, previewUrl: '', isUploading: false, isVideo: true, isPreparing: true })
+    try {
+      const info = await inspectVideo(file, videoLimitsRef.current)
+      const previewUrl = URL.createObjectURL(info.thumb)
+      setStagedMedia((prev) =>
+        prev && prev.file === file
+          ? { ...prev, isPreparing: false, previewUrl, thumb: info.thumb, durationSec: info.durationSec }
+          : prev
+      )
+    } catch (err) {
+      const message = err instanceof VideoPrepError ? err.message : 'Video tidak dapat diproses. Coba video lain.'
+      setStagedMedia((prev) =>
+        prev && prev.file === file ? { ...prev, isPreparing: false, invalid: true, error: message } : prev
+      )
+    }
+  }
+
   const handleStageFile = (file: File) => {
+    if (isVideoFile(file)) {
+      void stageVideo(file)
+      return
+    }
     const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : ''
     setStagedMedia({
       file,
@@ -279,6 +315,7 @@ export function MessageInput({
   const handleSend = async () => {
     const trimmed = text.trim()
     if ((!trimmed && !stagedMedia) || disabled || isSending) return
+    if (stagedMedia?.invalid || stagedMedia?.isPreparing) return
 
     // Jika dalam mode edit pesan
     if (editingMessage && onSaveEdit) {
@@ -310,7 +347,12 @@ export function MessageInput({
           ? await compressImage(stagedMedia.file)
           : stagedMedia.file
 
-        const uploadRes = await uploadMedia(fileToUpload)
+        const uploadRes =
+          stagedMedia.isVideo && stagedMedia.thumb
+            ? await uploadVideo(stagedMedia.file, stagedMedia.thumb, (progress) =>
+                setStagedMedia((prev) => (prev ? { ...prev, progress } : null))
+              )
+            : await uploadMedia(fileToUpload)
 
         if (uploadRes.error || !uploadRes.data) {
           setStagedMedia((prev) =>
@@ -426,7 +468,7 @@ export function MessageInput({
   }
 
   const hasTextOrMedia = text.trim().length > 0 || stagedMedia !== null
-  const canSend = hasTextOrMedia && !disabled && !isSending
+  const canSend = hasTextOrMedia && !disabled && !isSending && !stagedMedia?.invalid && !stagedMedia?.isPreparing
 
   return (
     <div className="chat-input-area">
@@ -492,7 +534,12 @@ export function MessageInput({
         <div className="media-preview-bar">
           <div className="media-preview-thumb-box">
             {stagedMedia.previewUrl ? (
-              <img src={stagedMedia.previewUrl} alt="Preview" className="media-preview-thumb" />
+              <>
+                <img src={stagedMedia.previewUrl} alt="Preview" className="media-preview-thumb" />
+                {stagedMedia.isVideo && <span className="media-preview-play" aria-hidden="true">▶</span>}
+              </>
+            ) : stagedMedia.isVideo ? (
+              <span className="media-preview-file-icon">🎥</span>
             ) : (
               <span className="media-preview-file-icon">
                 {stagedMedia.file.name.endsWith('.pdf')
@@ -511,7 +558,12 @@ export function MessageInput({
             <span className="media-preview-filename">{stagedMedia.file.name}</span>
             <span className="media-preview-size">
               {(stagedMedia.file.size / (1024 * 1024)).toFixed(2)} MB
-              {stagedMedia.isUploading && ' · Mengunggah... ⏳'}
+              {stagedMedia.durationSec ? ` · ${formatDuration(stagedMedia.durationSec)}` : ''}
+              {stagedMedia.isPreparing && ' · Menyiapkan video... ⏳'}
+              {stagedMedia.isUploading &&
+                (stagedMedia.isVideo && typeof stagedMedia.progress === 'number'
+                  ? ` · Mengunggah ${Math.round(stagedMedia.progress * 100)}%`
+                  : ' · Mengunggah... ⏳')}
               {stagedMedia.error && <strong className="media-preview-error"> · {stagedMedia.error}</strong>}
             </span>
           </div>
@@ -631,7 +683,7 @@ export function MessageInput({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z,.tar,.gz,.txt,.csv,.json"
+                accept="image/*,video/mp4,video/quicktime,video/webm,.mp4,.mov,.m4v,.webm,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.7z,.tar,.gz,.txt,.csv,.json"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
