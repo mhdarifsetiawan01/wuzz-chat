@@ -15,11 +15,19 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 const CACHE_FOLDER = 'wuzzchat_media/';
 
+/** Galat unduh berkas besar (video). `code` membedakan pesan untuk pengguna. */
+export class MediaDownloadError extends Error {
+  constructor(public readonly code: 'expired' | 'incomplete' | 'failed', message: string) {
+    super(message);
+  }
+}
+
 class MediaCacheService {
   private baseDir: string | null = null;
   private isDirInitialized = false;
   private memoryCache = new Map<string, string>();
   private activeDownloads = new Map<string, Promise<string>>();
+  private activeVideoDownloads = new Map<string, Promise<string>>();
 
   constructor() {
     this.initBaseDir();
@@ -212,6 +220,70 @@ class MediaCacheService {
       this.memoryCache.set(messageId, sourceUri);
       return sourceUri;
     }
+  }
+
+  /**
+   * Mengunduh berkas besar (video) SEKALI ke cache persisten dengan progres, lalu pemutar membaca berkas lokal itu.
+   * Berbeda dengan ensureMediaCached: ditulis ke berkas sementara (.part) dan baru dipindah ke nama akhir bila status 200
+   * dan ukurannya cocok (expectedSize), jadi unduhan terputus atau jawaban galat (mis. 404 berkas kedaluwarsa) tidak
+   * pernah tersimpan sebagai "media" yang rusak. Melempar MediaDownloadError bila gagal.
+   */
+  public async downloadToCache(
+    remoteUrl: string,
+    messageId: string,
+    fileName?: string,
+    opts: { expectedSize?: number; onProgress?: (fraction: number) => void } = {}
+  ): Promise<string> {
+    const existing = await this.getCachedMediaUri(remoteUrl, messageId, fileName);
+    if (existing) return existing;
+
+    const key = messageId || remoteUrl;
+    const running = this.activeVideoDownloads.get(key);
+    if (running) return running;
+
+    const job = (async () => {
+      await this.ensureDirectory();
+      const finalPath = this.getLocalFilePath(remoteUrl, messageId, fileName);
+      if (!finalPath) throw new MediaDownloadError('failed', 'Folder media tidak tersedia');
+      const partPath = `${finalPath}.part`;
+
+      try {
+        await FileSystem.deleteAsync(partPath, { idempotent: true });
+        const task = FileSystem.createDownloadResumable(remoteUrl, partPath, {}, (p) => {
+          if (p.totalBytesExpectedToWrite > 0) {
+            opts.onProgress?.(Math.min(1, p.totalBytesWritten / p.totalBytesExpectedToWrite));
+          }
+        });
+        const res = await task.downloadAsync();
+        if (!res || res.status !== 200) {
+          const gone = res && (res.status === 404 || res.status === 403 || res.status === 410);
+          throw new MediaDownloadError(
+            gone ? 'expired' : 'failed',
+            gone ? 'Video sudah tidak tersedia di server' : `Unduhan gagal (status ${res?.status ?? 'tidak ada'})`
+          );
+        }
+        const info: any = await FileSystem.getInfoAsync(partPath);
+        const size = info.exists && typeof info.size === 'number' ? info.size : 0;
+        if (size <= 0 || (opts.expectedSize && opts.expectedSize > 0 && size !== opts.expectedSize)) {
+          throw new MediaDownloadError('incomplete', 'Unduhan tidak lengkap');
+        }
+        await FileSystem.deleteAsync(finalPath, { idempotent: true });
+        await FileSystem.moveAsync({ from: partPath, to: finalPath });
+        this.memoryCache.set(messageId, finalPath);
+        this.memoryCache.set(remoteUrl, finalPath);
+        opts.onProgress?.(1);
+        return finalPath;
+      } catch (err) {
+        await FileSystem.deleteAsync(partPath, { idempotent: true }).catch(() => {});
+        if (err instanceof MediaDownloadError) throw err;
+        throw new MediaDownloadError('failed', err instanceof Error ? err.message : 'Unduhan gagal');
+      } finally {
+        this.activeVideoDownloads.delete(key);
+      }
+    })();
+
+    this.activeVideoDownloads.set(key, job);
+    return job;
   }
 
   /**

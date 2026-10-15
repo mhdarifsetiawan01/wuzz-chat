@@ -19,7 +19,13 @@ const SRC_ROOT = path.resolve(__dirname, '../../src');
 const OUT_ROOT = path.resolve(__dirname, '../../node_modules/.cache/wuzz-unit-tests');
 
 /** Keadaan tiruan yang dibagi antar-"cold start": SecureStore tetap ada walau modul dimuat ulang. */
-const state = { secureStore: new Map(), sqliteDb: null, googleNative: null };
+const state = {
+  secureStore: new Map(),
+  sqliteDb: null,
+  googleNative: null,
+  // Sistem berkas tiruan (expo-file-system/legacy): `files` path -> { size }, `download` = perilaku unduhan per uji.
+  fs: { files: new Map(), download: null, downloads: 0 },
+};
 
 let stubsInstalled = false;
 function installNativeStubs() {
@@ -53,6 +59,30 @@ function installNativeStubs() {
         // null = modul native tidak ada pada build ini (require gagal seperti di build lama)
         if (!state.googleNative) throw Object.assign(new Error("Cannot find module 'react-native-nitro-google-signin'"), { code: 'MODULE_NOT_FOUND' });
         return state.googleNative;
+      case 'expo-file-system/legacy': {
+        const fs = state.fs;
+        return {
+          documentDirectory: 'file:///docs/',
+          cacheDirectory: 'file:///cache/',
+          getInfoAsync: async (p) => (fs.files.has(p) ? { exists: true, size: fs.files.get(p).size } : { exists: false }),
+          makeDirectoryAsync: async () => {},
+          deleteAsync: async (p) => {
+            fs.files.delete(p);
+          },
+          moveAsync: async ({ from, to }) => {
+            fs.files.set(to, fs.files.get(from));
+            fs.files.delete(from);
+          },
+          createDownloadResumable: (url, dest, _opts, cb) => ({
+            downloadAsync: async () => {
+              fs.downloads++;
+              const r = await fs.download(url, dest, cb);
+              if (typeof r.size === 'number') fs.files.set(dest, { size: r.size });
+              return { status: r.status, uri: dest };
+            },
+          }),
+        };
+      }
       case 'expo-sqlite':
         return { openDatabaseAsync: async () => state.sqliteDb };
       default:

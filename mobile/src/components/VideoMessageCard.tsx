@@ -1,10 +1,11 @@
 /**
- * Kartu video di bubble chat: thumbnail + tombol putar + ukuran berkas.
- * Video TIDAK dimuat di sini (hemat kuota dan memori); pemutaran terjadi di VideoPlayerModal saat diketuk.
+ * Kartu video di bubble chat: thumbnail + tombol putar/unduh + ukuran berkas.
+ * Video TIDAK dimuat di sini (hemat kuota dan memori). Bila belum ada salinan lokal, ketukan mengunduhnya SEKALI (progres
+ * tampil di kartu) lalu memutar berkas lokal; pemutaran terjadi di VideoPlayerModal.
  */
 
 import React, { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import { Icon } from './Icon';
 import { useThemedStyles, ColorTokens } from '../theme';
@@ -15,6 +16,10 @@ export interface VideoMessageCardProps {
   /** Pratinjau lokal (pesan yang baru kita kirim). */
   localThumbUri?: string;
   fileSize?: number;
+  /** true = belum ada salinan lokal; ketukan akan mengunduh dulu (ikon unduh, bukan putar). */
+  needsDownload?: boolean;
+  /** 0..1 selama mengunduh; null = tidak sedang mengunduh. */
+  downloadProgress?: number | null;
   onPress: () => void;
   onLongPress?: () => void;
 }
@@ -23,6 +28,8 @@ export const VideoMessageCard: React.FC<VideoMessageCardProps> = ({
   videoUrl,
   localThumbUri,
   fileSize,
+  needsDownload = false,
+  downloadProgress = null,
   onPress,
   onLongPress,
 }) => {
@@ -39,7 +46,11 @@ export const VideoMessageCard: React.FC<VideoMessageCardProps> = ({
       delayLongPress={280}
       style={styles.container}
       accessibilityRole="button"
-      accessibilityLabel={`Putar video${sizeLabel ? `, ${sizeLabel}` : ''}`}
+      accessibilityLabel={
+        downloadProgress !== null
+          ? `Mengunduh video ${Math.round(downloadProgress * 100)} persen`
+          : `${needsDownload ? 'Unduh dan putar' : 'Putar'} video${sizeLabel ? `, ${sizeLabel}` : ''}`
+      }
     >
       {thumbUri && !thumbFailed ? (
         <Image
@@ -56,7 +67,14 @@ export const VideoMessageCard: React.FC<VideoMessageCardProps> = ({
       )}
       <View style={styles.playWrap} pointerEvents="none">
         <View style={styles.playCircle}>
-          <Icon name="play" size={26} color="#ffffff" />
+          {downloadProgress !== null ? (
+            <>
+              <ActivityIndicator size="small" color="#ffffff" />
+              <Text style={styles.progressText}>{Math.round(downloadProgress * 100)}%</Text>
+            </>
+          ) : (
+            <Icon name={needsDownload ? 'arrowDown' : 'play'} size={26} color="#ffffff" />
+          )}
         </View>
       </View>
       <View style={styles.sizeChip} pointerEvents="none">
@@ -95,12 +113,18 @@ const makeStyles = (colors: ColorTokens) =>
       justifyContent: 'center',
     },
     playCircle: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
       backgroundColor: 'rgba(0,0,0,0.55)',
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    progressText: {
+      color: '#ffffff',
+      fontSize: 11,
+      fontWeight: '700',
+      marginTop: 2,
     },
     sizeChip: {
       position: 'absolute',

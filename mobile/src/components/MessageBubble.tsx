@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
 import { AudioPlayerBubble } from './AudioPlayerBubble';
 import { getSenderNameColor } from './Avatar';
-import { mediaCache } from '../services/mediaCache';
+import { mediaCache, MediaDownloadError } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
 import { VideoMessageCard } from './VideoMessageCard';
 import { VideoPlayerModal } from './VideoPlayerModal';
@@ -67,6 +67,8 @@ export interface MessageBubbleProps {
   onRetryDecrypt?: (message: Message) => void;
 }
 
+const isLocalMediaUri = (uri?: string | null): boolean => Boolean(uri && /^(file|content):\/\//i.test(uri));
+
 const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   message,
   isSelf,
@@ -90,6 +92,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const insets = useSafeAreaInsets();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [videoProgress, setVideoProgress] = useState<number | null>(null);
   const [isImageLoading, setIsImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [cachedMediaUri, setCachedMediaUri] = useState<string | null>(null);
@@ -311,6 +314,37 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     }
   };
 
+  // Video: unduh SEKALI ke cache persisten (progres di kartu), lalu putar berkas lokal. Tidak lagi memutar dari jaringan
+  // sambil mengunduh lagi (data seluler terpakai dua kali). ACK dikirim setelah berkas tersimpan.
+  const handleVideoPress = async (url: string) => {
+    if (videoProgress !== null) return; // sedang mengunduh
+    if (isLocalMediaUri(url)) {
+      setIsVideoOpen(true);
+      if (!isSelf) onMediaLoaded?.(message);
+      return;
+    }
+    setVideoProgress(0);
+    try {
+      const localUri = await mediaCache.downloadToCache(url, message.id, message.file_name, {
+        expectedSize: message.file_size,
+        onProgress: setVideoProgress,
+      });
+      setCachedMediaUri(localUri);
+      setIsVideoOpen(true);
+      if (!isSelf) onMediaLoaded?.(message);
+    } catch (err) {
+      const expired = err instanceof MediaDownloadError && err.code === 'expired';
+      showAlert(
+        expired ? 'Video Kedaluwarsa' : 'Gagal Mengunduh Video',
+        expired
+          ? 'Video ini sudah tidak tersedia di server.'
+          : 'Periksa koneksi internet Anda lalu ketuk video untuk mencoba lagi.'
+      );
+    } finally {
+      setVideoProgress(null);
+    }
+  };
+
   if (isSystem) {
     return (
       <View style={styles.systemContainer}>
@@ -483,13 +517,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     videoUrl={effectiveMediaUrl}
                     localThumbUri={message.local_thumb_uri}
                     fileSize={message.file_size}
-                    onPress={() => {
-                      setIsVideoOpen(true);
-                      // Terima video: simpan ke cache lokal + ACK saat pertama dibuka (bukan saat bubble tampil, hemat kuota)
-                      if (!isSelf) {
-                        onMediaLoaded?.(message);
-                      }
-                    }}
+                    needsDownload={!isLocalMediaUri(effectiveMediaUrl)}
+                    downloadProgress={videoProgress}
+                    onPress={() => handleVideoPress(effectiveMediaUrl)}
                     onLongPress={handleBubbleLongPress}
                   />
                 </View>
