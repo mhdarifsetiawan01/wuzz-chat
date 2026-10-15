@@ -20,6 +20,7 @@ import React, {
   useSyncExternalStore,
 } from 'react';
 import { Message, normalizeReactions } from '../api/types';
+import { mergeOptimisticWithServer } from '../utils/optimisticMerge';
 import { useAuth } from './AuthContext';
 import { websocketClient } from '../services/websocket';
 import {
@@ -304,11 +305,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const idx = existing.findIndex((m) => m.id === reqId || (m as any).request_id === reqId);
           if (idx !== -1) {
             const updated = [...existing];
-            updated[idx] = {
-              ...message,
-              id: message.id || updated[idx].id,
-              media_url: updated[idx].media_url || message.media_url,
-            };
+            updated[idx] = mergeOptimisticWithServer(updated[idx], message);
             return {
               ...prev,
               [roomId]: updated.slice(-MAX_CACHED_MESSAGES_PER_ROOM),
