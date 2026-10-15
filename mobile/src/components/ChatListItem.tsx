@@ -45,11 +45,14 @@ function getMessagePreview(conversation: Conversation, currentUserId?: string, d
 
   let body = '';
   if (
-    mediaType === 'audio' ||
+    mediaType !== 'video' &&
+    (mediaType === 'audio' ||
     (mediaUrl && /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(mediaUrl)) ||
-    (lastMsg?.file_name && /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(lastMsg.file_name))
+    (lastMsg?.file_name && /\.(m4a|aac|mp3|wav|ogg|webm)$/i.test(lastMsg.file_name)))
   ) {
     body = '🎙️ Pesan Suara';
+  } else if (mediaType === 'video') {
+    body = raw && !raw.startsWith('e2ee:') ? `🎥 Video: ${raw}` : '🎥 Video';
   } else if (mediaUrl || mediaType === 'image') {
     body = raw && !raw.startsWith('e2ee:') ? `📷 Foto: ${raw}` : '📷 Foto';
   } else if (!raw) {

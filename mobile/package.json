@@ -1,6 +1,6 @@
 {
   "name": "mobile",
-  "version": "1.36.0",
+  "version": "1.37.0",
   "main": "index.ts",
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^15.0.2",
@@ -29,9 +29,12 @@
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "expo-task-manager": "~57.0.20",
+    "expo-video": "~57.0.5",
+    "expo-video-thumbnails": "~57.0.2",
     "qrcode-generator": "^2.0.4",
     "react": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-compressor": "^2.0.3",
     "react-native-nitro-google-signin": "2.3.0",
     "react-native-nitro-modules": "0.37.1",
     "react-native-safe-area-context": "~5.7.0",

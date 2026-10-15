@@ -23,6 +23,8 @@ import { Message } from '../api/types';
 import { getRoomMediaMessages } from '../services/sqliteStorage';
 import { mediaCache } from '../services/mediaCache';
 import { MediaViewerModal } from './MediaViewerModal';
+import { VideoPlayerModal } from './VideoPlayerModal';
+import { getVideoThumbnailUrl, isVideoMessage } from '../utils/videoMedia';
 import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
@@ -76,10 +78,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
           msg.type === 'image' ||
           msg.media_type === 'image' ||
           /\.(jpg|jpeg|png|webp|gif)$/i.test(url);
-        const isVid =
-          msg.type === 'video' ||
-          msg.media_type === 'video' ||
-          /\.(mp4|mov|webm)$/i.test(url);
+        const isVid = isVideoMessage({ ...msg, media_url: url });
 
         if (isImg || isVid) {
           media.push(msg);
@@ -118,6 +117,14 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
       setResolvedViewerUri(rawUrl);
     }
   };
+
+  const viewerIsVideo = Boolean(
+    selectedViewerMedia &&
+      isVideoMessage({
+        ...selectedViewerMedia,
+        media_url: (selectedViewerMedia as any).local_media_uri || selectedViewerMedia.media_url,
+      })
+  );
 
   // Close media viewer
   const handleCloseViewer = () => {
@@ -168,10 +175,8 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
   // Render individual grid photo/video item
   const renderMediaItem = ({ item }: { item: Message }) => {
     const uri = (item as any).local_media_uri || item.media_url;
-    const isVideo =
-      item.type === 'video' ||
-      item.media_type === 'video' ||
-      /\.(mp4|mov|webm)$/i.test(uri || '');
+    const isVideo = isVideoMessage({ ...item, media_url: uri });
+    const thumbUri = isVideo ? getVideoThumbnailUrl(item.media_url) : uri;
 
     return (
       <TouchableOpacity
@@ -179,7 +184,11 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         activeOpacity={0.8}
         onPress={() => handleOpenViewer(item)}
       >
-        <Image source={{ uri }} style={styles.gridImage} contentFit="cover" />
+        {thumbUri ? (
+          <Image source={{ uri: thumbUri }} style={styles.gridImage} contentFit="cover" />
+        ) : (
+          <View style={[styles.gridImage, { backgroundColor: '#1e293b' }]} />
+        )}
         {isVideo && (
           <View style={styles.videoBadge}>
             <IconText style={styles.videoBadgeIcon}>▶</IconText>
@@ -344,8 +353,14 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         )}
 
         {/* Fullscreen Interactive Pinch-to-Zoom Media Viewer */}
+        <VideoPlayerModal
+          visible={Boolean(selectedViewerMedia && resolvedViewerUri && viewerIsVideo)}
+          videoUrl={resolvedViewerUri}
+          senderName={selectedViewerMedia?.nickname || selectedViewerMedia?.from}
+          onClose={handleCloseViewer}
+        />
         <MediaViewerModal
-          visible={Boolean(selectedViewerMedia && resolvedViewerUri)}
+          visible={Boolean(selectedViewerMedia && resolvedViewerUri && !viewerIsVideo)}
           mediaUrl={resolvedViewerUri}
           fileName={selectedViewerMedia?.file_name}
           caption={selectedViewerMedia?.content}

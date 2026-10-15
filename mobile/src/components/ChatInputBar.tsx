@@ -53,6 +53,12 @@ export interface StagedMedia {
   width?: number;
   height?: number;
   base64?: string;
+  /** Jenis lampiran; kosong = gambar (perilaku lama). */
+  mediaType?: 'image' | 'video';
+  /** Hanya video: pratinjau (JPEG lokal), ukurannya dikirim saat meminta tiket unggah. */
+  thumbUri?: string;
+  thumbSize?: number;
+  durationMs?: number;
 }
 
 export interface ChatInputBarProps {
@@ -61,7 +67,12 @@ export interface ChatInputBarProps {
   disabled?: boolean;
   stagedMedia?: StagedMedia | null;
   isUploading?: boolean;
+  /** Video sedang dikompres/divalidasi sebelum bisa dikirim. */
+  isPreparingMedia?: boolean;
+  /** Progres 0..1 untuk tahap menyiapkan (kompresi) atau mengunggah video. */
+  mediaProgress?: number | null;
   onPickCamera?: () => void;
+  onPickVideo?: () => void;
   onPickGallery?: () => void;
   onCancelStagedMedia?: () => void;
   replyTo?: Message | null;
@@ -103,7 +114,10 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
   disabled,
   stagedMedia,
   isUploading,
+  isPreparingMedia,
+  mediaProgress,
   onPickCamera,
+  onPickVideo,
   onPickGallery,
   onCancelStagedMedia,
   replyTo,
@@ -312,6 +326,11 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     onPickCamera?.();
   };
 
+  const handleSelectVideo = () => {
+    setShowAttachModal(false);
+    onPickVideo?.();
+  };
+
   const handleSelectGallery = () => {
     setShowAttachModal(false);
     onPickGallery?.();
@@ -488,22 +507,55 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
         </View>
       ) : null}
 
+      {/* Video sedang disiapkan (kompresi) */}
+      {isPreparingMedia ? (
+        <View style={styles.stagedBanner}>
+          <View style={[styles.stagedThumbnail, styles.stagedThumbPlaceholder]}>
+            <ActivityIndicator size="small" color={colors.accentPrimary} />
+          </View>
+          <View style={styles.stagedInfo}>
+            <Text style={styles.stagedFileName} numberOfLines={1}>Menyiapkan video…</Text>
+            <Text style={styles.stagedFileSize}>
+              {typeof mediaProgress === 'number' ? `${Math.round(mediaProgress * 100)}%` : 'Mengompres agar hemat kuota'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {/* Staged Media Preview Banner */}
       {stagedMedia ? (
         <View style={styles.stagedBanner}>
-          <Image source={{ uri: stagedMedia.uri }} style={styles.stagedThumbnail} resizeMode="cover" />
+          <View>
+            <Image
+              source={{ uri: stagedMedia.mediaType === 'video' && stagedMedia.thumbUri ? stagedMedia.thumbUri : stagedMedia.uri }}
+              style={styles.stagedThumbnail}
+              resizeMode="cover"
+            />
+            {stagedMedia.mediaType === 'video' ? (
+              <View style={styles.stagedPlayBadge} pointerEvents="none">
+                <Icon name="play" size={18} color="#ffffff" />
+              </View>
+            ) : null}
+          </View>
           <View style={styles.stagedInfo}>
             <Text style={styles.stagedFileName} numberOfLines={1}>
-              {stagedMedia.fileName || 'Foto Terlampir'}
+              {stagedMedia.fileName || (stagedMedia.mediaType === 'video' ? 'Video Terlampir' : 'Foto Terlampir')}
             </Text>
             <Text style={styles.stagedFileSize}>
-              {formatFileSize(stagedMedia.fileSize) || 'Gambar'}
+              {formatFileSize(stagedMedia.fileSize) || (stagedMedia.mediaType === 'video' ? 'Video' : 'Gambar')}
+              {stagedMedia.mediaType === 'video' && stagedMedia.durationMs
+                ? ` · ${formatRecordingTimer(Math.round(stagedMedia.durationMs / 1000))}`
+                : ''}
             </Text>
           </View>
           {isUploading ? (
             <View style={styles.uploadingBadge}>
               <ActivityIndicator size="small" color={colors.accentPrimary} />
-              <Text style={styles.uploadingText}>Mengunggah...</Text>
+              <Text style={styles.uploadingText}>
+                {stagedMedia.mediaType === 'video' && typeof mediaProgress === 'number'
+                  ? `Mengunggah ${Math.round(mediaProgress * 100)}%`
+                  : 'Mengunggah...'}
+              </Text>
             </View>
           ) : (
             <TouchableOpacity
@@ -663,6 +715,17 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
 
               <TouchableOpacity
                 style={styles.optionCard}
+                onPress={handleSelectVideo}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.optionIconCircle, styles.cameraCircle]}>
+                  <Icon name="video" size={28} color={colors.accentHover} />
+                </View>
+                <Text style={styles.optionLabel}>Video</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.optionCard}
                 onPress={handleSelectGallery}
                 activeOpacity={0.7}
               >
@@ -814,6 +877,21 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
     height: 48,
     borderRadius: 8,
     backgroundColor: colors.bgInput,
+  },
+  stagedThumbPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stagedPlayBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: 8,
   },
   stagedInfo: {
     flex: 1,
