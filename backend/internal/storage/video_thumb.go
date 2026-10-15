@@ -5,6 +5,10 @@ import (
 	"strings"
 )
 
+// VideoKeyPrefix adalah awalan kunci objek video di R2 (video/<uuid>.mp4, atau video/<tenant>/<uuid>.mp4). Thumbnail
+// mewarisinya karena kuncinya diturunkan dari kunci video. Aturan lifecycle R2 untuk berkas yatim memakai awalan ini.
+const VideoKeyPrefix = "video/"
+
 // MaxThumbnailBytes adalah batas ukuran thumbnail video (JPEG kecil).
 const MaxThumbnailBytes int64 = 512 * 1024
 

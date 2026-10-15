@@ -14,6 +14,9 @@ import (
 type MediaPurgeQueue interface {
 	// ClaimDue mengambil paling banyak limit berkas yang sudah waktunya dicoba hapus.
 	ClaimDue(ctx context.Context, limit int) ([]string, error)
+	// Enqueue memasukkan berkas yang gagal dihapus oleh PurgeWorker agar dicoba ulang dengan jeda bertambah
+	// (percobaan pertama sudah terjadi, jadi percobaan ulang pertama dijadwalkan 1 jam lagi). Idempoten.
+	Enqueue(ctx context.Context, mediaURL string) error
 	// Complete membuang berkas dari antrean (sudah terhapus).
 	Complete(ctx context.Context, mediaURL string) error
 	// Fail menjadwalkan percobaan ulang dengan jeda bertambah; setelah maxAttempts berkas dibuang dari antrean
@@ -65,6 +68,16 @@ func (q *SQLMediaPurgeQueue) ClaimDue(ctx context.Context, limit int) ([]string,
 		out = append(out, u)
 	}
 	return out, rows.Err()
+}
+
+func (q *SQLMediaPurgeQueue) Enqueue(ctx context.Context, mediaURL string) error {
+	if mediaURL == "" {
+		return nil
+	}
+	now := time.Now().UTC()
+	_, err := q.db.ExecContext(ctx, q.rebind(`INSERT INTO media_purge_queue (media_url, attempts, next_attempt_at, created_at) VALUES (?, 1, ?, ?) ON CONFLICT(media_url) DO NOTHING`),
+		mediaURL, now.Add(time.Hour), now)
+	return err
 }
 
 func (q *SQLMediaPurgeQueue) Complete(ctx context.Context, mediaURL string) error {

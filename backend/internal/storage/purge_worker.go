@@ -158,6 +158,15 @@ func (w *PurgeWorker) PurgeOnce(ctx context.Context) int {
 		// Hapus berkas fisik dari storage
 		if err := w.deleteWithThumbnail(ctx, msg.MediaURL); err != nil {
 			log.Printf("⚠️ [PurgeWorker] Gagal menghapus berkas fisik (%s): %v", msg.MediaURL, err)
+			if w.queue != nil {
+				// Jangan biarkan berkas yatim: serahkan ke antrean (dicoba ulang 1, 2, 4... jam, maks queueMaxAttempts).
+				if qerr := w.queue.Enqueue(ctx, msg.MediaURL); qerr != nil {
+					// Antrean pun gagal: biarkan status pesan apa adanya agar siklus berikutnya mencoba lagi.
+					log.Printf("⚠️ [PurgeWorker] Gagal memasukkan berkas ke antrean ulang (%s): %v", msg.MediaURL, qerr)
+					continue
+				}
+				log.Printf("🔁 [PurgeWorker] Berkas dijadwalkan ulang lewat antrean: %s", msg.MediaURL)
+			}
 		} else {
 			log.Printf("🗑️ [PurgeWorker] Berkas media kedaluwarsa berhasil dihapus dari storage: %s", msg.MediaURL)
 		}
@@ -174,14 +183,17 @@ func (w *PurgeWorker) PurgeOnce(ctx context.Context) int {
 	return purgedCount
 }
 
-// deleteWithThumbnail menghapus berkas media; untuk video, thumbnail turunannya ikut dihapus (kegagalan thumbnail diabaikan
-// karena berkasnya bisa saja memang tidak ada).
+// deleteWithThumbnail menghapus berkas media; untuk video, thumbnail turunannya ikut dihapus. Driver menganggap
+// "berkas tidak ada" sebagai sukses, jadi galat dari thumbnail adalah kegagalan nyata dan ikut dilaporkan agar dicoba ulang
+// (menghapus ulang video yang sudah hilang aman/idempoten).
 func (w *PurgeWorker) deleteWithThumbnail(ctx context.Context, mediaURL string) error {
 	if err := w.storage.Delete(ctx, mediaURL); err != nil {
 		return err
 	}
 	if thumb, ok := VideoThumbnailURL(mediaURL); ok {
-		_ = w.storage.Delete(ctx, thumb)
+		if err := w.storage.Delete(ctx, thumb); err != nil {
+			return err
+		}
 	}
 	return nil
 }

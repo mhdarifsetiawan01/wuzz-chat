@@ -141,3 +141,27 @@ func TestR2Storage_DeleteDelegatesForeignURLToLegacy(t *testing.T) {
 		t.Fatalf("legacy tidak dipanggil: %v", legacy.deleted)
 	}
 }
+
+func TestR2Storage_VideoKeysUseVideoPrefix(t *testing.T) {
+	s, _ := NewR2Storage(testR2Config())
+
+	v, _ := s.CreateSignedUploadURLSized(context.Background(), "klip.mp4", "video/mp4", 1000)
+	if !strings.HasPrefix(v.ObjectKey, VideoKeyPrefix) || !strings.HasSuffix(v.ObjectKey, ".mp4") {
+		t.Fatalf("kunci video harus berawalan %q: %s", VideoKeyPrefix, v.ObjectKey)
+	}
+	if v.PublicURL != "https://media.contoh.id/"+v.ObjectKey {
+		t.Fatalf("public URL salah: %s", v.PublicURL)
+	}
+	thumb, _ := s.CreateSignedThumbnailURL(context.Background(), v.ObjectKey, 2048)
+	if !strings.HasPrefix(thumb.ObjectKey, VideoKeyPrefix) || !strings.HasSuffix(thumb.ObjectKey, ".thumb.jpg") {
+		t.Fatalf("thumbnail harus mewarisi awalan video: %s", thumb.ObjectKey)
+	}
+
+	// Foto, audio, dan dokumen (termasuk avatar/Feed yang disimpan selama akun aktif) TIDAK boleh berawalan video/.
+	for _, c := range []struct{ name, mime string }{{"a.jpg", "image/jpeg"}, {"v.m4a", "audio/mp4"}, {"d.pdf", "application/pdf"}} {
+		r, _ := s.CreateSignedUploadURLSized(context.Background(), c.name, c.mime, 100)
+		if strings.HasPrefix(r.ObjectKey, VideoKeyPrefix) {
+			t.Errorf("%s (%s) tidak boleh berawalan %q: %s", c.name, c.mime, VideoKeyPrefix, r.ObjectKey)
+		}
+	}
+}

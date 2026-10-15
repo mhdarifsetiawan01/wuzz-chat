@@ -128,6 +128,7 @@ func runDirectMode(r2 *storage.R2Storage, origin string) {
 	if err != nil {
 		return
 	}
+	check(strings.HasPrefix(vt.ObjectKey, storage.VideoKeyPrefix), "kunci video berawalan "+storage.VideoKeyPrefix+" (untuk aturan lifecycle)", vt.ObjectKey)
 	wantThumb, _ := storage.VideoThumbnailURL(vt.PublicURL)
 	check(tt.PublicURL == wantThumb, "URL thumbnail = turunan URL video", tt.PublicURL+" != "+wantThumb)
 
