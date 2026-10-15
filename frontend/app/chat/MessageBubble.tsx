@@ -7,6 +7,7 @@ import type { Message } from '@/lib/types'
 import { AudioPlayerBubble } from './AudioPlayerBubble'
 import { LinkPreviewCard } from './LinkPreviewCard'
 import { getCachedMediaBlob, setCachedMediaBlob } from '@/lib/mediaCache'
+import { getVideoThumbnailUrl } from '@/lib/videoPrep'
 import { acknowledgeMediaDownload } from '@/lib/api'
 import { useModalBackHandler } from '@/lib/useModalBackHandler'
 import { getAvatarStyle } from '@/lib/avatarColor'
@@ -192,6 +193,7 @@ export function MessageBubble({
 
   // Media Offline Caching & Expiration State (Store-and-Forward)
   const [resolvedMediaUrl, setResolvedMediaUrl] = useState<string | null>(null)
+  const videoAckedRef = useRef(false)
   const [isMediaExpired, setIsMediaExpired] = useState(false)
   const [isMediaLoading, setIsMediaLoading] = useState(false)
 
@@ -259,6 +261,18 @@ export function MessageBubble({
         if (isMounted) {
           createdBlobUrl = URL.createObjectURL(cachedBlob)
           setResolvedMediaUrl(createdBlobUrl)
+          setIsMediaExpired(false)
+        }
+        return
+      }
+
+      // Video: tidak diunduh otomatis (hemat kuota). Diputar bertahap langsung dari URL; ACK dikirim saat pertama diputar.
+      if (message.media_type === 'video') {
+        if (!isMounted) return
+        if (message.media_status === 'expired') {
+          setIsMediaExpired(true)
+        } else {
+          setResolvedMediaUrl(targetUrl)
           setIsMediaExpired(false)
         }
         return
@@ -571,8 +585,30 @@ export function MessageBubble({
             </div>
           )}
 
-          {/* Pratinjau Dokumen / Berkas jika tipe bukan gambar atau audio */}
-          {message.media_url && message.media_type !== 'image' && message.media_type !== 'audio' && !isMediaExpired && (
+          {/* Pratinjau Video: diputar bertahap dari URL, poster dari thumbnail turunan */}
+          {message.media_url && message.media_type === 'video' && !isMediaExpired && effectiveMediaUrl && (
+            <div className="message-video-wrapper">
+              <video
+                className="message-video"
+                src={effectiveMediaUrl}
+                poster={getVideoThumbnailUrl(effectiveMediaUrl) || undefined}
+                controls
+                playsInline
+                preload={effectiveMediaUrl.startsWith('blob:') ? 'metadata' : 'none'}
+                onPlay={() => {
+                  if (!isSelf && message.id && !videoAckedRef.current) {
+                    videoAckedRef.current = true
+                    acknowledgeMediaDownload(message.id, message.room)
+                  }
+                }}
+              >
+                Browser Anda tidak mendukung pemutaran video.
+              </video>
+            </div>
+          )}
+
+          {/* Pratinjau Dokumen / Berkas jika tipe bukan gambar, video, atau audio */}
+          {message.media_url && message.media_type !== 'image' && message.media_type !== 'video' && message.media_type !== 'audio' && !isMediaExpired && (
             <div className="message-doc-card">
               <div className={`doc-card-badge ${getFileMeta(message.file_name).colorClass}`}>
                 <span className="doc-card-icon">{getFileMeta(message.file_name).icon}</span>

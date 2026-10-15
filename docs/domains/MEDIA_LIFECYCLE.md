@@ -19,6 +19,11 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Pengelolaan Berkas, Foto
    - Menggunakan format audio efisien (`audio/webm` / `audio/m4a`).
    - Dirender dengan waveform dinamis 24-bar, scrubber posisi, dan opsi kecepatan putar (1x, 1.5x, 2x).
 
+4. **Video chat (16 Okt 2026, kode di `dev`)**:
+   - Video ≤ 60 detik dan ≤ 25 MB (`MAX_VIDEO_UPLOAD_MB`, `MAX_VIDEO_DURATION_SEC`), diunggah **langsung ke Cloudflare R2** lewat URL presigned (`POST /api/media/signed-upload-url?purpose=video`). Bila `STORAGE_DRIVER=r2`, `POST /api/media/upload` mengembalikan 410: **tidak ada fallback upload lewat VPS**.
+   - Thumbnail JPEG (≤ 512 KB) tidak disimpan di database: URL-nya diturunkan dari `media_url` (`<kunci>.mp4` menjadi `<kunci>.thumb.jpg`; `storage.VideoThumbnailURL`, aturan sama di mobile dan web). `PurgeWorker` menghapus thumbnail bersama video.
+   - Durasi tidak disimpan di server (dibaca pemutar). Rencana dan status: `docs/plans/backlog/VIDEO_MESSAGE_R2.md`.
+
 ---
 
 ## 🏛️ 2. Arsitektur Storage Driver (`backend/internal/storage/`)

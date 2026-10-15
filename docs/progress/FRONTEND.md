@@ -49,3 +49,11 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ## 🎯 Fokus Berikutnya (What's Next)
 - [ ] Penambahan fitur katalog avatar premium di modal Profil Studio.
+
+### Kirim Video di Chat, Tahap 4 web (16 Oktober 2026) — kode selesai di `dev`, belum diuji di browser, backend belum dideploy
+- Rencana: `docs/plans/backlog/VIDEO_MESSAGE_R2.md`. Input unggah menerima `video/mp4`, `video/quicktime`, `video/webm` (juga lewat drag-and-drop / `stagedExternalFile`). `lib/videoPrep.ts` memeriksa ukuran (bawaan 25 MB) dan durasi (60 dtk) dari `/api/config` (`max_video_size_mb`, `max_video_duration_seconds`), lalu membuat thumbnail JPEG lewat canvas (≤ 512 KB). Video yang melanggar batas ditandai `invalid` dan tidak bisa dikirim.
+- `uploadVideo` (`lib/api.ts`): tiket `?purpose=video`, thumbnail diunggah dulu, video lewat XHR dengan progres (%), langsung ke R2. **Fallback upload lewat VPS dihapus** dari `uploadMedia` (semua jenis media): gagal = galat di bar pratinjau, lampiran tetap ada untuk dicoba lagi.
+- `MessageBubble`: `<video controls>` dengan poster dari URL thumbnail turunan (`<kunci>.thumb.jpg`); video tidak diunduh otomatis (`preload="none"`), ACK dikirim saat pertama diputar; pengirim memakai blob IndexedDB. Teks pesan tersemat "Video".
+- **Wajib saat memakai R2:** CORS bucket harus mengizinkan origin web untuk `PUT`/`GET`/`HEAD` (header `Content-Type`, `Range`); tanpa itu unggah dari browser gagal.
+- Tidak ada kompresi video di web (batas 25 MB ditolak apa adanya). Opsi kelak: ffmpeg.wasm.
+- Verifikasi: `npm run build` lulus (0 galat). Belum diuji di browser dengan bucket nyata.

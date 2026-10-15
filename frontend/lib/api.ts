@@ -102,110 +102,153 @@ function classifyMediaType(mimeType: string, filename: string): 'image' | 'audio
   return 'document'
 }
 
-export async function uploadMedia(file: File): Promise<{ data?: MediaUploadResponse; error?: string }> {
+interface UploadTicket {
+  signed_url?: string
+  public_url?: string
+  thumb_signed_url?: string
+  thumb_public_url?: string
+}
+
+// Tiket unggah langsung ke storage (R2/Supabase). TIDAK ADA fallback upload lewat VPS: gagal = galat + coba lagi.
+async function fetchUploadTicket(
+  payload: { file_name: string; file_size: number; mime_type: string; thumb_size?: number },
+  purpose?: 'video'
+): Promise<{ ticket?: UploadTicket; error?: string }> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('wuzz_auth_token') : null
-
-  // =========================================================================
-  // 1. Direct Signed Upload (0 MB Egress VPS) ke Supabase Storage
-  // =========================================================================
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000)
   try {
-    const ticketController = new AbortController()
-    const ticketTimeout = setTimeout(() => ticketController.abort(), 15000)
-
-    let ticketData: { signed_url?: string; public_url?: string } | null = null
-    try {
-      const ticketRes = await fetch(`${API_BASE}/api/media/signed-upload-url`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          file_name: file.name,
-          file_size: file.size,
-          mime_type: file.type || 'application/octet-stream',
-        }),
-        signal: ticketController.signal,
-      })
-
-      if (ticketRes.ok) {
-        ticketData = await ticketRes.json().catch(() => null)
-      }
-    } finally {
-      clearTimeout(ticketTimeout)
+    const res = await fetch(`${API_BASE}/api/media/signed-upload-url${purpose ? `?purpose=${purpose}` : ''}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      return { error: body.error || `Gagal menyiapkan unggahan (status ${res.status}). Coba lagi.` }
     }
-
-    if (ticketData?.signed_url && ticketData?.public_url) {
-      const uploadController = new AbortController()
-      const uploadTimeout = setTimeout(() => uploadController.abort(), 60000)
-
-      try {
-        const directRes = await fetch(ticketData.signed_url, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': file.type || 'application/octet-stream',
-          },
-          body: file,
-          signal: uploadController.signal,
-        })
-
-        if (directRes.ok) {
-          return {
-            data: {
-              url: ticketData.public_url,
-              file_name: file.name,
-              file_size: file.size,
-              media_type: classifyMediaType(file.type, file.name),
-              mime_type: file.type || 'application/octet-stream',
-            },
-          }
-        }
-        console.warn('[uploadMedia] Direct upload ke Supabase gagal (status %d), mencoba fallback ke VPS...', directRes.status)
-      } finally {
-        clearTimeout(uploadTimeout)
-      }
+    if (!body.signed_url || !body.public_url) {
+      return { error: 'Server tidak menerbitkan tiket unggah. Coba lagi sebentar lagi.' }
     }
+    return { ticket: body as UploadTicket }
   } catch (err: any) {
-    console.warn('[uploadMedia] Direct signed upload gagal atau tidak tersedia, fallback ke VPS upload:', err?.message)
+    if (err?.name === 'AbortError') {
+      return { error: 'Koneksi ke server timeout. Periksa jaringan lalu coba lagi.' }
+    }
+    return { error: err?.message || 'Gagal terhubung ke server' }
+  } finally {
+    clearTimeout(timeoutId)
   }
+}
 
-  // =========================================================================
-  // 2. Graceful Fallback: VPS Multipart Upload (/api/media/upload)
-  // =========================================================================
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
+function videoMimeFor(file: File): string {
+  if (file.type.toLowerCase().startsWith('video/')) return file.type
+  const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')).toLowerCase() : ''
+  if (ext === '.mov') return 'video/quicktime'
+  if (ext === '.webm') return 'video/webm'
+  return 'video/mp4'
+}
 
-    const headers: Record<string, string> = {}
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
+// PUT dengan progres (fetch belum punya progres unggah). Content-Length ikut ditandatangani server, XHR mengisinya otomatis.
+function putWithProgress(
+  url: string,
+  body: Blob,
+  contentType: string,
+  onProgress?: (fraction: number) => void,
+  timeoutMs = 300000
+): Promise<{ ok: boolean; status: number }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', url)
+    xhr.setRequestHeader('Content-Type', contentType)
+    xhr.timeout = timeoutMs
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) onProgress?.(e.loaded / e.total)
     }
+    xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status })
+    xhr.onerror = () => reject(new Error('Koneksi terputus saat mengunggah. Coba lagi.'))
+    xhr.ontimeout = () => reject(new Error('Unggah terlalu lama. Periksa jaringan lalu coba lagi.'))
+    xhr.send(body)
+  })
+}
 
-    // Safeguard upload media untuk jaringan slow/medium: batas waktu 60 detik
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 60000)
+export async function uploadMedia(file: File): Promise<{ data?: MediaUploadResponse; error?: string }> {
+  const mimeType = file.type || 'application/octet-stream'
+  const { ticket, error } = await fetchUploadTicket({ file_name: file.name, file_size: file.size, mime_type: mimeType })
+  if (!ticket) return { error }
 
-    try {
-      const res = await fetch(`${API_BASE}/api/media/upload`, {
-        method: 'POST',
-        headers,
-        body: formData,
-        signal: controller.signal,
-      })
-
-      const result = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        return { error: result.error || `Upload gagal dengan status ${res.status}` }
-      }
-      return { data: result }
-    } finally {
-      clearTimeout(timeoutId)
+  // Safeguard jaringan lambat: batas waktu 60 detik
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 60000)
+  try {
+    const res = await fetch(ticket.signed_url!, {
+      method: 'PUT',
+      headers: { 'Content-Type': mimeType },
+      body: file,
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      return { error: `Unggah ke penyimpanan gagal (status ${res.status}). Coba lagi.` }
+    }
+    return {
+      data: {
+        url: ticket.public_url!,
+        file_name: file.name,
+        file_size: file.size,
+        media_type: classifyMediaType(mimeType, file.name),
+        mime_type: mimeType,
+      },
     }
   } catch (err: any) {
-    if (err.name === 'AbortError') {
+    if (err?.name === 'AbortError') {
       return { error: 'Upload timeout: server lambat atau ukuran berkas terlalu besar untuk kecepatan jaringan saat ini' }
     }
-    return { error: err.message || 'Gagal mengunggah file ke server' }
+    return { error: err?.message || 'Gagal mengunggah file ke penyimpanan' }
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+// Unggah video + thumbnail langsung ke R2 (tanpa fallback VPS). Thumbnail tersimpan di URL turunan video (<kunci>.thumb.jpg).
+export async function uploadVideo(
+  file: File,
+  thumb: Blob,
+  onProgress?: (fraction: number) => void
+): Promise<{ data?: MediaUploadResponse; error?: string }> {
+  const mimeType = videoMimeFor(file)
+  const { ticket, error } = await fetchUploadTicket(
+    { file_name: file.name, file_size: file.size, mime_type: mimeType, thumb_size: thumb.size },
+    'video'
+  )
+  if (!ticket) return { error }
+  if (!ticket.thumb_signed_url) {
+    return { error: 'Server belum mendukung unggah video. Muat ulang aplikasi atau coba lagi nanti.' }
+  }
+
+  try {
+    // Thumbnail dulu (kecil): bila gagal, video besar tidak sempat terunggah sia-sia.
+    const thumbRes = await putWithProgress(ticket.thumb_signed_url, thumb, 'image/jpeg', undefined, 60000)
+    if (!thumbRes.ok) return { error: `Unggah pratinjau video gagal (status ${thumbRes.status}). Coba lagi.` }
+
+    const videoRes = await putWithProgress(ticket.signed_url!, file, mimeType, onProgress)
+    if (!videoRes.ok) return { error: `Unggah video gagal (status ${videoRes.status}). Coba lagi.` }
+  } catch (err: any) {
+    return { error: err?.message || 'Gagal mengunggah video' }
+  }
+  onProgress?.(1)
+
+  return {
+    data: {
+      url: ticket.public_url!,
+      file_name: file.name,
+      file_size: file.size,
+      media_type: 'video',
+      mime_type: mimeType,
+    },
   }
 }
 
