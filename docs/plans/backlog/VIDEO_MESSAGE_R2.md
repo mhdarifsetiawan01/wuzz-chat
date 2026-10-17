@@ -85,3 +85,30 @@
 - **Kuota gratis R2** dan ketentuan akun belum diverifikasi (lihat Tahap 0).
 - **Play Store**: perbarui kebijakan privasi `/privacy` dan Data Safety (video konten pengguna); cek izin kamera/mikrofon.
 - Antrean `forum_memory_jobs` / AI Memory tidak terpengaruh (video bukan teks).
+
+## 6. Rencana kerja berikutnya (dijadwalkan 17 Okt 2026, belum dikerjakan)
+
+Latar: uji 16 Okt 2026 membuktikan unduh sekali + putar lokal di HP penerima (Semantic, build Play Internal testing). Dua perapian disepakati untuk dikerjakan besok:
+
+### 6.1 Thumbnail video disimpan lokal
+- **Masalah:** thumbnail diambil dari `media.wuzzhub.id/video/<uuid>.thumb.jpg` dan hanya hidup di cache gambar bawaan (`expo-image`), yang bisa dikosongkan sistem atau lewat "Bersihkan Cache Gambar". R2 menghapus thumbnail bersama videonya setelah retensi (1 hari), jadi setelah itu bubble menjadi kotak gelap walau video lokal masih bisa diputar.
+- **Rencana:** simpan thumbnail ke cache persisten (`mediaCache`, mis. `media_<id>.thumb.jpg`), diambil sekali saat bubble pertama kali menampilkan thumbnail jarak jauh (bukan menunggu video dibuka, supaya penerima yang belum membuka video tetap punya gambar sebelum R2 menghapusnya). `VideoMessageCard` dan galeri media memakai berkas lokal lebih dulu, lalu jarak jauh. Pengirim: salin `local_thumb_uri` ke cache saat mengirim agar bertahan setelah aplikasi dimulai ulang.
+- **Pakai pola yang sama dengan `downloadToCache`:** tulis ke `.part`, pindah hanya bila status 200 dan tidak kosong; 404 tidak boleh tersimpan sebagai gambar.
+- **Perlu dipikirkan:** thumbnail ikut terhitung di "Media Chat Tersimpan" dan terhapus bersama pesan/akun (`clearAll`, hapus akun); ukuran kecil (≤ 512 KB) jadi aman.
+- **Tes:** unit test harness (tiruan `expo-file-system/legacy` sudah ada), uji HP: kirim video, tunggu R2 menghapus objek (atau hapus manual di dashboard) lalu buka chat: thumbnail harus tetap tampil.
+
+### 6.2 ACK media sekali per pesan
+- **Masalah:** `ChatScreen.handleMediaLoaded` mengirim `POST /api/media/ack` setiap kali media penerima dimuat/diputar (foto dan video). Ke VPS (bukan R2), pembaruan status no-op setelah yang pertama.
+- **Fakta server:** DM: ACK mengubah `active` menjadi `downloaded` (hanya sekali berefek). Grup/forum (`grp_`, `sub_`): ACK tidak mengubah apa pun dan tidak pernah menghapus berkas. `canDelete` selalu false; `auto_delete_on_download: true` di `/api/config` tidak berpengaruh.
+- **Rencana:** catat pesan yang sudah di-ACK (Set di memori + status `downloaded` dari server bila ada; pertimbangkan penanda persisten di SQLite lokal supaya tidak terulang setelah aplikasi dimulai ulang) dan lewati ACK berikutnya. Periksa apakah ACK di grup memang bisa dilewati sepenuhnya (server tidak memakainya) sebelum memutuskan.
+- **Tes:** unit test untuk logika "sudah di-ACK" (harness), cek di log server bahwa ACK tidak berulang saat video/foto dibuka kembali.
+
+### 6.3 Perapian kecil yang menyertai
+- Hapus atau jelaskan `auto_delete_on_download` di `/api/config` dan dokumen domain (nilai menyesatkan, tidak berpengaruh).
+
+### 6.4 Masih terbuka dari uji 16 Okt (tidak dijadwalkan)
+- Pastikan folder `video/` muncul di tab Objects bucket `wuzzchat` untuk video yang dikirim setelah deploy awalan.
+- Besok: objek uji lama tanpa awalan (`3de5fd39-...`) harus hilang oleh `PurgeWorker` (bukti jalur hapus produksi).
+- Opsi "Video" (rekam kamera) di HP belum diuji; sisi web ditunda (fokus mobile); video besar yang butuh kompresi agresif; unggah terputus di tengah.
+- Data Safety Play Console dan `/privacy` perlu menyebut video buatan pengguna.
+- Bila pemakaian membesar: pertimbangkan Cache Rule "Eligible" dengan TTL pendek (mengurangi operasi baca R2) dan perhatikan `MEDIA_RETENTION_DAYS` khusus video.
