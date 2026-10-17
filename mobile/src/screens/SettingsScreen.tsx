@@ -382,8 +382,8 @@ export const SettingsScreen: React.FC = () => {
         <SettingsSection title="Perangkat & Keamanan">
           <SettingsItem
             icon="💻"
-            title="Perangkat Tertaut"
-            subtitle="Kelola sesi & transfer kunci QR"
+            title="Transfer Kunci ke Perangkat Lain"
+            subtitle="Bagikan kunci enkripsi melalui QR atau kode"
             onPress={() => setIsDeviceTransferVisible(true)}
             tintColor={colors.accentPrimary}
           />
@@ -522,6 +522,7 @@ export const SettingsScreen: React.FC = () => {
       />
 
       <DeviceTransferModal
+        role="sender"
         visible={isDeviceTransferVisible}
         onClose={() => setIsDeviceTransferVisible(false)}
       />

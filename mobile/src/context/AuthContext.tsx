@@ -31,6 +31,8 @@ import { websocketClient } from '../services/websocket';
 import { withGoogleIdToken } from '../utils/googleErrors';
 import { shouldRefreshToken } from '../utils/jwt';
 import { useDevice } from './DeviceContext';
+import { consumeAndDecryptTransfer } from '../services/keyTransfer';
+import { createTransferImporter, TransferState } from '../services/keyTransferPolicy';
 
 export type E2EEStatus = 'uninitialized' | 'loading' | 'ready' | 'conflict' | 'error';
 
@@ -70,7 +72,7 @@ interface AuthContextType {
   e2eeStatus: E2EEStatus;
   initE2EEKeys: () => Promise<void>;
   resetE2EEKeys: (proof?: ProofInput) => Promise<void>;
-  importTransferredKeyPair: (pair: E2EEKeyPair) => Promise<void>;
+  importTransferredKeyPair: (code: string, signal?: AbortSignal) => Promise<void>;
   login: (credentials: Omit<LoginRequest, 'device_id'>) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
   /** Menampilkan pemilih akun Google lalu login. Mengembalikan ID token agar percobaan ulang (konflik perangkat) tak perlu pemilih lagi. */
@@ -174,10 +176,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Akun ditangguhkan moderator. Perilaku sama dengan pembekuan: isAuthenticated=false, tanpa pengambilan data/E2EE/WebSocket.
   const [accountSuspended, setAccountSuspended] = useState<boolean>(false);
 
+  const transferState = useRef<TransferState>(null!);
+  transferState.current = {
+    userId: user?.id ?? null, session: token, status: e2eeStatus,
+    blocked: isLoading || googleLinkFrozen || accountSuspended, hasKey: !!e2eeKeyPair,
+  };
+  const transferDeviceId = useRef(deviceId);
+  transferDeviceId.current = deviceId;
+  const transferImporter = useRef<ReturnType<typeof createTransferImporter<E2EEKeyPair>> | null>(null);
+  if (!transferImporter.current) {
+    transferImporter.current = createTransferImporter<E2EEKeyPair>({
+      getState: () => transferState.current,
+      consume: async (code) => {
+        const id = transferDeviceId.current;
+        if (!id) throw new Error('Identitas perangkat belum siap.');
+        return consumeAndDecryptTransfer(code, id);
+      },
+      persist: (id, pair, assertCurrent) => secureStorage.setE2EEKeyPair(id, pair, undefined, assertCurrent),
+      discard: (id, pair) => secureStorage.deleteE2EEKeyPair(id, pair.privateKeyHex),
+      activate: (pair) => {
+        transferState.current = { ...transferState.current, status: 'ready', hasKey: true };
+        setE2eeKeyPair(pair);
+        setE2eeStatus('ready');
+        websocketClient.reset();
+        websocketClient.connect(transferState.current.session!, transferDeviceId.current!);
+      },
+    });
+  }
+  useEffect(() => () => transferImporter.current?.invalidate(), []);
+
   // Sinyal global: HTTP 403 ACCOUNT_SUSPENDED dari mana pun, atau penutupan WebSocket 4004.
   useEffect(
     () =>
       onAccountSuspended(() => {
+        transferImporter.current?.invalidate();
         setAccountSuspended(true);
         websocketClient.disconnect();
       }),
@@ -188,6 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(
     () =>
       onGoogleLinkRequired(() => {
+        transferImporter.current?.invalidate();
         setGoogleLinkFrozen(true);
         websocketClient.disconnect();
       }),
@@ -296,6 +329,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user?.id, deviceId, initE2EEForUser]);
 
   const resetE2EEKeys = useCallback(async (proof?: ProofInput) => {
+    transferImporter.current?.invalidate();
     if (!user?.id) throw new Error('User tidak terotentikasi');
     setE2eeStatus('loading');
     try {
@@ -312,31 +346,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user?.id, deviceId]);
 
-  const importTransferredKeyPair = useCallback(async (pair: E2EEKeyPair) => {
-    if (!user?.id) throw new Error('User tidak terotentikasi');
-    setE2eeStatus('loading');
-    try {
-      await secureStorage.setE2EEKeyPair(user.id, pair);
-      setE2eeKeyPair(pair);
-      setE2eeStatus('ready');
-      console.log('[AuthContext] Transferred keypair imported and active.');
-
-      // Re-establish WebSocket connection after QR transfer.
-      // The JWT token is already stored from the original login; retrieve it and
-      // reconnect so that ChatScreen joinRoom succeeds immediately after transfer.
-      const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
-      const storedToken = await secureStorage.getAuthToken();
-      if (storedToken) {
-        websocketClient.reset();
-        websocketClient.connect(storedToken, currentDeviceId);
-        console.log('[AuthContext] WebSocket reconnected after QR key transfer.');
-      }
-    } catch (err) {
-      console.error('[AuthContext] importTransferredKeyPair failed:', err);
-      setE2eeStatus('error');
-      throw err;
-    }
-  }, [user?.id, deviceId]);
+  const importTransferredKeyPair = useCallback((code: string, signal?: AbortSignal) => {
+    return transferImporter.current!.run(code, signal);
+  }, []);
 
   // Sliding renewal: perpanjang token saat sisa umurnya < 50% (saat app dibuka dan tiap kembali ke foreground).
   // Kegagalan apa pun (offline, timeout, 401 sesi) diabaikan: token lama tetap berlaku sampai habis dan logout
@@ -375,6 +387,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Setup WebSocket session replaced handler
   useEffect(() => {
     websocketClient.onSessionReplaced((reason) => {
+      transferImporter.current?.invalidate();
       console.warn('[AuthContext] Session replacement triggered:', reason);
       // Unsubscribe push token from backend
       notificationService.unsubscribeDevice().catch(() => {});
@@ -486,6 +499,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const startSession = useCallback(
     async (response: AuthTokenResponse, currentDeviceId: string, source: string) => {
+      transferImporter.current?.invalidate();
       // Metode login dari server (akun Google-only atau berpassword) ikut disimpan di profil lokal.
       const sessionUser: User = {
         ...response.user,
@@ -708,6 +722,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [deviceId]);
 
   const logout = useCallback(async () => {
+    transferImporter.current?.invalidate();
     setIsLoading(true);
     try {
       const currentDeviceId = deviceId || (await deviceIdService.getOrCreateDeviceId());
@@ -759,6 +774,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const deleteAccount = useCallback(
     async (proof: ProofInput) => {
       await authApi.deleteAccount(normalizeProof(proof));
+      transferImporter.current?.invalidate();
 
       const deletedUserId = user?.id;
       websocketClient.disconnect();
@@ -799,6 +815,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const cancelKeyConflict = useCallback(async () => {
+    transferImporter.current?.invalidate();
     setIsLoading(true);
     try {
       // Disconnect socket locally

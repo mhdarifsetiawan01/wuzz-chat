@@ -28,15 +28,15 @@ import {
   View,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useDevice } from '../context/DeviceContext';
 import {
   generateTransferSessionToken,
   uploadTransferSession,
-  consumeAndImportTransfer,
   parseTransferQRData,
 } from '../services/keyTransfer';
-import { secureStorage } from '../services/secureStorage';
+import { canTransfer, TransferRole } from '../services/keyTransferPolicy';
 import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from './IconText';
 import { Icon } from './Icon';
@@ -45,10 +45,11 @@ import { QRCodeView } from './QRCodeView';
 import { CameraQRScannerModal } from './CameraQRScannerModal';
 import { showAlert } from '../services/dialog';
 
-export type DeviceTransferMode = 'share' | 'scan' | 'input';
+export type DeviceTransferMode = 'scan' | 'input';
 
 export interface DeviceTransferModalProps {
   visible: boolean;
+  role: TransferRole;
   initialMode?: DeviceTransferMode;
   onClose: () => void;
   onTransferSuccess?: () => void;
@@ -56,14 +57,21 @@ export interface DeviceTransferModalProps {
 
 export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
   visible,
-  initialMode = 'share',
+  role,
+  initialMode = 'scan',
   onClose,
   onTransferSuccess,
 }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
 
-  const { user, e2eeKeyPair, importTransferredKeyPair } = useAuth();
+  const { user, token, isLoading: authLoading, e2eeStatus, isGoogleLinkFrozen, isAccountSuspended,
+    e2eeKeyPair, importTransferredKeyPair } = useAuth();
+  const allowed = canTransfer(role, {
+    userId: user?.id ?? null, session: token, status: e2eeStatus, hasKey: !!e2eeKeyPair,
+    blocked: authLoading || isGoogleLinkFrozen || isAccountSuspended,
+  });
   const { deviceId } = useDevice();
 
   const [activeTab, setActiveTab] = useState<DeviceTransferMode>(initialMode);
@@ -82,121 +90,111 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
   // Scanner modal state
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
 
-  const timerRef = useRef<any>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const initTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const operation = useRef<AbortController | null>(null);
+  const importBusy = useRef(false);
 
   const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
   }, []);
 
-  // Initialize Share Mode: Generate token, pack & upload key bundle, generate QR URL
-  const initShareSession = useCallback(async () => {
-    if (!user?.id) return;
+  const cancelOperation = useCallback(() => {
+    operation.current?.abort();
+    operation.current = null;
+    if (initTimer.current) clearTimeout(initTimer.current);
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    initTimer.current = null;
+    copyTimer.current = null;
     clearTimer();
+  }, [clearTimer]);
+
+  const initShareSession = useCallback(() => {
+    if (!visible || !allowed || role !== 'sender' || !e2eeKeyPair) return;
+    cancelOperation();
+    const controller = new AbortController();
+    operation.current = controller;
     setIsLoading(true);
     setErrorMsg(null);
     setIsExpired(false);
     setCopied(false);
-
-    // Run crypto & network upload asynchronously after modal frame renders
-    const timer = setTimeout(async () => {
+    setSessionToken('');
+    setQrUrl('');
+    // Let the modal render before wrapping the key.
+    initTimer.current = setTimeout(async () => {
+      initTimer.current = null;
       try {
-        // 1. Get local keypair (prefer memory cache)
-        let keyPair = e2eeKeyPair;
-        if (!keyPair) {
-          keyPair = await secureStorage.getE2EEKeyPair(user.id);
-        }
-
-        if (!keyPair || !keyPair.privateKeyHex || !keyPair.publicKeyJWK) {
-          throw new Error('Kunci E2EE lokal belum dibuat atau tidak ditemukan.');
-        }
-
-        // 2. Generate random 32-byte session token
-        const token = generateTransferSessionToken();
-        setSessionToken(token);
-
-        // 3. Encrypt and upload key bundle
-        const { expires_in } = await uploadTransferSession(keyPair, token);
-        const ttl = expires_in || 300;
-        setTimeLeft(ttl);
-
-        // 4. Set QR code URL
-        const url = `https://chat.wuzzhub.id/transfer?token=${token}`;
-        setQrUrl(url);
-
-        // 5. Start countdown timer
+        if (controller.signal.aborted) return;
+        const code = generateTransferSessionToken();
+        const { expires_in } = await uploadTransferSession(e2eeKeyPair, code);
+        if (controller.signal.aborted) return;
+        const deadline = Date.now() + (expires_in || 300) * 1000;
+        setSessionToken(code);
+        setTimeLeft(expires_in || 300);
+        setQrUrl(`https://chat.wuzzhub.id/transfer?token=${code}`);
         timerRef.current = setInterval(() => {
-          setTimeLeft((prev) => {
-            if (prev <= 1) {
-              clearTimer();
-              setIsExpired(true);
-              return 0;
-            }
-            return prev - 1;
-          });
+          const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+          setTimeLeft(remaining);
+          if (!remaining) {
+            clearTimer();
+            setIsExpired(true);
+          }
         }, 1000);
       } catch (err: any) {
-        console.error('[DeviceTransferModal] Failed to init share session:', err);
-        setErrorMsg(err?.detail || err?.message || 'Gagal membuat sesi transfer kunci.');
+        if (!controller.signal.aborted) setErrorMsg(err?.detail || err?.message || 'Gagal membuat sesi transfer kunci.');
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     }, 100);
+  }, [visible, allowed, role, e2eeKeyPair, cancelOperation, clearTimer]);
 
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [user?.id, e2eeKeyPair, clearTimer]);
-
-  // Effect to reset and handle visible/mode changes
   useEffect(() => {
-    if (visible) {
-      setIsSuccess(false);
-      setErrorMsg(null);
-      setActiveTab(initialMode);
-      if (initialMode === 'share') {
-        initShareSession();
-      }
-    } else {
-      clearTimer();
-      setSessionToken('');
-      setQrUrl('');
-      setManualToken('');
-      setIsScannerOpen(false);
-    }
-
-    return () => {
-      clearTimer();
-    };
-  }, [visible, initialMode, initShareSession, clearTimer]);
-
-  const handleTabChange = (tab: DeviceTransferMode) => {
-    if (isLoading) return;
+    setIsSuccess(false);
     setErrorMsg(null);
-    setActiveTab(tab);
-    if (tab === 'share' && (!sessionToken || isExpired)) {
-      initShareSession();
+    setIsLoading(false);
+    setSessionToken('');
+    setQrUrl('');
+    setManualToken('');
+    setIsScannerOpen(false);
+    setActiveTab(initialMode);
+    if (visible && allowed) {
+      if (role === 'sender') initShareSession();
+      else operation.current = new AbortController();
     }
+    return cancelOperation;
+  }, [visible, allowed, role, initialMode, token, user?.id, initShareSession, cancelOperation]);
+
+  const handleClose = () => {
+    cancelOperation();
+    onClose();
   };
 
-  // Copy token to clipboard
+  const handleTabChange = (tab: DeviceTransferMode) => {
+    if (isLoading || role !== 'receiver' || !allowed) return;
+    setErrorMsg(null);
+    setActiveTab(tab);
+  };
+
   const handleCopyToken = async () => {
-    if (!sessionToken) return;
+    if (!allowed || role !== 'sender' || !sessionToken || isExpired) return;
+    const current = operation.current;
     try {
       await Clipboard.setStringAsync(sessionToken);
+      if (!current || current.signal.aborted) return;
       setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 3000);
     } catch {
-      showAlert('Gagal', 'Tidak dapat menyalin token ke papan klip.');
+      if (current && !current.signal.aborted) showAlert('Gagal', 'Tidak dapat menyalin kode ke papan klip.');
     }
   };
 
   // Handle scanned QR data from CameraQRScannerModal
   const handleScanResult = async (scannedData: string) => {
     setIsScannerOpen(false);
-    if (!user?.id || !deviceId) {
+    if (!allowed || role !== 'receiver' || !user?.id || !deviceId) {
       setErrorMsg('Identitas perangkat atau akun pengguna tidak valid.');
       return;
     }
@@ -215,31 +213,35 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
 
   // Consume and import keypair
   const executeConsumeTransfer = async (token: string) => {
-    if (!user?.id || !deviceId) {
+    if (!allowed || role !== 'receiver' || !user?.id || !deviceId) {
       setErrorMsg('Identitas perangkat atau akun pengguna tidak valid.');
       return;
     }
 
+    const controller = operation.current;
+    if (importBusy.current || !controller || controller.signal.aborted) return;
+    importBusy.current = true;
     setIsLoading(true);
     setErrorMsg(null);
 
     try {
-      const importedPair = await consumeAndImportTransfer(user.id, token, deviceId);
-      await importTransferredKeyPair(importedPair);
+      await importTransferredKeyPair(token, controller.signal);
+      if (controller.signal.aborted) return;
       setIsSuccess(true);
       if (onTransferSuccess) {
         onTransferSuccess();
       }
     } catch (err: any) {
-      console.error('[DeviceTransferModal] Consume transfer failed:', err);
+      if (controller.signal.aborted) return;
       const msg =
         err?.detail ||
         err?.message ||
         'Gagal menyinkronkan kunci keamanan. Pastikan kode QR masih aktif dan belum kedaluwarsa.';
-      setErrorMsg(msg);
+      setErrorMsg(`${msg} Jika kode sudah digunakan, buat kode baru di perangkat sumber.`);
       showAlert('Transfer Kunci Gagal', msg);
     } finally {
-      setIsLoading(false);
+      importBusy.current = false;
+      if (!controller.signal.aborted) setIsLoading(false);
     }
   };
 
@@ -275,26 +277,27 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
       transparent
       animationType="slide"
       visible={visible}
-      onRequestClose={onClose}
+      statusBarTranslucent
+      onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.overlay}
       >
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleRow}>
               <View style={styles.headerIconWrapper}>
                 <IconText style={styles.headerIcon}>📱</IconText>
               </View>
-              <View>
-                <Text style={styles.headerTitle}>Tautkan Perangkat</Text>
-                <Text style={styles.headerSubtitle}>Multi-Device Zero-Knowledge E2EE</Text>
+              <View style={styles.headerText}>
+                <Text style={styles.headerTitle}>{role === 'sender' ? 'Bagikan Kunci Enkripsi' : 'Terima Kunci Enkripsi'}</Text>
+                <Text style={styles.headerSubtitle}>Transfer kunci untuk akun yang sama</Text>
               </View>
             </View>
             <TouchableOpacity
-              onPress={onClose}
+              onPress={handleClose}
               style={styles.closeButton}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
@@ -303,36 +306,30 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
           </View>
 
           {/* Success View */}
-          {isSuccess ? (
+          {!allowed && !isSuccess ? (
+            <View style={styles.tabContent}>
+              <Text style={styles.description}>Transfer belum tersedia. Membagikan kunci memerlukan kunci aktif; menerima kunci hanya tersedia saat terjadi konflik kunci setelah login.</Text>
+            </View>
+          ) : isSuccess ? (
             <View style={styles.successContainer}>
               <View style={styles.successIconCircle}>
                 <IconText style={styles.successIcon}>✓</IconText>
               </View>
               <Text style={styles.successTitle}>Kunci E2EE Berhasil Disinkronkan!</Text>
               <Text style={styles.successMessage}>
-                Perangkat ini sekarang terhubung penuh secara aman. Seluruh pesan terenkripsi dapat dibaca tanpa mereset riwayat obrolan Anda.
+                Kunci enkripsi berhasil diterima. Perangkat ini siap digunakan dengan kunci yang sama seperti perangkat sumber.
               </Text>
               <Button
                 title="Selesai"
                 variant="primary"
-                onPress={onClose}
+                onPress={handleClose}
                 style={styles.fullWidthButton}
               />
             </View>
           ) : (
             <>
               {/* Segmented Tab Controls */}
-              <View style={styles.tabContainer}>
-                <TouchableOpacity
-                  style={[styles.tabButton, activeTab === 'share' && styles.tabButtonActive]}
-                  onPress={() => handleTabChange('share')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.tabText, activeTab === 'share' && styles.tabTextActive]}>
-                    Bagi Kunci
-                  </Text>
-                </TouchableOpacity>
-
+              {role === 'receiver' && <View style={styles.tabContainer}>
                 <TouchableOpacity
                   style={[styles.tabButton, activeTab === 'scan' && styles.tabButtonActive]}
                   onPress={() => handleTabChange('scan')}
@@ -352,7 +349,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                     Input Kode
                   </Text>
                 </TouchableOpacity>
-              </View>
+              </View>}
 
               <ScrollView
                 style={styles.contentScroll}
@@ -368,10 +365,10 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                 ) : null}
 
                 {/* TAB 1: SHARE MODE (SENDER) */}
-                {activeTab === 'share' && (
+                {role === 'sender' && (
                   <View style={styles.tabContent}>
                     <Text style={styles.description}>
-                      Pindai kode QR ini dari perangkat lain (Laptop/HP baru) untuk menyinkronkan kunci enkripsi E2EE secara aman.
+                      Login ke akun yang sama di perangkat lain, lalu pindai QR ini dari pilihan Transfer dari Perangkat Lain saat terjadi konflik kunci. QR ini memindahkan kunci enkripsi, bukan untuk login.
                     </Text>
 
                     {isLoading ? (
@@ -419,6 +416,8 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                           </Text>
                         </TouchableOpacity>
                       </View>
+                    ) : errorMsg ? (
+                      <Button title="Coba Buat Kode Lagi" onPress={initShareSession} style={styles.actionButton} />
                     ) : null}
 
                     <View style={styles.infoCard}>
@@ -431,7 +430,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                 )}
 
                 {/* TAB 2: SCAN MODE (RECEIVER) */}
-                {activeTab === 'scan' && (
+                {role === 'receiver' && activeTab === 'scan' && (
                   <View style={styles.tabContent}>
                     <Text style={styles.description}>
                       Gunakan kamera HP untuk memindai kode QR yang ditampilkan di perangkat lama Anda (Web, Laptop, atau HP lain).
@@ -452,7 +451,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                           <Text style={styles.stepBadgeText}>2</Text>
                         </View>
                         <Text style={styles.stepText}>
-                          Pilih menu <Text style={styles.boldText}>Tautkan Perangkat</Text> ➔ <Text style={styles.boldText}>Bagi Kunci</Text>.
+                          Pilih menu <Text style={styles.boldText}>Transfer Kunci ke Perangkat Lain</Text>.
                         </Text>
                       </View>
 
@@ -469,7 +468,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                     <Button
                       title={isLoading ? 'Menyinkronkan Kunci...' : 'Buka Kamera Pemindai'}
                       variant="primary"
-                      onPress={() => setIsScannerOpen(true)}
+                      onPress={() => { if (allowed && role === 'receiver' && !importBusy.current) setIsScannerOpen(true); }}
                       isLoading={isLoading}
                       disabled={isLoading}
                       style={styles.actionButton}
@@ -478,7 +477,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
                 )}
 
                 {/* TAB 3: INPUT MODE (FALLBACK) */}
-                {activeTab === 'input' && (
+                {role === 'receiver' && activeTab === 'input' && (
                   <View style={styles.tabContent}>
                     <Text style={styles.description}>
                       Jika kamera tidak dapat digunakan, tempelkan kode token transfer 64-karakter dari perangkat lama Anda di bawah ini:
@@ -516,10 +515,10 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
       </KeyboardAvoidingView>
 
       {/* Camera Live Scanner Sub-Modal (Lazy mounted) */}
-      {isScannerOpen && (
+      {allowed && role === 'receiver' && isScannerOpen && (
         <CameraQRScannerModal
           visible={isScannerOpen}
-          title="Pindai QR Kode Perangkat"
+          title="Pindai QR Transfer Kunci"
           onClose={() => setIsScannerOpen(false)}
           onScan={handleScanResult}
         />
@@ -541,7 +540,6 @@ const makeStyles = (colors: ColorTokens) => {
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
     maxHeight: '90%',
-    paddingBottom: Platform.OS === 'ios' ? spacing.xl : spacing.md,
     ...shadows.modal,
   },
   header: {
@@ -554,6 +552,7 @@ const makeStyles = (colors: ColorTokens) => {
     borderBottomColor: colors.borderDefault,
   },
   headerTitleRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
@@ -572,6 +571,10 @@ const makeStyles = (colors: ColorTokens) => {
   headerTitle: {
     ...typography.h3,
     color: colors.textPrimary,
+  },
+  headerText: {
+    flex: 1,
+    paddingRight: spacing.sm,
   },
   headerSubtitle: {
     ...typography.caption,

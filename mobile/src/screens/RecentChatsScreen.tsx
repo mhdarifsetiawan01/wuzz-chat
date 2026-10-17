@@ -679,8 +679,8 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
 
           <ActionMenuItem
             icon="💻"
-            label="Tautkan Perangkat"
-            subtitle="Pindai QR untuk sinkronisasi perangkat"
+            label="Transfer Kunci ke Perangkat Lain"
+            subtitle="Bagikan kunci enkripsi melalui QR atau kode"
             onPress={() => {
               setIsActionMenuOpen(false);
               setIsDeviceTransferModalOpen(true);
@@ -715,8 +715,8 @@ export const RecentChatsScreen: React.FC<RecentChatsScreenProps> = ({
 
       {/* Multi-Device QR Code E2EE Key Transfer Modal */}
       <DeviceTransferModal
+        role="sender"
         visible={isDeviceTransferModalOpen}
-        initialMode="share"
         onClose={() => setIsDeviceTransferModalOpen(false)}
       />
 

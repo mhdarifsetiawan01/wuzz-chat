@@ -1,5 +1,14 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
+### Pemisahan pengirim/penerima transfer kunci mobile (18 Oktober 2026)
+
+- Pengaturan dan menu aksi Obrolan memakai nama **Transfer Kunci ke Perangkat Lain**, membuka pengirim (`ready` + keypair) dengan QR/salin kode. Penerima hanya dibuka dari konflik kunci setelah login, menampilkan Pindai QR/Input Kode.
+- AuthContext mengimpor berdasarkan kode transfer, menolak perangkat yang sudah siap, menyerialkan impor, dan memeriksa sesi/status/pembatalan sebelum serta setelah consume/dekripsi dan selama penyimpanan. Service consume tidak lagi menulis kunci; pasangan P-256 hasil dekripsi divalidasi.
+- Penulisan/reset/penghapusan keypair SecureStore diserialkan; penulisan parsial gagal/dibatalkan dipulihkan, cleanup bersyarat mempertahankan kunci reset yang lebih baru. Timer modal dibersihkan dan hasil upload lama diabaikan; consume yang sudah diproses server tetap dapat menghabiskan token.
+- Verifikasi otomatis: mobile `npx tsc --noEmit` PASS; `npm run test:unit` PASS (37/37 berkas, termasuk 3 berkas regresi transfer); frontend `npm run build` PASS di luar sandbox setelah Next.js gagal membaca konfigurasi TypeScript di sandbox; backend `go test -v ./...` PASS.
+- Verifikasi HP setelah pengguna memasang ulang APK (Android 11, v1.38.0 build 66): label menu Pengaturan/Obrolan sesuai; modal pengirim menampilkan QR, countdown, dan salin kode tanpa Pindai QR/Input Kode; indikator salin berhasil; Back dan X menutup modal; buka ulang termasuk tutup saat loading tidak memicu error ReactNativeJS/AndroidRuntime pada log yang diperiksa. QR baru berhasil dimuat dari menu Obrolan. Penerimaan pada sesi konflik, expiry penuh 5 menit, mode gelap, dan iOS belum diuji langsung.
+- Panduan integrasi mobile, primer mobile, catatan keamanan, dan rencana disinkronkan. Pengguna menyatakan selesai dan menyetujui commit di `dev` lalu merge lokal ke `main`, tanpa push. Rencana diarsipkan dan direktori rencana aktif dikembalikan ke standby.
+
 ### Perbaikan crash Perangkat Tertaut mobile (18 Oktober 2026)
 
 - Reproduksi di HP: Pengaturan → Perangkat Tertaut memicu `Rendered more hooks than during the previous render` pada `DeviceTransferModal` (log ADB).

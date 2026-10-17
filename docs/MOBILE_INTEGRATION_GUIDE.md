@@ -285,19 +285,23 @@ Untuk menghasilkan 30-digit Safety Number yang identik dengan Web:
 
 Klien mobile yang ingin memindahkan atau membagikan keypair E2EE:
 
-`DeviceTransferModal` dipasang oleh layar Pengaturan meski tertutup. Semua hook harus tetap dipanggil sebelum guard `if (!visible) return null`, agar membuka/menutup menu **Perangkat Tertaut** tidak mengubah urutan hook dan cleanup timer tetap berjalan.
+`DeviceTransferModal` dipasang oleh layar Pengaturan meski tertutup. Semua hook tetap dipanggil sebelum guard `if (!visible) return null`. Menu Pengaturan dan menu aksi Obrolan bernama **Transfer Kunci ke Perangkat Lain**, membuka `role="sender"` hanya bila sesi aktif dan E2EE `ready` dengan keypair tersedia. Pengirim menampilkan QR/salin kode tanpa tab penerimaan.
+
+Dialog konflik kunci setelah login membuka `role="receiver"`: hanya **Pindai QR** dan **Input Kode**, tanpa Bagi Kunci. Login ulang dengan kunci cocok dan pendaftaran dengan kunci baru yang berhasil tidak memerlukan penerimaan. QR memindahkan kunci untuk akun yang sama; bukan sarana login atau daftar sesi perangkat.
 
 1. **Perangkat Sumber (Pengirim Kunci)**:
    - Generate token acak 32-byte (Hex).
-   - Derivasi kunci AES-256-GCM menggunakan PBKDF2 (`hash=SHA256, iter=100000, salt=random16Bytes`).
+   - Bundle v2 memakai HKDF-SHA256 (`info=wuzz-transfer-aes-v1`, salt acak 16 byte); penerima tetap mendukung bundle v1 PBKDF2 (`hash=SHA256, iter=100000`).
    - Enkripsi bundle `{"privateKeyJWK": "...", "publicKeyJWK": "...", "createdAt": 123456}`.
    - Panggil `POST /api/users/transfer/create` dengan `{ session_token, encrypted_bundle }` (Bearer JWT Auth).
    - Render QR code berisi URL: `https://chat.wuzzhub.id/transfer?token=<session_token>`.
 2. **Perangkat Target (Penerima Kunci)**:
    - Pindai QR code via kamera native / MLKit Vision Scanner.
    - Panggil `POST /api/users/transfer/consume` dengan `{ session_token, device_id }` (Bearer JWT Auth).
-   - Dekripsi ciphertext lokal dengan PBKDF2 token yang sama.
-   - Simpan private key ke Android Keystore / iOS Keychain.
+   - Dekripsi ciphertext lokal dengan token yang sama dan KDF sesuai versi bundle; validasi pasangan kunci P-256.
+   - `consumeAndDecryptTransfer` tidak menyimpan. AuthContext mengizinkan impor hanya pada sesi aktif berstatus `conflict` tanpa keypair, memeriksa sesi/status sebelum dan sesudah consume serta selama penulisan ke Android Keystore / iOS Keychain.
+   - Impor diserialkan. Keluar sesi, reset, sesi digantikan, penangguhan/pembekuan, atau menutup modal membatalkan penerapan hasil terlambat. Penulisan keypair/reset/penghapusan memakai antrean yang sama; penulisan parsial/gagal/dibatalkan dipulihkan sebelum antrean berikutnya berjalan.
+   - Request yang sudah dikirim mengikuti timeout API yang ada; pembatalan lokal mengabaikan hasil, tidak membatalkan consume yang sudah diproses server. Bila kode sudah terpakai, buat kode baru di perangkat sumber; tidak ada retry otomatis consume. Timer modal dibersihkan saat tutup/unmount.
 
 > **⚠️ Catatan Platform Web PWA vs Native**:
 > Pada **Android PWA WebAPK**, izin kamera `getUserMedia()` terkadang tidak memicu dialog permission Android karena batasan `Permissions Policy` di lingkungan browser. Solusi sementara yang diterapkan di klien web adalah: (1) **Pre-Warm Permission Strategy** (panggil `getUserMedia` sebelum async chain), (2) **Fallback tombol Native Camera Intent** (`<input capture="environment">`), dan (3) deklarasi `"permissions": ["camera"]` di `manifest.json`. Untuk **Android Native App (Kotlin)**, izin kamera ditangani penuh via `ActivityResultContracts.RequestPermission` dan MLKit Barcode Scanner — tidak ada batasan WebAPK. Ini menjadi argumen kuat untuk investasi Android Native App di masa depan.

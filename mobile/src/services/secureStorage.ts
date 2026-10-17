@@ -39,6 +39,8 @@ async function isSecureStoreAvailable(): Promise<boolean> {
  * (SecureStore tidak bisa menyebutkan isi). Read-modify-write indeks diserialkan lewat antrean.
  */
 const roomKeyIndexLock = createExclusiveQueue();
+// Keep transfer rollback, reset and session-replacement deletion from interleaving.
+const keyPairWriteLock = createExclusiveQueue();
 
 function roomKeyEntryName(userId: string, roomId: string): string {
   // SecureStore hanya menerima [A-Za-z0-9._-]
@@ -165,17 +167,34 @@ export const secureStorage = {
   async setE2EEKeyPair(
     userId: string,
     keyPairOrHex: { privateKeyHex: string; publicKeyJWK: string } | string,
-    publicKeyJWK?: string
+    publicKeyJWK?: string,
+    assertCurrent: () => void = () => {}
   ): Promise<void> {
     const privHex = typeof keyPairOrHex === 'string' ? keyPairOrHex : keyPairOrHex.privateKeyHex;
     const pubJWK = typeof keyPairOrHex === 'string' ? (publicKeyJWK || '') : keyPairOrHex.publicKeyJWK;
-    // Kunci privat berganti (reset/regenerasi): kunci turunan lama tak berlaku lagi, hapus agar tidak tersisa
-    const previousPriv = await this.getItem(`${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`);
-    if (previousPriv && previousPriv !== privHex) {
-      await this.clearDerivedRoomKeys(userId);
-    }
-    await this.setItem(`${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`, privHex);
-    await this.setItem(`${STORAGE_KEYS.E2EE_PUBLIC_KEY_PREFIX}${userId}`, pubJWK);
+    return keyPairWriteLock(async () => {
+      assertCurrent();
+      const privateName = `${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`;
+      const publicName = `${STORAGE_KEYS.E2EE_PUBLIC_KEY_PREFIX}${userId}`;
+      const previousPriv = await this.getItem(privateName);
+      const previousPub = await this.getItem(publicName);
+      assertCurrent();
+      if (previousPriv && previousPriv !== privHex) await this.clearDerivedRoomKeys(userId);
+      assertCurrent();
+      try {
+        await this.setItem(privateName, privHex);
+        assertCurrent();
+        await this.setItem(publicName, pubJWK);
+        assertCurrent();
+      } catch (error) {
+        // SecureStore stores two entries; restore both on failure/cancellation while holding the lock.
+        if (previousPriv === null) await this.deleteItem(privateName);
+        else await this.setItem(privateName, previousPriv);
+        if (previousPub === null) await this.deleteItem(publicName);
+        else await this.setItem(publicName, previousPub);
+        throw error;
+      }
+    });
   },
 
   async getE2EEKeyPair(userId: string): Promise<{ privateKeyHex: string; publicKeyJWK: string } | null> {
@@ -187,10 +206,14 @@ export const secureStorage = {
     return null;
   },
 
-  async deleteE2EEKeyPair(userId: string): Promise<void> {
-    await this.deleteItem(`${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`);
-    await this.deleteItem(`${STORAGE_KEYS.E2EE_PUBLIC_KEY_PREFIX}${userId}`);
-    await this.clearDerivedRoomKeys(userId);
+  async deleteE2EEKeyPair(userId: string, expectedPrivateKey?: string): Promise<void> {
+    return keyPairWriteLock(async () => {
+      const privateName = `${STORAGE_KEYS.E2EE_PRIVATE_KEY_PREFIX}${userId}`;
+      if (expectedPrivateKey !== undefined && await this.getItem(privateName) !== expectedPrivateKey) return;
+      await this.deleteItem(privateName);
+      await this.deleteItem(`${STORAGE_KEYS.E2EE_PUBLIC_KEY_PREFIX}${userId}`);
+      await this.clearDerivedRoomKeys(userId);
+    });
   },
 
   async getDerivedRoomKey(userId: string, roomId: string): Promise<string | null> {

@@ -1,3 +1,3 @@
 # Task Checklist — Standby
 
-- [x] Milestone M-Mobile-12 completed and verified.
+Standby — Transfer kunci mobile selesai dan diarsipkan di `docs/plans/archived/18-10-2026-mobile-key-transfer-roles/`. Menunggu instruksi berikutnya.

@@ -3,7 +3,7 @@
  * Handles Zero-Knowledge cryptographic key wrapping & unwrapping for QR device migration.
  * 
  * Cryptographic Standard:
- * - KDF: PBKDF2 (RFC 2898) with HMAC-SHA256, 100,000 iterations, 16-byte random salt.
+ * - KDF: HKDF-SHA256 (v2); legacy PBKDF2-HMAC-SHA256, 100,000 iterations (v1).
  * - Cipher: AES-256-GCM (NIST SP 800-38D) with 12-byte CSPRNG IV and 16-byte tag.
  * - Interoperability: 100% bit-exact parity with frontend/lib/crypto/keyTransfer.ts.
  */
@@ -22,7 +22,6 @@ import {
   type E2EEKeyPair,
   type JWKPublicKey,
 } from './crypto';
-import { secureStorage } from './secureStorage';
 import { createTransferSession, consumeTransferSession } from '../api/transfer';
 
 export interface EncryptedTransferPayload {
@@ -116,6 +115,13 @@ export function jwkToKeyPair(privateKeyJWKString: string, publicKeyJWKString: st
   }
 
   const privBytes = base64UrlToBytes(privJWK.d);
+  const publicJWK = typeof publicKeyJWKString === 'string' ? JSON.parse(publicKeyJWKString) : publicKeyJWKString;
+  const point = p256.getPublicKey(privBytes, false);
+  if (privBytes.length !== 32 || publicJWK.kty !== 'EC' || publicJWK.crv !== 'P-256'
+    || publicJWK.x !== bytesToBase64Url(point.slice(1, 33))
+    || publicJWK.y !== bytesToBase64Url(point.slice(33, 65))) {
+    throw new Error('Pasangan kunci transfer tidak valid.');
+  }
   const privateKeyHex = Array.from(privBytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
@@ -217,10 +223,9 @@ export async function uploadTransferSession(
 }
 
 /**
- * Consume transfer session from server and save keypair to Keystore (Target Device / Receiver).
+ * Consume and decrypt only. AuthContext owns the guarded write to Keystore.
  */
-export async function consumeAndImportTransfer(
-  userId: string,
+export async function consumeAndDecryptTransfer(
   sessionToken: string,
   deviceId: string
 ): Promise<E2EEKeyPair> {
@@ -230,7 +235,6 @@ export async function consumeAndImportTransfer(
   }
 
   const keyPair = await decryptKeyBundleFromTransfer(res.encrypted_bundle, sessionToken);
-  await secureStorage.setE2EEKeyPair(userId, keyPair);
   return keyPair;
 }
 

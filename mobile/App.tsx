@@ -105,6 +105,9 @@ function AppContent() {
   const [googlePending, setGooglePending] = useState<GooglePending | null>(null);
   const [loginMessage, setLoginMessage] = useState<string | null>(null);
   const [isKeyTransferModalOpen, setIsKeyTransferModalOpen] = useState<boolean>(false);
+  useEffect(() => {
+    if (e2eeStatus !== 'conflict') setIsKeyTransferModalOpen(false);
+  }, [e2eeStatus]);
   const lastHandledUrlRef = useRef<{ url: string; time: number } | null>(null);
 
   // Kaitkan laporan crash dengan ID akun acak (UUID); kosongkan saat logout/hapus akun. Tanpa username/nama.
@@ -510,6 +513,7 @@ function AppContent() {
       {/* Global E2EE Key Transfer Modal */}
       {isKeyTransferModalOpen && (
         <DeviceTransferModal
+          role="receiver"
           visible={isKeyTransferModalOpen}
           initialMode="scan"
           onClose={() => setIsKeyTransferModalOpen(false)}

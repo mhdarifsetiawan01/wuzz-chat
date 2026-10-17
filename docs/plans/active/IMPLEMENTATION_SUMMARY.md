@@ -1,5 +1,3 @@
 # Active Implementation Summary
 
-- **Status**: Standby / Idle (Milestone M-Mobile-14 Completed & Archived)
-- **Active Workspace**: None
-- **Next Milestone**: Awaiting User Direction
+Standby — Transfer kunci mobile selesai dan diarsipkan di `docs/plans/archived/18-10-2026-mobile-key-transfer-roles/`. Menunggu instruksi berikutnya.
