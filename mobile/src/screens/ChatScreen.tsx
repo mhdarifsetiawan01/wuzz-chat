@@ -169,6 +169,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     getRoomMessages,
     hydrateRoomFromLocalDB,
     setRoomMessages,
+    removeMessage,
+    updateMessage,
     markRoomLoading,
     hasMoreOlderMessages,
     isLoadingOlderMessages,
@@ -1377,6 +1379,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       try {
         await messagesApi.deleteMessage(messageId, roomId, type);
+        // REST for_me tidak menyiarkan event WebSocket. Konfirmasi juga ke cache
+        // persisten; setMessages di atas hanya mengubah tampilan optimistik.
+        if (type === 'for_me') {
+          removeMessage(roomId, messageId);
+        } else {
+          updateMessage(roomId, messageId, {
+            is_deleted: true,
+            content: '🚫 Pesan ini telah dihapus',
+          });
+        }
       } catch (err: any) {
         console.warn('[ChatScreen] Delete message failed, rolling back:', err);
         // Rollback state on error
@@ -1384,7 +1396,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         showAlert('Gagal Menghapus', err.detail || err.message || 'Tidak dapat menghapus pesan.');
       }
     },
-    [roomId, messages, replyingTo?.id, editingMessage?.id]
+    [roomId, messages, replyingTo?.id, editingMessage?.id, removeMessage, updateMessage, setMessages]
   );
 
   // 7. Handle Press Quote (Scroll to target message with highlight pulse)

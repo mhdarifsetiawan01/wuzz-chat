@@ -51,7 +51,7 @@ const fakeDb = {
 };
 state.sqliteDb = fakeDb;
 
-const FILES = ['services/sqliteStorage.ts', 'services/exclusiveQueue.ts', 'api/types.ts'];
+const FILES = ['services/sqliteStorage.ts', 'services/exclusiveQueue.ts', 'api/types.ts', 'utils/historyMerge.ts'];
 const coldStart = () => loadFresh(FILES).sqliteStorage;
 
 const U = 'u1';

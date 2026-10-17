@@ -538,6 +538,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // Hasil rekonsiliasi untuk disimpan; diisi di dalam updater (sinkron) tetapi DITULIS ke SQLite di luarnya
       let reconciled: Message[] | null = null;
+      let serverWindow: Message[] = [];
 
       setMessagesByRoom((prev) => {
         const existing = prev[roomId] || [];
@@ -615,6 +616,17 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const merged = mergeHistoryWindow(existing, mapped);
 
         reconciled = merged;
+        serverWindow = mapped;
+
+        // Jangan biarkan debounce receipt/edit menulis kembali pesan yang baru
+        // dibuang oleh riwayat server sebelum flush berikutnya.
+        const pending = persistQueueRef.current.get(roomId);
+        if (pending) {
+          const retained = new Set(mergeHistoryWindow([...pending.values()], mapped).map((m) => m.id));
+          for (const id of pending.keys()) {
+            if (!retained.has(id)) pending.delete(id);
+          }
+        }
 
         return {
           ...prev,
@@ -624,7 +636,7 @@ export const MessageProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // Persist reconciled history to local SQLite disk (saveStoredMessages hanya menulis yang baru/berubah)
       if (user?.id && reconciled) {
-        saveStoredMessages(user.id, roomId, reconciled).catch((err) =>
+        saveStoredMessages(user.id, roomId, reconciled, serverWindow).catch((err) =>
           console.warn('[MessageContext] Failed to persist room messages to SQLite:', err)
         );
       }

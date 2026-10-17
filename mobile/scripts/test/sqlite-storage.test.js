@@ -61,7 +61,7 @@ const fakeDb = {
       return [...store.rows.values()]
         .filter((r) => r.user === user && r.room === room)
         .sort((a, b) => b.created.localeCompare(a.created))
-        .slice(0, limit)
+        .slice(0, limit ?? Infinity)
         .map((r) => ({ raw_json: r.raw }));
     }
     return [];
@@ -78,7 +78,7 @@ const fakeDb = {
 };
 state.sqliteDb = fakeDb;
 
-const FILES = ['services/sqliteStorage.ts', 'services/exclusiveQueue.ts', 'api/types.ts'];
+const FILES = ['services/sqliteStorage.ts', 'services/exclusiveQueue.ts', 'api/types.ts', 'utils/historyMerge.ts'];
 const coldStart = () => loadFresh(FILES).sqliteStorage;
 
 const U = 'u1';
@@ -203,6 +203,54 @@ const reset = () => {
   await st.saveStoredMessages(U, R, msgs.slice(0, 5));
   assert.equal(store.upserts, 1);
   console.log('11. hapus satu pesan                  : baris terhapus; simpan ulang menulis 1 baris');
+
+  // 12. Perbaiki cache lama, bahkan bila pesan hilang tidak masuk hidrasi 50 terbaru.
+  st = coldStart();
+  store.rows.clear();
+  const history = Array.from({ length: 100 }, (_, i) => mk(i));
+  await st.saveStoredMessages(U, R, history);
+  await st.saveStoredMessages('other-user', R, [mk(70)]);
+  await st.saveStoredMessages(U, 'other-room', [mk(71, { id: 'other-message' })]);
+  const window = history.slice(40).filter((m) => m.id !== mk(45).id && m.id !== mk(70).id);
+  const hydrated50 = await st.getStoredMessages(U, R, 50);
+  assert.ok(!hydrated50.some((m) => m.id === mk(45).id));
+  reset();
+  await st.saveStoredMessages(U, R, window, window);
+  assert.equal(store.upserts, 0, 'penghapusan tetap berjalan walau tidak ada UPSERT');
+  assert.ok(!store.rows.has(U + '|' + mk(45).id));
+  assert.ok(!store.rows.has(U + '|' + mk(70).id));
+  assert.ok(store.rows.has(U + '|' + mk(10).id), 'halaman lebih lama tetap ada');
+  assert.ok(store.rows.has('other-user|' + mk(70).id), 'akun lain tidak terpengaruh');
+  assert.ok(store.rows.has(U + '|other-message'), 'room lain tidak terpengaruh');
+  st = coldStart();
+  const afterRestart = await st.getStoredMessages(U, R, 500);
+  assert.equal(afterRestart.length, 98);
+  assert.ok(!afterRestart.some((m) => m.id === mk(45).id || m.id === mk(70).id));
+  console.log('12. rekonsiliasi cache lama            : pesan terhapus tidak muncul setelah cold start; halaman lama & isolasi aman');
+
+  // 13. Riwayat kosong harus menghapus cache, bukan berhenti di guard messages.length.
+  await st.saveStoredMessages(U, R, [], []);
+  st = coldStart();
+  assert.deepEqual(await st.getStoredMessages(U, R, 500), []);
+  assert.ok(store.rows.has('other-user|' + mk(70).id));
+  console.log('13. riwayat server kosong             : cache room kosong setelah cold start');
+
+  // 14. Pagination / pembaruan biasa tidak boleh dianggap sebagai snapshot otoritatif.
+  await st.saveStoredMessages(U, R, history.slice(0, 10));
+  await st.saveStoredMessages(U, R, [mk(5, { status: 'read' })]);
+  assert.equal((await st.getStoredMessages(U, R, 500)).length, 10);
+  console.log('14. pembaruan satu pesan              : pesan lain tidak terhapus');
+
+  // 15. Tanda tangan baris yang dibuang harus dilupakan agar rollback/restore bisa menulisnya lagi.
+  const shortWindow = history.slice(0, 10).filter((m) => m.id !== mk(4).id);
+  await st.saveStoredMessages(U, R, shortWindow, shortWindow);
+  assert.ok(!store.rows.has(U + '|' + mk(4).id));
+  reset();
+  await st.saveStoredMessages(U, R, [mk(4)]);
+  assert.equal(store.upserts, 1);
+  assert.ok(store.rows.has(U + '|' + mk(4).id));
+  console.log('15. tanda tangan pesan terbuang        : pemulihan menulis kembali baris');
+
 })().catch((e) => {
   console.error('GAGAL:', e);
   process.exit(1);
