@@ -4,7 +4,7 @@
  * Conforms to frontend/DESIGN.md & Aurora Dark Theme.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,14 +14,19 @@ import {
   FlatList,
   ActivityIndicator,
   Dimensions,
-  Share,
   StatusBar,
 } from 'react-native';
 import { Image } from 'expo-image';
+import * as Sharing from 'expo-sharing';
+import { CachedChatImage } from './CachedChatImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
 import { getRoomMediaMessages } from '../services/sqliteStorage';
 import { mediaCache } from '../services/mediaCache';
+import { acknowledgeCachedMedia } from '../services/mediaReceipt';
+import { mediaDownloadFeedback } from '../utils/mediaDownloadFeedback';
+import { mediaApi } from '../api/media';
+import { showAlert } from '../services/dialog';
 import { MediaViewerModal } from './MediaViewerModal';
 import { VideoPlayerModal } from './VideoPlayerModal';
 import { getVideoThumbnailUrl, isVideoMessage } from '../utils/videoMedia';
@@ -61,6 +66,30 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
   // Selected media for full screen viewer
   const [selectedViewerMedia, setSelectedViewerMedia] = useState<Message | null>(null);
   const [resolvedViewerUri, setResolvedViewerUri] = useState<string | null>(null);
+  const [mediaDownload, setMediaDownload] = useState<{ id: string; progress: number } | null>(null);
+  const openingRef = useRef(false);
+  const viewerRequestRef = useRef(0);
+  const requestControllerRef = useRef<AbortController | null>(null);
+
+  // A completed download may stay cached after closing, but must never reopen an old viewer.
+  const resetViewer = useCallback(() => {
+    viewerRequestRef.current++;
+    requestControllerRef.current?.abort();
+    openingRef.current = false;
+    setSelectedViewerMedia(null);
+    setResolvedViewerUri(null);
+    setMediaDownload(null);
+  }, []);
+
+  useEffect(() => {
+    resetViewer();
+    return () => { viewerRequestRef.current++; requestControllerRef.current?.abort(); };
+  }, [visible, roomId, userId, resetViewer]);
+
+  const handleClose = () => {
+    resetViewer();
+    onClose();
+  };
 
   // Load room media messages
   const loadMedia = useCallback(async () => {
@@ -104,17 +133,45 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
 
   // Open full screen media viewer
   const handleOpenViewer = async (msg: Message) => {
+    if (openingRef.current || !visible) return;
     const rawUrl = (msg as any).local_media_uri || msg.media_url;
     if (!rawUrl) return;
+    openingRef.current = true;
+    const request = ++viewerRequestRef.current;
+    const isCurrent = () => request === viewerRequestRef.current;
+    const isVideo = isVideoMessage({ ...msg, media_url: rawUrl });
+    setResolvedViewerUri(null);
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
 
-    setSelectedViewerMedia(msg);
-
-    // Resolve local cache uri if available
+    // Video uses the same persistent cache and in-flight download as the chat bubble.
     try {
       const cached = await mediaCache.getCachedMediaUri(rawUrl, msg.id, msg.file_name);
-      setResolvedViewerUri(cached || rawUrl);
-    } catch {
-      setResolvedViewerUri(rawUrl);
+      if (!isCurrent()) return;
+      if (!cached) setMediaDownload({ id: msg.id, progress: 0 });
+      const uri = await mediaCache.downloadToCache(rawUrl, msg.id, msg.file_name, {
+        expectedSize: msg.file_size,
+        allowLocalSource: msg.sender_id === userId,
+        signal: controller.signal,
+        onProgress: (progress) => {
+          if (isCurrent() && !cached) setMediaDownload({ id: msg.id, progress });
+        },
+      });
+      if (!isCurrent()) return;
+      setSelectedViewerMedia(msg);
+      setResolvedViewerUri(uri);
+      acknowledgeCachedMedia(msg, userId, mediaApi.acknowledgeMediaDownload).catch(() => {
+        console.warn('[ChatMediaGalleryModal] Media ACK failed');
+      });
+    } catch (err) {
+      if (!isCurrent()) return;
+      const feedback = mediaDownloadFeedback(err, isVideo ? 'Video' : 'Gambar');
+      if (feedback) showAlert(feedback.title, feedback.message);
+    } finally {
+      if (isCurrent()) {
+        openingRef.current = false;
+        setMediaDownload(null);
+      }
     }
   };
 
@@ -127,10 +184,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
   );
 
   // Close media viewer
-  const handleCloseViewer = () => {
-    setSelectedViewerMedia(null);
-    setResolvedViewerUri(null);
-  };
+  const handleCloseViewer = resetViewer;
 
   // Format file size helper
   const formatFileSize = (bytes?: number) => {
@@ -157,18 +211,43 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
     }
   };
 
-  // Share file action
+  // Download first, then export a read-only file URI through the platform share sheet.
   const handleShareFile = async (msg: Message) => {
-    const url = (msg as any).local_media_uri || msg.media_url;
+    if (openingRef.current || !visible) return;
+    const url = msg.local_media_uri || msg.media_url;
     if (!url) return;
+    openingRef.current = true;
+    const request = ++viewerRequestRef.current;
+    const isCurrent = () => request === viewerRequestRef.current;
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+    setMediaDownload({ id: msg.id, progress: 0 });
+    let stored = false;
     try {
-      await Share.share({
-        title: msg.file_name || 'Berkas',
-        message: msg.file_name ? `${msg.file_name}\n${url}` : url,
-        url,
+      const local = await mediaCache.downloadToCache(url, msg.id, msg.file_name, {
+        expectedSize: msg.file_size,
+        allowLocalSource: msg.sender_id === userId,
+        signal: controller.signal,
+        onProgress: (progress) => { if (isCurrent()) setMediaDownload({ id: msg.id, progress }); },
       });
+      if (!isCurrent()) return;
+      stored = true;
+      setMediaDownload(null);
+      acknowledgeCachedMedia(msg, userId, mediaApi.acknowledgeMediaDownload).catch(() => {});
+      const available = await Sharing.isAvailableAsync();
+      if (!isCurrent()) return;
+      if (available) await Sharing.shareAsync(local, { dialogTitle: msg.file_name || 'Bagikan Berkas' });
+      else showAlert('Berkas Tersimpan', 'Berkas sudah tersedia di penyimpanan aplikasi. Berbagi berkas tidak tersedia pada perangkat ini.');
     } catch (err) {
-      console.warn('[ChatMediaGalleryModal] Share error:', err);
+      if (!isCurrent()) return;
+      if (stored) {
+        showAlert('Gagal Membagikan Berkas', 'Berkas sudah tersimpan. Ketuk lagi untuk membuka pilihan berbagi.');
+      } else {
+        const feedback = mediaDownloadFeedback(err, 'Berkas');
+        if (feedback) showAlert(feedback.title, feedback.message);
+      }
+    } finally {
+      if (isCurrent()) { openingRef.current = false; setMediaDownload(null); }
     }
   };
 
@@ -177,14 +256,27 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
     const uri = (item as any).local_media_uri || item.media_url;
     const isVideo = isVideoMessage({ ...item, media_url: uri });
     const thumbUri = isVideo ? getVideoThumbnailUrl(item.media_url) : uri;
+    const downloading = mediaDownload?.id === item.id;
 
     return (
       <TouchableOpacity
         style={styles.gridItem}
         activeOpacity={0.8}
         onPress={() => handleOpenViewer(item)}
+        disabled={mediaDownload !== null}
+        accessibilityLabel={downloading
+          ? `Mengunduh media ${Math.round(mediaDownload.progress * 100)} persen`
+          : isVideo ? 'Buka video' : 'Buka gambar'}
+        accessibilityState={{ disabled: mediaDownload !== null, busy: downloading }}
       >
-        {thumbUri ? (
+        {!isVideo && uri ? (
+          <CachedChatImage url={uri} messageId={item.id} fileName={item.file_name} fileSize={item.file_size}
+            allowLocalSource={item.sender_id === userId}
+            onPress={() => handleOpenViewer(item)}
+            onReady={() => {
+              acknowledgeCachedMedia(item, userId, mediaApi.acknowledgeMediaDownload).catch(() => {});
+            }} />
+        ) : thumbUri ? (
           <Image source={{ uri: thumbUri }} style={styles.gridImage} contentFit="cover" />
         ) : (
           <View style={[styles.gridImage, { backgroundColor: '#1e293b' }]} />
@@ -192,6 +284,12 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         {isVideo && (
           <View style={styles.videoBadge}>
             <IconText style={styles.videoBadgeIcon}>▶</IconText>
+          </View>
+        )}
+        {downloading && (
+          <View style={styles.downloadOverlay} pointerEvents="none">
+            <ActivityIndicator color={colors.textOnAccent} />
+            <Text style={styles.downloadText}>{Math.round(mediaDownload.progress * 100)}%</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -222,6 +320,8 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         style={styles.fileCard}
         onPress={() => handleShareFile(item)}
         activeOpacity={0.7}
+        disabled={mediaDownload !== null}
+        accessibilityLabel={`Unduh dan bagikan ${fileName}`}
       >
         <View style={styles.fileIconContainer}>
           <IconText style={styles.fileIconText}>{isAudio ? '🎵' : '📄'}</IconText>
@@ -232,17 +332,20 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
             {fileName}
           </Text>
           <Text style={styles.fileSubText} numberOfLines={1}>
-            {details || 'Dokumen'}
+            {mediaDownload?.id === item.id ? `Mengunduh ${Math.round(mediaDownload.progress * 100)}%` : details || 'Dokumen'}
           </Text>
         </View>
 
         <TouchableOpacity
           style={styles.fileActionBtn}
+          disabled={mediaDownload !== null}
+          accessibilityLabel={`Unduh dan bagikan ${fileName}`}
           onPress={() => handleShareFile(item)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           activeOpacity={0.7}
         >
-          <IconText style={styles.fileActionIcon}>📤</IconText>
+          {mediaDownload?.id === item.id ? <ActivityIndicator color={colors.accentPrimary} /> :
+            <Icon name="share" size={20} color={colors.accentPrimary} />}
         </TouchableOpacity>
       </TouchableOpacity>
     );
@@ -252,7 +355,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
     <Modal
       visible={visible}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
       statusBarTranslucent
     >
       <StatusBar barStyle="light-content" backgroundColor={colors.bgBase} />
@@ -262,7 +365,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={onClose}
+            onPress={handleClose}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
           >
@@ -325,6 +428,7 @@ export const ChatMediaGalleryModal: React.FC<ChatMediaGalleryModalProps> = ({
             <FlatList
               key="gallery-media-grid"
               data={mediaList}
+              extraData={mediaDownload}
               keyExtractor={(item, index) => item.id || `media_${index}`}
               renderItem={renderMediaItem}
               numColumns={NUM_COLUMNS}
@@ -484,6 +588,18 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   gridImage: {
     width: '100%',
     height: '100%',
+  },
+  downloadOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  downloadText: {
+    color: colors.textOnAccent,
+    fontSize: 14,
+    fontWeight: '600',
   },
   videoBadge: {
     position: 'absolute',

@@ -1,0 +1,17 @@
+'use strict';
+const assert = require('assert');
+const { loadFresh } = require('./_harness');
+const { audioManager: manager } = loadFresh(['services/audioManager.ts']).audioManager;
+const first = manager.beginPlaybackRequest();
+const second = manager.beginPlaybackRequest();
+assert.ok(!manager.isCurrentPlaybackRequest(first), 'earlier download must not autoplay over a later tap');
+assert.ok(manager.isCurrentPlaybackRequest(second));
+manager.stopActivePlayer();
+assert.ok(!manager.isCurrentPlaybackRequest(second), 'recording/stop cancels pending autoplay intent');
+let paused = 0, stopped = 0;
+manager.registerActivePlayer('a', { playing: true, pause: () => paused++ }, () => stopped++);
+manager.beginPlaybackRequest();
+assert.equal(paused, 1);
+assert.equal(stopped, 1);
+assert.equal(manager.getActiveUri(), null);
+console.log('Audio: last tap wins while downloading; recording cancels intent; active player stops before new playback: OK');

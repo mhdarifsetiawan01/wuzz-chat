@@ -306,40 +306,48 @@ Klien mobile yang ingin memindahkan atau membagikan keypair E2EE:
 Aplikasi mobile Wuzz Chat menghemat kuota server dan penyimpanan cloud dengan arsitektur **Store-and-Forward Lifecycle ($0 Server Cost)**:
 
 ```text
-[HP Pengirim] ──(1. Upload)──► [Server Buffer (Supabase)]
+[HP Pengirim] ──(1. Upload)──► [Object Storage (R2)]
                                        │
                                 (2. Notifikasi WS)
                                        │
 [HP Penerima] ◄──(3. Download)─────────┘
       │
-      └──(4. POST /api/media/ack)──► [Server Otomatis Hapus Berkas Fisik]
+      └──(4. POST /api/media/ack)──► [Server Catat Unduhan DM]
       │
-      └──(5. Simpan Permanen di Galeri / Internal Storage HP)
+      └──(5. Putar / tampilkan berkas di internal storage HP)
 ```
 
 ### Langkah Implementasi Klien Mobile:
 1. **Pengiriman Media**:
    - Kompres gambar di sisi klien sebelum dikirim (maks resolusi 1600px, WebP/JPEG kualitas ~80%).
-   - Unggah via `POST /api/media/upload` (Multipart Form Data).
+   - Unggah langsung ke object storage memakai tiket `POST /api/media/signed-upload-url`; driver R2 tidak menerima fallback unggah lewat VPS.
    - Kirim event WebSocket `type: "message"` dengan `media_url`, `media_type`, `file_name`, dan `file_size`.
 2. **Penerimaan & Caching Offline**:
-   - Saat menerima pesan media, unduh file dan simpan ke direktori lokal aplikasi (Scoped Storage di Android, Documents/Application Support di iOS).
-   - Segera kirim konfirmasi penerimaan via `POST /api/media/ack` dengan menyertakan `url`, `message_id`, atau `room_id`:
+   - Simpan ke direktori privat aplikasi: gambar saat komponen tampil, audio/video/dokumen saat diketuk. Tunggu unduhan lengkap sebelum ACK dan pemutaran.
+   - Segera kirim konfirmasi penerimaan via `POST /api/media/ack` dengan menyertakan `message_id` dan `room_id`:
      ```json
      {
-       "url": "https://wuzz-chat-backend.fly.dev/uploads/...",
        "message_id": "msg-uuid-12345",
        "room_id": "dm_userA_userB"
      }
      ```
-     Server memverifikasi keanggotaan room pemanggil (Anti-IDOR) sebelum menghapus file fisik di storage.
-   - UI obrolan selanjutnya membaca berkas langsung dari media lokal perangkat (dapat dibuka selamanya bahkan saat offline).
+     Server memverifikasi keanggotaan room pemanggil (Anti-IDOR). ACK DM hanya mencatat `downloaded`; berkas tetap tersedia sampai retensi berakhir.
+   - UI obrolan selanjutnya membaca berkas langsung dari media lokal perangkat (dapat dibuka offline selama berkas lokal masih tersedia).
+
+### Lampiran di bubble dan galeri media (17 Oktober 2026)
+- Gambar, voice note, video dan dokumen berbagi `mediaCache.downloadToCache`. Penampil/pemutar hanya menerima berkas lokal lengkap. Gambar diunduh otomatis saat komponen tampil; audio/video/dokumen saat diketuk. `CachedChatImage` dipakai bubble dan galeri.
+- Transfer native maksimum 3, antrean 48, idle 45 detik dan total transfer 10 menit. Unduhan ke `.part`, HTTP 200 + ukuran nonzero + `file_size` diverifikasi sebelum dipindah. Progres dibagi ke semua pelanggan; tutup tampilan membatalkan bila tak ada pelanggan lain. Sesi berakhir membatalkan semua transfer, mempertahankan berkas lengkap.
+- Galat jaringan, 403, kedaluwarsa, ukuran, timeout dan ruang disk ditangani; ketuk ulang untuk mencoba lagi, tidak ada fallback streaming atau retry otomatis tanpa batas.
+- `acknowledgeCachedMedia` mengirim ACK DM penerima hanya setelah berkas lengkap tersimpan; sukses dideduplikasi dalam sesi. ACK grup/forum dilewati karena server no-op. Audio tidak mengirim ACK saat mount.
+- Handler kirim mendaftarkan sumber picker/recorder lewat `registerLocalSource`; URI lokal yang datang lewat pesan tidak bisa membuka berkas privat lain. Dokumen diunduh, lalu `expo-sharing` menampilkan pemilih aplikasi dengan izin baca berkas (perlu APK baru).
+- Replay voice note yang sudah selesai wajib menunggu `seekTo(0)` (`playOrReplayAudio`) sebelum `play()`. Periksa lagi intent setelah seek agar audio lama tidak mengambil alih; pause/resume tetap dari posisi terakhir.
+- Pemutaran pertama menunggu berkas lengkap. Berkas lengkap tetap dipertahankan setelah server purge; tidak ada penghapusan otomatis media tersimpan. Thumbnail video persisten tetap backlog terpisah.
 
 ### 👥 Aturan Khusus Media pada Obrolan Grup & Topik Forum (`grp_*`, `sub_*`):
-- Pada room bertipe grup (`grp_*`) dan topik forum (`sub_*`), klien mobile tetap mengirim `POST /api/media/ack` setelah selesai mendownload berkas.
-- Backend Go secara otomatis mengenali identitas grup/forum dan **menjamin berkas fisik di Supabase Storage TIDAK DIHAPUS** serta `media_status` **tetap `'active'`**.
-- Berkas dipertahankan di server selama masa retensi **TTL 7 hari** (`MEDIA_RETENTION_DAYS`), lalu dibersihkan otomatis oleh `PurgeWorker` berkala.
-- Klien mobile wajib segera menyimpan berkas ke internal storage perangkat (Scoped Storage di Android / Documents di iOS) saat pertama kali dibuka, sehingga berkas tetap dapat diakses selamanya di HP pengguna bahkan setelah masa TTL server berakhir.
+- Pada room bertipe grup (`grp_*`) dan topik forum (`sub_*`), klien mobile melewati `POST /api/media/ack` karena handler server tidak mengubah status/berkas untuk grup dan forum.
+- Backend Go secara otomatis mengenali identitas grup/forum dan **menjamin ACK tidak menghapus berkas fisik di object storage** serta `media_status` **tetap `'active'`**.
+- Berkas dipertahankan di server selama masa retensi **TTL terkonfigurasi** (`MEDIA_RETENTION_DAYS`, produksi 1 hari), lalu dibersihkan otomatis oleh `PurgeWorker` berkala.
+- Klien mobile wajib segera menyimpan berkas ke internal storage perangkat (Scoped Storage di Android / Documents di iOS) saat pertama kali dibuka, sehingga berkas tetap dapat diakses selama salinan lokal masih tersedia bahkan setelah masa TTL server berakhir.
 
 ### ⚡ Strategi Riwayat Pesan Mobile: 50 Pesan Awal & Local SQLite (Cache-First):
 1. **Initial History Limit (50 Pesan)**: Saat mengirim event `join`, backend membalas dengan 50 pesan terkini (`LIMIT 50`) berkat indeks $O(\log N)$.

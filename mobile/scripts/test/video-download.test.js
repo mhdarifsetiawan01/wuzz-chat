@@ -5,7 +5,7 @@ const assert = require('assert');
 const { state, loadFresh } = require('./_harness');
 
 const { mediaCache, MediaDownloadError } = loadFresh(['services/mediaCache.ts']).mediaCache;
-const URL = 'https://media.contoh.id/video/abc.mp4';
+const URL = 'https://media.wuzzhub.id/video/abc.mp4';
 const fs = state.fs;
 const reset = () => {
   fs.files.clear();
@@ -36,7 +36,7 @@ const rejectsWith = async (promise, code) => {
   const uri = await mediaCache.downloadToCache(URL, 'msg-1', 'klip.mp4', { expectedSize: 1000, onProgress: (p) => seen.push(p) });
   assert.ok(uri.endsWith('media_msg-1.mp4'), uri);
   assert.ok(fs.files.has(uri) && parts().length === 0);
-  assert.deepEqual(seen, [0.5, 1]);
+  assert.deepEqual(seen, [0, 0.5, 1]);
   assert.equal(await mediaCache.downloadToCache(URL, 'msg-1', 'klip.mp4', { expectedSize: 1000 }), uri);
   assert.equal(fs.downloads, 1);
   console.log('1. berkas lengkap 200              : tersimpan sekali, progres 0.5 lalu 1, panggilan ke-2 dari cache');

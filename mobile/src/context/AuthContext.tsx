@@ -23,6 +23,7 @@ import { signInWithGoogle, signOutGoogleLocal } from '../services/googleAuth';
 import { isGoogleLinkRequiredError, onGoogleLinkRequired } from '../utils/linkFrozen';
 import { isAccountSuspendedError, onAccountSuspended } from '../utils/accountSuspended';
 import { mediaCache } from '../services/mediaCache';
+import { resetMediaReceipts } from '../services/mediaReceipt';
 import { notificationService } from '../services/notificationService';
 import { secureStorage } from '../services/secureStorage';
 import { clearFeedPosts, clearUserCache } from '../services/sqliteStorage';
@@ -98,6 +99,8 @@ interface AuthContextType {
  * deterministik dari id pesan jadi ditemukan lagi saat login).
  */
 async function clearLocalAccountData(userId: string | undefined | null): Promise<void> {
+  resetMediaReceipts();
+  await mediaCache.cancelPendingDownloads();
   if (!userId) return;
   try {
     await clearUserCache(userId);

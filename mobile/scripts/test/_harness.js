@@ -24,7 +24,7 @@ const state = {
   sqliteDb: null,
   googleNative: null,
   // Sistem berkas tiruan (expo-file-system/legacy): `files` path -> { size }, `download` = perilaku unduhan per uji.
-  fs: { files: new Map(), download: null, downloads: 0 },
+  fs: { files: new Map(), download: null, downloads: 0, freeBytes: 1024 * 1024 * 1024, cancelCount: 0 },
 };
 
 let stubsInstalled = false;
@@ -64,7 +64,14 @@ function installNativeStubs() {
         return {
           documentDirectory: 'file:///docs/',
           cacheDirectory: 'file:///cache/',
-          getInfoAsync: async (p) => (fs.files.has(p) ? { exists: true, size: fs.files.get(p).size } : { exists: false }),
+          getInfoAsync: async (p) => (fs.files.has(p) ? { exists: true, isDirectory: false, ...fs.files.get(p) } : { exists: false }),
+          FileSystemSessionType: { FOREGROUND: 1, BACKGROUND: 0 },
+          getFreeDiskStorageAsync: async () => fs.freeBytes,
+          readDirectoryAsync: async (p) => [...fs.files.keys()].filter((k) => k.startsWith(p)).map((k) => k.slice(p.length)),
+          copyAsync: async ({ from, to }) => {
+            if (!fs.files.has(from)) throw new Error('Source missing');
+            fs.files.set(to, { ...fs.files.get(from) });
+          },
           makeDirectoryAsync: async () => {},
           deleteAsync: async (p) => {
             fs.files.delete(p);
@@ -73,16 +80,24 @@ function installNativeStubs() {
             fs.files.set(to, fs.files.get(from));
             fs.files.delete(from);
           },
-          createDownloadResumable: (url, dest, _opts, cb) => ({
-            downloadAsync: async () => {
-              fs.downloads++;
-              const r = await fs.download(url, dest, cb);
-              if (typeof r.size === 'number') fs.files.set(dest, { size: r.size });
-              return { status: r.status, uri: dest };
-            },
-          }),
+          createDownloadResumable: (url, dest, _opts, cb) => {
+            let cancel;
+            const cancelled = new Promise((_, reject) => { cancel = reject; });
+            cancelled.catch(() => {});
+            return {
+              cancelAsync: async () => { fs.cancelCount++; cancel(new Error('cancelled')); },
+              downloadAsync: async () => {
+                fs.downloads++;
+                const r = await Promise.race([fs.download(url, dest, cb), cancelled]);
+                if (typeof r.size === 'number') fs.files.set(dest, { size: r.size });
+                return { status: r.status, uri: dest, headers: r.headers || {}, mimeType: r.mimeType || null };
+              },
+            };
+          },
         };
       }
+      case 'expo-audio':
+        return { setAudioModeAsync: async () => {} };
       case 'expo-sqlite':
         return { openDatabaseAsync: async () => state.sqliteDb };
       default:
@@ -120,6 +135,7 @@ function compile(file, { tapEcdh = false } = {}) {
 function loadFresh(files, options = {}) {
   installNativeStubs();
   const result = {};
+  if (files.includes('services/mediaCache.ts')) compile('services/mediaDownloadPolicy.ts');
   const outs = files.map((f) => compile(f, options[f] || {}));
   for (const out of outs) delete require.cache[out];
   files.forEach((f, i) => {

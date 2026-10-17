@@ -31,6 +31,7 @@ import { mediaApi } from '../api/media';
 import { messagesApi } from '../api/messages';
 import { websocketClient } from '../services/websocket';
 import { mediaCache } from '../services/mediaCache';
+import { acknowledgeCachedMedia } from '../services/mediaReceipt';
 import { useAuth, useCall, useConversations, useMessageActions, useRoomMessages } from '../context';
 import { useConnection } from '../context/ConnectionContext';
 import {
@@ -1097,17 +1098,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handleMediaLoaded = useCallback(
     (msg: Message) => {
-      if (msg.sender_id !== currentUserId && msg.id) {
-        // DEC-034: Ensure received media is cached locally before or while sending ACK
-        if (msg.media_url && !msg.media_url.startsWith('file://')) {
-          mediaCache.ensureMediaCached(msg.media_url, msg.id, msg.file_name).catch((cacheErr) => {
-            console.warn('[ChatScreen] Failed to cache received media:', cacheErr);
-          });
-        }
-        mediaApi.acknowledgeMediaDownload(msg.id, roomId).catch((err) => {
-          console.log('[ChatScreen] Media ACK notice:', err.message);
-        });
-      }
+      acknowledgeCachedMedia(msg, currentUserId, mediaApi.acknowledgeMediaDownload).catch(() => {
+        // Do not retry in a loop; a later opening can retry a failed ACK.
+        console.warn('[ChatScreen] Media ACK failed');
+      });
     },
     [currentUserId, roomId]
   );
@@ -1245,7 +1239,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // 4b. Handle Send Audio Voice Note (WhatsApp Store-and-Forward + Optimistic UI)
   const handleSendAudio = useCallback(
     async (uri: string, durationSeconds: number, fileSize?: number) => {
-         const msgId = Crypto.randomUUID();
+      const msgId = Crypto.randomUUID();
+      mediaCache.registerLocalSource(msgId, uri);
       const nowIso = new Date().toISOString();
       const fileName = `voice_note_${Date.now()}.m4a`;
 

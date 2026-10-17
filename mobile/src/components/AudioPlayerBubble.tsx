@@ -18,7 +18,10 @@ import {
 } from 'react-native';
 import { createAudioPlayer, AudioPlayer, AudioStatus } from 'expo-audio';
 import { audioManager } from '../services/audioManager';
+import { playOrReplayAudio } from '../services/audioPlayback';
 import { mediaCache } from '../services/mediaCache';
+import { mediaDownloadFeedback } from '../utils/mediaDownloadFeedback';
+import { showAlert } from '../services/dialog';
 import { useTheme, useThemedStyles, ColorTokens, ResolvedScheme } from '../theme';
 import { getBubblePalette } from '../theme/bubblePalette';
 import { IconText } from './IconText';
@@ -33,6 +36,7 @@ export interface AudioPlayerBubbleProps {
   audioUrl: string;
   messageId?: string;
   fileName?: string;
+  fileSize?: number;
   isSelf?: boolean;
   onLoaded?: () => void;
 }
@@ -41,13 +45,14 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
   audioUrl,
   messageId,
   fileName,
+  fileSize,
   isSelf = false,
   onLoaded,
 }) => {
   const { colors, scheme } = useTheme();
   const bubblePalette = getBubblePalette(scheme);
   const styles = useThemedStyles(makeStyles);
-  const [effectiveUrl, setEffectiveUrl] = useState<string>(audioUrl);
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -56,30 +61,29 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
   const [waveformWidth, setWaveformWidth] = useState(140);
 
   const playerRef = useRef<AudioPlayer | null>(null);
+  const finishedRef = useRef(false);
   const isMountedRef = useRef(true);
 
-  // Check if audio file exists in persistent local cache
-  useEffect(() => {
-    let mounted = true;
-    mediaCache.getCachedMediaUri(audioUrl, messageId, fileName).then((cached) => {
-      if (mounted && cached) {
-        setEffectiveUrl(cached);
-      }
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [audioUrl, messageId, fileName]);
-
-  // Notify parent once on load for store-and-forward ACK
-  useEffect(() => {
-    onLoaded?.();
-  }, [onLoaded]);
+  const openingRef = useRef(false);
+  const epochRef = useRef(0);
+  const downloadRef = useRef<AbortController | null>(null);
+  const loadedRef = useRef(onLoaded);
+  loadedRef.current = onLoaded;
 
   // Track component mount status and cleanup player on unmount
   useEffect(() => {
     isMountedRef.current = true;
+    epochRef.current++;
+    openingRef.current = false;
+    finishedRef.current = false;
+    setIsPlaying(false);
+    setIsLoading(false);
+    setDownloadProgress(null);
+    setCurrentTime(0);
+    setDuration(0);
     return () => {
+      epochRef.current++;
+      downloadRef.current?.abort();
       isMountedRef.current = false;
       if (playerRef.current) {
         try {
@@ -90,10 +94,14 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
       }
       audioManager.unregisterPlayer(audioUrl);
     };
-  }, [audioUrl]);
+  }, [audioUrl, messageId]);
 
   // Play / Pause toggle handler
   const handleTogglePlay = async () => {
+    if (openingRef.current) return;
+    openingRef.current = true;
+    const epoch = epochRef.current;
+    const current = () => isMountedRef.current && epochRef.current === epoch;
     try {
       if (isPlaying) {
         if (playerRef.current) {
@@ -104,26 +112,39 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
         return;
       }
 
+      const playbackRequest = audioManager.beginPlaybackRequest();
+      setIsLoading(true);
       await audioManager.configureAudioMode(false);
+      if (!current() || !audioManager.isCurrentPlaybackRequest(playbackRequest)) return;
 
       if (!playerRef.current) {
         setIsLoading(true);
-        // Pre-cache remote audio in background so it remains playable offline/expired
-        if (effectiveUrl.startsWith('http://') || effectiveUrl.startsWith('https://')) {
-          mediaCache
-            .ensureMediaCached(effectiveUrl, messageId, fileName)
-            .then((cached) => {
-              if (isMountedRef.current && cached && cached.startsWith('file://')) {
-                setEffectiveUrl(cached);
-              }
-            })
-            .catch(() => {});
-        }
-        const player = createAudioPlayer(effectiveUrl);
+        const controller = new AbortController();
+        downloadRef.current = controller;
+        const local = await mediaCache.downloadToCache(audioUrl, messageId || '', fileName, {
+          expectedSize: fileSize,
+          allowLocalSource: isSelf,
+          signal: controller.signal,
+          onProgress: (progress) => { if (current()) setDownloadProgress(progress); },
+        });
+        if (!current()) return;
+        setDownloadProgress(null);
+        loadedRef.current?.();
+        if (!audioManager.isCurrentPlaybackRequest(playbackRequest)) return;
+        const player = createAudioPlayer(local);
         playerRef.current = player;
 
         player.addListener('playbackStatusUpdate', (status: AudioStatus) => {
-          if (!isMountedRef.current) return;
+          if (!current()) return;
+          if (status.error) {
+            setIsPlaying(false);
+            setIsLoading(false);
+            player.release();
+            if (playerRef.current === player) playerRef.current = null;
+            audioManager.unregisterPlayer(audioUrl);
+            showAlert('Gagal Memutar Audio', 'Berkas audio tidak dapat dibuka. Ketuk untuk mencoba lagi.');
+            return;
+          }
           setIsPlaying(status.playing);
           setIsLoading(status.isBuffering);
 
@@ -136,6 +157,7 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
           }
 
           if (status.didJustFinish) {
+            finishedRef.current = true;
             setIsPlaying(false);
             setCurrentTime(0);
             audioManager.unregisterPlayer(audioUrl);
@@ -147,7 +169,8 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
         } else {
           try { (player as any).playbackRate = playbackRate; } catch {}
         }
-        player.play();
+        if (!await playOrReplayAudio(player, false, () => current() && audioManager.isCurrentPlaybackRequest(playbackRequest))) return;
+        finishedRef.current = false;
         setIsPlaying(true);
         setIsLoading(false);
 
@@ -158,23 +181,29 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
         });
       } else {
         const player = playerRef.current;
-        audioManager.registerActivePlayer(audioUrl, player, () => {
-          if (isMountedRef.current) {
-            setIsPlaying(false);
-          }
-        });
         if (typeof player.setPlaybackRate === 'function') {
           player.setPlaybackRate(playbackRate);
         } else {
           try { (player as any).playbackRate = playbackRate; } catch {}
         }
-        player.play();
+        if (!await playOrReplayAudio(player, finishedRef.current, () => current() && audioManager.isCurrentPlaybackRequest(playbackRequest))) return;
+        finishedRef.current = false;
         setIsPlaying(true);
+        audioManager.registerActivePlayer(audioUrl, player, () => {
+          if (isMountedRef.current) setIsPlaying(false);
+        });
       }
-    } catch (err: any) {
-      console.warn('[AudioPlayerBubble] Toggle play failed:', err);
-      if (isMountedRef.current) {
+    } catch (err) {
+      if (current()) {
+        const feedback = mediaDownloadFeedback(err, 'Audio');
+        if (feedback) showAlert(feedback.title, feedback.message);
         setIsPlaying(false);
+        setIsLoading(false);
+      }
+    } finally {
+      if (current()) {
+        openingRef.current = false;
+        setDownloadProgress(null);
         setIsLoading(false);
       }
     }
@@ -213,6 +242,7 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
     setCurrentTime(targetSeconds);
 
     if (playerRef.current) {
+      finishedRef.current = false;
       playerRef.current.seekTo(targetSeconds);
     }
   };
@@ -232,6 +262,9 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
         onPress={handleTogglePlay}
         activeOpacity={0.75}
         disabled={isLoading}
+        accessibilityLabel={isLoading ? 'Mengunduh audio' : isPlaying ? 'Jeda audio' : 'Putar audio'}
+        accessibilityState={{ disabled: isLoading, busy: isLoading }}
+        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       >
         {isLoading ? (
           <ActivityIndicator size="small" color={isSelf ? bubblePalette.self.background : '#ffffff'} />
@@ -278,7 +311,7 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
         {/* Info Row: Time & Speed */}
         <View style={styles.infoRow}>
           <Text style={[styles.timeText, isSelf && styles.timeTextSelf]}>
-            {isPlaying || currentTime > 0
+            {downloadProgress !== null ? `Mengunduh ${Math.round(downloadProgress * 100)}%` : isPlaying || currentTime > 0
               ? `${audioManager.formatTime(currentTime)} / ${audioManager.formatTime(duration)}`
               : audioManager.formatTime(duration || 0)}
           </Text>
