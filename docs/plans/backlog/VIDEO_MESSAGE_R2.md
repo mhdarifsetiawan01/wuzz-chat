@@ -97,10 +97,10 @@ Latar: uji 16 Okt 2026 membuktikan unduh sekali + putar lokal di HP penerima (Se
 - **Perlu dipikirkan:** thumbnail ikut terhitung di "Media Chat Tersimpan" dan terhapus bersama pesan/akun (`clearAll`, hapus akun); ukuran kecil (≤ 512 KB) jadi aman.
 - **Tes:** unit test harness (tiruan `expo-file-system/legacy` sudah ada), uji HP: kirim video, tunggu R2 menghapus objek (atau hapus manual di dashboard) lalu buka chat: thumbnail harus tetap tampil.
 
-### 6.2 ACK media sekali per pesan
+### 6.2 ACK media sekali per pesan — kode selesai 17 Okt 2026; deduplikasi dalam sesi
 - **Masalah:** `ChatScreen.handleMediaLoaded` mengirim `POST /api/media/ack` setiap kali media penerima dimuat/diputar (foto dan video). Ke VPS (bukan R2), pembaruan status no-op setelah yang pertama.
 - **Fakta server:** DM: ACK mengubah `active` menjadi `downloaded` (hanya sekali berefek). Grup/forum (`grp_`, `sub_`): ACK tidak mengubah apa pun dan tidak pernah menghapus berkas. `canDelete` selalu false; `auto_delete_on_download: true` di `/api/config` tidak berpengaruh.
-- **Rencana:** catat pesan yang sudah di-ACK (Set di memori + status `downloaded` dari server bila ada; pertimbangkan penanda persisten di SQLite lokal supaya tidak terulang setelah aplikasi dimulai ulang) dan lewati ACK berikutnya. Periksa apakah ACK di grup memang bisa dilewati sepenuhnya (server tidak memakainya) sebelum memutuskan.
+- **Implementasi:** `mediaReceipt.ts`, verifikasi salinan lengkap sebelum ACK, deduplikasi pekerjaan aktif dan sukses per akun dalam memori (2.000 pesan) + lewati status `downloaded` dari server. Gagal bisa dicoba saat dibuka lagi. Grup/forum dilewati karena ACK no-op. Penanda SQLite tambahan tidak dibuat: setelah cold start ACK bisa diulang bila status server belum tersinkron, tetapi idempoten. Pengujian perangkat/log produksi belum dilakukan untuk perubahan ini.
 - **Tes:** unit test untuk logika "sudah di-ACK" (harness), cek di log server bahwa ACK tidak berulang saat video/foto dibuka kembali.
 
 ### 6.3 Perapian kecil yang menyertai

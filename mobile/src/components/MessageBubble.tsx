@@ -12,17 +12,17 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal,
-  ActivityIndicator,
   Pressable,
   Animated,
   PanResponder,
 } from 'react-native';
-import { Image } from 'expo-image';
+import { CachedChatImage } from './CachedChatImage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../api/types';
 import { AudioPlayerBubble } from './AudioPlayerBubble';
 import { getSenderNameColor } from './Avatar';
-import { mediaCache, MediaDownloadError } from '../services/mediaCache';
+import { mediaCache } from '../services/mediaCache';
+import { mediaDownloadFeedback } from '../utils/mediaDownloadFeedback';
 import { MediaViewerModal } from './MediaViewerModal';
 import { VideoMessageCard } from './VideoMessageCard';
 import { VideoPlayerModal } from './VideoPlayerModal';
@@ -93,26 +93,35 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const [videoProgress, setVideoProgress] = useState<number | null>(null);
-  const [isImageLoading, setIsImageLoading] = useState(true);
-  const [imageError, setImageError] = useState(false);
   const [cachedMediaUri, setCachedMediaUri] = useState<string | null>(null);
+
+  const mediaEpochRef = useRef(0);
+  const videoAbortRef = useRef<AbortController | null>(null);
+  const videoOpeningRef = useRef(false);
 
   // Check persistent local media cache on mount or URL change (DEC-034)
   useEffect(() => {
     let mounted = true;
+    mediaEpochRef.current++;
+    videoOpeningRef.current = false;
+    setCachedMediaUri(null);
+    setIsVideoOpen(false);
+    setVideoProgress(null);
     if (message.media_url) {
       mediaCache
-        .getCachedMediaUri(message.media_url, message.id, message.file_name)
+        .getCachedMediaUri(message.media_url, message.id, message.file_name, message.file_size)
         .then((uri) => {
           if (mounted && uri) {
             setCachedMediaUri(uri);
           }
-        });
+        }).catch(() => {});
     }
     return () => {
       mounted = false;
+      mediaEpochRef.current++;
+      videoAbortRef.current?.abort();
     };
-  }, [message.media_url, message.id, message.file_name]);
+  }, [message.media_url, message.id, message.file_name, message.file_size]);
 
   const isDeleted = Boolean(
     message.is_deleted ||
@@ -285,63 +294,36 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
   const timeString = formatTime(message.timestamp || message.created_at);
 
-  const handleImageLoad = () => {
-    setIsImageLoading(false);
-    setImageError(false);
-    if (!isSelf) {
-      onMediaLoaded?.(message);
-    }
-    // Auto-cache remote image into persistent local storage so it remains visible after server ACK delete
-    if (message.media_url && !cachedMediaUri && !message.media_url.startsWith('file://')) {
-      mediaCache
-        .ensureMediaCached(message.media_url, message.id, message.file_name)
-        .then((savedUri) => {
-          if (savedUri && savedUri.startsWith('file://')) {
-            setCachedMediaUri(savedUri);
-          }
-        })
-        .catch(() => {});
-    }
-  };
-
-  const handleImageError = () => {
-    setIsImageLoading(false);
-    // If loading from local cache failed, fallback to remote URL
-    if (cachedMediaUri && message.media_url && cachedMediaUri !== message.media_url) {
-      setCachedMediaUri(null);
-    } else {
-      setImageError(true);
-    }
-  };
-
   // Video: unduh SEKALI ke cache persisten (progres di kartu), lalu putar berkas lokal. Tidak lagi memutar dari jaringan
   // sambil mengunduh lagi (data seluler terpakai dua kali). ACK dikirim setelah berkas tersimpan.
   const handleVideoPress = async (url: string) => {
-    if (videoProgress !== null) return; // sedang mengunduh
-    if (isLocalMediaUri(url)) {
-      setIsVideoOpen(true);
-      if (!isSelf) onMediaLoaded?.(message);
-      return;
-    }
+    if (videoOpeningRef.current) return;
+    videoOpeningRef.current = true;
+    const epoch = mediaEpochRef.current;
+    const current = () => mediaEpochRef.current === epoch;
+    const controller = new AbortController();
+    videoAbortRef.current = controller;
     setVideoProgress(0);
     try {
       const localUri = await mediaCache.downloadToCache(url, message.id, message.file_name, {
         expectedSize: message.file_size,
-        onProgress: setVideoProgress,
+        allowLocalSource: isSelf,
+        signal: controller.signal,
+        onProgress: (progress) => { if (current()) setVideoProgress(progress); },
       });
+      if (!current()) return;
       setCachedMediaUri(localUri);
       setIsVideoOpen(true);
       if (!isSelf) onMediaLoaded?.(message);
     } catch (err) {
-      const expired = err instanceof MediaDownloadError && err.code === 'expired';
-      showAlert(
-        expired ? 'Video Kedaluwarsa' : 'Gagal Mengunduh Video',
-        expired
-          ? 'Video ini sudah tidak tersedia di server.'
-          : 'Periksa koneksi internet Anda lalu ketuk video untuk mencoba lagi.'
-      );
+      if (!current()) return;
+      const feedback = mediaDownloadFeedback(err, 'Video');
+      if (feedback) showAlert(feedback.title, feedback.message);
     } finally {
-      setVideoProgress(null);
+      if (current()) {
+        videoOpeningRef.current = false;
+        setVideoProgress(null);
+      }
     }
   };
 
@@ -474,39 +456,24 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               {/* Image Attachment Preview */}
               {isImage && !isExpired && effectiveMediaUrl ? (
                 <View style={styles.imageContainer}>
-                  <TouchableOpacity
-                    activeOpacity={0.88}
-                    onPress={() => {
-                      if (onPressMedia && effectiveMediaUrl) {
-                        onPressMedia(message, effectiveMediaUrl);
-                      } else {
-                        setIsFullscreen(true);
-                      }
-                    }}
-                    onLongPress={handleBubbleLongPress}
-                    delayLongPress={280}
-                    style={styles.imageTouchable}
-                  >
-                    <Image
-                      source={{ uri: effectiveMediaUrl }}
-                      style={styles.mediaImage}
-                      contentFit="cover"
-                      recyclingKey={message.id}
-                      onLoad={handleImageLoad}
-                      onError={handleImageError}
+                  <View style={styles.imageTouchable}>
+                    <CachedChatImage
+                      url={message.media_url!}
+                      messageId={message.id}
+                      fileName={message.file_name}
+                      fileSize={message.file_size}
+                      allowLocalSource={isSelf}
+                      onReady={(uri) => {
+                        setCachedMediaUri(uri);
+                        if (!isSelf) onMediaLoaded?.(message);
+                      }}
+                      onPress={(uri) => {
+                        if (onPressMedia) onPressMedia(message, uri);
+                        else setIsFullscreen(true);
+                      }}
+                      onLongPress={handleBubbleLongPress}
                     />
-                    {isImageLoading ? (
-                      <View style={styles.imageLoadingOverlay}>
-                        <ActivityIndicator size="small" color={colors.accentPrimary} />
-                      </View>
-                    ) : null}
-                    {imageError ? (
-                      <View style={styles.imageErrorOverlay}>
-                        <IconText style={styles.imageErrorIcon}>⚠️</IconText>
-                        <Text style={styles.imageErrorText}>Gagal memuat gambar</Text>
-                      </View>
-                    ) : null}
-                  </TouchableOpacity>
+                  </View>
                 </View>
               ) : null}
 
@@ -532,6 +499,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   audioUrl={effectiveMediaUrl}
                   messageId={message.id}
                   fileName={message.file_name}
+                  fileSize={message.file_size}
                   isSelf={isSelf}
                   onLoaded={() => {
                     if (!isSelf) {

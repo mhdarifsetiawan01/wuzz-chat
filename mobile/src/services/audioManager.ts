@@ -13,6 +13,17 @@ class AudioManager {
   private activePlayer: AudioPlayer | null = null;
   private activeUri: string | null = null;
   private onStopCallback: StopCallback | null = null;
+  private playbackRequest = 0;
+
+  /** A later tap wins even when the earlier voice note is still downloading. */
+  public beginPlaybackRequest(): number {
+    this.stopActivePlayer();
+    return this.playbackRequest;
+  }
+
+  public isCurrentPlaybackRequest(request: number): boolean {
+    return this.playbackRequest === request;
+  }
 
   /**
    * Configure global audio mode for seamless recording and playback.
@@ -54,6 +65,7 @@ class AudioManager {
    * Stop currently active player and notify previous listener to reset UI state.
    */
   public stopActivePlayer(): void {
+    this.playbackRequest++;
     if (this.activePlayer) {
       try {
         if (this.activePlayer.playing) {
