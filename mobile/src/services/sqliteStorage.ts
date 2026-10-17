@@ -11,6 +11,7 @@
 
 import * as SQLite from 'expo-sqlite';
 import { createExclusiveQueue } from './exclusiveQueue';
+import { mergeHistoryWindow } from '../utils/historyMerge';
 import { Conversation, Message, normalizeReactions, FeedPost, FriendItem } from '../api/types';
 
 const DB_NAME = 'wuzzchat.db';
@@ -756,14 +757,19 @@ export function runStorageMaintenance(userId: string): Promise<StorageMaintenanc
 /**
  * Persists an array of messages to local SQLite for a specific room.
  * Uses a single transaction to maintain maximum thermal and battery efficiency.
+ * With historyWindow, also removes cached messages missing from that authoritative
+ * window, using the same retention rules as memory. An empty window clears confirmed
+ * messages; older pages outside a nonempty window remain cached.
  */
 export function saveStoredMessages(
   userId: string,
   roomId: string,
-  messages: Message[]
+  messages: Message[],
+  // Hanya untuk riwayat terbaru yang otoritatif, bukan pagination/delta/pembaruan satu pesan.
+  historyWindow?: Message[]
 ): Promise<void> {
   return runExclusive(async () => {
-    if (!userId || !roomId || !messages || messages.length === 0) return false;
+    if (!userId || !roomId || !messages || (messages.length === 0 && !historyWindow)) return false;
 
     try {
       const db = await getDatabase();
@@ -772,6 +778,26 @@ export function saveStoredMessages(
       const roomKey = signatureRoomKey(userId, roomId);
       const signatures = persistedMessageSignatures.get(roomKey) ?? new Map<string, number>();
       const pending: { message: Message; rawJson: string; signature: number }[] = [];
+      let removedIds: string[] = [];
+
+      if (historyWindow) {
+        // UPSERT saja meninggalkan pesan yang dihapus di server selamanya di disk.
+        // Periksa seluruh cache room, termasuk baris di luar 50 pesan yang dihidrasi.
+        const rows = await db.getAllAsync<{ raw_json: string }>(
+          `SELECT raw_json FROM local_messages WHERE user_id = ? AND room_id = ?`,
+          [userId, roomId]
+        );
+        const stored: Message[] = [];
+        for (const row of rows) {
+          try {
+            stored.push(JSON.parse(row.raw_json));
+          } catch {
+            // Lewati baris rusak, seperti pada hidrasi cache.
+          }
+        }
+        const retained = new Set(mergeHistoryWindow(stored, historyWindow).map((m) => m.id));
+        removedIds = stored.filter((m) => !retained.has(m.id)).map((m) => m.id);
+      }
 
       for (const m of messages) {
         if (!m.id) continue;
@@ -780,9 +806,12 @@ export function saveStoredMessages(
         if (signatures.get(m.id) === signature) continue;
         pending.push({ message: m, rawJson: JSON.stringify(safeMsg), signature });
       }
-      if (pending.length === 0) return false;
+      if (pending.length === 0 && removedIds.length === 0) return false;
 
       await db.withTransactionAsync(async () => {
+        for (const id of removedIds) {
+          await db.runAsync(`DELETE FROM local_messages WHERE user_id = ? AND id = ?`, [userId, id]);
+        }
         for (const { message: m, rawJson } of pending) {
           const createdAt = m.created_at || m.timestamp || new Date().toISOString();
 
@@ -826,6 +855,7 @@ export function saveStoredMessages(
       });
 
       // Catat setelah commit berhasil; bila transaksi gagal, pesan tetap dianggap belum tertulis
+      for (const id of removedIds) signatures.delete(id);
       if (signatures.size > MAX_SIGNATURES_PER_ROOM) signatures.clear();
       for (const { message, signature } of pending) signatures.set(message.id, signature);
       persistedMessageSignatures.set(roomKey, signatures);
