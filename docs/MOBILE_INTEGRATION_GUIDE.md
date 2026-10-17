@@ -284,6 +284,9 @@ Untuk menghasilkan 30-digit Safety Number yang identik dengan Web:
 ### D. Migrasi Kunci via QR Code (Zero-Knowledge Device Transfer)
 
 Klien mobile yang ingin memindahkan atau membagikan keypair E2EE:
+
+`DeviceTransferModal` dipasang oleh layar Pengaturan meski tertutup. Semua hook harus tetap dipanggil sebelum guard `if (!visible) return null`, agar membuka/menutup menu **Perangkat Tertaut** tidak mengubah urutan hook dan cleanup timer tetap berjalan.
+
 1. **Perangkat Sumber (Pengirim Kunci)**:
    - Generate token acak 32-byte (Hex).
    - Derivasi kunci AES-256-GCM menggunakan PBKDF2 (`hash=SHA256, iter=100000, salt=random16Bytes`).

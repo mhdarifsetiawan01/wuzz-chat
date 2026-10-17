@@ -1,5 +1,12 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
+### Perbaikan crash Perangkat Tertaut mobile (18 Oktober 2026)
+
+- Reproduksi di HP: Pengaturan → Perangkat Tertaut memicu `Rendered more hooks than during the previous render` pada `DeviceTransferModal` (log ADB).
+- Hapus guard visibilitas sebelum hook; guard setelah seluruh hook dipertahankan supaya urutan hook stabil saat modal dibuka/ditutup dan efek cleanup tetap berjalan.
+- Verifikasi: mobile `npx tsc --noEmit` PASS, `npm run test:unit` PASS (34/34 berkas), frontend `npm run build` PASS (di luar sandbox setelah pembacaan konfigurasi TypeScript gagal di sandbox), backend `go test -v ./...` PASS.
+- Panduan integrasi mobile diperbarui. Pengguna mengonfirmasi menu kembali normal tanpa error; perubahan disetujui untuk commit di `dev` saja, tanpa merge/push.
+
 **Tanggal:** 19 September 2026  
 **Status Proyek:** Fase 1 s/d 8 (Partial) — Milestone 8.8 & 8.9 (Scalability & Mobile-Ready Reliability) SELESAI ✅  
 **Branch Aktif:** `dev`

@@ -62,7 +62,6 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
 }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  if (!visible) return null;
 
   const { user, e2eeKeyPair, importTransferredKeyPair } = useAuth();
   const { deviceId } = useDevice();
@@ -268,6 +267,7 @@ export const DeviceTransferModal: React.FC<DeviceTransferModalProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Keep hooks above this guard so opening/closing preserves their order and runs cleanup.
   if (!visible) return null;
 
   return (
