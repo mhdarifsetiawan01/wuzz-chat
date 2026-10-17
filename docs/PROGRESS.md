@@ -1,5 +1,10 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
+### Pencatatan backlog Perangkat Tertaut mobile (18 Oktober 2026)
+
+- Tambahkan [backlog Perangkat Tertaut](plans/backlog/MOBILE_LINKED_DEVICES.md) dan tautan checklist di Roadmap Fase 11: inventaris perangkat, penanda perangkat ini, informasi aktivitas, konfirmasi keluarkan perangkat lain, serta akses ke transfer kunci.
+- Status masih direncanakan; belum ada perubahan kode. Checklist mencakup audit kontrak sesi/perangkat, pencabutan HTTP/WebSocket, ketahanan jaringan, dan pengujian dua perangkat.
+
 ### Pemisahan pengirim/penerima transfer kunci mobile (18 Oktober 2026)
 
 - Pengaturan dan menu aksi Obrolan memakai nama **Transfer Kunci ke Perangkat Lain**, membuka pengirim (`ready` + keypair) dengan QR/salin kode. Penerima hanya dibuka dari konflik kunci setelah login, menampilkan Pindai QR/Input Kode.
