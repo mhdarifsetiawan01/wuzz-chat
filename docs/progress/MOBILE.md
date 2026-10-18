@@ -1,5 +1,11 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+### Verifikasi produksi pencabutan perangkat & penghentian push (18 Oktober 2026)
+
+- Uji dua HP pada v1.39.0 build 68 berhasil mengeluarkan perangkat lama dari menu Perangkat Tertaut. Setelah refresh/cold start, inventaris menyisakan perangkat aktif dan sesi HP pemanggil tetap berjalan.
+- Uji push terkontrol memakai akun skrip `surotong` sebagai pengirim di grup publik bersama: pesan baseline diterima kedua HP. Setelah HP target dikeluarkan dan kedua aplikasi berada di background, pesan kedua hanya diterima HP aktif; HP target tidak menerima. Server memberi ACK untuk kedua pesan, lalu akun skrip keluar kembali dari grup.
+- Cakupan yang belum dibuktikan langsung: request HTTP dan handshake WebSocket dari HP target setelah revoke, target yang sepenuhnya offline saat dikeluarkan, serta iOS. Audit akar penyebab inventaris awal tiga perangkat terhadap kuota dua juga tetap terbuka; data pengguna tidak dibersihkan otomatis.
+
 ### Perapian desain Perangkat Tertaut (18 Oktober 2026)
 
 - Daftar dipadatkan, Perangkat Ini dipisahkan, ikon mengikuti platform, dan Keluarkan menjadi aksi teks samping dengan area sentuh 44 dp. Ringkasan jumlah aktual/Muat Ulang dan baris transfer kunci menggantikan tombol besar. Konfirmasi menjadi isi sheet tersendiri dengan tombol berdampingan.
