@@ -1,6 +1,19 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+### Verifikasi APK — Forum Completion Loop Paket A (18 Oktober 2026)
+
+- HP ADB `2706294010BA1U6W` memakai APK **1.39.1 build 70**, dipasang pengguna. Sesi ini tidak menjalankan build APK, instalasi, deployment, commit, atau push.
+- **Lulus:** Forum Saya menampilkan forum berakhir “Testing Memory AI”; ketuk baris membuka pesan lama. Info Grup “Tester WuzzChat” → Forum menampilkan forum yang sama dengan status Kedaluwarsa dan tombol **Buka Riwayat**; tombol berhasil membuka riwayat. Banner read-only tampil, input pesan dan perekaman suara `enabled=false` menurut UIAutomator.
+- **Lulus:** Arsip Memori grup memuat memori terbit yang sudah ada; tab Perlu Ditinjau menampilkan “Tidak ada draf yang perlu ditinjau.” Tidak membuka atau mengubah keputusan review.
+- **Lulus:** background/resume normal kembali ke aplikasi; cold start normal (`am force-stop` lalu `am start -W`, Android melaporkan `LaunchState: COLD`) mempertahankan sesi. Setelah cold start, Forum Saya → forum berakhir kembali memuat riwayat dan banner, input tetap `enabled=false`. Ini **bukan** pengujian cold start dari notifikasi.
+- Tidak ada error ReactNativeJS/AndroidRuntime pada log error selama pemeriksaan. UIAutomator sempat gagal mendapat root sesudah transisi panel notifikasi; dump kembali normal setelah background/resume, tanpa error aplikasi pada log.
+- **Ditunda atas keputusan pengguna; belum terverifikasi di perangkat dan bukan blocker Paket B:** ketukan `memory_draft_ready` warm/background/cold start, dedup ketukan, dan kasus akses dicabut/draf dihapus/ditinjau admin lain. Tidak ada notifikasi WuzzChat aktif atau draf pending pada akun ini, sehingga perlu notifikasi/draf uji untuk melengkapinya. Tidak memalsukan notifikasi atau membuat/mengakhiri/menghapus forum dan tidak mengirim/mengubah pesan. Pembukaan chat mengikuti perilaku receipt baca aplikasi yang sudah ada.
+- Tidak mencoba kirim/forward sungguhan pada produksi; penolakan backend tetap dibuktikan suite otomatis Paket A. Tidak mengubah edit/hapus/reaksi. Konfirmasi pengakhiran tidak diuji ulang di HP karena tidak ada forum aktif dalam daftar akun dan tidak membuat forum baru.
+
+
 ### Forum Completion Loop — Paket A (18 Oktober 2026)
+
+Catatan implementasi awal; status verifikasi/pemasangan terkini ada pada entri APK di atas.
 
 - Daftar forum dalam grup/Info Grup memberi **Buka Riwayat** untuk anggota forum berakhir; Forum Saya tetap membuka forum lewat jalur yang sama. Non-anggota tidak diberi akses baru atau auto-join ke forum berakhir. Konfirmasi/sukses pengakhiran menjelaskan read-only dan riwayat tetap terbaca, dengan AI hanya disebut secara kondisional.
 - Parser push menjadi union room/Memori. `memory_draft_ready` membawa grup/forum/draf ke GroupInfo → Arsip Memori → review ID yang tepat. Antrean menunggu `NavigationContainer.onReady`; cleanup sesi membuang target tertunda. Deduplikasi listener/cold-start dipertahankan.

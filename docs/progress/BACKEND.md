@@ -5,7 +5,7 @@
 - Endpoint subgroups kini mengembalikan forum aktif dan berakhir; status arsip tetap dikecualikan. Nama internal `GetActiveSubGroups` dipertahankan untuk kompatibilitas. Gerbang membership induk tetap berlaku; query mencocokkan tenant forum, induk, dan viewer. Membuka riwayat tetap memerlukan otorisasi forum yang sudah ada.
 - Regresi lifecycle store memastikan forum expired tetap terdaftar dengan sisa waktu 0 dan metadata membership, anggota tetap berhak membaca, outsider ditolak, dan child lintas tenant tidak bocor. Tes WS baru memastikan join/history forum berakhir berhasil untuk anggota tetapi kirim baru ditolak dan tidak tersimpan; outsider tidak menerima history. Tes forward terkunci yang sudah ada tetap dipertahankan.
 - `go test -v ./...` lulus (tes live provider dengan kredensial tidak tersedia tetap SKIP sesuai suite). Tidak mengubah gate whitelist, worker, push dedup, atau aturan edit/hapus/reaksi.
-- **Belum deploy.** Setelah izin eksplisit pengguna: `ssh deploy@<VPS_IP> ./deploy-chat.sh`. Perubahan daftar pada server produksi belum tersedia sampai deployment diizinkan.
+- Status setelah uji APK 1.39.1 build 70: daftar dari backend yang dipakai APK sudah menampilkan forum berakhir dan Buka Riwayat berhasil. Hash deployment VPS tidak diperiksa langsung. Deploy selanjutnya sepenuhnya dilakukan pengguna; AI hanya menginformasikan bila diperlukan.
 
 
 ### Pencabutan perangkat untuk menu Perangkat Tertaut (18 Oktober 2026)

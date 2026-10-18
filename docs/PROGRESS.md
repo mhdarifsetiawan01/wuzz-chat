@@ -1,5 +1,14 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
+### Handoff Forum Completion Loop — Paket B berikutnya (18 Oktober 2026)
+
+- Paket A sudah diimplementasikan dan main dipush (`3fa080a`); main/dev lokal diselaraskan ke `eadd5d0` (1.39.1 build 70), branch kerja dev. Dokumentasi hasil uji dan handoff diperbarui lokal, belum di-commit pada sesi handoff.
+- APK terbaru dipasang pengguna. Forum berakhir terbuka dari Forum Saya dan Info Grup, riwayat terbaca, banner read-only tampil, input/rekaman suara disabled. Arsip Memori, background/resume normal, dan cold start normal berhasil; log error kosong.
+- Uji notifikasi Memori nyata warm/background/cold start dan dedup ketukan **ditunda pengguna**, tetap belum terverifikasi; tidak ada notifikasi aktif atau draf pending. Bukan blocker Paket B.
+- Sesi berikutnya: **Paket B — Buat lifecycle terlihat** (Tahap 2 + 4), dengan role/tenant/membership/whitelist tetap fail-closed. Paket C, pencarian arsip, dan perubahan edit/hapus/reaksi belum dikerjakan.
+- Deploy dan build APK/AAB sepenuhnya tugas pengguna. AI hanya memberi tahu kebutuhannya, tidak menaikkan versi/build number. Lihat `docs/plans/backlog/FORUM_COMPLETION_LOOP.md` bagian 13 sebelum memulai.
+
+
 ### Perapian desain Perangkat Tertaut (18 Oktober 2026)
 
 - Pisahkan Perangkat Ini dan Perangkat Lain; gunakan daftar dengan divider, ikon sesuai platform (HP/Web/Desktop), tanggal lebih pendek, dan aksi teks Keluarkan di samping identitas perangkat dengan target sentuh minimal 44 dp.

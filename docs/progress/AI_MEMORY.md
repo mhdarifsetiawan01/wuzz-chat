@@ -4,7 +4,7 @@
 
 - Push `memory_draft_ready` tetap memakai payload backend yang ada; mobile kini membuka Arsip Memori/review berdasarkan ID draf, grup, dan forum. Target menunggu navigator siap, serta memakai deduplikasi response listener/cold start yang sama.
 - UI memeriksa `memory_enabled` dan role; API backend tetap otoritas akses/tenant/whitelist. Draf yang sudah disetujui/ditolak tidak dibuka sebagai pending; 403/404/409 ditangani dengan pesan. Tidak menambah job, publikasi otomatis, badge, metadata lifecycle, pencarian, atau navigasi bukti.
-- Typecheck dan 41/41 berkas tes mobile lulus, frontend build dan backend suite lulus. Uji native FCM warm/background/cold start masih tertunda karena signing release lokal tidak tersedia; hanya alur otomatis dengan modul native tiruan yang diverifikasi. Tidak ada perubahan konfigurasi atau data produksi.
+- Typecheck dan 41/41 berkas tes mobile lulus, frontend build dan backend suite lulus. APK pengguna 1.39.1 build 70 telah diverifikasi untuk akses forum berakhir/read-only serta pemuatan arsip. Uji ketukan native FCM warm/background/cold start dan dedup nyata tetap belum terverifikasi karena tidak ada notifikasi aktif/draf pending, dan ditunda atas keputusan pengguna. Ini bukan blocker Paket B; tes otomatis navigasi dengan modul native tiruan sudah lulus. Tidak ada perubahan konfigurasi atau data produksi.
 
 
 Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana pengembangan pada engine **Group Memory AI** (*Forum Intelligence & Collaborative Group Knowledge*).

@@ -89,4 +89,4 @@ backend/internal/group/
 
 - Forum berakhir tetap tampil di daftar grup dan dapat dibuka anggota forum untuk membaca riwayat. Daftar tidak memberikan akses baru kepada non-anggota; join ke forum berakhir tetap ditolak. Forum Saya tetap memakai akses forum yang sudah ada.
 - Pengiriman pesan baru melalui WS dan forward ke forum berakhir tetap ditolak backend. **Edit, hapus, dan reaksi dipertahankan sesuai perilaku yang ada**; perlu keputusan bisnis lanjutan sebelum memperluas pengunciannya. Istilah read-only pada sesi ini menjelaskan larangan pesan baru/forward, bukan perubahan seluruh operasi pesan lama.
-- Implementasi lokal belum dideploy/dirilis; verifikasi APK baru menunggu konfigurasi signing lokal.
+- Paket A sudah di-commit ke dev, digabung ke main, dan main dipush. APK pengguna 1.39.1 build 70 lulus uji akses riwayat/read-only dari Forum Saya serta daftar forum di Info Grup. Uji notifikasi Memori nyata ditunda pengguna. Berikutnya Paket B; deploy dan build APK/AAB hanya dikerjakan pengguna.

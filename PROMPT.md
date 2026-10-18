@@ -50,8 +50,11 @@ Sebelum mengeksekusi tugas, AI **HANYA PERLU MEMBACA** dokumen primer yang relev
      - Backend: `go test -v ./...` di `backend/` (100% PASS).
      - Mobile: `npx tsc --noEmit` di `mobile/` (jika mengubah kode mobile).
 5. **Peringatan Deployment Backend**: Setiap perubahan kode di `backend/`, wajib sertakan instruksi deployment ke VPS: `ssh deploy@<VPS_IP> ./deploy-chat.sh`. AI **DILARANG KERAS** mengeksekusi deploy secara mandiri tanpa konfirmasi/izin eksplisit dari pengguna.
-6. **Ketahanan Jaringan Lambat & Flaky Server**: Selalu asumsikan latensi 200–800ms+, soket putus, atau timeout. Terapkan `AbortController`, Optimistic UI, dan Write-Through local storage.
-7. **Kepatuhan Design System**: Frontend web wajib mematuhi token CSS di `frontend/app/globals.css` dan panduan `frontend/DESIGN.md` (anti raw hex, anti magic z-index `99999`, unified modal primitives).
+6. **Build APK & Deployment adalah Tugas Pengguna (keputusan 18 Oktober 2026)**:
+   - AI tidak boleh menjalankan deploy atau build APK/AAB sendiri, termasuk build untuk pengujian, karena dapat memengaruhi versi/build number. Cukup informasikan bila perubahan memerlukan deploy backend/frontend atau build APK baru; pengguna yang menjalankannya.
+   - Jangan menaikkan versi/build number atau mengubah konfigurasi signing sebagai bagian tugas fitur. Pengujian pada APK yang sudah dipasang pengguna boleh dilakukan dalam cakupan yang diizinkan. `npm run build` frontend untuk validasi lokal tetap diperbolehkan.
+7. **Ketahanan Jaringan Lambat & Flaky Server**: Selalu asumsikan latensi 200–800ms+, soket putus, atau timeout. Terapkan `AbortController`, Optimistic UI, dan Write-Through local storage.
+8. **Kepatuhan Design System**: Frontend web wajib mematuhi token CSS di `frontend/app/globals.css` dan panduan `frontend/DESIGN.md` (anti raw hex, anti magic z-index `99999`, unified modal primitives).
 
 ---
 

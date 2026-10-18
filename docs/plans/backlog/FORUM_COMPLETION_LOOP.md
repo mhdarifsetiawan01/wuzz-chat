@@ -1,9 +1,9 @@
 # Forum Completion Loop — Rencana Implementasi dan Handoff
 
-> **Status:** Paket A diimplementasikan lokal (18 Oktober 2026); belum deploy/rilis, uji APK baru tertunda signing. Paket B/C belum dikerjakan
+> **Status:** Paket A diimplementasikan, commit `3fa080a` sudah di main dan dipush; uji baca/read-only lulus pada APK pengguna 1.39.1 build 70. Uji notifikasi nyata ditunda atas keputusan pengguna. Berikutnya Paket B; Paket C belum dikerjakan.
 > **Tanggal perancangan:** 18 Oktober 2026
 > **Target awal:** Mobile, lalu penyelarasan Web
-> **Batas sesi ini:** Dokumen perencanaan saja. Jangan mengubah kode, skema database, konfigurasi produksi, atau melakukan deployment berdasarkan dokumen ini tanpa instruksi pengguna pada sesi implementasi.
+> **Batas penggunaan:** Dokumen ini menyimpan rencana dan hasil implementasi. Kerjakan hanya paket yang diminta pengguna; jangan menganggap seluruh backlog sebagai izin implementasi. Deploy dan build APK/AAB selalu dikerjakan pengguna.
 
 ## 1. Ringkasan Keputusan
 
@@ -31,7 +31,7 @@ Nilai produk yang ingin diperkuat:
 
 ## 2. Masalah yang Ditemukan dalam Audit
 
-Audit dilakukan terhadap implementasi backend, mobile, web, dokumentasi domain, serta tampilan APK pada perangkat Android. Tidak ada data forum atau Memori yang dibuat, diakhiri, disetujui, atau dihapus selama audit.
+Bagian ini adalah temuan audit awal sebelum Paket A, bukan status kode terkini. Audit dilakukan terhadap implementasi backend, mobile, web, dokumentasi domain, serta tampilan APK pada perangkat Android. Tidak ada data forum atau Memori yang dibuat, diakhiri, disetujui, atau dihapus selama audit.
 
 ### 2.1 Navigasi notifikasi draf mobile terputus
 
@@ -537,27 +537,38 @@ Agent pada sesi baru harus:
    - dokumen rencana ini.
 3. Memeriksa `git status` dan branch aktif. Jangan bekerja di `main`.
 4. Memverifikasi ulang temuan pada kode terkini karena branch mungkin berubah setelah 18 Oktober 2026.
-5. Menawarkan Paket A sebagai unit implementasi pertama.
-6. Tidak mengerjakan Paket B/C sekaligus tanpa persetujuan ruang lingkup dari pengguna.
-7. Tidak membuka `MEMORY_ENABLED_GROUPS=*`, mengubah env produksi, deploy, commit, atau push tanpa izin sesuai aturan proyek.
+5. Membaca hasil Paket A dan handoff terbaru di bawah sebelum mengerjakan perubahan.
+6. Task berikutnya adalah **Paket B — Buat lifecycle terlihat**, hanya jika diminta lewat prompt sesi baru: Tahap 2 (`memory_state` di Forum Saya) dan Tahap 4 (badge/pintasan review). Jangan mengerjakan Paket C sekaligus.
+7. Pertahankan keputusan Paket A: edit/hapus/reaksi forum berakhir mengikuti perilaku yang ada; pesan baru dan forward tetap ditolak. Jangan memperluas penguncian tanpa keputusan bisnis baru.
+8. Uji notifikasi nyata yang belum tersedia **ditunda atas keputusan eksplisit pengguna**, bukan blocker Paket B dan bukan dianggap lulus. Jangan membuat draf/forum produksi untuk mengejarnya tanpa instruksi.
+9. Jangan menjalankan deploy atau build APK/AAB, menaikkan versi/build number, atau mengubah env produksi/signing. Pengguna mengurus deploy/build; AI cukup memberi tahu kebutuhannya. Validasi `npm run build` frontend tetap dijalankan.
+10. Jangan commit/push tanpa instruksi baru. Periksa dan pertahankan perubahan dokumentasi handoff yang belum di-commit di working tree.
 
-Pertanyaan pembuka yang perlu dikonfirmasi hanya jika belum dijawab oleh pengguna:
+### Handoff aktif untuk sesi berikutnya — Paket B
 
-- Apakah sesi baru diminta mengerjakan Paket A saja atau seluruh paket?
-- Untuk edit/hapus/reaksi pada forum berakhir, apakah semuanya ikut read-only atau hanya pengiriman pesan baru dan forward yang dikunci?
-- Apakah navigasi notifikasi sebaiknya membuka Group Info + modal Memori atau langsung layar Memori khusus?
-
-Rekomendasi default:
-
-- Kerjakan **Paket A saja** terlebih dahulu.
-- Forum berakhir sepenuhnya read-only untuk seluruh mutasi pesan, sambil tetap dapat dibaca.
-- Ketukan notifikasi membuka Arsip Memori grup langsung pada draf yang dituju, tanpa berhenti di Group Info.
+- `main` dan `dev` lokal telah diselaraskan di `eadd5d0` (1.39.1 build 70); checkout aktif `dev`. Verifikasi ulang saat memulai karena pengguna bisa menambah commit. Jangan mengasumsikan remote dev sudah sinkron; push sebelumnya hanya main.
+- Paket A tidak perlu diimplementasikan ulang. Suite backend, frontend build, typecheck mobile, dan 41/41 berkas unit mobile sudah lulus pada implementasinya.
+- APK 1.39.1 build 70 dipasang pengguna. Forum Saya dan Info Grup → Forum → Buka Riwayat lulus; riwayat terbaca, input/rekaman suara disabled, banner tampil. Daftar forum berakhir sudah terlihat lewat backend yang digunakan APK. Tidak memverifikasi hash deployment VPS secara langsung.
+- Tidak ada draf pending atau notifikasi WuzzChat aktif. Uji ketukan notifikasi nyata warm/background/cold start, dedup ketukan, serta kasus draf dihapus/ditinjau atau hak dicabut tetap **belum terverifikasi dan ditunda pengguna**. Startup normal yang lolos tidak menggantikan uji ini.
+- Paket B: turunkan lifecycle dari data forum/job/draf/memori yang tersedia, tanpa kolom baru kecuali kebutuhan terbukti. Terapkan tenant + membership + role + whitelist fail-closed. `draft_id` dan badge review hanya bagi admin/creator yang berwenang; jangan bocorkan ID/jumlah draf kepada anggota biasa.
+- Jangan menambah pencarian arsip, Lihat Pesan Asli, task manager, forum mandiri, atau pembukaan AI Memory ke semua grup. Pertahankan payload dan dedup notifikasi Paket A.
+- Sebelum edit kode, jelaskan hasil audit serta file/pendekatan. Tambahkan tes regresi yang relevan; jalankan suite backend, typecheck + unit mobile, dan frontend build. Catat hasil aktual serta kebutuhan deploy/build untuk dilakukan pengguna.
 
 
-## Hasil sesi Paket A — 18 Oktober 2026
+## Hasil sesi implementasi awal Paket A — 18 Oktober 2026
+
+Catatan historis di bawah menggambarkan keadaan sebelum commit/push dan pemasangan APK oleh pengguna; status terkini mengikuti handoff aktif serta verifikasi perangkat.
 
 - Selesai lokal: query daftar aktif/berakhir dengan filter tenant dan gate membership tetap berlaku; Buka Riwayat mobile/web bagi anggota; teks pengakhiran read-only; target notifikasi draf → Arsip Memori/review, readiness queue dan dedup listener/cold start; validasi target dan penanganan 403/404/409.
 - Lulus: backend `go test -v ./...`, mobile `npx tsc --noEmit`, 41/41 berkas unit mobile, frontend `npm run build`. Tes live provider tanpa kredensial SKIP sesuai suite. Tes readiness/dedup menggunakan modul native tiruan.
 - Belum terverifikasi: FCM dan ketukan nyata warm/background/cold start pada APK baru; build release berhenti karena env signing lokal `WUZZ_KEYSTORE_PATH` belum tersedia. ADB mendeteksi perangkat. Tidak ada data produksi dibuat, diakhiri, ditinjau, atau dihapus.
 - Backend belum dideploy dan mobile belum dirilis. Tidak mengubah env produksi, commit, atau push.
 - Keputusan lanjutan: edit/hapus/reaksi forum berakhir mempertahankan perilaku yang ada; jangan menyimpulkan seluruh mutasi pesan lama ikut dikunci. Pesan baru/forward tetap ditolak. Badge, `memory_state`, pencarian arsip, dan Lihat Pesan Asli tidak termasuk sesi ini.
+
+### Tambahan verifikasi perangkat — 18 Oktober 2026
+
+Pengguna memasang APK 1.39.1 build 70. Uji ADB pada HP berhasil membuka forum berakhir dari Forum Saya dan daftar forum di Info Grup, membaca riwayat, serta memeriksa banner read-only dan input/perekaman suara disabled. Arsip Memori terbit dapat dimuat. Background/resume normal dan cold start normal diikuti pembukaan ulang forum juga berhasil; log error ReactNativeJS/AndroidRuntime kosong. Rincian di `docs/progress/MOBILE.md`.
+
+Tidak ada notifikasi WuzzChat aktif atau draf pending di akun ini. Karena itu, ketukan notifikasi Memori pada warm/background/cold start dan deduplikasi nyata masih **belum terverifikasi**, bukan dianggap lulus dari tes startup normal. Tidak membuat data uji baru, mengakhiri forum, mengubah review, atau mencoba kirim/forward pada produksi. Tidak menjalankan build APK/deploy/commit/push.
+
+Keputusan pengguna setelah verifikasi: seluruh uji notifikasi nyata yang masih tertunda boleh dilanjutkan nanti. Penundaan ini tidak menghalangi Paket B. Build APK/AAB dan deployment sepenuhnya tugas pengguna; jangan dilakukan AI.
