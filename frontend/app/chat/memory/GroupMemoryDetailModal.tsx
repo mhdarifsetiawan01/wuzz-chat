@@ -381,7 +381,7 @@ export function GroupMemoryDetailModal({
                                       padding: 0,
                                     }}
                                   >
-                                    Buka di forum asli →
+                                    Lihat Pesan Asli
                                   </button>
                                 </div>
                               )}

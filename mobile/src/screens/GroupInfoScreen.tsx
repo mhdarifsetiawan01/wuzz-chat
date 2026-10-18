@@ -639,6 +639,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
       {/* M-Mobile-8.2B: Forum Topics Drawer (inline fallback when no onOpenForum prop) */}
       {showForumModal && group && (
         <SubGroupListModal
+          memoryEnabled={group.memory_enabled === true}
           visible={showForumModal}
           parentGroupId={groupId}
           parentGroupTitle={group.title}

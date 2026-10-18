@@ -157,3 +157,11 @@ func (r *SQLMessagingRepository) GetUserNickname(userID string) (string, error) 
 	}
 	return u.Username, nil
 }
+
+func (r *SQLMessagingRepository) GetMessageContext(ctx context.Context, roomID, userID, messageID string) ([]messaging.Message, error) {
+	reader, ok := r.msgStore.(store.MessageContextReader)
+	if !ok {
+		return nil, store.ErrSourceUnavailable
+	}
+	return reader.GetMessageContext(ctx, roomID, userID, messageID)
+}

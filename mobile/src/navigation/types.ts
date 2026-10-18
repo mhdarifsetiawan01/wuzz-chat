@@ -38,6 +38,7 @@ export type RootStackParamList = {
   /** Full-screen chat room — rendered over the tab bar */
   Chat: {
     conversation: ConversationItem;
+    sourceMessageId?: string;
     parentGroupConversation?: ConversationItem | null;
     /** Topik dibuka dari Bubble Forum: panah kembali di header langsung kembali ke asal, bukan ke grup induk. */
     fromForumBubble?: boolean;

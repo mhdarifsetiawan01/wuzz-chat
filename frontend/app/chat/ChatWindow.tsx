@@ -6,6 +6,7 @@ import { MessageBubble } from './MessageBubble'
 import { PinnedMessageBanner } from './PinnedMessageBanner'
 
 interface ChatWindowProps {
+  sourceMessageId?: string
   messages: Message[]
   selfId: string
   selfNickname: string
@@ -32,6 +33,7 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({
+  sourceMessageId,
   messages,
   selfId,
   selfNickname,
@@ -61,6 +63,14 @@ export function ChatWindow({
 
   // Auto-scroll ke bawah setiap ada pesan baru atau typing indicator (terisolasi hanya di container, tidak men-scroll window)
   useEffect(() => {
+    if (sourceMessageId) {
+      const el = document.getElementById(`msg-${sourceMessageId}`)
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('msg-highlight-glow')
+      const timer = setTimeout(() => el.classList.remove('msg-highlight-glow'), 2400)
+      return () => { clearTimeout(timer); el.classList.remove('msg-highlight-glow') }
+    }
     if (containerRef.current) {
       containerRef.current.scrollTo({
         top: containerRef.current.scrollHeight,
@@ -69,7 +79,7 @@ export function ChatWindow({
     } else {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [messages, isPeerTyping])
+  }, [messages, isPeerTyping, sourceMessageId])
 
   // Optimasi Performa O(N) Single-Pass: Memoize pemisahan pesan terenkripsi hanya saat array messages berubah
   const { encryptedCount, displayMessages } = useMemo(() => {

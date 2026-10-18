@@ -295,7 +295,7 @@ export function DecisionReviewCard({
                         padding: 0,
                       }}
                     >
-                      Buka di diskusi asli →
+                      Lihat Pesan Asli
                     </button>
                   </div>
                 )}

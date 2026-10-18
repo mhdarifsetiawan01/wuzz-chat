@@ -64,6 +64,7 @@ export const AppNavigator: React.FC = () => {
       >
         {({ route, navigation }) => (
           <ChatScreen
+            sourceMessageId={route.params.sourceMessageId}
             conversation={route.params.conversation}
             parentGroupConversation={route.params.parentGroupConversation}
             backToOrigin={route.params.fromForumBubble === true}

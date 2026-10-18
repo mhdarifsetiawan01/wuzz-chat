@@ -13,13 +13,14 @@ import { radius, spacing, useThemedStyles, ColorTokens, makeTypography } from '.
 import { formatMemoryDate } from './memoryFormat';
 
 interface Props {
+  onOpenSource: (forumId: string, messageId: string, title?: string, groupId?: string) => void;
   memoryId: string;
   /** Admin/creator grup boleh menghapus memori. */
   canDelete?: boolean;
   onDeleted?: () => void;
 }
 
-export const MemoryDetailView: React.FC<Props> = ({ memoryId, canDelete = false, onDeleted }) => {
+export const MemoryDetailView: React.FC<Props> = ({ memoryId, canDelete = false, onDeleted, onOpenSource }) => {
   const styles = useThemedStyles(makeStyles);
   const [detail, setDetail] = useState<ApprovedMemoryDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,11 +32,12 @@ export const MemoryDetailView: React.FC<Props> = ({ memoryId, canDelete = false,
       setIsLoading(true);
       setError('');
       try {
-        setDetail(await memoryApi.getApproved(memoryId, signal));
+        const result = await memoryApi.getApproved(memoryId, signal);
+        if (!signal?.aborted) setDetail(result);
       } catch (err: any) {
-        if (err?.name !== 'AbortError') setError(err?.detail || 'Gagal memuat memori.');
+        if (!signal?.aborted) setError(err?.detail || 'Gagal memuat memori.');
       } finally {
-        setIsLoading(false);
+        if (!signal?.aborted) setIsLoading(false);
       }
     },
     [memoryId]
@@ -121,6 +123,7 @@ export const MemoryDetailView: React.FC<Props> = ({ memoryId, canDelete = false,
                   <Text style={styles.evidenceMeta}>
                     {ev.sender_name} · {formatMemoryDate(ev.sent_at)}
                   </Text>
+                  {ev.message_id ? <Button title="Lihat Pesan Asli" variant="ghost" onPress={() => onOpenSource(detail.forum_id, ev.message_id, detail.forum_title, detail.group_id)} /> : null}
                 </View>
               ))}
             </View>

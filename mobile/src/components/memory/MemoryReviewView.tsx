@@ -24,6 +24,7 @@ import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography
 import { formatMemoryDate } from './memoryFormat';
 
 interface Props {
+  onOpenSource: (forumId: string, messageId: string, title?: string, groupId?: string) => void;
   draftId: string;
   /** Dipanggil setelah draf selesai ditinjau (disetujui/ditolak) atau sudah diputuskan pihak lain. */
   onDone: () => void;
@@ -31,7 +32,7 @@ interface Props {
 
 const MAX_EDIT_LENGTH = 2000;
 
-export const MemoryReviewView: React.FC<Props> = ({ draftId, onDone }) => {
+export const MemoryReviewView: React.FC<Props> = ({ draftId, onDone, onOpenSource }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [draft, setDraft] = useState<MemoryDraftDetail | null>(null);
@@ -276,6 +277,7 @@ export const MemoryReviewView: React.FC<Props> = ({ draftId, onDone }) => {
                 <Text style={styles.evidenceMeta}>
                   {ev.message_sender_name} · {formatMemoryDate(ev.message_sent_at)}
                 </Text>
+                {ev.message_id ? <Button title="Lihat Pesan Asli" variant="ghost" onPress={() => onOpenSource(draft.forum_id, ev.message_id, draft.forum_title, draft.group_id)} /> : null}
               </View>
             ))}
           </>

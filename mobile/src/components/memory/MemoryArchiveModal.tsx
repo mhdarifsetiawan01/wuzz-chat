@@ -10,6 +10,10 @@
  * tampil ke anggota; draf hanya terlihat oleh admin/creator (ditegakkan di backend).
  */
 
+import { useNavigation } from '@react-navigation/native';
+import { sourceChatParams } from '../../services/sourceNavigation';
+import { useAuth } from '../../context/AuthContext';
+import { RootStackNavigationProp } from '../../navigation/types';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -73,6 +77,18 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
   onClose,
   onChanged,
 }) => {
+  const { token } = useAuth();
+  const sourceOpeningRef = useRef(false);
+  useEffect(() => { sourceOpeningRef.current = false; }, [visible, groupId]);
+  const navigation = useNavigation<RootStackNavigationProp<'Chat'>>();
+  const openSource = (forumId: string, messageId: string, title?: string, sourceGroupId?: string) => {
+    if (sourceOpeningRef.current || sourceGroupId !== groupId) return;
+    const params = sourceChatParams(groupId, groupTitle, forumId, messageId, title);
+    if (!params) return;
+    sourceOpeningRef.current = true;
+    onClose();
+    navigation.push('Chat', params);
+  };
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const initialForumHandledRef = useRef(false);
@@ -153,7 +169,7 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
       loadFirstPage();
     }
     return () => abortRef.current?.abort();
-  }, [visible, loadFirstPage]);
+  }, [visible, loadFirstPage, token]);
 
   const loadMore = useCallback(async () => {
     if (!hasMore || loadingMoreRef.current || tab !== 'archive') return;
@@ -274,6 +290,8 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
 
         {view.kind === 'detail' ? (
           <MemoryDetailView
+            key={`${groupId}:${view.id}`}
+            onOpenSource={openSource}
             memoryId={view.id}
             canDelete={isAdmin}
             onDeleted={() => {
@@ -283,7 +301,7 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
             }}
           />
         ) : null}
-        {view.kind === 'review' ? <MemoryReviewView draftId={view.id} onDone={handleReviewDone} /> : null}
+        {view.kind === 'review' ? <MemoryReviewView key={`${groupId}:${view.id}`} onOpenSource={openSource} draftId={view.id} onDone={handleReviewDone} /> : null}
 
         {view.kind === 'list' ? (
           <>

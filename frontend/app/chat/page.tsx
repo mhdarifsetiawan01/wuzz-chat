@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer, useState, useCallback, useRef, useMemo, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { SourceRequest, SOURCE_UNAVAILABLE, sourceContextPath, hasSourceTarget } from '@/lib/sourceMessage'
 import { WsClient } from '@/lib/ws-client'
 import type { Message, MessageType, ConnectionStatus, SessionInfo, RoomUser, MessageReceiptStatus, ReactionItem, ConversationItem, User, ActiveCallInfo, GroupDetails, PinnedMessage } from '@/lib/types'
 import { StatusBar } from './StatusBar'
@@ -288,7 +289,52 @@ function ChatPageContent() {
   const roomId = selectedRoomId
   const { user, isLoading: isAuthLoading, logout, localLogout } = useAuth()
 
-  const [state, dispatch] = useReducer(chatReducer, initialState)
+  const [sourceTarget, setSourceTarget] = useState<{room: string; id: string} | null>(null)
+  const sourceTargetRef = useRef(sourceTarget)
+  sourceTargetRef.current = sourceTarget
+  const sourceSession = typeof window === 'undefined' ? null : localStorage.getItem('wuzz_auth_token')
+  const [sourceData, setSourceData] = useState<{room: string; session: string | null; rows: Message[]} | null>(null)
+  const sourceWindow = sourceData?.room === roomId && sourceData.session === sourceSession ? sourceData.rows : null
+  const setSourceWindow = useCallback((rows: Message[] | null) => {
+    setSourceData(rows ? { room: roomId, session: sourceSession, rows } : null)
+  }, [roomId, sourceSession])
+  const [sourceLoading, setSourceLoading] = useState(false)
+  const [sourceError, setSourceError] = useState('')
+  const [sourceAttempt, setSourceAttempt] = useState(0)
+  useEffect(() => {
+    setSourceWindow(null)
+    setSourceError('')
+    if (!sourceTarget || sourceTarget.room !== roomId) { setSourceLoading(false); return }
+    const request = new SourceRequest()
+    const token = localStorage.getItem('wuzz_auth_token')
+    setSourceLoading(true)
+    void request.run(async signal => {
+      const res = await apiRequest<any[]>(sourceContextPath(roomId, sourceTarget.id), { signal })
+      if (res.error) throw { status: res.status }
+      const rows = res.data
+      if (!hasSourceTarget(rows, roomId, sourceTarget.id)) throw { status: 404 }
+      return rows.map(m => ({ ...m, type: 'message', room: m.room_id, from: m.from_id,
+        reactions: typeof m.reactions === 'string' ? JSON.parse(m.reactions) : m.reactions,
+        reply_to: m.reply_to_id ? { id: m.reply_to_id, nickname: m.reply_to_nickname, content: m.reply_to_content } : undefined,
+      })) as Message[]
+    }).then(result => {
+      if (!result) return
+      setSourceLoading(false)
+      if (token !== localStorage.getItem('wuzz_auth_token')) return
+      if ('error' in result) setSourceError(result.error)
+      else setSourceWindow(result.value)
+    })
+    return () => request.cancel()
+  }, [sourceTarget, roomId, user?.id, sourceSession, sourceAttempt])
+
+  const [state, baseDispatch] = useReducer(chatReducer, initialState)
+  // Keep mutations visible in the temporary source window without importing latest-history pages into it.
+  const dispatch = useCallback((action: ChatAction) => {
+    baseDispatch(action)
+    if (['UPDATE_MESSAGE_STATUS', 'UPDATE_MESSAGE_REACTIONS', 'DELETE_MESSAGE_LOCAL', 'UPDATE_MESSAGE_DELETED', 'EDIT_MESSAGE'].includes(action.type)) {
+      setSourceData(prev => prev ? { ...prev, rows: chatReducer({ ...initialState, messages: prev.rows }, action).messages } : null)
+    }
+  }, [])
   const [isMemberListOpen, setIsMemberListOpen] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [lastIncomingMessage, setLastIncomingMessage] = useState<Message | null>(null)
@@ -308,6 +354,8 @@ function ChatPageContent() {
   const [activeCall, setActiveCall] = useState<ActiveCallInfo | null>(null)
   const [isCallMuted, setIsCallMuted] = useState(false)
   const [groupDetails, setGroupDetails] = useState<GroupDetails | null>(null)
+  const isForumEnded = Boolean(groupDetails?.parent_id && (groupDetails.status === 'expired' ||
+    (groupDetails.expires_at && new Date(groupDetails.expires_at).getTime() <= Date.now())))
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState(false)
   const [isSubGroupListOpen, setIsSubGroupListOpen] = useState(false)
   const [isCreateSubGroupOpen, setIsCreateSubGroupOpen] = useState(false)
@@ -377,7 +425,12 @@ function ChatPageContent() {
     if (!targetRoomId || (!targetRoomId.startsWith('grp_') && !targetRoomId.startsWith('sub_'))) return
     try {
       const { data, error, status } = await apiRequest<GroupDetails>(`/api/groups/${targetRoomId}`, { signal })
+      if (signal?.aborted) return
       if (error) {
+        if (sourceTargetRef.current?.room === targetRoomId) {
+          setSourceError([403, 404].includes(status || 0) ? SOURCE_UNAVAILABLE : 'Konteks pesan gagal dimuat. Periksa koneksi lalu coba lagi.')
+          return
+        }
         if (targetRoomId.startsWith('grp_') || targetRoomId.startsWith('sub_')) {
           const isAccessDenied = status === 403 || 
             error.toLowerCase().includes('akses ditolak') || 
@@ -430,26 +483,37 @@ function ChatPageContent() {
   }, [fetchGroupDetails])
 
   const [parentGroupName, setParentGroupName] = useState('')
+  const [parentMemoryEnabled, setParentMemoryEnabled] = useState(false)
   const [parentGroupRole, setParentGroupRole] = useState<string | undefined>(undefined)
 
   useEffect(() => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 15000)
+    setParentGroupRole(undefined)
+    setParentMemoryEnabled(false)
     if (groupDetails?.parent_id) {
-      apiRequest<GroupDetails>(`/api/groups/${groupDetails.parent_id}`)
+      apiRequest<GroupDetails>(`/api/groups/${groupDetails.parent_id}`, { signal: controller.signal })
         .then(({ data }) => {
+          if (controller.signal.aborted) return
           if (data) {
             setParentGroupName(data.title || data.name || 'Grup Utama')
             setParentGroupRole(data.my_role)
+            setParentMemoryEnabled(data.memory_enabled === true)
           }
         })
         .catch(() => {
+          if (controller.signal.aborted) return
           setParentGroupName('Grup Utama')
           setParentGroupRole(undefined)
+          setParentMemoryEnabled(false)
         })
     } else {
       setParentGroupName('')
       setParentGroupRole(undefined)
+      setParentMemoryEnabled(false)
     }
-  }, [groupDetails?.parent_id])
+    return () => { clearTimeout(timer); controller.abort() }
+  }, [groupDetails?.parent_id, user?.id])
 
   useEffect(() => {
     if (!roomId || (!roomId.startsWith('grp_') && !roomId.startsWith('sub_'))) {
@@ -461,12 +525,17 @@ function ChatPageContent() {
     }
 
     const controller = new AbortController()
-    fetchGroupDetails(roomId, controller.signal)
+    const timer = setTimeout(() => {
+      controller.abort()
+      if (sourceTargetRef.current?.room === roomId) setSourceError('Konteks pesan gagal dimuat. Periksa koneksi lalu coba lagi.')
+    }, 15000)
+    void fetchGroupDetails(roomId, controller.signal).finally(() => clearTimeout(timer))
 
     return () => {
+      clearTimeout(timer)
       controller.abort()
     }
-  }, [roomId, fetchGroupDetails])
+  }, [roomId, fetchGroupDetails, sourceAttempt, user?.id])
 
   // Lacak peer info terbaru (nickname, avatar, id) agar terhindar dari stale overwrite
   const peerInfoRef = useRef<{ nickname: string | null; avatarUrl: string | null; userId: string | null }>({
@@ -1821,7 +1890,7 @@ function ChatPageContent() {
     const isGroupChat = roomId.startsWith('grp_') || roomId.startsWith('sub_') || roomId.startsWith('room-')
 
     // Fail-Closed Write Gate di Frontend jika subgrup kedaluwarsa
-    if (groupDetails?.status === 'expired') {
+    if (isForumEnded) {
       alert('Topik forum ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.')
       return
     }
@@ -1926,7 +1995,7 @@ function ChatPageContent() {
     }
 
     setReplyingTo(null)
-  }, [state.session, roomId, replyingTo, user?.id])
+  }, [state.session, roomId, replyingTo, user?.id, isForumEnded])
 
   const handleTyping = useCallback(() => {
     if (!roomId) return
@@ -2126,6 +2195,7 @@ function ChatPageContent() {
   }, [])
 
   const handleSelectRoom = (newRoomId: string) => {
+    setSourceTarget(null)
     setLightboxData(null)
     setIsMemberListOpen(false)
     setReplyingTo(null)
@@ -2260,7 +2330,13 @@ function ChatPageContent() {
         )}
 
         {roomId ? (
-          privateGroupDenied?.id === roomId ? (
+          sourceTarget?.room === roomId && sourceError ? (
+            <div className="chat-welcome-placeholder" role="status">
+              <p>{sourceError}</p>
+              {sourceError !== SOURCE_UNAVAILABLE ? <button type="button" className="btn-ghost text-accent" onClick={() => setSourceAttempt(n => n + 1)}>Coba Lagi</button> : null}
+              <button type="button" className="btn-ghost text-accent" onClick={() => handleSelectRoom('')}>Kembali ke Obrolan</button>
+            </div>
+          ) : privateGroupDenied?.id === roomId ? (
             <div 
               className="chat-window chat-status-center" 
               style={{ 
@@ -2381,7 +2457,7 @@ function ChatPageContent() {
               />
 
               {/* Banner Forum Expired & Akses Memori AI */}
-              {groupDetails?.parent_id && groupDetails?.status === 'expired' && (
+              {isForumEnded && (
                 <div
                   style={{
                     padding: '8px 16px',
@@ -2399,10 +2475,10 @@ function ChatPageContent() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                     <span style={{ fontSize: '1.05rem' }}>🏛️</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      Topik forum ini telah kedaluwarsa & diarsipkan.
+                      Forum telah berakhir. Riwayat diskusi tetap dapat dibaca.
                     </span>
                   </div>
-                  <button
+                  {parentMemoryEnabled ? <button
                     type="button"
                     onClick={() => setIsMemoryListOpen(true)}
                     style={{
@@ -2418,19 +2494,27 @@ function ChatPageContent() {
                       flexShrink: 0,
                     }}
                   >
-                    🧠 Lihat Memori Grup →
-                  </button>
+                    🧠 Lihat Memori
+                  </button> : null}
                 </div>
               )}
 
+              {sourceTarget?.room === roomId ? (
+                <div className="source-context-bar" role="status">
+                  <span>{sourceError || (sourceLoading ? 'Memuat konteks pesan…' : 'Konteks pesan sumber')}</span>
+                  {sourceError && sourceError !== SOURCE_UNAVAILABLE ? <button type="button" className="btn-ghost text-accent" onClick={() => setSourceAttempt(n => n + 1)}>Coba Lagi</button> : null}
+                  <button type="button" className="btn-ghost text-accent" onClick={() => { setSourceTarget(null); setSourceWindow(null) }}>Kembali ke Pesan Terbaru</button>
+                </div>
+              ) : null}
               <ChatWindow
-                messages={state.messages}
+                sourceMessageId={sourceWindow ? sourceTarget?.id : undefined}
+                messages={sourceWindow ?? state.messages}
                 selfId={state.session?.clientId || user.id || ''}
                 selfNickname={state.session?.nickname ?? user.display_name ?? user.username ?? ''}
                 isPeerTyping={state.isPeerTyping}
                 typingNickname={state.typingNickname}
-                isLoadingHistory={isLoadingHistory}
-                isHistoryError={isHistoryError}
+                isLoadingHistory={sourceLoading || (!sourceWindow && isLoadingHistory)}
+                isHistoryError={!sourceWindow && isHistoryError}
                 isE2EE={Boolean(roomId && !roomId.startsWith('grp_') && !roomId.startsWith('sub_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
                 isDirectChat={Boolean(roomId && !roomId.startsWith('grp_') && !roomId.startsWith('sub_') && (roomId.startsWith('dm_') || !roomId.startsWith('room-')))}
                 peerAvatarUrl={state.peerAvatarUrl || ''}
@@ -2452,7 +2536,7 @@ function ChatPageContent() {
               <MessageInput
                 onSend={handleSend}
                 onTyping={handleTyping}
-                disabled={!isConnected || groupDetails?.status === 'expired'}
+                disabled={!isConnected || isForumEnded || (!!sourceTarget && groupDetails?.id !== roomId)}
                 replyTo={replyingTo}
                 onCancelReply={() => setReplyingTo(null)}
                 editingMessage={editingMessage}
@@ -2504,6 +2588,7 @@ function ChatPageContent() {
 
               {/* Drawer Daftar Subgrup Aktif */}
               <SubGroupListDrawer
+                memoryEnabled={groupDetails?.parent_id ? parentMemoryEnabled : groupDetails?.memory_enabled === true}
                 isOpen={isSubGroupListOpen}
                 onClose={() => setIsSubGroupListOpen(false)}
                 parentGroupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
@@ -2530,6 +2615,7 @@ function ChatPageContent() {
 
               {/* Modal Pembuatan Subgrup Baru */}
               <CreateSubGroupModal
+                memoryEnabled={groupDetails?.parent_id ? parentMemoryEnabled : groupDetails?.memory_enabled === true}
                 isOpen={isCreateSubGroupOpen}
                 onClose={() => setIsCreateSubGroupOpen(false)}
                 parentGroupId={groupDetails?.parent_id ? groupDetails.parent_id : (roomId.startsWith('grp_') ? roomId : '')}
@@ -2550,14 +2636,12 @@ function ChatPageContent() {
                 }}
                 onRejected={() => {
                   setReviewDraftId(null)
-                  showInAppToast('Draft memori berhasil ditolak.', 3500, 'ℹ️')
+                  showInAppToast('Draf Memori berhasil ditolak.', 3500, 'ℹ️')
                 }}
                 onJumpToMessage={(forumId, messageId) => {
                   setReviewDraftId(null)
                   handleSelectRoom(forumId)
-                  if (messageId) {
-                    setTimeout(() => handleJumpToMessage(messageId), 300)
-                  }
+                  setSourceTarget({ room: forumId, id: messageId })
                 }}
               />
 
@@ -2581,9 +2665,7 @@ function ChatPageContent() {
                   setSelectedApprovedMemoryId(null)
                   setIsMemoryListOpen(false)
                   handleSelectRoom(forumId)
-                  if (messageId) {
-                    setTimeout(() => handleJumpToMessage(messageId), 300)
-                  }
+                  setSourceTarget({ room: forumId, id: messageId })
                 }}
                 onOpenForumChat={(forumId) => {
                   setSelectedApprovedMemoryId(null)

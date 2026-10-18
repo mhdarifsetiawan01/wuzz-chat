@@ -1,10 +1,13 @@
 'use client'
 
+import { SourceRequest } from '@/lib/sourceMessage'
+import { needsForumReview, forumMemoryLabel } from '@/lib/forumLifecycle'
 import React, { useState, useEffect, useCallback } from 'react'
-import { SubGroupItem, JoinRequestItem, MemoryDraftListItem } from '@/lib/types'
-import { apiRequest, fetchMemoryDrafts } from '@/lib/api'
+import { SubGroupItem, JoinRequestItem, MyForum } from '@/lib/types'
+import { apiRequest } from '@/lib/api'
 
 interface SubGroupListDrawerProps {
+  memoryEnabled?: boolean
   isOpen: boolean
   onClose: () => void
   parentGroupId: string
@@ -18,7 +21,7 @@ interface SubGroupListDrawerProps {
 }
 
 function formatRemainingTime(remainingSeconds: number): { text: string; isUrgent: boolean } {
-  if (remainingSeconds <= 0) return { text: 'Kedaluwarsa', isUrgent: true }
+  if (remainingSeconds <= 0) return { text: 'Berakhir', isUrgent: true }
   const days = Math.floor(remainingSeconds / 86400)
   if (days >= 1) {
     const hours = Math.floor((remainingSeconds % 86400) / 3600)
@@ -43,6 +46,7 @@ function formatRemainingTime(remainingSeconds: number): { text: string; isUrgent
 }
 
 export default function SubGroupListDrawer({
+  memoryEnabled = false,
   isOpen,
   onClose,
   parentGroupId,
@@ -69,7 +73,10 @@ export default function SubGroupListDrawer({
   const [successToast, setSuccessToast] = useState<string>('')
 
   // State untuk draft memori AI yang menunggu review (Admin/Creator)
-  const [memoryDrafts, setMemoryDrafts] = useState<MemoryDraftListItem[]>([])
+  const lifecycleScope = `${parentGroupId}:${currentUserId}:${currentUserRole}:${memoryEnabled}`
+  const [lifecycleData, setLifecycleData] = useState<{scope: string; forums: MyForum[]} | null>(null)
+  const forumLifecycle = lifecycleData?.scope === lifecycleScope ? lifecycleData.forums : []
+  const memoryDrafts = forumLifecycle.filter(needsForumReview)
   const [expiringId, setExpiringId] = useState<string | null>(null)
 
   const fetchSubgroups = useCallback(async () => {
@@ -110,23 +117,17 @@ export default function SubGroupListDrawer({
     }
   }, [isOpen, fetchSubgroups])
 
-  // Fetch draft memori secara terpisah, reaktif terhadap canCreateTopic
-  // (canCreateTopic bisa berubah setelah initial render saat data role ter-load)
   useEffect(() => {
-    if (isOpen && canCreateTopic && parentGroupId) {
-      fetchMemoryDrafts(parentGroupId)
-        .then((res) => {
-          if (res.data) {
-            const pendingOnly = res.data.filter((d) => d.status === 'DRAFT')
-            setMemoryDrafts(pendingOnly)
-          }
-        })
-        .catch(() => {})
-    } else if (!isOpen) {
-      // Reset draft saat drawer ditutup
-      setMemoryDrafts([])
-    }
-  }, [isOpen, canCreateTopic, parentGroupId])
+    setLifecycleData(null)
+    if (!isOpen || !parentGroupId || !memoryEnabled) return
+    const request = new SourceRequest()
+    void request.run(async signal => {
+      const res = await apiRequest<{ forums: MyForum[] }>('/api/forums/mine', { signal })
+      if (res.error) throw new Error(res.error)
+      return (res.data?.forums || []).filter(f => f.parent_id === parentGroupId)
+    }).then(result => { if (result && 'value' in result) setLifecycleData({ scope: lifecycleScope, forums: result.value }) })
+    return () => request.cancel()
+  }, [isOpen, parentGroupId, currentUserId, currentUserRole, memoryEnabled])
 
   // ESC key listener
   useEffect(() => {
@@ -217,7 +218,7 @@ export default function SubGroupListDrawer({
   }
 
   const handleExpireNow = async (sub: SubGroupItem) => {
-    if (!window.confirm(`Forum "${sub.title}" menjadi read-only dan tidak dapat menerima pesan baru. Riwayat tetap dapat dibaca. Jika AI Memory aktif, ringkasan akan dibuat untuk ditinjau admin.`)) {
+    if (!window.confirm(`Forum "${sub.title}" akan berakhir dan tidak dapat menerima pesan baru. Riwayat diskusi tetap dapat dibaca.${memoryEnabled ? ' Ringkasan topik akan dibuat untuk ditinjau admin.' : ''}`)) {
       return
     }
     setExpiringId(sub.id)
@@ -567,7 +568,7 @@ export default function SubGroupListDrawer({
             )}
 
             {/* Navigasi Arsip Memori Grup AI (Tersedia untuk seluruh anggota grup) */}
-            {onOpenMemoryList && (
+            {memoryEnabled && onOpenMemoryList && (
               <div style={{ padding: '12px 20px 0 20px' }}>
                 <button
                   type="button"
@@ -593,7 +594,7 @@ export default function SubGroupListDrawer({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '1.1rem' }}>🧠</span>
-                    <span>Arsip Memori Pengetahuan AI</span>
+                    <span>Arsip Memori</span>
                   </div>
                   <span style={{ fontSize: '0.78rem', color: 'var(--accent-400)', fontWeight: 600 }}>
                     Buka Arsip →
@@ -623,7 +624,7 @@ export default function SubGroupListDrawer({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '1.1rem' }}>🧠</span>
                       <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                        Draft Memori AI Siap Direview
+                        Perlu Ditinjau
                       </strong>
                       <span
                         style={{
@@ -640,14 +641,14 @@ export default function SubGroupListDrawer({
                     </div>
                     <p style={{ margin: '3px 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
                       {memoryDrafts.length === 1
-                        ? `Forum "${memoryDrafts[0].forum_title}" telah expired dan siap divalidasi.`
-                        : `${memoryDrafts.length} forum telah expired dan menunggu validasi admin.`}
+                        ? `Forum "${memoryDrafts[0].title}" telah berakhir dan perlu ditinjau.`
+                        : `${memoryDrafts.length} forum telah berakhir dan menunggu tinjauan admin.`}
                     </p>
                   </div>
                   {onOpenReviewModal && (
                     <button
                       type="button"
-                      onClick={() => onOpenReviewModal(memoryDrafts[0].draft_id)}
+                      onClick={() => onOpenReviewModal(memoryDrafts[0].draft_id!)}
                       style={{
                         padding: '6px 12px',
                         borderRadius: '8px',
@@ -712,6 +713,7 @@ export default function SubGroupListDrawer({
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {subgroups.map((sub) => {
+                    const lifecycle = forumLifecycle.find(f => f.id === sub.id)
                     const ended = sub.status === 'expired' || Boolean(sub.expires_at && new Date(sub.expires_at).getTime() <= Date.now())
                     const rem = formatRemainingTime(ended ? 0 : sub.remaining_seconds)
                     const isJoining = joiningId === sub.id
@@ -807,6 +809,7 @@ export default function SubGroupListDrawer({
                           </span>
                         </div>
 
+                        {lifecycle && forumMemoryLabel(lifecycle) ? <p className="u-text-sm u-text-secondary">{forumMemoryLabel(lifecycle)}</p> : null}
                         {/* Meta Info & Tombol Aksi */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px', flexWrap: 'wrap', gap: '8px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

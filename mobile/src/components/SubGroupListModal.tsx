@@ -48,6 +48,7 @@ import { formatTtlRemaining } from '../utils/ttlCountdown';
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface SubGroupListModalProps {
+  memoryEnabled?: boolean;
   visible: boolean;
   parentGroupId: string;
   parentGroupTitle: string;
@@ -70,6 +71,7 @@ function isExpired(expiresAt: string): boolean {
 
 export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
   visible,
+  memoryEnabled = false,
   parentGroupId,
   parentGroupTitle,
   currentUserRole,
@@ -139,7 +141,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
       if (expiringId) return;
       showAlert(
         'Akhiri topik sekarang?',
-        `Topik "${sub.title}" menjadi read-only dan tidak dapat menerima pesan baru. Riwayat diskusi tetap dapat dibaca. Bila AI Memory aktif untuk grup ini, ringkasan topik akan dibuat untuk ditinjau admin.`,
+        `Forum "${sub.title}" akan berakhir dan tidak dapat menerima pesan baru. Riwayat diskusi tetap dapat dibaca.${memoryEnabled ? ' Ringkasan topik akan dibuat untuk ditinjau admin.' : ''}`,
         [
           { text: 'Batal', style: 'cancel' },
           {
@@ -166,7 +168,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
         ]
       );
     },
-    [expiringId, parentGroupId, loadSubGroups]
+    [expiringId, parentGroupId, loadSubGroups, memoryEnabled]
   );
 
   // ── Join public topic ─────────────────────────────────────────────────────

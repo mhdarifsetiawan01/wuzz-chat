@@ -880,7 +880,7 @@ paths:
       tags:
         - Messages
       summary: Get Message History for Room
-      description: Fetches paginated messages in a conversation. Enforces room membership verification.
+      description: Fetches paginated messages. With message_id, returns a bounded forum source context (20 before, target, 20 after; fewer after privacy filtering). Requires forum and parent membership in the authenticated tenant. Ended forums remain readable. Memory access does not grant source access.
       security:
         - BearerAuth: []
       parameters:
@@ -898,10 +898,18 @@ paths:
         - name: before
           in: query
           required: false
-          description: Cursor message timestamp or ID for backward pagination
+          description: RFC3339 timestamp cursor for backward pagination (ignored when message_id is provided)
+          schema:
+            type: string
+        - name: message_id
+          in: query
+          required: false
+          description: Source message in room_id (sub_ forum only). Takes precedence over before and limit. Ordering is timestamp then ID. Does not change latest-history pagination.
           schema:
             type: string
       responses:
+        '404':
+          description: Source missing, deleted for everyone/viewer, before the viewer history cutoff, wrong room, or inaccessible. Same response prevents existence disclosure.
         '200':
           description: Message list
           content:

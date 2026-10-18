@@ -5,6 +5,7 @@ import { GroupDetails } from '@/lib/types'
 import { apiRequest } from '@/lib/api'
 
 interface CreateSubGroupModalProps {
+  memoryEnabled?: boolean
   isOpen: boolean
   onClose: () => void
   parentGroupId: string
@@ -13,6 +14,7 @@ interface CreateSubGroupModalProps {
 }
 
 export default function CreateSubGroupModal({
+  memoryEnabled = false,
   isOpen,
   onClose,
   parentGroupId,
@@ -354,8 +356,8 @@ export default function CreateSubGroupModal({
               </div>
             </div>
 
-            {/* Catatan Masa Depan / AI Summary Notice */}
-            <div 
+            {/* Ringkasan hanya untuk grup yang diaktifkan server. */}
+            {memoryEnabled ? <div
               style={{
                 background: 'var(--tint-accent-08)',
                 border: '1px solid rgba(59, 130, 246, 0.2)',
@@ -370,9 +372,9 @@ export default function CreateSubGroupModal({
             >
               <span>🤖</span>
               <span>
-                <strong>Info Otomatis:</strong> Setelah masa aktif habis, topik forum akan terkunci dan siap dirangkum oleh modul AI Summary di masa depan.
+                Setelah forum berakhir, ringkasan topik akan dibuat untuk ditinjau admin.
               </span>
-            </div>
+            </div> : null}
           </div>
 
           {/* Footer Modal */}

@@ -1,3 +1,5 @@
+import { Button } from '../components/Button';
+import { SourceRequest, SOURCE_UNAVAILABLE } from '../services/sourceMessage';
 /**
  * WuzzChat ChatScreen Component
  * WhatsApp-grade chat timeline with sticky header, realtime WebSocket messaging,
@@ -24,7 +26,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Crypto from 'expo-crypto';
-import { Conversation, FeedPost, ConversationItem, GroupDetails, GroupMember, Message, PinnedMessage, ConnectionStatusResponse } from '../api/types';
+import { normalizeReactions, Conversation, FeedPost, ConversationItem, GroupDetails, GroupMember, Message, PinnedMessage, ConnectionStatusResponse } from '../api/types';
 import { getUserPublicKey } from '../api/users';
 import { groupsApi } from '../api/groups';
 import { mediaApi } from '../api/media';
@@ -72,6 +74,7 @@ import { isSystemMessage } from '../utils/systemMessage';
 import { showAlert } from '../services/dialog';
 
 export interface ChatScreenProps {
+  sourceMessageId?: string;
   conversation: ConversationItem;
   onBack: () => void;
   onOpenGroupInfo?: (group: GroupDetails | ConversationItem) => void;
@@ -130,6 +133,7 @@ function loadMentionMembers(roomId: string): Promise<GroupMember[] | null> {
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
   conversation,
+  sourceMessageId,
   onBack,
   onOpenGroupInfo,
   onNavigateToParent,
@@ -143,7 +147,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const styles = useThemedStyles(makeStyles);
 
   const insets = useSafeAreaInsets();
-  const { user, e2eeKeyPair } = useAuth();
+  const { user, token, e2eeKeyPair } = useAuth();
   const { startCall } = useCall();
   const { markConversationAsRead, setActiveRoomId } = useConversations();
   const { checkConnectionStatus, sendFriendRequest } = useConnection();
@@ -180,17 +184,74 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   } = useMessageActions();
 
   const {
-    messages,
-    isLoading,
+    messages: latestMessages,
+    isLoading: latestLoading,
     hasMoreOlder: roomHasMoreOlder,
     isLoadingOlder: roomIsLoadingOlder,
   } = useRoomMessages(roomId);
 
+  const [sourceData, setSourceData] = useState<{room: string; session: string | null; rows: Message[]} | null>(null);
+  const sourceWindow = sourceData?.room === roomId && sourceData.session === token ? sourceData.rows : null;
+  const setSourceWindow = useCallback((update: Message[] | null | ((prev: Message[] | null) => Message[] | null)) => {
+    setSourceData(prev => {
+      const rows = typeof update === 'function' ? update(prev?.room === roomId && prev.session === token ? prev.rows : null) : update;
+      return rows ? { room: roomId, session: token, rows } : null;
+    });
+  }, [roomId, token]);
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [sourceError, setSourceError] = useState('');
+  const [sourceAttempt, setSourceAttempt] = useState(0);
+  const [sourceDismissed, setSourceDismissed] = useState(false);
+  const messages = sourceWindow ?? latestMessages;
+  const sourceModeRef = useRef(false);
+  sourceModeRef.current = !!sourceMessageId && !sourceDismissed;
+  const isLoading = sourceLoading || (!sourceWindow && latestLoading);
+  useEffect(() => {
+    setSourceDismissed(false);
+  }, [roomId, sourceMessageId, token]);
+  useEffect(() => {
+    setSourceWindow(null);
+    setSourceError('');
+    if (!sourceMessageId || sourceDismissed) { setSourceLoading(false); return; }
+    const request = new SourceRequest();
+    setSourceLoading(true);
+    void request.run(signal => messagesApi.getSourceContext(roomId, sourceMessageId, signal)).then(result => {
+      if (!result) return;
+      setSourceLoading(false);
+      if ('error' in result) setSourceError(result.error);
+      else setSourceWindow(result.value);
+    });
+    return () => request.cancel();
+  }, [roomId, sourceMessageId, token, sourceAttempt, sourceDismissed]);
+
+  useEffect(() => {
+    const update = (kind: 'delete' | 'edit' | 'reaction', data: any) => {
+      if ((data.room || data.room_id) !== roomId) return;
+      const id = data.id || data.message_id;
+      setSourceWindow(prev => {
+        if (!prev) return null;
+        if (kind === 'delete' && (data.delete_type === 'for_me' || data.delete_for_me)) return prev.filter(m => m.id !== id);
+        return prev.map(m => m.id !== id ? m : kind === 'delete'
+          ? { ...m, is_deleted: true, content: '🚫 Pesan ini telah dihapus', media_url: undefined, reactions: [] }
+          : kind === 'edit' ? { ...m, content: data.new_content || data.content, is_edited: true }
+          : { ...m, reactions: normalizeReactions(data.reactions) });
+      });
+    };
+    const subscriptions = [
+      websocketClient.on('message_deleted', data => update('delete', data)),
+      websocketClient.on('delete_message', data => update('delete', data)),
+      websocketClient.on('message_edited', data => update('edit', data)),
+      websocketClient.on('reaction', data => update('reaction', data)),
+    ];
+    return () => subscriptions.forEach(unsubscribe => unsubscribe());
+  }, [roomId, token, setSourceWindow]);
+
   const setMessages = useCallback(
     (updater: Message[] | ((prev: Message[]) => Message[])) => {
       setRoomMessages(roomId, updater);
+      setSourceWindow(prev => prev ? (typeof updater === 'function' ? updater(prev) : updater) : null);
     },
-    [roomId, setRoomMessages]
+    [roomId, setRoomMessages, setSourceWindow]
   );
 
   // Synchronized callback refs to prevent room mount effect from looping/thrashing
@@ -303,6 +364,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [peerPublicKey, setPeerPublicKey] = useState<string | undefined>(conversation.peer_public_key);
 
   const flatListRef = useRef<FlatList>(null);
+  const scrollRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollRetryCount = useRef(0);
+  useEffect(() => {
+    scrollRetryCount.current = 0;
+    return () => { if (scrollRetryRef.current) clearTimeout(scrollRetryRef.current); };
+  }, [roomId, token, sourceMessageId, sourceAttempt]);
   // Inverted list: newest message at index 0 so the chat opens at the bottom with no scroll jump
   const invertedMessages = useMemo(() => [...messages].reverse(), [messages]);
   const lastHandledMsgIdRef = useRef<string | null>(null);
@@ -620,7 +687,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           (err?.message && err.message.toLowerCase().includes('akses ditolak')) ||
           (err?.message && err.message.toLowerCase().includes('bukan anggota'));
 
-        if (isForbidden) {
+        if (sourceMessageId) {
+          setSourceError([403, 404].includes(err?.status) ? SOURCE_UNAVAILABLE : 'Konteks pesan gagal dimuat. Periksa koneksi lalu coba lagi.');
+        } else if (isForbidden) {
           setIsAccessDenied(true);
           setAccessDeniedError(err?.detail || err?.message || 'Akses ditolak: Anda bukan anggota grup ini');
         } else if (!isKnownGroupMemberRef.current) {
@@ -892,7 +961,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         markConversationAsRead(roomId);
       }
 
-      if (isNearBottomRef.current) {
+      if (!sourceModeRef.current && isNearBottomRef.current) {
         setTimeout(() => {
           flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         }, 100);
@@ -1351,6 +1420,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     async (messageId: string, type: 'for_me' | 'for_everyone') => {
       // Snapshot current messages for rollback on network failure
       const previousMessages = messages;
+      const previousLatestMessages = getRoomMessages(roomId);
 
       // Optimistic state mutation
       if (type === 'for_everyone') {
@@ -1387,7 +1457,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       } catch (err: any) {
         console.warn('[ChatScreen] Delete message failed, rolling back:', err);
         // Rollback state on error
-        setMessages(previousMessages);
+        setRoomMessages(roomId, previousLatestMessages);
+        setSourceWindow(prev => prev ? previousMessages : null);
         showAlert('Gagal Menghapus', err.detail || err.message || 'Tidak dapat menghapus pesan.');
       }
     },
@@ -1454,6 +1525,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     },
     []
   );
+
+  useEffect(() => {
+    if (!sourceWindow || !sourceMessageId || isVerifyingGroup || isAccessDenied) return;
+    const timer = setTimeout(() => {
+      const index = invertedMessagesRef.current.findIndex(m => m.id === sourceMessageId);
+      if (index < 0) return;
+      flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+      setHighlightedMessageId(sourceMessageId);
+    }, 100);
+    const highlightTimer = setTimeout(() => setHighlightedMessageId(null), 2500);
+    return () => { clearTimeout(timer); clearTimeout(highlightTimer); };
+  }, [sourceWindow, sourceMessageId, isVerifyingGroup, isAccessDenied]);
 
   // Stable callbacks + renderItem for the message FlatList (keeps MessageBubble memoized)
   const handleTyping = useCallback(() => {
@@ -1821,6 +1904,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
   }, [handleJumpToMessage]);
 
+  if (sourceMessageId && !sourceDismissed && sourceError) {
+    return <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={styles.centerContainer}>
+        <Text style={styles.emptySubtitle}>{sourceError}</Text>
+        {sourceError !== SOURCE_UNAVAILABLE ? <Button title="Coba Lagi" variant="secondary" onPress={() => setSourceAttempt(n => n + 1)} /> : null}
+        <Button title="Kembali" variant="ghost" onPress={onBack} />
+      </View>
+    </View>;
+  }
+
   // DEC-013: Render Authorization Shield if access is denied (403 Forbidden)
   if (isAccessDenied) {
     return (
@@ -2141,12 +2234,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         {isForumExpired && (
           <View style={styles.expiredBanner}>
             <IconText style={styles.expiredBannerText}>
-              🔒 Topik forum ini telah kedaluwarsa dan terkunci. Riwayat pesan tetap dapat dibaca.
+              🔒 Forum telah berakhir. Riwayat diskusi tetap dapat dibaca.
             </IconText>
           </View>
         )}
 
         {/* Message Timeline */}
+        {sourceMessageId && !sourceDismissed ? (
+          <View style={styles.loadingOlderContainer}>
+            <Text style={styles.loadingText}>{sourceError || (sourceLoading ? 'Memuat konteks pesan…' : 'Konteks pesan sumber')}</Text>
+            {sourceError && sourceError !== SOURCE_UNAVAILABLE ? <Button title="Coba Lagi" variant="ghost" onPress={() => setSourceAttempt(n => n + 1)} /> : null}
+            <Button title="Kembali ke Pesan Terbaru" variant="ghost" onPress={() => setSourceDismissed(true)} />
+          </View>
+        ) : null}
         {isLoading ? (
           <View style={styles.centerContainer}>
             <ActivityIndicator size="large" color={colors.accentPrimary} />
@@ -2160,6 +2260,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           </View>
         ) : (
           <FlatList
+            key={`${roomId}:${sourceWindow ? 'source' : 'latest'}`}
             ref={flatListRef}
             data={invertedMessages}
             inverted
@@ -2173,7 +2274,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 animated: false,
               });
               // 2. Retry scrollToIndex once layout is measured so target is cleanly centered
-              setTimeout(() => {
+              if (scrollRetryCount.current++ >= 1) return;
+              scrollRetryRef.current = setTimeout(() => {
                 flatListRef.current?.scrollToIndex({
                   index: info.index,
                   animated: true,
@@ -2182,11 +2284,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               }, 80);
             }}
             renderItem={renderMessageItem}
-            initialNumToRender={15}
+            initialNumToRender={sourceWindow ? sourceWindow.length : 15}
             maxToRenderPerBatch={10}
             windowSize={11}
             contentContainerStyle={styles.listContent}
-            onScroll={handleScroll}
+            onScroll={sourceWindow ? undefined : handleScroll}
             scrollEventThrottle={32}
             ListFooterComponent={
               roomIsLoadingOlder ? (
@@ -2194,7 +2296,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   <ActivityIndicator size="small" color={colors.accentPrimary} />
                   <Text style={styles.loadingOlderText}>Memuat riwayat pesan terdahulu...</Text>
                 </View>
-              ) : roomHasMoreOlder && messages.length >= 20 ? (
+              ) : !sourceWindow && roomHasMoreOlder && messages.length >= 20 ? (
                 <TouchableOpacity
                   style={styles.loadOlderButton}
                   onPress={handleLoadOlder}
@@ -2204,7 +2306,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 </TouchableOpacity>
               ) : null
             }
-            maintainVisibleContentPosition={{
+            maintainVisibleContentPosition={sourceWindow ? undefined : {
               minIndexForVisible: 0,
               autoscrollToTopThreshold: 10,
             }}
@@ -2309,6 +2411,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       {/* M-Mobile-8.2B: Forum Topics Drawer (parent group only) */}
       {isParentGroup && showForumModal && (
         <SubGroupListModal
+          memoryEnabled={groupDetails?.memory_enabled === true}
           visible={showForumModal}
           parentGroupId={roomId}
           parentGroupTitle={title}

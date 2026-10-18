@@ -937,6 +937,22 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Targeted forum context extends the existing history contract; normal history is unchanged.
+	if messageID := strings.TrimSpace(r.URL.Query().Get("message_id")); messageID != "" {
+		messages, err := h.service.GetMessageContext(r.Context(), roomID, claims.UserID, messageID)
+		if errors.Is(err, store.ErrSourceUnavailable) {
+			http.Error(w, `{"error":"Pesan sumber sudah tidak tersedia. Kutipan tersimpan sebagai bagian audit Memori."}`, http.StatusNotFound)
+			return
+		}
+		if err != nil {
+			http.Error(w, `{"error":"Gagal memuat konteks pesan."}`, http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(messages)
+		return
+	}
+
 	limit := 50
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
@@ -988,6 +1004,3 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(messages)
 }
-
-
-

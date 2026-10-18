@@ -204,6 +204,7 @@ export interface GroupMember {
 }
 
 export interface GroupDetails {
+  memory_enabled?: boolean
   id: string
   title: string
   name?: string
@@ -387,4 +388,17 @@ export interface ApprovedMemoryDetail {
   snapshot_journey_conf?: MemoryConfidence
   is_journey_lite_removed: boolean
   created_at: string
+}
+
+export interface MyForum {
+  id: string
+  parent_id: string
+  forum_title?: string
+  title: string
+  is_active: boolean
+  memory_enabled?: boolean
+  memory_state?: string
+  parent_role?: string
+  draft_id?: string
+  memory_id?: string
 }

@@ -7,22 +7,23 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bms-del112/wuzz-chat/internal/store"
 	"github.com/bms-del112/wuzz-chat/internal/ws"
 )
 
 var (
-	ErrUnauthorized       = errors.New("unauthorized")
-	ErrForbidden          = errors.New("forbidden")
-	ErrNotFound           = errors.New("not found")
-	ErrBadRequest         = errors.New("bad request")
-	ErrMissingMessageID   = errors.New("message_id wajib disertakan")
-	ErrEmptyContent       = errors.New("content tidak boleh kosong")
-	ErrTargetRoomsEmpty   = errors.New("target_room_ids minimal 1 percakapan")
-	ErrTargetRoomsExceed  = errors.New("maksimal meneruskan pesan ke 5 percakapan sekaligus")
-	ErrTargetRoomExpired  = errors.New("topik forum tujuan sudah berakhir dan terkunci, pesan tidak bisa diteruskan ke sana")
-	ErrMissingRoomID      = errors.New("room_id wajib disertakan")
-	ErrMissingQuery       = errors.New("query pencarian wajib disertakan")
-	ErrInvalidStatus      = errors.New("status tanda terima tidak valid")
+	ErrUnauthorized      = errors.New("unauthorized")
+	ErrForbidden         = errors.New("forbidden")
+	ErrNotFound          = errors.New("not found")
+	ErrBadRequest        = errors.New("bad request")
+	ErrMissingMessageID  = errors.New("message_id wajib disertakan")
+	ErrEmptyContent      = errors.New("content tidak boleh kosong")
+	ErrTargetRoomsEmpty  = errors.New("target_room_ids minimal 1 percakapan")
+	ErrTargetRoomsExceed = errors.New("maksimal meneruskan pesan ke 5 percakapan sekaligus")
+	ErrTargetRoomExpired = errors.New("topik forum tujuan sudah berakhir dan terkunci, pesan tidak bisa diteruskan ke sana")
+	ErrMissingRoomID     = errors.New("room_id wajib disertakan")
+	ErrMissingQuery      = errors.New("query pencarian wajib disertakan")
+	ErrInvalidStatus     = errors.New("status tanda terima tidak valid")
 )
 
 // MessageBroadcaster mendefinisikan interface pengiriman event real-time ke room.
@@ -481,3 +482,11 @@ func (s *MessageService) MarkRoomMessagesAsRead(ctx context.Context, roomID, exc
 	return s.msgRepo.MarkRoomMessagesAsRead(roomID, excludeUserID)
 }
 
+// GetMessageContext delegates to the tenant-aware, membership-gated source reader.
+func (s *MessageService) GetMessageContext(ctx context.Context, roomID, userID, messageID string) ([]Message, error) {
+	reader, ok := s.msgRepo.(store.MessageContextReader)
+	if !ok || strings.TrimSpace(userID) == "" {
+		return nil, store.ErrSourceUnavailable
+	}
+	return reader.GetMessageContext(ctx, roomID, userID, messageID)
+}

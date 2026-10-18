@@ -1,3 +1,4 @@
+import { hasSourceTarget, sourceContextPath } from '../services/sourceMessage';
 /**
  * WuzzChat Messages API Endpoints
  * Conforms to docs/openapi.yaml
@@ -6,6 +7,7 @@
 import { apiClient } from './client';
 import {
   Message,
+  normalizeReactions,
   PinnedMessage,
   EditMessageResponse,
   ForwardMessageResponse,
@@ -13,6 +15,14 @@ import {
 } from './types';
 
 export const messagesApi = {
+  async getSourceContext(roomId: string, messageId: string, signal: AbortSignal): Promise<Message[]> {
+    const rows = await apiClient<any[]>(sourceContextPath(roomId, messageId), { signal });
+    if (!hasSourceTarget(rows, roomId, messageId)) throw { status: 404 };
+    return rows.map(m => ({ ...m, sender_id: m.from_id, from: m.from_id,
+      created_at: m.timestamp, reactions: normalizeReactions(m.reactions),
+      reply_to: m.reply_to_id ? { id: m.reply_to_id, nickname: m.reply_to_nickname, content: m.reply_to_content } : undefined,
+    }));
+  },
   /**
    * GET /api/messages
    * Retrieves message history for a specific room.
