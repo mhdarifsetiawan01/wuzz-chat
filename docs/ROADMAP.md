@@ -406,7 +406,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 
 *Dokumen Spesifikasi & Audit Utama: [`docs/ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md)*
 
-- [ ] **Perangkat Tertaut Mobile — Backlog (18 Oktober 2026)**: daftar perangkat aktif, penanda Perangkat Ini, platform/aktivitas terakhir, konfirmasi keluarkan perangkat lain, serta akses ke transfer kunci. Terpisah dari transfer kunci E2EE yang sudah tersedia. Rincian dan checklist: [MOBILE_LINKED_DEVICES.md](./plans/backlog/MOBILE_LINKED_DEVICES.md).
+- [ ] **Perangkat Tertaut Mobile — Menunggu uji perangkat (18 Oktober 2026)**: tahap pertama sudah diimplementasikan: daftar perangkat aktif, penanda Perangkat Ini, platform/aktivitas terakhir, konfirmasi keluarkan perangkat lain, serta akses transfer kunci. Tes otomatis lulus; uji UI/dua perangkat nyata dan deployment belum dilakukan. Rincian: [MOBILE_LINKED_DEVICES.md](./plans/backlog/MOBILE_LINKED_DEVICES.md).
 
 - ✅ **Phase 0: Identity & Auth Hardening (SELESAI ✅)**:
   - DDL non-destruktif `revoked_tokens` dan `user_token_revocations` dengan in-memory sync cache.

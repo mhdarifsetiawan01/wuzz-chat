@@ -21,7 +21,7 @@ export async function apiClient<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { timeoutMs = API_CONFIG.TIMEOUT_MS, skipAuth = false, headers = {}, ...restOptions } = options;
+  const { timeoutMs = API_CONFIG.TIMEOUT_MS, skipAuth = false, headers = {}, signal, ...restOptions } = options;
 
   const controller = new AbortController();
   const timer = setTimeout(() => {
@@ -63,6 +63,9 @@ export async function apiClient<T>(
   }
 
   try {
+    // Keep the timeout while also allowing a closed screen/session to cancel its request.
+    if (signal?.aborted) controller.abort();
+    signal?.addEventListener('abort', abortRequest);
     const response = await fetch(fullUrl, {
       ...restOptions,
       headers: requestHeaders,
@@ -136,5 +139,10 @@ export async function apiClient<T>(
       detail: err.message || 'Tidak dapat terhubung ke server WuzzChat.',
     };
     throw networkError;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', abortRequest);
   }
+
+  function abortRequest() { controller.abort(); }
 }

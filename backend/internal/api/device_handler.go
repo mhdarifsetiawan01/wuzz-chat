@@ -97,18 +97,32 @@ func (h *DeviceHandler) RemoveDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Nonaktifkan device di database (guard: userID harus cocok)
+	// Validasi pemilik sebelum mencabut sesi. Jangan melaporkan berhasil bila
+	// pencabutan token gagal, atau menyembunyikan target dari daftar saat gagal.
+	target, err := h.deviceStore.GetDeviceByID(deviceID)
+	if err != nil {
+		http.Error(w, `{"error":"Gagal memeriksa perangkat"}`, http.StatusInternalServerError)
+		return
+	}
+	if target == nil || target.UserID != claims.UserID {
+		http.Error(w, `{"error":"Device tidak ditemukan atau bukan milik Anda"}`, http.StatusNotFound)
+		return
+	}
+	if h.sessionStore == nil {
+		http.Error(w, `{"error":"Pencabutan sesi belum tersedia"}`, http.StatusServiceUnavailable)
+		return
+	}
+	if err := h.sessionStore.RevokeDeviceSessions(deviceID, claims.UserID); err != nil {
+		log.Printf("RemoveDevice revoke sessions gagal (user: %s, device: %s): %v", claims.UserID, deviceID, err)
+		http.Error(w, `{"error":"Gagal mencabut sesi perangkat. Coba lagi."}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Nonaktifkan perangkat setelah seluruh sesinya dicabut.
 	if err := h.deviceStore.DeactivateDevice(deviceID, claims.UserID); err != nil {
 		log.Printf("❌ RemoveDevice deactivate gagal (user: %s, device: %s): %v", claims.UserID, deviceID, err)
 		http.Error(w, `{"error":"Device tidak ditemukan atau bukan milik Anda"}`, http.StatusNotFound)
 		return
-	}
-
-	// 2. Revoke sesi token JWT untuk device yang dikeluarkan jika sessionStore tersedia
-	if h.sessionStore != nil {
-		if err := h.sessionStore.RevokeDeviceSessions(deviceID, claims.UserID); err != nil {
-			log.Printf("⚠️ RemoveDevice revoke sessions gagal (user: %s, device: %s): %v", claims.UserID, deviceID, err)
-		}
 	}
 
 	// 3. Sinkronkan users.active_device_id agar tidak mengarah ke device yang sudah dinonaktifkan

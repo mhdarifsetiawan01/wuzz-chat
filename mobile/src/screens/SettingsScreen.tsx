@@ -26,6 +26,9 @@ import { useConnection } from '../context/ConnectionContext';
 import { APP_LINK_CONFIG, LEGAL_URLS } from '../api/config';
 import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography, SELECTABLE_THEME_MODES, ThemeMode } from '../theme';
 import { IconText } from '../components/IconText';
+import { Icon } from '../components/Icon';
+import { LinkedDevicesModal } from '../components/LinkedDevicesModal';
+import { useDevice } from '../context/DeviceContext';
 import {
   DeviceTransferModal,
   NotificationSettingsModal,
@@ -49,7 +52,7 @@ import { formatDeadlineDate, getLinkDeadlineState } from '../utils/googleLinkDea
 // Settings Menu Item
 // ─────────────────────────────────────────────────────────────────────────────
 interface SettingsItemProps {
-  icon: string;
+  icon: string | React.ReactNode;
   title: string;
   subtitle?: string;
   onPress: () => void;
@@ -82,7 +85,7 @@ const SettingsItem: React.FC<SettingsItemProps> = ({
           { backgroundColor: tintColor ? `${tintColor}20` : colors.tintAccent10 },
         ]}
       >
-        <IconText style={styles.settingsIconText}>{icon}</IconText>
+        {typeof icon === 'string' ? <IconText style={styles.settingsIconText}>{icon}</IconText> : icon}
       </View>
 
       {/* Text */}
@@ -152,7 +155,8 @@ export const SettingsScreen: React.FC = () => {
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user, logout, deleteAccount, e2eeStatus, updateCurrentUser } = useAuth();
+  const { user, token, logout, deleteAccount, e2eeStatus, updateCurrentUser } = useAuth();
+  const { deviceId } = useDevice();
   const googleAvailable = isGoogleSignInAvailable();
   const { link: linkGoogle, isLinking: isLinkingGoogle } = useLinkGoogle();
   const { replace: replaceGoogle, isReplacing: isReplacingGoogle } = useReplaceGoogle();
@@ -161,6 +165,7 @@ export const SettingsScreen: React.FC = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Modals state
+  const [isLinkedDevicesVisible, setIsLinkedDevicesVisible] = useState(false);
   const [isDeviceTransferVisible, setIsDeviceTransferVisible] = useState(false);
   const [isNotificationsVisible, setIsNotificationsVisible] = useState(false);
   const [isE2EEKeysVisible, setIsE2EEKeysVisible] = useState(false);
@@ -381,6 +386,13 @@ export const SettingsScreen: React.FC = () => {
 
         <SettingsSection title="Perangkat & Keamanan">
           <SettingsItem
+            icon={<Icon name="laptop" size={22} color={colors.accentPrimary} />}
+            title="Perangkat Tertaut"
+            subtitle="Lihat dan keluarkan perangkat yang mengakses akun"
+            onPress={() => setIsLinkedDevicesVisible(true)}
+          />
+          <View style={styles.itemDivider} />
+          <SettingsItem
             icon="💻"
             title="Transfer Kunci ke Perangkat Lain"
             subtitle="Bagikan kunci enkripsi melalui QR atau kode"
@@ -521,6 +533,17 @@ export const SettingsScreen: React.FC = () => {
         googleLinked={user?.google_linked === true}
       />
 
+      {isLinkedDevicesVisible && user && token && deviceId && (
+        <LinkedDevicesModal
+          key={`${user.id}:${token}:${deviceId}`}
+          userId={user.id}
+          token={token}
+          deviceId={deviceId}
+          onClose={() => setIsLinkedDevicesVisible(false)}
+          canTransfer={e2eeStatus === 'ready'}
+          onTransfer={() => { setIsLinkedDevicesVisible(false); setIsDeviceTransferVisible(true); }}
+        />
+      )}
       <DeviceTransferModal
         role="sender"
         visible={isDeviceTransferVisible}

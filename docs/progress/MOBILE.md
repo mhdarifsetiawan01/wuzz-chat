@@ -1,5 +1,11 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+### Perangkat Tertaut — tahap pertama (18 Oktober 2026)
+
+- `LinkedDevicesModal`, API perangkat, dan controller ditambahkan: daftar aktif, identitas perangkat ini, konfirmasi keluarkan perangkat lain, retry/refresh, serta akses transfer kunci pengirim.
+- Request terikat token pembuka dan dibatalkan saat modal ditutup; hasil sesi lama diabaikan. Operasi diserialkan tanpa sukses optimistis pada kegagalan jaringan.
+- Typecheck dan 40/40 berkas tes unit mobile lulus; backend/build frontend lulus. Pemeriksaan race backend lulus pada pengulangan setelah timeout tes tenant pada percobaan pertama. Uji UI di HP, dua perangkat, tema gelap, dan iOS belum dilakukan. Belum dibangun APK baru atau deploy backend.
+
 Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana pengembangan pada layer **Mobile App (React Native Expo)** di direktori `mobile/`.
 
 ---

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -19,6 +20,12 @@ type mockDeviceHub struct {
 	kickedDeviceID string
 	kickedReason   string
 	kickCalled     bool
+}
+
+type failingDeviceSessions struct{ store.SessionStore }
+
+func (f failingDeviceSessions) RevokeDeviceSessions(deviceID, userID string) error {
+	return errors.New("database unavailable")
 }
 
 func (m *mockDeviceHub) KickClientByUserID(userID, exceptDeviceID, reason string) {}
@@ -64,6 +71,8 @@ func TestDeviceManagementFlow(t *testing.T) {
 	if wReg.Code != http.StatusCreated {
 		t.Fatalf("register failed with code %d: %s", wReg.Code, wReg.Body.String())
 	}
+	var registered api.AuthResponse
+	_ = json.NewDecoder(wReg.Body).Decode(&registered)
 
 	// 2. Login dari Device 1 (Phone)
 	loginBody1, _ := json.Marshal(api.LoginRequest{
@@ -136,6 +145,18 @@ func TestDeviceManagementFlow(t *testing.T) {
 	// 6. Test RemoveDevice berhasil mengeluarkan perangkat Phone
 	reqDelPhone := httptest.NewRequest(http.MethodDelete, "/api/auth/devices/dev_phone", nil).WithContext(ctxWithAuth)
 	reqDelPhone.Header.Set("X-Device-ID", "dev_laptop")
+	// Failure must leave the target listed, with no false success or WebSocket kick.
+	deviceHandler.SetSessionStore(failingDeviceSessions{sessionStore})
+	wFailed := httptest.NewRecorder()
+	deviceHandler.RemoveDevice(wFailed, reqDelPhone)
+	if wFailed.Code != http.StatusInternalServerError || mockHub.kickCalled {
+		t.Fatalf("revocation failure must not report success or kick: %d", wFailed.Code)
+	}
+	phone, err := deviceStore.GetDeviceByID("dev_phone")
+	if err != nil || phone == nil || !phone.IsActive {
+		t.Fatalf("failed removal must leave device visible: %v, %v", phone, err)
+	}
+	deviceHandler.SetSessionStore(sessionStore)
 	wDelPhone := httptest.NewRecorder()
 	deviceHandler.RemoveDevice(wDelPhone, reqDelPhone)
 	if wDelPhone.Code != http.StatusOK {
@@ -158,5 +179,29 @@ func TestDeviceManagementFlow(t *testing.T) {
 	_ = json.NewDecoder(wList2.Body).Decode(&remaining)
 	if len(remaining) != 1 || remaining[0].ID != "dev_laptop" {
 		t.Fatalf("expected 1 remaining device (dev_laptop), got %d: %v", len(remaining), remaining)
+	}
+
+	// Both phone tokens (registration and login) lose HTTP access; laptop keeps it.
+	previousChecker := auth.GetTokenChecker()
+	auth.SetTokenChecker(store.NewSQLTokenStore(sqlStore.DB(), sqlStore.DriverName()))
+	defer auth.SetTokenChecker(previousChecker)
+	protected := auth.RequireJWT()(http.HandlerFunc(deviceHandler.ListDevices))
+	for _, test := range []struct {
+		name, token string
+		status      int
+	}{
+		{"registration token on removed phone", registered.Token, http.StatusUnauthorized},
+		{"login token on removed phone", res1.Token, http.StatusUnauthorized},
+		{"current laptop", res2.Token, http.StatusOK},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/auth/devices", nil)
+			req.Header.Set("Authorization", "Bearer "+test.token)
+			w := httptest.NewRecorder()
+			protected.ServeHTTP(w, req)
+			if w.Code != test.status {
+				t.Fatalf("got %d, want %d: %s", w.Code, test.status, w.Body.String())
+			}
+		})
 	}
 }

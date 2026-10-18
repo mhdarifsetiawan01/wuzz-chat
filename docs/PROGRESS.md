@@ -1,5 +1,12 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
+### Implementasi tahap pertama Perangkat Tertaut (18 Oktober 2026)
+
+- Pengaturan mobile kini memiliki sheet daftar perangkat aktif, penanda Perangkat Ini, platform/aktivitas terakhir, konfirmasi Keluarkan, Muat Ulang, serta akses ke Transfer Kunci. Kunci E2EE akun tidak direset oleh aksi keluarkan.
+- API memakai `devices.id`, `X-Device-ID`, dan token sesi pembuka. Controller mencegah operasi ganda, menahan baris saat timeout/gagal, membatalkan request dan mengabaikan respons setelah modal/sesi berganti. API client kini meneruskan pembatalan caller sambil mempertahankan timeout.
+- Backend memvalidasi pemilik dan mencabut sesi sebelum menonaktifkan target. Pencabutan gagal menghasilkan error tanpa menyembunyikan target. Tes integrasi membuktikan token registrasi/login perangkat target ditolak HTTP, token pemanggil tetap valid, dan kick diarahkan ke target.
+- Verifikasi otomatis: typecheck mobile, 40/40 berkas tes unit mobile, build frontend, dan seluruh tes backend lulus. `go test -race ./...` juga lulus pada pengulangan; percobaan pertama gagal pada timeout konteks 5 detik `TestTenantServiceFlow` saat beban paket lain tinggi, tanpa laporan data race. Uji UI/dua perangkat nyata belum dilakukan; belum build APK, deploy, commit, atau push. Perubahan backend memerlukan deployment `ssh deploy@<VPS_IP> ./deploy-chat.sh` setelah izin pengguna.
+
 ### Pencatatan backlog Perangkat Tertaut mobile (18 Oktober 2026)
 
 - Tambahkan [backlog Perangkat Tertaut](plans/backlog/MOBILE_LINKED_DEVICES.md) dan tautan checklist di Roadmap Fase 11: inventaris perangkat, penanda perangkat ini, informasi aktivitas, konfirmasi keluarkan perangkat lain, serta akses ke transfer kunci.

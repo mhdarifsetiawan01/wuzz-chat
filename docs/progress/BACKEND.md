@@ -1,5 +1,12 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
+### Pencabutan perangkat untuk menu Perangkat Tertaut (18 Oktober 2026)
+
+- `RemoveDevice` memvalidasi kepemilikan sebelum mencabut seluruh sesi perangkat target; sesi wajib berhasil dicabut sebelum perangkat dinonaktifkan. Error pencabutan kini menghasilkan HTTP 500 (503 bila session store tidak tersedia), bukan sukses palsu. Jalur kick WebSocket tetap dipakai.
+- Tes integrasi memastikan dua token target tidak dapat mengakses endpoint terproteksi, token pemanggil tetap valid, dan kegagalan revoke mempertahankan target dalam daftar tanpa kick. Seluruh tes backend lulus. Operasi revoke/deactivate belum atomik; penonaktifan gagal setelah revoke dapat diulang.
+- Belum deploy. Perlu `ssh deploy@<VPS_IP> ./deploy-chat.sh` setelah izin pengguna; uji dua perangkat nyata masih terbuka.
+- `go test -race ./...` lulus pada pengulangan; percobaan pertama mengalami timeout konteks 5 detik di `TestTenantServiceFlow` saat paket berjalan bersamaan, tanpa laporan data race. Tidak ada perubahan kode tenant.
+
 Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana pengembangan pada layer **Backend (Golang)**.
 
 ---
