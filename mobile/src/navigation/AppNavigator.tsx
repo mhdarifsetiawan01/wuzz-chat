@@ -170,6 +170,9 @@ export const AppNavigator: React.FC = () => {
         {({ route, navigation }) => (
           <GroupInfoScreen
             groupId={route.params.groupId}
+            openMemoryDraftId={route.params.openMemoryDraftId}
+            memoryForumId={route.params.memoryForumId}
+            onMemoryIntentConsumed={() => navigation.setParams({ openMemoryDraftId: undefined, memoryForumId: undefined })}
             onBack={() => navigation.goBack()}
             onLeaveSuccess={() => navigation.navigate('MainTabs')}
             onOpenUserProfile={(memberUserId) => {

@@ -3,6 +3,7 @@
  * Dipakai di dalam MemoryArchiveModal (tanpa sheet sendiri). Padanan MemoryDraftReviewModal di web.
  */
 
+import { memoryDraftTargetError } from './memoryDraftTarget';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -49,12 +50,13 @@ export const MemoryReviewView: React.FC<Props> = ({ draftId, onDone }) => {
       setError('');
       try {
         const d = await memoryApi.getDraft(draftId, signal);
+        if (signal?.aborted) return;
         setDraft(d);
         setHasEdits(d.artifacts.some((a) => a.is_human_edited || a.is_removed));
       } catch (err: any) {
-        if (err?.name !== 'AbortError') setError(err?.detail || 'Gagal memuat draf.');
+        if (!signal?.aborted) setError(memoryDraftTargetError(err));
       } finally {
-        setIsLoading(false);
+        if (!signal?.aborted) setIsLoading(false);
       }
     },
     [draftId]

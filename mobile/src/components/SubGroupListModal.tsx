@@ -139,7 +139,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
       if (expiringId) return;
       showAlert(
         'Akhiri topik sekarang?',
-        `Topik "${sub.title}" akan dikunci dan tidak bisa dibuka lagi. Bila AI Memory aktif untuk grup ini, ringkasan topik akan dibuat untuk ditinjau admin.`,
+        `Topik "${sub.title}" menjadi read-only dan tidak dapat menerima pesan baru. Riwayat diskusi tetap dapat dibaca. Bila AI Memory aktif untuk grup ini, ringkasan topik akan dibuat untuk ditinjau admin.`,
         [
           { text: 'Batal', style: 'cancel' },
           {
@@ -152,7 +152,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
               try {
                 await subgroupsApi.expireSubGroup(parentGroupId, sub.id, controller.signal);
                 await loadSubGroups(true);
-                showAlert('Topik diakhiri', 'Topik forum telah dikunci.');
+                showAlert('Topik diakhiri', 'Forum telah diakhiri. Riwayat diskusi tetap dapat dibaca.');
               } catch (err: any) {
                 if (err?.name !== 'AbortError') {
                   showAlert('Gagal mengakhiri topik', err?.detail || 'Silakan coba lagi.');
@@ -306,7 +306,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
               👥 {sub.member_count} anggota
             </IconText>
 
-            {expired ? (
+            {expired && !sub.is_member ? (
               <View style={styles.expiredChip}>
                 <IconText style={styles.expiredChipText}>🔒 Terkunci</IconText>
               </View>
@@ -317,7 +317,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
                 onPress={() => handleOpenMember(sub)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.actionBtnPrimaryText}>Buka Chat</Text>
+                <Text style={styles.actionBtnPrimaryText}>{expired ? 'Buka Riwayat' : 'Buka Chat'}</Text>
               </TouchableOpacity>
             ) : sub.is_public !== false ? (
               // Public topic → join directly

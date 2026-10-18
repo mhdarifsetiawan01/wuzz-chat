@@ -1,5 +1,15 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+### Forum Completion Loop — Paket A (18 Oktober 2026)
+
+- Daftar forum dalam grup/Info Grup memberi **Buka Riwayat** untuk anggota forum berakhir; Forum Saya tetap membuka forum lewat jalur yang sama. Non-anggota tidak diberi akses baru atau auto-join ke forum berakhir. Konfirmasi/sukses pengakhiran menjelaskan read-only dan riwayat tetap terbaca, dengan AI hanya disebut secara kondisional.
+- Parser push menjadi union room/Memori. `memory_draft_ready` membawa grup/forum/draf ke GroupInfo → Arsip Memori → review ID yang tepat. Antrean menunggu `NavigationContainer.onReady`; cleanup sesi membuang target tertunda. Deduplikasi listener/cold-start dipertahankan.
+- Grup harus `memory_enabled === true` dan viewer admin/creator. Draf diambil langsung berdasarkan ID (tidak bergantung halaman pertama), dicocokkan grup/forum, serta ditolak bila sudah diputuskan. HTTP 403/404/409 dijelaskan. Request grup/draf dibatalkan dan respons lama diabaikan saat tujuan ditutup/berubah.
+- Validasi: `npx tsc --noEmit` lulus; **41/41** berkas unit mobile lulus, termasuk 5 kasus baru parser, antrean readiness/sesi, metadata pesan/panggilan, target campuran/status draf, dan deduplikasi listener/cold start. Build frontend lulus. Suite backend juga lulus; lihat log backend.
+- Uji APK baru **belum dilakukan**: perangkat ADB terdeteksi, tetapi `assembleRelease` berhenti karena `WUZZ_KEYSTORE_PATH` belum tersedia di environment lokal. Tidak ada APK baru dipasang; warm/background/cold start di atas diuji dengan modul native tiruan, bukan push FCM nyata. Tidak membuat/mengakhiri/menyetujui/menghapus data produksi.
+- Tidak deploy, commit, push, atau mengubah env produksi. Perubahan build 68 → 69 pada `mobile/app.json` muncul di luar edit sesi ini dan dipertahankan. Badge, `memory_state`, pencarian, dan Lihat Pesan Asli tidak dikerjakan. Edit/hapus/reaksi forum berakhir tetap mengikuti perilaku lama dan perlu keputusan lanjutan.
+
+
 ### Verifikasi produksi pencabutan perangkat & penghentian push (18 Oktober 2026)
 
 - Uji dua HP pada v1.39.0 build 68 berhasil mengeluarkan perangkat lama dari menu Perangkat Tertaut. Setelah refresh/cold start, inventaris menyisakan perangkat aktif dan sesi HP pemanggil tetap berjalan.

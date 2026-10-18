@@ -31,7 +31,6 @@ func setupTestSubGroupDB(t *testing.T) (*SQLMessageStore, *combinedTestStore) {
 	return sqlStore, combined
 }
 
-
 func TestSubGroup_FullLifecycle(t *testing.T) {
 	sqlStore, store := setupTestSubGroupDB(t)
 	defer sqlStore.Close()
@@ -177,16 +176,39 @@ func TestSubGroup_FullLifecycle(t *testing.T) {
 		t.Errorf("Ekspektasi IsConversationExpired(sub30) bernilai false!")
 	}
 
-	// Subgrup yang expired otomatis hilang dari daftar subgrup aktif
-	activeSubsAfter, err := store.GetActiveSubGroups(parentGroup.ID, member.ID)
-	if err != nil {
-		t.Fatalf("Gagal mengambil active subgrup: %v", err)
+	// Forum berakhir tetap ditemukan; membaca tetap mengikuti membership forum.
+	listed, err := store.GetActiveSubGroups(parentGroup.ID, member.ID)
+	if err != nil || len(listed) != 2 {
+		t.Fatalf("expected active and ended forums, got %v: %v", listed, err)
 	}
-	if len(activeSubsAfter) != 1 {
-		t.Fatalf("Ekspektasi tinggal 1 active subgrup (sub30), dapat: %d", len(activeSubsAfter))
+	foundEnded := false
+	for _, item := range listed {
+		if item.ID == sub7.ID {
+			foundEnded = item.Status == "expired" && item.RemainingSeconds == 0 && item.IsMember
+		}
 	}
-	if activeSubsAfter[0].ID != sub30.ID {
-		t.Errorf("Subgrup aktif tersisa salah: %s", activeSubsAfter[0].ID)
+	if !foundEnded {
+		t.Fatal("ended forum missing or incorrect metadata")
+	}
+	if allowed, err := store.IsUserInConversation(sub7.ID, member.ID); err != nil || !allowed {
+		t.Fatalf("ended forum member must retain history access: %v %v", allowed, err)
+	}
+	if allowed, _ := store.IsUserInConversation(sub7.ID, outsider.ID); allowed {
+		t.Fatal("outsider gained ended forum access")
+	}
+	if _, err := store.GetActiveSubGroups(parentGroup.ID, outsider.ID); err == nil {
+		t.Fatal("outsider gained listing access")
+	}
+	// Even a corrupted child tenant must not leak into the parent's listing.
+	if _, err := db.Exec(`UPDATE conversations SET tenant_id = 'other' WHERE id = ?`, sub7.ID); err != nil {
+		t.Fatal(err)
+	}
+	isolated, err := store.GetActiveSubGroups(parentGroup.ID, member.ID)
+	if err != nil || len(isolated) != 1 || isolated[0].ID != sub30.ID {
+		t.Fatalf("cross-tenant child leaked: %v %v", isolated, err)
+	}
+	if _, err := db.Exec(`UPDATE conversations SET tenant_id = 'default' WHERE id = ?`, sub7.ID); err != nil {
+		t.Fatal(err)
 	}
 
 	// Uji Fail-Closed: Join subgrup yang sudah expired DITOLAK
@@ -346,4 +368,3 @@ func TestSubGroup_AccessControlAndJoinRequests(t *testing.T) {
 		t.Errorf("Ekspektasi conversation_join_requests telah dihapus tuntas, tapi tersisa: %d baris", countAfter)
 	}
 }
-

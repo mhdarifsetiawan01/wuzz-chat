@@ -47,6 +47,7 @@ import {
   GoogleLinkBannerLayout,
 } from './src/components';
 import { AppNavigator as MainAppNavigator, navigationRef } from './src/navigation';
+import { createNotificationNavigationQueue, NotificationTarget } from './src/services/notificationTarget';
 import { notificationService } from './src/services/notificationService';
 import { colors, ThemeProvider, useTheme } from './src/theme';
 import { AppDialogHost } from './src/components/AppDialogHost';
@@ -317,21 +318,21 @@ function AppContent() {
     userRef.current = user;
   }, [user]);
 
+  const notificationQueueRef = useRef<ReturnType<typeof createNotificationNavigationQueue> | null>(null);
+
   // Push notification tap & cold start listener
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const handleTargetNavigation = (target: {
-      roomId: string | null;
-      isGroup: boolean;
-      title: string | null;
-      senderId: string | null;
-      senderPublicKey?: string | null;
-      isCall?: boolean;
-      callId?: string | null;
-      callerNickname?: string | null;
-      sdp?: string | null;
-    }) => {
+    const handleTargetNavigation = (target: NotificationTarget) => {
+      if (target.type === 'memory_draft_ready') {
+        navigationRef.navigate('GroupInfo', {
+          groupId: target.groupId,
+          openMemoryDraftId: target.draftId,
+          memoryForumId: target.forumId,
+        });
+        return;
+      }
       if (!target.roomId) return;
 
       const currentConversations = conversationsRef.current;
@@ -388,17 +389,21 @@ function AppContent() {
       }
     };
 
+    const queue = createNotificationNavigationQueue(() => navigationRef.isReady(), handleTargetNavigation);
+    notificationQueueRef.current = queue;
     // Attach response listener
     const unsubscribeListener =
-      notificationService.addNotificationResponseListener(handleTargetNavigation);
+      notificationService.addNotificationResponseListener(queue.enqueue);
 
     // Check cold start
-    notificationService.checkColdStartNotification(handleTargetNavigation);
+    notificationService.checkColdStartNotification(queue.enqueue);
 
     return () => {
+      queue.dispose();
+      notificationQueueRef.current = null;
       unsubscribeListener();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.id]);
 
   // Sesi terbentuk: buang sisa state alur Google/pesan login supaya tidak muncul lagi setelah logout berikutnya.
   useEffect(() => {
@@ -443,6 +448,10 @@ function AppContent() {
           ref={navigationRef}
           theme={navigationTheme}
           onStateChange={handleNavigationStateChange}
+          onReady={() => {
+            handleNavigationStateChange();
+            notificationQueueRef.current?.flush();
+          }}
         >
           <MainAppNavigator />
         </NavigationContainer>

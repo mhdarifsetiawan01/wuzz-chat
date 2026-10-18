@@ -28,8 +28,9 @@ export const groupsApi = {
    * GET /api/groups/{id}
    * Retrieves group details and member metadata.
    */
-  async getGroupDetails(groupId: string): Promise<GroupDetails> {
+  async getGroupDetails(groupId: string, signal?: AbortSignal): Promise<GroupDetails> {
     return apiClient<GroupDetails>(`/api/groups/${encodeURIComponent(groupId)}`, {
+      signal,
       method: 'GET',
     });
   },
@@ -38,8 +39,9 @@ export const groupsApi = {
    * GET /api/groups/{id}/members
    * Retrieves list of all members in the group.
    */
-  async getGroupMembers(groupId: string): Promise<GroupMember[]> {
+  async getGroupMembers(groupId: string, signal?: AbortSignal): Promise<GroupMember[]> {
     return apiClient<GroupMember[]>(`/api/groups/${encodeURIComponent(groupId)}/members`, {
+      signal,
       method: 'GET',
     });
   },

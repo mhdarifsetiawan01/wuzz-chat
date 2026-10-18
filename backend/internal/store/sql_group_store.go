@@ -969,12 +969,12 @@ func (s *SQLGroupStore) IsParentMember(parentID, userID string) (bool, error) {
 	return true, nil
 }
 
-// GetActiveSubGroups mengambil daftar seluruh subgrup yang masih aktif di bawah grup induk parent_id.
+// GetActiveSubGroups mengambil forum aktif dan berakhir di grup induk (nama metode dipertahankan untuk kompatibilitas).
 func (s *SQLGroupStore) GetActiveSubGroups(parentID, currentUserID string) ([]SubGroupItem, error) {
 	return s.GetActiveSubGroupsWithContext(context.Background(), parentID, currentUserID)
 }
 
-// GetActiveSubGroupsWithContext mengambil daftar seluruh subgrup yang masih aktif dengan context.
+// GetActiveSubGroupsWithContext mengambil forum aktif dan berakhir dengan context; akses riwayat tetap memerlukan keanggotaan forum.
 func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, parentID, currentUserID string) ([]SubGroupItem, error) {
 	parentID = strings.TrimSpace(parentID)
 	currentUserID = strings.TrimSpace(currentUserID)
@@ -1013,9 +1013,10 @@ func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, paren
 			FROM conversations c
 			LEFT JOIN conversation_members cm ON c.id = cm.conversation_id
 			LEFT JOIN conversation_join_requests cjr ON c.id = cjr.conversation_id AND cjr.user_id = $2 AND cjr.status = 'pending'
-			WHERE c.parent_id = $1 
-			  AND (c.status IS NULL OR c.status = 'active')
-			  AND (c.expires_at IS NULL OR c.expires_at > $3)
+			WHERE c.parent_id = $1
+			  AND (c.status IS NULL OR c.status IN ('active', 'expired'))
+			  AND COALESCE(c.tenant_id, 'default') = (SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = $1)
+			  AND COALESCE(c.tenant_id, 'default') = (SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $2)
 			GROUP BY c.id, c.parent_id, c.title, c.description, c.expires_at, c.created_by, c.created_at, c.status, c.is_public
 			ORDER BY c.created_at DESC
 		`
@@ -1032,9 +1033,10 @@ func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, paren
 			FROM conversations c
 			LEFT JOIN conversation_members cm ON c.id = cm.conversation_id
 			LEFT JOIN conversation_join_requests cjr ON c.id = cjr.conversation_id AND cjr.user_id = ? AND cjr.status = 'pending'
-			WHERE c.parent_id = ? 
-			  AND (c.status IS NULL OR c.status = 'active')
-			  AND (c.expires_at IS NULL OR c.expires_at > ?)
+			WHERE c.parent_id = ?
+			  AND (c.status IS NULL OR c.status IN ('active', 'expired'))
+			  AND COALESCE(c.tenant_id, 'default') = (SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = ?)
+			  AND COALESCE(c.tenant_id, 'default') = (SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?)
 			GROUP BY c.id, c.parent_id, c.title, c.description, c.expires_at, c.created_by, c.created_at, c.status, c.is_public
 			ORDER BY c.created_at DESC
 		`
@@ -1042,9 +1044,9 @@ func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, paren
 
 	var rows *sql.Rows
 	if s.driverName == "postgres" {
-		rows, err = s.db.QueryContext(ctx, query, parentID, currentUserID, now)
+		rows, err = s.db.QueryContext(ctx, query, parentID, currentUserID)
 	} else {
-		rows, err = s.db.QueryContext(ctx, query, currentUserID, currentUserID, parentID, now)
+		rows, err = s.db.QueryContext(ctx, query, currentUserID, currentUserID, parentID, parentID, currentUserID)
 	}
 	if err != nil {
 		return nil, err

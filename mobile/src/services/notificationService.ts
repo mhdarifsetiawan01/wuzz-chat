@@ -1,3 +1,4 @@
+import { NotificationTarget, parseNotificationTarget } from './notificationTarget';
 /**
  * WuzzChat Mobile Push Notification Service
  * Encapsulated notification adapter supporting Expo Go development simulation
@@ -450,17 +451,7 @@ export const notificationService = {
    * Registers a listener when user taps an incoming notification.
    */
   addNotificationResponseListener(
-    onResponse: (target: {
-      roomId: string | null;
-      isGroup: boolean;
-      title: string | null;
-      senderId: string | null;
-      senderPublicKey?: string | null;
-      isCall?: boolean;
-      callId?: string | null;
-      callerNickname?: string | null;
-      sdp?: string | null;
-    }) => void
+    onResponse: (target: NotificationTarget) => void
   ): () => void {
     try {
       const Notifications = getExpoNotificationsModule();
@@ -483,7 +474,7 @@ export const notificationService = {
 
           const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
           const target = this.extractTargetRoom(data);
-          onResponse(target);
+          if (target) onResponse(target);
         } catch (err) {
           console.warn('[NotificationService] Error in response listener callback:', err);
         }
@@ -504,17 +495,7 @@ export const notificationService = {
    * Checks if app was launched directly from tapping a notification while in killed state (cold start).
    */
   async checkColdStartNotification(
-    onResponse: (target: {
-      roomId: string | null;
-      isGroup: boolean;
-      title: string | null;
-      senderId: string | null;
-      senderPublicKey?: string | null;
-      isCall?: boolean;
-      callId?: string | null;
-      callerNickname?: string | null;
-      sdp?: string | null;
-    }) => void
+    onResponse: (target: NotificationTarget) => void
   ): Promise<void> {
     try {
       const Notifications = getExpoNotificationsModule();
@@ -538,7 +519,7 @@ export const notificationService = {
 
       const data = response?.notification?.request?.content?.data as Record<string, any> | undefined;
       const target = this.extractTargetRoom(data);
-      onResponse(target);
+      if (target) onResponse(target);
     } catch (err) {
       console.warn('[NotificationService] checkColdStartNotification skipped:', err);
     }
@@ -547,35 +528,7 @@ export const notificationService = {
   /**
    * Helper to parse and extract target room navigation data from a notification object.
    */
-  extractTargetRoom(
-    notificationData?: Record<string, any>
-  ): {
-    roomId: string | null;
-    isGroup: boolean;
-    senderId: string | null;
-    title: string | null;
-    senderPublicKey: string | null;
-    isCall?: boolean;
-    callId?: string | null;
-    callerNickname?: string | null;
-    sdp?: string | null;
-  } {
-    if (!notificationData) {
-      return { roomId: null, isGroup: false, senderId: null, title: null, senderPublicKey: null };
-    }
-
-    const roomId = notificationData.room_id || null;
-    const senderId = notificationData.sender_id || notificationData.caller_id || null;
-    const senderPublicKey = notificationData.sender_public_key || null;
-    const title = notificationData.sender_nickname || notificationData.caller_nickname || null;
-    const isGroup = Boolean(
-      roomId && (roomId.startsWith('grp_') || roomId.startsWith('sub_'))
-    );
-    const isCall = notificationData.type === 'call_incoming' || Boolean(notificationData.is_call);
-    const callId = notificationData.call_id || null;
-    const callerNickname = notificationData.caller_nickname || title;
-    const sdp = notificationData.sdp || null;
-
-    return { roomId, isGroup, senderId, title, senderPublicKey, isCall, callId, callerNickname, sdp };
+  extractTargetRoom(notificationData?: Record<string, any>): NotificationTarget | null {
+    return parseNotificationTarget(notificationData);
   },
 };

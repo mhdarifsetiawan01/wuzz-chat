@@ -59,7 +59,7 @@ backend/internal/group/
 | `GET` | `/api/groups/{id}` | Detail informasi grup |
 | `GET` | `/api/groups/{id}/members` | Daftar anggota grup & peran |
 | `POST` | `/api/groups/{id}/join` | Bergabung ke grup terbuka |
-| `GET` | `/api/groups/{id}/subgroups` | Daftar topik forum aktif di grup induk |
+| `GET` | `/api/groups/{id}/subgroups` | Daftar forum aktif dan berakhir di grup induk |
 | `POST` | `/api/groups/{id}/subgroups` | Membuat topik forum baru (Admin/Creator only) |
 | `POST` | `/api/groups/{sub_id}/join-request` | Mengajukan izin gabung ke forum privat |
 | `GET` | `/api/groups/{sub_id}/join-requests` | Daftar pengajuan izin (Admin only) |
@@ -84,3 +84,9 @@ backend/internal/group/
 - **Dokumen**: ubah aturan 6 di atas setelah diimplementasi.
 - **Keputusan terbuka**: pratinjau privat menampilkan jumlah anggota & deskripsi, atau hanya nama + avatar?
 - Deploy backend butuh izin eksplisit pengguna.
+
+## Keputusan Paket A — Forum Completion Loop (18 Oktober 2026)
+
+- Forum berakhir tetap tampil di daftar grup dan dapat dibuka anggota forum untuk membaca riwayat. Daftar tidak memberikan akses baru kepada non-anggota; join ke forum berakhir tetap ditolak. Forum Saya tetap memakai akses forum yang sudah ada.
+- Pengiriman pesan baru melalui WS dan forward ke forum berakhir tetap ditolak backend. **Edit, hapus, dan reaksi dipertahankan sesuai perilaku yang ada**; perlu keputusan bisnis lanjutan sebelum memperluas pengunciannya. Istilah read-only pada sesi ini menjelaskan larangan pesan baru/forward, bukan perubahan seluruh operasi pesan lama.
+- Implementasi lokal belum dideploy/dirilis; verifikasi APK baru menunggu konfigurasi signing lokal.

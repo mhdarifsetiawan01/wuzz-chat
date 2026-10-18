@@ -217,7 +217,7 @@ export default function SubGroupListDrawer({
   }
 
   const handleExpireNow = async (sub: SubGroupItem) => {
-    if (!window.confirm(`Akhiri masa aktif topik "${sub.title}" sekarang untuk memicu pembuatan memori AI secara instan?`)) {
+    if (!window.confirm(`Forum "${sub.title}" menjadi read-only dan tidak dapat menerima pesan baru. Riwayat tetap dapat dibaca. Jika AI Memory aktif, ringkasan akan dibuat untuk ditinjau admin.`)) {
       return
     }
     setExpiringId(sub.id)
@@ -236,7 +236,7 @@ export default function SubGroupListDrawer({
       if (error) {
         throw new Error(error)
       }
-      setSuccessToast(`Masa aktif topik "${sub.title}" berhasil diakhiri! AI sedang memproses memori.`)
+      setSuccessToast(`Forum "${sub.title}" telah diakhiri. Riwayat diskusi tetap dapat dibaca.`)
       setTimeout(() => setSuccessToast(''), 5000)
       await fetchSubgroups()
     } catch (err: unknown) {
@@ -712,7 +712,8 @@ export default function SubGroupListDrawer({
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {subgroups.map((sub) => {
-                    const rem = formatRemainingTime(sub.remaining_seconds)
+                    const ended = sub.status === 'expired' || Boolean(sub.expires_at && new Date(sub.expires_at).getTime() <= Date.now())
+                    const rem = formatRemainingTime(ended ? 0 : sub.remaining_seconds)
                     const isJoining = joiningId === sub.id
                     const isRequesting = requestingId === sub.id
                     const isPublic = sub.is_public !== false
@@ -814,7 +815,7 @@ export default function SubGroupListDrawer({
                             </span>
 
                             {/* Tombol Kelola Izin untuk Admin/Creator (khusus subgrup privat) */}
-                            {!isPublic && canAdmin && (
+                            {!ended && !isPublic && canAdmin && (
                               <button
                                 type="button"
                                 onClick={() => openReviewPanel(sub)}
@@ -858,12 +859,12 @@ export default function SubGroupListDrawer({
                             )}
 
                             {/* Tombol Bypass TTL: Akhiri Forum & Proses Memori AI untuk Admin/Creator */}
-                            {canAdmin && (
+                            {!ended && canAdmin && (
                               <button
                                 type="button"
                                 onClick={() => handleExpireNow(sub)}
                                 disabled={expiringId === sub.id}
-                                title="Bypass TTL: Akhiri topik ini sekarang dan langsung buat Memori AI"
+                                title="Akhiri forum dan jadikan read-only"
                                 style={{
                                   background: 'var(--tint-accent-10)',
                                   border: '1px solid rgba(99, 102, 241, 0.35)',
@@ -879,7 +880,7 @@ export default function SubGroupListDrawer({
                                 }}
                               >
                                 <span>⚡</span>
-                                <span>{expiringId === sub.id ? 'Memproses...' : 'Akhiri & AI'}</span>
+                                <span>{expiringId === sub.id ? 'Memproses...' : 'Akhiri Forum'}</span>
                               </button>
                             )}
                           </div>
@@ -900,8 +901,10 @@ export default function SubGroupListDrawer({
                                 border: '1px solid rgba(59, 130, 246, 0.4)',
                               }}
                             >
-                              Buka Obrolan →
+                              {ended ? 'Buka Riwayat →' : 'Buka Obrolan →'}
                             </button>
+                          ) : ended ? (
+                            <span>Berakhir · Akses anggota forum</span>
                           ) : isPublic ? (
                             <button
                               type="button"

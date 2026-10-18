@@ -34,6 +34,7 @@ import { GroupRole } from '../../api/types';
 import { MemoryConfidenceBadge } from './MemoryConfidenceBadge';
 import { MemoryDetailView } from './MemoryDetailView';
 import { MemoryReviewView } from './MemoryReviewView';
+import { validateMemoryDraftTarget, memoryDraftTargetError } from './memoryDraftTarget';
 import { formatMemoryDate } from './memoryFormat';
 import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../../theme';
 
@@ -45,6 +46,8 @@ export interface MemoryArchiveModalProps {
   currentUserRole: GroupRole | undefined;
   /** Bila diisi, langsung membuka detail memori topik ini begitu arsip termuat (sekali per pembukaan). */
   initialForumId?: string;
+  initialDraftId?: string;
+  initialDraftForumId?: string;
   onClose: () => void;
 }
 
@@ -62,11 +65,14 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
   groupTitle,
   currentUserRole,
   initialForumId,
+  initialDraftId,
+  initialDraftForumId,
   onClose,
 }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const initialForumHandledRef = useRef(false);
+  const initialDraftHandledRef = useRef(false);
   const isAdmin = currentUserRole === 'admin' || currentUserRole === 'creator';
 
   const [tab, setTab] = useState<Tab>('archive');
@@ -94,9 +100,26 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
             ? memoryApi.listDrafts(groupId, controller.signal).catch(() => [] as MemoryDraftListItem[])
             : Promise.resolve([] as MemoryDraftListItem[]),
         ]);
+        if (controller.signal.aborted) return;
         setMemories(archive);
         setHasMore(archive.length >= MEMORY_PAGE_SIZE);
         setDrafts(pending);
+        if (initialDraftId && !initialDraftHandledRef.current) {
+          if (!isAdmin) {
+            setError(memoryDraftTargetError({ status: 403 }));
+            return;
+          }
+          // Fetch by ID: a draft need not be in the first pending page.
+          const draft = await memoryApi.getDraft(initialDraftId, controller.signal);
+          if (controller.signal.aborted) return;
+          const invalid = validateMemoryDraftTarget(draft, groupId, initialDraftForumId);
+          initialDraftHandledRef.current = true;
+          if (invalid) setError(invalid);
+          else {
+            setTab('review');
+            setView({ kind: 'review', id: initialDraftId });
+          }
+        }
         // Dibuka dari "Forum saya": lompat ke memori topik itu; bila tidak ada di halaman pertama, tetap di daftar.
         if (initialForumId && !initialForumHandledRef.current) {
           initialForumHandledRef.current = true;
@@ -104,18 +127,23 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
           if (hit) setView({ kind: 'detail', id: hit.id });
         }
       } catch (err: any) {
-        if (err?.name !== 'AbortError') setError(err?.detail || 'Gagal memuat arsip memori.');
+        if (!controller.signal.aborted) setError(initialDraftId ? memoryDraftTargetError(err) : err?.detail || 'Gagal memuat arsip memori.');
       } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
       }
     },
-    [groupId, isAdmin, initialForumId]
+    [groupId, isAdmin, initialForumId, initialDraftId, initialDraftForumId]
   );
 
   useEffect(() => {
     if (visible) {
       initialForumHandledRef.current = false;
+      initialDraftHandledRef.current = false;
+      setMemories([]);
+      setDrafts([]);
       setTab('archive');
       setView({ kind: 'list' });
       loadFirstPage();

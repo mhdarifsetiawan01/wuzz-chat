@@ -1,5 +1,12 @@
 # 🤖 AI & Memory Progress Log — Wuzz Chat
 
+### Forum Completion Loop — navigasi draf mobile, Paket A (18 Oktober 2026)
+
+- Push `memory_draft_ready` tetap memakai payload backend yang ada; mobile kini membuka Arsip Memori/review berdasarkan ID draf, grup, dan forum. Target menunggu navigator siap, serta memakai deduplikasi response listener/cold start yang sama.
+- UI memeriksa `memory_enabled` dan role; API backend tetap otoritas akses/tenant/whitelist. Draf yang sudah disetujui/ditolak tidak dibuka sebagai pending; 403/404/409 ditangani dengan pesan. Tidak menambah job, publikasi otomatis, badge, metadata lifecycle, pencarian, atau navigasi bukti.
+- Typecheck dan 41/41 berkas tes mobile lulus, frontend build dan backend suite lulus. Uji native FCM warm/background/cold start masih tertunda karena signing release lokal tidak tersedia; hanya alur otomatis dengan modul native tiruan yang diverifikasi. Tidak ada perubahan konfigurasi atau data produksi.
+
+
 Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana pengembangan pada engine **Group Memory AI** (*Forum Intelligence & Collaborative Group Knowledge*).
 
 ---

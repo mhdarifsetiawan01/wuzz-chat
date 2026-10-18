@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { APP_LINK_CONFIG } from '../api/config';
+import { memoryDraftTargetError } from '../components/memory/memoryDraftTarget';
 import { groupsApi } from '../api/groups';
 import { searchUsers } from '../api/users';
 import { Conversation, GroupDetails, GroupMember, User } from '../api/types';
@@ -39,6 +40,9 @@ import { showAlert } from '../services/dialog';
 
 export interface GroupInfoScreenProps {
   groupId: string;
+  openMemoryDraftId?: string;
+  memoryForumId?: string;
+  onMemoryIntentConsumed?: () => void;
   onBack: () => void;
   onLeaveSuccess?: () => void;
   onGroupUpdated?: (updated: GroupDetails) => void;
@@ -60,6 +64,9 @@ function formatDate(dateStr?: string): string {
 
 export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   groupId,
+  openMemoryDraftId,
+  memoryForumId,
+  onMemoryIntentConsumed,
   onBack,
   onLeaveSuccess,
   onGroupUpdated,
@@ -86,7 +93,7 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
     onGroupUpdatedRef.current = onGroupUpdated;
   }, [onGroupUpdated]);
 
-  const isLoadingRef = useRef(false);
+  const groupAbortRef = useRef<AbortController | null>(null);
 
   // Add Member Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
@@ -121,8 +128,11 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   // Load group details & members
   const loadGroupData = useCallback(
     async (showLoading = true) => {
-      if (!groupId || isLoadingRef.current) return;
-      isLoadingRef.current = true;
+      if (!groupId) return;
+      groupAbortRef.current?.abort();
+      const controller = new AbortController();
+      groupAbortRef.current = controller;
+      setGroup(null);
       if (showLoading) {
         setIsLoading(true);
       }
@@ -130,9 +140,10 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
 
       try {
         const [details, memberList] = await Promise.all([
-          groupsApi.getGroupDetails(groupId),
-          groupsApi.getGroupMembers(groupId),
+          groupsApi.getGroupDetails(groupId, controller.signal),
+          groupsApi.getGroupMembers(groupId, controller.signal),
         ]);
+        if (controller.signal.aborted) return;
         setGroup(details);
         const memberArray = Array.isArray(memberList)
           ? memberList
@@ -145,11 +156,11 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
           onGroupUpdatedRef.current(details);
         }
       } catch (err: any) {
+        if (controller.signal.aborted) return;
         console.warn('[GroupInfoScreen] Failed to load group data:', err);
-        setErrorMessage(err?.message || 'Gagal memuat informasi grup');
+        setErrorMessage(err?.status === 403 || err?.status === 404 ? memoryDraftTargetError(err) : err?.detail || err?.message || 'Gagal memuat informasi grup');
       } finally {
-        setIsLoading(false);
-        isLoadingRef.current = false;
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     },
     [groupId]
@@ -157,8 +168,19 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
 
   useEffect(() => {
     loadGroupData(true);
+    return () => groupAbortRef.current?.abort();
   }, [loadGroupData]);
 
+
+  useEffect(() => {
+    if (!openMemoryDraftId || !group || group.id !== groupId) return;
+    if (group.memory_enabled === true && (group.my_role === 'admin' || group.my_role === 'creator')) {
+      setShowMemoryArchive(true);
+    } else {
+      showAlert('Draf tidak dapat dibuka', 'Anda tidak memiliki akses review atau AI Memory tidak aktif untuk grup ini.');
+      onMemoryIntentConsumed?.();
+    }
+  }, [openMemoryDraftId, group, groupId, onMemoryIntentConsumed]);
 
   // Determine current user's role in this group
   const myRole = group?.my_role || members.find((m) => m.user_id === currentUser?.id)?.role;
@@ -635,13 +657,18 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
         />
       )}
 
-      {showMemoryArchive && group && (
+      {showMemoryArchive && group?.id === groupId && (
         <MemoryArchiveModal
           visible={showMemoryArchive}
           groupId={groupId}
           groupTitle={group.title}
           currentUserRole={group.my_role}
-          onClose={() => setShowMemoryArchive(false)}
+          initialDraftId={openMemoryDraftId}
+          initialDraftForumId={memoryForumId}
+          onClose={() => {
+            setShowMemoryArchive(false);
+            onMemoryIntentConsumed?.();
+          }}
         />
       )}
 
