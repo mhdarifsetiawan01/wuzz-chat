@@ -90,3 +90,9 @@ backend/internal/group/
 - Forum berakhir tetap tampil di daftar grup dan dapat dibuka anggota forum untuk membaca riwayat. Daftar tidak memberikan akses baru kepada non-anggota; join ke forum berakhir tetap ditolak. Forum Saya tetap memakai akses forum yang sudah ada.
 - Pengiriman pesan baru melalui WS dan forward ke forum berakhir tetap ditolak backend. **Edit, hapus, dan reaksi dipertahankan sesuai perilaku yang ada**; perlu keputusan bisnis lanjutan sebelum memperluas pengunciannya. Istilah read-only pada sesi ini menjelaskan larangan pesan baru/forward, bukan perubahan seluruh operasi pesan lama.
 - Paket A sudah di-commit ke dev, digabung ke main, dan main dipush. APK pengguna 1.39.1 build 70 lulus uji akses riwayat/read-only dari Forum Saya serta daftar forum di Info Grup. Uji notifikasi Memori nyata ditunda pengguna. Berikutnya Paket B; deploy dan build APK/AAB hanya dikerjakan pengguna.
+
+## Forum Completion Loop — Paket B (18 Oktober 2026)
+
+Forum Saya menambah lifecycle Memori melalui satu query join tenant/grup/forum, dengan membership topik dan induk serta batas 300 tetap berlaku. Izin review memakai `parent_role` admin/creator, bukan role forum. Badge mobile menghitung draf yang dapat ditinjau dalam daftar ini. Tidak mengubah aturan mutasi forum berakhir.
+
+Hasil tes dan batas verifikasi: [rencana Forum Completion Loop](../plans/backlog/FORUM_COMPLETION_LOOP.md). Paket B belum diuji di perangkat; uji notifikasi nyata Paket A tetap ditunda pengguna. Deploy/APK dilakukan pengguna; tidak ada perubahan versi atau data produksi.

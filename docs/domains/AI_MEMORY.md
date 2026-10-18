@@ -72,3 +72,9 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Group Memory AI (Forum I
 `memory_draft_ready` menggunakan `group_id`, `forum_id`, dan `draft_id` untuk membuka GroupInfo → Arsip Memori → draf yang sesuai, termasuk ketukan sebelum navigator siap. Mobile hanya membuka review bila grup `memory_enabled === true` dan viewer admin/creator, lalu memeriksa kecocokan grup/forum/status dari detail draf terotorisasi. Backend tetap menegakkan tenant, role, dan whitelist; payload push bukan bukti hak akses. Draf diputuskan, akses dicabut, atau objek dihapus diberi pesan yang jelas. Tidak ada perubahan pipeline, publikasi, maupun konfigurasi whitelist.
 
 Status verifikasi terbaru: APK pengguna 1.39.1 build 70 lulus akses riwayat forum berakhir/read-only dan pemuatan Arsip Memori. Ketukan FCM nyata warm/background/cold start serta dedup nyata belum terverifikasi karena tidak ada notifikasi aktif/draf pending, dan secara eksplisit ditunda pengguna. Penundaan ini bukan blocker Paket B; jangan menandainya lulus. Deploy dan build APK/AAB sepenuhnya tugas pengguna.
+
+## Forum Completion Loop — Paket B (18 Oktober 2026)
+
+Kontrak `/api/forums/mine` menambah `memory_enabled`, `memory_state`, `parent_role`, `memory_id` dan `draft_id` opsional. Data worker tetap internal; hanya admin/creator induk dalam whitelist menerima ID draf. Anggota menerima `under_review`; non-whitelist menerima `ended` tanpa pintasan AI. API baca arsip lama tetap mengikuti aturan sebelumnya. Tidak ada kolom, job, atau aturan publikasi baru.
+
+Hasil tes dan batas verifikasi: [rencana Forum Completion Loop](../plans/backlog/FORUM_COMPLETION_LOOP.md). Paket B belum diuji di perangkat; uji notifikasi nyata Paket A tetap ditunda pengguna. Deploy/APK dilakukan pengguna; tidak ada perubahan versi atau data produksi.

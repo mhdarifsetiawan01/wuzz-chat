@@ -183,7 +183,6 @@ func (h *GroupHandler) SearchPublicGroups(w http.ResponseWriter, r *http.Request
 	_ = json.NewEncoder(w).Encode(groups)
 }
 
-
 // RouteGroupRequest mendispatch sub-path /api/groups/...
 func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.GetUserFromContext(r.Context())
@@ -592,6 +591,10 @@ func (h *GroupHandler) GetMyForums(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeGroupJSONError(w, http.StatusInternalServerError, "Gagal memuat forum")
 		return
+	}
+
+	for i := range forums {
+		forums[i].ApplyMemoryVisibility(h.memoryHandler.IsEnabledForGroup(forums[i].ParentID))
 	}
 
 	w.Header().Set("Content-Type", "application/json")

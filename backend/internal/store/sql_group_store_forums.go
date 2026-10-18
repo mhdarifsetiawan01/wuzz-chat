@@ -48,14 +48,18 @@ func (s *SQLGroupStore) GetUserForumsWithContext(ctx context.Context, userID str
 			COALESCE(c.is_public, true),
 			COALESCE(cm.role, 'member'),
 			(SELECT COUNT(*) FROM conversation_members mc WHERE mc.conversation_id = c.id),
-			EXISTS (
-				SELECT 1 FROM approved_memories am
-				WHERE am.forum_id = c.id AND COALESCE(am.tenant_id, 'default') = COALESCE(c.tenant_id, 'default')
-			)
+            COALESCE(am.id, ''), COALESCE(pm.role, 'member'),
+            COALESCE(j.status, ''), COALESCE(d.status, ''), COALESCE(d.id, '')
 		FROM conversations c
 		JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = ?
 		JOIN conversations p ON p.id = c.parent_id AND COALESCE(p.tenant_id, 'default') = COALESCE(c.tenant_id, 'default')
 		JOIN conversation_members pm ON pm.conversation_id = p.id AND pm.user_id = ?
+        LEFT JOIN forum_memory_jobs j ON j.forum_id = c.id AND j.group_id = p.id
+            AND j.tenant_id = COALESCE(c.tenant_id, 'default')
+        LEFT JOIN memory_drafts d ON d.job_id = j.id AND d.forum_id = c.id AND d.group_id = p.id
+            AND d.tenant_id = COALESCE(c.tenant_id, 'default')
+        LEFT JOIN approved_memories am ON am.forum_id = c.id AND am.group_id = p.id
+            AND am.tenant_id = COALESCE(c.tenant_id, 'default')
 		WHERE COALESCE(c.tenant_id, 'default') = ` + tenantExpr + `
 		  AND c.parent_id IS NOT NULL AND c.parent_id != ''
 		ORDER BY c.created_at DESC
@@ -72,17 +76,18 @@ func (s *SQLGroupStore) GetUserForumsWithContext(ctx context.Context, userID str
 	for rows.Next() {
 		var item UserForumItem
 		var expiresAt *time.Time
-		var isPublic, hasMemory sql.NullBool
+		var isPublic sql.NullBool
 		if err := rows.Scan(
 			&item.ID, &item.ParentID, &item.ParentTitle, &item.ParentAvatarURL,
 			&item.Title, &item.Description,
 			&expiresAt, &item.CreatedAt, &item.Status,
-			&isPublic, &item.MyRole, &item.MemberCount, &hasMemory,
+			&isPublic, &item.MyRole, &item.MemberCount, &item.MemoryID, &item.ParentRole,
+			&item.JobStatus, &item.DraftStatus, &item.PendingDraftID,
 		); err != nil {
 			return nil, err
 		}
 		item.IsPublic = !isPublic.Valid || isPublic.Bool
-		item.HasApprovedMemory = hasMemory.Valid && hasMemory.Bool
+		item.HasApprovedMemory = item.MemoryID != ""
 		item.ExpiresAt = expiresAt
 		item.IsActive = item.Status == "active" && (expiresAt == nil || expiresAt.After(now))
 		if item.IsActive && expiresAt != nil {
@@ -117,4 +122,40 @@ func (s *SQLGroupStore) rebindForums(query string) string {
 		b.WriteRune(r)
 	}
 	return b.String()
+}
+
+// ApplyMemoryVisibility projects internal lifecycle data into the viewer-safe API contract.
+// The parent membership role is authoritative for review, independently of the forum role.
+func (f *UserForumItem) ApplyMemoryVisibility(enabled bool) {
+	f.MemoryEnabled = enabled
+	f.DraftID = ""
+	f.MemoryState = "ended"
+	if f.IsActive {
+		f.MemoryState = "active"
+		f.MemoryID = ""
+		return
+	}
+	if !enabled {
+		f.MemoryID = ""
+		return
+	}
+	admin := f.ParentRole == "admin" || f.ParentRole == "creator"
+	switch {
+	case f.MemoryID != "":
+		f.MemoryState = "published"
+	case f.DraftStatus == "DRAFT":
+		f.MemoryState = "under_review"
+		if admin {
+			f.MemoryState = "review_required"
+			f.DraftID = f.PendingDraftID
+		}
+	case f.DraftStatus == "REJECTED":
+		if admin {
+			f.MemoryState = "rejected"
+		}
+	case f.JobStatus == "QUEUED" || f.JobStatus == "PROCESSING":
+		f.MemoryState = "processing"
+	case f.JobStatus == "FAILED":
+		f.MemoryState = "failed"
+	}
 }

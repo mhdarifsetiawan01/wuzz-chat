@@ -1,6 +1,6 @@
 # Forum Completion Loop — Rencana Implementasi dan Handoff
 
-> **Status:** Paket A diimplementasikan, commit `3fa080a` sudah di main dan dipush; uji baca/read-only lulus pada APK pengguna 1.39.1 build 70. Uji notifikasi nyata ditunda atas keputusan pengguna. Berikutnya Paket B; Paket C belum dikerjakan.
+> **Status:** Paket A diimplementasikan, commit `3fa080a` sudah di main dan dipush; uji baca/read-only lulus pada APK pengguna 1.39.1 build 70. Uji notifikasi nyata ditunda atas keputusan pengguna. Paket B diimplementasikan lokal pada sesi lanjutan; Paket C belum dikerjakan.
 > **Tanggal perancangan:** 18 Oktober 2026
 > **Target awal:** Mobile, lalu penyelarasan Web
 > **Batas penggunaan:** Dokumen ini menyimpan rencana dan hasil implementasi. Kerjakan hanya paket yang diminta pengguna; jangan menganggap seluruh backlog sebagai izin implementasi. Deploy dan build APK/AAB selalu dikerjakan pengguna.
@@ -544,7 +544,7 @@ Agent pada sesi baru harus:
 9. Jangan menjalankan deploy atau build APK/AAB, menaikkan versi/build number, atau mengubah env produksi/signing. Pengguna mengurus deploy/build; AI cukup memberi tahu kebutuhannya. Validasi `npm run build` frontend tetap dijalankan.
 10. Jangan commit/push tanpa instruksi baru. Periksa dan pertahankan perubahan dokumentasi handoff yang belum di-commit di working tree.
 
-### Handoff aktif untuk sesi berikutnya — Paket B
+### Handoff sebelum implementasi Paket B (riwayat)
 
 - `main` dan `dev` lokal telah diselaraskan di `eadd5d0` (1.39.1 build 70); checkout aktif `dev`. Verifikasi ulang saat memulai karena pengguna bisa menambah commit. Jangan mengasumsikan remote dev sudah sinkron; push sebelumnya hanya main.
 - Paket A tidak perlu diimplementasikan ulang. Suite backend, frontend build, typecheck mobile, dan 41/41 berkas unit mobile sudah lulus pada implementasinya.
@@ -572,3 +572,15 @@ Pengguna memasang APK 1.39.1 build 70. Uji ADB pada HP berhasil membuka forum be
 Tidak ada notifikasi WuzzChat aktif atau draf pending di akun ini. Karena itu, ketukan notifikasi Memori pada warm/background/cold start dan deduplikasi nyata masih **belum terverifikasi**, bukan dianggap lulus dari tes startup normal. Tidak membuat data uji baru, mengakhiri forum, mengubah review, atau mencoba kirim/forward pada produksi. Tidak menjalankan build APK/deploy/commit/push.
 
 Keputusan pengguna setelah verifikasi: seluruh uji notifikasi nyata yang masih tertunda boleh dilanjutkan nanti. Penundaan ini tidak menghalangi Paket B. Build APK/AAB dan deployment sepenuhnya tugas pengguna; jangan dilakukan AI.
+
+## Forum Completion Loop — Paket B (18 Oktober 2026)
+
+- `GET /api/forums/mine` menambah `parent_role`, `memory_enabled`, `memory_state`, serta `memory_id`/`draft_id` opsional. Status diturunkan dari forum, job, draf, dan Memori; tidak ada migrasi/kolom baru. Satu query join dengan pasangan forum + grup + tenant, membership topik dan induk tetap wajib, batas 300 forum tetap berlaku.
+- Lifecycle: aktif → `active`; non-whitelist → `ended`; job QUEUED/PROCESSING → `processing`; DRAFT → `under_review` bagi anggota atau `review_required` + ID draf bagi admin/creator **grup induk**; memori terbit → `published`; penolakan → `rejected` hanya bagi admin/creator; kegagalan → `failed`. Role topik tidak memberikan izin review. Data worker dan ID draf internal tidak diserialisasi.
+- Mobile memakai satu snapshot Forum Saya dalam sesi untuk daftar, badge tombol Forum, dan pintasan Perlu Ditinjau. Hitungan hanya mencakup draf yang dapat ditinjau pada forum yang diikuti dalam respons terbatas tersebut, bukan seluruh antrean grup. Tidak ada angka/ID draf pending bagi anggota biasa.
+- Pintasan review memakai validasi target Paket A; pintasan memori terbit memakai `memory_id` sehingga tidak bergantung pada halaman pertama arsip. Refresh terjadi saat fokus beranda, foreground, membuka sheet, selesai review/hapus, dan menutup arsip; tanpa polling tambahan. Respons yang dibatalkan/lebih lama serta snapshot sesi lain diabaikan; kegagalan refresh mengosongkan daftar/badge dengan opsi coba lagi agar pekerjaan lama tidak ditampilkan sebagai masih valid.
+- Notifikasi/deduplikasi Paket A dan aturan pesan baru/forward/edit/hapus/reaksi tidak diubah. Paket C, pencarian arsip, Lihat Pesan Asli, dan pembukaan whitelist tidak dikerjakan.
+- Batas verifikasi: belum diuji pada APK/perangkat nyata untuk Paket B, termasuk perpindahan role/grup lintas perangkat dan tema terang/gelap. Uji ketukan Memori nyata warm/background/cold start serta dedup Paket A tetap ditunda pengguna dan bukan blocker. Tidak membuat/mengubah data produksi, deploy, build APK/AAB, menaikkan versi/build, commit, merge, atau push.
+- Penerapan memerlukan deploy backend dan APK baru oleh pengguna. Frontend hanya divalidasi build, tidak diubah.
+
+- **Verifikasi otomatis Paket B:** backend `go test -v ./...` lulus; mobile `npx tsc --noEmit` lulus dan `npm run test:unit` 42/42 berkas lulus; frontend `npm run build` lulus. Tes baru mencakup matriks lifecycle/role/whitelist dan privasi JSON, join lintas tenant/grup, membership, perubahan setelah review, serta pembaruan badge dan pengabaian respons lama/dibatalkan. Endpoint diuji melalui HTTP recorder termasuk whitelist dan persetujuan menjadi `published` tanpa ID draf. Tes live provider tanpa kredensial tetap SKIP. Suite backend dan build frontend memakai izin di luar sandbox setelah pembatasan cache/proses pada percobaan awal. Tidak menguji PostgreSQL produksi atau APK baru.

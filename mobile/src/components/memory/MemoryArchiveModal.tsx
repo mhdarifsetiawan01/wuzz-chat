@@ -46,9 +46,11 @@ export interface MemoryArchiveModalProps {
   currentUserRole: GroupRole | undefined;
   /** Bila diisi, langsung membuka detail memori topik ini begitu arsip termuat (sekali per pembukaan). */
   initialForumId?: string;
+  initialMemoryId?: string;
   initialDraftId?: string;
   initialDraftForumId?: string;
   onClose: () => void;
+  onChanged?: () => void;
 }
 
 type Tab = 'archive' | 'review';
@@ -65,9 +67,11 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
   groupTitle,
   currentUserRole,
   initialForumId,
+  initialMemoryId,
   initialDraftId,
   initialDraftForumId,
   onClose,
+  onChanged,
 }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -121,10 +125,10 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
           }
         }
         // Dibuka dari "Forum saya": lompat ke memori topik itu; bila tidak ada di halaman pertama, tetap di daftar.
-        if (initialForumId && !initialForumHandledRef.current) {
+        if ((initialMemoryId || initialForumId) && !initialForumHandledRef.current) {
           initialForumHandledRef.current = true;
           const hit = archive.find((m) => m.forum_id === initialForumId);
-          if (hit) setView({ kind: 'detail', id: hit.id });
+          if (initialMemoryId || hit) setView({ kind: 'detail', id: initialMemoryId || hit!.id });
         }
       } catch (err: any) {
         if (!controller.signal.aborted) setError(initialDraftId ? memoryDraftTargetError(err) : err?.detail || 'Gagal memuat arsip memori.');
@@ -135,7 +139,7 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
         }
       }
     },
-    [groupId, isAdmin, initialForumId, initialDraftId, initialDraftForumId]
+    [groupId, isAdmin, initialForumId, initialMemoryId, initialDraftId, initialDraftForumId]
   );
 
   useEffect(() => {
@@ -173,9 +177,10 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
   }, []);
 
   const handleReviewDone = useCallback(() => {
+    onChanged?.();
     setView({ kind: 'list' });
     loadFirstPage(true);
-  }, [loadFirstPage]);
+  }, [loadFirstPage, onChanged]);
 
   const title =
     view.kind === 'detail' ? 'Detail Memori' : view.kind === 'review' ? 'Tinjau Draf' : 'Arsip Memori';
@@ -272,6 +277,7 @@ export const MemoryArchiveModal: React.FC<MemoryArchiveModalProps> = ({
             memoryId={view.id}
             canDelete={isAdmin}
             onDeleted={() => {
+              onChanged?.();
               setView({ kind: 'list' });
               loadFirstPage(true);
             }}

@@ -405,6 +405,11 @@ export interface SubGroup {
 
 /** Satu baris "Forum saya": forum tempat user menjadi anggota topik (GET /api/forums/mine). */
 export interface MyForum {
+  parent_role?: GroupRole;
+  memory_enabled?: boolean;
+  memory_state?: 'active' | 'ended' | 'processing' | 'under_review' | 'review_required' | 'published' | 'rejected' | 'failed';
+  memory_id?: string;
+  draft_id?: string;
   id: string;
   parent_id: string;
   parent_title: string;

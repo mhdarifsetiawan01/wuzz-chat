@@ -1,0 +1,26 @@
+const assert = require('node:assert/strict');
+const { loadFresh } = require('./_harness');
+const { ForumListState, needsForumReview, forumMemoryLabel } = loadFresh(['services/forumLifecycle.ts']).forumLifecycle;
+(async () => {
+ const draft = { memory_enabled: true, memory_state: 'review_required', draft_id: 'd', parent_role: 'admin' };
+ assert.equal(needsForumReview(draft), true);
+ assert.equal(needsForumReview({...draft,is_active:true}),false);
+ assert.equal(forumMemoryLabel({...draft,memory_state:'failed'}),'Pemrosesan gagal');
+ assert.equal(forumMemoryLabel({...draft,parent_role:'member',memory_state:'failed'}),'Ringkasan belum tersedia');
+ for (const parent_role of ['member', undefined]) assert.equal(needsForumReview({...draft,parent_role}),false);
+ assert.equal(needsForumReview({...draft,memory_enabled:false}),false);
+ for (const memory_state of ['published','rejected','ended','processing']) assert.equal(needsForumReview({...draft,memory_state}),false);
+ assert.equal(forumMemoryLabel({...draft,memory_enabled:false}),'');
+ assert.equal(forumMemoryLabel({...draft,memory_state:'under_review'}),'Sedang ditinjau admin');
+ let items=[];
+ const state = new ForumListState(data => { items=data; });
+ await state.refresh(async()=>[draft]); assert.equal(items.filter(needsForumReview).length,1);
+ let finish;
+ const old = state.refresh(()=>new Promise(resolve=>{finish=resolve}));
+ await state.refresh(async()=>[{...draft,memory_state:'published',draft_id:undefined}]);
+ finish([draft]); await old; assert.equal(items.filter(needsForumReview).length,0);
+ const late=state.refresh(()=>new Promise(resolve=>{finish=resolve}));
+ state.cancel(); finish([draft]); await late; assert.equal(items.filter(needsForumReview).length,0);
+ await state.refresh(async()=>{throw Error('403')}); assert.deepEqual(items,[]);
+ console.log('forum lifecycle and badge isolation passed');
+})().catch(e=>{console.error(e);process.exitCode=1});

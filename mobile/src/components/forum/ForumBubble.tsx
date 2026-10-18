@@ -8,9 +8,12 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '../../context/AuthContext';
+import { subgroupsApi } from '../../api/subgroups';
+import { ForumListState, needsForumReview } from '../../services/forumLifecycle';
 import { groupsApi } from '../../api/groups';
 import type { Conversation, GroupRole, MyForum, SubGroup } from '../../api/types';
 import { consumePendingForumGroup } from '../../services/forumCreateIntent';
@@ -31,7 +34,7 @@ export interface ForumBubbleProps {
   onEnterForum: (subConversation: Conversation, parentGroup: Conversation) => void;
 }
 
-type SheetStep = 'hub' | 'picker' | 'mine' | null;
+type SheetStep = 'hub' | 'picker' | 'mine' | 'review' | null;
 
 const isGroupChat = (c: Conversation): boolean =>
   (c.type === 'group' || c.is_group === true) && !c.is_subgroup && !c.parent_id;
@@ -56,7 +59,25 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
   const [step, setStep] = useState<SheetStep>(null);
   const [targetGroup, setTargetGroup] = useState<Conversation | null>(null);
   const [memoryEnabled, setMemoryEnabled] = useState(false);
-  const [memoryTarget, setMemoryTarget] = useState<{ groupId: string; title: string; role?: GroupRole; forumId: string } | null>(null);
+  const [memoryTarget, setMemoryTarget] = useState<{ groupId: string; title: string; role?: GroupRole; forumId: string; draftId?: string; memoryId?: string; session: string | null } | null>(null);
+  const { user, token } = useAuth();
+  const currentSession = useRef(token);
+  currentSession.current = token;
+  const [snapshot, setSnapshot] = useState<{session: string | null; items: MyForum[]; failed: boolean} | null>(null);
+  const forumState = useMemo(() => new ForumListState((items, failed) => {
+    if (currentSession.current === token && mountedRef.current) setSnapshot({ session: token, items, failed });
+  }), [token, user?.id]);
+  const items = snapshot?.session === token ? snapshot.items : [];
+  const reviewCount = items.filter(needsForumReview).length;
+  const refreshForums = useCallback(() => { void forumState.refresh(subgroupsApi.listMyForums); }, [forumState]);
+  useFocusEffect(useCallback(() => { refreshForums(); return () => forumState.cancel(); }, [forumState, refreshForums]));
+  useEffect(() => () => forumState.cancel(), [forumState]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') refreshForums();
+    });
+    return () => subscription.remove();
+  }, [refreshForums]);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -127,10 +148,9 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
   }, [groups, onEnterForum]);
 
   const handleOpenMemory = useCallback((forum: MyForum) => {
-    const parent = groups.find((g) => g.id === forum.parent_id);
     setStep(null);
-    setMemoryTarget({ groupId: forum.parent_id, title: forum.parent_title, role: parent ? roleOf(parent) : undefined, forumId: forum.id });
-  }, [groups]);
+    setMemoryTarget({ groupId: forum.parent_id, title: forum.parent_title, role: forum.parent_role, forumId: forum.id, draftId: needsForumReview(forum) ? forum.draft_id : undefined, memoryId: forum.memory_id, session: token });
+  }, [token]);
 
   const handleCreated = useCallback((sub: SubGroup) => {
     const parent = targetGroup;
@@ -155,21 +175,27 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
     <>
       <TouchableOpacity
         style={[styles.bubble, { bottom: getFabBottom(insets.bottom) + FAB_SIZE + spacing.md }]}
-        onPress={() => setStep('hub')}
+        onPress={() => { refreshForums(); setStep('hub'); }}
         activeOpacity={0.82}
         accessibilityRole="button"
-        accessibilityLabel="Forum"
+        accessibilityLabel={reviewCount ? `Forum, ${reviewCount} draf perlu ditinjau` : 'Forum'}
       >
         <Icon name="forum" size={22} color={colors.textOnAccent} />
+        {reviewCount > 0 ? <Text style={styles.badge}>{reviewCount}</Text> : null}
       </TouchableOpacity>
 
       <BottomSheetModal
         visible={step !== null}
         onClose={() => setStep(null)}
-        title={step === 'picker' ? 'Buat Forum Baru' : step === 'mine' ? 'Forum Saya' : 'Forum'}
+        title={step === 'picker' ? 'Buat Forum Baru' : step === 'review' ? 'Perlu Ditinjau' : step === 'mine' ? 'Forum Saya' : 'Forum'}
       >
-        {step === 'mine' ? (
+        {step === 'mine' || step === 'review' ? (
           <MyForumsView
+            items={items}
+            failed={snapshot?.session === token && snapshot.failed}
+            isLoading={snapshot?.session !== token}
+            load={refreshForums}
+            reviewOnly={step === 'review'}
             onOpenForum={handleOpenForum}
             onOpenMemory={handleOpenMemory}
             onCreateForum={handleChooseCreate}
@@ -184,8 +210,7 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
         ) : (
           <View>
             <Text style={styles.explainer}>
-              Forum adalah topik diskusi berbatas waktu di dalam grup. Saat topik berakhir, AI
-              dapat merangkum keputusannya untuk disetujui admin.
+              Forum adalah topik diskusi berbatas waktu di dalam grup. Riwayat tetap dapat dibaca setelah forum berakhir.
             </Text>
             <ActionMenuItem
               icon={<Icon name="forum" size={20} color={colors.accentPrimary} />}
@@ -193,6 +218,12 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
               subtitle="Topik yang kamu ikuti, aktif dan berakhir"
               onPress={() => setStep('mine')}
             />
+            {reviewCount > 0 ? <ActionMenuItem
+              icon={<Icon name="bulb" size={20} color={colors.accentPrimary} />}
+              label="Perlu Ditinjau"
+              subtitle={`${reviewCount} draf di forum yang Anda ikuti`}
+              onPress={() => setStep('review')}
+            /> : null}
             <ActionMenuItem
               icon={<Icon name="plus" size={20} color={colors.accentPrimary} />}
               label="Buat forum baru"
@@ -203,14 +234,18 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
         )}
       </BottomSheetModal>
 
-      {memoryTarget && (
+      {memoryTarget && memoryTarget.session === token && (
         <MemoryArchiveModal
           visible
           groupId={memoryTarget.groupId}
           groupTitle={memoryTarget.title}
           currentUserRole={memoryTarget.role}
-          initialForumId={memoryTarget.forumId}
-          onClose={() => setMemoryTarget(null)}
+          initialForumId={memoryTarget.draftId ? undefined : memoryTarget.forumId}
+          initialMemoryId={memoryTarget.memoryId}
+          initialDraftId={memoryTarget.draftId}
+          initialDraftForumId={memoryTarget.forumId}
+          onChanged={refreshForums}
+          onClose={() => { setMemoryTarget(null); refreshForums(); }}
         />
       )}
 
@@ -229,6 +264,7 @@ export const ForumBubble: React.FC<ForumBubbleProps> = ({
 };
 
 const makeStyles = (colors: ColorTokens) => StyleSheet.create({
+  badge: { position: 'absolute', top: -4, right: -4, borderRadius: 12, minWidth: 20, textAlign: 'center', padding: 2, backgroundColor: colors.unreadBadgeBg, color: colors.unreadBadgeText, fontSize: 12, fontWeight: '700' },
   bubble: {
     ...makeFabStyle(colors),
     right: FAB_RIGHT + (FAB_SIZE - 44) / 2,

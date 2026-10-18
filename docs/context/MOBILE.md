@@ -197,3 +197,9 @@ mobile/
 - Semua ikon didefinisikan di `mobile/src/components/icons/registry.ts` (path `d`, kanvas 24×24, outline tipis, ujung membulat). Menambah/mengganti ikon cukup mengedit file ini.
 - `IconText` juga memetakan emoji di awal string ke ikon (`EMOJI_TO_ICON`), berguna untuk string data. Emoji untuk picker, reaksi, dan notifikasi tetap emoji.
 
+
+## Forum Completion Loop — Paket B (18 Oktober 2026)
+
+`ForumBubble` memiliki snapshot Forum Saya per sesi yang dipakai daftar, badge, dan pintasan review; `forumLifecycle.ts` menjaga urutan response dan cancellation. Refresh pada fokus/foreground, membuka sheet dan setelah review/hapus/penutupan arsip; tanpa interval polling. Kegagalan menyembunyikan snapshot/badge sampai retry; token berbeda langsung menyembunyikan data lama. Review memakai target Paket A, memori terbit memakai ID langsung. Badge terbatas pada forum yang diikuti dalam respons 300 item.
+
+Hasil tes dan batas verifikasi: [rencana Forum Completion Loop](../plans/backlog/FORUM_COMPLETION_LOOP.md). Paket B belum diuji di perangkat; uji notifikasi nyata Paket A tetap ditunda pengguna. Deploy/APK dilakukan pengguna; tidak ada perubahan versi atau data produksi.

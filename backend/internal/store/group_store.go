@@ -73,6 +73,15 @@ type SubGroupItem struct {
 // UserForumItem merepresentasikan satu forum tempat user menjadi anggota topik ("Forum saya").
 // Aktif/tidak aktif ditentukan server (IsActive) agar klien tidak menebak dari jam perangkat.
 type UserForumItem struct {
+	ParentRole     string `json:"parent_role"`
+	MemoryEnabled  bool   `json:"memory_enabled"`
+	MemoryState    string `json:"memory_state"`
+	MemoryID       string `json:"memory_id,omitempty"`
+	DraftID        string `json:"draft_id,omitempty"`
+	JobStatus      string `json:"-"`
+	DraftStatus    string `json:"-"`
+	PendingDraftID string `json:"-"`
+
 	ID               string     `json:"id"`
 	ParentID         string     `json:"parent_id"`
 	ParentTitle      string     `json:"parent_title"`

@@ -6,11 +6,11 @@
  * AbortController 15 dtk. Tenant ditentukan server dari sesi, klien tidak mengirimnya.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { subgroupsApi } from '../../api/subgroups';
+import { forumMemoryLabel, needsForumReview } from '../../services/forumLifecycle';
 import type { MyForum } from '../../api/types';
-import { useAuth } from '../../context/AuthContext';
+
 import { ColorTokens, radius, spacing, useTheme, useThemedStyles } from '../../theme';
 import { formatTtlRemaining } from '../../utils/ttlCountdown';
 import { Icon } from '../Icon';
@@ -21,50 +21,19 @@ export interface MyForumsViewProps {
   onOpenForum: (forum: MyForum) => void;
   onOpenMemory: (forum: MyForum) => void;
   onCreateForum: () => void;
+  items: MyForum[];
+  isLoading: boolean;
+  failed: boolean;
+  load: () => void;
+  reviewOnly?: boolean;
 }
-
-// Cache per akun supaya daftar langsung tampil saat dibuka ulang; tidak pernah dibagi antar akun.
-let cache: { userId: string; items: MyForum[] } | null = null;
 
 const isAdminRole = (role: MyForum['my_role']): boolean => role === 'admin' || role === 'creator';
 
-export const MyForumsView: React.FC<MyForumsViewProps> = ({ onOpenForum, onOpenMemory, onCreateForum }) => {
+export const MyForumsView: React.FC<MyForumsViewProps> = ({ onOpenForum, onOpenMemory, onCreateForum, items, isLoading, failed, load, reviewOnly }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { user } = useAuth();
-  const userId = user?.id ?? '';
-
-  const [items, setItems] = useState<MyForum[]>(() => (cache && cache.userId === userId ? cache.items : []));
-  const [isLoading, setIsLoading] = useState(!(cache && cache.userId === userId));
-  const [failed, setFailed] = useState(false);
   const [filter, setFilter] = useState<RoleFilter>('all');
-  const abortRef = useRef<AbortController | null>(null);
-
-  const load = useCallback(async () => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const timer = setTimeout(() => controller.abort(), 15_000);
-    setFailed(false);
-    try {
-      const data = await subgroupsApi.listMyForums(controller.signal);
-      if (abortRef.current !== controller) return;
-      cache = { userId, items: data };
-      setItems(data);
-    } catch (err: any) {
-      if (abortRef.current !== controller) return;
-      // Bila sudah ada data lama, biarkan tampil; kegagalan hanya ditandai bila layar masih kosong.
-      setFailed(true);
-    } finally {
-      clearTimeout(timer);
-      if (abortRef.current === controller) setIsLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    load();
-    return () => { abortRef.current?.abort(); };
-  }, [load]);
 
   const counts = useMemo(() => ({
     all: items.length,
@@ -73,17 +42,18 @@ export const MyForumsView: React.FC<MyForumsViewProps> = ({ onOpenForum, onOpenM
   }), [items]);
 
   const visible = useMemo(() => items.filter((f) => {
+    if (reviewOnly) return needsForumReview(f);
     if (filter === 'admin') return isAdminRole(f.my_role);
     if (filter === 'member') return !isAdminRole(f.my_role);
     return true;
-  }), [items, filter]);
+  }), [items, filter, reviewOnly]);
 
   const activeForums = useMemo(() => visible.filter((f) => f.is_active), [visible]);
   const endedForums = useMemo(() => visible.filter((f) => !f.is_active), [visible]);
 
   const renderRow = (forum: MyForum) => {
     const roleLabel = forum.my_role === 'creator' ? 'Pembuat' : forum.my_role === 'admin' ? 'Admin' : '';
-    const status = forum.is_active && forum.expires_at ? formatTtlRemaining(forum.expires_at) : 'Berakhir';
+    const status = forum.is_active && forum.expires_at ? formatTtlRemaining(forum.expires_at) : forum.is_active ? 'Aktif' : 'Berakhir';
     return (
       <TouchableOpacity
         key={forum.id}
@@ -108,8 +78,9 @@ export const MyForumsView: React.FC<MyForumsViewProps> = ({ onOpenForum, onOpenM
             ) : null}
           </View>
           <Text style={styles.rowMeta} numberOfLines={1}>{forum.parent_title} · {status}</Text>
+          {forumMemoryLabel(forum) ? <Text style={styles.rowMeta}>{forumMemoryLabel(forum)}</Text> : null}
         </View>
-        {!forum.is_active && forum.has_approved_memory ? (
+        {needsForumReview(forum) || (forum.memory_enabled === true && forum.memory_state === 'published') ? (
           <TouchableOpacity
             style={styles.memoryBtn}
             onPress={() => onOpenMemory(forum)}
@@ -118,7 +89,7 @@ export const MyForumsView: React.FC<MyForumsViewProps> = ({ onOpenForum, onOpenM
             accessibilityLabel={`Buka memori forum ${forum.title}`}
           >
             <Icon name="bulb" size={16} color={colors.accentPrimary} />
-            <Text style={styles.memoryBtnText}>Memori</Text>
+            <Text style={styles.memoryBtnText}>{needsForumReview(forum) ? 'Tinjau' : 'Lihat Memori'}</Text>
           </TouchableOpacity>
         ) : null}
       </TouchableOpacity>
@@ -140,7 +111,7 @@ export const MyForumsView: React.FC<MyForumsViewProps> = ({ onOpenForum, onOpenM
         <Text style={styles.emptyBody}>
           {failed
             ? 'Periksa koneksi lalu coba lagi.'
-            : 'Buat forum di grup. Saat topik berakhir, AI Memory dapat merangkum keputusannya untuk disetujui admin.'}
+            : 'Buat forum untuk berdiskusi di grup. Riwayat tetap dapat dibaca setelah forum berakhir.'}
         </Text>
         <TouchableOpacity
           style={styles.primaryBtn}
@@ -162,7 +133,7 @@ export const MyForumsView: React.FC<MyForumsViewProps> = ({ onOpenForum, onOpenM
 
   return (
     <View>
-      <View style={styles.chipRow}>
+      {!reviewOnly ? <View style={styles.chipRow}>
         {chips.map((chip) => {
           const selected = filter === chip.key;
           return (
@@ -180,7 +151,7 @@ export const MyForumsView: React.FC<MyForumsViewProps> = ({ onOpenForum, onOpenM
             </TouchableOpacity>
           );
         })}
-      </View>
+      </View> : null}
 
       <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
         {visible.length === 0 ? (
@@ -194,7 +165,7 @@ export const MyForumsView: React.FC<MyForumsViewProps> = ({ onOpenForum, onOpenM
         ) : null}
         {endedForums.length > 0 ? (
           <>
-            <Text style={styles.sectionTitle}>Tidak aktif · {endedForums.length}</Text>
+            <Text style={styles.sectionTitle}>Berakhir · {endedForums.length}</Text>
             {endedForums.map(renderRow)}
           </>
         ) : null}
@@ -264,6 +235,7 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+    minHeight: 44,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: radius.full,

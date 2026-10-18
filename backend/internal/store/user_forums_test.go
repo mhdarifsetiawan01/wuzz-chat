@@ -166,3 +166,56 @@ func TestGetUserForums_HasApprovedMemoryFlag(t *testing.T) {
 		t.Fatalf("bendera memori salah: %+v", flags)
 	}
 }
+
+func TestForumLifecycleJoinsIsolationAndReviewUpdates(t *testing.T) {
+	ms := openMessageStore(t, "forum_lifecycle.db")
+	gs := store.NewSQLGroupStore(ms.DB(), ms.DriverName())
+	us := store.NewSQLUserStore(ms.DB(), ms.DriverName())
+	ctx := tenantshared.WithTenant(context.Background(), "default")
+	owner, err := us.RegisterWithContext(ctx, "lifecycle_owner", "Owner", "pass12345")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent, err := gs.CreateGroupWithContext(ctx, "Parent", "", "", owner.ID, "", true, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub, err := gs.CreateSubGroupWithContext(ctx, parent.ID, "Forum", "", owner.ID, "7_days", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gs.ExpireSubGroupNow(sub.ID); err != nil {
+		t.Fatal(err)
+	}
+	exec := func(q string, args ...any) {
+		t.Helper()
+		if _, err := ms.DB().Exec(q, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	exec(`INSERT INTO forum_memory_jobs(id,tenant_id,forum_id,group_id,status,created_at) VALUES ('job','default',?,?,'COMPLETED',?)`, sub.ID, parent.ID, time.Now())
+	exec(`INSERT INTO memory_drafts(id,tenant_id,job_id,forum_id,group_id,status,created_at) VALUES ('draft','default','job',?,?,'DRAFT',?)`, sub.ID, parent.ID, time.Now())
+	check := func(want string) {
+		t.Helper()
+		rows, err := gs.GetUserForumsWithContext(ctx, owner.ID)
+		if err != nil || len(rows) != 1 {
+			t.Fatalf("rows %v err %v", rows, err)
+		}
+		rows[0].ApplyMemoryVisibility(true)
+		if rows[0].MemoryState != want {
+			t.Fatalf("got %+v want %s", rows[0], want)
+		}
+	}
+	check("review_required")
+	exec(`UPDATE memory_drafts SET tenant_id='other'`)
+	check("ended")
+	exec(`UPDATE memory_drafts SET tenant_id='default',group_id='other'`)
+	check("ended")
+	exec(`UPDATE memory_drafts SET group_id=?,status='REJECTED'`, parent.ID)
+	check("rejected")
+	exec(`UPDATE memory_drafts SET status='DRAFT'`)
+	exec(`UPDATE conversation_members SET role='member' WHERE conversation_id=?`, parent.ID)
+	check("under_review")
+	exec(`DELETE FROM memory_drafts`)
+	check("ended")
+}
