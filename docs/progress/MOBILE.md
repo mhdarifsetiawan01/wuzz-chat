@@ -1,5 +1,17 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+### Perapian desain Perangkat Tertaut (18 Oktober 2026)
+
+- Daftar dipadatkan, Perangkat Ini dipisahkan, ikon mengikuti platform, dan Keluarkan menjadi aksi teks samping dengan area sentuh 44 dp. Ringkasan jumlah aktual/Muat Ulang dan baris transfer kunci menggantikan tombol besar. Konfirmasi menjadi isi sheet tersendiri dengan tombol berdampingan.
+- `colorErrorText` ditambahkan untuk teks destruktif yang terbaca pada tema terang/gelap; tes palet menguji kontras ≥ 4,5:1. Typecheck dan 40/40 berkas tes unit lulus; frontend/backend juga lulus.
+- APK release berhasil dibangun dengan konfigurasi signing lokal, tanpa kenaikan versi untuk pemeriksaan (1.38.1 build 67), dan dipasang di HP Android 11. Tampilan terang/gelap, konfirmasi, Back dan Batal diperiksa; tema Terang awal dipulihkan. Tidak ada sesi perangkat yang dicabut.
+
+### Verifikasi HP: Perangkat Tertaut (18 Oktober 2026)
+
+- APK terpasang v1.38.1 build 67: daftar berhasil dimuat, Perangkat Ini ditandai tanpa tombol keluarkan, perangkat lain memiliki konfirmasi bernama target dengan tombol bahaya/Batal. Batal, Muat Ulang, pintasan transfer kunci pengirim (QR/countdown), Back dan buka ulang diperiksa. Log error ReactNativeJS/AndroidRuntime sejak awal pengujian kosong.
+- Server mengembalikan 3 baris perangkat aktif meskipun UI menyebut kuota 2. Dua baris lain terakhir terlihat 9 dan 7 Oktober. Perlu audit inventaris/kuota; tidak menyimpulkan ketiganya online dan tidak mencabut sesi pengguna.
+- Pengguna telah mengonfirmasi deployment backend dan pembaruan APK. Pengeluaran sungguhan/two-device revocation, kondisi offline, tema gelap, dan iOS belum diverifikasi pada HP.
+
 ### Perangkat Tertaut — tahap pertama (18 Oktober 2026)
 
 - `LinkedDevicesModal`, API perangkat, dan controller ditambahkan: daftar aktif, identitas perangkat ini, konfirmasi keluarkan perangkat lain, retry/refresh, serta akses transfer kunci pengirim.

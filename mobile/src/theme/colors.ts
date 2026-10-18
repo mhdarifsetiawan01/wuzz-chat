@@ -50,6 +50,7 @@ export const lightColors = {
   // Status & Semantic
   colorOnline: '#10b981',     // Vibrant Emerald green dot
   colorError: '#ef4444',
+  colorErrorText: '#b91c1c',  // Small destructive labels on light surfaces (>= 4.5:1).
   colorWarning: '#f59e0b',
   colorSuccess: '#10b981',
   colorDanger: '#ef4444',

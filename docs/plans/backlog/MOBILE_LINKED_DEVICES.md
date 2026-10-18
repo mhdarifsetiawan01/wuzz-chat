@@ -1,6 +1,8 @@
 # Backlog: Perangkat Tertaut Mobile
 
-> Dibuat 18 Oktober 2026. **Status: tahap pertama diimplementasikan; menunggu uji UI dan dua perangkat nyata.**
+> Dibuat 18 Oktober 2026. **Status: tahap pertama diimplementasikan dan UI diperiksa di HP; pencabutan dua perangkat nyata serta audit inventaris/kuota masih terbuka.**
+
+> Verifikasi 18 Oktober 2026: UI sudah diperiksa di HP pada v1.38.1 build 67 setelah pengguna mengonfirmasi deployment backend/pembaruan APK. Daftar, penanda perangkat ini, konfirmasi/Batal, refresh, pintasan QR pengirim, Back dan buka ulang bekerja; tidak ada error ReactNativeJS/AndroidRuntime pada jendela log yang diperiksa. Pengeluaran perangkat sungguhan dan kondisi kegagalan jaringan belum diuji.
 > Dicatat atas permintaan pengguna agar pengelolaan perangkat tertaut tidak terlupakan setelah pemisahan alur transfer kunci.
 
 ## Tujuan
@@ -23,6 +25,7 @@ Tambahkan menu **Perangkat Tertaut** di Pengaturan mobile untuk melihat perangka
 - [ ] Jalankan typecheck dan tes unit mobile, build frontend, tes backend, lalu uji langsung di HP dengan dua perangkat/sesi yang sah.
 - [ ] Sinkronkan panduan integrasi, konteks mobile, keamanan/API bila terdampak, dan log progres saat implementasi selesai.
 - [ ] Lanjutan keamanan push: ikat `push_subscriptions` ke identitas perangkat/sesi dan cabut subscription dari server saat Keluarkan. Saat ini tabel hanya mengikat subscription ke user; cleanup klien lewat `unsubscribeDevice` tidak menjamin berhasil setelah tokennya dicabut, khususnya target offline. Verifikasi penghentian push terpisah dari pencabutan HTTP/WebSocket.
+- [ ] Audit konsistensi inventaris/kuota: uji HP mengembalikan 3 entri `is_active` sementara batas yang ditampilkan adalah 2. Dua entri lama terakhir terlihat 9 dan 7 Oktober. Periksa hubungan sesi valid, registrasi ulang/handshake WebSocket, dan kuota login sebelum menyimpulkan penyebab atau menonaktifkan data lama. Jangan mencabut perangkat pengguna sebagai cleanup otomatis.
 
 ## Titik awal teknis
 
@@ -38,6 +41,8 @@ Roadmap Fase 11 mencatat fondasi perangkat/sesi sudah tersedia. **Verifikasi ula
 Jangan mengasumsikan penghapusan satu baris sesi otomatis mengeluarkan seluruh sesi pada satu perangkat. Bila audit menemukan kebutuhan perbaikan backend, catat dan uji cakupannya sebelum menghubungkan tombol Keluarkan.
 
 ## Hasil implementasi tahap pertama
+
+- Revisi desain setelah masukan pengguna: daftar kompak terbagi Perangkat Ini/Perangkat Lain, ikon per platform, Keluarkan sebagai aksi teks samping (sentuh ≥44 dp), ringkasan jumlah aktual, dan pintasan transfer kunci berbentuk baris. Konfirmasi mengganti isi sheet dengan tombol Batal/Keluarkan berdampingan. Desain revisi diperiksa di HP Android 11 dalam tema terang/gelap; Back/Batal kembali ke daftar. Tema awal dipulihkan dan tidak ada sesi dicabut. Audit kuota dan pencabutan dua perangkat nyata tetap terbuka.
 
 - `LinkedDevicesModal` memakai `BottomSheetModal`, tema dinamis, daftar scrollable, dan konfirmasi dalam sheet. Uji visual, Back, tema gelap, serta dua perangkat nyata belum dilakukan.
 - `GET /api/auth/devices` mengembalikan baris perangkat aktif; `id` sama dengan `DeviceContext.deviceId`. `last_seen_at` diperbarui saat koneksi WebSocket, bukan bukti sedang online. Request DELETE membawa `X-Device-ID` dan token eksplisit dari sesi pembuka.

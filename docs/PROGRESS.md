@@ -1,5 +1,23 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
+### Perapian desain Perangkat Tertaut (18 Oktober 2026)
+
+- Pisahkan Perangkat Ini dan Perangkat Lain; gunakan daftar dengan divider, ikon sesuai platform (HP/Web/Desktop), tanggal lebih pendek, dan aksi teks Keluarkan di samping identitas perangkat dengan target sentuh minimal 44 dp.
+- Muat Ulang menjadi aksi kecil di baris ringkasan jumlah perangkat aktual. Transfer kunci menjadi baris navigasi dengan ikon dan deskripsi singkat. Konfirmasi mengganti isi sheet, menampilkan target dan pasangan tombol Batal/Keluarkan berdampingan; tidak menambahkan kartu panjang di bawah daftar.
+- Hapus klaim kuota dari teks pengantar yang sebelumnya tidak cocok dengan 3 entri server; audit registry/kuota tetap terbuka. Tambahkan token `colorErrorText` untuk kontras aksi kecil pada kedua tema, serta verifikasi kontras otomatis. Token baru tidak mengubah warna komponen lain.
+- Typecheck mobile, 40/40 berkas tes unit mobile, build frontend, tes backend, dan build APK release lulus. APK pemeriksaan dibangun dengan signing lokal dan `-PskipSmartBump` (versi tetap 1.38.1 build 67), lalu dipasang sebagai update di HP Android 11.
+- Verifikasi visual HP: daftar terang/gelap terbaca tanpa pemotongan, ikon Android/Web sesuai, aksi teks Keluarkan ringkas, target konfirmasi jelas, tombol berdampingan, Back dan Batal kembali ke daftar. Tema Terang semula dikembalikan setelah pemeriksaan gelap. Tidak ada pengeluaran perangkat sungguhan. Belum commit/push.
+- Muat Ulang pada desain final tetap menampilkan 3 perangkat; log ReactNativeJS:E/AndroidRuntime:E sejak pemasangan APK pemeriksaan tidak memuat error. HP ditinggalkan pada daftar Perangkat Tertaut dengan tema Terang agar pengguna dapat meninjau hasilnya.
+
+### Verifikasi Perangkat Tertaut di HP (18 Oktober 2026)
+
+- Pengguna mengonfirmasi backend sudah dideploy dan APK diperbarui. Pemeriksaan ADB pada APK terpasang v1.38.1 build 67 membuktikan menu baru tersedia dan daftar perangkat berhasil dimuat dari server.
+- Penanda Perangkat Ini tampil pada Android yang digunakan, tanpa tombol Keluarkan. Dua entri lain memiliki tombol Keluarkan. Nama, platform, dan timestamp terbaca; sheet bisa digulir ketika konfirmasi ditampilkan.
+- Konfirmasi perangkat Web tampil dengan nama target, penjelasan dampak, tombol bahaya Ya, Keluarkan, dan Batal. Hanya Batal yang ditekan; tidak ada sesi perangkat yang dicabut. Muat Ulang mempertahankan daftar, pintasan Transfer Kunci membuka pengirim dengan QR/countdown tanpa tab penerimaan, dan Back/buka ulang bekerja. Log ReactNativeJS:E/AndroidRuntime:E sejak awal pemeriksaan tidak menunjukkan error.
+- Temuan: server mengembalikan **3 entri perangkat aktif** (Android saat ini, Android terakhir terlihat 9 Oktober, Web terakhir terlihat 7 Oktober), sedangkan teks UI menyebut maksimal 2. Ini bukti ketidaksesuaian inventaris/kuota, bukan bukti tiga perangkat sedang online. Asal entri dan konsistensi registrasi/kuota perlu diaudit; data/sesi tidak diubah.
+- Pengeluaran perangkat sungguhan, pencabutan HTTP/WebSocket pada perangkat kedua, jaringan offline/timeout, tema gelap, dan iOS belum diuji pada sesi pemeriksaan ini.
+- Pemeriksaan otomatis setelah uji HP: `go test -v ./...` dan build frontend lulus; kode aplikasi tidak diubah. Hasil pemeriksaan dicatat di dokumentasi, belum di-commit/push.
+
 ### Implementasi tahap pertama Perangkat Tertaut (18 Oktober 2026)
 
 - Pengaturan mobile kini memiliki sheet daftar perangkat aktif, penanda Perangkat Ini, platform/aktivitas terakhir, konfirmasi Keluarkan, Muat Ulang, serta akses ke Transfer Kunci. Kunci E2EE akun tidak direset oleh aksi keluarkan.

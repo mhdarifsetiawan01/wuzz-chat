@@ -46,6 +46,7 @@ Seluruh styling di React Native **WAJIB** mengimpor token dari `@/theme` (`mobil
 | | `colors.colorCyanNeon` | `#0ea5e9` | Tanda terima centang biru (`✓✓`) |
 | | `colors.colorVerified` | `#30AFFF` | Centang biru akun terverifikasi |
 | | `colors.colorError` / `colorDanger` | `#ef4444` | Status error, tombol bahaya/hapus |
+| | `colors.colorErrorText` | `#b91c1c` (terang) / `#f87171` (gelap) | Teks kecil aksi destruktif; kontras ≥ 4,5:1 pada permukaan kartu/input |
 | | `colors.colorWarning` | `#f59e0b` | Peringatan E2EE & status kedaluwarsa |
 | | `colors.unreadBadgeBg` | `#30AFFF` | Badge hitungan pesan belum dibaca |
 | | `colors.unreadBadgeText` | `#ffffff` | Teks badge hitungan pesan |

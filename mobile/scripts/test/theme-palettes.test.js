@@ -27,6 +27,12 @@ const ratio = (a, b) => {
   const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
 };
+for (const palette of [light, dark]) {
+  for (const surface of ['bgCard', 'bgSurface', 'bgInput']) {
+    assert.ok(ratio(palette.colorErrorText, palette[surface]) >= 4.5, `destructive text di ${surface} < 4.5:1`);
+  }
+}
+assert.ok(ratio(light.textOnAccent, light.colorErrorText) >= 4.5, 'konfirmasi bahaya terang harus terbaca');
 for (const bg of ['bgBase', 'bgSurface', 'bgElevated', 'bgInput']) {
   assert.ok(ratio(dark.textPrimary, dark[bg]) >= 7, `gelap: textPrimary di ${bg} < 7:1`);
   assert.ok(ratio(dark.textSecondary, dark[bg]) >= 4.5, `gelap: textSecondary di ${bg} < 4.5:1`);

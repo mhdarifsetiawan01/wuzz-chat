@@ -52,6 +52,7 @@ export const darkColors: ColorTokens = {
   // Status & Semantic
   colorOnline: '#34d399',
   colorError: '#f87171',
+  colorErrorText: '#f87171',
   colorWarning: '#fbbf24',
   colorSuccess: '#34d399',
   colorDanger: '#f87171',
