@@ -78,3 +78,12 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - [ ] Bubble AI (tanya-jawab atas arsip) DITUNDA; draf desain di memori sesi `ai-bubble-chat-on-hold`.
 - [ ] Ringkasan memori *on-demand* pada topik forum yang sedang aktif (sebelum waktu kedaluwarsa berakhir).
 - [ ] Integrasi provider fallback model lokal via Ollama.
+
+
+### Verifikasi HP Paket B — 18 Oktober 2026, sekitar 23:14–23:17 WIB
+
+- Pengguna menyatakan backend sudah dideploy dan APK dibuild/dipasang. ADB: RMX3506, `versionName=1.39.1`, `versionCode=70`, `lastUpdateTime=2026-10-18 23:13:56`. Nomor versi sama dengan pengujian Paket A, tetapi waktu pemasangan dan tampilan baru membuktikan APK diperbarui; hash deployment VPS tidak diperiksa.
+- Forum Saya memuat satu forum berakhir, “Testing Memory AI” di “Tester WuzzChat”, dengan label **Memori tersedia** dan tombol **Lihat Memori**. Ketukan membuka **Detail Memori** forum yang tepat, menampilkan ringkasan, penyetuju, dan keputusan.
+- Beranda/sheet Forum tidak menampilkan badge atau bagian pekerjaan review. Tab Perlu Ditinjau di Arsip Memori menampilkan **Tidak ada draf yang perlu ditinjau**. Background/resume normal diikuti pembukaan sheet Forum berhasil. Log `ReactNativeJS:E` / `AndroidRuntime:E` sejak 23:14 tidak memuat error yang teramati.
+- **Belum terverifikasi di perangkat:** badge >0, pintasan draf dan perubahan badge setelah approve/reject/delete, status processing/failed/rejected/non-whitelist, akun anggota biasa/pergantian akun/role, tema gelap, serta iOS. Bukti otomatis sebelumnya tetap berlaku, tetapi tidak menggantikan uji perangkat tersebut. Ketukan notifikasi Memori nyata warm/background/cold start dan dedup Paket A tetap ditunda pengguna; resume normal bukan pengujian notifikasi.
+- Tidak membuat forum/job/draf, mengakhiri forum, menyunting/menyetujui/menolak/menghapus review, mengirim pesan, atau mengubah konfigurasi produksi. Membuka detail memakai jalur baca aplikasi biasa (yang dapat mencatat view event). Tidak deploy/build ulang atau mengubah versi. Screenshot lokal: `/tmp/wuzz-b-forums.png`, `/tmp/wuzz-b-memory-detail.png`; dump UI sementara milik pengujian di HP sudah dihapus. Catatan verifikasi ini belum di-commit/push.
