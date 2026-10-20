@@ -141,8 +141,12 @@ func (h *MemoryHandler) RouteMemoryRequest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Gerbang AI Memory untuk seluruh operasi draf kecuali hapus (hak hapus data tidak boleh ikut terkunci gerbang).
-	if len(parts) >= 2 && parts[0] == "drafts" && r.Method != http.MethodDelete {
+	// Gerbang AI Memory untuk seluruh operasi draf KECUALI penghapusan draf utuh (DELETE /api/memory/drafts/{id}):
+	// hak hapus data tidak boleh ikut terkunci gerbang. Pengecualian ini sengaja sempit (metode DAN bentuk rute).
+	// DELETE .../journey adalah penyuntingan draf (sejajar PATCH artefak), jadi tetap digerbang; sebelumnya ia ikut lolos
+	// hanya karena memakai metode DELETE.
+	isDraftErase := r.Method == http.MethodDelete && len(parts) == 2
+	if len(parts) >= 2 && parts[0] == "drafts" && !isDraftErase {
 		if draft, err := h.memoryStore.GetDraftByID(r.Context(), parts[1]); err == nil && draft != nil {
 			if !h.IsEnabledForGroup(draft.GroupID) {
 				writeMemoryNotEnabled(w)

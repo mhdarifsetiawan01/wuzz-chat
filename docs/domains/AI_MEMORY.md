@@ -66,7 +66,7 @@ Sumber kebenaran: `backend/internal/api/memory_handler.go` (dispatcher `RouteMem
 | `POST` | `/api/memory/drafts/{draft_id}/approve-with-changes` | Admin/creator grup | Sama, tetapi memaksa `has_human_edits = true`. Pada `approve` biasa penanda itu tetap menjadi `true` bila ada artefak yang diedit atau dihapus |
 | `POST` | `/api/memory/drafts/{draft_id}/reject` | Admin/creator grup | Menolak draf. Body JSON `{"reason": "…"}` (opsional di handler). 409 bila sudah ditinjau |
 | `PATCH` | `/api/memory/drafts/{draft_id}/artifacts/{artifact_id}` | Admin/creator grup | Mengedit isi artefak. Body `{"content": "…"}`. 409 bila draf sudah divalidasi; 400 bila isi tidak lolos validasi |
-| `DELETE` | `/api/memory/drafts/{draft_id}/journey` | Admin/creator grup | Membuang Journey Lite dari draf. 409 bila draf sudah divalidasi |
+| `DELETE` | `/api/memory/drafts/{draft_id}/journey` | Admin/creator grup | Membuang Journey Lite dari draf. Gerbang whitelist berlaku. 409 bila draf sudah divalidasi |
 | `DELETE` | `/api/memory/drafts/{draft_id}` | Admin/creator grup | Menghapus draf beserta artefak, bukti, dan job-nya. **Tidak dikunci gerbang whitelist** (hak hapus data tidak boleh ikut terkunci) |
 | `GET` | `/api/groups/{group_id}/memories?limit=&offset=` | Anggota grup | Daftar memori terbit (arsip). `limit` 1-50 (default 20), `offset` ≥ 0 |
 | `GET` | `/api/memories/{memory_id}` | Anggota grup | Detail memori terbit. Membaca detail dapat mencatat `memory_view_events` |
@@ -74,7 +74,7 @@ Sumber kebenaran: `backend/internal/api/memory_handler.go` (dispatcher `RouteMem
 
 Catatan perilaku (diverifikasi dari kode):
 - **Penolakan umum:** tanpa token 401; bukan admin/creator pada operasi tinjau 403; draf atau memori tidak ada 404; metode tidak didukung 405.
-- **Gerbang whitelist:** semua operasi draf kecuali `DELETE` memeriksa `MEMORY_ENABLED_GROUPS` untuk grup induk draf dan menjawab 403 "AI Memory belum diaktifkan untuk grup ini" bila grup tidak terdaftar. Pemeriksaan itu per **metode HTTP**, bukan per rute, jadi `DELETE .../journey` juga tidak melewatinya (hanya `DELETE` draf yang memang disengaja bebas gerbang). Pembacaan memori **yang sudah terbit** (`/api/groups/{id}/memories`, `/api/memories/{id}`) tidak melewati pemeriksaan itu di handler.
+- **Gerbang whitelist:** semua operasi draf kecuali `DELETE` memeriksa `MEMORY_ENABLED_GROUPS` untuk grup induk draf dan menjawab 403 "AI Memory belum diaktifkan untuk grup ini" bila grup tidak terdaftar. Satu-satunya pengecualian adalah penghapusan draf utuh, `DELETE /api/memory/drafts/{id}` (metode `DELETE` **dan** bentuk rute dua segmen). `DELETE .../journey` adalah penyuntingan draf dan tetap digerbang (sebelum 21 Okt 2026 ia ikut lolos hanya karena pengecualian dikunci pada metode `DELETE`; diperbaiki dengan tes regresi `TestMemoryHandler_GateCoversJourneyRemovalButNotDraftErase`). Pembacaan memori **yang sudah terbit** (`/api/groups/{id}/memories`, `/api/memories/{id}`) tidak melewati pemeriksaan itu di handler.
 - **Lifecycle per forum** (`memory_state`, `draft_id` untuk admin) tidak ada di rute memori; ada di `GET /api/forums/mine` ([`GROUP_FORUM.md`](GROUP_FORUM.md)). Kuota ringkasan: bagian "Kuota ringkasan per paket" di bawah.
 
 ---

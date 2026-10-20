@@ -193,3 +193,107 @@ func TestMemoryHandler_ForumTitleAndApproverName(t *testing.T) {
 		t.Errorf("detail: forum_title=%v approved_by_name=%v", detail["forum_title"], detail["approved_by_name"])
 	}
 }
+
+// seedDraftWithJourney membuat draf berisi ringkasan dan Journey Lite; mengembalikan ID draf.
+func seedDraftWithJourney(t *testing.T, ms *store.SQLMemoryStore, forumID, groupID string) string {
+	t.Helper()
+	ctx := context.Background()
+	job, err := ms.CreateJob(ctx, forumID, groupID)
+	if err != nil {
+		t.Fatalf("CreateJob gagal: %v", err)
+	}
+	id := uuid.NewString()
+	d := &store.MemoryDraft{ID: id, JobID: job.ID, ForumID: forumID, GroupID: groupID, Status: store.DraftStatusDraft, MessageCountProcessed: 5}
+	if err := ms.CreateDraftWithArtifacts(ctx, d, []store.MemoryArtifact{
+		{Type: store.ArtifactTypeSummary, Content: "ringkasan", AIOriginalContent: "ringkasan", Confidence: store.ConfidenceHigh},
+		{Type: store.ArtifactTypeJourneyLite, Content: "awalnya, lalu, akhirnya", AIOriginalContent: "awalnya, lalu, akhirnya", Confidence: store.ConfidenceMedium},
+	}); err != nil {
+		t.Fatalf("CreateDraftWithArtifacts gagal: %v", err)
+	}
+	return id
+}
+
+func journeyRemoved(t *testing.T, ms *store.SQLMemoryStore, draftID string) bool {
+	t.Helper()
+	arts, err := ms.GetArtifactsByDraftID(context.Background(), draftID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range arts {
+		if a.Type == store.ArtifactTypeJourneyLite {
+			return a.IsRemoved
+		}
+	}
+	t.Fatal("Journey Lite tidak ditemukan pada draf")
+	return false
+}
+
+// Membuang Journey Lite adalah menyunting draf, jadi harus ikut digerbang (sejajar PATCH artefak). Hanya penghapusan draf
+// utuh yang bebas gerbang. Sebelumnya DELETE .../journey lolos karena pengecualian gerbang dikunci pada metode DELETE.
+func TestMemoryHandler_GateCoversJourneyRemovalButNotDraftErase(t *testing.T) {
+	h, _, ms, _, alice, _, _, group, forum := setupTestMemoryAPI(t)
+	draftID := seedDraftWithJourney(t, ms, forum.ID, group.ID)
+	arts, _ := ms.GetArtifactsByDraftID(context.Background(), draftID)
+	var summaryID string
+	for _, a := range arts {
+		if a.Type == store.ArtifactTypeSummary {
+			summaryID = a.ID
+		}
+	}
+	base := "/api/memory/drafts/" + draftID
+
+	for name, gate := range map[string]string{"whitelist kosong": "", "grup di luar whitelist": "grp_lain"} {
+		h.SetGate(store.ParseMemoryGate(gate))
+		for _, c := range []struct{ label, method, path string }{
+			{"DELETE journey", http.MethodDelete, base + "/journey"},
+			{"DELETE journey (garis miring akhir)", http.MethodDelete, base + "/journey/"},
+			{"PATCH artefak (kontrol)", http.MethodPatch, base + "/artifacts/" + summaryID},
+		} {
+			if rr := memReq(h, h.RouteMemoryRequest, c.method, c.path, alice.ID); rr.Code != http.StatusForbidden {
+				t.Fatalf("%s | %s: expected 403, got %d: %s", name, c.label, rr.Code, rr.Body.String())
+			}
+		}
+		if journeyRemoved(t, ms, draftID) {
+			t.Fatalf("%s: Journey Lite tidak boleh terhapus saat gerbang menutup", name)
+		}
+	}
+
+	// Penghapusan draf utuh tetap bebas gerbang (hak hapus data), juga saat gerbang tertutup.
+	if rr := memReq(h, h.RouteMemoryRequest, http.MethodDelete, base, alice.ID); rr.Code != http.StatusOK {
+		t.Fatalf("hapus draf utuh saat gerbang tertutup: expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if _, err := ms.GetDraftByID(context.Background(), draftID); err == nil {
+		t.Fatal("draf harus hilang setelah dihapus")
+	}
+}
+
+// Saat gerbang terbuka, perilaku lama tidak berubah: admin boleh, bukan admin tidak, dan draf yang sudah ditinjau terkunci.
+func TestMemoryHandler_JourneyRemovalUnchangedWhenGateOpen(t *testing.T) {
+	h, _, ms, _, alice, bob, carol, group, forum := setupTestMemoryAPI(t)
+	h.SetGate(store.ParseMemoryGate(group.ID))
+
+	d1 := seedDraftWithJourney(t, ms, forum.ID, group.ID)
+	for label, uid := range map[string]string{"anggota biasa": bob.ID, "bukan anggota": carol.ID} {
+		if rr := memReq(h, h.RouteMemoryRequest, http.MethodDelete, "/api/memory/drafts/"+d1+"/journey", uid); rr.Code != http.StatusForbidden {
+			t.Fatalf("%s: expected 403, got %d: %s", label, rr.Code, rr.Body.String())
+		}
+		if journeyRemoved(t, ms, d1) {
+			t.Fatalf("%s: Journey Lite tidak boleh terhapus oleh pemanggil tanpa hak", label)
+		}
+	}
+	if rr := memReq(h, h.RouteMemoryRequest, http.MethodDelete, "/api/memory/drafts/"+d1+"/journey", alice.ID); rr.Code != http.StatusOK {
+		t.Fatalf("admin dengan gerbang terbuka: expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !journeyRemoved(t, ms, d1) {
+		t.Fatal("Journey Lite harus ditandai terhapus oleh admin")
+	}
+
+	// Draf yang sudah ditinjau tidak dapat disunting lagi (409), gerbang terbuka.
+	d2 := seedDraftWithJourney(t, ms, forum.ID+"_b", group.ID)
+	if rr := memReq(h, h.RouteMemoryRequest, http.MethodPost, "/api/memory/drafts/"+d2+"/reject", alice.ID); rr.Code != http.StatusOK {
+		t.Fatalf("reject: expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if rr := memReq(h, h.RouteMemoryRequest, http.MethodDelete, "/api/memory/drafts/"+d2+"/journey", alice.ID); rr.Code != http.StatusConflict {
+		t.Fatalf("draf yang sudah ditolak: expected 409, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
