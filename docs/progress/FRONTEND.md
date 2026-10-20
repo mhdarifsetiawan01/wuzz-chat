@@ -63,3 +63,9 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - Tes: `npm run build` lulus (0 error), `node scripts/test/entitlement-ui.cjs` lulus. Belum diuji interaktif di browser.
 - Belum ada halaman admin web untuk memberi paket; sementara lewat `POST /api/admin/entitlements`.
 - (21 Okt 2026) Daftar forum di drawer menampilkan **"Ringkasan tidak dibuat (kuota habis)"** untuk `memory_state: quota_exceeded` (`lib/forumLifecycle.ts`). `npm run build` dan `source-message.cjs` lulus. Belum diuji di browser.
+
+### Halaman admin "Paket" (`/admin/plans`) — 21 Oktober 2026 — kode selesai di `dev`, belum diuji interaktif di browser, frontend belum dideploy
+- Khusus `wuzz_admin` (tautan "Paket" di navigasi hanya tampil untuk admin; backend tetap penentu). Cari akun → lihat paket yang berlaku beserta alasannya (belum pernah diberi / dicabut / Pro berakhir), forum aktif, kuota AI bulan ini, dan apakah batas ditegakkan server; **Beri Pro** (hari, 0 = tanpa batas waktu), **Cabut paket** (forum dan memori tidak dihapus).
+- Bagian **Pro sementara untuk pengguna lama**: pratinjau dulu (jumlah + contoh username), lalu Terapkan dengan dialog konfirmasi; mengirim `expected_eligible` dan menangani 409 (daftar berubah) dengan meminta pratinjau ulang.
+- Logika murni di `lib/adminPlans.ts`, klien di `lib/admin-api.ts`. Tes: `node scripts/test/admin-plans.cjs`, `npx tsc --noEmit`, `npm run build` (0 error; rute `/admin/plans` terdaftar). Belum dijalankan di browser terhadap backend sungguhan.
+

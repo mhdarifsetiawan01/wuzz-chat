@@ -159,7 +159,7 @@ Paket Business dan fitur organisasi, integrasi pembayaran/langganan, perpanjang 
 ## 11. Catatan implementasi Fase 4 (20 Oktober 2026)
 
 - **Dikerjakan:** info jatah forum aktif, opsi 30 hari dikunci untuk Free, tombol buat dinonaktifkan saat jatah habis, kuota ringkasan AI di keterangan AI Memory, dan pesan akhiri manual yang sesuai hasil server (mobile dan web). UI hanya menampilkan bila server menyatakan batas ditegakkan.
-- **Belum dikerjakan (sengaja):** (a) ~~pemberitahuan untuk forum yang berakhir otomatis tanpa ringkasan karena kuota habis~~ **sudah dikerjakan 21 Oktober 2026** (baris job `SKIPPED` + `memory_state: quota_exceeded` + label di Forum Saya mobile/web). Banner di dalam layar chat forum yang berakhir belum diubah; (b) halaman admin web untuk memberi paket (sementara lewat API); (c) layar upgrade/entry point pembayaran, menunggu Fase 5 dan pemeriksaan kebijakan Google Play.
+- **Belum dikerjakan (sengaja):** (a) ~~pemberitahuan untuk forum yang berakhir otomatis tanpa ringkasan karena kuota habis~~ **sudah dikerjakan 21 Oktober 2026** (baris job `SKIPPED` + `memory_state: quota_exceeded` + label di Forum Saya mobile/web). Banner di dalam layar chat forum yang berakhir belum diubah; (b) ~~halaman admin web untuk memberi paket~~ **sudah dikerjakan 21 Oktober 2026** (`/admin/plans`: cari akun, beri/cabut Pro, pratinjau + terapkan grandfather; belum diuji di browser); (c) layar upgrade/entry point pembayaran, menunggu Fase 5 dan pemeriksaan kebijakan Google Play.
 - **Teks:** hanya "hubungi admin Wuzz untuk akses Pro" dan "Tersedia di paket Pro"; tidak ada ajakan membayar, harga, atau tautan luar.
 
 ## 12. Aksi grandfather (20 Oktober 2026, lokal)

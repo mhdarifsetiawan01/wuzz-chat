@@ -2,6 +2,8 @@
 // ditutup), login tanpa device_id (tidak memakai slot perangkat dan tidak menyentuh kunci E2EE). Pemeriksaan peran yang
 // sebenarnya ada di backend; peran dari JWT di sini hanya untuk menyembunyikan UI.
 
+import type { AdminEntitlementRow, AdminEntitlementStatus, GrandfatherPreview } from './adminPlans'
+
 const TOKEN_KEY = 'wuzz_admin_token'
 
 export const STAFF_ROLES = ['wuzz_admin', 'wuzz_moderator']
@@ -351,4 +353,47 @@ export function deleteAccount(id: string, note: string, confirmUsername: string)
     method: 'DELETE',
     body: JSON.stringify({ note, confirm_username: confirmUsername }),
   })
+}
+
+// ── Paket (entitlement) ──────────────────────────────────────────────────────
+
+export interface EntitlementLookup {
+  user: StaffMember
+  status: AdminEntitlementStatus
+  entitlement: AdminEntitlementRow | null
+}
+
+export function lookupEntitlement(username: string) {
+  return adminFetch<EntitlementLookup>(`/api/admin/entitlements?username=${encodeURIComponent(username.trim())}`)
+}
+
+// days 0 = tanpa batas waktu.
+export function setProPlan(userId: string, days: number, note: string) {
+  return adminFetch<{ status: AdminEntitlementStatus }>('/api/admin/entitlements', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, plan: 'pro', days, note }),
+  })
+}
+
+export function revokePlan(userId: string, note: string) {
+  return adminFetch<{ status: AdminEntitlementStatus }>('/api/admin/entitlements', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, revoke: true, note }),
+  })
+}
+
+// Pratinjau grandfather: tidak menulis apa pun.
+export function previewGrandfather(days: number) {
+  return adminFetch<GrandfatherPreview>('/api/admin/entitlements/grandfather', {
+    method: 'POST',
+    body: JSON.stringify({ days }),
+  })
+}
+
+// Penerapan wajib membawa jumlah hasil pratinjau; server menjawab 409 bila daftar berubah.
+export function applyGrandfather(days: number, expectedEligible: number, note: string) {
+  return adminFetch<{ dry_run: boolean; applied: number; days: number; valid_until: string }>(
+    '/api/admin/entitlements/grandfather',
+    { method: 'POST', body: JSON.stringify({ days, confirm: true, expected_eligible: expectedEligible, note }) },
+  )
 }
