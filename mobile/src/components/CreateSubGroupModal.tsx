@@ -10,7 +10,7 @@
  *  - Double-Action Protection (button disabled during submit)
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { subgroupsApi } from '../api/subgroups';
+import { entitlementApi } from '../api/entitlement';
+import {
+  EntitlementStatus,
+  forumLimitNotice,
+  isDurationAllowed,
+  durationLockedNote,
+  aiQuotaNotice,
+} from '../utils/entitlement';
 import { SubGroup, SubGroupTTL, CreateSubGroupRequest } from '../api/types';
 import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 import { IconText } from './IconText';
@@ -48,9 +56,9 @@ export interface CreateSubGroupModalProps {
 
 // ─── TTL Options ──────────────────────────────────────────────────────────────
 
-const TTL_OPTIONS: { value: SubGroupTTL; label: string; description: string }[] = [
-  { value: '7_days', label: '7 Hari', description: 'Topik aktif selama 1 minggu' },
-  { value: '30_days', label: '1 Bulan', description: 'Topik aktif selama 1 bulan kalender' },
+const TTL_OPTIONS: { value: SubGroupTTL; label: string; description: string; days: number }[] = [
+  { value: '7_days', label: '7 Hari', description: 'Topik aktif selama 1 minggu', days: 7 },
+  { value: '30_days', label: '1 Bulan', description: 'Topik aktif selama 1 bulan kalender', days: 30 },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -73,6 +81,33 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
   const [isPublic, setIsPublic] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  // Status paket (batas forum aktif, durasi, kuota AI). Hanya informasi: bila gagal dimuat, form tetap berfungsi
+  // dan server menolak dengan pesan jelas bila batas terlewati.
+  const [entitlement, setEntitlement] = useState<EntitlementStatus | null>(null);
+
+  const loadEntitlement = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const status = await entitlementApi.getMine(signal);
+      if (!signal?.aborted) setEntitlement(status);
+    } catch {
+      // Diabaikan: server tetap menjadi penentu saat topik dibuat.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!visible) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+    loadEntitlement(controller.signal);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [visible, loadEntitlement]);
+
+  const limitNotice = forumLimitNotice(entitlement);
+  const aiNotice = showMemoryHint ? aiQuotaNotice(entitlement) : null;
+  const atLimit = !!limitNotice?.atLimit;
 
   const titleRef = useRef<TextInput>(null);
   const descRef = useRef<TextInput>(null);
@@ -98,6 +133,10 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
       return;
     }
     if (isSubmitting) return; // Double-action protection
+    if (atLimit) {
+      showAlert('Batas Forum Tercapai', limitNotice!.text);
+      return;
+    }
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -118,12 +157,16 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
       const msg = (err as any)?.detail || 'Gagal membuat topik. Silakan coba lagi.';
-      showAlert('Gagal Membuat Topik', msg);
+      const code = (err as any)?.code;
+      showAlert(code === 'forum_limit_reached' ? 'Batas Forum Tercapai' : 'Gagal Membuat Topik', msg);
+      if (code === 'forum_limit_reached' || code === 'duration_not_in_plan') {
+        void loadEntitlement(); // sinkronkan jatah yang ditampilkan dengan keputusan server
+      }
     } finally {
       clearTimeout(timer);
       setIsSubmitting(false);
     }
-  }, [title, description, ttl, isPublic, isSubmitting, parentGroupId, handleClose, onCreated]);
+  }, [title, description, ttl, isPublic, isSubmitting, atLimit, limitNotice, parentGroupId, handleClose, onCreated]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -164,6 +207,12 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scrollContent}
             >
+              {limitNotice && (
+                <View style={[styles.planNotice, limitNotice.atLimit && styles.planNoticeWarn]}>
+                  <Text style={styles.planNoticeText}>{limitNotice.text}</Text>
+                </View>
+              )}
+
               {/* Title input */}
               <Text style={styles.fieldLabel}>Judul Topik *</Text>
               <TextInput
@@ -204,23 +253,29 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
               <View style={styles.ttlRow}>
                 {TTL_OPTIONS.map((opt) => {
                   const isSelected = ttl === opt.value;
+                  const locked = !isDurationAllowed(entitlement, opt.days);
                   return (
                     <TouchableOpacity
                       key={opt.value}
-                      style={[styles.ttlOption, isSelected && styles.ttlOptionSelected]}
+                      style={[
+                        styles.ttlOption,
+                        isSelected && !locked && styles.ttlOptionSelected,
+                        locked && styles.ttlOptionLocked,
+                      ]}
                       onPress={() => setTtl(opt.value)}
                       activeOpacity={0.75}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || locked}
+                      accessibilityState={{ disabled: isSubmitting || locked }}
                     >
                       <IconText
-                        style={[styles.ttlLabel, isSelected && styles.ttlLabelSelected]}
+                        style={[styles.ttlLabel, isSelected && !locked && styles.ttlLabelSelected]}
                       >
                         ⏱ {opt.label}
                       </IconText>
                       <Text
-                        style={[styles.ttlDesc, isSelected && styles.ttlDescSelected]}
+                        style={[styles.ttlDesc, isSelected && !locked && styles.ttlDescSelected]}
                       >
-                        {opt.description}
+                        {locked ? durationLockedNote(entitlement, opt.days) : opt.description}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -254,15 +309,16 @@ export const CreateSubGroupModal: React.FC<CreateSubGroupModalProps> = ({
                   <Text style={styles.memoryHintText}>
                     Saat topik berakhir, AI Memory merangkum keputusan dan poin penting. Ringkasan
                     baru masuk arsip setelah disetujui admin.
+                    {aiNotice ? `\n${aiNotice.text}` : ''}
                   </Text>
                 </View>
               )}
 
               {/* Submit button */}
               <TouchableOpacity
-                style={[styles.submitBtn, isSubmitting && styles.submitBtnDisabled]}
+                style={[styles.submitBtn, (isSubmitting || atLimit) && styles.submitBtnDisabled]}
                 onPress={handleSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || atLimit}
                 activeOpacity={0.8}
               >
                 {isSubmitting ? (
@@ -367,6 +423,23 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   ttlOptionSelected: {
     borderColor: colors.accentPrimary,
     backgroundColor: colors.tintAccent10,
+  },
+  ttlOptionLocked: {
+    opacity: 0.5,
+  },
+  planNotice: {
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.tintAccent10,
+  },
+  planNoticeWarn: {
+    backgroundColor: colors.tintWarning10,
+  },
+  planNoticeText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textSecondary,
   },
   ttlLabel: {
     fontSize: 14,

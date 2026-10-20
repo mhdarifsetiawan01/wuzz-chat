@@ -44,6 +44,7 @@ import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { showAlert } from '../services/dialog';
 import { formatTtlRemaining } from '../utils/ttlCountdown';
+import { expireOutcomeMessage } from '../utils/entitlement';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
       if (expiringId) return;
       showAlert(
         'Akhiri topik sekarang?',
-        `Forum "${sub.title}" akan berakhir dan tidak dapat menerima pesan baru. Riwayat diskusi tetap dapat dibaca.${memoryEnabled ? ' Ringkasan topik akan dibuat untuk ditinjau admin.' : ''}`,
+        `Forum "${sub.title}" akan berakhir dan tidak dapat menerima pesan baru. Riwayat diskusi tetap dapat dibaca.${memoryEnabled ? ' Ringkasan topik dibuat untuk ditinjau admin bila kuota ringkasan AI masih tersedia.' : ''}`,
         [
           { text: 'Batal', style: 'cancel' },
           {
@@ -152,9 +153,9 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
               const controller = new AbortController();
               const timer = setTimeout(() => controller.abort(), 15_000);
               try {
-                await subgroupsApi.expireSubGroup(parentGroupId, sub.id, controller.signal);
+                const outcome = await subgroupsApi.expireSubGroup(parentGroupId, sub.id, controller.signal);
                 await loadSubGroups(true);
-                showAlert('Topik diakhiri', 'Forum telah diakhiri. Riwayat diskusi tetap dapat dibaca.');
+                showAlert('Topik diakhiri', expireOutcomeMessage(outcome.memory, !!memoryEnabled));
               } catch (err: any) {
                 if (err?.name !== 'AbortError') {
                   showAlert('Gagal mengakhiri topik', err?.detail || 'Silakan coba lagi.');

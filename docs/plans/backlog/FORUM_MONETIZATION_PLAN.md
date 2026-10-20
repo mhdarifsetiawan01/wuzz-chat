@@ -1,6 +1,6 @@
 # Rencana Monetisasi Forum (Freemium) — Hasil Audit & Keputusan MVP
 
-> **Status:** Fase 1-2 selesai (Fase 2 di-commit `7b957a4`). **Fase 3 (kuota AI) diimplementasi lokal 20 Oktober 2026**, belum commit/deploy; batas forum dan kuota AI sama-sama mati secara default (`FORUM_LIMITS_ENABLED`, `MEMORY_QUOTA_ENABLED`). Fase 4-5 belum dikerjakan. Disusun dari audit read-only pada branch `dev` (commit `4ae842b`).
+> **Status:** Fase 1-3 selesai (Fase 2 `7b957a4`, Fase 3 `8fb96df`). **Fase 4 (UI mobile + web) diimplementasi lokal 20 Oktober 2026**, belum commit, belum diuji di HP/browser, belum di-deploy/build. Batas forum dan kuota AI mati secara default (`FORUM_LIMITS_ENABLED`, `MEMORY_QUOTA_ENABLED`). Fase 5 ditunda. Disusun dari audit read-only pada branch `dev` (commit `4ae842b`).
 > **Aturan kerja:** deploy backend/frontend dan build APK dilakukan pengguna. Jangan menaikkan versi/build number. Tidak ada `git push` tanpa persetujuan tertulis terpisah.
 
 ---
@@ -155,3 +155,9 @@ Urutan rilis: Fase 2 dan 3 dapat berjalan dengan perilaku tidak berubah bagi pen
 ## 10. Di luar cakupan MVP
 
 Paket Business dan fitur organisasi, integrasi pembayaran/langganan, perpanjang atau aktifkan ulang forum, embeddings dan pencarian arsip, pencatatan token/biaya terperinci, pengunduran batas per grup atau tenant.
+
+## 11. Catatan implementasi Fase 4 (20 Oktober 2026)
+
+- **Dikerjakan:** info jatah forum aktif, opsi 30 hari dikunci untuk Free, tombol buat dinonaktifkan saat jatah habis, kuota ringkasan AI di keterangan AI Memory, dan pesan akhiri manual yang sesuai hasil server (mobile dan web). UI hanya menampilkan bila server menyatakan batas ditegakkan.
+- **Belum dikerjakan (sengaja):** (a) pemberitahuan di dalam forum yang berakhir otomatis tanpa ringkasan karena kuota habis. `GET /api/forums/mine` belum membedakan "tidak ada job karena kuota" dari "AI tidak aktif", jadi butuh perubahan backend kecil (mis. status memori `quota_exceeded`); (b) halaman admin web untuk memberi paket (sementara lewat API); (c) layar upgrade/entry point pembayaran, menunggu Fase 5 dan pemeriksaan kebijakan Google Play.
+- **Teks:** hanya "hubungi admin Wuzz untuk akses Pro" dan "Tersedia di paket Pro"; tidak ada ajakan membayar, harga, atau tautan luar.

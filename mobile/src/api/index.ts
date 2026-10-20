@@ -8,6 +8,7 @@ export * from './users';
 export * from './media';
 export * from './groups';
 export * from './subgroups';
+export * from './entitlement';
 export * from './notifications';
 export * from './transfer';
 export * from './feedApi';

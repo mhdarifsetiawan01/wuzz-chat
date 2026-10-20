@@ -3,6 +3,13 @@
 import React, { useState, useEffect } from 'react'
 import { GroupDetails } from '@/lib/types'
 import { apiRequest } from '@/lib/api'
+import {
+  EntitlementStatus,
+  forumLimitNotice,
+  isDurationAllowed,
+  durationLockedNote,
+  aiQuotaNotice,
+} from '@/lib/entitlement'
 
 interface CreateSubGroupModalProps {
   memoryEnabled?: boolean
@@ -27,6 +34,24 @@ export default function CreateSubGroupModal({
   const [isPublic, setIsPublic] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  // Status paket: hanya informasi. Bila gagal dimuat form tetap berfungsi dan server menolak dengan pesan jelas.
+  const [entitlement, setEntitlement] = useState<EntitlementStatus | null>(null)
+
+  const loadEntitlement = async (signal?: AbortSignal) => {
+    const { data } = await apiRequest<EntitlementStatus>('/api/me/entitlement', { signal })
+    if (data && !signal?.aborted) setEntitlement(data)
+  }
+
+  useEffect(() => {
+    if (!isOpen) return
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
+    void loadEntitlement(controller.signal)
+    return () => {
+      clearTimeout(timeoutId)
+      controller.abort()
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (isOpen) {
@@ -52,9 +77,19 @@ export default function CreateSubGroupModal({
 
   if (!isOpen) return null
 
+  const limitNotice = forumLimitNotice(entitlement)
+  const aiNotice = memoryEnabled ? aiQuotaNotice(entitlement) : null
+  const atLimit = !!limitNotice?.atLimit
+  const locked30 = !isDurationAllowed(entitlement, 30)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage('')
+
+    if (atLimit) {
+      setErrorMessage(limitNotice!.text)
+      return
+    }
 
     const trimmedTitle = title.trim()
     if (!trimmedTitle) {
@@ -107,6 +142,7 @@ export default function CreateSubGroupModal({
         setErrorMessage('Koneksi timeout (15 detik). Server mungkin lambat merespons, silakan coba lagi.')
       } else {
         setErrorMessage(errObj?.message || 'Gagal membuat topik forum. Pastikan Anda anggota grup utama.')
+        void loadEntitlement() // sinkronkan jatah yang ditampilkan dengan keputusan server
       }
     } finally {
       setIsLoading(false)
@@ -171,6 +207,21 @@ export default function CreateSubGroupModal({
                 }}
               >
                 ⚠️ {errorMessage}
+              </div>
+            )}
+
+            {limitNotice && (
+              <div
+                style={{
+                  background: limitNotice.atLimit ? 'rgba(245, 158, 11, 0.12)' : 'var(--tint-accent-08)',
+                  border: limitNotice.atLimit ? '1px solid var(--color-warning)' : '1px solid rgba(59, 130, 246, 0.2)',
+                  color: 'var(--text-secondary)',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  fontSize: '0.8rem',
+                }}
+              >
+                {limitNotice.text}
               </div>
             )}
 
@@ -252,13 +303,15 @@ export default function CreateSubGroupModal({
 
                 {/* Opsi 2: 1 Bulan */}
                 <div
-                  onClick={() => !isLoading && setDuration('30_days')}
+                  onClick={() => !isLoading && !locked30 && setDuration('30_days')}
+                  aria-disabled={locked30}
                   style={{
                     border: duration === '30_days' ? '2px solid var(--accent-500)' : '1px solid rgba(255, 255, 255, 0.1)',
                     background: duration === '30_days' ? 'var(--tint-accent-12)' : 'rgba(255, 255, 255, 0.03)',
                     borderRadius: '12px',
                     padding: '12px',
-                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                    opacity: locked30 ? 0.5 : 1,
+                    cursor: isLoading || locked30 ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s ease',
                     display: 'flex',
                     flexDirection: 'column',
@@ -274,11 +327,11 @@ export default function CreateSubGroupModal({
                       name="duration" 
                       checked={duration === '30_days'} 
                       onChange={() => setDuration('30_days')}
-                      disabled={isLoading}
+                      disabled={isLoading || locked30}
                     />
                   </div>
                   <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.3' }}>
-                    Cocok untuk proyek bulanan atau diskusi berkala.
+                    {locked30 ? durationLockedNote(entitlement, 30) : 'Cocok untuk proyek bulanan atau diskusi berkala.'}
                   </span>
                 </div>
               </div>
@@ -373,6 +426,7 @@ export default function CreateSubGroupModal({
               <span>🤖</span>
               <span>
                 Setelah forum berakhir, ringkasan topik akan dibuat untuk ditinjau admin.
+                {aiNotice ? ` ${aiNotice.text}` : ''}
               </span>
             </div> : null}
           </div>
@@ -391,7 +445,7 @@ export default function CreateSubGroupModal({
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={isLoading || !title.trim()}
+              disabled={isLoading || !title.trim() || atLimit}
               style={{ 
                 borderRadius: '10px', 
                 padding: '10px 22px', 

@@ -5,6 +5,7 @@ import { needsForumReview, forumMemoryLabel } from '@/lib/forumLifecycle'
 import React, { useState, useEffect, useCallback } from 'react'
 import { SubGroupItem, JoinRequestItem, MyForum } from '@/lib/types'
 import { apiRequest } from '@/lib/api'
+import { expireOutcomeMessage } from '@/lib/entitlement'
 
 interface SubGroupListDrawerProps {
   memoryEnabled?: boolean
@@ -218,7 +219,7 @@ export default function SubGroupListDrawer({
   }
 
   const handleExpireNow = async (sub: SubGroupItem) => {
-    if (!window.confirm(`Forum "${sub.title}" akan berakhir dan tidak dapat menerima pesan baru. Riwayat diskusi tetap dapat dibaca.${memoryEnabled ? ' Ringkasan topik akan dibuat untuk ditinjau admin.' : ''}`)) {
+    if (!window.confirm(`Forum "${sub.title}" akan berakhir dan tidak dapat menerima pesan baru. Riwayat diskusi tetap dapat dibaca.${memoryEnabled ? ' Ringkasan topik dibuat untuk ditinjau admin bila kuota ringkasan AI masih tersedia.' : ''}`)) {
       return
     }
     setExpiringId(sub.id)
@@ -226,7 +227,7 @@ export default function SubGroupListDrawer({
     const timeoutId = setTimeout(() => controller.abort(), 15000)
 
     try {
-      const { error } = await apiRequest<{ status: string; message: string }>(
+      const { data, error } = await apiRequest<{ status: string; message: string; memory?: string }>(
         `/api/groups/${encodeURIComponent(parentGroupId)}/subgroups/${encodeURIComponent(sub.id)}/expire`,
         {
           method: 'POST',
@@ -237,7 +238,7 @@ export default function SubGroupListDrawer({
       if (error) {
         throw new Error(error)
       }
-      setSuccessToast(`Forum "${sub.title}" telah diakhiri. Riwayat diskusi tetap dapat dibaca.`)
+      setSuccessToast(expireOutcomeMessage(data?.memory, memoryEnabled))
       setTimeout(() => setSuccessToast(''), 5000)
       await fetchSubgroups()
     } catch (err: unknown) {

@@ -98,17 +98,19 @@ export const subgroupsApi = {
   /**
    * POST /api/groups/{parent_id}/subgroups/{sub_id}/expire
    * Mengakhiri topik forum seketika (bypass TTL). Hanya admin/creator grup induk (403 untuk lainnya).
-   * Topik dikunci; bila AI Memory aktif untuk grup induk, job ringkasan dibuat.
+   * Topik dikunci. `memory` melaporkan apakah ringkasan AI benar-benar diantre: queued | quota_exceeded | not_queued
+   * (server lama tanpa field ini = undefined).
    */
   async expireSubGroup(
     parentGroupId: string,
     subGroupId: string,
     signal?: AbortSignal
-  ): Promise<void> {
-    await apiClient(
+  ): Promise<{ memory?: string; message?: string }> {
+    const res = await apiClient<{ memory?: string; message?: string }>(
       `/api/groups/${encodeURIComponent(parentGroupId)}/subgroups/${encodeURIComponent(subGroupId)}/expire`,
       { method: 'POST', signal }
     );
+    return { memory: res?.memory, message: res?.message };
   },
 
   /**

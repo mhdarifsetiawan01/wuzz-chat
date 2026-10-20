@@ -57,3 +57,8 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - **Wajib saat memakai R2:** CORS bucket harus mengizinkan origin web untuk `PUT`/`GET`/`HEAD` (header `Content-Type`, `Range`); tanpa itu unggah dari browser gagal.
 - Tidak ada kompresi video di web (batas 25 MB ditolak apa adanya). Opsi kelak: ffmpeg.wasm.
 - Verifikasi: `npm run build` lulus (0 galat). Belum diuji di browser dengan bucket nyata.
+
+### Monetisasi forum, Fase 4 web (20 Oktober 2026) — kode selesai di `dev`, belum diuji di browser, frontend belum dideploy
+- `CreateSubGroupModal` dan `SubGroupListDrawer` mengikuti perilaku mobile: info jatah forum aktif, opsi 1 Bulan dikunci untuk paket Gratis, kuota ringkasan AI, dan pesan akhiri topik sesuai hasil server. Logika dibagi lewat `lib/entitlement.ts` (salinan identik dengan mobile, ubah bersamaan).
+- Tes: `npm run build` lulus (0 error), `node scripts/test/entitlement-ui.cjs` lulus. Belum diuji interaktif di browser.
+- Belum ada halaman admin web untuk memberi paket; sementara lewat `POST /api/admin/entitlements`.
