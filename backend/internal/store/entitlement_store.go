@@ -20,6 +20,8 @@ var (
 	ErrDurationNotInPlan = errors.New("durasi forum ini tidak tersedia di paket Anda")
 	// ErrMemoryQuotaExceeded dibungkus oleh *MemoryQuotaError saat pembuat forum sudah memakai seluruh kuota ringkasan AI bulan ini.
 	ErrMemoryQuotaExceeded = errors.New("kuota AI Memory bulan ini habis")
+	// ErrGrandfatherCountChanged dikembalikan saat jumlah akun yang memenuhi syarat berbeda dari yang dikonfirmasi admin.
+	ErrGrandfatherCountChanged = errors.New("jumlah akun yang memenuhi syarat berubah sejak pratinjau")
 	// ErrEntitlementInvalid dikembalikan saat paket/masa berlaku yang diberikan admin tidak valid.
 	ErrEntitlementInvalid = errors.New("paket atau masa berlaku tidak valid")
 	// ErrEntitlementUserNotFound dikembalikan saat akun target tidak ada di tenant tersebut.
@@ -35,6 +37,12 @@ type ForumLimitError struct {
 
 func (e *ForumLimitError) Error() string { return ErrForumLimitReached.Error() }
 func (e *ForumLimitError) Unwrap() error { return ErrForumLimitReached }
+
+// GrandfatherCandidate adalah akun yang memenuhi syarat Pro sementara.
+type GrandfatherCandidate struct {
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+}
 
 // MemoryQuotaError membawa detail kuota AI untuk pesan yang jujur kepada pengguna.
 type MemoryQuotaError struct {
@@ -97,6 +105,11 @@ type EntitlementStore interface {
 	CountMemoryJobs(ctx context.Context, tenantID, userID string, now time.Time) (int, error)
 	SetEntitlement(ctx context.Context, in SetEntitlementInput) (*Entitlement, error)
 	RevokeEntitlement(ctx context.Context, tenantID, actorID, userID, note string) error
+	// PreviewGrandfather daftar akun yang akan mendapat Pro sementara (tanpa menulis apa pun).
+	PreviewGrandfather(ctx context.Context, tenantID string) ([]GrandfatherCandidate, error)
+	// ApplyGrandfather memberi Pro sementara kepada akun yang memenuhi syarat, hanya bila jumlahnya sama dengan
+	// expectedEligible (ErrGrandfatherCountChanged bila berbeda). Idempotent: akun yang sudah punya baris dilewati.
+	ApplyGrandfather(ctx context.Context, tenantID, actorID string, validUntil time.Time, note string, expectedEligible int) (int, error)
 }
 
 // SQLEntitlementStore implementasi SQL (Postgres/SQLite). Tabel dibuat oleh SQLMessageStore.autoMigrate.
@@ -333,4 +346,90 @@ func insertEntitlementEvent(ctx context.Context, tx *sql.Tx, driverName, tenantI
 		return fmt.Errorf("gagal mencatat riwayat entitlement: %w", err)
 	}
 	return nil
+}
+
+// grandfatherEligibleSQL memilih pengguna yang sudah bisa membuat forum sebelum batas paket berlaku: admin/pembuat grup induk
+// atau pembuat forum, yang belum punya baris entitlement apa pun (termasuk yang sengaja dicabut atau diberi manual).
+const grandfatherEligibleSQL = `
+	SELECT u.id, u.username FROM users u
+	WHERE COALESCE(u.tenant_id, 'default') = ?
+	  AND NOT EXISTS (SELECT 1 FROM user_entitlements e WHERE e.tenant_id = COALESCE(u.tenant_id, 'default') AND e.user_id = u.id)
+	  AND (
+	    EXISTS (SELECT 1 FROM conversation_members m JOIN conversations c ON c.id = m.conversation_id
+	            WHERE m.user_id = u.id AND m.role IN ('creator', 'admin') AND c.type = 'group'
+	              AND (c.parent_id IS NULL OR c.parent_id = '') AND COALESCE(c.tenant_id, 'default') = ?)
+	    OR EXISTS (SELECT 1 FROM conversations f WHERE f.created_by = u.id AND f.parent_id IS NOT NULL AND f.parent_id <> ''
+	               AND COALESCE(f.tenant_id, 'default') = ?)
+	  )
+	ORDER BY u.username`
+
+type sqlQuerier interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+}
+
+func listGrandfatherCandidates(ctx context.Context, q sqlQuerier, driverName, tenantID string) ([]GrandfatherCandidate, error) {
+	rows, err := q.QueryContext(ctx, rebindQuery(driverName, grandfatherEligibleSQL), tenantID, tenantID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []GrandfatherCandidate
+	for rows.Next() {
+		var c GrandfatherCandidate
+		if err := rows.Scan(&c.UserID, &c.Username); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+func (s *SQLEntitlementStore) PreviewGrandfather(ctx context.Context, tenantID string) ([]GrandfatherCandidate, error) {
+	return listGrandfatherCandidates(ctx, s.db, s.driverName, tenantID)
+}
+
+func (s *SQLEntitlementStore) ApplyGrandfather(ctx context.Context, tenantID, actorID string, validUntil time.Time, note string, expectedEligible int) (int, error) {
+	now := time.Now().UTC()
+	if !validUntil.After(now) {
+		return 0, ErrEntitlementInvalid
+	}
+	note = strings.TrimSpace(note)
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	candidates, err := listGrandfatherCandidates(ctx, tx, s.driverName, tenantID)
+	if err != nil {
+		return 0, err
+	}
+	if len(candidates) != expectedEligible {
+		return 0, ErrGrandfatherCountChanged
+	}
+
+	applied := 0
+	for _, c := range candidates {
+		// DO NOTHING: bila baris muncul bersamaan (mis. admin memberi paket manual), akun itu dibiarkan apa adanya.
+		res, err := tx.ExecContext(ctx, rebindQuery(s.driverName, `
+			INSERT INTO user_entitlements (tenant_id, user_id, plan, status, valid_until, source, granted_by, note, created_at, updated_at)
+			VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
+			ON CONFLICT (tenant_id, user_id) DO NOTHING`),
+			tenantID, c.UserID, entitlement.PlanPro, validUntil.UTC(), entitlement.SourceGrandfather, actorID, note, now, now)
+		if err != nil {
+			return 0, err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			continue
+		}
+		if err := insertEntitlementEvent(ctx, tx, s.driverName, tenantID, c.UserID, actorID, "set", entitlement.PlanPro, validUntil.UTC(), entitlement.SourceGrandfather, note, now); err != nil {
+			return 0, err
+		}
+		applied++
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return applied, nil
 }

@@ -161,3 +161,13 @@ Paket Business dan fitur organisasi, integrasi pembayaran/langganan, perpanjang 
 - **Dikerjakan:** info jatah forum aktif, opsi 30 hari dikunci untuk Free, tombol buat dinonaktifkan saat jatah habis, kuota ringkasan AI di keterangan AI Memory, dan pesan akhiri manual yang sesuai hasil server (mobile dan web). UI hanya menampilkan bila server menyatakan batas ditegakkan.
 - **Belum dikerjakan (sengaja):** (a) pemberitahuan di dalam forum yang berakhir otomatis tanpa ringkasan karena kuota habis. `GET /api/forums/mine` belum membedakan "tidak ada job karena kuota" dari "AI tidak aktif", jadi butuh perubahan backend kecil (mis. status memori `quota_exceeded`); (b) halaman admin web untuk memberi paket (sementara lewat API); (c) layar upgrade/entry point pembayaran, menunggu Fase 5 dan pemeriksaan kebijakan Google Play.
 - **Teks:** hanya "hubungi admin Wuzz untuk akses Pro" dan "Tersedia di paket Pro"; tidak ada ajakan membayar, harga, atau tautan luar.
+
+## 12. Aksi grandfather (20 Oktober 2026, lokal)
+
+`POST /api/admin/entitlements/grandfather` (token `wuzz_admin`). Urutan pemakaian yang disarankan, **tepat sebelum** `FORUM_LIMITS_ENABLED=true` karena masa Pro dihitung sejak aksi dijalankan, bukan sejak batas diaktifkan:
+
+1. Pratinjau: `{"days":60}` → mengembalikan `eligible` dan contoh username; tidak menulis apa pun.
+2. Terapkan: `{"days":60,"confirm":true,"expected_eligible":<nilai eligible>,"note":"rilis batas paket"}`. Bila jumlah berubah sejak pratinjau → 409 dan tidak ada yang tertulis.
+3. Jalan ulang aman (0 kandidat). Akun baru yang kemudian menjadi admin grup tidak otomatis mendapat Pro; berikan manual lewat `POST /api/admin/entitlements` bila perlu.
+
+Syarat kandidat: admin/pembuat grup induk atau pernah membuat forum, di tenant `default`, dan **belum punya baris entitlement apa pun** (paket manual dan paket yang sengaja dicabut tidak disentuh). Riwayat tercatat di `entitlement_events` (`source=grandfather`, aktor admin).

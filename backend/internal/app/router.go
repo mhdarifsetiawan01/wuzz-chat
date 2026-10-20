@@ -415,6 +415,7 @@ func (a *Application) setupRouter() http.Handler {
 			{"/api/admin/staff", a.ModerationHandler.HandleStaff},
 			{"/api/admin/staff/", a.ModerationHandler.HandleStaff},
 			{"/api/admin/entitlements", a.ModerationHandler.HandleEntitlements},
+			{"/api/admin/entitlements/", a.ModerationHandler.HandleEntitlements},
 		} {
 			fn := route.fn
 			mux.HandleFunc(route.path, withCORS(func(w http.ResponseWriter, r *http.Request) {

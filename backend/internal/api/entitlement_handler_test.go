@@ -294,3 +294,102 @@ func TestEntitlementAPI_ManualExpireMessageMatchesQuotaOutcome(t *testing.T) {
 		t.Fatalf("status ai salah: %v", ai)
 	}
 }
+
+func (e *entEnv) grandfather(tok, body string) (int, map[string]any) {
+	e.t.Helper()
+	w := e.adminCall(http.MethodPost, "/api/admin/entitlements/grandfather", body, tok)
+	var m map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &m)
+	return w.Code, m
+}
+
+func (e *entEnv) grandfatherRows() int {
+	e.t.Helper()
+	var n int
+	if err := e.sqlStore.DB().QueryRow(`SELECT COUNT(*) FROM user_entitlements WHERE source = 'grandfather'`).Scan(&n); err != nil {
+		e.t.Fatal(err)
+	}
+	return n
+}
+
+func TestGrandfatherAPI_DryRunByDefaultThenConfirmWithExpectedCount(t *testing.T) {
+	e := newEntEnv(t, true)
+	owner := e.user("old_admin")
+	if _, err := e.groups.CreateGroup("Grup Lama", "", "", owner.ID, "", true, nil); err != nil {
+		t.Fatal(err)
+	}
+	// e.admin / e.modUsr adalah akun staf tanpa grup; hanya old_admin yang memenuhi syarat.
+
+	code, body := e.grandfather(e.adminT, `{}`)
+	if code != http.StatusOK || body["dry_run"] != true || body["eligible"].(float64) != 1 || body["days"].(float64) != 60 {
+		t.Fatalf("pratinjau default salah: %d %v", code, body)
+	}
+	if sample := body["sample"].([]any); len(sample) != 1 || sample[0] != "old_admin" {
+		t.Fatalf("contoh username salah: %v", body["sample"])
+	}
+	if e.grandfatherRows() != 0 {
+		t.Fatal("pratinjau tidak boleh menulis")
+	}
+
+	// confirm tanpa expected_eligible yang benar -> 409 dan tidak menulis.
+	code, body = e.grandfather(e.adminT, `{"confirm":true,"expected_eligible":5}`)
+	if code != http.StatusConflict || body["eligible"].(float64) != 1 || e.grandfatherRows() != 0 {
+		t.Fatalf("expected salah harus 409 tanpa tulis: %d %v rows=%d", code, body, e.grandfatherRows())
+	}
+	code, _ = e.grandfather(e.adminT, `{"confirm":true}`)
+	if code != http.StatusConflict {
+		t.Fatalf("confirm tanpa expected_eligible harus 409, dapat %d", code)
+	}
+
+	code, body = e.grandfather(e.adminT, `{"confirm":true,"expected_eligible":1,"days":30,"note":"rilis batas paket"}`)
+	if code != http.StatusOK || body["dry_run"] != false || body["applied"].(float64) != 1 || body["days"].(float64) != 30 {
+		t.Fatalf("penerapan salah: %d %v", code, body)
+	}
+	if e.grandfatherRows() != 1 {
+		t.Fatal("harus ada 1 baris grandfather")
+	}
+	// Status paket pengguna kini Pro.
+	if got := e.mine(e.token(owner, "default", "user"))["plan"]; got != "pro" {
+		t.Fatalf("old_admin harus Pro, dapat %v", got)
+	}
+	// Jalan ulang: tidak ada kandidat lagi.
+	if _, body = e.grandfather(e.adminT, `{}`); body["eligible"].(float64) != 0 {
+		t.Fatalf("jalan ulang harus 0 kandidat: %v", body)
+	}
+}
+
+func TestGrandfatherAPI_AdminOnlyAndValidation(t *testing.T) {
+	e := newEntEnv(t, true)
+	plainT := e.token(e.user("plain_gf"), "default", "user")
+	for name, tok := range map[string]string{"tanpa token": "", "user biasa": plainT, "moderator": e.modT} {
+		w := e.adminCall(http.MethodPost, "/api/admin/entitlements/grandfather", `{"confirm":true,"expected_eligible":0}`, tok)
+		want := http.StatusForbidden
+		if tok == "" {
+			want = http.StatusUnauthorized
+		}
+		if w.Code != want {
+			t.Errorf("%s: want %d, got %d", name, want, w.Code)
+		}
+	}
+	if e.grandfatherRows() != 0 {
+		t.Fatal("akses tanpa hak tidak boleh menulis")
+	}
+	for name, tc := range map[string]struct {
+		method, body string
+		want         int
+	}{
+		"hari negatif":       {http.MethodPost, `{"days":-1}`, http.StatusBadRequest},
+		"hari terlalu besar": {http.MethodPost, `{"days":366}`, http.StatusBadRequest},
+		"json rusak":         {http.MethodPost, `{`, http.StatusBadRequest},
+		"method GET":         {http.MethodGet, ``, http.StatusMethodNotAllowed},
+	} {
+		if c := e.adminCall(tc.method, "/api/admin/entitlements/grandfather", tc.body, e.adminT).Code; c != tc.want {
+			t.Errorf("%s: want %d, got %d", name, tc.want, c)
+		}
+	}
+	// Tenant selain default ditolak (batas paket hanya ditegakkan di tenant default).
+	acmeT := e.token(e.admin, "acme", "wuzz_admin")
+	if c := e.adminCall(http.MethodPost, "/api/admin/entitlements/grandfather", `{}`, acmeT).Code; c != http.StatusBadRequest {
+		t.Errorf("tenant acme: want 400, got %d", c)
+	}
+}

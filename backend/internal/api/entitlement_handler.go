@@ -121,6 +121,7 @@ func (h *ModerationHandler) SetEntitlements(s store.EntitlementStore, forumLimit
 //	GET  /api/admin/entitlements?username=...  paket dan pemakaian satu akun
 //	POST /api/admin/entitlements               {"user_id","plan":"pro","days":60,"note"} beri paket (days 0 = tanpa batas waktu)
 //	POST /api/admin/entitlements               {"user_id","revoke":true,"note"} cabut paket (kembali Free)
+//	POST /api/admin/entitlements/grandfather   Pro sementara untuk admin/pembuat grup yang sudah ada (lihat handleGrandfather)
 //
 // Perubahan paket tidak menghapus forum atau memori; hanya memengaruhi pembuatan berikutnya.
 func (h *ModerationHandler) HandleEntitlements(w http.ResponseWriter, r *http.Request) {
@@ -132,7 +133,12 @@ func (h *ModerationHandler) HandleEntitlements(w http.ResponseWriter, r *http.Re
 		writeFeedError(w, http.StatusServiceUnavailable, "Pengelolaan paket tidak aktif")
 		return
 	}
-	if strings.Trim(strings.TrimPrefix(r.URL.Path, adminEntitlementsPath), "/") != "" {
+	switch strings.Trim(strings.TrimPrefix(r.URL.Path, adminEntitlementsPath), "/") {
+	case "":
+	case "grandfather":
+		h.handleGrandfather(w, r, claims)
+		return
+	default:
 		writeFeedError(w, http.StatusNotFound, "Tidak ditemukan")
 		return
 	}
@@ -214,4 +220,84 @@ func (h *ModerationHandler) writeEntitlementResult(w http.ResponseWriter, r *htt
 		return
 	}
 	writeFeedJSON(w, http.StatusOK, map[string]any{"user": m, "status": st, "entitlement": ent})
+}
+
+const (
+	defaultGrandfatherDays = 60
+	maxGrandfatherDays     = 365
+	grandfatherSampleSize  = 20
+)
+
+// handleGrandfather memberi Pro sementara (source "grandfather") kepada admin/pembuat grup yang sudah ada, sekali jalan,
+// sebelum batas paket diaktifkan. Aman secara default:
+//
+//   - tanpa "confirm": hanya pratinjau (tidak menulis apa pun) berisi jumlah akun dan contoh username;
+//   - dengan "confirm": true wajib menyertakan "expected_eligible" yang sama dengan jumlah pratinjau, jika tidak 409
+//     (daftar berubah sejak pratinjau) dan tidak ada yang ditulis.
+//
+// Akun yang sudah punya baris entitlement apa pun (diberi manual maupun dicabut) dilewati; menjalankan ulang aman.
+// Hanya tenant default, karena batas paket hanya ditegakkan di sana.
+func (h *ModerationHandler) handleGrandfather(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims) {
+	if r.Method != http.MethodPost {
+		writeFeedError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	if claims.TenantID != entitlement.DefaultTenant {
+		writeFeedError(w, http.StatusBadRequest, "Hanya berlaku untuk tenant default")
+		return
+	}
+	var body struct {
+		Days             int    `json:"days"`
+		Confirm          bool   `json:"confirm"`
+		ExpectedEligible int    `json:"expected_eligible"`
+		Note             string `json:"note"`
+	}
+	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body) != nil ||
+		body.Days < 0 || body.Days > maxGrandfatherDays ||
+		utf8.RuneCountInString(body.Note) > maxModNoteRunes {
+		writeFeedError(w, http.StatusBadRequest, "Permintaan tidak valid")
+		return
+	}
+	days := body.Days
+	if days == 0 {
+		days = defaultGrandfatherDays
+	}
+	validUntil := time.Now().UTC().Add(time.Duration(days) * 24 * time.Hour)
+
+	candidates, err := h.entitlements.PreviewGrandfather(r.Context(), claims.TenantID)
+	if err != nil {
+		log.Printf("⚠️ [Entitlement] pratinjau grandfather gagal: %v", err)
+		writeFeedError(w, http.StatusInternalServerError, "Gagal memuat daftar akun")
+		return
+	}
+
+	if !body.Confirm {
+		sample := make([]string, 0, grandfatherSampleSize)
+		for i, c := range candidates {
+			if i == grandfatherSampleSize {
+				break
+			}
+			sample = append(sample, c.Username)
+		}
+		writeFeedJSON(w, http.StatusOK, map[string]any{
+			"dry_run": true, "days": days, "valid_until": validUntil, "eligible": len(candidates), "sample": sample,
+			"hint": "Kirim ulang dengan confirm=true dan expected_eligible sama dengan nilai eligible untuk menerapkan.",
+		})
+		return
+	}
+
+	applied, err := h.entitlements.ApplyGrandfather(r.Context(), claims.TenantID, claims.UserID, validUntil, body.Note, body.ExpectedEligible)
+	switch {
+	case errors.Is(err, store.ErrGrandfatherCountChanged):
+		writeFeedJSON(w, http.StatusConflict, map[string]any{
+			"error": "Jumlah akun yang memenuhi syarat berubah sejak pratinjau. Ulangi pratinjau lalu konfirmasi lagi.", "eligible": len(candidates),
+		})
+		return
+	case err != nil:
+		log.Printf("⚠️ [Entitlement] grandfather gagal: %v", err)
+		writeFeedError(w, http.StatusInternalServerError, "Gagal menerapkan Pro sementara")
+		return
+	}
+	log.Printf("🎟️ [Entitlement] grandfather: admin=%s applied=%d days=%d", claims.UserID, applied, days)
+	writeFeedJSON(w, http.StatusOK, map[string]any{"dry_run": false, "days": days, "valid_until": validUntil, "applied": applied})
 }
