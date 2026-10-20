@@ -86,6 +86,7 @@ type Application struct {
 	FeedHandler         *api.FeedHandler
 	ReportHandler       *api.ReportHandler
 	ModerationHandler   *api.ModerationHandler
+	EntitlementHandler  *api.EntitlementHandler
 	// EvidenceWorker menghapus bukti laporan yang melewati masa simpan; nil bila alat moderasi/retensi tidak aktif.
 	EvidenceWorker *worker.EvidenceRetentionWorker
 	// Notifier mengirim pemberitahuan laporan baru ke Telegram dll; nil bila tidak ada saluran aktif.
@@ -142,11 +143,16 @@ func New(cfg *config.Config) (*Application, error) {
 	var roleResolver auth.RoleResolver // peran istimewa diverifikasi ke database; nil bila alat moderasi tidak aktif
 	var feedRepo feed.FeedRepository
 	var connRepo connection.ConnectionRepository
+	var entitlementStore store.EntitlementStore
 
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
 		userStore = sqlUserStore
-		groupStore = store.NewSQLGroupStore(sqlStore.DB(), sqlStore.DriverName())
+		sqlGroupStore := store.NewSQLGroupStore(sqlStore.DB(), sqlStore.DriverName())
+		// Batas forum aktif per paket: mati kecuali FORUM_LIMITS_ENABLED=true (tanpa cfg/pengujian juga mati).
+		sqlGroupStore.SetForumLimitsEnabled(cfg != nil && cfg.ForumLimitsEnabled)
+		groupStore = sqlGroupStore
+		entitlementStore = store.NewSQLEntitlementStore(sqlStore.DB(), sqlStore.DriverName())
 		transferStore = store.NewSQLTransferStore(sqlStore.DB(), sqlStore.DriverName())
 		memoryStore = store.NewSQLMemoryStore(sqlStore.DB(), sqlStore.DriverName())
 		sqlTokenStore := store.NewSQLTokenStore(sqlStore.DB(), sqlStore.DriverName())
@@ -346,8 +352,18 @@ func New(cfg *config.Config) (*Application, error) {
 	app.Suspension = suspension
 	// Selalu dipasang (juga nil) agar resolver instans lain/tes sebelumnya tidak tertinggal.
 	auth.SetRoleResolver(roleResolver)
+	limitsEnforced := cfg != nil && cfg.ForumLimitsEnabled
+	if entitlementStore != nil {
+		app.EntitlementHandler = api.NewEntitlementHandler(entitlementStore, limitsEnforced)
+		if limitsEnforced {
+			log.Printf("🎟️ Batas forum aktif per paket DITEGAKKAN (FORUM_LIMITS_ENABLED=true)")
+		}
+	}
 	if moderationStore != nil {
 		app.ModerationHandler = api.NewModerationHandler(moderationStore, suspension)
+		if entitlementStore != nil {
+			app.ModerationHandler.SetEntitlements(entitlementStore, limitsEnforced)
+		}
 		app.ModerationHandler.SetRolePolicy(rolePolicy)
 		if accountEraser != nil {
 			app.ModerationHandler.SetAccountEraser(accountEraser)

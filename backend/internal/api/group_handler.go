@@ -678,6 +678,29 @@ func (h *GroupHandler) handleCreateSubGroup(w http.ResponseWriter, r *http.Reque
 			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin atau pembuat grup yang dapat membuat topik forum")
 			return
 		}
+		var limitErr *store.ForumLimitError
+		if errors.As(err, &limitErr) {
+			// Kode galat terstruktur supaya klien menampilkan batas paket tanpa mengurai teks.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":  fmt.Sprintf("Batas forum aktif paket %s tercapai (%d dari %d). Akhiri forum yang sedang berjalan atau hubungi admin Wuzz untuk akses Pro.", limitErr.Plan, limitErr.Active, limitErr.Limit),
+				"code":   "forum_limit_reached",
+				"plan":   limitErr.Plan,
+				"limit":  limitErr.Limit,
+				"active": limitErr.Active,
+			})
+			return
+		}
+		if errors.Is(err, store.ErrDurationNotInPlan) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "Durasi forum ini tidak tersedia di paket Anda. Pilih 7 hari atau hubungi admin Wuzz untuk akses Pro.",
+				"code":  "duration_not_in_plan",
+			})
+			return
+		}
 		writeGroupJSONError(w, http.StatusBadRequest, "Gagal membuat subgrup: "+err.Error())
 		return
 	}

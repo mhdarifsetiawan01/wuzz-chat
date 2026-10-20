@@ -344,6 +344,13 @@ func (a *Application) setupRouter() http.Handler {
 		}))
 	}
 
+	// Status paket milik pemanggil (batas forum aktif, durasi yang diizinkan).
+	if a.EntitlementHandler != nil {
+		mux.HandleFunc("/api/me/entitlement", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(a.EntitlementHandler.HandleMine)).ServeHTTP(w, r)
+		}))
+	}
+
 	// =========================================================================
 	// 8. GROUP MEMORY AI (DRAFT REVIEW & MEMBER KNOWLEDGE)
 	// =========================================================================
@@ -407,6 +414,7 @@ func (a *Application) setupRouter() http.Handler {
 			{"/api/admin/users/", a.ModerationHandler.HandleUser},
 			{"/api/admin/staff", a.ModerationHandler.HandleStaff},
 			{"/api/admin/staff/", a.ModerationHandler.HandleStaff},
+			{"/api/admin/entitlements", a.ModerationHandler.HandleEntitlements},
 		} {
 			fn := route.fn
 			mux.HandleFunc(route.path, withCORS(func(w http.ResponseWriter, r *http.Request) {

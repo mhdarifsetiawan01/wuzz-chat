@@ -34,6 +34,9 @@ type ModerationHandler struct {
 	roles      *authz.RolePolicy           // dibuang cache-nya saat peran diubah lewat alat ini (nil = hanya TTL)
 	kick       func(userID, reason string) // memutus semua koneksi WebSocket akun (nil = dilewati)
 	eraser     store.AccountEraser         // hapus akun paksa oleh admin (nil = dinonaktifkan)
+
+	entitlements   store.EntitlementStore // pengelolaan paket manual oleh admin (nil = dinonaktifkan)
+	limitsEnforced bool                   // FORUM_LIMITS_ENABLED, hanya untuk ditampilkan di status paket
 }
 
 // SetEvidenceRetention memberi tahu halaman detail kapan bukti akan dihapus otomatis (days <= 0 = tidak dihapus).

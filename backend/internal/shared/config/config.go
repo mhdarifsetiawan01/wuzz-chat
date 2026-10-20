@@ -43,6 +43,9 @@ type Config struct {
 	// MemoryEnabledGroups daftar grup induk yang boleh memakai AI Memory (env MEMORY_ENABLED_GROUPS): kosong = tidak ada,
 	// "*" = semua, "id1,id2" = hanya yang disebut. Lihat store.MemoryGate.
 	MemoryEnabledGroups     string
+	// ForumLimitsEnabled menyalakan penegakan batas forum aktif per paket (env FORUM_LIMITS_ENABLED=true).
+	// Default mati: tanpa env ini perilaku pembuatan forum tidak berubah.
+	ForumLimitsEnabled      bool
 	MemoryJobBatchSize      int
 	SubGroupWorkerInterval  time.Duration
 	PurgeWorkerInterval     time.Duration
@@ -118,6 +121,7 @@ func Load() (*Config, error) {
 		MemoryJobBatchSize:      getEnvInt("MEMORY_JOB_BATCH_SIZE", 5),
 		MemoryWorkerDisabled:    isFalseEnv(os.Getenv("MEMORY_WORKER_ENABLED")),
 		MemoryEnabledGroups:     strings.TrimSpace(os.Getenv("MEMORY_ENABLED_GROUPS")),
+		ForumLimitsEnabled:      isTrueEnv(os.Getenv("FORUM_LIMITS_ENABLED")),
 		SubGroupWorkerInterval:  15 * time.Minute,
 		PurgeWorkerInterval:     1 * time.Hour,
 		TokenCleanupInterval:    1 * time.Hour,
@@ -197,6 +201,14 @@ func splitCSV(v string) []string {
 
 // getEnv membaca environment variable string dengan fallback ke default.
 // isFalseEnv true bila nilai env secara eksplisit "mati" (false/0/no/off). Kosong atau nilai lain = bukan mati.
+func isTrueEnv(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "1", "yes", "on":
+		return true
+	}
+	return false
+}
+
 func isFalseEnv(v string) bool {
 	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "false", "0", "no", "off":

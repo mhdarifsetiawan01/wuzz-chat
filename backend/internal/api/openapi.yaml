@@ -1553,6 +1553,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Subgroup'
+        '403':
+          description: |
+            Ditolak. Selain peran yang tidak cukup, bisa berarti batas paket (hanya bila FORUM_LIMITS_ENABLED aktif):
+            `code` = `forum_limit_reached` (batas forum aktif tercapai; ada `plan`, `limit`, `active`) atau
+            `duration_not_in_plan` (durasi tidak tersedia di paket pembuat).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum: [forum_limit_reached, duration_not_in_plan]
+                  plan:
+                    type: string
+                  limit:
+                    type: integer
+                  active:
+                    type: integer
+
+  /api/me/entitlement:
+    get:
+      tags:
+        - Ephemeral Fora (Subgroups)
+      summary: Status paket dan batas forum milik pemanggil
+      description: Hanya data milik pemanggil. `limits_enforced` false berarti batas belum ditegakkan server (informasi saja).
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Status paket
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    type: string
+                    enum: [free, pro]
+                  source:
+                    type: string
+                  valid_until:
+                    type: string
+                    format: date-time
+                  limits_enforced:
+                    type: boolean
+                  forums:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      limit:
+                        type: integer
+                  allowed_duration_days:
+                    type: array
+                    items:
+                      type: integer
 
   /api/groups/{id}/subgroups/{subId}/expire:
     post:

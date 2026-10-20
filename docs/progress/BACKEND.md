@@ -59,6 +59,13 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 ### 4. Login dengan Google, fase 1 backend (6 Okt 2026, belum dideploy)
 - [x] Verifier ID token Google, `SQLOAuthStore` atomik, link token, `AuthService` Google, endpoint `/api/auth/google*`, re-auth Google untuk hapus akun dan reset kunci. Nonaktif sampai `GOOGLE_OAUTH_CLIENT_IDS` diisi. Rencana dan sisa pekerjaan: `docs/plans/backlog/GOOGLE_LOGIN.md`.
 
+### 5. Monetisasi forum, Fase 2: entitlement & batas forum aktif (20 Okt 2026, lokal, belum dideploy)
+- [x] Paket `internal/entitlement` (Free: 1 forum aktif, 7 hari; Pro: 5 forum aktif, 7/30 hari), tabel `user_entitlements` + `entitlement_events` (DDL inline `store/sql.go`), `SQLEntitlementStore`.
+- [x] Batas ditegakkan di dalam transaksi `SQLGroupStore.CreateSubGroupWithContext` (advisory lock per user di Postgres, mutex di SQLite). Forum aktif = `status active` dan belum lewat `expires_at`. Hanya tenant `default`; tenant B2B tidak dibatasi.
+- [x] **Mati secara default**: aktif hanya dengan env `FORUM_LIMITS_ENABLED=true`. Tanpa env ini perilaku pembuatan forum tidak berubah.
+- [x] `GET /api/me/entitlement`; admin `GET/POST /api/admin/entitlements` (khusus `wuzz_admin`, ada riwayat). Penolakan: HTTP 403 dengan `code` `forum_limit_reached` / `duration_not_in_plan`.
+- Belum: kuota AI (Fase 3), UI (Fase 4), aksi grandfather. Rencana dan keputusan: `docs/plans/backlog/FORUM_MONETIZATION_PLAN.md`.
+
 ---
 
 ## 🎯 Fokus Berikutnya (What's Next)

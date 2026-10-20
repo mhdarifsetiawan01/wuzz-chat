@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/bms-del112/wuzz-chat/internal/entitlement"
 	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 )
 
@@ -19,7 +22,15 @@ import (
 type SQLGroupStore struct {
 	db         *sql.DB
 	driverName string // "sqlite" atau "postgres"
+
+	// forumLimits menyalakan penegakan batas forum aktif per paket (env FORUM_LIMITS_ENABLED). Mati = perilaku lama.
+	forumLimits atomic.Bool
+	// createMu menyerialkan pembuatan forum di SQLite (satu proses). Di Postgres dipakai advisory lock per user.
+	createMu sync.Mutex
 }
+
+// SetForumLimitsEnabled menyalakan/mematikan penegakan batas forum aktif per paket.
+func (s *SQLGroupStore) SetForumLimitsEnabled(enabled bool) { s.forumLimits.Store(enabled) }
 
 // NewSQLGroupStore membuat instance baru SQLGroupStore menggunakan *sql.DB yang sudah ada.
 // DB yang digunakan adalah koneksi yang sama dengan SQLMessageStore sehingga tidak membuka
@@ -856,14 +867,24 @@ func (s *SQLGroupStore) CreateSubGroupWithContext(ctx context.Context, parentID,
 	// 3. Validasi & Kalkulasi TTL Server-Side secara deterministik
 	now := time.Now().UTC()
 	var expiresAt time.Time
+	var durationDays int
 	duration = strings.ToLower(strings.TrimSpace(duration))
 	switch duration {
 	case "30_days", "30d", "1_month", "month":
 		expiresAt = now.AddDate(0, 1, 0)
+		durationDays = 30
 	case "7_days", "7d", "1_week", "week", "": // default 1 minggu
 		expiresAt = now.AddDate(0, 0, 7)
+		durationDays = 7
 	default:
 		return nil, errors.New("durasi tidak valid: hanya mendukung 1 minggu (7_days) atau 1 bulan (30_days)")
+	}
+
+	// Batas paket hanya ditegakkan di tenant publik; tenant B2B belum punya paket (Business ditunda).
+	enforceLimit := s.forumLimits.Load() && tenantID == entitlement.DefaultTenant
+	if enforceLimit && s.driverName != "postgres" {
+		s.createMu.Lock()
+		defer s.createMu.Unlock()
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -873,6 +894,12 @@ func (s *SQLGroupStore) CreateSubGroupWithContext(ctx context.Context, parentID,
 	defer func() {
 		_ = tx.Rollback()
 	}()
+
+	if enforceLimit {
+		if err := s.enforceForumLimit(ctx, tx, tenantID, creatorID, durationDays, now); err != nil {
+			return nil, err
+		}
+	}
 
 	subGroupID := fmt.Sprintf("sub_%s", uuid.New().String())
 
@@ -938,6 +965,41 @@ func (s *SQLGroupStore) CreateSubGroupWithContext(ctx context.Context, parentID,
 		Status:      "active",
 		ExpiresAt:   &expiresAt,
 	}, nil
+}
+
+// forumLimitAfterCountHook hanya dipasang oleh tes (export_test.go) untuk memperlebar jendela antara menghitung forum
+// aktif dan menyimpan forum baru, sehingga tes konkurensi benar-benar mendeteksi hilangnya penguncian.
+var forumLimitAfterCountHook func()
+
+// enforceForumLimit memeriksa paket pembuat di dalam transaksi pembuatan forum: durasi harus termasuk paket dan jumlah
+// forum aktif belum mencapai batas. Di Postgres, advisory lock per (tenant, user) menyerialkan dua request bersamaan
+// dari user yang sama sampai commit/rollback, sehingga keduanya tidak bisa sama-sama lolos di ambang batas.
+func (s *SQLGroupStore) enforceForumLimit(ctx context.Context, tx *sql.Tx, tenantID, creatorID string, durationDays int, now time.Time) error {
+	if s.driverName == "postgres" {
+		if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "forum_limit:"+tenantID+":"+creatorID); err != nil {
+			return fmt.Errorf("gagal mengunci pembuatan forum: %w", err)
+		}
+	}
+	ent, err := readEntitlement(ctx, tx, s.driverName, tenantID, creatorID)
+	if err != nil {
+		return fmt.Errorf("gagal membaca paket pengguna: %w", err)
+	}
+	plan := ent.EffectivePlan(now)
+	limits := entitlement.LimitsFor(plan)
+	if !limits.AllowsDuration(durationDays) {
+		return ErrDurationNotInPlan
+	}
+	active, err := activeForumCount(ctx, tx, s.driverName, tenantID, creatorID, now)
+	if err != nil {
+		return fmt.Errorf("gagal menghitung forum aktif: %w", err)
+	}
+	if forumLimitAfterCountHook != nil {
+		forumLimitAfterCountHook()
+	}
+	if active >= limits.MaxActiveForums {
+		return &ForumLimitError{Plan: plan, Limit: limits.MaxActiveForums, Active: active}
+	}
+	return nil
 }
 
 // IsParentMember memeriksa apakah user_id adalah anggota aktif dari grup induk parent_id (UUID-based).

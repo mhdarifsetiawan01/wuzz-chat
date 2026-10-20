@@ -495,6 +495,37 @@ func (s *SQLMessageStore) autoMigrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_conn_receiver_cursor ON user_connections(tenant_id, receiver_id, status, updated_at DESC, id DESC);`,
 		`CREATE INDEX IF NOT EXISTS idx_conn_blocked_receiver ON user_connections(receiver_id) WHERE status = 'blocked';`,
 		`CREATE INDEX IF NOT EXISTS idx_conn_receiver_pending ON user_connections(tenant_id, receiver_id, status, created_at DESC) WHERE status = 'pending';`,
+
+		// Entitlement paket pengguna (monetisasi forum). Tanpa baris = Free. Lihat internal/entitlement.
+		`CREATE TABLE IF NOT EXISTS user_entitlements (
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			plan VARCHAR(16) NOT NULL DEFAULT 'free',
+			status VARCHAR(16) NOT NULL DEFAULT 'active',
+			valid_until TIMESTAMP DEFAULT NULL,
+			source VARCHAR(16) NOT NULL DEFAULT 'manual',
+			granted_by VARCHAR(64) NOT NULL DEFAULT '',
+			note TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			PRIMARY KEY (tenant_id, user_id)
+		);`,
+		// Riwayat perubahan entitlement (append-only).
+		`CREATE TABLE IF NOT EXISTS entitlement_events (
+			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			actor_id VARCHAR(64) NOT NULL DEFAULT '',
+			action VARCHAR(16) NOT NULL,
+			plan VARCHAR(16) NOT NULL DEFAULT '',
+			valid_until TIMESTAMP DEFAULT NULL,
+			source VARCHAR(16) NOT NULL DEFAULT '',
+			note TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_entitlement_events_user ON entitlement_events(tenant_id, user_id, created_at);`,
+		// Hitungan forum aktif per pembuat (batas paket).
+		`CREATE INDEX IF NOT EXISTS idx_conv_created_by_status ON conversations(created_by, status);`,
 	}
 
 	for _, query := range migrations {
