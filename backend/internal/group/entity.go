@@ -68,7 +68,7 @@ var (
 	ErrInvalidGroupUsername     = errors.New("username grup harus 3-32 karakter alfanumerik atau underscore")
 	ErrDescriptionTooLong       = errors.New("deskripsi grup maksimal 500 karakter")
 	ErrParentMemberOnly         = errors.New("hanya anggota grup utama yang dapat mengakses subgrup ini")
-	ErrSubGroupDurationInvalid  = errors.New("durasi subgrup tidak valid (pilihan: 1h, 3h, 6h, 12h, 24h, 3d, 7d)")
+	ErrSubGroupDurationInvalid  = errors.New("durasi subgrup tidak valid (pilihan: 7_days atau 30_days)")
 	ErrSubGroupTitleEmpty       = errors.New("judul topik subgrup wajib diisi")
 	ErrSubGroupTitleTooLong     = errors.New("judul topik subgrup maksimal 128 karakter")
 	ErrInvalidRole              = errors.New("role baru tidak valid (hanya 'admin' atau 'member')")

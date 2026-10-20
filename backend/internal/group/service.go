@@ -365,25 +365,6 @@ func (s *ForumService) resolveDisplayName(userID string) string {
 	return userID
 }
 
-// Valid durations untuk subgrup.
-var validDurations = map[string]bool{
-	"":        true,
-	"1h":      true,
-	"3h":      true,
-	"6h":      true,
-	"12h":     true,
-	"24h":     true,
-	"3d":      true,
-	"7d":      true,
-	"7_days":  true,
-	"1_week":  true,
-	"week":    true,
-	"30d":     true,
-	"30_days": true,
-	"1_month": true,
-	"month":   true,
-}
-
 // CreateSubGroup membuat topik subgrup baru di bawah grup induk.
 func (s *ForumService) CreateSubGroup(ctx context.Context, input CreateSubGroupInput) (*GroupDetails, error) {
 	title := strings.TrimSpace(input.Title)
@@ -393,8 +374,8 @@ func (s *ForumService) CreateSubGroup(ctx context.Context, input CreateSubGroupI
 	if len(title) > 128 {
 		return nil, ErrSubGroupTitleTooLong
 	}
-	duration := strings.ToLower(strings.TrimSpace(input.Duration))
-	if !validDurations[duration] {
+	// Daftar durasi yang diterima hanya ada di store.SubGroupDurationDays (sama dengan yang dipakai store saat menghitung expires_at).
+	if _, ok := store.SubGroupDurationDays(input.Duration); !ok {
 		return nil, ErrSubGroupDurationInvalid
 	}
 

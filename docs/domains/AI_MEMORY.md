@@ -40,7 +40,7 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Group Memory AI (Forum I
 
 ## 🗄️ 3. Skema Basis Data (7 Tabel Relasional)
 
-- `forum_memory_jobs`: `id`, `conversation_id`, `status` (`pending`/`processing`/`completed`/`failed`), `error_message`.
+- `forum_memory_jobs`: `id`, `tenant_id`, `forum_id` (UNIQUE), `group_id`, `status` (`QUEUED`/`PROCESSING`/`COMPLETED`/`FAILED`/`SKIPPED`), `attempt_count`, `max_attempts`, `is_terminal_fail`, `last_error`, `message_count`, `created_at`, `completed_at`. `SKIPPED` (`last_error = quota_exceeded`, `is_terminal_fail = true`) = forum berakhir tanpa ringkasan karena kuota habis; tidak pernah diantre dan tidak dihitung sebagai pemakaian. *(Kolom lama di dokumen ini, `conversation_id`/`error_message`/status huruf kecil, tidak sesuai DDL; baris ini dikoreksi 21 Okt 2026. Tabel lain di bagian ini belum diverifikasi ulang.)*
 - `memory_drafts`: `id`, `job_id`, `conversation_id`, `status` (`pending_review`/`approved`/`rejected`), `confidence_score`.
 - `memory_artifacts`: `id`, `draft_id`, `category` (`decision`/`action_item`/`summary`/`insight`), `title`, `content`, `tags`.
 - `artifact_evidences`: `id`, `artifact_id`, `message_id`, `quote_text`, `author_id`.
@@ -86,3 +86,15 @@ Hasil tes dan batas verifikasi: [rencana Forum Completion Loop](../plans/backlog
 Detail/review Memori mobile/web menyediakan **Lihat Pesan Asli**, navigasi forum, scroll/highlight sementara, serta galat sumber tidak tersedia atau coba lagi manual untuk gangguan jaringan. Jendela konteks terpisah dari cache history terbaru; request dibatalkan saat target/sesi berganti dan hasil terlambat diabaikan. Web memakai lifecycle Forum Saya, istilah yang sama, dan gate `memory_enabled`; deep link/notifikasi A dan lifecycle/badge B dipertahankan.
 
 Tes otomatis lulus; Paket C belum diuji di APK/browser interaktif/E2E atau PostgreSQL produksi. Deploy backend/frontend dan APK baru dilakukan pengguna. Rincian kontrak, tes, dan batas verifikasi: [rencana Forum Completion Loop](../plans/backlog/FORUM_COMPLETION_LOOP.md#paket-c--implementasi-lokal-19-oktober-2026). Catatan “Paket B belum diuji di perangkat” di entri historis sebelumnya sudah digantikan oleh hasil HP B pada akhir rencana; badge >0/review B dan notifikasi nyata A tetap belum terverifikasi.
+
+## Kuota ringkasan per paket (21 Oktober 2026)
+
+Rencana dan hasil uji: [`FORUM_MONETIZATION_PLAN.md`](../plans/backlog/FORUM_MONETIZATION_PLAN.md). Ringkasan paket forum ada di [`GROUP_FORUM.md`](GROUP_FORUM.md#paket--batas-forum-monetisasi-21-oktober-2026).
+
+- **Aturan:** Gratis 2 dan Pro 20 ringkasan per **bulan kalender (UTC)**, dimiliki **pembuat forum** (`conversations.created_by`), dihitung dari `forum_memory_jobs` bulan berjalan (job gagal permanen dan `SKIPPED` tidak dihitung). Tanpa tabel counter. Sakelar `MEMORY_QUOTA_ENABLED=true` (default mati), hanya tenant `default`.
+- **Titik pemeriksaan tunggal:** `GatedMemoryStore.CreateJob`, urutannya whitelist grup (`MEMORY_ENABLED_GROUPS`) dulu, baru kuota. Jalur TTL worker dan "akhiri manual" harus melewati store yang sama.
+- **Wiring (dikoreksi 21 Okt 2026, `fe68ff0`):** sebelumnya `NewMemoryHandler` menerima store mentah dan `GroupHandler.SetMemoryHandler` menimpa store job `ForumService` dengannya, sehingga "akhiri manual" melewati whitelist, `MEMORY_WORKER_ENABLED=false`, dan kuota. `app/wire.go` kini memberi MemoryHandler store ber-gerbang (atau gerbang tertutup bila AI dimatikan). Tes: `internal/app/memory_quota_wiring_test.go` (aplikasi utuh); jangan memverifikasi wiring hanya dengan objek rakitan tes.
+- **Kuota habis:** forum tetap berakhir normal; job tidak dibuat tetapi dicatat `SKIPPED`. Respons `.../expire` membawa `memory: "quota_exceeded"` dan pesan jujur; pesan sistem grup menyebut kuota. `GET /api/forums/mine` memberi `memory_state: "quota_exceeded"` hanya bila AI Memory aktif untuk grup (tanpa detail paket); klien menampilkan "Ringkasan tidak dibuat (kuota habis)".
+- **Gagal cek kuota (galat database):** job tetap dibuat (fail-open), karena forum yang sudah berakhir tidak dicoba lagi.
+- **Batas yang diterima:** pengecekan dan INSERT job tidak atomik; dua forum pembuat yang sama yang berakhir bersamaan tepat di ambang bisa melampaui kuota satu job.
+

@@ -30,6 +30,9 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Multi-Tenancy, Isolasi D
    - Perangkat (`devices`) tidak boleh berpindah pemilik lintas tenant.
 8. **File `/uploads/`**: tidak melayani listing direktori.
 
+9. **Batas paket (monetisasi) hanya untuk tenant `default`**:
+   - Batas forum aktif, durasi, dan kuota ringkasan AI per paket (lihat [`GROUP_FORUM.md`](GROUP_FORUM.md#paket--batas-forum-monetisasi-21-oktober-2026)) hanya ditegakkan di tenant `default` (aplikasi publik). Tenant B2B tidak dibatasi sampai paket Business ada (ditunda). Tabel `user_entitlements` memakai kunci `(tenant_id, user_id)`.
+
 > Catatan: `MustFromContext` fallback ke `default` bila context tanpa tenant (bukan fail-closed murni). `TenantMiddleware` selalu terpasang di router.
 
 ---
@@ -44,7 +47,7 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Multi-Tenancy, Isolasi D
 
 ## 🗄️ 3. Skema Basis Data (Tabel & Partisi)
 
-- `tenants`: `id` (PK, UUID), `name`, `slug` (UNIQUE), `status` (`active`/`suspended`), `created_at`.
+- `tenants`: `id` (PK, `VARCHAR(64)`), `name`, `slug` (UNIQUE), `is_active` (BOOLEAN, default `true`; tenant nonaktif ditolak `TenantMiddleware`), `created_at`, `updated_at`. *(Dokumen lama menulis `status` active/suspended dan `id` UUID; skema di `store/sql.go` memakai `is_active` dan `VARCHAR(64)`, dikoreksi 21 Okt 2026.)*
 - Kolom Aditif Partisi pada Seluruh Tabel:
   ```sql
   ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';

@@ -2558,19 +2558,32 @@ components:
 
     CreateSubgroupRequest:
       type: object
+      description: |
+        Payload `POST /api/groups/{id}/subgroups` (sesuai `handleCreateSubGroup`). Hanya admin atau pembuat grup induk.
+        Durasi memakai SATU daftar di server (`store.SubGroupDurationDays`); selain nilai di bawah ditolak 400.
+        Dengan `FORUM_LIMITS_ENABLED`, paket Gratis hanya boleh 7 hari (30 hari ditolak 403 `duration_not_in_plan`).
       required:
-        - name
-        - ttl_minutes
+        - title
       properties:
-        name:
+        title:
           type: string
+          minLength: 2
+          maxLength: 128
           example: Incident-2026-09
         description:
           type: string
+          maxLength: 500
           example: Post-mortem war room
-        ttl_minutes:
-          type: integer
-          example: 120
+        duration:
+          type: string
+          description: Masa aktif forum. Kosong = 7_days. Alias yang diterima server tercantum di enum.
+          enum: [7_days, 7d, 1_week, week, 30_days, 30d, 1_month, month]
+          default: 7_days
+          example: 7_days
+        is_public:
+          type: boolean
+          description: true = anggota grup induk langsung bergabung; false = perlu izin admin. Default true.
+          default: true
 
     Subgroup:
       type: object

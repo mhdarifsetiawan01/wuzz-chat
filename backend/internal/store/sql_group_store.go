@@ -866,18 +866,13 @@ func (s *SQLGroupStore) CreateSubGroupWithContext(ctx context.Context, parentID,
 
 	// 3. Validasi & Kalkulasi TTL Server-Side secara deterministik
 	now := time.Now().UTC()
-	var expiresAt time.Time
-	var durationDays int
-	duration = strings.ToLower(strings.TrimSpace(duration))
-	switch duration {
-	case "30_days", "30d", "1_month", "month":
-		expiresAt = now.AddDate(0, 1, 0)
-		durationDays = 30
-	case "7_days", "7d", "1_week", "week", "": // default 1 minggu
-		expiresAt = now.AddDate(0, 0, 7)
-		durationDays = 7
-	default:
+	durationDays, ok := SubGroupDurationDays(duration)
+	if !ok {
 		return nil, errors.New("durasi tidak valid: hanya mendukung 1 minggu (7_days) atau 1 bulan (30_days)")
+	}
+	expiresAt := now.AddDate(0, 0, 7)
+	if durationDays == 30 {
+		expiresAt = now.AddDate(0, 1, 0) // satu bulan kalender, bukan 30 x 24 jam
 	}
 
 	// Batas paket hanya ditegakkan di tenant publik; tenant B2B belum punya paket (Business ditunda).

@@ -17,7 +17,7 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Obrolan Grup, Forum Topi
    - 🌐 **Terbuka (`is_public = true`)**: Seluruh anggota grup induk dapat langsung bergabung (`join`).
    - 🔒 **Privat (`is_public = false`)**: Wajib mengajukan izin gabung (`join-request`), ditinjau oleh Admin.
 4. **Siklus Hidup & TTL Otomatis (*SubGroupTTLWorker*)**:
-   - Pilihan masa aktif topik: **7 hari** (default) atau **30 hari**.
+   - Pilihan masa aktif topik: **7 hari** (default) atau **30 hari**. Daftar nilai yang diterima hanya ada di satu tempat, `store.SubGroupDurationDays` (`7_days`/`7d`/`1_week`/`week`, `30_days`/`30d`/`1_month`/`month`, kosong = 7 hari); service dan store memakainya bersama. Selain itu HTTP 400 (`ErrSubGroupDurationInvalid`). Sebelum 21 Okt 2026 service menerima `1h`…`3d` tetapi store selalu menolaknya; sudah disatukan.
    - Background worker (`15m ticker`) mengeksekusi kedaluwarsa massal atomic (`ExpireSubGroupsBatch`).
    - **Fail-Closed Read-Only Lock**: Saat `status = 'expired'`, input pesan terkunci (*disabled*) dan soket menolak pengiriman pesan baru, tetapi riwayat chat tetap terbaca (*persistent read*).
 5. **Mode Pratinjau Grup Publik (Anti-Accidental Join)**:
@@ -61,6 +61,9 @@ backend/internal/group/
 | `POST` | `/api/groups/{id}/join` | Bergabung ke grup terbuka |
 | `GET` | `/api/groups/{id}/subgroups` | Daftar forum aktif dan berakhir di grup induk |
 | `POST` | `/api/groups/{id}/subgroups` | Membuat topik forum baru (Admin/Creator only) |
+| `POST` | `/api/groups/{id}/subgroups/{sub_id}/expire` | Mengakhiri topik seketika (Admin/Creator grup induk). Respons memuat `memory`: `queued` / `quota_exceeded` / `not_queued` |
+| `GET` | `/api/forums/mine` | Forum yang diikuti user (aktif dan berakhir) beserta `memory_state` |
+| `GET` | `/api/me/entitlement` | Paket, jatah forum aktif, durasi yang diizinkan, dan kuota ringkasan AI milik pemanggil |
 | `POST` | `/api/groups/{sub_id}/join-request` | Mengajukan izin gabung ke forum privat |
 | `GET` | `/api/groups/{sub_id}/join-requests` | Daftar pengajuan izin (Admin only) |
 | `POST` | `/api/groups/{sub_id}/join-requests/{req_id}/action` | Setujui / tolak pengajuan izin |
@@ -104,3 +107,16 @@ Hasil tes dan batas verifikasi: [rencana Forum Completion Loop](../plans/backlog
 Detail/review Memori mobile/web menyediakan **Lihat Pesan Asli**, navigasi forum, scroll/highlight sementara, serta galat sumber tidak tersedia atau coba lagi manual untuk gangguan jaringan. Jendela konteks terpisah dari cache history terbaru; request dibatalkan saat target/sesi berganti dan hasil terlambat diabaikan. Web memakai lifecycle Forum Saya, istilah yang sama, dan gate `memory_enabled`; deep link/notifikasi A dan lifecycle/badge B dipertahankan.
 
 Tes otomatis lulus; Paket C belum diuji di APK/browser interaktif/E2E atau PostgreSQL produksi. Deploy backend/frontend dan APK baru dilakukan pengguna. Rincian kontrak, tes, dan batas verifikasi: [rencana Forum Completion Loop](../plans/backlog/FORUM_COMPLETION_LOOP.md#paket-c--implementasi-lokal-19-oktober-2026). Catatan “Paket B belum diuji di perangkat” di entri historis sebelumnya sudah digantikan oleh hasil HP B pada akhir rencana; badge >0/review B dan notifikasi nyata A tetap belum terverifikasi.
+
+## Paket & batas forum (monetisasi, 21 Oktober 2026)
+
+Rencana lengkap, keputusan, dan hasil uji: [`docs/plans/backlog/FORUM_MONETIZATION_PLAN.md`](../plans/backlog/FORUM_MONETIZATION_PLAN.md).
+
+- **Paket:** `free` (1 forum aktif, hanya 7 hari, 2 ringkasan AI/bulan) dan `pro` (5 forum aktif, 7 atau 30 hari, 20 ringkasan AI/bulan). Angka ada di `internal/entitlement/plan.go`; baris per user di tabel `user_entitlements` (`plan`, `status`, `valid_until`, `source` = `manual`/`grandfather`). Tanpa baris, dicabut, atau `valid_until` lewat = Gratis. Riwayat perubahan di `entitlement_events` (append-only).
+- **Penegakan di backend, di dalam transaksi pembuatan forum** (`SQLGroupStore.CreateSubGroupWithContext` → `enforceForumLimit`): durasi harus termasuk paket dan jumlah forum aktif milik pembuat (`created_by`) belum mencapai batas. Postgres memakai advisory lock per `(tenant, user)`, SQLite memakai mutex proses. UI hanya informatif.
+- **Forum aktif** = `status = 'active'` DAN belum lewat `expires_at` (jeda worker TTL ±15 menit tidak menahan pembuatan forum baru). Dihitung per pembuat di seluruh grup, bukan per grup.
+- **Penolakan:** HTTP 403 dengan `code` `forum_limit_reached` (`plan`, `limit`, `active`) atau `duration_not_in_plan`. Teks pesan netral; tidak mengajak membayar.
+- **Sakelar env (default MATI):** `FORUM_LIMITS_ENABLED=true` (batas forum + durasi) dan `MEMORY_QUOTA_ENABLED=true` (kuota AI, lihat [`AI_MEMORY.md`](AI_MEMORY.md)). Hanya tenant `default`.
+- **Downgrade:** tidak menghapus apa pun. Forum aktif berjalan sampai selesai; hanya pembuatan baru dan ringkasan AI berikutnya yang mengikuti paket Gratis.
+- **Admin (khusus `wuzz_admin`):** `GET/POST /api/admin/entitlements` (cari akun, beri Pro N hari, cabut) dan `POST /api/admin/entitlements/grandfather` (pratinjau lalu terapkan Pro sementara untuk admin/pembuat grup yang sudah ada; terapkan wajib `confirm` + `expected_eligible`). UI: `/admin/plans`.
+

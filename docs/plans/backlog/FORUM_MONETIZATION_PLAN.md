@@ -30,7 +30,7 @@
 2. **Periode kuota AI: bulan kalender (UTC).** Kuota dihitung dari jumlah job milik pembuat yang dibuat pada bulan berjalan. Tidak butuh counter baru dan tidak ada tugas reset. Konsekuensi: user di UTC+7 melihat pergantian bulan pukul 07.00 WIB; dicatat di teks UI.
 3. **Forum yang lewat `expires_at` tidak dihitung aktif**, walau `status` belum berubah menjadi `expired` (worker TTL jalan tiap 15 menit; akhiri-manual hanya memajukan `expires_at`). Definisi aktif: `status = 'active' AND (expires_at IS NULL OR expires_at > now)`.
 
-Catatan tambahan (audit): `ForumService.validDurations` menerima `1h`…`3d`, tetapi `SQLGroupStore.CreateSubGroupWithContext` hanya menerima 7 hari atau 30 hari, sehingga durasi pendek selalu ditolak 400. Usulan: saat implementasi, samakan daftar durasi di service dengan store dan perbaiki teks `ErrSubGroupDurationInvalid`. Durasi 30 hari untuk Free ditolak di lapisan yang sama dengan pemeriksaan batas paket.
+Catatan tambahan (audit; **diselesaikan 21 Oktober 2026**, daftar durasi kini satu sumber di `store.SubGroupDurationDays`): `ForumService.validDurations` menerima `1h`…`3d`, tetapi `SQLGroupStore.CreateSubGroupWithContext` hanya menerima 7 hari atau 30 hari, sehingga durasi pendek selalu ditolak 400. Usulan: saat implementasi, samakan daftar durasi di service dengan store dan perbaiki teks `ErrSubGroupDurationInvalid`. Durasi 30 hari untuk Free ditolak di lapisan yang sama dengan pemeriksaan batas paket.
 
 ## 3. Fakta hasil audit (rujukan kode)
 
@@ -132,7 +132,7 @@ Urutan rilis: Fase 2 dan 3 dapat berjalan dengan perilaku tidak berubah bagi pen
 - **Biaya AI.** Terkendali: 1 job/forum, input berbatas. Whitelist tetap menjadi sakelar darurat. Membuka whitelist ke semua grup berarti biaya mengikuti kuota paket (Free 2, Pro 20 per bulan per pembuat).
 - **Jeda worker.** Status `expired` bisa terlambat hingga ±15 menit; ditangani oleh definisi aktif berbasis `expires_at`.
 - **Akurasi hitungan Postgres vs SQLite.** Kunci advisory hanya ada di Postgres; tes harus mencakup kedua driver karena kode memakai percabangan `driverName`.
-- **Dokumentasi yang tidak sinkron** (dicatat agar tidak membingungkan): `docs/domains/MULTI_TENANT.md` menyebut `tenants.status`, sedangkan skema memakai `is_active`; daftar durasi service vs store berbeda (bagian 2).
+- **Dokumentasi yang tidak sinkron** (**dikoreksi 21 Oktober 2026**; catatan asli dipertahankan): `docs/domains/MULTI_TENANT.md` menyebut `tenants.status`, sedangkan skema memakai `is_active`; daftar durasi service vs store berbeda (bagian 2).
 
 ## 9. Kriteria penerimaan
 

@@ -486,6 +486,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
         visible={showCreate}
         parentGroupId={parentGroupId}
         parentGroupTitle={parentGroupTitle}
+        showMemoryHint={memoryEnabled}
         onClose={() => setShowCreate(false)}
         onCreated={handleSubGroupCreated}
       />

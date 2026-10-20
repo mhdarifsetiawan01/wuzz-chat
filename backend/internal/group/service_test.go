@@ -416,19 +416,25 @@ func TestForumService_CreateSubGroup(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. Title kosong
-	_, err := svc.CreateSubGroup(ctx, CreateSubGroupInput{Title: "", ParentID: "grp_1", CreatorID: "usr_1", Duration: "1h"})
+	_, err := svc.CreateSubGroup(ctx, CreateSubGroupInput{Title: "", ParentID: "grp_1", CreatorID: "usr_1", Duration: "7_days"})
 	if !errors.Is(err, ErrSubGroupTitleEmpty) {
 		t.Fatalf("expected ErrSubGroupTitleEmpty, got: %v", err)
 	}
 
-	// 2. Durasi tidak valid
-	_, err = svc.CreateSubGroup(ctx, CreateSubGroupInput{Title: "Topic", ParentID: "grp_1", CreatorID: "usr_1", Duration: "5h"})
-	if !errors.Is(err, ErrSubGroupDurationInvalid) {
-		t.Fatalf("expected ErrSubGroupDurationInvalid, got: %v", err)
+	// 2. Durasi tidak valid. Durasi pendek (1h, 3d, ...) pernah lolos validasi service tetapi selalu ditolak store;
+	// kini ditolak sejak awal dan pesan galatnya hanya menyebut pilihan yang benar-benar tersedia.
+	for _, bad := range []string{"5h", "1h", "3h", "24h", "3d"} {
+		_, err = svc.CreateSubGroup(ctx, CreateSubGroupInput{Title: "Topic", ParentID: "grp_1", CreatorID: "usr_1", Duration: bad})
+		if !errors.Is(err, ErrSubGroupDurationInvalid) {
+			t.Fatalf("durasi %q: expected ErrSubGroupDurationInvalid, got: %v", bad, err)
+		}
+	}
+	if msg := ErrSubGroupDurationInvalid.Error(); !strings.Contains(msg, "7_days") || !strings.Contains(msg, "30_days") || strings.Contains(msg, "1h") {
+		t.Fatalf("pesan galat durasi harus menyebut 7_days dan 30_days saja: %q", msg)
 	}
 
 	// 3. Bukan anggota grup induk
-	_, err = svc.CreateSubGroup(ctx, CreateSubGroupInput{Title: "Topic", ParentID: "grp_1", CreatorID: "stranger", Duration: "1h"})
+	_, err = svc.CreateSubGroup(ctx, CreateSubGroupInput{Title: "Topic", ParentID: "grp_1", CreatorID: "stranger", Duration: "7_days"})
 	if !errors.Is(err, ErrParentMemberOnly) {
 		t.Fatalf("expected ErrParentMemberOnly, got: %v", err)
 	}
@@ -438,7 +444,7 @@ func TestForumService_CreateSubGroup(t *testing.T) {
 		Title:       "Diskusi Rilis",
 		ParentID:    "grp_1",
 		CreatorID:   "usr_1",
-		Duration:    "24h",
+		Duration:    "7_days",
 		Description: "Persiapan v1.0",
 		IsPublic:    true,
 	})
