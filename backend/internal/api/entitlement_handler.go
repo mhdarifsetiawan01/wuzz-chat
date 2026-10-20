@@ -21,14 +21,20 @@ const (
 
 // EntitlementHandler melayani status paket milik pemanggil (GET /api/me/entitlement).
 type EntitlementHandler struct {
-	store          store.EntitlementStore
-	limitsEnforced bool
+	store store.EntitlementStore
+	flags entitlementFlags
 }
 
-// NewEntitlementHandler membuat handler. limitsEnforced mencerminkan FORUM_LIMITS_ENABLED supaya klien tahu
-// apakah batas benar-benar ditegakkan (false = hanya informasi, belum ada penolakan).
-func NewEntitlementHandler(s store.EntitlementStore, limitsEnforced bool) *EntitlementHandler {
-	return &EntitlementHandler{store: s, limitsEnforced: limitsEnforced}
+// entitlementFlags mencerminkan sakelar server supaya klien tahu apakah batas benar-benar ditegakkan.
+type entitlementFlags struct {
+	forumLimits bool // FORUM_LIMITS_ENABLED
+	memoryQuota bool // MEMORY_QUOTA_ENABLED
+}
+
+// NewEntitlementHandler membuat handler. forumLimits dan memoryQuota mencerminkan FORUM_LIMITS_ENABLED dan
+// MEMORY_QUOTA_ENABLED (false = hanya informasi, belum ada penolakan).
+func NewEntitlementHandler(s store.EntitlementStore, forumLimits, memoryQuota bool) *EntitlementHandler {
+	return &EntitlementHandler{store: s, flags: entitlementFlags{forumLimits: forumLimits, memoryQuota: memoryQuota}}
 }
 
 type entitlementStatus struct {
@@ -41,10 +47,16 @@ type entitlementStatus struct {
 		Limit  int `json:"limit"`
 	} `json:"forums"`
 	AllowedDurationDays []int `json:"allowed_duration_days"`
+	AI                  struct {
+		Enforced bool      `json:"enforced"`
+		Used     int       `json:"used"`
+		Limit    int       `json:"limit"`
+		ResetAt  time.Time `json:"reset_at"` // awal bulan kalender berikutnya (UTC)
+	} `json:"ai"`
 }
 
 // buildEntitlementStatus menyusun status paket satu user di tenant tertentu.
-func buildEntitlementStatus(r *http.Request, s store.EntitlementStore, tenantID, userID string, enforced bool) (*entitlementStatus, *store.Entitlement, error) {
+func buildEntitlementStatus(r *http.Request, s store.EntitlementStore, tenantID, userID string, flags entitlementFlags) (*entitlementStatus, *store.Entitlement, error) {
 	ent, err := s.GetEntitlement(r.Context(), tenantID, userID)
 	if err != nil {
 		return nil, nil, err
@@ -54,15 +66,23 @@ func buildEntitlementStatus(r *http.Request, s store.EntitlementStore, tenantID,
 		return nil, nil, err
 	}
 	now := time.Now().UTC()
+	aiUsed, err := s.CountMemoryJobs(r.Context(), tenantID, userID, now)
+	if err != nil {
+		return nil, nil, err
+	}
 	plan := ent.EffectivePlan(now)
 	limits := entitlement.LimitsFor(plan)
 	st := &entitlementStatus{
 		Plan:                plan,
-		LimitsEnforced:      enforced && tenantID == entitlement.DefaultTenant,
+		LimitsEnforced:      flags.forumLimits && tenantID == entitlement.DefaultTenant,
 		AllowedDurationDays: limits.DurationDays,
 	}
 	st.Forums.Active = active
 	st.Forums.Limit = limits.MaxActiveForums
+	st.AI.Enforced = flags.memoryQuota && tenantID == entitlement.DefaultTenant
+	st.AI.Used = aiUsed
+	st.AI.Limit = limits.MonthlyAIJobs
+	st.AI.ResetAt = entitlement.PeriodEnd(now)
 	if ent != nil && plan != entitlement.PlanFree {
 		st.Source = ent.Source
 		st.ValidUntil = ent.ValidUntil
@@ -81,7 +101,7 @@ func (h *EntitlementHandler) HandleMine(w http.ResponseWriter, r *http.Request) 
 		writeFeedError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
-	st, _, err := buildEntitlementStatus(r, h.store, claims.TenantID, claims.UserID, h.limitsEnforced)
+	st, _, err := buildEntitlementStatus(r, h.store, claims.TenantID, claims.UserID, h.flags)
 	if err != nil {
 		log.Printf("⚠️ [Entitlement] gagal memuat status paket: %v", err)
 		writeFeedError(w, http.StatusInternalServerError, "Gagal memuat status paket")
@@ -91,9 +111,9 @@ func (h *EntitlementHandler) HandleMine(w http.ResponseWriter, r *http.Request) 
 }
 
 // SetEntitlements memasang pengelolaan paket manual untuk admin (nil = endpoint admin menjawab 503).
-func (h *ModerationHandler) SetEntitlements(s store.EntitlementStore, limitsEnforced bool) {
+func (h *ModerationHandler) SetEntitlements(s store.EntitlementStore, forumLimits, memoryQuota bool) {
 	h.entitlements = s
-	h.limitsEnforced = limitsEnforced
+	h.entFlags = entitlementFlags{forumLimits: forumLimits, memoryQuota: memoryQuota}
 }
 
 // HandleEntitlements melayani pengelolaan paket manual (khusus wuzz_admin):
@@ -187,7 +207,7 @@ func (h *ModerationHandler) HandleEntitlements(w http.ResponseWriter, r *http.Re
 }
 
 func (h *ModerationHandler) writeEntitlementResult(w http.ResponseWriter, r *http.Request, claims *auth.UserClaims, m *store.StaffMember) {
-	st, ent, err := buildEntitlementStatus(r, h.entitlements, claims.TenantID, m.ID, h.limitsEnforced)
+	st, ent, err := buildEntitlementStatus(r, h.entitlements, claims.TenantID, m.ID, h.entFlags)
 	if err != nil {
 		log.Printf("⚠️ [Entitlement] gagal memuat paket %s: %v", m.ID, err)
 		writeFeedError(w, http.StatusInternalServerError, "Gagal memuat paket")

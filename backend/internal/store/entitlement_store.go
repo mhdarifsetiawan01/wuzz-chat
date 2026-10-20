@@ -18,6 +18,8 @@ var (
 	ErrForumLimitReached = errors.New("batas forum aktif paket tercapai")
 	// ErrDurationNotInPlan dikembalikan saat durasi forum yang diminta tidak termasuk paket pembuat.
 	ErrDurationNotInPlan = errors.New("durasi forum ini tidak tersedia di paket Anda")
+	// ErrMemoryQuotaExceeded dibungkus oleh *MemoryQuotaError saat pembuat forum sudah memakai seluruh kuota ringkasan AI bulan ini.
+	ErrMemoryQuotaExceeded = errors.New("kuota AI Memory bulan ini habis")
 	// ErrEntitlementInvalid dikembalikan saat paket/masa berlaku yang diberikan admin tidak valid.
 	ErrEntitlementInvalid = errors.New("paket atau masa berlaku tidak valid")
 	// ErrEntitlementUserNotFound dikembalikan saat akun target tidak ada di tenant tersebut.
@@ -33,6 +35,22 @@ type ForumLimitError struct {
 
 func (e *ForumLimitError) Error() string { return ErrForumLimitReached.Error() }
 func (e *ForumLimitError) Unwrap() error { return ErrForumLimitReached }
+
+// MemoryQuotaError membawa detail kuota AI untuk pesan yang jujur kepada pengguna.
+type MemoryQuotaError struct {
+	Plan    string
+	Limit   int
+	Used    int
+	ResetAt time.Time
+}
+
+func (e *MemoryQuotaError) Error() string { return ErrMemoryQuotaExceeded.Error() }
+func (e *MemoryQuotaError) Unwrap() error { return ErrMemoryQuotaExceeded }
+
+// MemoryQuotaChecker memeriksa kuota ringkasan AI sebelum job dibuat (dipasang pada GatedMemoryStore).
+type MemoryQuotaChecker interface {
+	CheckMemoryJobQuota(ctx context.Context, forumID string) error
+}
 
 // Entitlement adalah paket yang tercatat untuk satu user.
 type Entitlement struct {
@@ -74,6 +92,9 @@ type EntitlementStore interface {
 	GetEntitlement(ctx context.Context, tenantID, userID string) (*Entitlement, error)
 	// CountActiveForums menghitung forum aktif milik pembuat dengan definisi yang sama dengan penegakan batas.
 	CountActiveForums(ctx context.Context, tenantID, userID string) (int, error)
+	// CountMemoryJobs menghitung job AI Memory bulan kalender (UTC) berjalan untuk forum buatan user. Job yang gagal
+	// permanen tidak dihitung karena tidak menghasilkan ringkasan.
+	CountMemoryJobs(ctx context.Context, tenantID, userID string, now time.Time) (int, error)
 	SetEntitlement(ctx context.Context, in SetEntitlementInput) (*Entitlement, error)
 	RevokeEntitlement(ctx context.Context, tenantID, actorID, userID, note string) error
 }
@@ -89,7 +110,10 @@ func NewSQLEntitlementStore(db *sql.DB, driverName string) *SQLEntitlementStore 
 	return &SQLEntitlementStore{db: db, driverName: driverName}
 }
 
-var _ EntitlementStore = (*SQLEntitlementStore)(nil)
+var (
+	_ EntitlementStore   = (*SQLEntitlementStore)(nil)
+	_ MemoryQuotaChecker = (*SQLEntitlementStore)(nil)
+)
 
 // rebindQuery mengubah placeholder ? menjadi $n untuk Postgres.
 func rebindQuery(driverName, query string) string {
@@ -157,6 +181,61 @@ func (s *SQLEntitlementStore) GetEntitlement(ctx context.Context, tenantID, user
 
 func (s *SQLEntitlementStore) CountActiveForums(ctx context.Context, tenantID, userID string) (int, error) {
 	return activeForumCount(ctx, s.db, s.driverName, tenantID, userID, time.Now().UTC())
+}
+
+func (s *SQLEntitlementStore) CountMemoryJobs(ctx context.Context, tenantID, userID string, now time.Time) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, rebindQuery(s.driverName, `
+		SELECT COUNT(*) FROM forum_memory_jobs j
+		JOIN conversations c ON c.id = j.forum_id
+		WHERE c.created_by = ? AND COALESCE(c.tenant_id, 'default') = ?
+		  AND j.created_at >= ? AND j.is_terminal_fail = ?`),
+		userID, tenantID, entitlement.PeriodStart(now), false).Scan(&n)
+	return n, err
+}
+
+// CheckMemoryJobQuota menolak (ErrMemoryQuotaExceeded) bila pembuat forum sudah memakai kuota ringkasan AI bulan ini.
+// Kuota dimiliki pembuat forum dan hanya berlaku di tenant default. Forum yang sudah punya job tidak diperiksa
+// (INSERT akan ditolak UNIQUE(forum_id) oleh pemanggil). Pengecekan dan INSERT tidak atomik: dua forum milik pembuat
+// yang sama yang berakhir bersamaan tepat di ambang kuota dapat melampaui batas satu job; biaya per job terbatas
+// sehingga ini diterima demi menghindari penguncian di jalur worker.
+func (s *SQLEntitlementStore) CheckMemoryJobQuota(ctx context.Context, forumID string) error {
+	var creator, tenantID string
+	err := s.db.QueryRowContext(ctx, rebindQuery(s.driverName,
+		`SELECT COALESCE(created_by, ''), COALESCE(tenant_id, 'default') FROM conversations WHERE id = ?`), forumID).Scan(&creator, &tenantID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if creator == "" || tenantID != entitlement.DefaultTenant {
+		return nil
+	}
+	var exists int
+	err = s.db.QueryRowContext(ctx, rebindQuery(s.driverName, `SELECT 1 FROM forum_memory_jobs WHERE forum_id = ?`), forumID).Scan(&exists)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	now := time.Now().UTC()
+	ent, err := readEntitlement(ctx, s.db, s.driverName, tenantID, creator)
+	if err != nil {
+		return err
+	}
+	plan := ent.EffectivePlan(now)
+	limit := entitlement.LimitsFor(plan).MonthlyAIJobs
+	used, err := s.CountMemoryJobs(ctx, tenantID, creator, now)
+	if err != nil {
+		return err
+	}
+	if used >= limit {
+		return &MemoryQuotaError{Plan: plan, Limit: limit, Used: used, ResetAt: entitlement.PeriodEnd(now)}
+	}
+	return nil
 }
 
 func (s *SQLEntitlementStore) SetEntitlement(ctx context.Context, in SetEntitlementInput) (*Entitlement, error) {

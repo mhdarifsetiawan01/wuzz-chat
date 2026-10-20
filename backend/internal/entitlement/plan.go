@@ -36,12 +36,22 @@ const DefaultTenant = "default"
 type Limits struct {
 	MaxActiveForums int   // jumlah forum aktif yang boleh dibuat satu user
 	DurationDays    []int // durasi forum yang boleh dipilih
+	MonthlyAIJobs   int   // jumlah ringkasan AI Memory per bulan kalender (UTC) untuk forum buatan user
 }
 
 var limitsByPlan = map[string]Limits{
-	PlanFree: {MaxActiveForums: 1, DurationDays: []int{7}},
-	PlanPro:  {MaxActiveForums: 5, DurationDays: []int{7, 30}},
+	PlanFree: {MaxActiveForums: 1, DurationDays: []int{7}, MonthlyAIJobs: 2},
+	PlanPro:  {MaxActiveForums: 5, DurationDays: []int{7, 30}, MonthlyAIJobs: 20},
 }
+
+// PeriodStart awal bulan kalender (UTC) yang memuat t; kuota AI dihitung sejak saat ini.
+func PeriodStart(t time.Time) time.Time {
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+}
+
+// PeriodEnd awal bulan kalender berikutnya (UTC): kuota dihitung ulang pada saat ini.
+func PeriodEnd(t time.Time) time.Time { return PeriodStart(t).AddDate(0, 1, 0) }
 
 // IsValidPlan true bila paket dikenal.
 func IsValidPlan(plan string) bool {

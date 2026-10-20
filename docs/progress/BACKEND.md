@@ -64,7 +64,8 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - [x] Batas ditegakkan di dalam transaksi `SQLGroupStore.CreateSubGroupWithContext` (advisory lock per user di Postgres, mutex di SQLite). Forum aktif = `status active` dan belum lewat `expires_at`. Hanya tenant `default`; tenant B2B tidak dibatasi.
 - [x] **Mati secara default**: aktif hanya dengan env `FORUM_LIMITS_ENABLED=true`. Tanpa env ini perilaku pembuatan forum tidak berubah.
 - [x] `GET /api/me/entitlement`; admin `GET/POST /api/admin/entitlements` (khusus `wuzz_admin`, ada riwayat). Penolakan: HTTP 403 dengan `code` `forum_limit_reached` / `duration_not_in_plan`.
-- Belum: kuota AI (Fase 3), UI (Fase 4), aksi grandfather. Rencana dan keputusan: `docs/plans/backlog/FORUM_MONETIZATION_PLAN.md`.
+- [x] **Fase 3 kuota AI (20 Okt 2026, lokal)**: Free 2 / Pro 20 ringkasan per bulan kalender (UTC), dimiliki pembuat forum, dihitung dari `forum_memory_jobs` (job gagal permanen tidak dihitung). Dicek di `GatedMemoryStore.CreateJob` (satu titik untuk TTL worker dan akhiri manual) lewat `SQLEntitlementStore.CheckMemoryJobQuota`; whitelist `MEMORY_ENABLED_GROUPS` tetap lebih dulu. Mati secara default: `MEMORY_QUOTA_ENABLED=true`. Galat database pada cek kuota = job tetap dibuat (fail-open). Respons `.../expire` kini membawa `memory` (`queued`/`quota_exceeded`/`not_queued`) dan pesan jujur; `/api/me/entitlement` memuat blok `ai`.
+- Belum: UI (Fase 4), aksi grandfather. Rencana dan keputusan: `docs/plans/backlog/FORUM_MONETIZATION_PLAN.md`.
 
 ---
 

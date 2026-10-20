@@ -46,6 +46,8 @@ type Config struct {
 	// ForumLimitsEnabled menyalakan penegakan batas forum aktif per paket (env FORUM_LIMITS_ENABLED=true).
 	// Default mati: tanpa env ini perilaku pembuatan forum tidak berubah.
 	ForumLimitsEnabled      bool
+	// MemoryQuotaEnabled menyalakan kuota ringkasan AI per paket (env MEMORY_QUOTA_ENABLED=true). Default mati.
+	MemoryQuotaEnabled      bool
 	MemoryJobBatchSize      int
 	SubGroupWorkerInterval  time.Duration
 	PurgeWorkerInterval     time.Duration
@@ -122,6 +124,7 @@ func Load() (*Config, error) {
 		MemoryWorkerDisabled:    isFalseEnv(os.Getenv("MEMORY_WORKER_ENABLED")),
 		MemoryEnabledGroups:     strings.TrimSpace(os.Getenv("MEMORY_ENABLED_GROUPS")),
 		ForumLimitsEnabled:      isTrueEnv(os.Getenv("FORUM_LIMITS_ENABLED")),
+		MemoryQuotaEnabled:      isTrueEnv(os.Getenv("MEMORY_QUOTA_ENABLED")),
 		SubGroupWorkerInterval:  15 * time.Minute,
 		PurgeWorkerInterval:     1 * time.Hour,
 		TokenCleanupInterval:    1 * time.Hour,

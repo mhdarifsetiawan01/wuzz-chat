@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/api"
 	"github.com/bms-del112/wuzz-chat/internal/group"
@@ -19,6 +20,7 @@ type entEnv struct {
 	gh     *api.GroupHandler
 	eh     *api.EntitlementHandler
 	ents   *store.SQLEntitlementStore
+	jobs   *store.GatedMemoryStore
 }
 
 func newEntEnv(t *testing.T, enforce bool) *entEnv {
@@ -28,10 +30,13 @@ func newEntEnv(t *testing.T, enforce bool) *entEnv {
 	e.groups = store.NewSQLGroupStore(db, drv)
 	e.groups.SetForumLimitsEnabled(enforce)
 	repo := groupinfra.NewSQLGroupRepository(e.groups, e.users)
-	e.gh = api.NewGroupHandlerWithServices(group.NewGroupService(repo, repo, nil, nil), group.NewForumService(repo, repo, nil, nil, nil), e.groups, e.users)
 	e.ents = store.NewSQLEntitlementStore(db, drv)
-	e.eh = api.NewEntitlementHandler(e.ents, enforce)
-	e.handler.SetEntitlements(e.ents, enforce)
+	// Jalur job AI seperti produksi: gerbang grup terbuka + kuota paket (MEMORY_QUOTA_ENABLED).
+	e.jobs = store.NewGatedMemoryStore(store.NewSQLMemoryStore(db, drv), store.AllowAllMemoryGate())
+	e.jobs.SetQuota(e.ents)
+	e.gh = api.NewGroupHandlerWithServices(group.NewGroupService(repo, repo, nil, nil), group.NewForumService(repo, repo, e.jobs, nil, nil), e.groups, e.users)
+	e.eh = api.NewEntitlementHandler(e.ents, enforce, enforce)
+	e.handler.SetEntitlements(e.ents, enforce, enforce)
 	return e
 }
 
@@ -230,5 +235,62 @@ func TestEntitlementAdmin_DisabledStoreReturns503(t *testing.T) {
 	w := e.call(http.MethodGet, "/api/admin/entitlements?username=boss", "", e.adminT, e.handler.HandleEntitlements)
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("want 503, got %d", w.Code)
+	}
+}
+
+func (e *entEnv) expire(tok, parentID, subID string) (int, map[string]any) {
+	e.t.Helper()
+	w := e.call(http.MethodPost, "/api/groups/"+parentID+"/subgroups/"+subID+"/expire", "", tok, e.gh.RouteGroupRequest)
+	var m map[string]any
+	_ = json.Unmarshal(w.Body.Bytes(), &m)
+	return w.Code, m
+}
+
+func TestEntitlementAPI_ManualExpireMessageMatchesQuotaOutcome(t *testing.T) {
+	e := newEntEnv(t, false) // batas forum mati agar 3 forum bisa dibuat cepat; kuota AI tetap aktif
+	owner := e.user("expire_owner")
+	tok := e.token(owner, "default", "user")
+	g, _ := e.groups.CreateGroup("Grup Expire", "", "", owner.ID, "", true, nil)
+
+	var subs []string
+	for i := 0; i < 3; i++ {
+		w := e.createForum(tok, g.ID, "7_days")
+		var created struct {
+			Subgroup struct {
+				ID string `json:"id"`
+			} `json:"subgroup"`
+		}
+		_ = json.Unmarshal(w.Body.Bytes(), &created)
+		if w.Code != http.StatusCreated || created.Subgroup.ID == "" {
+			t.Fatalf("buat forum %d: %d %s", i, w.Code, w.Body.String())
+		}
+		subs = append(subs, created.Subgroup.ID)
+	}
+
+	for i := 0; i < 2; i++ {
+		code, body := e.expire(tok, g.ID, subs[i])
+		if code != http.StatusOK || body["memory"] != "queued" || !strings.Contains(body["message"].(string), "antrean memori telah dibuat") {
+			t.Fatalf("forum %d harus queued: %d %v", i, code, body)
+		}
+	}
+	code, body := e.expire(tok, g.ID, subs[2])
+	msg, _ := body["message"].(string)
+	if code != http.StatusOK || body["memory"] != "quota_exceeded" || !strings.Contains(msg, "kuota") || strings.Contains(msg, "antrean memori telah dibuat") {
+		t.Fatalf("forum ke-3 harus quota_exceeded dan tidak menjanjikan antrean: %d %v", code, body)
+	}
+	var jobs int
+	if err := e.sqlStore.DB().QueryRow(e.rb(`SELECT COUNT(*) FROM forum_memory_jobs WHERE forum_id = ?`), subs[2]).Scan(&jobs); err != nil || jobs != 0 {
+		t.Fatalf("tidak boleh ada job untuk forum yang kuotanya habis: jobs=%d err=%v", jobs, err)
+	}
+	// Forum tetap berakhir normal.
+	var exp bool
+	if err := e.sqlStore.DB().QueryRow(e.rb(`SELECT expires_at <= ? FROM conversations WHERE id = ?`), time.Now().UTC(), subs[2]).Scan(&exp); err != nil || !exp {
+		t.Fatalf("forum harus tetap berakhir walau kuota AI habis: exp=%v err=%v", exp, err)
+	}
+
+	// Status paket mencerminkan pemakaian: 2 dari 2, dengan tanggal reset.
+	ai := e.mine(tok)["ai"].(map[string]any)
+	if ai["used"].(float64) != 2 || ai["limit"].(float64) != 2 || ai["enforced"] != false || ai["reset_at"] == nil {
+		t.Fatalf("status ai salah: %v", ai)
 	}
 }

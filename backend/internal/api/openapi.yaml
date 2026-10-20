@@ -1612,13 +1612,28 @@ paths:
                     type: array
                     items:
                       type: integer
+                  ai:
+                    type: object
+                    description: Kuota ringkasan AI Memory bulan kalender (UTC) untuk forum buatan pemanggil.
+                    properties:
+                      enforced:
+                        type: boolean
+                      used:
+                        type: integer
+                      limit:
+                        type: integer
+                      reset_at:
+                        type: string
+                        format: date-time
 
   /api/groups/{id}/subgroups/{subId}/expire:
     post:
       tags:
         - Ephemeral Fora (Subgroups)
       summary: Instant Expire Subgroup (Admin Force-Close)
-      description: Closes an ephemeral subgroup immediately and queues memory synthesis.
+      description: |
+        Closes an ephemeral subgroup immediately. Memory synthesis is queued only when AI Memory is enabled for the group
+        and the forum creator's monthly AI quota is not exhausted; the `memory` field reports which happened.
       security:
         - BearerAuth: []
       parameters:
@@ -1640,6 +1655,11 @@ paths:
               schema:
                 type: object
                 properties:
+                  memory:
+                    type: string
+                    enum: [queued, quota_exceeded, not_queued]
+                  message:
+                    type: string
                   status:
                     type: string
                     example: expired

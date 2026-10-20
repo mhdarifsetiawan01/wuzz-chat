@@ -2,6 +2,7 @@ package group
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -570,42 +571,62 @@ func (s *ForumService) RespondJoinRequest(ctx context.Context, input RespondJoin
 	return targetID, input.Approve, nil
 }
 
+// Hasil pembuatan job AI Memory saat forum diakhiri manual.
+const (
+	MemoryOutcomeQueued        = "queued"         // job dibuat, ringkasan akan diproses
+	MemoryOutcomeQuotaExceeded = "quota_exceeded" // kuota paket pembuat forum habis, job tidak dibuat
+	MemoryOutcomeNotQueued     = "not_queued"     // AI Memory tidak aktif untuk grup ini atau job gagal dibuat
+)
+
 // InstantExpireSubGroup mengunci forum/subgrup seketika dan memicu pembuatan ForumMemoryJob.
 func (s *ForumService) InstantExpireSubGroup(ctx context.Context, userID, groupID, subID string) error {
+	_, err := s.InstantExpireSubGroupWithOutcome(ctx, userID, groupID, subID)
+	return err
+}
+
+// InstantExpireSubGroupWithOutcome seperti InstantExpireSubGroup, tetapi juga melaporkan apakah job AI Memory benar-benar dibuat
+// (MemoryOutcome*) agar pesan kepada anggota dan respons API tidak menjanjikan ringkasan yang tidak akan ada.
+func (s *ForumService) InstantExpireSubGroupWithOutcome(ctx context.Context, userID, groupID, subID string) (string, error) {
 	// Verifikasi anggota grup utama
 	isMember, err := s.repo.IsParentMember(groupID, userID)
 	if err != nil || !isMember {
-		return ErrForbidden
+		return "", ErrForbidden
 	}
 
 	// Verifikasi hak akses admin/creator di grup utama
 	role, err := s.repo.GetUserRoleInGroup(groupID, userID)
 	if err != nil || (role != RoleCreator && role != RoleAdmin) {
-		return ErrForbidden
+		return "", ErrForbidden
 	}
 
 	if err := s.repo.ExpireSubGroupNow(subID); err != nil {
-		return err
+		return "", err
 	}
 
 	// Pemicu seketika ForumMemoryJob
-	// Pesan "memori AI sedang diproses" hanya benar bila job benar-benar dibuat (grup di luar MEMORY_ENABLED_GROUPS ditolak).
-	jobCreated := false
+	// Pesan "memori AI sedang diproses" hanya benar bila job benar-benar dibuat (grup di luar MEMORY_ENABLED_GROUPS ditolak,
+	// pembuat forum yang kuotanya habis juga ditolak).
+	outcome := MemoryOutcomeNotQueued
 	if s.memoryStore != nil {
 		if _, err := s.memoryStore.CreateJob(ctx, subID, groupID); err == nil {
-			jobCreated = true
+			outcome = MemoryOutcomeQueued
+		} else if errors.Is(err, store.ErrMemoryQuotaExceeded) {
+			outcome = MemoryOutcomeQuotaExceeded
 		}
 	}
 
 	if s.broadcaster != nil {
 		msg := "Topik forum telah berakhir."
-		if jobCreated {
+		switch outcome {
+		case MemoryOutcomeQueued:
 			msg = "Topik forum telah berakhir dan memori AI sedang diproses."
+		case MemoryOutcomeQuotaExceeded:
+			msg = "Topik forum telah berakhir. Memori AI tidak dibuat karena kuota bulan ini sudah habis."
 		}
 		s.broadcaster.BroadcastGroupSystemEvent(groupID, "subgroup_expired", msg)
 	}
 
-	return nil
+	return outcome, nil
 }
 
 // ExpireSubGroupsBatchDetailed mengeksekusi scanning batch dan mengunci subgrup yang telah kedaluwarsa.

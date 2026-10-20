@@ -45,3 +45,21 @@ func TestLimits(t *testing.T) {
 		t.Error("paket tak dikenal harus diperlakukan Free")
 	}
 }
+
+func TestAIQuotaAndPeriod(t *testing.T) {
+	if LimitsFor(PlanFree).MonthlyAIJobs != 2 || LimitsFor(PlanPro).MonthlyAIJobs != 20 {
+		t.Fatalf("kuota AI salah: free=%d pro=%d", LimitsFor(PlanFree).MonthlyAIJobs, LimitsFor(PlanPro).MonthlyAIJobs)
+	}
+	mid := time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC)
+	if got := PeriodStart(mid); !got.Equal(time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("PeriodStart salah: %v", got)
+	}
+	if got := PeriodEnd(mid); !got.Equal(time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("PeriodEnd harus awal bulan berikutnya (lintas tahun): %v", got)
+	}
+	// Zona waktu lain dinormalkan ke UTC.
+	wib := time.FixedZone("WIB", 7*3600)
+	if got := PeriodStart(time.Date(2026, 11, 1, 3, 0, 0, 0, wib)); !got.Equal(time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("01 Nov 03:00 WIB masih Oktober UTC: %v", got)
+	}
+}

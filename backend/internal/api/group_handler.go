@@ -817,7 +817,7 @@ func (h *GroupHandler) handleRespondJoinRequest(w http.ResponseWriter, r *http.R
 
 // handleInstantExpireSubGroup memproses penghentian paksa subgrup sebelum TTL berakhir.
 func (h *GroupHandler) handleInstantExpireSubGroup(w http.ResponseWriter, userID, groupID, subID string) {
-	err := h.forumSvc.InstantExpireSubGroup(context.Background(), userID, groupID, subID)
+	outcome, err := h.forumSvc.InstantExpireSubGroupWithOutcome(context.Background(), userID, groupID, subID)
 	if err != nil {
 		if errors.Is(err, group.ErrForbidden) || errors.Is(err, store.ErrUnauthorizedGroup) {
 			writeGroupJSONError(w, http.StatusForbidden, "Akses ditolak: Hanya admin atau creator grup yang dapat melakukan instant expire")
@@ -827,9 +827,18 @@ func (h *GroupHandler) handleInstantExpireSubGroup(w http.ResponseWriter, userID
 		return
 	}
 
+	// Pesan harus sesuai kenyataan: antrean memori hanya dibuat bila AI Memory aktif dan kuota pembuat forum masih ada.
+	message := "Topik forum berhasil di-expire seketika."
+	switch outcome {
+	case group.MemoryOutcomeQueued:
+		message = "Topik forum berhasil di-expire seketika dan antrean memori telah dibuat."
+	case group.MemoryOutcomeQuotaExceeded:
+		message = "Topik forum berhasil di-expire seketika. Memori AI tidak dibuat karena kuota bulan ini sudah habis."
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": "Topik forum berhasil di-expire seketika dan antrean memori telah dibuat.",
+		"message": message,
+		"memory":  outcome,
 	})
 }

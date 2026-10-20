@@ -1,6 +1,6 @@
 # Rencana Monetisasi Forum (Freemium) — Hasil Audit & Keputusan MVP
 
-> **Status:** Fase 1 selesai. **Fase 2 diimplementasi lokal 20 Oktober 2026** (belum commit/deploy; batas mati secara default lewat `FORUM_LIMITS_ENABLED`). Fase 3-5 belum dikerjakan. Dokumen ini disusun dari audit read-only pada branch `dev` (commit `4ae842b`).
+> **Status:** Fase 1-2 selesai (Fase 2 di-commit `7b957a4`). **Fase 3 (kuota AI) diimplementasi lokal 20 Oktober 2026**, belum commit/deploy; batas forum dan kuota AI sama-sama mati secara default (`FORUM_LIMITS_ENABLED`, `MEMORY_QUOTA_ENABLED`). Fase 4-5 belum dikerjakan. Disusun dari audit read-only pada branch `dev` (commit `4ae842b`).
 > **Aturan kerja:** deploy backend/frontend dan build APK dilakukan pengguna. Jangan menaikkan versi/build number. Tidak ada `git push` tanpa persetujuan tertulis terpisah.
 
 ---

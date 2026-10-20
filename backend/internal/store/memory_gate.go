@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"log"
 	"strings"
 )
 
@@ -58,8 +59,12 @@ func (g *MemoryGate) AllowsAll() bool { return g != nil && g.all }
 // Dipakai oleh semua jalur yang MEMBUAT atau MEMPROSES job (TTL worker, tutup topik manual, MemoryJobWorker).
 type GatedMemoryStore struct {
 	MemoryStore
-	gate *MemoryGate
+	gate  *MemoryGate
+	quota MemoryQuotaChecker // nil = kuota paket tidak ditegakkan (MEMORY_QUOTA_ENABLED mati)
 }
+
+// SetQuota memasang pemeriksa kuota ringkasan AI per paket. Dipanggil saat wiring, sebelum worker berjalan.
+func (s *GatedMemoryStore) SetQuota(q MemoryQuotaChecker) { s.quota = q }
 
 // NewGatedMemoryStore membungkus inner dengan gerbang.
 func NewGatedMemoryStore(inner MemoryStore, gate *MemoryGate) *GatedMemoryStore {
@@ -70,6 +75,15 @@ func NewGatedMemoryStore(inner MemoryStore, gate *MemoryGate) *GatedMemoryStore 
 func (s *GatedMemoryStore) CreateJob(ctx context.Context, forumID, groupID string) (*ForumMemoryJob, error) {
 	if !s.gate.Allows(groupID) {
 		return nil, ErrMemoryNotEnabled
+	}
+	if s.quota != nil {
+		if err := s.quota.CheckMemoryJobQuota(ctx, forumID); err != nil {
+			if errors.Is(err, ErrMemoryQuotaExceeded) {
+				return nil, err
+			}
+			// Gangguan database sesaat tidak boleh menghilangkan ringkasan selamanya (forum tidak dicoba lagi): lanjutkan.
+			log.Printf("⚠️ [MemoryQuota] cek kuota forum %s gagal, job tetap dibuat: %v", forumID, err)
+		}
 	}
 	return s.MemoryStore.CreateJob(ctx, forumID, groupID)
 }

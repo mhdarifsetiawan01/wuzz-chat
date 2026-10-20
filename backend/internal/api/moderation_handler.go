@@ -35,8 +35,8 @@ type ModerationHandler struct {
 	kick       func(userID, reason string) // memutus semua koneksi WebSocket akun (nil = dilewati)
 	eraser     store.AccountEraser         // hapus akun paksa oleh admin (nil = dinonaktifkan)
 
-	entitlements   store.EntitlementStore // pengelolaan paket manual oleh admin (nil = dinonaktifkan)
-	limitsEnforced bool                   // FORUM_LIMITS_ENABLED, hanya untuk ditampilkan di status paket
+	entitlements store.EntitlementStore // pengelolaan paket manual oleh admin (nil = dinonaktifkan)
+	entFlags     entitlementFlags       // sakelar batas paket, hanya untuk ditampilkan di status paket
 }
 
 // SetEvidenceRetention memberi tahu halaman detail kapan bukti akan dihapus otomatis (days <= 0 = tidak dihapus).

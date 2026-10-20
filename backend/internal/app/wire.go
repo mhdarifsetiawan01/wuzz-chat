@@ -204,7 +204,15 @@ func New(cfg *config.Config) (*Application, error) {
 		memoryGate = store.ParseMemoryGate("")
 		log.Printf("⏸️ AI Memory DINONAKTIFKAN (MEMORY_WORKER_ENABLED=false): job tidak dibuat dan tidak ada teks pesan yang dikirim ke penyedia LLM")
 	} else if memoryStore != nil && cfg != nil {
-		jobStore = store.NewGatedMemoryStore(memoryStore, memoryGate)
+		gatedStore := store.NewGatedMemoryStore(memoryStore, memoryGate)
+		// Kuota ringkasan AI per paket: mati kecuali MEMORY_QUOTA_ENABLED=true; whitelist grup di atas tetap berlaku lebih dulu.
+		if cfg.MemoryQuotaEnabled {
+			if qc, ok := entitlementStore.(store.MemoryQuotaChecker); ok {
+				gatedStore.SetQuota(qc)
+				log.Printf("🎟️ Kuota ringkasan AI per paket DITEGAKKAN (MEMORY_QUOTA_ENABLED=true)")
+			}
+		}
+		jobStore = gatedStore
 		if cfg.MemoryEnabledGroups == "" {
 			log.Printf("🧠 AI Memory: MEMORY_ENABLED_GROUPS kosong, tidak ada grup yang diproses (tidak ada teks pesan yang dikirim ke penyedia LLM)")
 		} else {
@@ -353,8 +361,9 @@ func New(cfg *config.Config) (*Application, error) {
 	// Selalu dipasang (juga nil) agar resolver instans lain/tes sebelumnya tidak tertinggal.
 	auth.SetRoleResolver(roleResolver)
 	limitsEnforced := cfg != nil && cfg.ForumLimitsEnabled
+	quotaEnforced := cfg != nil && cfg.MemoryQuotaEnabled
 	if entitlementStore != nil {
-		app.EntitlementHandler = api.NewEntitlementHandler(entitlementStore, limitsEnforced)
+		app.EntitlementHandler = api.NewEntitlementHandler(entitlementStore, limitsEnforced, quotaEnforced)
 		if limitsEnforced {
 			log.Printf("🎟️ Batas forum aktif per paket DITEGAKKAN (FORUM_LIMITS_ENABLED=true)")
 		}
@@ -362,7 +371,7 @@ func New(cfg *config.Config) (*Application, error) {
 	if moderationStore != nil {
 		app.ModerationHandler = api.NewModerationHandler(moderationStore, suspension)
 		if entitlementStore != nil {
-			app.ModerationHandler.SetEntitlements(entitlementStore, limitsEnforced)
+			app.ModerationHandler.SetEntitlements(entitlementStore, limitsEnforced, quotaEnforced)
 		}
 		app.ModerationHandler.SetRolePolicy(rolePolicy)
 		if accountEraser != nil {
