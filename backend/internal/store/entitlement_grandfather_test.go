@@ -96,7 +96,7 @@ func TestGrandfather_ApplyIsIdempotentAndRespectsExistingRows(t *testing.T) {
 
 	// Riwayat mencatat aktor dan sumber.
 	var events int
-	if err := e.ms.DB().QueryRow(rebindForTest(e.ms, `SELECT COUNT(*) FROM entitlement_events WHERE source = ? AND actor_id = ?`), entitlement.SourceGrandfather, "admin-1").Scan(&events); err != nil || events != 2 {
+	if err := e.ms.DB().QueryRow(rebindPG(e.ms, `SELECT COUNT(*) FROM entitlement_events WHERE source = ? AND actor_id = ?`), entitlement.SourceGrandfather, "admin-1").Scan(&events); err != nil || events != 2 {
 		t.Fatalf("riwayat harus mencatat 2 event grandfather: %d %v", events, err)
 	}
 
@@ -131,10 +131,10 @@ func TestGrandfather_OtherTenantExcludedAndSubgroupCreatorsIncluded(t *testing.T
 	a, b := e.user("gf_tenant_a"), e.user("gf_tenant_b")
 	e.group(a, "Grup A")
 	gb := e.group(b, "Grup B")
-	if _, err := e.ms.DB().Exec(rebindForTest(e.ms, `UPDATE users SET tenant_id = ? WHERE id = ?`), "acme", b); err != nil {
+	if _, err := e.ms.DB().Exec(rebindPG(e.ms, `UPDATE users SET tenant_id = ? WHERE id = ?`), "acme", b); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.ms.DB().Exec(rebindForTest(e.ms, `UPDATE conversations SET tenant_id = ? WHERE id = ?`), "acme", gb); err != nil {
+	if _, err := e.ms.DB().Exec(rebindPG(e.ms, `UPDATE conversations SET tenant_id = ? WHERE id = ?`), "acme", gb); err != nil {
 		t.Fatal(err)
 	}
 	cs, _ := e.es.PreviewGrandfather(e.ctx, "default")

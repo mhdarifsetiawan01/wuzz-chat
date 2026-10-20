@@ -129,7 +129,7 @@ func TestMemoryQuota_TerminalFailAndOldMonthNotCounted(t *testing.T) {
 	}
 
 	// Job gagal permanen tidak menghasilkan ringkasan, jadi tidak memakai kuota.
-	if _, err := e.ms.DB().Exec(rebindForTest(e.ms, `UPDATE forum_memory_jobs SET is_terminal_fail = ? WHERE forum_id = ?`), true, f1.ID); err != nil {
+	if _, err := e.ms.DB().Exec(rebindPG(e.ms, `UPDATE forum_memory_jobs SET is_terminal_fail = ? WHERE forum_id = ?`), true, f1.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.endForum(g, u); err != nil {
@@ -137,7 +137,7 @@ func TestMemoryQuota_TerminalFailAndOldMonthNotCounted(t *testing.T) {
 	}
 	// Job bulan lalu tidak dihitung.
 	lastMonth := time.Now().UTC().AddDate(0, -1, -1)
-	if _, err := e.ms.DB().Exec(rebindForTest(e.ms, `UPDATE forum_memory_jobs SET created_at = ? WHERE forum_id = ?`), lastMonth, f2.ID); err != nil {
+	if _, err := e.ms.DB().Exec(rebindPG(e.ms, `UPDATE forum_memory_jobs SET created_at = ? WHERE forum_id = ?`), lastMonth, f2.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.endForum(g, u); err != nil {
@@ -152,7 +152,7 @@ func TestMemoryQuota_NonDefaultTenantAndWhitelistPrecedence(t *testing.T) {
 	e := newQuotaEnv(t, true)
 	u := e.user("b2b_quota")
 	g := e.group(u, "Grup B2B Kuota")
-	if _, err := e.ms.DB().Exec(rebindForTest(e.ms, `UPDATE conversations SET tenant_id = ? WHERE id = ?`), "acme", g); err != nil {
+	if _, err := e.ms.DB().Exec(rebindPG(e.ms, `UPDATE conversations SET tenant_id = ? WHERE id = ?`), "acme", g); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 4; i++ {
@@ -204,7 +204,7 @@ func TestMemoryQuota_SkippedForumIsRecordedAndExplainedWithoutBeingQueued(t *tes
 	// Baris SKIPPED tercatat, terminal, dan alasannya kuota.
 	var status, reason string
 	var terminal bool
-	if err := e.ms.DB().QueryRow(rebindForTest(e.ms, `SELECT status, last_error, is_terminal_fail FROM forum_memory_jobs WHERE forum_id = ?`), third.ID).
+	if err := e.ms.DB().QueryRow(rebindPG(e.ms, `SELECT status, last_error, is_terminal_fail FROM forum_memory_jobs WHERE forum_id = ?`), third.ID).
 		Scan(&status, &reason, &terminal); err != nil {
 		t.Fatalf("baris SKIPPED harus ada: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestMemoryQuota_SkippedForumIsRecordedAndExplainedWithoutBeingQueued(t *tes
 		t.Fatalf("percobaan ulang harus tetap ErrMemoryQuotaExceeded: %v", err)
 	}
 	var rows int
-	_ = e.ms.DB().QueryRow(rebindForTest(e.ms, `SELECT COUNT(*) FROM forum_memory_jobs WHERE forum_id = ?`), third.ID).Scan(&rows)
+	_ = e.ms.DB().QueryRow(rebindPG(e.ms, `SELECT COUNT(*) FROM forum_memory_jobs WHERE forum_id = ?`), third.ID).Scan(&rows)
 	if rows != 1 {
 		t.Fatalf("harus tetap satu baris, dapat %d", rows)
 	}

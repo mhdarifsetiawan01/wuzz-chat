@@ -3,8 +3,6 @@ package store_test
 import (
 	"context"
 	"errors"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -121,7 +119,7 @@ func TestForumLimit_ExpiredByTimeFreesSlotWithoutWorker(t *testing.T) {
 		t.Fatal(err)
 	}
 	var status string
-	if err := e.ms.DB().QueryRow(rebindForTest(e.ms, `SELECT status FROM conversations WHERE id = ?`), first.ID).Scan(&status); err != nil || status != "active" {
+	if err := e.ms.DB().QueryRow(rebindPG(e.ms, `SELECT status FROM conversations WHERE id = ?`), first.ID).Scan(&status); err != nil || status != "active" {
 		t.Fatalf("prasyarat tes: status seharusnya masih active (worker belum jalan), dapat %q err=%v", status, err)
 	}
 	if _, err := e.sub(g, u, "7_days"); err != nil {
@@ -201,7 +199,7 @@ func TestForumLimit_ExpiredValidUntilFallsBackToFree(t *testing.T) {
 	e.mustSub(g, u, "7_days")
 
 	// Masa berlaku lewat -> Free (tanpa worker).
-	if _, err := e.ms.DB().Exec(rebindForTest(e.ms, `UPDATE user_entitlements SET valid_until = ? WHERE user_id = ?`),
+	if _, err := e.ms.DB().Exec(rebindPG(e.ms, `UPDATE user_entitlements SET valid_until = ? WHERE user_id = ?`),
 		time.Now().UTC().Add(-time.Minute), u); err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +254,7 @@ func TestForumLimit_NonDefaultTenantNotEnforced(t *testing.T) {
 	e := newLimitEnv(t, true)
 	u := e.user("b2b_user")
 	g := e.group(u, "Grup B2B")
-	if _, err := e.ms.DB().Exec(rebindForTest(e.ms, `UPDATE conversations SET tenant_id = ? WHERE id = ?`), "acme", g); err != nil {
+	if _, err := e.ms.DB().Exec(rebindPG(e.ms, `UPDATE conversations SET tenant_id = ? WHERE id = ?`), "acme", g); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 3; i++ {
@@ -303,25 +301,7 @@ func TestEntitlementStore_SetRevokeAndAudit(t *testing.T) {
 	}
 
 	var events int
-	if err := e.ms.DB().QueryRow(rebindForTest(e.ms, `SELECT COUNT(*) FROM entitlement_events WHERE user_id = ?`), u).Scan(&events); err != nil || events != 2 {
+	if err := e.ms.DB().QueryRow(rebindPG(e.ms, `SELECT COUNT(*) FROM entitlement_events WHERE user_id = ?`), u).Scan(&events); err != nil || events != 2 {
 		t.Fatalf("riwayat harus mencatat set + revoke: events=%d err=%v", events, err)
 	}
-}
-
-// rebindForTest mengubah ? menjadi $n untuk Postgres.
-func rebindForTest(ms *store.SQLMessageStore, q string) string {
-	if ms.DriverName() != "postgres" {
-		return q
-	}
-	var b strings.Builder
-	n := 0
-	for _, r := range q {
-		if r == '?' {
-			n++
-			b.WriteString("$" + strconv.Itoa(n))
-			continue
-		}
-		b.WriteRune(r)
-	}
-	return b.String()
 }

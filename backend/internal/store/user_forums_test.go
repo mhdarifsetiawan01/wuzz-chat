@@ -189,7 +189,7 @@ func TestForumLifecycleJoinsIsolationAndReviewUpdates(t *testing.T) {
 	}
 	exec := func(q string, args ...any) {
 		t.Helper()
-		if _, err := ms.DB().Exec(q, args...); err != nil {
+		if _, err := ms.DB().Exec(rebindPG(ms, q), args...); err != nil {
 			t.Fatal(err)
 		}
 	}
