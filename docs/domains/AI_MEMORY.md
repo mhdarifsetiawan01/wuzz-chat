@@ -54,16 +54,28 @@ Sumber kebenaran: DDL di `backend/internal/store/sql.go` (blok "Group Memory AI"
 
 ## 🔌 4. Kontrak REST API
 
-> **Perlu verifikasi ulang (dicatat 21 Okt 2026):** tabel di bawah belum dicocokkan dengan rute sebenarnya di `backend/internal/api/memory_handler.go`. Rute yang terbukti ada di kode antara lain `GET /api/memory/drafts`, `GET|DELETE /api/memory/drafts/{id}`, `POST /api/memory/drafts/{id}/approve`, `.../approve-with-changes`, `.../reject`, `DELETE .../journey`, dan `PATCH .../artifacts/{artifact_id}`; sebagian baris di tabel (mis. `POST /api/memory/jobs`, `.../action`) tidak ditemukan dengan nama itu. Jangan jadikan tabel ini acuan sebelum dikoreksi.
+Sumber kebenaran: `backend/internal/api/memory_handler.go` (dispatcher `RouteMemoryRequest` untuk `/api/memory/…` dan `RouteApprovedMemoryRequest` untuk `/api/memories/…`), rute grup di `api/group_handler.go`, pendaftaran di `app/router.go`. Semua rute wajib login (JWT). Dikoreksi 21 Oktober 2026: versi lama memuat rute yang tidak ada (`POST /api/memory/jobs`, `.../drafts/{id}/action`, `GET /api/memory/approved`).
+
+**Job ekstraksi tidak dibuat lewat REST.** Job dibuat otomatis oleh `SubGroupTTLWorker` saat topik kedaluwarsa, atau oleh `POST /api/groups/{id}/subgroups/{sub_id}/expire` (lihat [`GROUP_FORUM.md`](GROUP_FORUM.md)); keduanya melewati `GatedMemoryStore` (whitelist, lalu kuota).
 
 | Method | Endpoint | Akses | Keterangan |
 |---|---|---|---|
-| `POST` | `/api/memory/jobs` | Admin | Memicu job ekstraksi memori |
-| `GET` | `/api/memory/drafts` | Admin | Mengambil daftar draft pending |
-| `POST` | `/api/memory/drafts/{id}/action` | Admin | Menyetujui (`approve`) atau menolak (`reject`) draft |
-| `GET` | `/api/memory/approved` | Member | Mengambil daftar arsip memori forum |
-| `DELETE` | `/api/memory/drafts/{id}` | Admin/creator grup | Menghapus draf beserta artefak, bukti, dan job (tidak dikunci gerbang whitelist) |
-| `DELETE` | `/api/memories/{id}` | Admin/creator grup | Menghapus memori terbit beserta draf, artefak, bukti kutipan, catatan baca, dan job asalnya dalam satu transaksi. Log audit dipertahankan tanpa isi (old/new content dikosongkan) + baris `DELETED`. Topik yang sama dapat diringkas ulang bila job baru dibuat |
+| `GET` | `/api/memory/drafts?group_id={id}[&status=…]` | Admin/creator grup | Daftar draf grup (`group_id` wajib, jika tidak 400). Gerbang whitelist berlaku |
+| `GET` | `/api/memory/drafts/{draft_id}` | Admin/creator grup | Detail draf beserta `artifacts` (masing-masing dengan `evidences`). Gerbang whitelist berlaku |
+| `POST` | `/api/memory/drafts/{draft_id}/approve` | Admin/creator grup | Menyetujui dan menerbitkan draf ke `approved_memories`. Respons memuat `approved_memory`. 409 bila draf sudah ditinjau |
+| `POST` | `/api/memory/drafts/{draft_id}/approve-with-changes` | Admin/creator grup | Sama, tetapi memaksa `has_human_edits = true`. Pada `approve` biasa penanda itu tetap menjadi `true` bila ada artefak yang diedit atau dihapus |
+| `POST` | `/api/memory/drafts/{draft_id}/reject` | Admin/creator grup | Menolak draf. Body JSON `{"reason": "…"}` (opsional di handler). 409 bila sudah ditinjau |
+| `PATCH` | `/api/memory/drafts/{draft_id}/artifacts/{artifact_id}` | Admin/creator grup | Mengedit isi artefak. Body `{"content": "…"}`. 409 bila draf sudah divalidasi; 400 bila isi tidak lolos validasi |
+| `DELETE` | `/api/memory/drafts/{draft_id}/journey` | Admin/creator grup | Membuang Journey Lite dari draf. 409 bila draf sudah divalidasi |
+| `DELETE` | `/api/memory/drafts/{draft_id}` | Admin/creator grup | Menghapus draf beserta artefak, bukti, dan job-nya. **Tidak dikunci gerbang whitelist** (hak hapus data tidak boleh ikut terkunci) |
+| `GET` | `/api/groups/{group_id}/memories?limit=&offset=` | Anggota grup | Daftar memori terbit (arsip). `limit` 1-50 (default 20), `offset` ≥ 0 |
+| `GET` | `/api/memories/{memory_id}` | Anggota grup | Detail memori terbit. Membaca detail dapat mencatat `memory_view_events` |
+| `DELETE` | `/api/memories/{memory_id}` | Admin/creator grup | Menghapus memori terbit beserta draf, artefak, bukti kutipan, catatan baca, dan job asalnya dalam satu transaksi |
+
+Catatan perilaku (diverifikasi dari kode):
+- **Penolakan umum:** tanpa token 401; bukan admin/creator pada operasi tinjau 403; draf atau memori tidak ada 404; metode tidak didukung 405.
+- **Gerbang whitelist:** semua operasi draf kecuali `DELETE` memeriksa `MEMORY_ENABLED_GROUPS` untuk grup induk draf dan menjawab 403 "AI Memory belum diaktifkan untuk grup ini" bila grup tidak terdaftar. Pemeriksaan itu per **metode HTTP**, bukan per rute, jadi `DELETE .../journey` juga tidak melewatinya (hanya `DELETE` draf yang memang disengaja bebas gerbang). Pembacaan memori **yang sudah terbit** (`/api/groups/{id}/memories`, `/api/memories/{id}`) tidak melewati pemeriksaan itu di handler.
+- **Lifecycle per forum** (`memory_state`, `draft_id` untuk admin) tidak ada di rute memori; ada di `GET /api/forums/mine` ([`GROUP_FORUM.md`](GROUP_FORUM.md)). Kuota ringkasan: bagian "Kuota ringkasan per paket" di bawah.
 
 ---
 
