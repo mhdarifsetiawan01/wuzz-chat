@@ -180,3 +180,7 @@ Dijalankan tanpa menyentuh produksi: backend dari folder kosong (agar `.env` tid
 - **Bug ditemukan dan diperbaiki:** jalur akhiri-manual melewati gerbang grup, sakelar worker, dan kuota karena wiring (lihat `docs/progress/BACKEND.md`). Tes unit sebelumnya lulus karena merakit objeknya sendiri; kini ada tes wiring utuh. **Pelajaran:** verifikasi fitur yang bergantung pada wiring harus lewat aplikasi utuh (`New` + `setupRouter` atau server nyata), bukan hanya objek yang dirakit tes.
 - **Belum teruji:** UI mobile (aplikasi memakai backend produksi; butuh build APK uji dengan `USE_LIVE_BACKEND=false` atau build baru), UI chat web (gate jeda web), Postgres produksi, dan perilaku pada data produksi.
 
+## 14. Backlog lanjutan
+
+Semua yang belum diuji, belum terbukti, belum diperbaiki, atau belum dibangun dikumpulkan di [`FORUM_MONETIZATION_BACKLOG.md`](FORUM_MONETIZATION_BACKLOG.md) (21 Oktober 2026), lengkap dengan tenggat (1 November dan ±20 Desember 2026), cara verifikasi, dan urutan yang disarankan.
+
