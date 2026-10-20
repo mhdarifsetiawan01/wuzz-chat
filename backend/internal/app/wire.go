@@ -333,7 +333,14 @@ func New(cfg *config.Config) (*Application, error) {
 			memoryRegistry = memory.NewRegistry()
 			memoryRegistry.Register(memory.ContextTypeForum, forumContextSource)
 
-			app.MemoryHandler = api.NewMemoryHandler(memoryStore, groupStore, userStore)
+			// MemoryHandler juga menjadi store job milik ForumService (GroupHandler.SetMemoryHandler), sehingga jalur "akhiri
+			// forum manual" HARUS melewati gerbang grup dan kuota yang sama dengan jalur TTL. Store mentah di sini
+			// melewati keduanya. Bila AI Memory dimatikan (jobStore nil), pakai gerbang tertutup agar tidak ada job yang dibuat.
+			memoryHandlerStore := jobStore
+			if memoryHandlerStore == nil {
+				memoryHandlerStore = store.NewGatedMemoryStore(memoryStore, store.ParseMemoryGate(""))
+			}
+			app.MemoryHandler = api.NewMemoryHandler(memoryHandlerStore, groupStore, userStore)
 			app.MemoryHandler.SetGate(memoryGate)
 		}
 	}

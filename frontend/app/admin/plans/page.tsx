@@ -206,7 +206,7 @@ export default function PlansPage() {
               {' · '}Ringkasan AI bulan ini: {found.status.ai.used} dari {found.status.ai.limit}
             </p>
             <p className="adm-muted">{enforcementNote(found.status)}</p>
-            <div className="adm-actions">
+            <div className="adm-actions adm-actions-top">
               <button type="button" className="btn btn-primary" onClick={openGrant}>
                 {found.status.plan === 'pro' ? 'Ubah masa Pro' : 'Beri Pro'}
               </button>
@@ -243,7 +243,7 @@ export default function PlansPage() {
           <div className="adm-block">
             <p className="adm-pre">{grandfatherPreviewText(gfPreview.data)}</p>
             {gfPreview.data.eligible > 0 && (
-              <div className="adm-actions">
+              <div className="adm-actions adm-actions-top">
                 <button type="button" className="btn btn-primary" onClick={openGrandfather}>
                   Terapkan ke {gfPreview.data.eligible} akun
                 </button>

@@ -171,3 +171,12 @@ Paket Business dan fitur organisasi, integrasi pembayaran/langganan, perpanjang 
 3. Jalan ulang aman (0 kandidat). Akun baru yang kemudian menjadi admin grup tidak otomatis mendapat Pro; berikan manual lewat `POST /api/admin/entitlements` bila perlu.
 
 Syarat kandidat: admin/pembuat grup induk atau pernah membuat forum, di tenant `default`, dan **belum punya baris entitlement apa pun** (paket manual dan paket yang sengaja dicabut tidak disentuh). Riwayat tercatat di `entitlement_events` (`source=grandfather`, aktor admin).
+
+## 13. Hasil uji lokal terhadap server sungguhan (21 Oktober 2026)
+
+Dijalankan tanpa menyentuh produksi: backend dari folder kosong (agar `.env` tidak terbaca), SQLite sementara, `AI_PROVIDER=mock`, kedua sakelar menyala; `/admin/plans` dibuka di Chrome HP lewat `adb reverse`.
+
+- **Terbukti:** batas forum dan durasi (403 `forum_limit_reached` / `duration_not_in_plan`), kuota AI (forum ke-3 `quota_exceeded`, Forum Saya `quota_exceeded`), `/api/me/entitlement`, endpoint admin, dan seluruh alur UI `/admin/plans` (beri, cabut, pratinjau, terapkan, 409).
+- **Bug ditemukan dan diperbaiki:** jalur akhiri-manual melewati gerbang grup, sakelar worker, dan kuota karena wiring (lihat `docs/progress/BACKEND.md`). Tes unit sebelumnya lulus karena merakit objeknya sendiri; kini ada tes wiring utuh. **Pelajaran:** verifikasi fitur yang bergantung pada wiring harus lewat aplikasi utuh (`New` + `setupRouter` atau server nyata), bukan hanya objek yang dirakit tes.
+- **Belum teruji:** UI mobile (aplikasi memakai backend produksi; butuh build APK uji dengan `USE_LIVE_BACKEND=false` atau build baru), UI chat web (gate jeda web), Postgres produksi, dan perilaku pada data produksi.
+
