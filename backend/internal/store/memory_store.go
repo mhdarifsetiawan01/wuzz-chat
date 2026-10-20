@@ -31,6 +31,11 @@ const (
 	JobStatusProcessing = "PROCESSING"
 	JobStatusCompleted  = "COMPLETED"
 	JobStatusFailed     = "FAILED"
+	// JobStatusSkipped: job tidak diproses karena kuota paket pembuat forum habis (last_error = SkipReasonQuota).
+	// Baris dicatat agar forum yang berakhir tanpa ringkasan bisa dijelaskan kepada anggotanya; tidak pernah diantre.
+	JobStatusSkipped = "SKIPPED"
+	// SkipReasonQuota alasan job dilewati karena kuota ringkasan AI habis.
+	SkipReasonQuota = "quota_exceeded"
 
 	DraftStatusDraft    = "DRAFT"
 	DraftStatusApproved = "APPROVED"

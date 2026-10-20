@@ -278,9 +278,13 @@ func TestEntitlementAPI_ManualExpireMessageMatchesQuotaOutcome(t *testing.T) {
 	if code != http.StatusOK || body["memory"] != "quota_exceeded" || !strings.Contains(msg, "kuota") || strings.Contains(msg, "antrean memori telah dibuat") {
 		t.Fatalf("forum ke-3 harus quota_exceeded dan tidak menjanjikan antrean: %d %v", code, body)
 	}
-	var jobs int
-	if err := e.sqlStore.DB().QueryRow(e.rb(`SELECT COUNT(*) FROM forum_memory_jobs WHERE forum_id = ?`), subs[2]).Scan(&jobs); err != nil || jobs != 0 {
-		t.Fatalf("tidak boleh ada job untuk forum yang kuotanya habis: jobs=%d err=%v", jobs, err)
+	// Tidak boleh ada job yang diantre; hanya baris SKIPPED yang menjelaskan mengapa forum tanpa ringkasan.
+	var queued, skipped int
+	if err := e.sqlStore.DB().QueryRow(e.rb(`SELECT COUNT(*) FROM forum_memory_jobs WHERE forum_id = ? AND status <> 'SKIPPED'`), subs[2]).Scan(&queued); err != nil || queued != 0 {
+		t.Fatalf("tidak boleh ada job yang diantre untuk forum yang kuotanya habis: queued=%d err=%v", queued, err)
+	}
+	if err := e.sqlStore.DB().QueryRow(e.rb(`SELECT COUNT(*) FROM forum_memory_jobs WHERE forum_id = ? AND status = 'SKIPPED' AND last_error = 'quota_exceeded'`), subs[2]).Scan(&skipped); err != nil || skipped != 1 {
+		t.Fatalf("harus tercatat satu baris SKIPPED karena kuota: skipped=%d err=%v", skipped, err)
 	}
 	// Forum tetap berakhir normal.
 	var exp bool

@@ -14,6 +14,7 @@ export function forumMemoryLabel(f: MyForum): string {
     case 'failed': return f.parent_role === 'admin' || f.parent_role === 'creator'
       ? 'Pemrosesan gagal' : 'Ringkasan belum tersedia';
     case 'rejected': return 'Draf ditolak';
+    case 'quota_exceeded': return 'Ringkasan tidak dibuat (kuota habis)';
     default: return '';
   }
 }

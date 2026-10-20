@@ -157,5 +157,8 @@ func (f *UserForumItem) ApplyMemoryVisibility(enabled bool) {
 		f.MemoryState = "processing"
 	case f.JobStatus == "FAILED":
 		f.MemoryState = "failed"
+	case f.JobStatus == JobStatusSkipped:
+		// Hanya satu alasan yang dicatat saat ini (kuota habis); tidak membocorkan detail paket.
+		f.MemoryState = "quota_exceeded"
 	}
 }

@@ -24,5 +24,7 @@ const {needsForumReview,forumMemoryLabel}=load('forumLifecycle.ts');
  for(const [memory_state,label] of [['processing','Memori sedang diproses'],['under_review','Sedang ditinjau admin'],['published','Memori tersedia']]) assert.equal(forumMemoryLabel({is_active:false,memory_enabled:true,memory_state}),label);
  const draft={is_active:false,memory_enabled:true,memory_state:'review_required',draft_id:'secret',parent_role:'admin'};
  assert.equal(needsForumReview(draft),true);assert.equal(needsForumReview({...draft,parent_role:'member'}),false);assert.equal(needsForumReview({...draft,memory_enabled:false}),false);assert.equal(forumMemoryLabel({...draft,memory_enabled:false}),'');
+ for (const parent_role of ['admin','member',undefined]) assert.equal(forumMemoryLabel({...draft,parent_role,memory_state:'quota_exceeded'}),'Ringkasan tidak dibuat (kuota habis)');
+ assert.equal(forumMemoryLabel({...draft,memory_enabled:false,memory_state:'quota_exceeded'}),'');assert.equal(forumMemoryLabel({...draft,is_active:true,memory_state:'quota_exceeded'}),'');assert.equal(needsForumReview({...draft,memory_state:'quota_exceeded'}),false);
  console.log('Web source contract, lifecycle, cancellation, timeout and late response passed');
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -62,3 +62,4 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - `CreateSubGroupModal` dan `SubGroupListDrawer` mengikuti perilaku mobile: info jatah forum aktif, opsi 1 Bulan dikunci untuk paket Gratis, kuota ringkasan AI, dan pesan akhiri topik sesuai hasil server. Logika dibagi lewat `lib/entitlement.ts` (salinan identik dengan mobile, ubah bersamaan).
 - Tes: `npm run build` lulus (0 error), `node scripts/test/entitlement-ui.cjs` lulus. Belum diuji interaktif di browser.
 - Belum ada halaman admin web untuk memberi paket; sementara lewat `POST /api/admin/entitlements`.
+- (21 Okt 2026) Daftar forum di drawer menampilkan **"Ringkasan tidak dibuat (kuota habis)"** untuk `memory_state: quota_exceeded` (`lib/forumLifecycle.ts`). `npm run build` dan `source-message.cjs` lulus. Belum diuji di browser.

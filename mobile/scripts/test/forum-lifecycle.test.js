@@ -11,6 +11,10 @@ const { ForumListState, needsForumReview, forumMemoryLabel } = loadFresh(['servi
  assert.equal(needsForumReview({...draft,memory_enabled:false}),false);
  for (const memory_state of ['published','rejected','ended','processing']) assert.equal(needsForumReview({...draft,memory_state}),false);
  assert.equal(forumMemoryLabel({...draft,memory_enabled:false}),'');
+ for (const parent_role of ['admin','member',undefined]) assert.equal(forumMemoryLabel({...draft,parent_role,memory_state:'quota_exceeded'}),'Ringkasan tidak dibuat (kuota habis)','semua anggota diberi tahu, tanpa menyebut paket');
+ assert.equal(forumMemoryLabel({...draft,memory_enabled:false,memory_state:'quota_exceeded'}),'','AI tidak aktif untuk grup: tidak menyebut kuota');
+ assert.equal(forumMemoryLabel({...draft,is_active:true,memory_state:'quota_exceeded'}),'','forum aktif belum berakhir');
+ assert.equal(needsForumReview({...draft,memory_state:'quota_exceeded'}),false,'tidak ada draf untuk ditinjau');
  assert.equal(forumMemoryLabel({...draft,memory_state:'under_review'}),'Sedang ditinjau admin');
  let items=[];
  const state = new ForumListState(data => { items=data; });

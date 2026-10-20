@@ -58,6 +58,8 @@ func (e *MemoryQuotaError) Unwrap() error { return ErrMemoryQuotaExceeded }
 // MemoryQuotaChecker memeriksa kuota ringkasan AI sebelum job dibuat (dipasang pada GatedMemoryStore).
 type MemoryQuotaChecker interface {
 	CheckMemoryJobQuota(ctx context.Context, forumID string) error
+	// RecordQuotaSkip mencatat bahwa forum berakhir tanpa ringkasan karena kuota habis (job berstatus SKIPPED).
+	RecordQuotaSkip(ctx context.Context, forumID, groupID string) error
 }
 
 // Entitlement adalah paket yang tercatat untuk satu user.
@@ -209,7 +211,7 @@ func (s *SQLEntitlementStore) CountMemoryJobs(ctx context.Context, tenantID, use
 
 // CheckMemoryJobQuota menolak (ErrMemoryQuotaExceeded) bila pembuat forum sudah memakai kuota ringkasan AI bulan ini.
 // Kuota dimiliki pembuat forum dan hanya berlaku di tenant default. Forum yang sudah punya job tidak diperiksa
-// (INSERT akan ditolak UNIQUE(forum_id) oleh pemanggil). Pengecekan dan INSERT tidak atomik: dua forum milik pembuat
+// (INSERT akan ditolak UNIQUE(forum_id) oleh pemanggil), kecuali berstatus SKIPPED. Pengecekan dan INSERT tidak atomik: dua forum milik pembuat
 // yang sama yang berakhir bersamaan tepat di ambang kuota dapat melampaui batas satu job; biaya per job terbatas
 // sehingga ini diterima demi menghindari penguncian di jalur worker.
 func (s *SQLEntitlementStore) CheckMemoryJobQuota(ctx context.Context, forumID string) error {
@@ -225,14 +227,15 @@ func (s *SQLEntitlementStore) CheckMemoryJobQuota(ctx context.Context, forumID s
 	if creator == "" || tenantID != entitlement.DefaultTenant {
 		return nil
 	}
-	var exists int
-	err = s.db.QueryRowContext(ctx, rebindQuery(s.driverName, `SELECT 1 FROM forum_memory_jobs WHERE forum_id = ?`), forumID).Scan(&exists)
-	if err == nil {
-		return nil
+	var existing string
+	err = s.db.QueryRowContext(ctx, rebindQuery(s.driverName, `SELECT status FROM forum_memory_jobs WHERE forum_id = ?`), forumID).Scan(&existing)
+	if err == nil && existing != JobStatusSkipped {
+		return nil // sudah ada job sungguhan; INSERT akan ditolak UNIQUE(forum_id) oleh pemanggil
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
+	// Tanpa job, atau job SKIPPED sebelumnya: hitung kuota seperti biasa agar pesannya tetap benar.
 
 	now := time.Now().UTC()
 	ent, err := readEntitlement(ctx, s.db, s.driverName, tenantID, creator)
@@ -249,6 +252,19 @@ func (s *SQLEntitlementStore) CheckMemoryJobQuota(ctx context.Context, forumID s
 		return &MemoryQuotaError{Plan: plan, Limit: limit, Used: used, ResetAt: entitlement.PeriodEnd(now)}
 	}
 	return nil
+}
+
+// RecordQuotaSkip menyimpan baris job berstatus SKIPPED untuk forum yang kuotanya habis. is_terminal_fail=true menjaga baris
+// ini tidak dihitung sebagai pemakaian kuota dan tidak pernah diantre (worker hanya mengambil QUEUED). Idempotent.
+func (s *SQLEntitlementStore) RecordQuotaSkip(ctx context.Context, forumID, groupID string) error {
+	now := time.Now().UTC()
+	_, err := s.db.ExecContext(ctx, rebindQuery(s.driverName, `
+		INSERT INTO forum_memory_jobs (id, tenant_id, forum_id, group_id, status, attempt_count, max_attempts,
+			is_terminal_fail, last_error, message_count, created_at, completed_at)
+		VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, 0, ?, ?)
+		ON CONFLICT (forum_id) DO NOTHING`),
+		uuid.NewString(), entitlement.DefaultTenant, forumID, groupID, JobStatusSkipped, true, SkipReasonQuota, now, now)
+	return err
 }
 
 func (s *SQLEntitlementStore) SetEntitlement(ctx context.Context, in SetEntitlementInput) (*Entitlement, error) {

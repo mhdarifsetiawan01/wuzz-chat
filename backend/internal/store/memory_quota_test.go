@@ -174,7 +174,8 @@ func TestMemoryQuota_NonDefaultTenantAndWhitelistPrecedence(t *testing.T) {
 
 type failingQuota struct{}
 
-func (failingQuota) CheckMemoryJobQuota(context.Context, string) error { return errors.New("db down") }
+func (failingQuota) CheckMemoryJobQuota(context.Context, string) error     { return errors.New("db down") }
+func (failingQuota) RecordQuotaSkip(context.Context, string, string) error { return nil }
 
 func TestMemoryQuota_InfrastructureErrorFailsOpen(t *testing.T) {
 	e := newQuotaEnv(t, false)
@@ -183,5 +184,83 @@ func TestMemoryQuota_InfrastructureErrorFailsOpen(t *testing.T) {
 	g := e.group(u, "Grup FailOpen")
 	if _, err := e.endForum(g, u); err != nil {
 		t.Fatalf("galat infrastruktur pada cek kuota tidak boleh membatalkan job: %v", err)
+	}
+}
+
+func TestMemoryQuota_SkippedForumIsRecordedAndExplainedWithoutBeingQueued(t *testing.T) {
+	e := newQuotaEnv(t, true)
+	u := e.user("skip_user")
+	g := e.group(u, "Grup Skip")
+	for i := 0; i < 2; i++ {
+		if _, err := e.endForum(g, u); err != nil {
+			t.Fatal(err)
+		}
+	}
+	third, err := e.endForum(g, u)
+	if !errors.Is(err, store.ErrMemoryQuotaExceeded) {
+		t.Fatalf("prasyarat: job ke-3 harus ditolak kuota, dapat %v", err)
+	}
+
+	// Baris SKIPPED tercatat, terminal, dan alasannya kuota.
+	var status, reason string
+	var terminal bool
+	if err := e.ms.DB().QueryRow(rebindForTest(e.ms, `SELECT status, last_error, is_terminal_fail FROM forum_memory_jobs WHERE forum_id = ?`), third.ID).
+		Scan(&status, &reason, &terminal); err != nil {
+		t.Fatalf("baris SKIPPED harus ada: %v", err)
+	}
+	if status != store.JobStatusSkipped || reason != store.SkipReasonQuota || !terminal {
+		t.Fatalf("baris salah: status=%s reason=%s terminal=%v", status, reason, terminal)
+	}
+
+	// Tidak pernah diantre dan tidak memakai kuota.
+	pending, err := e.inner.GetPendingJobs(e.ctx, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, j := range pending {
+		if j.ForumID == third.ID {
+			t.Fatal("job SKIPPED tidak boleh diantre")
+		}
+	}
+	if n, _ := e.es.CountMemoryJobs(e.ctx, "default", u, time.Now().UTC()); n != 2 {
+		t.Fatalf("job SKIPPED tidak boleh dihitung sebagai pemakaian: n=%d", n)
+	}
+
+	// Mencoba lagi (mis. tombol akhiri ditekan ulang) tetap dilaporkan sebagai kuota, bukan galat UNIQUE, dan tidak menggandakan baris.
+	if _, err := e.jobs.CreateJob(e.ctx, third.ID, g); !errors.Is(err, store.ErrMemoryQuotaExceeded) {
+		t.Fatalf("percobaan ulang harus tetap ErrMemoryQuotaExceeded: %v", err)
+	}
+	var rows int
+	_ = e.ms.DB().QueryRow(rebindForTest(e.ms, `SELECT COUNT(*) FROM forum_memory_jobs WHERE forum_id = ?`), third.ID).Scan(&rows)
+	if rows != 1 {
+		t.Fatalf("harus tetap satu baris, dapat %d", rows)
+	}
+
+	// Forum Saya menjelaskan: forum berakhir + AI aktif -> quota_exceeded; AI tidak aktif -> ended biasa.
+	if err := e.gs.ExpireSubGroupNow(third.ID); err != nil {
+		t.Fatal(err)
+	}
+	forums, err := e.gs.GetUserForumsWithContext(e.ctx, u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, f := range forums {
+		if f.ID != third.ID {
+			continue
+		}
+		found = true
+		withAI, withoutAI := f, f
+		withAI.ApplyMemoryVisibility(true)
+		withoutAI.ApplyMemoryVisibility(false)
+		if withAI.MemoryState != "quota_exceeded" || withAI.DraftID != "" || withAI.MemoryID != "" {
+			t.Fatalf("state dengan AI aktif salah: %+v", withAI)
+		}
+		if withoutAI.MemoryState != "ended" {
+			t.Fatalf("tanpa AI aktif tidak boleh menyebut kuota: %q", withoutAI.MemoryState)
+		}
+	}
+	if !found {
+		t.Fatal("forum harus muncul di Forum Saya")
 	}
 }

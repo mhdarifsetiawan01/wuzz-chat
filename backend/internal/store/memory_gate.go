@@ -79,6 +79,11 @@ func (s *GatedMemoryStore) CreateJob(ctx context.Context, forumID, groupID strin
 	if s.quota != nil {
 		if err := s.quota.CheckMemoryJobQuota(ctx, forumID); err != nil {
 			if errors.Is(err, ErrMemoryQuotaExceeded) {
+				// Catat agar forum yang berakhir tanpa ringkasan bisa dijelaskan kepada anggotanya (gagal mencatat tidak
+				// mengubah hasil: job tetap tidak dibuat).
+				if recErr := s.quota.RecordQuotaSkip(ctx, forumID, groupID); recErr != nil {
+					log.Printf("⚠️ [MemoryQuota] gagal mencatat forum %s dilewati karena kuota: %v", forumID, recErr)
+				}
 				return nil, err
 			}
 			// Gangguan database sesaat tidak boleh menghilangkan ringkasan selamanya (forum tidak dicoba lagi): lanjutkan.
