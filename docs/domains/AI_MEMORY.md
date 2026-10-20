@@ -13,7 +13,7 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Group Memory AI (Forum I
 1. **Prinsip Human-in-the-Loop**:
    - > *"AI captures. Humans validate. Wuzz remembers."*
    - AI **DILARANG KERAS** mempublikasikan memori langsung ke arsip publik tanpa persetujuan Admin/Moderator.
-   - Seluruh output LLM disimpan sebagai *Draft* berstatus `pending_review`.
+   - Seluruh output LLM disimpan sebagai *Draft* berstatus `DRAFT` (menunggu tinjauan admin).
 2. **Kutipan Bukti Otentik (*Strict Citation Evidence*)**:
    - Setiap butir keputusan atau fakta yang disimpulkan oleh AI wajib menyertakan kutipan teks asli dari pesan anggota (`quote_text`) beserta `message_id`.
 3. **Isolasi Privasi (Hanya Forum Publik)**:
@@ -40,17 +40,21 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Group Memory AI (Forum I
 
 ## 🗄️ 3. Skema Basis Data (7 Tabel Relasional)
 
-- `forum_memory_jobs`: `id`, `tenant_id`, `forum_id` (UNIQUE), `group_id`, `status` (`QUEUED`/`PROCESSING`/`COMPLETED`/`FAILED`/`SKIPPED`), `attempt_count`, `max_attempts`, `is_terminal_fail`, `last_error`, `message_count`, `created_at`, `completed_at`. `SKIPPED` (`last_error = quota_exceeded`, `is_terminal_fail = true`) = forum berakhir tanpa ringkasan karena kuota habis; tidak pernah diantre dan tidak dihitung sebagai pemakaian. *(Kolom lama di dokumen ini, `conversation_id`/`error_message`/status huruf kecil, tidak sesuai DDL; baris ini dikoreksi 21 Okt 2026. Tabel lain di bagian ini belum diverifikasi ulang.)*
-- `memory_drafts`: `id`, `job_id`, `conversation_id`, `status` (`pending_review`/`approved`/`rejected`), `confidence_score`.
-- `memory_artifacts`: `id`, `draft_id`, `category` (`decision`/`action_item`/`summary`/`insight`), `title`, `content`, `tags`.
-- `artifact_evidences`: `id`, `artifact_id`, `message_id`, `quote_text`, `author_id`.
-- `approved_memories`: `id`, `artifact_id`, `conversation_id`, `approved_by`, `published_at`.
-- `memory_review_actions`: Log audit persetujuan / penolakan draft beserta alasan.
-- `memory_view_events`: Statistik pembacaan arsip oleh anggota forum.
+Sumber kebenaran: DDL di `backend/internal/store/sql.go` (blok "Group Memory AI"); konstanta status di `store/memory_store.go`. Semua status dan tipe memakai **huruf besar**. Disinkronkan dengan DDL pada 21 Oktober 2026 (dokumen lama memuat nama kolom dan status yang tidak ada).
+
+- `forum_memory_jobs`: `id` (PK), `tenant_id`, `forum_id` (**UNIQUE**: satu job per forum), `group_id`, `status` (`QUEUED` default / `PROCESSING` / `COMPLETED` / `FAILED` / `SKIPPED`), `attempt_count`, `max_attempts` (default 3), `is_terminal_fail`, `last_error`, `message_count`, `created_at`, `started_at`, `completed_at`, `next_retry_at`. `SKIPPED` (`last_error = quota_exceeded`, `is_terminal_fail = true`) = forum berakhir tanpa ringkasan karena kuota habis; tidak pernah diantre dan tidak dihitung sebagai pemakaian kuota. Indeks: `(status, next_retry_at)`, `forum_id`, `group_id`, `tenant_id`.
+- `memory_drafts`: `id`, `tenant_id`, `job_id` (**UNIQUE**), `forum_id`, `group_id`, `status` (`DRAFT` default / `APPROVED` / `REJECTED`), `message_count_processed`, `was_truncated`, `truncation_note`, `reviewed_at`, `reviewed_by`, `rejection_reason`, `created_at`. Indeks: `forum_id`, `(group_id, status)`, `reviewed_by`, `tenant_id`.
+- `memory_artifacts`: `id`, `draft_id`, `type` (`SUMMARY` / `DECISION` / `JOURNEY_LITE`), `content` (teks yang dapat diedit admin), `ai_original_content` (keluaran AI asli, tidak berubah), `confidence` (`HIGH` / `MEDIUM` default / `LOW`), `is_human_edited`, `is_removed`, `position`, `created_at`, `updated_at`.
+- `artifact_evidences`: `id`, `artifact_id`, `message_id`, `message_preview` (maks. 255 karakter, cuplikan pesan saat ringkasan dibuat), `message_sender_name`, `message_sent_at`, `created_at`. Bukti menunjuk pesan lewat `message_id`; navigasi ke pesan asli lewat `GET /api/messages?room_id=…&message_id=…`.
+- `approved_memories`: `id`, `tenant_id`, `draft_id` (**UNIQUE**), `forum_id` (**UNIQUE**), `group_id`, `approved_by`, `approved_at`, `has_human_edits`, `snapshot_summary`, `snapshot_summary_conf`, `snapshot_decisions` (JSON dalam teks, default `[]`), `snapshot_journey_lite`, `snapshot_journey_conf`, `is_journey_lite_removed`, `created_at`. Cache baca yang tidak berubah: **salinan (snapshot)** isi saat disetujui, bukan referensi ke artefak.
+- `memory_review_actions`: log audit append-only. `id`, `draft_id`, `admin_id`, `action` (`APPROVED` / `REJECTED` / `EDITED_SUMMARY` / `EDITED_DECISION` / `REMOVED_JOURNEY_LITE` / `APPROVED_WITH_EDITS`), `artifact_id`, `old_content`, `new_content`, `rejection_reason`, `created_at`.
+- `memory_view_events`: statistik baca arsip. `id`, `approved_memory_id`, `forum_id`, `group_id`, `viewer_id`, `viewer_role` (`ADMIN` / `MEMBER` default), `created_at`.
 
 ---
 
 ## 🔌 4. Kontrak REST API
+
+> **Perlu verifikasi ulang (dicatat 21 Okt 2026):** tabel di bawah belum dicocokkan dengan rute sebenarnya di `backend/internal/api/memory_handler.go`. Rute yang terbukti ada di kode antara lain `GET /api/memory/drafts`, `GET|DELETE /api/memory/drafts/{id}`, `POST /api/memory/drafts/{id}/approve`, `.../approve-with-changes`, `.../reject`, `DELETE .../journey`, dan `PATCH .../artifacts/{artifact_id}`; sebagian baris di tabel (mis. `POST /api/memory/jobs`, `.../action`) tidak ditemukan dengan nama itu. Jangan jadikan tabel ini acuan sebelum dikoreksi.
 
 | Method | Endpoint | Akses | Keterangan |
 |---|---|---|---|

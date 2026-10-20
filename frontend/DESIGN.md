@@ -118,7 +118,7 @@ Use for **all** modals and drawers. Do not create new backdrop families.
 ```
 .modal-overlay            — Fixed backdrop z=var(--z-modal)
 .modal-overlay.drawer     — Right-aligned drawer
-.modal-card-unified       — Glass card (max-width 480px, max-height 90vh)
+.modal-card-unified       — Kartu modal hampir opak (`--bg-card`, max-width 480px, max-height 90vh); sebelum 21 Okt 2026 memakai `--bg-surface` (72%) sehingga teks latar tembus
 .modal-card-unified.drawer-card  — Full-height drawer
 .modal-card-unified.modal-wide   — 640px wide modal
 .modal-header-unified     — Header with title + close button

@@ -5905,7 +5905,7 @@ h4 { font-size: 1rem;   font-weight: 600; }
 
 /* ─── Modal card container ─── */
 .modal-card-unified {
-  background: var(--bg-surface);
+  background: var(--bg-card); /* hampir opak: teks halaman di belakang dialog tidak boleh tembus */
   border: var(--glass-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
