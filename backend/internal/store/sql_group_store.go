@@ -1062,7 +1062,7 @@ func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, paren
 			SELECT 
 				c.id, c.parent_id, c.title, COALESCE(c.description, ''),
 				c.expires_at, c.created_by, c.created_at, COALESCE(c.status, 'active'),
-				COALESCE(c.is_public, true) AS is_public,
+				COALESCE(c.is_public, true) AS is_public, COALESCE(c.extended_days, 0),
 				COUNT(DISTINCT cm.user_id) AS member_count,
 				BOOL_OR(cm.user_id = $2) AS is_member,
 				BOOL_OR(cjr.id IS NOT NULL) AS has_pending_request,
@@ -1074,7 +1074,7 @@ func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, paren
 			  AND (c.status IS NULL OR c.status IN ('active', 'expired'))
 			  AND COALESCE(c.tenant_id, 'default') = (SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = $1)
 			  AND COALESCE(c.tenant_id, 'default') = (SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = $2)
-			GROUP BY c.id, c.parent_id, c.title, c.description, c.expires_at, c.created_by, c.created_at, c.status, c.is_public
+			GROUP BY c.id, c.parent_id, c.title, c.description, c.expires_at, c.created_by, c.created_at, c.status, c.is_public, c.extended_days
 			ORDER BY c.created_at DESC
 		`
 	} else {
@@ -1082,7 +1082,7 @@ func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, paren
 			SELECT 
 				c.id, c.parent_id, c.title, COALESCE(c.description, ''),
 				c.expires_at, c.created_by, c.created_at, COALESCE(c.status, 'active'),
-				COALESCE(c.is_public, 1) AS is_public,
+				COALESCE(c.is_public, 1) AS is_public, COALESCE(c.extended_days, 0),
 				COUNT(DISTINCT cm.user_id) AS member_count,
 				MAX(CASE WHEN cm.user_id = ? THEN 1 ELSE 0 END) AS is_member,
 				MAX(CASE WHEN cjr.id IS NOT NULL THEN 1 ELSE 0 END) AS has_pending_request,
@@ -1094,7 +1094,7 @@ func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, paren
 			  AND (c.status IS NULL OR c.status IN ('active', 'expired'))
 			  AND COALESCE(c.tenant_id, 'default') = (SELECT COALESCE(tenant_id, 'default') FROM conversations WHERE id = ?)
 			  AND COALESCE(c.tenant_id, 'default') = (SELECT COALESCE(tenant_id, 'default') FROM users WHERE id = ?)
-			GROUP BY c.id, c.parent_id, c.title, c.description, c.expires_at, c.created_by, c.created_at, c.status, c.is_public
+			GROUP BY c.id, c.parent_id, c.title, c.description, c.expires_at, c.created_by, c.created_at, c.status, c.is_public, c.extended_days
 			ORDER BY c.created_at DESC
 		`
 	}
@@ -1122,7 +1122,7 @@ func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, paren
 			if err := rows.Scan(
 				&item.ID, &item.ParentID, &item.Title, &item.Description,
 				&expiresAt, &item.CreatedBy, &item.CreatedAt, &item.Status,
-				&isPublicVal, &item.MemberCount, &isMemberVal, &hasPendingVal,
+				&isPublicVal, &item.ExtendedDays, &item.MemberCount, &isMemberVal, &hasPendingVal,
 				&item.PendingRequestsCount,
 			); err != nil {
 				continue
@@ -1137,7 +1137,7 @@ func (s *SQLGroupStore) GetActiveSubGroupsWithContext(ctx context.Context, paren
 			if err := rows.Scan(
 				&item.ID, &item.ParentID, &item.Title, &item.Description,
 				&expiresAt, &item.CreatedBy, &item.CreatedAt, &item.Status,
-				&isPublicInt, &item.MemberCount, &isMemberInt, &hasPendingInt,
+				&isPublicInt, &item.ExtendedDays, &item.MemberCount, &isMemberInt, &hasPendingInt,
 				&item.PendingRequestsCount,
 			); err != nil {
 				continue

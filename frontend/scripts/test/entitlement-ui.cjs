@@ -42,4 +42,16 @@ assert.doesNotMatch(e.expireOutcomeMessage('queued', false), /diproses/);
 assert.doesNotMatch(e.expireOutcomeMessage(undefined, true), /diproses/);
 const all = [full.text, out.text, e.durationLockedNote(base(), 30), e.expireOutcomeMessage('quota_exceeded', true)].join(' ');
 assert.doesNotMatch(all.toLowerCase(), /bayar|beli|harga|rp\s?\d|transfer|http|upgrade|langganan/);
+// Perpanjangan masa aktif forum: 1-3 hari per kali, total 30 hari.
+assert.deepEqual(e.extendChoices(0), [1, 2, 3]);
+assert.deepEqual(e.extendChoices(undefined), [1, 2, 3], 'server lama tanpa field = belum pernah diperpanjang');
+assert.deepEqual(e.extendChoices(28), [1, 2], 'tidak menawarkan melebihi sisa jatah');
+assert.deepEqual(e.extendChoices(29), [1]);
+assert.deepEqual(e.extendChoices(30), []);
+assert.deepEqual(e.extendChoices(99), [], 'nilai di luar batas tidak menghasilkan pilihan negatif');
+assert.equal(e.extendRemainingDays(12), 18);
+assert.equal(e.extendRemainingDays(NaN), 30);
+assert.match(e.extendSuccessMessage(2, 18), /diperpanjang 2 hari\. Sisa jatah perpanjangan forum ini 18 hari\./);
+assert.match(e.extendSuccessMessage(1, 0), /jatah perpanjangan forum ini sudah habis/i);
+
 console.log('Web entitlement UI: batas forum, durasi, kuota AI, pesan akhiri, dan teks netral passed');

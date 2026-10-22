@@ -102,3 +102,27 @@ export function expireOutcomeMessage(memory: string | undefined, memoryEnabled: 
   }
   return 'Forum telah diakhiri. Riwayat diskusi tetap dapat dibaca.';
 }
+
+/** Batas perpanjangan masa aktif forum (cermin entitlement.ForumExtend* di backend; server tetap penentu). */
+export const FORUM_EXTEND_MAX_DAYS = 3;
+export const FORUM_EXTEND_MAX_TOTAL_DAYS = 30;
+
+/** Sisa hari perpanjangan yang masih boleh dipakai forum (total maksimal 30 hari). */
+export function extendRemainingDays(extendedDays: number | undefined | null): number {
+  const used = Number.isFinite(extendedDays as number) ? Math.max(0, Math.floor(extendedDays as number)) : 0;
+  return Math.max(0, FORUM_EXTEND_MAX_TOTAL_DAYS - used);
+}
+
+/** Pilihan hari untuk satu perpanjangan: 1 sampai 3, tidak melebihi sisa jatah. Kosong bila jatah habis. */
+export function extendChoices(extendedDays: number | undefined | null): number[] {
+  const max = Math.min(FORUM_EXTEND_MAX_DAYS, extendRemainingDays(extendedDays));
+  return Array.from({ length: max }, (_, i) => i + 1);
+}
+
+/** Pesan setelah forum berhasil diperpanjang. */
+export function extendSuccessMessage(addedDays: number, remainingDays: number): string {
+  const tail = remainingDays > 0
+    ? `Sisa jatah perpanjangan forum ini ${remainingDays} hari.`
+    : 'Jatah perpanjangan forum ini sudah habis.';
+  return `Masa aktif forum diperpanjang ${addedDays} hari. ${tail}`;
+}

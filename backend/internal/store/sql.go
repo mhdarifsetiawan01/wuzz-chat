@@ -131,6 +131,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 			is_e2ee BOOLEAN DEFAULT false,
 			status VARCHAR(32) NOT NULL DEFAULT 'active',
 			ai_summary TEXT DEFAULT '',
+			extended_days INTEGER NOT NULL DEFAULT 0,
 			created_at TIMESTAMP NOT NULL,
 			updated_at TIMESTAMP NOT NULL
 		);`,
@@ -584,6 +585,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_e2ee BOOLEAN DEFAULT false;`)
 		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'active';`)
 		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS ai_summary TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS extended_days INTEGER NOT NULL DEFAULT 0;`)
 		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN IF NOT EXISTS role VARCHAR(32) NOT NULL DEFAULT 'member';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_parent ON conversations(parent_id);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_members_role ON conversation_members(conversation_id, role);`)
@@ -657,6 +659,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN is_e2ee BOOLEAN DEFAULT false;`)
 		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'active';`)
 		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN ai_summary TEXT DEFAULT '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN extended_days INTEGER NOT NULL DEFAULT 0;`)
 		_, _ = s.db.Exec(`ALTER TABLE conversation_members ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'member';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_parent ON conversations(parent_id);`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conv_members_role ON conversation_members(conversation_id, role);`)

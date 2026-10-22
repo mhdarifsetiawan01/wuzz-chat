@@ -37,11 +37,19 @@ type Limits struct {
 	MaxActiveForums int   // jumlah forum aktif yang boleh dibuat satu user
 	DurationDays    []int // durasi forum yang boleh dipilih
 	MonthlyAIJobs   int   // jumlah ringkasan AI Memory per bulan kalender (UTC) untuk forum buatan user
+	CanExtendForum  bool  // boleh memperpanjang masa aktif forum buatannya sendiri
 }
+
+// Aturan perpanjangan masa aktif forum (berlaku untuk paket yang CanExtendForum).
+const (
+	ForumExtendMinDays      = 1  // hari minimum per perpanjangan
+	ForumExtendMaxDays      = 3  // hari maksimum per perpanjangan
+	ForumExtendMaxTotalDays = 30 // total hari perpanjangan yang boleh terkumpul pada satu forum
+)
 
 var limitsByPlan = map[string]Limits{
 	PlanFree: {MaxActiveForums: 1, DurationDays: []int{7}, MonthlyAIJobs: 2},
-	PlanPro:  {MaxActiveForums: 5, DurationDays: []int{7, 30}, MonthlyAIJobs: 20},
+	PlanPro:  {MaxActiveForums: 5, DurationDays: []int{7, 30}, MonthlyAIJobs: 20, CanExtendForum: true},
 }
 
 // PeriodStart awal bulan kalender (UTC) yang memuat t; kuota AI dihitung sejak saat ini.

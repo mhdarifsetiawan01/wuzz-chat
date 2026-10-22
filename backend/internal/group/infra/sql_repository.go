@@ -205,6 +205,13 @@ func (r *SQLGroupRepository) ExpireSubGroupNow(subGroupID string) error {
 	return r.groupStore.ExpireSubGroupNow(subGroupID)
 }
 
+func (r *SQLGroupRepository) ExtendSubGroup(ctx context.Context, parentID, subID, userID string, days int) (*group.ExtendResult, error) {
+	if r.groupStore == nil {
+		return nil, errors.New("group store belum diinisialisasi")
+	}
+	return r.groupStore.ExtendSubGroup(ctx, parentID, subID, userID, days)
+}
+
 func (r *SQLGroupRepository) GetUserByID(userID string) (*group.User, error) {
 	if r.userStore == nil {
 		return nil, errors.New("user store belum diinisialisasi")

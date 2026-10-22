@@ -1626,6 +1626,70 @@ paths:
                         type: string
                         format: date-time
 
+  /api/groups/{id}/subgroups/{subId}/extend:
+    post:
+      tags:
+        - Ephemeral Fora (Subgroups)
+      summary: Extend Subgroup Lifetime (Pro creator)
+      description: |
+        Adds 1 to 3 days to an active forum's `expires_at`. Only the forum creator on the Pro plan may do this
+        (plan gate follows FORUM_LIMITS_ENABLED, same as forum limits). A forum can be extended at most 30 days in total.
+        Expired forums cannot be extended or reactivated. Errors carry a machine-readable `code`:
+        `invalid_days` (400), `extend_pro_required` / `extend_not_creator` / `forbidden` (403), `not_found` (404),
+        `forum_expired` / `extend_limit_reached` (409).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [days]
+              properties:
+                days:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+      responses:
+        '200':
+          description: Subgroup extended
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  extend:
+                    type: object
+                    properties:
+                      expires_at:
+                        type: string
+                        format: date-time
+                      remaining_seconds:
+                        type: integer
+                      added_days:
+                        type: integer
+                      extended_days:
+                        type: integer
+                        description: Total extension days used so far (max 30).
+                      extend_remaining_days:
+                        type: integer
+
   /api/groups/{id}/subgroups/{subId}/expire:
     post:
       tags:

@@ -5,7 +5,7 @@ import { needsForumReview, forumMemoryLabel } from '@/lib/forumLifecycle'
 import React, { useState, useEffect, useCallback } from 'react'
 import { SubGroupItem, JoinRequestItem, MyForum } from '@/lib/types'
 import { apiRequest } from '@/lib/api'
-import { expireOutcomeMessage } from '@/lib/entitlement'
+import { expireOutcomeMessage, extendChoices, extendSuccessMessage } from '@/lib/entitlement'
 
 interface SubGroupListDrawerProps {
   memoryEnabled?: boolean
@@ -79,6 +79,8 @@ export default function SubGroupListDrawer({
   const forumLifecycle = lifecycleData?.scope === lifecycleScope ? lifecycleData.forums : []
   const memoryDrafts = forumLifecycle.filter(needsForumReview)
   const [expiringId, setExpiringId] = useState<string | null>(null)
+  const [extendPickId, setExtendPickId] = useState<string | null>(null)
+  const [extendingId, setExtendingId] = useState<string | null>(null)
 
   const fetchSubgroups = useCallback(async () => {
     if (!parentGroupId) return
@@ -247,6 +249,37 @@ export default function SubGroupListDrawer({
       alert(errObj?.message || 'Gagal mengakhiri topik forum')
     } finally {
       setExpiringId(null)
+    }
+  }
+
+  // Perpanjang masa aktif: hanya pembuat forum berpaket Pro (server memutuskan dan mengirim pesan yang sesuai).
+  const handleExtend = async (sub: SubGroupItem, days: number) => {
+    setExtendingId(sub.id)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
+    try {
+      const { data, error } = await apiRequest<{ extend?: { added_days: number; extend_remaining_days: number } }>(
+        `/api/groups/${encodeURIComponent(parentGroupId)}/subgroups/${encodeURIComponent(sub.id)}/extend`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ days }),
+          signal: controller.signal,
+        }
+      )
+      clearTimeout(timeoutId)
+      if (error) {
+        throw new Error(error)
+      }
+      setExtendPickId(null)
+      setSuccessToast(extendSuccessMessage(data?.extend?.added_days ?? days, data?.extend?.extend_remaining_days ?? 0))
+      setTimeout(() => setSuccessToast(''), 5000)
+      await fetchSubgroups()
+    } catch (err: unknown) {
+      clearTimeout(timeoutId)
+      const errObj = err as { message?: string }
+      alert(errObj?.message || 'Gagal memperpanjang masa aktif forum')
+    } finally {
+      setExtendingId(null)
     }
   }
 
@@ -860,6 +893,67 @@ export default function SubGroupListDrawer({
                                   </span>
                                 )}
                               </button>
+                            )}
+
+                            {/* Perpanjang masa aktif: pembuat forum (Pro), 1-3 hari per kali, total maks 30 hari */}
+                            {!ended && currentUserId && sub.created_by === currentUserId && (
+                              extendPickId === sub.id ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  {extendChoices(sub.extended_days).map((d) => (
+                                    <button
+                                      key={d}
+                                      type="button"
+                                      onClick={() => handleExtend(sub, d)}
+                                      disabled={extendingId === sub.id}
+                                      title={`Perpanjang ${d} hari`}
+                                      style={{
+                                        background: 'var(--tint-accent-10)',
+                                        border: '1px solid rgba(99, 102, 241, 0.35)',
+                                        color: 'var(--accent-400)',
+                                        borderRadius: '6px',
+                                        padding: '2px 8px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 600,
+                                        cursor: extendingId === sub.id ? 'wait' : 'pointer',
+                                      }}
+                                    >
+                                      {extendingId === sub.id ? '...' : `+${d} hari`}
+                                    </button>
+                                  ))}
+                                  <button
+                                    type="button"
+                                    onClick={() => setExtendPickId(null)}
+                                    disabled={extendingId === sub.id}
+                                    style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.72rem', cursor: 'pointer' }}
+                                  >
+                                    Batal
+                                  </button>
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (extendChoices(sub.extended_days).length === 0) {
+                                      alert('Forum ini sudah diperpanjang sampai batas 30 hari dan tidak dapat diperpanjang lagi.')
+                                      return
+                                    }
+                                    setExtendPickId(sub.id)
+                                  }}
+                                  title="Perpanjang masa aktif forum (1-3 hari per kali, total maksimal 30 hari)"
+                                  style={{
+                                    background: 'var(--tint-accent-10)',
+                                    border: '1px solid rgba(99, 102, 241, 0.35)',
+                                    color: 'var(--accent-400)',
+                                    borderRadius: '6px',
+                                    padding: '2px 8px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Perpanjang
+                                </button>
+                              )
                             )}
 
                             {/* Tombol Bypass TTL: Akhiri Forum & Proses Memori AI untuk Admin/Creator */}

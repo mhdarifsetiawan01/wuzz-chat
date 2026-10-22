@@ -189,6 +189,10 @@ func (m *mockGroupRepo) GetUserForumsWithContext(ctx context.Context, userID str
 	return nil, nil
 }
 
+func (m *mockGroupRepo) ExtendSubGroup(ctx context.Context, parentID, subID, userID string, days int) (*ExtendResult, error) {
+	return &ExtendResult{ParentID: parentID, AddedDays: days}, nil
+}
+
 func (m *mockGroupRepo) ExpireSubGroupNow(subGroupID string) error {
 	if m.expireSubGroupNowFunc != nil {
 		return m.expireSubGroupNowFunc(subGroupID)

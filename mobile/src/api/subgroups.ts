@@ -114,6 +114,25 @@ export const subgroupsApi = {
   },
 
   /**
+   * POST /api/groups/{parent_id}/subgroups/{sub_id}/extend
+   * Memperpanjang masa aktif forum 1-3 hari (maks 30 hari total per forum). Hanya pembuat forum berpaket Pro;
+   * forum yang sudah berakhir tidak dapat diperpanjang. Galat memakai `code` (extend_pro_required, forum_expired,
+   * extend_limit_reached, ...) dan `detail` sudah berupa kalimat siap tampil.
+   */
+  async extendSubGroup(
+    parentGroupId: string,
+    subGroupId: string,
+    days: number,
+    signal?: AbortSignal
+  ): Promise<{ added_days: number; extended_days: number; extend_remaining_days: number; expires_at: string }> {
+    const res = await apiClient<{ extend: { added_days: number; extended_days: number; extend_remaining_days: number; expires_at: string } }>(
+      `/api/groups/${encodeURIComponent(parentGroupId)}/subgroups/${encodeURIComponent(subGroupId)}/extend`,
+      { method: 'POST', body: JSON.stringify({ days }), signal }
+    );
+    return res.extend;
+  },
+
+  /**
    * POST /api/groups/{sub_id}/join
    * Directly joins a 🌐 public forum topic (is_public = true).
    * Returns: { success, message }

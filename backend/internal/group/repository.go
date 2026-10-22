@@ -33,6 +33,7 @@ type GroupRepository interface {
 	GetSubGroupAdmins(subGroupID string) ([]string, error)
 	ExpireSubGroupsBatchDetailed() ([]ExpiredSubGroupItem, error)
 	ExpireSubGroupNow(subGroupID string) error
+	ExtendSubGroup(ctx context.Context, parentID, subID, userID string, days int) (*ExtendResult, error)
 }
 
 // UserLookupRepository mendefinisikan operasi pembacaan profil pengguna.

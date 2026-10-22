@@ -401,6 +401,8 @@ export interface SubGroup {
   is_member?: boolean;
   /** Whether the current user has a pending join-request */
   has_pending_request?: boolean;
+  /** Total hari perpanjangan masa aktif yang sudah dipakai (maks 30). Server lama tanpa field = 0. */
+  extended_days?: number;
 }
 
 /** Satu baris "Forum saya": forum tempat user menjadi anggota topik (GET /api/forums/mine). */

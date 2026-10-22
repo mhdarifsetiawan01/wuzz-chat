@@ -39,7 +39,7 @@ Catatan tambahan (audit; **diselesaikan 21 Oktober 2026**, daftar durasi kini sa
 - Forum = baris `conversations` (`sub_<uuid>`, `parent_id`, `created_by`, `expires_at`, `status`). Status hanya `active` dan `expired`.
 - Hak membuat: `creator` atau `admin` grup induk (dicek di service dan store).
 - Kedaluwarsa: `SubGroupTTLWorker` (15 menit) memanggil `ExpireSubGroupsBatchDetailed`; tombol akhiri manual = `ExpireSubGroupNow` + `CreateJob`.
-- Tidak ada endpoint perpanjang, aktifkan ulang, atau hapus forum. Tidak ada batas jumlah forum.
+- Perpanjang masa aktif ada sejak 24 Okt 2026 (`/extend`, Pro, 1-3 hari per kali, total 30 hari; lihat `docs/domains/GROUP_FORUM.md`). Tidak ada endpoint aktifkan ulang atau hapus forum. Tidak ada batas jumlah forum.
 
 **Tenant & peran**
 - `tenants` hanya punya `is_active`; tidak ada kolom plan/subscription di tabel mana pun. `users.system_role` hanya untuk staf (`user`, `wuzz_admin`, `wuzz_moderator`).
@@ -154,7 +154,7 @@ Urutan rilis: Fase 2 dan 3 dapat berjalan dengan perilaku tidak berubah bagi pen
 
 ## 10. Di luar cakupan MVP
 
-Paket Business dan fitur organisasi, integrasi pembayaran/langganan, perpanjang atau aktifkan ulang forum, embeddings dan pencarian arsip, pencatatan token/biaya terperinci, pengunduran batas per grup atau tenant.
+Paket Business dan fitur organisasi, integrasi pembayaran/langganan, aktifkan ulang forum yang sudah expired, embeddings dan pencarian arsip, pencatatan token/biaya terperinci, pengunduran batas per grup atau tenant.
 
 ## 11. Catatan implementasi Fase 4 (20 Oktober 2026)
 

@@ -56,6 +56,19 @@ assert.doesNotMatch(e.expireOutcomeMessage('queued', false), /diproses/, 'tanpa 
 assert.doesNotMatch(e.expireOutcomeMessage('not_queued', true), /diproses|ringkasan/i);
 assert.doesNotMatch(e.expireOutcomeMessage(undefined, true), /diproses/, 'server lama tanpa field memory tidak menjanjikan ringkasan');
 
+
+// Perpanjangan masa aktif forum: 1-3 hari per kali, total 30 hari.
+assert.deepStrictEqual(e.extendChoices(0), [1, 2, 3]);
+assert.deepStrictEqual(e.extendChoices(undefined), [1, 2, 3], 'server lama tanpa field = belum pernah diperpanjang');
+assert.deepStrictEqual(e.extendChoices(28), [1, 2], 'tidak menawarkan melebihi sisa jatah');
+assert.deepStrictEqual(e.extendChoices(29), [1]);
+assert.deepStrictEqual(e.extendChoices(30), []);
+assert.deepStrictEqual(e.extendChoices(99), [], 'nilai di luar batas tidak menghasilkan pilihan negatif');
+assert.strictEqual(e.extendRemainingDays(12), 18);
+assert.strictEqual(e.extendRemainingDays(NaN), 30);
+assert.match(e.extendSuccessMessage(2, 18), /diperpanjang 2 hari\. Sisa jatah perpanjangan forum ini 18 hari\./);
+assert.match(e.extendSuccessMessage(1, 0), /jatah perpanjangan forum ini sudah habis/i);
+
 // Tidak ada ajakan membayar di teks mana pun.
 const all = [full.text, proFull.text, out.text, e.durationLockedNote(free, 30), e.expireOutcomeMessage('quota_exceeded', true)].join(' ');
 assert.doesNotMatch(all.toLowerCase(), /bayar|beli|harga|rp\s?\d|transfer|http|upgrade|langganan/);

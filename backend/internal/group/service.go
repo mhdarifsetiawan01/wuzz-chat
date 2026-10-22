@@ -610,6 +610,25 @@ func (s *ForumService) InstantExpireSubGroupWithOutcome(ctx context.Context, use
 	return outcome, nil
 }
 
+// ExtendSubGroup memperpanjang masa aktif forum 1..3 hari (maks 30 hari total). Hanya pembuat forum berpaket Pro;
+// forum yang sudah berakhir tidak dapat diaktifkan kembali. Aturan paket dan batas dijaga atomik di store.
+func (s *ForumService) ExtendSubGroup(ctx context.Context, userID, groupID, subID string, days int) (*ExtendResult, error) {
+	isMember, err := s.repo.IsParentMember(groupID, userID)
+	if err != nil || !isMember {
+		return nil, ErrForbidden
+	}
+	res, err := s.repo.ExtendSubGroup(ctx, groupID, subID, userID, days)
+	if err != nil {
+		return nil, err
+	}
+	if s.broadcaster != nil {
+		actorName := s.resolveDisplayName(userID)
+		msg := fmt.Sprintf("%s memperpanjang topik %s selama %d hari.", actorName, res.Title, res.AddedDays)
+		s.broadcaster.BroadcastGroupSystemEvent(groupID, "subgroup_extended", msg)
+	}
+	return res, nil
+}
+
 // ExpireSubGroupsBatchDetailed mengeksekusi scanning batch dan mengunci subgrup yang telah kedaluwarsa.
 func (s *ForumService) ExpireSubGroupsBatchDetailed(ctx context.Context) ([]ExpiredSubGroupItem, error) {
 	return s.repo.ExpireSubGroupsBatchDetailed()

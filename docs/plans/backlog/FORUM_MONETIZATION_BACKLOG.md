@@ -56,7 +56,7 @@
 | F2 | **Perpanjangan massal** (mis. "perpanjang semua grandfather 30 hari") | Memperpanjang 6 akun sekarang harus satu per satu |
 | F3 | **Pemberitahuan di aplikasi sebelum Pro berakhir** (mis. 7 hari sebelumnya) | Pengguna tidak kaget turun ke Gratis |
 | F4 | **Pencatatan token atau biaya LLM per job** (kolom di `forum_memory_jobs`) | Menilai biaya nyata sebelum menetapkan harga atau kuota |
-| F5 | **Perpanjang atau aktifkan ulang forum** (sekarang tidak ada) | Nilai tambah Pro |
+| F5 | ~~Perpanjang forum~~ **selesai di dev 24 Okt 2026** (Pro, 1-3 hari per kali, total 30 hari). **Aktifkan ulang forum expired** tetap belum ada (sengaja ditunda) | Nilai tambah Pro |
 | F6 | **Kanal kontak "hubungi admin Wuzz untuk akses Pro"** | Teks UI menyebut ini, tetapi belum ada tombol atau alamat |
 | F7 | **Paket Business dan batas di tenant B2B** | Ditunda bersama B2B |
 | F8 | **Fase 5 (pembayaran)** | Ditunda sampai kebijakan Google Play diperiksa dari sumber resmi. Riset sekunder: layanan digital umumnya wajib Play Billing; pelonggaran Maret 2026 belum jelas untuk Indonesia |

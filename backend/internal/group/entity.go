@@ -47,6 +47,9 @@ type JoinRequestItem = store.JoinRequestItem
 // ExpiredSubGroupItem merepresentasikan forum yang kedaluwarsa beserta grup induknya.
 type ExpiredSubGroupItem = store.ExpiredSubGroupItem
 
+// ExtendResult adalah keadaan forum sesudah masa aktifnya diperpanjang.
+type ExtendResult = store.ExtendResult
+
 // User merepresentasikan entitas pengguna terdaftar.
 type User = store.User
 

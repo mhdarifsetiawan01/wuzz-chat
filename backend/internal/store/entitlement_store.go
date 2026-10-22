@@ -18,6 +18,12 @@ var (
 	ErrForumLimitReached = errors.New("batas forum aktif paket tercapai")
 	// ErrDurationNotInPlan dikembalikan saat durasi forum yang diminta tidak termasuk paket pembuat.
 	ErrDurationNotInPlan = errors.New("durasi forum ini tidak tersedia di paket Anda")
+	// Galat perpanjangan masa aktif forum (lihat SQLGroupStore.ExtendSubGroup).
+	ErrExtendNotCreator   = errors.New("hanya pembuat forum yang dapat memperpanjang masa aktifnya")
+	ErrExtendProRequired  = errors.New("perpanjangan masa aktif forum hanya tersedia untuk paket Pro")
+	ErrExtendDaysInvalid  = errors.New("perpanjangan harus antara 1 sampai 3 hari")
+	ErrExtendForumExpired = errors.New("forum sudah berakhir dan tidak dapat diperpanjang")
+	ErrExtendLimitReached = errors.New("total perpanjangan forum ini sudah mencapai batas 30 hari")
 	// ErrMemoryQuotaExceeded dibungkus oleh *MemoryQuotaError saat pembuat forum sudah memakai seluruh kuota ringkasan AI bulan ini.
 	ErrMemoryQuotaExceeded = errors.New("kuota AI Memory bulan ini habis")
 	// ErrGrandfatherCountChanged dikembalikan saat jumlah akun yang memenuhi syarat berbeda dari yang dikonfirmasi admin.

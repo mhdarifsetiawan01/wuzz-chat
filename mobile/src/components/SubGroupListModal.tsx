@@ -44,7 +44,7 @@ import { Icon } from './Icon';
 import { spacing, radius, shadows } from '../theme/spacing';
 import { showAlert } from '../services/dialog';
 import { formatTtlRemaining } from '../utils/ttlCountdown';
-import { expireOutcomeMessage } from '../utils/entitlement';
+import { expireOutcomeMessage, extendChoices, extendSuccessMessage } from '../utils/entitlement';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -90,6 +90,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [requestingId, setRequestingId] = useState<string | null>(null);
   const [expiringId, setExpiringId] = useState<string | null>(null);
+  const [extendingId, setExtendingId] = useState<string | null>(null);
 
   // Child modal state
   const [showCreate, setShowCreate] = useState(false);
@@ -170,6 +171,49 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
       );
     },
     [expiringId, parentGroupId, loadSubGroups, memoryEnabled]
+  );
+
+  // ── Perpanjang masa aktif topik (pembuat forum berpaket Pro; server memutuskan) ──
+
+  const doExtend = useCallback(
+    async (sub: SubGroup, days: number) => {
+      setExtendingId(sub.id);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
+      try {
+        const res = await subgroupsApi.extendSubGroup(parentGroupId, sub.id, days, controller.signal);
+        await loadSubGroups(true);
+        showAlert('Topik diperpanjang', extendSuccessMessage(res.added_days, res.extend_remaining_days));
+      } catch (err: any) {
+        if (err?.name !== 'AbortError') {
+          showAlert('Gagal memperpanjang topik', err?.detail || 'Silakan coba lagi.');
+        }
+      } finally {
+        clearTimeout(timer);
+        setExtendingId(null);
+      }
+    },
+    [parentGroupId, loadSubGroups]
+  );
+
+  const handleExtend = useCallback(
+    (sub: SubGroup) => {
+      if (extendingId) return;
+      const choices = extendChoices(sub.extended_days);
+      if (choices.length === 0) {
+        showAlert('Jatah perpanjangan habis', 'Forum ini sudah diperpanjang sampai batas 30 hari dan tidak dapat diperpanjang lagi.');
+        return;
+      }
+      showAlert(
+        'Perpanjang masa aktif topik?',
+        `Forum "${sub.title}" akan diperpanjang. Pilih 1 sampai 3 hari per perpanjangan; total maksimal 30 hari per forum. Perpanjangan hanya bisa dilakukan selagi forum masih aktif.`,
+        [
+          { text: 'Batal', style: 'cancel' },
+          ...choices.map((d) => ({ text: `+${d} hari`, onPress: () => { void doExtend(sub, d); } })),
+        ]
+      );
+    },
+    [extendingId, doExtend]
   );
 
   // ── Join public topic ─────────────────────────────────────────────────────
@@ -371,6 +415,24 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
             </TouchableOpacity>
           )}
 
+          {/* Pembuat forum: perpanjang masa aktif (Pro) */}
+          {!expired && sub.created_by === currentUserId && (
+            <TouchableOpacity
+              style={[styles.reviewRequestsBtn, extendingId === sub.id && styles.actionBtnDisabled]}
+              onPress={() => handleExtend(sub)}
+              disabled={!!extendingId}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={`Perpanjang topik ${sub.title}`}
+            >
+              {extendingId === sub.id ? (
+                <ActivityIndicator size="small" color={colors.accentPrimary} />
+              ) : (
+                <Text style={styles.reviewRequestsBtnText}>Perpanjang Masa Aktif</Text>
+              )}
+            </TouchableOpacity>
+          )}
+
           {/* Admin: akhiri topik sekarang (bypass TTL) */}
           {isAdminOrCreator && !expired && (
             <TouchableOpacity
@@ -391,7 +453,7 @@ export const SubGroupListModal: React.FC<SubGroupListModalProps> = ({
         </View>
       );
     },
-    [joiningId, requestingId, expiringId, isAdminOrCreator, handleJoinPublic, handleOpenMember, handleRequestJoin, handleExpireNow]
+    [joiningId, requestingId, expiringId, extendingId, currentUserId, isAdminOrCreator, handleJoinPublic, handleOpenMember, handleRequestJoin, handleExpireNow, handleExtend]
   );
 
   const ListEmpty = (

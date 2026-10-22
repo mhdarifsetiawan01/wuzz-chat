@@ -238,6 +238,16 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// 2c. /api/groups/{id}/subgroups/{subId}/extend (perpanjang masa aktif forum; pembuat berpaket Pro)
+	if len(parts) == 4 && parts[1] == "subgroups" && parts[3] == "extend" {
+		if r.Method == http.MethodPost {
+			h.handleExtendSubGroup(w, r, claims.UserID, groupID, parts[2])
+		} else {
+			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
 	// 3. /api/groups/{id}/join
 	if len(parts) == 2 && parts[1] == "join" {
 		if r.Method == http.MethodPost {
@@ -812,6 +822,54 @@ func (h *GroupHandler) handleRespondJoinRequest(w http.ResponseWriter, r *http.R
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"message": fmt.Sprintf("Permohonan bergabung berhasil %s", actionText),
+	})
+}
+
+// writeExtendError menulis galat terstruktur (field "code") agar klien memilih pesan tanpa mengurai teks.
+func writeExtendError(w http.ResponseWriter, status int, code, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": message, "code": code})
+}
+
+// handleExtendSubGroup memperpanjang masa aktif forum 1..3 hari (maks 30 hari total) untuk pembuat forum berpaket Pro.
+func (h *GroupHandler) handleExtendSubGroup(w http.ResponseWriter, r *http.Request, userID, groupID, subID string) {
+	var req struct {
+		Days int `json:"days"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&req); err != nil {
+		writeExtendError(w, http.StatusBadRequest, "invalid_days", "Permintaan tidak valid: isi days dengan angka 1 sampai 3")
+		return
+	}
+
+	res, err := h.forumSvc.ExtendSubGroup(r.Context(), userID, groupID, subID, req.Days)
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrExtendDaysInvalid):
+			writeExtendError(w, http.StatusBadRequest, "invalid_days", "Perpanjangan harus antara 1 sampai 3 hari")
+		case errors.Is(err, store.ErrExtendProRequired):
+			writeExtendError(w, http.StatusForbidden, "extend_pro_required", "Perpanjangan masa aktif forum hanya tersedia untuk paket Pro. Hubungi admin Wuzz untuk akses Pro.")
+		case errors.Is(err, store.ErrExtendNotCreator):
+			writeExtendError(w, http.StatusForbidden, "extend_not_creator", "Hanya pembuat forum yang dapat memperpanjang masa aktifnya")
+		case errors.Is(err, group.ErrForbidden), errors.Is(err, store.ErrUnauthorizedGroup):
+			writeExtendError(w, http.StatusForbidden, "forbidden", "Akses ditolak")
+		case errors.Is(err, store.ErrGroupNotFound):
+			writeExtendError(w, http.StatusNotFound, "not_found", "Forum tidak ditemukan")
+		case errors.Is(err, store.ErrExtendForumExpired):
+			writeExtendError(w, http.StatusConflict, "forum_expired", "Forum sudah berakhir dan tidak dapat diperpanjang")
+		case errors.Is(err, store.ErrExtendLimitReached):
+			writeExtendError(w, http.StatusConflict, "extend_limit_reached", "Total perpanjangan forum ini sudah mencapai batas 30 hari")
+		default:
+			writeExtendError(w, http.StatusInternalServerError, "internal", "Gagal memperpanjang forum")
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Masa aktif forum diperpanjang %d hari.", res.AddedDays),
+		"extend":  res,
 	})
 }
 

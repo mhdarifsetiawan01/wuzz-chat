@@ -18,6 +18,7 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Obrolan Grup, Forum Topi
    - 🔒 **Privat (`is_public = false`)**: Wajib mengajukan izin gabung (`join-request`), ditinjau oleh Admin.
 4. **Siklus Hidup & TTL Otomatis (*SubGroupTTLWorker*)**:
    - Pilihan masa aktif topik: **7 hari** (default) atau **30 hari**. Daftar nilai yang diterima hanya ada di satu tempat, `store.SubGroupDurationDays` (`7_days`/`7d`/`1_week`/`week`, `30_days`/`30d`/`1_month`/`month`, kosong = 7 hari); service dan store memakainya bersama. Selain itu HTTP 400 (`ErrSubGroupDurationInvalid`). Sebelum 21 Okt 2026 service menerima `1h`…`3d` tetapi store selalu menolaknya; sudah disatukan.
+   - **Perpanjang masa aktif (24 Okt 2026)**: `POST /api/groups/{id}/subgroups/{sub_id}/extend` body `{"days": 1..3}`. Hanya **pembuat forum** (`conversations.created_by`) yang berpaket **Pro**; 1 sampai 3 hari per perpanjangan, **total maksimal 30 hari per forum** (kolom `conversations.extended_days`, ikut dikirim sebagai `extended_days` di daftar topik). Forum yang sudah `expired` atau lewat `expires_at` **tidak dapat diperpanjang dan tidak ada jalur aktifkan ulang** (sengaja; bisa ditambah kelak). Gerbang Pro mengikuti `FORUM_LIMITS_ENABLED` dan hanya di tenant `default` (sama seperti batas forum); aturan 1..3 hari dan 30 hari selalu berlaku. Pemeriksaan dan UPDATE bersyarat dalam satu transaksi (`SELECT ... FOR UPDATE` di Postgres), aman terhadap permintaan bersamaan. Galat memakai `code`: `invalid_days` 400, `extend_pro_required`/`extend_not_creator`/`forbidden` 403, `not_found` 404, `forum_expired`/`extend_limit_reached` 409. Pesan sistem grup `subgroup_extended`. Kode: `store.ExtendSubGroup`, `ForumService.ExtendSubGroup`, konstanta `entitlement.ForumExtend*` dan `Limits.CanExtendForum`. Perpanjangan tidak mengubah hitungan forum aktif maupun kuota AI.
    - Background worker (`15m ticker`) mengeksekusi kedaluwarsa massal atomic (`ExpireSubGroupsBatch`).
    - **Fail-Closed Read-Only Lock**: Saat `status = 'expired'`, input pesan terkunci (*disabled*) dan soket menolak pengiriman pesan baru, tetapi riwayat chat tetap terbaca (*persistent read*).
 5. **Mode Pratinjau Grup Publik (Anti-Accidental Join)**:
@@ -61,6 +62,7 @@ backend/internal/group/
 | `POST` | `/api/groups/{id}/join` | Bergabung ke grup terbuka |
 | `GET` | `/api/groups/{id}/subgroups` | Daftar forum aktif dan berakhir di grup induk |
 | `POST` | `/api/groups/{id}/subgroups` | Membuat topik forum baru (Admin/Creator only) |
+| `POST` | `/api/groups/{id}/subgroups/{sub_id}/extend` | Perpanjang masa aktif 1-3 hari (pembuat forum berpaket Pro, total maks 30 hari; forum expired tidak bisa) |
 | `POST` | `/api/groups/{id}/subgroups/{sub_id}/expire` | Mengakhiri topik seketika (Admin/Creator grup induk). Respons memuat `memory`: `queued` / `quota_exceeded` / `not_queued` |
 | `GET` | `/api/forums/mine` | Forum yang diikuti user (aktif dan berakhir) beserta `memory_state` |
 | `GET` | `/api/me/entitlement` | Paket, jatah forum aktif, durasi yang diizinkan, dan kuota ringkasan AI milik pemanggil |

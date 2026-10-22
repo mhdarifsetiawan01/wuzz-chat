@@ -67,6 +67,7 @@ type SubGroupItem struct {
 	IsMember             bool       `json:"is_member"`
 	IsPublic             bool       `json:"is_public"`
 	HasPendingRequest    bool       `json:"has_pending_request"`
+	ExtendedDays         int        `json:"extended_days"`
 	PendingRequestsCount int        `json:"pending_requests_count,omitempty"`
 }
 
@@ -155,4 +156,6 @@ type GroupStore interface {
 	ExpireSubGroupsBatch() (int, error)
 	ExpireSubGroupsBatchDetailed() ([]ExpiredSubGroupItem, error)
 	ExpireSubGroupNow(subGroupID string) error
+	// ExtendSubGroup memperpanjang forum aktif 1..3 hari (maks 30 hari total), khusus pembuat berpaket Pro.
+	ExtendSubGroup(ctx context.Context, parentID, subID, userID string, days int) (*ExtendResult, error)
 }

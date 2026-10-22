@@ -239,6 +239,8 @@ export interface SubGroupItem {
   is_public?: boolean
   has_pending_request?: boolean
   pending_requests_count?: number
+  /** Total hari perpanjangan masa aktif yang sudah dipakai (maks 30). Server lama tanpa field = 0. */
+  extended_days?: number
 }
 
 export interface JoinRequestItem {
