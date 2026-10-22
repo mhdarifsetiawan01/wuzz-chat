@@ -1495,6 +1495,33 @@ Membuat topik forum / subgrup baru di bawah grup induk. Dibatasi secara ketat ha
 
 ---
 
+#### 42a. `POST /api/groups/{id}/subgroups/{subId}/extend` (Perpanjang Masa Aktif Forum)
+Menambah 1 sampai 3 hari pada `expires_at` forum aktif. Hanya **pembuat forum** berpaket **Pro** (gerbang paket mengikuti `FORUM_LIMITS_ENABLED`, hanya tenant `default`); total perpanjangan per forum maksimal **30 hari**. Forum yang sudah berakhir tidak dapat diperpanjang atau diaktifkan kembali.
+- **Autentikasi**: `Bearer <token>`
+- **Body**: `{"days": 1}` (1 sampai 3)
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "message": "Masa aktif forum diperpanjang 3 hari.",
+    "extend": {
+      "expires_at": "2026-11-03T02:28:00Z",
+      "remaining_seconds": 864000,
+      "added_days": 3,
+      "extended_days": 3,
+      "extend_remaining_days": 27
+    }
+  }
+  ```
+- **Error Responses** (semua memuat `code`):
+  - `400 invalid_days`: days di luar 1 sampai 3
+  - `403 extend_pro_required` / `extend_not_creator` / `forbidden`
+  - `404 not_found`: forum tidak ada di grup induk tersebut
+  - `409 forum_expired` / `extend_limit_reached`
+- Anggota grup menerima pesan sistem `subgroup_extended`. Daftar topik (`GET /api/groups/{id}/subgroups`) kini memuat `extended_days`.
+
+---
+
 #### 42b. `POST /api/groups/{id}/subgroups/{subId}/expire` (Instant Expiry / Force Expire Forum)
 Mengakhiri masa aktif forum secara instan (bypass TTL) dan langsung mendaftarkan `ForumMemoryJob` ke antrean pemrosesan Group Memory AI tanpa perlu menunggu batas waktu TTL berakhir. Hanya dapat dieksekusi oleh Admin atau Creator grup induk atau Creator subgrup tersebut.
 - **Autentikasi**: `Bearer <token>` (Admin/Creator)
