@@ -55,6 +55,7 @@ Sebelum mengeksekusi tugas, AI **HANYA PERLU MEMBACA** dokumen primer yang relev
    - Jangan menaikkan versi/build number atau mengubah konfigurasi signing sebagai bagian tugas fitur. Pengujian pada APK yang sudah dipasang pengguna boleh dilakukan dalam cakupan yang diizinkan. `npm run build` frontend untuk validasi lokal tetap diperbolehkan.
 7. **Ketahanan Jaringan Lambat & Flaky Server**: Selalu asumsikan latensi 200–800ms+, soket putus, atau timeout. Terapkan `AbortController`, Optimistic UI, dan Write-Through local storage.
 8. **Kepatuhan Design System**: Frontend web wajib mematuhi token CSS di `frontend/app/globals.css` dan panduan `frontend/DESIGN.md` (anti raw hex, anti magic z-index `99999`, unified modal primitives).
+9. **Selaras dengan Rencana Monetisasi (keputusan 23 Oktober 2026)**: Sebelum mengerjakan fitur baru, periksa terhadap [`docs/plans/backlog/ADS_AND_REWARDS_PLAN.md`](docs/plans/backlog/ADS_AND_REWARDS_PLAN.md) (iklan AdMob, hadiah/poin, sponsor mitra, batas Free/Pro). Rencana itu **belum boleh dieksekusi** tanpa perintah eksplisit. Bila sebuah fitur bertabrakan dengannya, hentikan dan putuskan bersama pengguna: perbarui rencana atau sesuaikan fitur (lihat bagian 13 dokumen itu).
 
 ---
 
