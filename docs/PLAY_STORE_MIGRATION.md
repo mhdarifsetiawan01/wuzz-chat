@@ -30,7 +30,7 @@ Prosedur rilis APK sekarang:
 - [ ] Cek bagaimana APK Drive saat ini ditandatangani (keystore mana, debug atau release).
 - [ ] Putuskan memakai **Play App Signing** (disarankan). Kunci tanda tangan Play bisa berbeda dari APK Drive.
 - [ ] Jika tanda tangan berbeda: pengguna APK **tidak bisa** menimpa langsung ke versi Play Store; harus uninstall dulu → data lokal dan **kunci E2EE hilang** kecuali sudah dipindah. Siapkan panduan migrasi: pindahkan kunci via transfer QR sebelum uninstall (lihat `docs/domains/MESSAGING_CHAT.md` / alur `DeviceTransferModal`).
-- [ ] Pastikan `versionCode` build Play lebih besar dari semua APK yang beredar (`mobile/app.json` → `android.versionCode`, sekarang 12).
+- [ ] Pastikan `versionCode` build Play lebih besar dari semua APK yang beredar (`mobile/app.json` → `android.versionCode`; per 24 Okt 2026 = 72, versi 1.41.0). versionCode harus unik dan naik di semua track Play (Internal, Closed, Production); build dari `build-release.sh` otomatis menaikkannya lewat smart-bump, lalu hasilnya wajib di-commit.
 
 #### Keystore release (keputusan 2026-10-02)
 APK sebelumnya (hingga build 18) ditandatangani **kunci debug bawaan template** (`CN=Android Debug`, SHA-256 `FA:C6:17:45:…:3B:9C`): kunci publik, tidak aman, dan ditolak Play Console. Rencana: satu keystore release dipakai APK Drive **dan** diimpor sebagai kunci Play App Signing, sehingga tanda tangannya sama dan APK ↔ Play bisa saling menimpa.

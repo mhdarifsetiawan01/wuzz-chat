@@ -136,7 +136,7 @@ Versi 1.32.0: masuk sekarang lewat Google (akun lama tetap bisa memakai username
 |---|---|---|
 | Ikon aplikasi | 512x512 PNG 32-bit, maks 1 MB | **Sudah ada**: `mobile/assets/store/play-store-icon-512.png` (512x512, RGBA, 60 KB), sama dengan ikon peluncur aplikasi. (Catatan lama "placeholder" keliru: itu tentang set ikon antarmuka di `icons/registry.ts`, bukan ikon toko.) |
 | Feature graphic | 1024x500 JPG/PNG 24-bit tanpa alfa | **Sudah ada**: `mobile/assets/store/feature-graphic-1024x500.png` (RGB, 112 KB; logo lengkap + "Chat, grup, dan panggilan suara. Pesan langsung terenkripsi ujung-ke-ujung."; dibuat 8 Okt 2026 dari `assets/logo-full.png`). Teks cocok dengan deskripsi singkat dan tidak menyebut AI Memory |
-| Screenshot ponsel | minimal 2, disarankan 6-8, portrait 1080x1920 (rasio 9:16) | belum |
+| Screenshot ponsel | minimal 2, disarankan 6-8, portrait 9:16 (disarankan 1080x1920) | **Sudah ada**: 12 PNG 720x1280 (rasio 9:16) di `~/wuzz-releases/screenshots-toko/` (di luar repo): login, daftar obrolan, DM E2EE, grup, info grup, forum, linimasa, pengaturan, legal, kunci E2EE, profil, Nomor Keamanan. Diambil di HP Realme dengan `wm size 720x1280` (kembalikan `wm size reset`). Resolusi 720 lolos batas minimum Play; bila Console menyarankan 1080x1920, ambil ulang di perangkat yang mendukung |
 | (Opsional) Screenshot tablet | 7"/10" | tidak wajib |
 
 Urutan screenshot yang disarankan: (1) daftar obrolan, (2) percakapan dengan lencana E2EE, (3) panggilan suara (timer berjalan), (4) grup/forum topik, (5) Linimasa komunitas,
