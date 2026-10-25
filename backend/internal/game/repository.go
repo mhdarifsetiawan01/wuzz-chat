@@ -29,4 +29,11 @@ type Repository interface {
 	// GetSettings mengambil pengaturan; nil, nil bila belum pernah disimpan.
 	GetSettings(ctx context.Context, tenantID, userID string) (*Settings, error)
 	SaveSettings(ctx context.Context, s *Settings) error
+
+	// ListBoard mengambil baris papan skor terurut (tanpa Rank/IsMe; service yang mengisinya). Hanya percobaan
+	// berstatus solved yang dihitung. Scope friends = pemanggil + teman accepted; scope group = anggota grup
+	// tersebut. Pengguna yang berhubungan blokir (arah mana pun) dengan pemanggil tidak ikut tampil.
+	ListBoard(ctx context.Context, q BoardQuery) ([]BoardEntry, error)
+	// IsGroupMember memeriksa keanggotaan pada percakapan grup.
+	IsGroupMember(ctx context.Context, tenantID, groupID, userID string) (bool, error)
 }

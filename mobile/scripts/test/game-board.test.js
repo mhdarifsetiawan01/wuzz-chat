@@ -125,6 +125,16 @@ assert.strictEqual(g.buildShareText(1, 59_000, 0), 'Wuzz Grid #1 · 0:59');
 assert.strictEqual(g.buildShareText(0, 59_000, 2), 'Wuzz Grid · 0:59 · 🔥2', 'nomor kosong tidak boleh menjadi #0/#undefined');
 assert.strictEqual(g.buildShareText(undefined, 59_000, 0), 'Wuzz Grid · 0:59');
 
+// --- papan skor
+assert.strictEqual(g.formatBoardResult('day', 1, 63_000), '1:03');
+assert.strictEqual(g.formatBoardResult('week', 3, 250_000), '3 hari · 4:10');
+assert.strictEqual(g.formatBoardResult('week', 1, 5_000), '1 hari · 0:05');
+assert.strictEqual(g.isBoardGroupId('grp_abc'), true);
+assert.strictEqual(g.isBoardGroupId('sub_abc'), false, 'forum bukan papan skor');
+assert.strictEqual(g.isBoardGroupId('dm_a_b'), false);
+assert.strictEqual(g.isBoardGroupId(undefined), false);
+assert.strictEqual(g.isBoardGroupId(42), false);
+
 // --- penyimpanan lokal
 const raw = g.serializeBoard('2026-10-26', star([[0, 0]]));
 const back = g.parseSavedBoard(raw, '2026-10-26', 6);

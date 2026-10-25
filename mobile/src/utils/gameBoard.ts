@@ -145,6 +145,19 @@ export function buildShareText(number: number, durationMs: number, streak: numbe
   return parts.join(' · ');
 }
 
+// ─── Papan skor ───────────────────────────────────────────────────────────────
+
+/** Hasil satu baris papan: hari => "1:03"; minggu => "3 hari · 4:10" (jumlah hari lebih dulu menentukan peringkat). */
+export function formatBoardResult(period: 'day' | 'week', solvedDays: number, durationMs: number): string {
+  const time = formatDuration(durationMs);
+  return period === 'week' ? `${solvedDays} hari · ${time}` : time;
+}
+
+/** Id grup induk yang boleh punya papan skor (forum sub_ dan obrolan langsung tidak). */
+export function isBoardGroupId(id: unknown): id is string {
+  return typeof id === 'string' && id.startsWith('grp_');
+}
+
 // ─── Penyimpanan lokal ───────────────────────────────────────────────────────
 
 export interface SavedBoard {

@@ -36,6 +36,7 @@ func writeGameError(w http.ResponseWriter, code int, message string) {
 //	GET  /api/game/today          puzzle hari ini + percobaan + streak
 //	POST /api/game/today/start    mulai percobaan (idempoten)
 //	POST /api/game/today/submit   kirim jawaban {"placement":[kolom per baris, -1 = kosong]}
+//	GET  /api/game/leaderboard    papan skor ?scope=friends|group&group_id=&period=day|week
 //	GET/PUT /api/game/settings    preferensi
 func (h *GameHandler) Route(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.GetUserFromContext(r.Context())
@@ -75,6 +76,18 @@ func (h *GameHandler) Route(w http.ResponseWriter, r *http.Request) {
 		}
 		res, err := h.service.Submit(r.Context(), claims.TenantID, claims.UserID, game.Placement(body.Placement))
 		h.respond(w, http.StatusOK, res, err)
+	case "leaderboard":
+		if r.Method != http.MethodGet {
+			writeGameError(w, http.StatusMethodNotAllowed, "Method tidak diizinkan")
+			return
+		}
+		q := r.URL.Query()
+		period := q.Get("period")
+		if period == "" {
+			period = game.PeriodDay
+		}
+		res, err := h.service.Leaderboard(r.Context(), claims.TenantID, claims.UserID, q.Get("scope"), q.Get("group_id"), period)
+		h.respond(w, http.StatusOK, res, err)
 	case "settings":
 		switch r.Method {
 		case http.MethodGet:
@@ -105,7 +118,9 @@ func (h *GameHandler) respond(w http.ResponseWriter, okCode int, data interface{
 	switch {
 	case errors.Is(err, game.ErrDisabled):
 		writeGameError(w, http.StatusForbidden, err.Error())
-	case errors.Is(err, game.ErrInvalidPlacement), errors.Is(err, game.ErrInvalidTimezone):
+	case errors.Is(err, game.ErrNotGroupMember):
+		writeGameError(w, http.StatusForbidden, err.Error())
+	case errors.Is(err, game.ErrInvalidPlacement), errors.Is(err, game.ErrInvalidTimezone), errors.Is(err, game.ErrInvalidBoard):
 		writeGameError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, game.ErrAttemptNotFound), errors.Is(err, game.ErrTimezoneLocked):
 		writeGameError(w, http.StatusConflict, err.Error())

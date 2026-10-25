@@ -141,3 +141,42 @@ func TestGameHandler_SettingsAndRouting(t *testing.T) {
 		}
 	}
 }
+
+func TestGameHandler_Leaderboard(t *testing.T) {
+	h := newGameHandler(t, true)
+
+	rec := gameCall(h, http.MethodGet, "/api/game/leaderboard?scope=friends", nil, true) // period bawaan = day
+	var board map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &board)
+	if rec.Code != http.StatusOK || board["scope"] != "friends" || board["period"] != "day" {
+		t.Fatalf("papan teman: %d %s", rec.Code, rec.Body.String())
+	}
+	if entries, ok := board["entries"].([]any); !ok || len(entries) != 0 {
+		t.Errorf("entries harus array kosong (bukan null): %s", rec.Body.String())
+	}
+
+	for _, c := range []struct {
+		name, url string
+		want      int
+	}{
+		{"scope tidak dikenal", "/api/game/leaderboard?scope=public", http.StatusBadRequest},
+		{"periode tidak dikenal", "/api/game/leaderboard?scope=friends&period=month", http.StatusBadRequest},
+		{"grup tanpa id", "/api/game/leaderboard?scope=group", http.StatusBadRequest},
+		{"bukan anggota grup", "/api/game/leaderboard?scope=group&group_id=grp_orang_lain", http.StatusForbidden},
+	} {
+		if rec := gameCall(h, http.MethodGet, c.url, nil, true); rec.Code != c.want {
+			t.Errorf("%s: %d, mau %d (%s)", c.name, rec.Code, c.want, rec.Body.String())
+		}
+	}
+	if rec := gameCall(h, http.MethodPost, "/api/game/leaderboard", nil, true); rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("POST: %d, mau 405", rec.Code)
+	}
+	if rec := gameCall(h, http.MethodGet, "/api/game/leaderboard?scope=friends", nil, false); rec.Code != http.StatusUnauthorized {
+		t.Errorf("tanpa login: %d, mau 401", rec.Code)
+	}
+
+	off := newGameHandler(t, false)
+	if rec := gameCall(off, http.MethodGet, "/api/game/leaderboard?scope=friends", nil, true); rec.Code != http.StatusForbidden {
+		t.Errorf("fitur mati: %d, mau 403", rec.Code)
+	}
+}

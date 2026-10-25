@@ -20,6 +20,7 @@ import { ApiError } from '../api';
 import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { GameGrid } from '../components/game/GameGrid';
+import { GameLeaderboard } from '../components/game/GameLeaderboard';
 import { GameResultSheet } from '../components/game/GameResultSheet';
 import { useAuth } from '../context';
 import { useGameToday } from '../hooks/useGameToday';
@@ -245,6 +246,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onBack }) => {
           <View style={styles.stat}>
             <Icon name="bolt" size={16} color={colors.warningFill} />
             <Text style={styles.statText}>Streak {streak}</Text>
+            {(data.streak?.freezes_available ?? 0) > 0 ? (
+              <View
+                style={styles.freezeBadge}
+                accessible
+                accessibilityLabel={`${data.streak?.freezes_available} pembeku streak tersedia`}
+              >
+                <Icon name="shield" size={12} color={colors.accentPrimary} />
+                <Text style={styles.freezeText}>{data.streak?.freezes_available}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -308,6 +319,11 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onBack }) => {
             )}
           </>
         )}
+
+        <GameLeaderboard refreshKey={attempt?.status ?? 'none'} />
+        <Text style={styles.freezeNote}>
+          Pembeku streak: 1 per minggu, terpakai otomatis bila Anda melewatkan satu hari.
+        </Text>
       </ScrollView>
 
       {attempt && finished ? (
@@ -350,6 +366,18 @@ const makeStyles = (colors: ColorTokens) =>
     },
     stat: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
     statText: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    freezeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      marginLeft: spacing.xs,
+      paddingHorizontal: spacing.xs + 2,
+      paddingVertical: 1,
+      borderRadius: radius.full,
+      backgroundColor: colors.bgInput,
+    },
+    freezeText: { fontSize: 11, fontWeight: '700', color: colors.accentPrimary },
+    freezeNote: { fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: spacing.lg },
     intro: {
       padding: spacing.lg,
       borderRadius: radius.lg,

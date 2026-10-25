@@ -20,6 +20,8 @@ var (
 	ErrAttemptNotFound = errors.New("percobaan belum dimulai")
 	ErrInvalidTimezone = errors.New("zona waktu tidak valid")
 	ErrTimezoneLocked  = errors.New("zona waktu hanya dapat diubah sekali dalam 24 jam")
+	ErrInvalidBoard    = errors.New("papan skor tidak valid: scope atau periode tidak dikenal")
+	ErrNotGroupMember  = errors.New("Anda bukan anggota grup ini")
 )
 
 // ─── Konstanta ───────────────────────────────────────────────────────────────
@@ -109,4 +111,54 @@ type SubmitResult struct {
 	Solved  bool     `json:"solved"`
 	Attempt *Attempt `json:"attempt"`
 	Streak  *Streak  `json:"streak,omitempty"`
+}
+
+// ─── Papan skor ──────────────────────────────────────────────────────────────
+
+// Scope dan periode papan skor. Papan publik (opt-in) menyusul di tahap berikutnya.
+const (
+	ScopeFriends = "friends"
+	ScopeGroup   = "group"
+
+	PeriodDay  = "day"
+	PeriodWeek = "week"
+
+	// BoardLimit membatasi jumlah baris yang dikirim per papan.
+	BoardLimit = 50
+)
+
+// BoardQuery adalah parameter kueri papan skor ke repository. Tanggal berformat YYYY-MM-DD (lokal pengguna), inklusif.
+type BoardQuery struct {
+	TenantID string
+	UserID   string // pemanggil: selalu ikut tampil, dan blokir dihitung dari sudut pandangnya
+	Scope    string
+	GroupID  string // wajib untuk ScopeGroup
+	From     string
+	To       string
+	Period   string
+	Limit    int
+}
+
+// BoardEntry adalah satu baris papan skor. Pada periode hari, DurationMs = waktu penyelesaian; pada periode
+// minggu, SolvedDays = jumlah hari selesai dan DurationMs = total waktu hari-hari itu.
+type BoardEntry struct {
+	Rank        int    `json:"rank"`
+	UserID      string `json:"user_id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
+	AvatarURL   string `json:"avatar_url,omitempty"`
+	SolvedDays  int    `json:"solved_days"`
+	DurationMs  int64  `json:"duration_ms"`
+	IsMe        bool   `json:"is_me"`
+}
+
+// LeaderboardResponse adalah isi GET /api/game/leaderboard.
+type LeaderboardResponse struct {
+	Scope   string       `json:"scope"`
+	Period  string       `json:"period"`
+	From    string       `json:"from"`
+	To      string       `json:"to"`
+	Entries []BoardEntry `json:"entries"`
+	// MyRank adalah peringkat pemanggil; nil bila belum menyelesaikan puzzle pada periode ini.
+	MyRank *int `json:"my_rank,omitempty"`
 }

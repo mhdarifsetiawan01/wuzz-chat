@@ -206,3 +206,72 @@ func (r *SQLRepository) SaveSettings(ctx context.Context, s *game.Settings) erro
 		s.TenantID, s.UserID, s.LeaderboardPublic, s.ReminderEnabled, s.Timezone, changed)
 	return err
 }
+
+// ─── Papan skor ──────────────────────────────────────────────────────────────
+
+func (r *SQLRepository) IsGroupMember(ctx context.Context, tenantID, groupID, userID string) (bool, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, r.q(`SELECT COUNT(1) FROM conversation_members cm
+		JOIN conversations c ON c.id = cm.conversation_id
+		WHERE cm.conversation_id = ? AND cm.user_id = ? AND c.tenant_id = ?`), groupID, userID, tenantID).Scan(&n)
+	return n > 0, err
+}
+
+func (r *SQLRepository) ListBoard(ctx context.Context, q game.BoardQuery) ([]game.BoardEntry, error) {
+	// Anggota papan: teman accepted (+ pemanggil) atau anggota grup.
+	var membership string
+	args := []any{q.TenantID, q.From, q.To}
+	switch q.Scope {
+	case game.ScopeFriends:
+		membership = `(a.user_id = ? OR a.user_id IN (
+			SELECT CASE WHEN c.requester_id = ? THEN c.receiver_id ELSE c.requester_id END
+			FROM user_connections c
+			WHERE c.tenant_id = ? AND c.status = 'accepted' AND (c.requester_id = ? OR c.receiver_id = ?)))`
+		args = append(args, q.UserID, q.UserID, q.TenantID, q.UserID, q.UserID)
+	case game.ScopeGroup:
+		membership = `(a.user_id IN (SELECT cm.user_id FROM conversation_members cm WHERE cm.conversation_id = ?))`
+		args = append(args, q.GroupID)
+	default:
+		return nil, game.ErrInvalidBoard
+	}
+
+	order := `total_ms ASC`
+	if q.Period == game.PeriodWeek {
+		order = `solved_days DESC, total_ms ASC`
+	}
+	limit := q.Limit
+	if limit <= 0 || limit > game.BoardLimit {
+		limit = game.BoardLimit
+	}
+
+	query := `SELECT a.user_id, COALESCE(u.username, ''), COALESCE(u.display_name, ''), COALESCE(u.avatar_url, ''),
+			COUNT(1) AS solved_days, CAST(SUM(a.duration_ms) AS BIGINT) AS total_ms
+		FROM game_attempts a
+		LEFT JOIN users u ON u.id = a.user_id
+		WHERE a.tenant_id = ? AND a.puzzle_date >= ? AND a.puzzle_date <= ? AND a.status = 'solved'
+		  AND ` + membership + `
+		  AND NOT EXISTS (
+			SELECT 1 FROM user_connections b
+			WHERE b.tenant_id = a.tenant_id AND b.status = 'blocked'
+			  AND ((b.requester_id = ? AND b.receiver_id = a.user_id) OR (b.receiver_id = ? AND b.requester_id = a.user_id)))
+		GROUP BY a.user_id, u.username, u.display_name, u.avatar_url
+		ORDER BY ` + order + `, MIN(a.solved_at) ASC, a.user_id ASC
+		LIMIT ` + strconv.Itoa(limit)
+	args = append(args, q.UserID, q.UserID)
+
+	rows, err := r.db.QueryContext(ctx, r.q(query), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []game.BoardEntry
+	for rows.Next() {
+		var e game.BoardEntry
+		if err := rows.Scan(&e.UserID, &e.Username, &e.DisplayName, &e.AvatarURL, &e.SolvedDays, &e.DurationMs); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}

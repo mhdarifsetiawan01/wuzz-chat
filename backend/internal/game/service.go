@@ -337,3 +337,70 @@ func placementComplete(p Placement) bool {
 	}
 	return len(p) > 0
 }
+
+// Leaderboard mengembalikan papan skor teman atau grup untuk hari ini atau minggu ini (Senin-hari ini, lokal pengguna).
+// Hanya penyelesaian sah (solved) yang dihitung; pengguna yang berhubungan blokir dengan pemanggil tidak tampil.
+func (s *Service) Leaderboard(ctx context.Context, tenantID, userID, scope, groupID, period string) (*LeaderboardResponse, error) {
+	if !s.enabled {
+		return nil, ErrDisabled
+	}
+	if (scope != ScopeFriends && scope != ScopeGroup) || (period != PeriodDay && period != PeriodWeek) {
+		return nil, ErrInvalidBoard
+	}
+	tenantID = normalizeTenant(tenantID)
+	if scope == ScopeGroup {
+		// Hanya grup induk (grp_); forum (sub_) dan percakapan langsung bukan papan skor.
+		if !strings.HasPrefix(groupID, "grp_") {
+			return nil, ErrInvalidBoard
+		}
+		member, err := s.repo.IsGroupMember(ctx, tenantID, groupID, userID)
+		if err != nil {
+			return nil, err
+		}
+		if !member {
+			return nil, ErrNotGroupMember
+		}
+	}
+
+	settings, err := s.loadSettings(ctx, tenantID, userID)
+	if err != nil {
+		return nil, err
+	}
+	today, err := localToday(settings.Timezone, s.now())
+	if err != nil {
+		return nil, err
+	}
+	to := today.Format(dateLayout)
+	from := to
+	if period == PeriodWeek {
+		from = weekStart(today)
+	}
+
+	rows, err := s.repo.ListBoard(ctx, BoardQuery{
+		TenantID: tenantID, UserID: userID, Scope: scope, GroupID: groupID,
+		From: from, To: to, Period: period, Limit: BoardLimit,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &LeaderboardResponse{Scope: scope, Period: period, From: from, To: to, Entries: make([]BoardEntry, 0, len(rows))}
+	for i, e := range rows {
+		// Peringkat sama untuk hasil yang persis sama (hari: waktu sama; minggu: hari dan total waktu sama).
+		rank := i + 1
+		if i > 0 {
+			prev := resp.Entries[i-1]
+			if prev.DurationMs == e.DurationMs && prev.SolvedDays == e.SolvedDays {
+				rank = prev.Rank
+			}
+		}
+		e.Rank = rank
+		e.IsMe = e.UserID == userID
+		if e.IsMe {
+			r := rank
+			resp.MyRank = &r
+		}
+		resp.Entries = append(resp.Entries, e)
+	}
+	return resp, nil
+}

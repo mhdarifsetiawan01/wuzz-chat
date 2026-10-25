@@ -54,6 +54,31 @@ export interface GameSettings {
   timezone: string;
 }
 
+export type GameBoardScope = 'friends' | 'group';
+export type GameBoardPeriod = 'day' | 'week';
+
+export interface GameBoardEntry {
+  rank: number;
+  user_id: string;
+  username: string;
+  display_name: string;
+  avatar_url?: string;
+  /** Periode hari: selalu 1. Periode minggu: jumlah hari yang diselesaikan. */
+  solved_days: number;
+  /** Periode hari: waktu penyelesaian. Periode minggu: total waktu hari-hari itu. */
+  duration_ms: number;
+  is_me: boolean;
+}
+
+export interface GameLeaderboard {
+  scope: GameBoardScope;
+  period: GameBoardPeriod;
+  from: string;
+  to: string;
+  entries: GameBoardEntry[];
+  my_rank?: number;
+}
+
 export const gameApi = {
   /** GET /api/game/today */
   async getToday(): Promise<GameToday> {
@@ -71,6 +96,17 @@ export const gameApi = {
       method: 'POST',
       body: JSON.stringify({ placement }),
     });
+  },
+
+  /** GET /api/game/leaderboard — papan skor teman atau grup (hanya penyelesaian sah; blokir dihormati server). */
+  async getLeaderboard(params: {
+    scope: GameBoardScope;
+    period: GameBoardPeriod;
+    groupId?: string;
+  }): Promise<GameLeaderboard> {
+    const q = new URLSearchParams({ scope: params.scope, period: params.period });
+    if (params.groupId) q.append('group_id', params.groupId);
+    return apiClient<GameLeaderboard>(`/api/game/leaderboard?${q.toString()}`, { method: 'GET' });
   },
 
   /** GET /api/game/settings */

@@ -1,6 +1,7 @@
 # Game Harian "Wuzz Grid" — Rancangan
 
-> **Status (25 Okt 2026):** rancangan hasil diskusi. **Tahap 1 selesai** (penyelesai, pembuat puzzle, pemeriksa jawaban; commit 4a34329). **Tahap 2 selesai** (tabel, repository, service, endpoint, sakelar `GAME_ENABLED`, penghapusan akun; commit 535ba39). **Tahap 3 selesai di `dev`, belum di-commit dan BELUM diuji di perangkat**: kartu di Feed, layar permainan, lembar hasil, API/hook/penyimpanan mobile. Dikerjakan di branch `dev`, di balik sakelar mati.
+> **Status (26 Okt 2026):** rancangan hasil diskusi 25 Okt. **Tahap 1** (penyelesai, pembuat puzzle; commit 4a34329), **tahap 2** (tabel, endpoint, sakelar `GAME_ENABLED`, hapus akun; 535ba39) dan **tahap 3** (mobile: kartu, layar permainan, hasil; 7e65571, perbaikan 1dd500f) selesai di `main` dan **teruji di HP Realme Android 11**. **Tahap 4** (papan skor teman/grup, indikator pembeku) selesai di `dev`, **belum di-commit dan belum diuji di HP**. Tahap 5-6 belum dikerjakan. Dikerjakan di branch `dev`, di balik sakelar mati.
+> **Aturan kerja:** deploy backend/frontend dan build APK dilakukan pengguna. Jangan menaikkan versi/build number. Tidak ada `git commit` sebelum pengguna menyatakan "selesai", dan tidak ada `git push` tanpa persetujuan tertulis terpisah.
 > **Tujuan:** membuat pengguna betah lewat fitur di luar chat: satu puzzle logika per hari, dengan streak dan papan skor sosial. Sasaran: milenial dan Gen Z.
 
 ---
@@ -157,3 +158,13 @@ Pengujian wajib tiap tahap: `go test -v ./...` (backend), `npx tsc --noEmit` (mo
 - Bintang dan X berupa ikon vektor (bukan emoji) agar aman dari masalah teks terpotong Android 16; nomor wilayah ditulis di sel pertama tiap wilayah (tidak bergantung warna); tidak ada animasi.
 - Ukuran sel = lebar layar / ukuran grid (maks 52dp). Pada lebar 320dp, 9×9 menghasilkan sel 32dp (lebih kecil dari target 40dp); perlu dinilai di perangkat kecil.
 - **Belum teruji di perangkat:** tampilan tema terang/gelap, ketepatan sentuh 9×9 di layar kecil, Android 11, Infinix Android 16, skala font besar, dan alur jaringan putus.
+
+## 10. Catatan implementasi tahap 4 (papan skor)
+
+- Endpoint: `GET /api/game/leaderboard?scope=friends|group&group_id=grp_...&period=day|week` (periode bawaan `day`). Papan publik (opt-in) belum ada (tahap 5).
+- **Hanya penyelesaian `solved` yang dihitung**; `suspicious` dan percobaan yang belum selesai tidak tampil.
+- **Teman** = pemanggil + koneksi `accepted` (arah relasi tidak berpengaruh). **Grup** = anggota grup induk `grp_` tersebut; pemanggil wajib anggota (403 bila bukan); forum `sub_` dan obrolan langsung ditolak (400).
+- **Blokir dua arah:** pengguna yang berhubungan `blocked` dengan pemanggil (siapa pun yang memblokir) tidak tampil di papan pemanggil.
+- **Periode:** hari = tanggal lokal pemanggil; minggu = Senin sampai hari ini (lokal pemanggil). Urutan hari = waktu tercepat; urutan minggu = jumlah hari selesai terbanyak, lalu total waktu tersingkat. Hasil persis sama berperingkat sama. Maksimum 50 baris; baris pemanggil bisa terpotong bila di luar 50 teratas (belum ditangani).
+- Mobile: `GameLeaderboard` (tab Teman/Grup, Hari ini/Minggu ini, pilihan grup dari daftar obrolan `grp_`) di bawah grid pada `GameScreen`; lencana pembeku di samping streak.
+- Teruji di SQLite dan Postgres 16 (7 tes papan + tes HTTP). Belum diuji di HP: tampilan papan, urutan grup, tampilan dengan banyak teman, dan font besar.
