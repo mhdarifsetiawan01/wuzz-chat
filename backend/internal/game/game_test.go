@@ -45,6 +45,9 @@ func TestGenerate_UniqueSolutionAllSizes(t *testing.T) {
 			if err := validateGrid(p.Size, p.Regions); err != nil {
 				t.Fatalf("size %d seed %d: grid tidak sah: %v", size, seed, err)
 			}
+			if got := smallestRegion(p.Size, p.Regions); got < minRegionSize {
+				t.Fatalf("size %d seed %d: wilayah terkecil %d sel, minimal %d (bintang terlalu mudah ditebak)", size, seed, got, minRegionSize)
+			}
 			n, err := CountSolutions(p.Size, p.Regions, 5)
 			if err != nil || n != 1 {
 				t.Fatalf("size %d seed %d: %d solusi (err %v), mau tepat 1", size, seed, n, err)

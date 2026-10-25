@@ -13,6 +13,11 @@ const (
 	// solutionCountCap membatasi penghitungan solusi saat perbaikan (cukup untuk
 	// membandingkan "lebih banyak/sedikit" tanpa menghitung semuanya).
 	solutionCountCap = 64
+	// minRegionSize mencegah wilayah satu-dua sel yang membocorkan letak bintang sejak awal.
+	minRegionSize = 3
+	// balancedGrowthPercent: peluang tiap langkah tumbuh memilih wilayah terkecil (bukan acak murni),
+	// supaya ukuran wilayah lebih seimbang dan tidak ada satu wilayah raksasa.
+	balancedGrowthPercent = 75
 )
 
 // SizeForDate menentukan ukuran grid dari hari dalam minggu (UTC):
@@ -53,7 +58,7 @@ func Generate(size int, seed int64) (*Puzzle, error) {
 	for range maxGenerateRestarts {
 		stars := randomStars(rng, size)
 		regions := growRegions(rng, size, stars)
-		if refineToUnique(rng, size, regions, stars) {
+		if refineToUnique(rng, size, regions, stars) && smallestRegion(size, regions) >= minRegionSize {
 			return &Puzzle{Size: size, Regions: regions, Solution: stars, Seed: seed}, nil
 		}
 	}
@@ -68,6 +73,7 @@ func refineToUnique(rng *rand.Rand, size int, regions [][]int, stars []int) bool
 	isStar := func(r, c int) bool { return stars[r] == c }
 	count := countSolutions(size, regions, solutionCountCap)
 	dirs := [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
+	sizes := regionSizes(size, regions)
 
 	for step := 0; step < maxRefineSteps && count > 1; step++ {
 		r, c := rng.IntN(size), rng.IntN(size)
@@ -80,6 +86,9 @@ func refineToUnique(rng *rand.Rand, size int, regions [][]int, stars []int) bool
 			continue
 		}
 		old := regions[r][c]
+		if sizes[old] <= minRegionSize {
+			continue // memindahkan sel ini membuat wilayah asalnya terlalu kecil
+		}
 		regions[r][c] = regions[nr][nc]
 		if !gridIsValid(size, regions) {
 			regions[r][c] = old
@@ -90,6 +99,8 @@ func refineToUnique(rng *rand.Rand, size int, regions [][]int, stars []int) bool
 			regions[r][c] = old
 			continue
 		}
+		sizes[old]--
+		sizes[regions[r][c]]++
 		count = next
 	}
 	return count == 1
@@ -139,8 +150,10 @@ func growRegions(rng *rand.Rand, size int, stars []int) [][]int {
 		}
 	}
 	ids := rng.Perm(size)
+	sizes := make([]int, size)
 	for r, c := range stars {
 		regions[r][c] = ids[r]
+		sizes[ids[r]] = 1
 	}
 
 	dirs := [4][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}}
@@ -161,8 +174,46 @@ func growRegions(rng *rand.Rand, size int, stars []int) [][]int {
 				}
 			}
 		}
+		if rng.IntN(100) < balancedGrowthPercent {
+			smallest := cands[0].region
+			for _, cd := range cands {
+				if sizes[cd.region] < sizes[smallest] {
+					smallest = cd.region
+				}
+			}
+			kept := cands[:0:0]
+			for _, cd := range cands {
+				if sizes[cd.region] == sizes[smallest] {
+					kept = append(kept, cd)
+				}
+			}
+			cands = kept
+		}
 		pick := cands[rng.IntN(len(cands))]
 		regions[pick.r][pick.c] = pick.region
+		sizes[pick.region]++
 	}
 	return regions
+}
+
+// regionSizes menghitung jumlah sel tiap wilayah (indeks = nomor wilayah).
+func regionSizes(size int, regions [][]int) []int {
+	sizes := make([]int, size)
+	for _, row := range regions {
+		for _, id := range row {
+			sizes[id]++
+		}
+	}
+	return sizes
+}
+
+// smallestRegion mengembalikan jumlah sel wilayah terkecil.
+func smallestRegion(size int, regions [][]int) int {
+	smallest := size * size
+	for _, n := range regionSizes(size, regions) {
+		if n < smallest {
+			smallest = n
+		}
+	}
+	return smallest
 }

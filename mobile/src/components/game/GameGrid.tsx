@@ -18,11 +18,11 @@ import {
 
 /** Sembilan warna wilayah; terang untuk tema terang, redup untuk tema gelap. */
 const LIGHT_REGION_COLORS = [
-  '#bfdbfe', '#fde68a', '#bbf7d0', '#fecaca', '#ddd6fe',
+  '#bfdbfe', '#fde68a', '#bbf7d0', '#d9f99d', '#ddd6fe',
   '#fed7aa', '#a5f3fc', '#fbcfe8', '#e2e8f0',
 ];
 const DARK_REGION_COLORS = [
-  '#1e3a5f', '#5c4a14', '#14532d', '#5b2121', '#3b2f6b',
+  '#1e3a5f', '#5c4a14', '#14532d', '#4d5a12', '#3b2f6b',
   '#6b3a12', '#134e5e', '#5b2145', '#334155',
 ];
 
@@ -82,9 +82,15 @@ export const GameGrid: React.FC<GameGridProps> = React.memo(
                       borderRightWidth: c === size - 1 ? BOUNDARY_WIDTH : 0,
                       borderBottomWidth: r === size - 1 ? BOUNDARY_WIDTH : 0,
                     },
-                    bad && { backgroundColor: colors.dangerFill + '55' },
                   ]}
                 >
+                  {bad ? (
+                    // Cincin merah menandai konflik tanpa mengganti warna wilayah (warna merah wilayah bisa menyerupai).
+                    <View
+                      pointerEvents="none"
+                      style={[StyleSheet.absoluteFill, styles.conflictRing, { borderColor: colors.dangerFill }]}
+                    />
+                  ) : null}
                   {label !== undefined ? (
                     <Text
                       allowFontScaling={false}
@@ -117,6 +123,7 @@ GameGrid.displayName = 'GameGrid';
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
+  conflictRing: { borderWidth: 3 },
   cell: { alignItems: 'center', justifyContent: 'center' },
   regionLabel: { position: 'absolute', top: 1, left: 3, fontWeight: '700', opacity: 0.75 },
 });

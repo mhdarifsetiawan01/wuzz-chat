@@ -38,12 +38,12 @@ export const GameEntryCard: React.FC<GameEntryCardProps> = ({ onPress }) => {
   const playing = attempt?.status === 'playing';
   const puzzle = data.puzzle;
 
-  const title = finished
-    ? `Wuzz Grid #${data.number} selesai`
-    : `Puzzle hari ini · Wuzz Grid #${data.number}`;
+  // Nomor bisa hilang dari respons server; jangan pernah menampilkan "#undefined".
+  const title = data.number ? `Wuzz Grid #${data.number}` : 'Wuzz Grid';
+  const streakText = streak > 0 ? `Streak ${streak} hari` : 'Mulai streak Anda';
   const subtitle = finished
-    ? `Waktu ${formatDuration(attempt?.duration_ms ?? 0)}${streak > 0 ? ` · Streak ${streak} hari` : ''}`
-    : `Grid ${puzzle.size}×${puzzle.size}${streak > 0 ? ` · Streak ${streak} hari` : ' · Mulai streak Anda'}`;
+    ? `Selesai ${formatDuration(attempt?.duration_ms ?? 0)} · ${streakText}`
+    : `Puzzle hari ini · ${puzzle.size}×${puzzle.size} · ${streakText}`;
   const cta = finished ? 'Lihat' : playing ? 'Lanjutkan' : 'Main';
 
   return (
@@ -61,7 +61,7 @@ export const GameEntryCard: React.FC<GameEntryCardProps> = ({ onPress }) => {
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
-        <Text style={styles.subtitle} numberOfLines={1}>
+        <Text style={styles.subtitle} numberOfLines={2}>
           {subtitle}
         </Text>
       </View>

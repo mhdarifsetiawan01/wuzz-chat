@@ -113,8 +113,8 @@ func TestService_TodayCreatesStablePuzzle(t *testing.T) {
 		t.Fatalf("semua pengguna harus mendapat puzzle yang sama")
 	}
 	res, _ := e.svc.Today(e.ctx, "default", "u1")
-	if res.Number != 1 {
-		t.Errorf("nomor puzzle %d, mau 1", res.Number)
+	if res.Number != 2 { // epoch 2026-10-25 = #1, jadi Senin 2026-10-26 = #2
+		t.Errorf("nomor puzzle %d, mau 2", res.Number)
 	}
 	if res.Attempt != nil || res.Streak == nil || res.Streak.Current != 0 {
 		t.Errorf("belum mulai: attempt=%v streak=%+v", res.Attempt, res.Streak)
@@ -384,5 +384,17 @@ func TestAccountErasure_RemovesGameData(t *testing.T) {
 		if n := count(table, bob.ID); n != 1 {
 			t.Errorf("%s: data Bob harus tetap 1 baris, dapat %d", table, n)
 		}
+	}
+}
+
+func TestService_PuzzleNumberStartsAtOneOnEpochDay(t *testing.T) {
+	e := newEnv(t, true)
+	e.now = time.Date(2026, 10, 25, 8, 0, 0, 0, time.UTC) // hari pertama fitur dinyalakan (Minggu 9x9)
+	res, err := e.svc.Today(e.ctx, "default", "u1")
+	if err != nil || res.Number != 1 {
+		t.Fatalf("nomor %d (err %v), mau 1: nomor 0 hilang dari JSON dan tampil sebagai #undefined di klien", res.Number, err)
+	}
+	if res.Puzzle.Size != 9 {
+		t.Errorf("Minggu harus 9x9, dapat %d", res.Puzzle.Size)
 	}
 }

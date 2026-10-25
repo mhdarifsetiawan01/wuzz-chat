@@ -140,7 +140,7 @@ export function formatDuration(ms: number): string {
 
 /** Teks bagikan tanpa spoiler: "Wuzz Grid #12 · 1:42 · 🔥4" (streak disembunyikan bila 0). */
 export function buildShareText(number: number, durationMs: number, streak: number): string {
-  const parts = [`Wuzz Grid #${number}`, formatDuration(durationMs)];
+  const parts = [number > 0 ? `Wuzz Grid #${number}` : 'Wuzz Grid', formatDuration(durationMs)];
   if (streak > 0) parts.push(`🔥${streak}`);
   return parts.join(' · ');
 }

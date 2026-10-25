@@ -7,8 +7,9 @@ import (
 	_ "time/tzdata" // zona waktu tertanam agar tidak bergantung pada paket tzdata di server/kontainer
 )
 
-// gridEpoch adalah tanggal Wuzz Grid #1 (dipakai untuk nomor puzzle yang dibagikan).
-const gridEpoch = "2026-10-26"
+// gridEpoch adalah tanggal Wuzz Grid #1 (dipakai untuk nomor puzzle yang dibagikan). Harus tidak lebih
+// lambat dari hari pertama fitur dinyalakan: tanggal sebelum epoch bernomor 0 dan nomornya hilang dari JSON.
+const gridEpoch = "2026-10-25"
 
 // timezoneChangeCooldown membatasi pergantian zona waktu agar tidak dipakai memperpanjang streak.
 const timezoneChangeCooldown = 24 * time.Hour

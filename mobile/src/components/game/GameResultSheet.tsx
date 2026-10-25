@@ -38,7 +38,7 @@ export const GameResultSheet: React.FC<GameResultSheetProps> = ({
   return (
     <BottomSheetModal visible={visible} onClose={onClose} title="Puzzle selesai!">
       <View style={styles.body}>
-        <Text style={styles.label}>Wuzz Grid #{number}</Text>
+        <Text style={styles.label}>{number > 0 ? `Wuzz Grid #${number}` : 'Wuzz Grid'}</Text>
         <Text style={styles.time} accessibilityLabel={`Waktu ${formatDuration(durationMs)}`}>
           {formatDuration(durationMs)}
         </Text>

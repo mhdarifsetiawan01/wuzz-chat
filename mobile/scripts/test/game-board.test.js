@@ -122,6 +122,8 @@ assert.strictEqual(g.formatDuration(NaN), '0:00');
 // --- teks bagikan tanpa spoiler
 assert.strictEqual(g.buildShareText(12, 102_000, 4), 'Wuzz Grid #12 · 1:42 · 🔥4');
 assert.strictEqual(g.buildShareText(1, 59_000, 0), 'Wuzz Grid #1 · 0:59');
+assert.strictEqual(g.buildShareText(0, 59_000, 2), 'Wuzz Grid · 0:59 · 🔥2', 'nomor kosong tidak boleh menjadi #0/#undefined');
+assert.strictEqual(g.buildShareText(undefined, 59_000, 0), 'Wuzz Grid · 0:59');
 
 // --- penyimpanan lokal
 const raw = g.serializeBoard('2026-10-26', star([[0, 0]]));
