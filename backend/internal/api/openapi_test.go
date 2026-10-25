@@ -33,6 +33,16 @@ func TestOpenAPIHandler_ServeOpenAPISpec(t *testing.T) {
 	if !strings.Contains(specStr, "/api/memory/drafts:") {
 		t.Errorf("expected spec to contain '/api/memory/drafts:'")
 	}
+	// Wuzz Grid: setiap endpoint game harus terdokumentasi (rute ada di internal/api/game_handler.go dan moderation_game.go).
+	for _, want := range []string{
+		"/api/game/today:", "/api/game/today/start:", "/api/game/today/submit:",
+		"/api/game/leaderboard:", "/api/game/settings:", "/api/admin/users/{id}/game-board:",
+		"GameLeaderboard:", "GameSettings:",
+	} {
+		if !strings.Contains(specStr, want) {
+			t.Errorf("expected spec to document %q", want)
+		}
+	}
 
 	// 1. Test GET /api/openapi.yaml
 	req := httptest.NewRequest(http.MethodGet, "/api/openapi.yaml", nil)

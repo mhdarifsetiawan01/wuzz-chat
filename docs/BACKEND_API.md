@@ -27,6 +27,7 @@ Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar e
    - [Manajemen Grup & Discovery](#310-manajemen-grup--discovery)
    - [Community Social Feed](#311-community-social-feed)
    - [User Connections & Friendlist Engine](#312-user-connections--friendlist-engine)
+   - [Wuzz Grid (Game Harian)](#313-wuzz-grid-game-harian)
 4. [Protokol WebSocket & Event Catalog](#4-protokol-websocket--event-catalog)
 5. [Spesifikasi Standar E2EE (End-to-End Encryption)](#5-spesifikasi-standar-e2ee-end-to-end-encryption)
 6. [Siklus Hidup Media (Store-and-Forward)](#6-siklus-hidup-media-store-and-forward)
@@ -2143,6 +2144,148 @@ Modul ini mengelola pertemanan antar pengguna (*user connections*), daftar teman
     "message": "Pertemanan berhasil dihapus"
   }
   ```
+
+---
+
+### 3.13 Wuzz Grid (Game Harian)
+
+Game puzzle harian ("grid logika"): letakkan **satu bintang di setiap baris, kolom, dan wilayah berwarna**, dan **dua bintang tidak boleh bersentuhan** (termasuk diagonal). Ukuran grid mengikuti hari dalam minggu (Senin-Selasa 6×6, Rabu-Kamis 7×7, Jumat-Sabtu 8×8, Minggu 9×9). Semua pengguna mendapat puzzle yang sama pada tanggal yang sama; puzzle selalu memiliki **tepat satu solusi**. Rancangan lengkap: [`plans/backlog/DAILY_GAME_WUZZ_GRID.md`](plans/backlog/DAILY_GAME_WUZZ_GRID.md).
+
+**Aturan umum**
+- **Autentikasi**: `Bearer <token>` pada semua endpoint. Data dibatasi tenant dari klaim JWT.
+- **Sakelar**: `GAME_ENABLED` (env backend, bawaan **mati**). Saat mati, `GET /api/game/today` menjawab `200 {"enabled": false}` dan semua endpoint lain `403 {"error": "fitur game belum aktif"}`.
+- **Batas laju**: seluruh `/api/game/*` dibatasi **60 permintaan per menit per pengguna**; lebih dari itu `429` dengan header `Retry-After: 60` dan `{"error": "..."}`.
+- **Format galat**: `{"error": "<pesan>"}` (bukan RFC 7807).
+- **Tanggal puzzle = tanggal kalender LOKAL pengguna** (`YYYY-MM-DD`), mengikuti zona waktu di `/api/game/settings`. Pemain di WIB mendapat puzzle baru pukul 00.00 WIB. Bawaan zona waktu: `Asia/Jakarta`.
+- **Solusi tidak pernah dikirim ke klien.** Waktu penyelesaian dihitung **server** dari `started_at`, bukan dari klien.
+- **Status percobaan**: `playing`, `solved`, atau `suspicious` (selesai lebih cepat dari batas manusiawi, `0,5 detik × ukuran grid`; tidak masuk papan skor dan tidak menaikkan streak).
+
+**Variabel lingkungan backend**
+
+| Variabel | Bawaan | Fungsi |
+|---|---|---|
+| `GAME_ENABLED` | mati | Menyalakan fitur game |
+| `GAME_REMINDER_TIME` | `19:00` | Jam pengingat harian (`HH:MM`, jam perangkat pemain). Dikirim lewat `reminder_time`; nilai tidak sah diabaikan. Dapat diubah tanpa build APK baru |
+
+---
+
+#### 1. `GET /api/game/today`
+Puzzle hari ini (untuk tanggal lokal pengguna), percobaan, dan streak. Puzzle dibuat saat pertama diminta (rata-rata puluhan ms; 9×9 bisa sampai sekitar setengah detik) lalu disimpan.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "enabled": true,
+    "puzzle": {
+      "date": "2026-10-27",
+      "size": 6,
+      "regions": [[4,4,3,3,3,3],[4,1,1,1,5,3],[0,1,0,0,5,3],[0,0,0,5,5,3],[0,0,0,5,2,2],[0,0,0,0,2,2]],
+      "seed": 20261027
+    },
+    "number": 3,
+    "attempt": {
+      "puzzle_date": "2026-10-27",
+      "started_at": "2026-10-27T08:00:41Z",
+      "solved_at": "2026-10-27T08:01:44Z",
+      "duration_ms": 63000,
+      "mistakes": 0,
+      "status": "solved"
+    },
+    "streak": { "current": 1, "best": 1, "last_solved_date": "2026-10-27", "freezes_available": 1 },
+    "reminder_time": "19:00"
+  }
+  ```
+  - `regions[baris][kolom]` = nomor wilayah `0..size-1`. `number` = nomor puzzle yang dibagikan ("Wuzz Grid #N", nomor 1 = 25 Okt 2026). `attempt` tidak ada bila belum dimulai. `streak.current` sudah memperhitungkan streak yang pasti putus (ditampilkan `0`).
+  - Fitur mati: `{"enabled": false}`.
+
+---
+
+#### 2. `POST /api/game/today/start`
+Memulai percobaan hari ini; `started_at` dicatat server. **Idempoten**: memanggil ulang tidak mengubah `started_at`.
+- **Success Response (200 OK)**: sama seperti `GET /api/game/today`, dengan `attempt.status = "playing"`.
+
+---
+
+#### 3. `POST /api/game/today/submit`
+Memeriksa jawaban untuk puzzle hari ini.
+- **Request Body**: `placement[baris]` = kolom bintang pada baris itu, atau `-1` bila baris kosong. Panjang harus sama dengan `size`; maksimum 4 KB.
+  ```json
+  { "placement": [1, 3, 5, 2, 0, 4] }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "solved": true,
+    "attempt": { "puzzle_date": "2026-10-27", "started_at": "2026-10-27T08:00:41Z", "solved_at": "2026-10-27T08:01:44Z", "duration_ms": 63000, "mistakes": 0, "status": "solved" },
+    "streak": { "current": 1, "best": 1, "last_solved_date": "2026-10-27", "freezes_available": 1 }
+  }
+  ```
+  - `solved: false` bila jawaban belum lengkap atau melanggar aturan. Jawaban **lengkap tetapi salah** menaikkan `mistakes`; jawaban belum lengkap tidak. Waktu tetap berjalan dari percobaan pertama, dan percobaan ulang tidak dibatasi.
+  - **Idempoten**: mengirim ulang setelah selesai mengembalikan hasil yang sama dan tidak menaikkan streak dua kali (aman terhadap permintaan ganda/serentak).
+- **Error**: `400` panjang atau kolom di luar grid; `409` percobaan belum dimulai (`start` dulu), atau hari berganti.
+
+---
+
+#### 4. `GET /api/game/leaderboard?scope=<friends|group|public>&period=<day|week>&group_id=<grp_...>`
+Papan skor, maksimum 50 baris. Hanya penyelesaian berstatus `solved` yang dihitung.
+- **Query Params**:
+  - `scope`: **wajib**. `friends` = Anda + koneksi berstatus `accepted`; `group` = anggota satu grup induk; `public` = pemain yang **opt-in** papan publik.
+  - `period`: `day` (bawaan; tanggal lokal Anda) atau `week` (Senin sampai hari ini, lokal Anda).
+  - `group_id`: wajib untuk `scope=group`; harus berawalan `grp_` (forum `sub_` dan obrolan langsung ditolak).
+- **Urutan**: `day` = waktu tercepat. `week` = hari selesai terbanyak, lalu total waktu tersingkat. Hasil yang persis sama berperingkat sama.
+- **Privasi dan penyaringan**:
+  - Pengguna yang berhubungan **blokir** (arah mana pun) dengan Anda tidak tampil.
+  - Pemilik yang menyalakan `hide_from_social` tidak tampil di papan `friends` dan `group` orang lain (barisnya sendiri tetap terlihat olehnya).
+  - Papan `public`: **nama tampilan dan foto tidak pernah dikirim** (`display_name` kosong, tanpa `avatar_url`); hanya `username` dan hasil. Akun yang dikeluarkan staf tidak tampil.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "scope": "friends",
+    "period": "day",
+    "from": "2026-10-27",
+    "to": "2026-10-27",
+    "entries": [
+      { "rank": 1, "user_id": "…", "username": "sari", "display_name": "Sari", "avatar_url": "/uploads/…", "solved_days": 1, "duration_ms": 41000, "is_me": false },
+      { "rank": 2, "user_id": "…", "username": "budi", "display_name": "Budi", "solved_days": 1, "duration_ms": 63000, "is_me": true }
+    ],
+    "my_rank": 2
+  }
+  ```
+  - Periode `day`: `solved_days` selalu 1 dan `duration_ms` = waktu penyelesaian. Periode `week`: `solved_days` = jumlah hari selesai dan `duration_ms` = total waktu hari-hari itu. `my_rank` tidak ada bila Anda belum tampil.
+- **Error**: `400` scope/periode/`group_id` tidak valid; `403` bukan anggota grup tersebut.
+
+---
+
+#### 5. `GET /api/game/settings` dan `PUT /api/game/settings`
+Preferensi game. `PUT` bersifat parsial: field yang tidak dikirim tidak diubah.
+- **Response (200 OK)**:
+  ```json
+  {
+    "leaderboard_public": false,
+    "reminder_enabled": false,
+    "hide_from_social": false,
+    "timezone": "Asia/Jakarta"
+  }
+  ```
+- **`PUT` Request Body** (semua opsional):
+  ```json
+  { "leaderboard_public": true, "reminder_enabled": true, "hide_from_social": true, "timezone": "Asia/Makassar" }
+  ```
+  - `leaderboard_public`: tampil di papan publik (**bawaan mati**).
+  - `hide_from_social`: sembunyikan hasil dari papan `friends` dan `group` milik orang lain (**bawaan tampil**; tidak memengaruhi streak maupun papan publik).
+  - `reminder_enabled`: catatan preferensi akun. Pengingat itu sendiri adalah **notifikasi lokal** yang dijadwalkan aplikasi; server tidak mengirim push.
+  - `timezone`: nama zona IANA (mis. `Asia/Jakarta`). Setelah pernah diganti, hanya dapat diubah **sekali per 24 jam** agar tidak dipakai memperpanjang streak.
+- **Error**: `400` zona waktu tidak valid; `409` zona waktu masih terkunci 24 jam.
+
+---
+
+#### 6. Moderasi papan publik (khusus staf): `GET|POST /api/admin/users/{id}/game-board`
+Dipanggil dari halaman admin `/admin/users/[id]`. Peran staf (`wuzz_moderator` atau `wuzz_admin`) wajib; akses ditolak `403` untuk pengguna biasa.
+- **`GET`** → `{"hidden": false}`: apakah akun sedang dikeluarkan dari papan publik.
+- **`POST`** `{"hidden": true, "note": "alasan"}`: mengeluarkan akun dari papan publik (akun dan papan teman/grup tidak tersentuh). **Catatan wajib saat mengeluarkan** (maks. 500 karakter) dan tercatat di jejak audit; mengembalikan (`"hidden": false`) tidak butuh catatan. Idempoten.
+- **Error**: `404` pengguna tidak ada (atau game tidak terpasang); `409` akun sudah dihapus; `400` catatan kosong/terlalu panjang.
+- Laporan pengguna dari baris papan publik memakai alur laporan yang sudah ada (`POST /api/reports` dengan `target_type: "user"`).
+
+**Data yang disimpan** (semua terhapus bersama akun): `game_attempts`, `game_streaks`, `game_settings`, `game_board_hides`, `game_board_audit`; puzzle (`game_puzzles`) milik bersama dan tidak terkait akun.
 
 ---
 

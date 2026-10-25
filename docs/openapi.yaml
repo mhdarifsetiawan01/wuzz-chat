@@ -48,6 +48,8 @@ tags:
     description: Web Push VAPID Public Key Distribution and Push Subscription Management
   - name: Utility & Diagnostics
     description: Health Probes, Client System Configuration, and OpenGraph Link Previews
+  - name: Wuzz Grid (Daily Game)
+    description: Daily logic-grid puzzle with streaks, friends/group/public leaderboards, reminders and staff moderation of the public board
 
 paths:
   # =========================================================================
@@ -2125,6 +2127,299 @@ paths:
                 $ref: '#/components/schemas/LinkPreview'
 
   # =========================================================================
+  # 11b. WUZZ GRID (DAILY GAME)
+  # =========================================================================
+  /api/game/today:
+    get:
+      tags:
+        - Wuzz Grid (Daily Game)
+      summary: Today's puzzle, attempt and streak
+      description: |
+        Returns today's puzzle for the caller's LOCAL calendar date (timezone from `/api/game/settings`, default `Asia/Jakarta`), the caller's attempt (absent until started) and streak. The solution is never returned.
+
+        When the feature is switched off (`GAME_ENABLED` unset) the response is `200 {"enabled": false}` so clients can hide the entry card; every other game endpoint then returns `403`.
+
+        All `/api/game/*` endpoints are rate limited to 60 requests per minute per user (`429` with `Retry-After: 60`).
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Puzzle, attempt and streak
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameToday'
+        '401':
+          $ref: '#/components/responses/GameUnauthorized'
+        '429':
+          $ref: '#/components/responses/GameRateLimited'
+
+  /api/game/today/start:
+    post:
+      tags:
+        - Wuzz Grid (Daily Game)
+      summary: Start today's attempt
+      description: Records the start time on the server. Idempotent; calling again never changes `started_at`.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Same shape as `GET /api/game/today`, with `attempt.status = playing`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameToday'
+        '401':
+          $ref: '#/components/responses/GameUnauthorized'
+        '403':
+          $ref: '#/components/responses/GameDisabled'
+        '429':
+          $ref: '#/components/responses/GameRateLimited'
+
+  /api/game/today/submit:
+    post:
+      tags:
+        - Wuzz Grid (Daily Game)
+      summary: Submit a placement for today's puzzle
+      description: |
+        Validates the placement against the rules. Completion time is `solved_at - started_at` computed on the server. A complete but wrong placement increments `mistakes`; an incomplete one does not. Idempotent after completion: re-sending returns the same result and never counts the streak twice.
+
+        A solve faster than `0.5s x size` is marked `suspicious` (excluded from leaderboards and streak).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameSubmitRequest'
+      responses:
+        '200':
+          description: Result of the submission
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameSubmitResult'
+        '400':
+          description: Malformed body, wrong length, or a column outside the grid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+        '401':
+          $ref: '#/components/responses/GameUnauthorized'
+        '403':
+          $ref: '#/components/responses/GameDisabled'
+        '409':
+          description: Attempt not started yet (call `start` first) or the day rolled over
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+        '429':
+          $ref: '#/components/responses/GameRateLimited'
+
+  /api/game/leaderboard:
+    get:
+      tags:
+        - Wuzz Grid (Daily Game)
+      summary: Leaderboard (friends, group or public)
+      description: |
+        Up to 50 rows; only `solved` attempts count. Ordering: `day` = fastest time; `week` (Monday to today, caller's local dates) = most days solved, then lowest total time. Equal results share a rank.
+
+        Filtering: users with a block relation to the caller (either direction) are excluded; owners with `hide_from_social` are excluded from other people's `friends` and `group` boards (their own row stays visible to them). The `public` board only lists users who opted in and were not removed by staff, and **never carries `display_name` or `avatar_url`**.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: scope
+          in: query
+          required: true
+          description: friends = caller plus accepted connections; group = members of one parent group; public = opted-in players
+          schema:
+            type: string
+            enum: [friends, group, public]
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [day, week]
+            default: day
+        - name: group_id
+          in: query
+          required: false
+          description: Required when scope=group. Must start with `grp_` (forums `sub_` and direct chats are rejected).
+          schema:
+            type: string
+            example: grp_3f2c1a9e-0000-0000-0000-000000000000
+      responses:
+        '200':
+          description: Leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameLeaderboard'
+        '400':
+          description: Unknown scope or period, or missing/invalid group_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+        '401':
+          $ref: '#/components/responses/GameUnauthorized'
+        '403':
+          description: Feature disabled, or the caller is not a member of the requested group
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+        '429':
+          $ref: '#/components/responses/GameRateLimited'
+
+  /api/game/settings:
+    get:
+      tags:
+        - Wuzz Grid (Daily Game)
+      summary: Get game preferences
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current preferences (defaults when never saved)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameSettings'
+        '401':
+          $ref: '#/components/responses/GameUnauthorized'
+        '403':
+          $ref: '#/components/responses/GameDisabled'
+        '429':
+          $ref: '#/components/responses/GameRateLimited'
+    put:
+      tags:
+        - Wuzz Grid (Daily Game)
+      summary: Update game preferences (partial)
+      description: Fields that are not sent are left unchanged. After a timezone has been changed once, it can only be changed again after 24 hours (prevents using it to extend a streak).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameSettingsUpdate'
+      responses:
+        '200':
+          description: Preferences after the update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameSettings'
+        '400':
+          description: Invalid IANA timezone or malformed body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+        '401':
+          $ref: '#/components/responses/GameUnauthorized'
+        '403':
+          $ref: '#/components/responses/GameDisabled'
+        '409':
+          description: Timezone is locked for 24 hours after the previous change
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+        '429':
+          $ref: '#/components/responses/GameRateLimited'
+
+  /api/admin/users/{id}/game-board:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Target user ID
+        schema:
+          type: string
+    get:
+      tags:
+        - Wuzz Grid (Daily Game)
+      summary: "Staff: is the user hidden from the public board?"
+      description: Staff only (`wuzz_moderator` or `wuzz_admin`).
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current moderation state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameBoardHidden'
+        '401':
+          $ref: '#/components/responses/GameUnauthorized'
+        '403':
+          description: Caller is not staff
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+        '404':
+          description: User not found, or the game module is not installed on this server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+    post:
+      tags:
+        - Wuzz Grid (Daily Game)
+      summary: "Staff: hide or restore a user on the public board"
+      description: |
+        Removes (or restores) the user from the PUBLIC board only; the account and the friends/group boards are untouched. A note is mandatory when hiding (max 500 characters) and every action is written to an append-only audit table. Idempotent.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameBoardHideRequest'
+      responses:
+        '200':
+          description: New moderation state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameBoardHidden'
+        '400':
+          description: Missing note when hiding, note too long, or malformed body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+        '401':
+          $ref: '#/components/responses/GameUnauthorized'
+        '403':
+          description: Caller is not staff
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+        '404':
+          description: User not found, or the game module is not installed on this server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+        '409':
+          description: Account already deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameError'
+
+  # =========================================================================
   # 12. DOCUMENTATION ENDPOINTS
   # =========================================================================
   /api/openapi.yaml:
@@ -2165,6 +2460,31 @@ components:
       schema:
         type: string
         default: default
+
+  responses:
+    GameUnauthorized:
+      description: Missing, invalid or expired session
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GameError'
+    GameDisabled:
+      description: The game feature is switched off on this server (`GAME_ENABLED`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GameError'
+    GameRateLimited:
+      description: More than 60 game requests per minute for this user. Retry after the `Retry-After` header (seconds).
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            example: 60
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/GameError'
 
   securitySchemes:
     BearerAuth:
@@ -2717,3 +3037,226 @@ components:
           type: string
         site_name:
           type: string
+
+    # ---------------------------------------------------------------------
+    # Wuzz Grid (Daily Game)
+    # ---------------------------------------------------------------------
+    GameError:
+      type: object
+      description: 'Error envelope used by the game endpoints: a plain object with a single "error" string (not RFC 7807).'
+      required: [error]
+      properties:
+        error:
+          type: string
+          example: fitur game belum aktif
+
+    GamePuzzle:
+      type: object
+      description: Today's puzzle. The solution is never included.
+      required: [date, size, regions, seed]
+      properties:
+        date:
+          type: string
+          description: Local calendar date of the player the puzzle belongs to
+          example: '2026-10-27'
+        size:
+          type: integer
+          minimum: 6
+          maximum: 9
+          description: Grid size N (Mon-Tue 6, Wed-Thu 7, Fri-Sat 8, Sun 9)
+        regions:
+          type: array
+          description: regions[row][col] = region number 0..N-1; each region is connected
+          items:
+            type: array
+            items:
+              type: integer
+          example: [[4,4,3,3,3,3],[4,1,1,1,5,3],[0,1,0,0,5,3],[0,0,0,5,5,3],[0,0,0,5,2,2],[0,0,0,0,2,2]]
+        seed:
+          type: integer
+          format: int64
+
+    GameAttempt:
+      type: object
+      required: [puzzle_date, started_at, duration_ms, mistakes, status]
+      properties:
+        puzzle_date:
+          type: string
+          example: '2026-10-27'
+        started_at:
+          type: string
+          format: date-time
+        solved_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+          format: int64
+          description: Server-computed completion time; 0 while playing
+        mistakes:
+          type: integer
+          description: Complete-but-wrong submissions
+        status:
+          type: string
+          enum: [playing, solved, suspicious]
+
+    GameStreak:
+      type: object
+      required: [current, best, freezes_available]
+      properties:
+        current:
+          type: integer
+          description: Consecutive days solved (shown as 0 once it is certainly broken)
+        best:
+          type: integer
+        last_solved_date:
+          type: string
+          example: '2026-10-27'
+        freezes_available:
+          type: integer
+          description: One free freeze per local week; used automatically when exactly one day is missed
+
+    GameToday:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: false when the feature is switched off server-side (all other fields are then absent)
+        puzzle:
+          $ref: '#/components/schemas/GamePuzzle'
+        number:
+          type: integer
+          description: Shareable puzzle number ("Wuzz Grid #N"); number 1 is 2026-10-25
+        attempt:
+          $ref: '#/components/schemas/GameAttempt'
+        streak:
+          $ref: '#/components/schemas/GameStreak'
+        reminder_time:
+          type: string
+          description: Daily reminder time HH:MM in the device's local time, set by the server (`GAME_REMINDER_TIME`, default 19:00)
+          example: '19:00'
+
+    GameSubmitRequest:
+      type: object
+      required: [placement]
+      properties:
+        placement:
+          type: array
+          description: placement[row] = column of the star on that row, or -1 when the row is empty. Length must equal `size`.
+          items:
+            type: integer
+            minimum: -1
+          example: [1, 3, 5, 2, 0, 4]
+
+    GameSubmitResult:
+      type: object
+      required: [solved, attempt]
+      properties:
+        solved:
+          type: boolean
+        attempt:
+          $ref: '#/components/schemas/GameAttempt'
+        streak:
+          $ref: '#/components/schemas/GameStreak'
+
+    GameBoardEntry:
+      type: object
+      required: [rank, user_id, username, solved_days, duration_ms, is_me]
+      properties:
+        rank:
+          type: integer
+        user_id:
+          type: string
+        username:
+          type: string
+        display_name:
+          type: string
+          description: Empty on the public board
+        avatar_url:
+          type: string
+          description: Never present on the public board
+        solved_days:
+          type: integer
+          description: Day period - always 1. Week period - days solved
+        duration_ms:
+          type: integer
+          format: int64
+          description: Day period - completion time. Week period - total time of the solved days
+        is_me:
+          type: boolean
+
+    GameLeaderboard:
+      type: object
+      required: [scope, period, from, to, entries]
+      properties:
+        scope:
+          type: string
+          enum: [friends, group, public]
+        period:
+          type: string
+          enum: [day, week]
+        from:
+          type: string
+          example: '2026-10-26'
+        to:
+          type: string
+          example: '2026-10-27'
+        entries:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/GameBoardEntry'
+        my_rank:
+          type: integer
+          description: Absent when the caller does not appear on this board
+
+    GameSettings:
+      type: object
+      required: [leaderboard_public, reminder_enabled, hide_from_social, timezone]
+      properties:
+        leaderboard_public:
+          type: boolean
+          description: Appear on the public board as `@username` + time (default false)
+        reminder_enabled:
+          type: boolean
+          description: Account-level record of the reminder choice. The reminder itself is a local notification scheduled by the app.
+        hide_from_social:
+          type: boolean
+          description: Hide results from other people's friends and group boards (default false = visible)
+        timezone:
+          type: string
+          description: IANA timezone name used to decide the player's local day
+          example: Asia/Jakarta
+
+    GameSettingsUpdate:
+      type: object
+      description: All fields optional; fields not sent are unchanged.
+      properties:
+        leaderboard_public:
+          type: boolean
+        reminder_enabled:
+          type: boolean
+        hide_from_social:
+          type: boolean
+        timezone:
+          type: string
+          example: Asia/Makassar
+
+    GameBoardHideRequest:
+      type: object
+      required: [hidden]
+      properties:
+        hidden:
+          type: boolean
+        note:
+          type: string
+          maxLength: 500
+          description: Required when hidden is true; recorded in the audit trail
+
+    GameBoardHidden:
+      type: object
+      required: [hidden]
+      properties:
+        hidden:
+          type: boolean
