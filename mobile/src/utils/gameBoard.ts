@@ -158,6 +158,14 @@ export function isBoardGroupId(id: unknown): id is string {
   return typeof id === 'string' && id.startsWith('grp_');
 }
 
+/**
+ * Lencana pembeku hanya berarti bila ada streak yang dilindungi: pemain baru (streak 0) belum punya apa pun untuk
+ * dibekukan, dan streak yang sudah putus tidak bisa diselamatkan pembeku.
+ */
+export function shouldShowFreezeBadge(streak: { current: number; freezes_available: number } | undefined | null): boolean {
+  return !!streak && streak.current > 0 && streak.freezes_available > 0;
+}
+
 // ─── Penyimpanan lokal ───────────────────────────────────────────────────────
 
 export interface SavedBoard {

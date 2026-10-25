@@ -36,6 +36,7 @@ import {
   formatDuration,
   hasConflict,
   isSubmittable,
+  shouldShowFreezeBadge,
   starCount,
   tapCell,
 } from '../utils/gameBoard';
@@ -246,7 +247,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onBack }) => {
           <View style={styles.stat}>
             <Icon name="bolt" size={16} color={colors.warningFill} />
             <Text style={styles.statText}>Streak {streak}</Text>
-            {(data.streak?.freezes_available ?? 0) > 0 ? (
+            {shouldShowFreezeBadge(data.streak) ? (
               <View
                 style={styles.freezeBadge}
                 accessible

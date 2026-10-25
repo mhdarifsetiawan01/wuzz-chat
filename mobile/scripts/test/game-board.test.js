@@ -135,6 +135,13 @@ assert.strictEqual(g.isBoardGroupId('dm_a_b'), false);
 assert.strictEqual(g.isBoardGroupId(undefined), false);
 assert.strictEqual(g.isBoardGroupId(42), false);
 
+// --- lencana pembeku: hanya bila ada streak yang dilindungi
+assert.strictEqual(g.shouldShowFreezeBadge({ current: 2, freezes_available: 1 }), true);
+assert.strictEqual(g.shouldShowFreezeBadge({ current: 0, freezes_available: 1 }), false, 'pemain baru: belum ada yang dilindungi');
+assert.strictEqual(g.shouldShowFreezeBadge({ current: 3, freezes_available: 0 }), false, 'pembeku sudah terpakai');
+assert.strictEqual(g.shouldShowFreezeBadge(undefined), false);
+assert.strictEqual(g.shouldShowFreezeBadge(null), false);
+
 // --- penyimpanan lokal
 const raw = g.serializeBoard('2026-10-26', star([[0, 0]]));
 const back = g.parseSavedBoard(raw, '2026-10-26', 6);
