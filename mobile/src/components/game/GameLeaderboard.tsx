@@ -136,6 +136,7 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
               disabled={optIn === null || optInBusy}
               onValueChange={toggleOptIn}
               trackColor={{ false: colors.borderStrong, true: colors.accentFill }}
+              thumbColor={colors.bgSurface}
               accessibilityLabel="Tampilkan saya di papan publik"
             />
           </View>
