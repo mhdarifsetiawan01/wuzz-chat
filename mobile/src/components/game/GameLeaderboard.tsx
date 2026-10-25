@@ -4,11 +4,13 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ApiError, GameBoardPeriod, GameBoardScope, GameLeaderboard as Board, gameApi } from '../../api';
+import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ApiError, GameBoardEntry, GameBoardPeriod, GameBoardScope, GameLeaderboard as Board, gameApi } from '../../api';
 import { Avatar } from '../Avatar';
+import { Icon } from '../Icon';
+import { ReportModal, ReportTarget } from '../ReportModal';
 import { useConversations } from '../../context';
-import { radius, spacing, useThemedStyles, ColorTokens } from '../../theme';
+import { radius, spacing, useTheme, useThemedStyles, ColorTokens } from '../../theme';
 import { formatBoardResult, isBoardGroupId } from '../../utils/gameBoard';
 
 export interface GameLeaderboardProps {
@@ -18,6 +20,7 @@ export interface GameLeaderboardProps {
 
 export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) => {
   const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const { conversations } = useConversations();
   const groups = useMemo(
     () => conversations.filter((c) => isBoardGroupId(c.id)).map((c) => ({ id: c.id, title: c.title || c.name || 'Grup' })),
@@ -31,6 +34,11 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
+  // Opt-in papan publik (diambil dari pengaturan server saat tab Publik dibuka).
+  const [optIn, setOptIn] = useState<boolean | null>(null);
+  const [optInBusy, setOptInBusy] = useState(false);
+  const [optInError, setOptInError] = useState<string | null>(null);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
 
   // Grup terpilih harus selalu salah satu grup yang masih ada.
   const activeGroupId = groupId && groups.some((g) => g.id === groupId) ? groupId : groups[0]?.id ?? null;
@@ -59,8 +67,47 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
     load();
   }, [load, refreshKey]);
 
+  useEffect(() => {
+    if (scope !== 'public') return;
+    let cancelled = false;
+    gameApi
+      .getSettings()
+      .then((st) => {
+        if (!cancelled) setOptIn(st.leaderboard_public);
+      })
+      .catch(() => {
+        if (!cancelled) setOptIn(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [scope]);
+
+  const toggleOptIn = useCallback(
+    async (next: boolean) => {
+      setOptInBusy(true);
+      setOptInError(null);
+      try {
+        const st = await gameApi.updateSettings({ leaderboard_public: next });
+        setOptIn(st.leaderboard_public);
+        await load();
+      } catch (err) {
+        setOptInError((err as ApiError)?.detail || 'Tidak dapat menyimpan pengaturan.');
+      } finally {
+        setOptInBusy(false);
+      }
+    },
+    [load]
+  );
+
+  const reportEntry = useCallback((e: GameBoardEntry) => {
+    setReportTarget({ type: 'user', id: e.user_id, userId: e.user_id, label: `@${e.username}` });
+  }, []);
+
   const emptyText =
-    scope === 'group'
+    scope === 'public'
+      ? 'Belum ada pemain di papan publik. Nyalakan pilihan di atas untuk tampil pertama.'
+      : scope === 'group'
       ? 'Belum ada anggota grup yang menyelesaikan puzzle ini.'
       : period === 'day'
         ? 'Belum ada teman yang menyelesaikan puzzle hari ini.'
@@ -73,10 +120,32 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
       <View style={styles.pillRow}>
         <Pill label="Teman" active={scope === 'friends'} onPress={() => setScope('friends')} />
         <Pill label="Grup" active={scope === 'group'} onPress={() => setScope('group')} />
-        <View style={styles.spacer} />
+        <Pill label="Publik" active={scope === 'public'} onPress={() => setScope('public')} />
+      </View>
+      <View style={styles.pillRow}>
         <Pill label="Hari ini" active={period === 'day'} onPress={() => setPeriod('day')} />
         <Pill label="Minggu ini" active={period === 'week'} onPress={() => setPeriod('week')} />
       </View>
+
+      {scope === 'public' ? (
+        <View style={styles.optInBox}>
+          <View style={styles.optInRow}>
+            <Text style={styles.optInTitle}>Tampilkan saya di papan publik</Text>
+            <Switch
+              value={optIn === true}
+              disabled={optIn === null || optInBusy}
+              onValueChange={toggleOptIn}
+              trackColor={{ false: colors.borderStrong, true: colors.accentFill }}
+              accessibilityLabel="Tampilkan saya di papan publik"
+            />
+          </View>
+          <Text style={styles.optInHint}>
+            Bila menyala, orang lain bisa melihat @username dan waktu Anda. Nama dan foto profil tidak ditampilkan.
+            Anda bisa mematikannya kapan saja.
+          </Text>
+          {optInError ? <Text style={styles.errorText}>{optInError}</Text> : null}
+        </View>
+      ) : null}
 
       {scope === 'group' && groups.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.groupRow}>
@@ -106,14 +175,26 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
               <Text style={styles.rank}>{e.rank}</Text>
               <Avatar name={e.display_name || e.username} avatarUrl={e.avatar_url} size={32} shape="circle" />
               <Text style={styles.name} numberOfLines={1}>
-                {e.display_name || e.username}
+                {e.display_name || `@${e.username}`}
               </Text>
               {e.is_me ? <Text style={styles.meTag}>Anda</Text> : null}
               <Text style={styles.result}>{formatBoardResult(board.period, e.solved_days, e.duration_ms)}</Text>
+              {board.scope === 'public' && !e.is_me ? (
+                <TouchableOpacity
+                  onPress={() => reportEntry(e)}
+                  hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Laporkan @${e.username}`}
+                >
+                  <Icon name="alert" size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              ) : null}
             </View>
           ))}
         </View>
       )}
+
+      <ReportModal visible={Boolean(reportTarget)} target={reportTarget} onClose={() => setReportTarget(null)} />
     </View>
   );
 };
@@ -145,7 +226,10 @@ const makeStyles = (colors: ColorTokens) =>
     wrap: { marginTop: spacing.xxl, gap: spacing.md },
     heading: { fontSize: 16, fontWeight: '800', color: colors.textPrimary },
     pillRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm },
-    spacer: { flexGrow: 1 },
+    optInBox: { padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.bgCard, gap: spacing.xs },
+    optInRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+    optInTitle: { flex: 1, fontSize: 14, fontWeight: '700', color: colors.textPrimary },
+    optInHint: { fontSize: 12, lineHeight: 17, color: colors.textSecondary },
     groupRow: { gap: spacing.sm, paddingVertical: spacing.xs },
     pill: {
       paddingHorizontal: spacing.md,

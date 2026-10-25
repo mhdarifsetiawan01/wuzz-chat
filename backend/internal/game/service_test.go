@@ -360,10 +360,6 @@ func TestAccountErasure_RemovesGameData(t *testing.T) {
 		}
 	}
 
-	if err := store.NewSQLAccountEraser(e.ms.DB(), e.ms.DriverName()).EraseUser(e.ctx, alice.ID); err != nil {
-		t.Fatalf("EraseUser: %v", err)
-	}
-
 	count := func(table, user string) int {
 		var n int
 		q := `SELECT COUNT(*) FROM ` + table + ` WHERE user_id = `
@@ -377,7 +373,15 @@ func TestAccountErasure_RemovesGameData(t *testing.T) {
 		}
 		return n
 	}
-	for _, table := range []string{"game_attempts", "game_streaks", "game_settings"} {
+	for _, u := range []string{alice.ID, bob.ID} {
+		if err := e.svc.SetBoardHidden(e.ctx, "default", "staff1", u, true, "uji"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := store.NewSQLAccountEraser(e.ms.DB(), e.ms.DriverName()).EraseUser(e.ctx, alice.ID); err != nil {
+		t.Fatalf("EraseUser: %v", err)
+	}
+	for _, table := range []string{"game_attempts", "game_streaks", "game_settings", "game_board_hides", "game_board_audit"} {
 		if n := count(table, alice.ID); n != 0 {
 			t.Errorf("%s: data Alice masih %d baris", table, n)
 		}

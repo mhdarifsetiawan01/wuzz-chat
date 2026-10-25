@@ -35,6 +35,8 @@ type ModerationHandler struct {
 	kick       func(userID, reason string) // memutus semua koneksi WebSocket akun (nil = dilewati)
 	eraser     store.AccountEraser         // hapus akun paksa oleh admin (nil = dinonaktifkan)
 
+	gameBoard GameBoardModerator // pengelolaan papan publik Wuzz Grid (nil = dinonaktifkan)
+
 	entitlements store.EntitlementStore // pengelolaan paket manual oleh admin (nil = dinonaktifkan)
 	entFlags     entitlementFlags       // sakelar batas paket, hanya untuk ditampilkan di status paket
 }
@@ -229,6 +231,7 @@ func (h *ModerationHandler) SetAccountEraser(e store.AccountEraser) { h.eraser =
 //	POST   /api/admin/users/{id}/unsuspend             pulihkan
 //	POST   /api/admin/users/{id}/revoke-sessions       paksa keluar dari semua perangkat (admin, catatan wajib)
 //	DELETE /api/admin/users/{id}                       hapus akun permanen (admin; {note, confirm_username})
+//	GET|POST /api/admin/users/{id}/game-board          status / keluarkan-kembalikan dari papan publik Wuzz Grid ({hidden, note})
 func (h *ModerationHandler) HandleUser(w http.ResponseWriter, r *http.Request) {
 	claims, ok := h.staff(w, r)
 	if !ok {
@@ -266,6 +269,8 @@ func (h *ModerationHandler) HandleUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeFeedJSON(w, http.StatusOK, d)
+	case op == "game-board":
+		h.handleGameBoard(w, r, claims, id)
 	case op == "unsuspend" && r.Method == http.MethodPost:
 		h.unsuspend(w, r, claims, id)
 	case op == "suspend" && r.Method == http.MethodPost:

@@ -22,6 +22,7 @@ var (
 	ErrTimezoneLocked  = errors.New("zona waktu hanya dapat diubah sekali dalam 24 jam")
 	ErrInvalidBoard    = errors.New("papan skor tidak valid: scope atau periode tidak dikenal")
 	ErrNotGroupMember  = errors.New("Anda bukan anggota grup ini")
+	ErrNoteRequired    = errors.New("catatan wajib diisi")
 )
 
 // ─── Konstanta ───────────────────────────────────────────────────────────────
@@ -119,6 +120,9 @@ type SubmitResult struct {
 const (
 	ScopeFriends = "friends"
 	ScopeGroup   = "group"
+	// ScopePublic hanya memuat pengguna yang menyalakan leaderboard_public dan belum dikeluarkan staf. Yang tampil
+	// hanya @username dan hasil: nama tampilan dan foto TIDAK dikirim (diputuskan 26 Okt 2026).
+	ScopePublic = "public"
 
 	PeriodDay  = "day"
 	PeriodWeek = "week"

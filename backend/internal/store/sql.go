@@ -565,6 +565,26 @@ func (s *SQLMessageStore) autoMigrate() error {
 			tz_changed_at TIMESTAMP DEFAULT NULL,
 			PRIMARY KEY (tenant_id, user_id)
 		);`,
+		// Moderasi papan publik Wuzz Grid: baris di sini = pengguna dikeluarkan staf dari papan publik (akun tetap aktif).
+		`CREATE TABLE IF NOT EXISTS game_board_hides (
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			actor_id VARCHAR(64) NOT NULL DEFAULT '',
+			note TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL,
+			PRIMARY KEY (tenant_id, user_id)
+		);`,
+		// Jejak audit tindakan papan publik (append-only).
+		`CREATE TABLE IF NOT EXISTS game_board_audit (
+			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			actor_id VARCHAR(64) NOT NULL DEFAULT '',
+			action VARCHAR(16) NOT NULL,
+			note TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_game_board_audit_user ON game_board_audit(tenant_id, user_id, created_at);`,
 		// Hitungan forum aktif per pembuat (batas paket).
 		`CREATE INDEX IF NOT EXISTS idx_conv_created_by_status ON conversations(created_by, status);`,
 	}

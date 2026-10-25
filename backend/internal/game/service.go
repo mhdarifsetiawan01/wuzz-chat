@@ -344,7 +344,7 @@ func (s *Service) Leaderboard(ctx context.Context, tenantID, userID, scope, grou
 	if !s.enabled {
 		return nil, ErrDisabled
 	}
-	if (scope != ScopeFriends && scope != ScopeGroup) || (period != PeriodDay && period != PeriodWeek) {
+	if (scope != ScopeFriends && scope != ScopeGroup && scope != ScopePublic) || (period != PeriodDay && period != PeriodWeek) {
 		return nil, ErrInvalidBoard
 	}
 	tenantID = normalizeTenant(tenantID)
@@ -394,6 +394,10 @@ func (s *Service) Leaderboard(ctx context.Context, tenantID, userID, scope, grou
 				rank = prev.Rank
 			}
 		}
+		if scope == ScopePublic {
+			// Privasi ditegakkan di server: papan publik tidak pernah membawa nama tampilan atau foto.
+			e.DisplayName, e.AvatarURL = "", ""
+		}
 		e.Rank = rank
 		e.IsMe = e.UserID == userID
 		if e.IsMe {
@@ -403,4 +407,20 @@ func (s *Service) Leaderboard(ctx context.Context, tenantID, userID, scope, grou
 		resp.Entries = append(resp.Entries, e)
 	}
 	return resp, nil
+}
+
+// SetBoardHidden dipakai alat moderasi: mengeluarkan atau mengembalikan pengguna pada papan publik tanpa
+// menyentuh akunnya. Catatan wajib dan tercatat di audit. Berlaku walau fitur game sedang dimatikan, agar
+// keputusan moderasi tidak hilang saat fitur dinyalakan kembali.
+func (s *Service) SetBoardHidden(ctx context.Context, tenantID, actorID, userID string, hidden bool, note string) error {
+	note = strings.TrimSpace(note)
+	if hidden && note == "" {
+		return ErrNoteRequired
+	}
+	return s.repo.SetBoardHidden(ctx, normalizeTenant(tenantID), userID, actorID, hidden, note)
+}
+
+// IsBoardHidden melaporkan apakah pengguna sedang dikeluarkan staf dari papan publik.
+func (s *Service) IsBoardHidden(ctx context.Context, tenantID, userID string) (bool, error) {
+	return s.repo.IsBoardHidden(ctx, normalizeTenant(tenantID), userID)
 }

@@ -228,6 +228,8 @@ func (s *SQLAccountEraser) EraseUser(ctx context.Context, userID string) error {
 		`DELETE FROM game_attempts WHERE user_id = ?`,
 		`DELETE FROM game_streaks WHERE user_id = ?`,
 		`DELETE FROM game_settings WHERE user_id = ?`,
+		`DELETE FROM game_board_hides WHERE user_id = ?`,
+		`DELETE FROM game_board_audit WHERE user_id = ?`,
 		`DELETE FROM user_credentials WHERE user_id = ?`,
 		`DELETE FROM sessions WHERE user_id = ?`,
 		`DELETE FROM devices WHERE user_id = ?`,

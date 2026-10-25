@@ -54,13 +54,14 @@ export interface GameSettings {
   timezone: string;
 }
 
-export type GameBoardScope = 'friends' | 'group';
+export type GameBoardScope = 'friends' | 'group' | 'public';
 export type GameBoardPeriod = 'day' | 'week';
 
 export interface GameBoardEntry {
   rank: number;
   user_id: string;
   username: string;
+  /** Kosong pada papan publik (hanya @username yang ditampilkan). */
   display_name: string;
   avatar_url?: string;
   /** Periode hari: selalu 1. Periode minggu: jumlah hari yang diselesaikan. */

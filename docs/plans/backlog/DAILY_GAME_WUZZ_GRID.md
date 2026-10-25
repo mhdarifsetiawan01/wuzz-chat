@@ -1,6 +1,6 @@
 # Game Harian "Wuzz Grid" — Rancangan
 
-> **Status (26 Okt 2026):** rancangan hasil diskusi 25 Okt. **Tahap 1** (penyelesai, pembuat puzzle; commit 4a34329), **tahap 2** (tabel, endpoint, sakelar `GAME_ENABLED`, hapus akun; 535ba39) dan **tahap 3** (mobile: kartu, layar permainan, hasil; 7e65571, perbaikan 1dd500f) selesai di `main` dan **teruji di HP Realme Android 11**. **Tahap 4** (papan skor teman/grup, indikator pembeku) selesai di `dev`, **belum di-commit dan belum diuji di HP**. Tahap 5-6 belum dikerjakan. Dikerjakan di branch `dev`, di balik sakelar mati.
+> **Status (26 Okt 2026):** rancangan hasil diskusi 25 Okt. **Tahap 1** (penyelesai, pembuat puzzle; commit 4a34329), **tahap 2** (tabel, endpoint, sakelar `GAME_ENABLED`, hapus akun; 535ba39) dan **tahap 3** (mobile: kartu, layar permainan, hasil; 7e65571, perbaikan 1dd500f) selesai di `main` dan **teruji di HP Realme Android 11**. **Tahap 4** (papan skor teman/grup, indikator pembeku) selesai dan teruji di HP (9259e54, d83b028). **Tahap 5** (papan publik opt-in, moderasi staf, laporan) selesai di `dev`, **belum di-commit dan belum diuji di HP**. Tahap 6 belum dikerjakan. Dikerjakan di branch `dev`, di balik sakelar mati.
 > **Aturan kerja:** deploy backend/frontend dan build APK dilakukan pengguna. Jangan menaikkan versi/build number. Tidak ada `git commit` sebelum pengguna menyatakan "selesai", dan tidak ada `git push` tanpa persetujuan tertulis terpisah.
 > **Tujuan:** membuat pengguna betah lewat fitur di luar chat: satu puzzle logika per hari, dengan streak dan papan skor sosial. Sasaran: milenial dan Gen Z.
 
@@ -168,3 +168,16 @@ Pengujian wajib tiap tahap: `go test -v ./...` (backend), `npx tsc --noEmit` (mo
 - **Periode:** hari = tanggal lokal pemanggil; minggu = Senin sampai hari ini (lokal pemanggil). Urutan hari = waktu tercepat; urutan minggu = jumlah hari selesai terbanyak, lalu total waktu tersingkat. Hasil persis sama berperingkat sama. Maksimum 50 baris; baris pemanggil bisa terpotong bila di luar 50 teratas (belum ditangani).
 - Mobile: `GameLeaderboard` (tab Teman/Grup, Hari ini/Minggu ini, pilihan grup dari daftar obrolan `grp_`) di bawah grid pada `GameScreen`; lencana pembeku di samping streak.
 - Teruji di SQLite dan Postgres 16 (7 tes papan + tes HTTP). Belum diuji di HP: tampilan papan, urutan grup, tampilan dengan banyak teman, dan font besar.
+
+## 11. Catatan implementasi tahap 5 (papan publik dan moderasi)
+
+**Keputusan (26 Okt 2026):** papan publik **opt-in (default mati)** dan hanya menampilkan **@username + hasil**; nama tampilan dan foto profil tidak ditampilkan (gerbang usia hanya pernyataan 13+). Berbagi hasil tetap **teks saja**: gambar grid membocorkan letak bintang, dan gambar kartu butuh modul native baru.
+
+- `GET /api/game/leaderboard?scope=public&period=day|week`: hanya pengguna dengan `leaderboard_public = true` dan belum dikeluarkan staf. Siapa pun boleh melihat papan; pemanggil yang belum opt-in tidak ikut tampil. **Privasi ditegakkan di server**: `display_name` dan `avatar_url` dikosongkan pada scope publik (ada tesnya). Blokir dua arah tetap berlaku; terbatas per tenant.
+- **Moderasi:** tabel `game_board_hides` (pengguna dikeluarkan dari papan publik; akun tidak disentuh) dan `game_board_audit` (append-only: hide/show, pelaku, catatan). Endpoint staf `GET|POST /api/admin/users/{id}/game-board` (`{hidden, note}`; catatan wajib saat mengeluarkan; berlaku walau game sedang dimatikan). Tombol "Keluarkan dari / Kembalikan ke papan publik" di `/admin/users/[id]` (perlu deploy frontend). Dikeluarkan dari papan publik tidak memengaruhi papan teman/grup.
+- **Laporan:** baris papan publik (bukan baris sendiri) punya ikon peringatan yang membuka `ReportModal` dengan target `user` (alur laporan yang sudah ada, tanpa jenis target baru). Dari laporan itu staf bisa menangguhkan akun atau mengeluarkan dari papan publik.
+- **Hapus akun** kini juga menghapus `game_board_hides` dan `game_board_audit`.
+- Mobile: tab Publik di `GameLeaderboard` dengan sakelar "Tampilkan saya di papan publik" (penjelasan: hanya @username dan waktu yang terlihat, bisa dimatikan kapan saja).
+- Teruji di SQLite dan Postgres 16 (3 tes papan publik, 2 tes rute moderasi, tes hapus akun diperluas). `npm run build` frontend lulus.
+- **Belum teruji di HP / admin:** tab Publik, sakelar opt-in, laporan baris, dan tombol di halaman admin (baru terlihat setelah deploy frontend).
+- **Untuk tahap 6:** deklarasi Data safety Play dan kebijakan privasi perlu menyebut skor, waktu, @username pada papan publik opt-in, dan jejak audit moderasi.

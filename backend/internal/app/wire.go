@@ -419,7 +419,11 @@ func New(cfg *config.Config) (*Application, error) {
 	// Game harian Wuzz Grid: mati kecuali GAME_ENABLED=true (tanpa cfg/pengujian juga mati).
 	if gameRepo != nil {
 		gameEnabled := cfg != nil && cfg.GameEnabled
-		app.GameHandler = api.NewGameHandler(game.NewService(gameRepo, gameEnabled))
+		gameSvc := game.NewService(gameRepo, gameEnabled)
+		app.GameHandler = api.NewGameHandler(gameSvc)
+		if app.ModerationHandler != nil {
+			app.ModerationHandler.SetGameBoardModerator(gameSvc)
+		}
 		if gameEnabled {
 			log.Printf("🎮 Game harian Wuzz Grid AKTIF (GAME_ENABLED=true)")
 		}

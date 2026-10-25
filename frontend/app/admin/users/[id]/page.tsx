@@ -9,14 +9,16 @@ import {
   UserDetail,
   deleteAccount,
   formatDate,
+  getGameBoardHidden,
   getUser,
   revokeUserSessions,
+  setGameBoardHidden,
   suspendAccount,
   unsuspendUser,
 } from '@/lib/admin-api'
 import { useAdminSession } from '../../AdminShell'
 
-type Kind = 'suspend' | 'unsuspend' | 'revoke' | 'delete'
+type Kind = 'suspend' | 'unsuspend' | 'revoke' | 'delete' | 'hideboard' | 'showboard'
 
 const MAX_NOTE = 500
 
@@ -25,12 +27,16 @@ const TITLE: Record<Kind, string> = {
   unsuspend: 'Pulihkan akun?',
   revoke: 'Paksa keluar dari semua perangkat?',
   delete: 'Hapus akun permanen?',
+  hideboard: 'Keluarkan dari papan publik Wuzz Grid?',
+  showboard: 'Kembalikan ke papan publik Wuzz Grid?',
 }
 
 const HINT: Record<Kind, string> = {
   suspend: 'Akun tidak bisa masuk dan koneksinya diputus. Data tidak dihapus dan bisa dipulihkan.',
   unsuspend: 'Akun bisa dipakai lagi. Token dan kunci enkripsi yang ada langsung berlaku.',
   revoke: 'Semua sesi dicabut dan koneksi diputus. Pemilik masih bisa masuk lagi dengan kredensialnya.',
+  hideboard: 'Akun tidak lagi tampil di papan skor publik Wuzz Grid (tetap tampil di papan teman/grup). Akun dan datanya tidak disentuh.',
+  showboard: 'Akun boleh tampil lagi di papan publik bila pemiliknya menyalakan opsi itu.',
   delete:
     'TIDAK DAPAT DIBATALKAN. Pesan, relasi, postingan, kredensial, dan sesi akun dihapus; username dibebaskan. Hanya gunakan bila memang perlu (mis. akun uji atau pelanggaran berat).',
 }
@@ -50,6 +56,8 @@ export default function UserDetailPage() {
   const [confirmName, setConfirmName] = useState('')
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
+  // null = fitur game tidak tersedia di server (tombol disembunyikan)
+  const [boardHidden, setBoardHidden] = useState<boolean | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -60,6 +68,8 @@ export default function UserDetailPage() {
     if (res.status === 404) return setError('Pengguna tidak ditemukan.')
     if (!res.data) return setError(res.error || 'Gagal memuat akun.')
     setDetail(res.data)
+    const board = await getGameBoardHidden(id)
+    setBoardHidden(board.data ? board.data.hidden : null)
   }, [id, expire])
 
   useEffect(() => {
@@ -73,7 +83,7 @@ export default function UserDetailPage() {
     setPending(k)
   }
 
-  const needsNote = pending !== null && pending !== 'unsuspend'
+  const needsNote = pending !== null && pending !== 'unsuspend' && pending !== 'showboard'
   const user = detail?.user
   const canSubmit =
     !busy && (!needsNote || note.trim() !== '') && (pending !== 'delete' || confirmName.trim().toLowerCase() === user?.username.toLowerCase())
@@ -87,6 +97,8 @@ export default function UserDetailPage() {
       pending === 'suspend' ? await suspendAccount(user.id, n)
       : pending === 'unsuspend' ? await unsuspendUser(user.id, n)
       : pending === 'revoke' ? await revokeUserSessions(user.id, n)
+      : pending === 'hideboard' ? await setGameBoardHidden(user.id, true, n)
+      : pending === 'showboard' ? await setGameBoardHidden(user.id, false, n)
       : await deleteAccount(user.id, n, confirmName.trim())
     setBusy(false)
     if (res.status === 401) return expire()
@@ -98,6 +110,8 @@ export default function UserDetailPage() {
       pending === 'suspend' ? 'Akun ditangguhkan.'
       : pending === 'unsuspend' ? 'Akun dipulihkan.'
       : pending === 'revoke' ? 'Semua sesi akun dicabut.'
+      : pending === 'hideboard' ? 'Akun dikeluarkan dari papan publik.'
+      : pending === 'showboard' ? 'Akun dikembalikan ke papan publik.'
       : 'Akun dihapus.',
     )
     setPending(null)
@@ -162,6 +176,8 @@ export default function UserDetailPage() {
                 ) : (
                   <button type="button" className="btn adm-btn-danger" onClick={() => open('suspend')}>Tangguhkan</button>
                 )}
+                {boardHidden === false && <button type="button" className="btn btn-secondary" onClick={() => open('hideboard')}>Keluarkan dari papan publik</button>}
+                {boardHidden === true && <button type="button" className="btn btn-secondary" onClick={() => open('showboard')}>Kembalikan ke papan publik</button>}
                 {isAdmin && <button type="button" className="btn btn-secondary" onClick={() => open('revoke')}>Paksa keluar</button>}
                 {isAdmin && <button type="button" className="btn adm-btn-danger" onClick={() => open('delete')}>Hapus akun</button>}
               </div>
@@ -209,7 +225,7 @@ export default function UserDetailPage() {
             </div>
             <div className="modal-footer-unified">
               <button type="button" className="btn btn-secondary" onClick={() => setPending(null)} disabled={busy}>Batal</button>
-              <button type="button" className={pending === 'unsuspend' ? 'btn btn-primary' : 'btn adm-btn-danger'} onClick={submit} disabled={!canSubmit}>
+              <button type="button" className={pending === 'unsuspend' || pending === 'showboard' ? 'btn btn-primary' : 'btn adm-btn-danger'} onClick={submit} disabled={!canSubmit}>
                 {busy ? 'Memproses…' : pending === 'delete' ? 'Hapus permanen' : pending === 'suspend' ? 'Tangguhkan' : pending === 'revoke' ? 'Paksa keluar' : 'Pulihkan'}
               </button>
             </div>

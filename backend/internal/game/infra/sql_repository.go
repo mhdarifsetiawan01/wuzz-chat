@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/game"
+	"github.com/google/uuid"
 )
 
 // SQLRepository mengimplementasikan game.Repository dengan database SQL (PostgreSQL & SQLite).
@@ -231,6 +232,10 @@ func (r *SQLRepository) ListBoard(ctx context.Context, q game.BoardQuery) ([]gam
 	case game.ScopeGroup:
 		membership = `(a.user_id IN (SELECT cm.user_id FROM conversation_members cm WHERE cm.conversation_id = ?))`
 		args = append(args, q.GroupID)
+	case game.ScopePublic:
+		membership = `(a.user_id IN (SELECT s.user_id FROM game_settings s WHERE s.tenant_id = ? AND s.leaderboard_public = ?)
+			AND a.user_id NOT IN (SELECT h.user_id FROM game_board_hides h WHERE h.tenant_id = ?))`
+		args = append(args, q.TenantID, true, q.TenantID)
 	default:
 		return nil, game.ErrInvalidBoard
 	}
@@ -274,4 +279,39 @@ func (r *SQLRepository) ListBoard(ctx context.Context, q game.BoardQuery) ([]gam
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+// ─── Moderasi papan publik ───────────────────────────────────────────────────
+
+func (r *SQLRepository) IsBoardHidden(ctx context.Context, tenantID, userID string) (bool, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx, r.q(`SELECT COUNT(1) FROM game_board_hides WHERE tenant_id = ? AND user_id = ?`), tenantID, userID).Scan(&n)
+	return n > 0, err
+}
+
+func (r *SQLRepository) SetBoardHidden(ctx context.Context, tenantID, userID, actorID string, hidden bool, note string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	now := time.Now().UTC()
+	action := "show"
+	if hidden {
+		action = "hide"
+		if _, err := tx.ExecContext(ctx, r.q(`INSERT INTO game_board_hides (tenant_id, user_id, actor_id, note, created_at)
+			VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT (tenant_id, user_id) DO UPDATE SET actor_id = excluded.actor_id, note = excluded.note, created_at = excluded.created_at`),
+			tenantID, userID, actorID, note, now); err != nil {
+			return err
+		}
+	} else if _, err := tx.ExecContext(ctx, r.q(`DELETE FROM game_board_hides WHERE tenant_id = ? AND user_id = ?`), tenantID, userID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, r.q(`INSERT INTO game_board_audit (id, tenant_id, user_id, actor_id, action, note, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`), uuid.New().String(), tenantID, userID, actorID, action, note, now); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

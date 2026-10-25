@@ -334,6 +334,19 @@ export function getUser(id: string) {
   return adminFetch<UserDetail>(`/api/admin/users/${encodeURIComponent(id)}`)
 }
 
+/** Status papan publik Wuzz Grid untuk satu akun; 404 bila fitur game tidak terpasang di server. */
+export function getGameBoardHidden(id: string) {
+  return adminFetch<{ hidden: boolean }>(`/api/admin/users/${encodeURIComponent(id)}/game-board`)
+}
+
+/** Keluarkan (hidden=true, catatan wajib) atau kembalikan akun pada papan publik Wuzz Grid. Akun tidak disentuh. */
+export function setGameBoardHidden(id: string, hidden: boolean, note: string) {
+  return adminFetch<{ hidden: boolean }>(`/api/admin/users/${encodeURIComponent(id)}/game-board`, {
+    method: 'POST',
+    body: JSON.stringify({ hidden, note }),
+  })
+}
+
 export function suspendAccount(id: string, note: string) {
   return adminFetch<{ status: string }>(`/api/admin/users/${encodeURIComponent(id)}/suspend`, {
     method: 'POST',

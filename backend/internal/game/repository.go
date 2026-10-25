@@ -34,6 +34,11 @@ type Repository interface {
 	// berstatus solved yang dihitung. Scope friends = pemanggil + teman accepted; scope group = anggota grup
 	// tersebut. Pengguna yang berhubungan blokir (arah mana pun) dengan pemanggil tidak ikut tampil.
 	ListBoard(ctx context.Context, q BoardQuery) ([]BoardEntry, error)
+	// SetBoardHidden mengeluarkan (hidden=true) atau mengembalikan (false) pengguna dari papan publik dan mencatat
+	// audit dalam satu transaksi. Idempoten.
+	SetBoardHidden(ctx context.Context, tenantID, userID, actorID string, hidden bool, note string) error
+	// IsBoardHidden melaporkan apakah pengguna sedang dikeluarkan staf dari papan publik.
+	IsBoardHidden(ctx context.Context, tenantID, userID string) (bool, error)
 	// IsGroupMember memeriksa keanggotaan pada percakapan grup.
 	IsGroupMember(ctx context.Context, tenantID, groupID, userID string) (bool, error)
 }

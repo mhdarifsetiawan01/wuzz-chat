@@ -184,7 +184,7 @@ func TestBoard_GroupRequiresMembershipAndParentGroup(t *testing.T) {
 func TestBoard_RejectsUnknownScopeAndPeriod(t *testing.T) {
 	e := newEnv(t, true)
 	u := e.newUser("u")
-	for _, c := range [][2]string{{"public", game.PeriodDay}, {"", game.PeriodDay}, {game.ScopeFriends, "month"}, {game.ScopeFriends, ""}} {
+	for _, c := range [][2]string{{"global", game.PeriodDay}, {"", game.PeriodDay}, {game.ScopeFriends, "month"}, {game.ScopeFriends, ""}} {
 		if _, err := e.svc.Leaderboard(e.ctx, "default", u, c[0], "", c[1]); !errors.Is(err, game.ErrInvalidBoard) {
 			t.Errorf("scope %q period %q: %v", c[0], c[1], err)
 		}
@@ -252,4 +252,160 @@ func TestBoard_TiesShareRankAndTenantsAreIsolated(t *testing.T) {
 	if err != nil || len(other.Entries) != 0 {
 		t.Fatalf("tenant lain: %+v %v", other, err)
 	}
+}
+
+// optIn menyalakan leaderboard_public untuk pengguna.
+func (e *env) optIn(user string) {
+	e.t.Helper()
+	yes := true
+	if _, err := e.svc.UpdateSettings(e.ctx, "default", user, game.SettingsInput{LeaderboardPublic: &yes}); err != nil {
+		e.t.Fatalf("opt-in %s: %v", user, err)
+	}
+}
+
+func TestBoard_PublicOnlyOptedInAndNeverCarriesNameOrAvatar(t *testing.T) {
+	e := newEnv(t, true)
+	me, star, shy, friend := e.newUser("me"), e.newUser("star"), e.newUser("shy"), e.newUser("friend")
+	e.connect(me, friend, "accepted")
+	e.exec(`UPDATE users SET avatar_url = '/uploads/a.png' WHERE id = ?`, star)
+
+	e.solve(star, 30*time.Second)
+	e.solve(shy, 20*time.Second)    // tercepat, tapi tidak opt-in
+	e.solve(friend, 25*time.Second) // teman, tapi tidak opt-in
+	e.solve(me, 50*time.Second)
+	e.optIn(star)
+
+	// Pemanggil yang tidak opt-in tetap boleh melihat papan, tetapi dirinya tidak ikut tampil.
+	res := e.board(me, game.ScopePublic, "", game.PeriodDay)
+	if want := []string{star}; !equalIDs(ids(res), want) {
+		t.Fatalf("papan publik %v, mau %v (hanya yang opt-in)", ids(res), want)
+	}
+	if res.MyRank != nil {
+		t.Errorf("pemanggil yang belum opt-in tidak boleh punya peringkat: %v", *res.MyRank)
+	}
+	got := res.Entries[0]
+	if got.Username != "star" || got.DurationMs != 30_000 {
+		t.Errorf("baris: %+v", got)
+	}
+	if got.DisplayName != "" || got.AvatarURL != "" {
+		t.Errorf("papan publik tidak boleh membawa nama tampilan/foto: %+v", got)
+	}
+
+	// Setelah opt-in, pemanggil tampil dengan peringkat; teman yang tidak opt-in tetap tidak tampil.
+	e.optIn(me)
+	res = e.board(me, game.ScopePublic, "", game.PeriodDay)
+	if want := []string{star, me}; !equalIDs(ids(res), want) {
+		t.Fatalf("setelah opt-in %v, mau %v", ids(res), want)
+	}
+	if res.MyRank == nil || *res.MyRank != 2 || !res.Entries[1].IsMe {
+		t.Errorf("peringkat saya: %v", res.MyRank)
+	}
+
+	// Papan teman tetap membawa nama (privasi hanya berlaku untuk papan publik).
+	if fr := e.board(me, game.ScopeFriends, "", game.PeriodDay); fr.Entries[0].DisplayName == "" {
+		t.Errorf("papan teman harus tetap membawa nama: %+v", fr.Entries)
+	}
+
+	// Mencabut opt-in langsung menghapus dari papan publik.
+	no := false
+	if _, err := e.svc.UpdateSettings(e.ctx, "default", star, game.SettingsInput{LeaderboardPublic: &no}); err != nil {
+		t.Fatal(err)
+	}
+	if res = e.board(me, game.ScopePublic, "", game.PeriodDay); !equalIDs(ids(res), []string{me}) {
+		t.Errorf("setelah mencabut opt-in: %v", ids(res))
+	}
+}
+
+func TestBoard_PublicRespectsBlockAndStaffHide(t *testing.T) {
+	e := newEnv(t, true)
+	me, blocked, troll, ok := e.newUser("me"), e.newUser("blocked"), e.newUser("troll"), e.newUser("ok")
+	e.connect(me, blocked, "blocked")
+	for _, u := range []string{me, blocked, troll, ok} {
+		e.solve(u, 60*time.Second)
+		e.optIn(u)
+	}
+
+	res := e.board(me, game.ScopePublic, "", game.PeriodDay)
+	got := map[string]bool{}
+	for _, id := range ids(res) {
+		got[id] = true
+	}
+	if got[blocked] || !got[troll] || !got[ok] || !got[me] {
+		t.Fatalf("blokir harus tetap berlaku di papan publik: %v", ids(res))
+	}
+
+	// Staf mengeluarkan troll: hilang dari papan semua orang, akun tidak disentuh.
+	if err := e.svc.SetBoardHidden(e.ctx, "default", "staff1", troll, true, ""); !errors.Is(err, game.ErrNoteRequired) {
+		t.Fatalf("catatan wajib saat mengeluarkan: %v", err)
+	}
+	if err := e.svc.SetBoardHidden(e.ctx, "default", "staff1", troll, true, "nama menyinggung"); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.svc.SetBoardHidden(e.ctx, "default", "staff1", troll, true, "diulang"); err != nil {
+		t.Fatalf("idempoten: %v", err)
+	}
+	if hidden, _ := e.svc.IsBoardHidden(e.ctx, "default", troll); !hidden {
+		t.Error("IsBoardHidden harus true")
+	}
+	for _, viewer := range []string{me, ok, troll} {
+		for _, id := range ids(e.board(viewer, game.ScopePublic, "", game.PeriodDay)) {
+			if id == troll {
+				t.Fatalf("pengguna yang dikeluarkan staf masih tampil bagi %s", viewer)
+			}
+		}
+	}
+	// Tetap tampil di papan teman/grup (moderasi hanya untuk papan publik).
+	e.connect(me, troll, "accepted")
+	if fr := e.board(me, game.ScopeFriends, "", game.PeriodDay); !contains(ids(fr), troll) {
+		t.Errorf("papan teman tidak boleh terpengaruh: %v", ids(fr))
+	}
+
+	// Dikembalikan: tampil lagi; jejak audit mencatat hide, hide, show.
+	if err := e.svc.SetBoardHidden(e.ctx, "default", "staff1", troll, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	if !contains(ids(e.board(me, game.ScopePublic, "", game.PeriodDay)), troll) {
+		t.Error("setelah dikembalikan harus tampil lagi")
+	}
+	rows, err := e.ms.DB().Query(rebindFor(e, `SELECT action FROM game_board_audit WHERE user_id = ? ORDER BY created_at, action`), troll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var actions []string
+	for rows.Next() {
+		var a string
+		_ = rows.Scan(&a)
+		actions = append(actions, a)
+	}
+	if len(actions) != 3 {
+		t.Errorf("audit %v, mau 3 entri (hide, hide, show)", actions)
+	}
+}
+
+func TestBoard_PublicIsTenantScoped(t *testing.T) {
+	e := newEnv(t, true)
+	u := e.newUser("u")
+	e.solve(u, 40*time.Second)
+	e.optIn(u)
+	other, err := e.svc.Leaderboard(e.ctx, "tenantB", u, game.ScopePublic, "", game.PeriodDay)
+	if err != nil || len(other.Entries) != 0 {
+		t.Fatalf("tenant lain tidak boleh melihat papan publik tenant default: %+v %v", other, err)
+	}
+}
+
+func contains(list []string, id string) bool {
+	for _, v := range list {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
+
+func rebindFor(e *env, q string) string {
+	if e.ms.DriverName() != "postgres" {
+		return q
+	}
+	return strings.Replace(q, "?", "$1", 1)
 }

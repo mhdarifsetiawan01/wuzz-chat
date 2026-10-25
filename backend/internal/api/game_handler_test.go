@@ -159,7 +159,7 @@ func TestGameHandler_Leaderboard(t *testing.T) {
 		name, url string
 		want      int
 	}{
-		{"scope tidak dikenal", "/api/game/leaderboard?scope=public", http.StatusBadRequest},
+		{"scope tidak dikenal", "/api/game/leaderboard?scope=global", http.StatusBadRequest},
 		{"periode tidak dikenal", "/api/game/leaderboard?scope=friends&period=month", http.StatusBadRequest},
 		{"grup tanpa id", "/api/game/leaderboard?scope=group", http.StatusBadRequest},
 		{"bukan anggota grup", "/api/game/leaderboard?scope=group&group_id=grp_orang_lain", http.StatusForbidden},
