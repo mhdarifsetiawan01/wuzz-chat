@@ -107,8 +107,8 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
               <Avatar name={e.display_name || e.username} avatarUrl={e.avatar_url} size={32} shape="circle" />
               <Text style={styles.name} numberOfLines={1}>
                 {e.display_name || e.username}
-                {e.is_me ? ' (Anda)' : ''}
               </Text>
+              {e.is_me ? <Text style={styles.meTag}>Anda</Text> : null}
               <Text style={styles.result}>{formatBoardResult(board.period, e.solved_days, e.duration_ms)}</Text>
             </View>
           ))}
@@ -175,5 +175,16 @@ const makeStyles = (colors: ColorTokens) =>
     rowMe: { backgroundColor: colors.bgInput },
     rank: { width: 24, fontSize: 15, fontWeight: '800', color: colors.textSecondary, textAlign: 'center' },
     name: { flex: 1, fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+    // Lencana terpisah (tidak menyusut) supaya penanda "Anda" tetap terlihat saat nama panjang terpotong.
+    meTag: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.accentPrimary,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 1,
+      borderRadius: radius.full,
+      backgroundColor: colors.bgSurface,
+      overflow: 'hidden',
+    },
     result: { fontSize: 14, fontWeight: '700', color: colors.textPrimary },
   });
