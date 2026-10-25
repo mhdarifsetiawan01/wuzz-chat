@@ -23,6 +23,8 @@ export default function PrivacyPage() {
         <li><strong>Berkas media dalam pesan</strong> (foto, pesan suara, dokumen): disimpan sementara di penyimpanan server dan otomatis dihapus paling lama 1 hari setelah dikirim. <strong>Foto profil dan media postingan Linimasa</strong> disimpan selama akun Anda aktif.</li>
         <li><strong>Perangkat dan sesi:</strong> ID perangkat, nama dan platform perangkat, user agent, alamat IP, waktu aktif terakhir, serta token notifikasi push (Firebase Cloud Messaging).</li>
         <li><strong>Relasi sosial:</strong> daftar teman, permintaan pertemanan, dan pemblokiran.</li>
+        <li><strong>Game harian Wuzz Grid:</strong> untuk tiap puzzle yang Anda mainkan kami menyimpan tanggal puzzle, waktu mulai dan selesai, durasi, jumlah jawaban yang salah, dan statusnya; jumlah hari berturut-turut (streak) beserta rekor dan pembeku streak; serta pengaturan Anda (zona waktu perangkat, pilihan tampil di papan publik, dan pilihan pengingat). Zona waktu hanya dipakai untuk menentukan pergantian hari puzzle; kami tidak mengumpulkan lokasi Anda.</li>
+        <li><strong>Papan skor:</strong> waktu penyelesaian Anda terlihat oleh teman Anda dan oleh anggota grup yang sama, bersama nama tampilan dan foto profil Anda, kecuali ada pemblokiran antara Anda dan orang itu. <strong>Papan publik bersifat pilihan dan mati secara bawaan.</strong> Bila Anda menyalakannya, pengguna aplikasi mana pun dapat melihat @username dan waktu Anda (nama tampilan dan foto profil tidak ditampilkan). Anda dapat mematikannya kapan saja di aplikasi. Staf moderasi dapat mengeluarkan akun dari papan publik dan mencatat alasannya.</li>
         <li><strong>Laporan kerusakan:</strong> bila aplikasi mengalami crash, data teknis dikirim otomatis ke Google Firebase Crashlytics: jenis dan model perangkat, versi Android dan aplikasi, jejak kesalahan, dan ID akun acak. Tidak ada isi pesan, nama pengguna, atau kata sandi yang disertakan.</li>
         <li><strong>Masuk dengan Google:</strong> bila Anda masuk atau menautkan akun Google, kami menyimpan pengenal akun Google Anda (ID unik) dan alamat email Google, semata-mata untuk mengenali akun Anda saat masuk dan menampilkan akun Google mana yang tertaut. Kami tidak membaca kontak, Drive, atau data Google lainnya, dan tidak menyimpan nama atau foto Google Anda.</li>
         <li><strong>Laporan dan moderasi:</strong> jika Anda melaporkan konten atau pengguna, kami menyimpan laporan itu beserta keterangan dan bukti yang Anda tulis. Tim moderasi mencatat tindakan yang diambil (misalnya konten dihapus atau akun ditangguhkan) beserta waktu dan alasannya.</li>
@@ -41,6 +43,7 @@ export default function PrivacyPage() {
       <ul>
         <li>Menjalankan layanan: autentikasi, mengirim pesan, panggilan, dan notifikasi.</li>
         <li>Stabilitas: memperbaiki crash dan kesalahan aplikasi berdasarkan laporan kerusakan teknis.</li>
+        <li>Game dan papan skor: menghitung hasil dan streak Anda, menampilkan papan skor sesuai pilihan di atas, dan mencegah kecurangan (waktu penyelesaian dihitung oleh server, dan hasil yang mustahil cepat tidak dimasukkan ke papan skor).</li>
         <li>Keamanan: membatasi jumlah perangkat, mencabut sesi, mencegah penyalahgunaan, dan menindaklanjuti laporan. Akun yang melanggar ketentuan dapat ditangguhkan; kami menyimpan tanggal dan alasan penangguhan, dan akun dapat dipulihkan bila penangguhan dibatalkan.</li>
         <li>Fitur AI Memory <strong>(uji terbatas)</strong>: fitur ini hanya aktif pada grup tertentu yang dipilih untuk pengujian dan belum tersedia untuk pengguna umum. Pada grup tersebut, teks pesan di <strong>topik forum</strong> yang berakhir atau ditutup dikirim ke layanan model bahasa (LLM) pihak ketiga (saat ini Groq) untuk menyusun ringkasan. Hasilnya hanya terbit ke arsip grup setelah disetujui admin grup, dan admin dapat menghapusnya kapan saja. Pesan langsung E2EE tidak pernah dibaca AI. Pada grup di luar uji terbatas ini, tidak ada teks pesan yang dikirim. Kami akan memperbarui kebijakan ini bila fitur dibuka lebih luas.</li>
       </ul>
@@ -63,7 +66,7 @@ export default function PrivacyPage() {
       <ul>
         <li>Data disimpan selama akun Anda aktif.</li>
         <li>Anda dapat menghapus akun kapan saja di aplikasi: <strong>Pengaturan → Hapus Akun</strong>, atau lewat halaman <a href="/delete-account">Hapus Akun</a>.</li>
-        <li>Saat akun dihapus, kami menghapus: profil, kata sandi, sesi dan perangkat, token push, kunci publik, relasi pertemanan, keanggotaan grup, pesan yang Anda kirim, serta postingan, komentar, dan suka Anda di Linimasa. Nama pengguna Anda dilepas dan dapat dipakai orang lain.</li>
+        <li>Saat akun dihapus, kami menghapus: profil, kata sandi, sesi dan perangkat, token push, kunci publik, relasi pertemanan, keanggotaan grup, pesan yang Anda kirim, postingan, komentar, dan suka Anda di Linimasa, serta data game Anda (percobaan puzzle, streak, pengaturan, dan catatan moderasi papan publik). Nama pengguna Anda dilepas dan dapat dipakai orang lain.</li>
         <li>Pesan sandi yang sudah tersimpan di perangkat orang lain tidak dapat kami hapus. Berkas media Anda yang sedang menunggu penghapusan otomatis biasanya terhapus dalam waktu kurang dari satu hari. Salinan cadangan teknis untuk pemulihan bencana, baik yang kami kelola maupun yang dikelola penyedia infrastruktur, mengikuti siklus rotasinya dan tidak kami pakai untuk tujuan lain.</li>
         <li><strong>Laporan moderasi:</strong> teks bukti dan keterangan pelapor dihapus otomatis <strong>90 hari setelah laporan ditutup</strong>, kecuali ditahan karena dapat diteruskan ke pihak berwenang. Catatan tindakan moderator dan data dasar laporan (jenis, alasan, status, waktu) dapat disimpan seperlunya untuk keamanan dan penegakan aturan, termasuk setelah akun yang dilaporkan dihapus.</li>
       </ul>
@@ -82,7 +85,7 @@ export default function PrivacyPage() {
       </p>
 
       <h2>8. Anak-anak</h2>
-      <p>Wuzz Chat ditujukan untuk pengguna berusia 13 tahun ke atas. Kami tidak dengan sengaja mengumpulkan data anak di bawah usia tersebut; hubungi kami agar akunnya dihapus.</p>
+      <p>Wuzz Chat ditujukan untuk pengguna berusia 13 tahun ke atas. Kami tidak dengan sengaja mengumpulkan data anak di bawah usia tersebut; hubungi kami agar akunnya dihapus. Tampil di papan publik Wuzz Grid adalah pilihan yang mati secara bawaan dan hanya menampilkan @username serta waktu.</p>
 
       <h2>9. Perubahan kebijakan</h2>
       <p>Perubahan material akan diumumkan di aplikasi atau halaman ini, dengan tanggal berlaku yang diperbarui.</p>

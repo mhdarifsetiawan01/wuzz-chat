@@ -1,6 +1,6 @@
 # Game Harian "Wuzz Grid" — Rancangan
 
-> **Status (26 Okt 2026):** rancangan hasil diskusi 25 Okt. **Tahap 1** (penyelesai, pembuat puzzle; commit 4a34329), **tahap 2** (tabel, endpoint, sakelar `GAME_ENABLED`, hapus akun; 535ba39) dan **tahap 3** (mobile: kartu, layar permainan, hasil; 7e65571, perbaikan 1dd500f) selesai di `main` dan **teruji di HP Realme Android 11**. **Tahap 4** (papan skor teman/grup, indikator pembeku) selesai dan teruji di HP (9259e54, d83b028). **Tahap 5** (papan publik opt-in, moderasi staf, laporan) selesai di `dev`, **belum di-commit dan belum diuji di HP**. Tahap 6 belum dikerjakan. Dikerjakan di branch `dev`, di balik sakelar mati.
+> **Status (26 Okt 2026):** rancangan hasil diskusi 25 Okt. **Tahap 1** (penyelesai, pembuat puzzle; commit 4a34329), **tahap 2** (tabel, endpoint, sakelar `GAME_ENABLED`, hapus akun; 535ba39) dan **tahap 3** (mobile: kartu, layar permainan, hasil; 7e65571, perbaikan 1dd500f) selesai di `main` dan **teruji di HP Realme Android 11**. **Tahap 4** (papan skor teman/grup, indikator pembeku) selesai dan teruji di HP (9259e54, d83b028). **Tahap 5** (papan publik opt-in, moderasi staf, laporan) selesai dan teruji di HP dengan dua akun (c06f251). **Tahap 6 sedang berjalan**: teks privasi/syarat/hapus-akun dan draf Data Safety selesai di `dev` (belum di-commit, belum di-deploy); pengingat harian belum. Dikerjakan di branch `dev`, di balik sakelar mati.
 > **Aturan kerja:** deploy backend/frontend dan build APK dilakukan pengguna. Jangan menaikkan versi/build number. Tidak ada `git commit` sebelum pengguna menyatakan "selesai", dan tidak ada `git push` tanpa persetujuan tertulis terpisah.
 > **Tujuan:** membuat pengguna betah lewat fitur di luar chat: satu puzzle logika per hari, dengan streak dan papan skor sosial. Sasaran: milenial dan Gen Z.
 
@@ -181,3 +181,11 @@ Pengujian wajib tiap tahap: `go test -v ./...` (backend), `npx tsc --noEmit` (mo
 - Teruji di SQLite dan Postgres 16 (3 tes papan publik, 2 tes rute moderasi, tes hapus akun diperluas). `npm run build` frontend lulus.
 - **Belum teruji di HP / admin:** tab Publik, sakelar opt-in, laporan baris, dan tombol di halaman admin (baru terlihat setelah deploy frontend).
 - **Untuk tahap 6:** deklarasi Data safety Play dan kebijakan privasi perlu menyebut skor, waktu, @username pada papan publik opt-in, dan jejak audit moderasi.
+
+## 12. Catatan tahap 6 (privasi dan deklarasi)
+
+- **Temuan 26 Okt 2026:** game sudah menyala di produksi (`GAME_ENABLED`) sebelum `/privacy` menyebut data game. Teks sudah diperbarui di repo; **perlu deploy frontend segera**.
+- `frontend/app/privacy/page.tsx`: bagian 1 (data game, papan skor), 3 (penggunaan), 5 (penghapusan), 8 (anak-anak). `frontend/app/terms/page.tsx`: larangan memanipulasi game/papan skor dan hak mengeluarkan dari papan publik. `frontend/app/delete-account/page.tsx`: daftar data game yang dihapus. `LEGAL_EFFECTIVE_DATE` = 26 Oktober 2026.
+- `docs/PLAY_STORE_LISTING.md` bagian 2.5 (baru), baris 2.2/2.4, dan butir checklist: draf jawaban Data Safety. Butir bertanda ⚠️ harus dicocokkan dengan pertanyaan terbaru di Console sebelum dikirim.
+- **Keputusan produk yang terbuka:** papan Teman dan Grup selalu menampilkan waktu, nama, dan foto (tanpa opt-out). Disebutkan apa adanya di `/privacy`. Bila ingin ada pilihan menolak, itu perubahan baru (kolom di `game_settings` dan penyaring di `ListBoard`).
+- **Belum dikerjakan:** pengingat harian opsional (notifikasi lokal; tanpa data baru di server selain `reminder_enabled` yang sudah ada), dan dokumentasi API (`docs/BACKEND_API.md`, `docs/openapi.yaml`).

@@ -32,6 +32,7 @@ export default function DeleteAccountPage() {
         <li>Sesi, perangkat terdaftar, dan token notifikasi push.</li>
         <li>Pesan yang Anda kirim (pesan langsung dan grup) dan pin yang Anda buat.</li>
         <li>Postingan, komentar, dan suka Anda di Linimasa komunitas.</li>
+        <li>Data game Wuzz Grid: percobaan puzzle, streak, pengaturan, dan catatan moderasi papan publik. Anda otomatis hilang dari semua papan skor.</li>
         <li>Daftar teman, permintaan pertemanan, dan keanggotaan grup. Jika Anda pembuat grup, kepemilikan dialihkan ke anggota lain (atau grup dihapus jika Anda satu-satunya anggota).</li>
       </ul>
 

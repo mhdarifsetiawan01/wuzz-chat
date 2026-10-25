@@ -26,14 +26,15 @@ export default function TermsPage() {
         <li>mengeksploitasi atau melecehkan anak secara seksual (lihat <a href="/child-safety">Standar Keselamatan Anak</a>);</li>
         <li>bermuatan seksual eksplisit, eksploitasi anak, atau kekerasan ekstrem;</li>
         <li>penipuan, spam, peniruan identitas, atau pelanggaran hak kekayaan intelektual;</li>
-        <li>melanggar hukum, atau mengganggu keamanan dan kinerja layanan (peretasan, otomatisasi massal, dsb.).</li>
+        <li>melanggar hukum, atau mengganggu keamanan dan kinerja layanan (peretasan, otomatisasi massal, dsb.);</li>
+        <li>memanipulasi game atau papan skor (misalnya memakai skrip atau celah untuk memalsukan waktu), atau memakai username yang melanggar daftar di atas pada papan publik.</li>
       </ul>
 
       <h2>3. Pelaporan dan pemblokiran</h2>
       <p>
         Setiap pengguna dapat <strong>melaporkan</strong> pesan, postingan, komentar, grup, atau pengguna lewat menu di
         aplikasi, dan <strong>memblokir</strong> pengguna lain. Kami meninjau laporan dan dapat menghapus konten,
-        membatasi, atau menangguhkan akun yang melanggar tanpa pemberitahuan awal, terutama untuk pelanggaran berat.
+        membatasi, atau menangguhkan akun yang melanggar, atau mengeluarkannya dari papan skor publik, tanpa pemberitahuan awal, terutama untuk pelanggaran berat.
         Pesan langsung E2EE tidak dapat kami baca; tinjauan hanya berdasarkan bukti yang dikirim pelapor.
       </p>
 

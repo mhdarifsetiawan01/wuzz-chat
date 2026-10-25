@@ -33,7 +33,7 @@
 | Kategori Play | Tipe | Dikumpulkan | Dibagikan | Tujuan | Catatan |
 |---|---|---|---|---|---|
 | Info pribadi | **Nama** (nama tampilan) | Ya | Tidak | Fungsi aplikasi, Manajemen akun | |
-| Info pribadi | **ID pengguna** (username, ID akun, ID akun Google bila memakai Masuk dengan Google) | Ya | Tidak | Fungsi aplikasi, Manajemen akun, Keamanan | |
+| Info pribadi | **ID pengguna** (username, ID akun, ID akun Google bila memakai Masuk dengan Google) | Ya | Tidak | Fungsi aplikasi, Manajemen akun, Keamanan | Username juga tampil di papan publik Wuzz Grid **hanya bila pengguna opt-in** (lihat 2.5) |
 | Info pribadi | **Alamat email** (email Google yang tertaut, hanya sebagai label akun saat memakai Masuk dengan Google) ⚠️ | Ya | Tidak | Manajemen akun, Keamanan | **Dikoreksi 6 Okt 2026:** sebelumnya tertulis "email tidak dikumpulkan", padahal login Google menyimpan email (`user_credentials.label`). Tidak dipakai untuk pemasaran dan tidak dikirim ke pihak lain. Wajib dideklarasikan sebelum rilis Play |
 | Info pribadi | **Info pribadi lain** (bio, pesan status, tautan sosial opsional) | Ya | Tidak | Fungsi aplikasi | **Opsional** |
 | Pesan | **Pesan lain dalam aplikasi** | Ya | Tidak ⚠️ | Fungsi aplikasi | Pesan grup/forum tersimpan terbaca di server; pesan langsung tersimpan sebagai teks sandi (E2EE) |
@@ -41,7 +41,7 @@
 | Audio | **Pesan suara / file audio** | Ya | Tidak | Fungsi aplikasi | Hanya pesan suara yang dikirim; **panggilan tidak direkam** |
 | File dan dokumen | **File dan dokumen** | Ya | Tidak | Fungsi aplikasi | Lampiran yang dikirim pengguna |
 | Aktivitas aplikasi | **Konten buatan pengguna lain** (postingan, komentar, suka, laporan, blokir) | Ya | Tidak | Fungsi aplikasi, Keamanan | |
-| Aktivitas aplikasi | **Interaksi aplikasi** | Ya | Tidak | Fungsi aplikasi | Hanya status sesi/perangkat; tanpa analitik |
+| Aktivitas aplikasi | **Interaksi aplikasi** | Ya | Tidak | Fungsi aplikasi | Status sesi/perangkat **dan, sejak 25 Okt 2026, aktivitas game Wuzz Grid** (percobaan puzzle: tanggal, waktu mulai/selesai, durasi, jumlah salah; streak; pengaturan game). Tanpa analitik perilaku. Lihat 2.5 |
 | App info dan kinerja | **Log kerusakan** dan **Diagnostik** (Firebase Crashlytics: jenis/model perangkat, versi OS/aplikasi, jejak kesalahan, ID akun acak) | Ya | Tidak ⚠️ | Analitik, Fungsi aplikasi (memperbaiki crash) | Crashlytics dipasang 5 Okt 2026 (membawa Firebase Installations dan Firebase Sessions, jadi ID instalasi dan data sesi ikut terkirim); lihat `docs/CRASH_REPORTING.md`. Pengumpulan hanya pada build rilis. Tidak ada Firebase Analytics. **Google ML Kit (pemindai QR) ikut mengirim informasi perangkat, versi aplikasi, dan metrik kinerja** untuk diagnostik; baris ini sudah mencakupnya (tipe "Diagnostics") |
 | ID perangkat/lainnya | **ID perangkat atau ID lain** (ID perangkat dibuat aplikasi, token FCM, alamat IP pada sesi) ⚠️ | Ya | Tidak ⚠️ | Fungsi aplikasi (notifikasi), Keamanan (pembatasan 2 perangkat, pencabutan sesi), **Analitik** (ID instalasi Firebase dan pengenal per-instalasi ML Kit untuk diagnostik) | Tujuan "Analitik" ditambahkan 8 Okt 2026 karena Firebase Installations dan ML Kit memakai pengenal per-instalasi untuk diagnostik. Cek panduan Google terkini soal alamat IP |
 | Kontak | (tidak dideklarasikan) ⚠️ | - | - | - | Daftar teman hanya di dalam aplikasi; tidak membaca buku telepon. Bila Console menanyakan, relasi teman dapat dianggap "Konten pengguna lain" |
@@ -62,10 +62,36 @@ bila ragu, lebih aman mendeklarasikan "Dibagikan" untuk Pesan (penyedia LLM, han
 
 ### 2.4 Praktik keamanan dan retensi (isi kolom tambahan bila ada)
 - Data dienkripsi saat transit; kata sandi disimpan sebagai hash bcrypt.
-- Penghapusan: akun, profil, kata sandi, sesi, perangkat, token push, kunci publik, relasi pertemanan, keanggotaan grup, pesan, postingan, komentar, suka dihapus segera;
+- Penghapusan: akun, profil, kata sandi, sesi, perangkat, token push, kunci publik, relasi pertemanan, keanggotaan grup, pesan, postingan, komentar, suka, **dan data game (percobaan, streak, pengaturan, catatan moderasi papan publik)** dihapus segera;
   berkas media dibersihkan lewat antrean `media_purge_queue` (biasanya <1 hari setelah akun dihapus); teks privasi sengaja tidak menyebut angka rotasi cadangan maupun lokasi/paket penyedia karena infrastruktur dapat berganti (saat 7 Okt 2026: Supabase Free untuk DB+Storage, Upstash, VPS). **Perbarui `/privacy` bagian 4-5 dan `LEGAL_EFFECTIVE_DATE` setiap kali penyedia berganti atau cadangan mulai dipakai (mis. Supabase Pro, Postgres di VPS).**
 - Laporan moderasi: teks bukti dan keterangan pelapor dihapus otomatis 90 hari setelah laporan ditutup (`REPORT_EVIDENCE_RETENTION_DAYS`), kecuali ditahan (bukti yang mungkin diteruskan ke pihak berwenang); catatan tindakan moderator dan metadata laporan dapat disimpan seperlunya untuk keamanan.
 - Pemberitahuan moderasi lewat Telegram hanya memuat metadata laporan (jenis, alasan, tautan), tanpa isi pesan, bukti, atau identitas pengguna; bukan "berbagi data pengguna".
+
+### 2.5 Game harian Wuzz Grid (ditambahkan 26 Okt 2026) ⚠️
+Sumber kebenaran: `/privacy` (bagian 1, 3, 5, 8) yang diperbarui bersamaan dengan bagian ini. **Fitur sudah menyala di produksi sejak 25 Okt 2026 (`GAME_ENABLED`), jadi `/privacy` baru (frontend) wajib segera di-deploy.**
+
+**Data yang diproses (semua terkait akun, hanya untuk fungsi aplikasi; tidak dijual; tidak ada SDK baru; tidak ada pihak ketiga baru):**
+| Data | Tabel | Dipakai untuk | Terlihat oleh |
+|---|---|---|---|
+| Percobaan puzzle: tanggal, waktu mulai/selesai, durasi, jumlah salah, status | `game_attempts` | Hasil, papan skor, anti-curang | Hanya pemilik; **durasi** terlihat di papan skor (lihat bawah) |
+| Streak: hari berturut-turut, rekor, pembeku | `game_streaks` | Streak | Hanya pemilik (angka streak tidak tampil di papan) |
+| Pengaturan: zona waktu (nama IANA), opt-in papan publik, opsi pengingat | `game_settings` | Pergantian hari puzzle, privasi | Hanya pemilik |
+| Moderasi papan publik: pengeluaran oleh staf, pelaku, catatan, waktu | `game_board_hides`, `game_board_audit` | Keamanan/moderasi | Staf |
+
+**Papan skor dan "dibagikan":**
+- Papan **Teman** dan **Grup**: waktu + nama tampilan + foto profil terlihat oleh teman dan anggota grup yang sama (blokir menyembunyikan dua arah). Tidak ada opsi menolak saat ini (keputusan produk 25 Okt 2026). Ini tampilan antar-pengguna di dalam aplikasi, bukan pengiriman ke pihak ketiga, jadi tidak dihitung "dibagikan" menurut Play; **cocokkan dengan definisi terkini di Console** ⚠️.
+- Papan **Publik**: **opt-in, mati secara bawaan**; hanya `@username` dan waktu (server mengosongkan nama tampilan dan foto). Dapat dimatikan kapan saja; staf dapat mengeluarkan akun.
+- **Zona waktu bukan lokasi:** nama zona (mis. `Asia/Jakarta`) tidak menunjuk lokasi. Jangan dideklarasikan sebagai Lokasi; **cocokkan dengan panduan Console** ⚠️.
+
+**Pemetaan Data Safety (usulan):**
+- Aktivitas aplikasi -> **Interaksi aplikasi** (baris di 2.2 sudah diperbarui): dikumpulkan, terkait akun, wajib, tujuan Fungsi aplikasi, tidak dibagikan. Alternatif bila Console lebih cocok: "Tindakan lain" ⚠️.
+- Tidak ada tipe data baru di kategori lain. Tidak ada perubahan pada: iklan, pembelian, lokasi, kontak.
+
+**Deklarasi lain:**
+- **Target audiens 13+:** pemain 13-17 tahun boleh memakai game. Papan publik opt-in dan hanya `@username` (bukan nama/foto) untuk membatasi paparan. Tidak dibuat mengikuti Families.
+- **IARC:** game puzzle tanpa taruhan, tanpa pembelian, tanpa konten dewasa; interaksi pengguna (papan skor, laporan) sudah dijawab "Ya" di baris Rating konten. Tidak perlu mengubah jawaban, tetapi **cek ulang kuesioner** ⚠️.
+- **Pengingat harian (bila dirilis):** notifikasi lokal dijadwalkan di perangkat; server hanya menyimpan pilihan `reminder_enabled`. Tidak menambah data baru.
+- Bila kelak ada hadiah/poin atau iklan di game: ikuti `docs/plans/backlog/ADS_AND_REWARDS_PLAN.md` dan checklist 2.3b.
 
 ## 3. Deklarasi lain di Play Console
 | Bagian | Jawaban yang disarankan |
@@ -153,5 +179,6 @@ Rekam via adb: `adb exec-out screencap -p > shot.png` (lihat catatan alur build)
 - [~] Akun demo peninjau `peninjau_play` dibuat 7 Okt 2026 (login password diuji lewat API, perangkat uji sudah dibersihkan). **Akun tanpa tautan Google DIBEKUKAN mulai 30 Okt 2026 23:59 WIB** (`GOOGLE_LINK_FREEZE=true`); pengecualiannya kini ada di kode (daftar putih `GOOGLE_LINK_FREEZE_EXEMPT`), tinggal diisi `peninjau_play` di `.env` VPS dan backend dideploy/di-restart. Belum dites login di build Play.
 - [x] ~~Putuskan Crashlytics/Sentry~~ **Crashlytics dipilih, dipasang, diaktifkan di Firebase Console, dan terbukti menerima laporan (8 Okt 2026)**; jawaban 2.2 sudah memuatnya. Lihat `docs/CRASH_REPORTING.md` bagian 5.
 - [x] Gerbang usia 13+ dipasang di aplikasi (7 Okt 2026; belum diuji visual di HP) sehingga klaim "13+" di Target audiens punya penegakan pernyataan diri.
+- [ ] **Deploy frontend `/privacy`, `/terms`, `/delete-account` yang memuat Wuzz Grid** (diperbarui 26 Okt 2026; game sudah menyala di produksi). Lalu cocokkan jawaban Data Safety dengan 2.5.
 - [ ] Cocokkan butir bertanda ⚠️ dengan teks pertanyaan terbaru di Console.
 - [ ] Build rilis memakai `EXPO_PUBLIC_UPDATE_CHANNEL=play`; `PLAY_STORE_URL` backend sesuai paket; banner pembaruan APK dimatikan untuk channel Play (sudah di kode).
