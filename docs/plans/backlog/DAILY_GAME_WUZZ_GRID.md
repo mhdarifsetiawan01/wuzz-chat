@@ -1,7 +1,6 @@
 # Game Harian "Wuzz Grid" — Rancangan
 
-> **Status (25 Okt 2026):** rancangan hasil diskusi. **Tahap 1 selesai** (penyelesai, pembuat puzzle, pemeriksa jawaban; commit 4a34329). **Tahap 2 selesai di `dev`, belum di-commit**: tabel, repository, service, endpoint, sakelar `GAME_ENABLED`, penghapusan akun. Belum ada kode mobile. Dikerjakan di branch `dev`, di balik sakelar mati.
-> **Aturan kerja:** deploy backend/frontend dan build APK dilakukan pengguna. Jangan menaikkan versi/build number. Tidak ada `git commit` sebelum pengguna menyatakan "selesai", dan tidak ada `git push` tanpa persetujuan tertulis terpisah.
+> **Status (25 Okt 2026):** rancangan hasil diskusi. **Tahap 1 selesai** (penyelesai, pembuat puzzle, pemeriksa jawaban; commit 4a34329). **Tahap 2 selesai** (tabel, repository, service, endpoint, sakelar `GAME_ENABLED`, penghapusan akun; commit 535ba39). **Tahap 3 selesai di `dev`, belum di-commit dan BELUM diuji di perangkat**: kartu di Feed, layar permainan, lembar hasil, API/hook/penyimpanan mobile. Dikerjakan di branch `dev`, di balik sakelar mati.
 > **Tujuan:** membuat pengguna betah lewat fitur di luar chat: satu puzzle logika per hari, dengan streak dan papan skor sosial. Sasaran: milenial dan Gen Z.
 
 ---
@@ -148,3 +147,13 @@ Pengujian wajib tiap tahap: `go test -v ./...` (backend), `npx tsc --noEmit` (mo
 - **Streak terlalu menekan:** pantau umpan balik; pembeku dan pengingat opsional adalah penahannya.
 - **Bentrok dengan rencana iklan:** lihat bagian 2.
 - **Terbuka:** bentuk hadiah kosmetik, gambar bagikan, kapan naik menjadi tab sendiri (usulan pemicu: sebagian besar pemain aktif membuka game hampir tiap hari selama beberapa minggu).
+
+## 9. Catatan implementasi tahap 3 (mobile)
+
+- Berkas: `src/api/gameApi.ts`, `src/utils/gameBoard.ts` (logika murni, dites di `scripts/test/game-board.test.js`), `src/services/gameStorage.ts`, `src/hooks/useGameToday.ts`, `src/components/game/{GameGrid,GameEntryCard,GameResultSheet}.tsx`, `src/screens/GameScreen.tsx`; rute `Game` di `navigation/`; kartu dipasang sebagai `ListHeaderComponent` `FeedScreen`.
+- Tanpa dependensi native baru: build APK biasa sudah cukup.
+- Zona waktu perangkat disinkronkan ke server sekali tiap berubah (`PUT /api/game/settings`) sebelum puzzle ditampilkan; bila server menjawab 409 (terkunci 24 jam) tidak diulang sampai zona perangkat berubah lagi.
+- Papan disimpan lokal satu kunci per pengguna (ditimpa tiap hari). Jawaban dikirim otomatis sekali per papan sah; gagal kirim memunculkan tombol "Kirim ulang".
+- Bintang dan X berupa ikon vektor (bukan emoji) agar aman dari masalah teks terpotong Android 16; nomor wilayah ditulis di sel pertama tiap wilayah (tidak bergantung warna); tidak ada animasi.
+- Ukuran sel = lebar layar / ukuran grid (maks 52dp). Pada lebar 320dp, 9×9 menghasilkan sel 32dp (lebih kecil dari target 40dp); perlu dinilai di perangkat kecil.
+- **Belum teruji di perangkat:** tampilan tema terang/gelap, ketepatan sentuh 9×9 di layar kecil, Android 11, Infinix Android 16, skala font besar, dan alur jaringan putus.

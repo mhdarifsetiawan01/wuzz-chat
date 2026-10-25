@@ -21,6 +21,7 @@ import {
   UserProfileScreen,
   FriendsListScreen,
   PostReaderScreen,
+  GameScreen,
 } from '../screens';
 import { MainTabNavigator } from './MainTabNavigator';
 import { useTheme } from '../theme';
@@ -251,6 +252,17 @@ export const AppNavigator: React.FC = () => {
             onBack={() => navigation.goBack()}
           />
         )}
+      </Stack.Screen>
+
+      {/* 9. Game harian Wuzz Grid */}
+      <Stack.Screen
+        name="Game"
+        options={{
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+        }}
+      >
+        {({ navigation }) => <GameScreen onBack={() => navigation.goBack()} />}
       </Stack.Screen>
 
       {/* Future modular screens can simply be appended here */}

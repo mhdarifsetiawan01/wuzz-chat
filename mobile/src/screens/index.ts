@@ -15,3 +15,4 @@ export * from './UserProfileScreen';
 export * from './FriendsListScreen';
 
 export * from './PostReaderScreen';
+export * from './GameScreen';

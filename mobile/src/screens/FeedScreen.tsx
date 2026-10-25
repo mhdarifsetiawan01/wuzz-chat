@@ -29,6 +29,7 @@ import { FeedPost } from '../api/types';
 import { Avatar } from '../components/Avatar';
 import { ReportModal, ReportTarget } from '../components/ReportModal';
 import { CreatePostModal } from '../components/CreatePostModal';
+import { GameEntryCard } from '../components/game/GameEntryCard';
 import { ExpandableText } from '../components/ExpandableText';
 import { LinkPreviewCard } from '../components/LinkPreviewCard';
 import { MediaViewerModal } from '../components/MediaViewerModal';
@@ -73,6 +74,8 @@ export const FeedScreen: React.FC = () => {
   const [activeSharePost, setActiveSharePost] = useState<FeedPost | null>(null);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+
+  const openGame = useCallback(() => navigation.navigate('Game'), [navigation]);
 
   const openReader = useCallback(
     (post: FeedPost) => navigation.navigate('PostReader', { postId: post.id, initialPost: post }),
@@ -373,6 +376,7 @@ export const FeedScreen: React.FC = () => {
         removeClippedSubviews
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
+        ListHeaderComponent={<GameEntryCard onPress={openGame} />}
         ListEmptyComponent={renderEmptyComponent}
         ListFooterComponent={
           isLoadingMore ? (

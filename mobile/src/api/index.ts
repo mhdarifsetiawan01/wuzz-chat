@@ -12,6 +12,7 @@ export * from './entitlement';
 export * from './notifications';
 export * from './transfer';
 export * from './feedApi';
+export * from './gameApi';
 export * from './connections';
 export * from './reports';
 export * from './calls';

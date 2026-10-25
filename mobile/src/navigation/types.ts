@@ -66,6 +66,8 @@ export type RootStackParamList = {
     postId: string;
     initialPost?: import('../api/types').FeedPost;
   };
+  /** Game harian Wuzz Grid (layar penuh) */
+  Game: undefined;
   /** Friends list & pending connection requests */
   FriendsList?: {
     initialTab?: 'friends' | 'requests';
