@@ -51,6 +51,8 @@ export interface GameSubmitResult {
 export interface GameSettings {
   leaderboard_public: boolean;
   reminder_enabled: boolean;
+  /** true = hasil disembunyikan dari papan Teman dan Grup milik orang lain (papan Publik punya opt-in sendiri). */
+  hide_from_social: boolean;
   timezone: string;
 }
 

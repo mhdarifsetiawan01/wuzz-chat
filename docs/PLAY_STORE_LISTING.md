@@ -75,11 +75,11 @@ Sumber kebenaran: `/privacy` (bagian 1, 3, 5, 8) yang diperbarui bersamaan denga
 |---|---|---|---|
 | Percobaan puzzle: tanggal, waktu mulai/selesai, durasi, jumlah salah, status | `game_attempts` | Hasil, papan skor, anti-curang | Hanya pemilik; **durasi** terlihat di papan skor (lihat bawah) |
 | Streak: hari berturut-turut, rekor, pembeku | `game_streaks` | Streak | Hanya pemilik (angka streak tidak tampil di papan) |
-| Pengaturan: zona waktu (nama IANA), opt-in papan publik, opsi pengingat | `game_settings` | Pergantian hari puzzle, privasi | Hanya pemilik |
+| Pengaturan: zona waktu (nama IANA), opt-in papan publik, sembunyikan dari teman/grup, opsi pengingat | `game_settings` | Pergantian hari puzzle, privasi | Hanya pemilik |
 | Moderasi papan publik: pengeluaran oleh staf, pelaku, catatan, waktu | `game_board_hides`, `game_board_audit` | Keamanan/moderasi | Staf |
 
 **Papan skor dan "dibagikan":**
-- Papan **Teman** dan **Grup**: waktu + nama tampilan + foto profil terlihat oleh teman dan anggota grup yang sama (blokir menyembunyikan dua arah). Tidak ada opsi menolak saat ini (keputusan produk 25 Okt 2026). Ini tampilan antar-pengguna di dalam aplikasi, bukan pengiriman ke pihak ketiga, jadi tidak dihitung "dibagikan" menurut Play; **cocokkan dengan definisi terkini di Console** ⚠️.
+- Papan **Teman** dan **Grup**: waktu + nama tampilan + foto profil terlihat oleh teman dan anggota grup yang sama (blokir menyembunyikan dua arah). Pengguna dapat menyembunyikan hasilnya lewat pilihan "Sembunyikan hasil saya dari teman dan grup" (`game_settings.hide_from_social`, bawaan tampil; ditambahkan 26 Okt 2026); pemilik tetap melihat barisnya sendiri. Ini tampilan antar-pengguna di dalam aplikasi, bukan pengiriman ke pihak ketiga, jadi tidak dihitung "dibagikan" menurut Play; **cocokkan dengan definisi terkini di Console** ⚠️.
 - Papan **Publik**: **opt-in, mati secara bawaan**; hanya `@username` dan waktu (server mengosongkan nama tampilan dan foto). Dapat dimatikan kapan saja; staf dapat mengeluarkan akun.
 - **Zona waktu bukan lokasi:** nama zona (mis. `Asia/Jakarta`) tidak menunjuk lokasi. Jangan dideklarasikan sebagai Lokasi; **cocokkan dengan panduan Console** ⚠️.
 

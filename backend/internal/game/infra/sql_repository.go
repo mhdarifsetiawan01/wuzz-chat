@@ -176,9 +176,9 @@ func (r *SQLRepository) SaveStreak(ctx context.Context, s *game.Streak) error {
 func (r *SQLRepository) GetSettings(ctx context.Context, tenantID, userID string) (*game.Settings, error) {
 	s := game.Settings{TenantID: tenantID, UserID: userID}
 	var changed sql.NullTime
-	err := r.db.QueryRowContext(ctx, r.q(`SELECT leaderboard_public, reminder_enabled, tz, tz_changed_at
+	err := r.db.QueryRowContext(ctx, r.q(`SELECT leaderboard_public, reminder_enabled, hide_from_social, tz, tz_changed_at
 		FROM game_settings WHERE tenant_id = ? AND user_id = ?`), tenantID, userID,
-	).Scan(&s.LeaderboardPublic, &s.ReminderEnabled, &s.Timezone, &changed)
+	).Scan(&s.LeaderboardPublic, &s.ReminderEnabled, &s.HideFromSocial, &s.Timezone, &changed)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -197,14 +197,15 @@ func (r *SQLRepository) SaveSettings(ctx context.Context, s *game.Settings) erro
 		changed = s.TimezoneChangedAt.UTC()
 	}
 	_, err := r.db.ExecContext(ctx, r.q(`INSERT INTO game_settings
-		(tenant_id, user_id, leaderboard_public, reminder_enabled, tz, tz_changed_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+		(tenant_id, user_id, leaderboard_public, reminder_enabled, hide_from_social, tz, tz_changed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (tenant_id, user_id) DO UPDATE SET
 			leaderboard_public = excluded.leaderboard_public,
 			reminder_enabled = excluded.reminder_enabled,
+			hide_from_social = excluded.hide_from_social,
 			tz = excluded.tz,
 			tz_changed_at = excluded.tz_changed_at`),
-		s.TenantID, s.UserID, s.LeaderboardPublic, s.ReminderEnabled, s.Timezone, changed)
+		s.TenantID, s.UserID, s.LeaderboardPublic, s.ReminderEnabled, s.HideFromSocial, s.Timezone, changed)
 	return err
 }
 
@@ -221,6 +222,8 @@ func (r *SQLRepository) IsGroupMember(ctx context.Context, tenantID, groupID, us
 func (r *SQLRepository) ListBoard(ctx context.Context, q game.BoardQuery) ([]game.BoardEntry, error) {
 	// Anggota papan: teman accepted (+ pemanggil) atau anggota grup.
 	var membership string
+	hideSocial := "" // penyaring "sembunyikan dari teman dan grup": hanya papan Teman/Grup, pemanggil selalu melihat barisnya sendiri
+	var hideArgs []any
 	args := []any{q.TenantID, q.From, q.To}
 	switch q.Scope {
 	case game.ScopeFriends:
@@ -239,6 +242,11 @@ func (r *SQLRepository) ListBoard(ctx context.Context, q game.BoardQuery) ([]gam
 	default:
 		return nil, game.ErrInvalidBoard
 	}
+	if q.Scope == game.ScopeFriends || q.Scope == game.ScopeGroup {
+		hideSocial = `AND (a.user_id = ? OR a.user_id NOT IN (
+			SELECT h.user_id FROM game_settings h WHERE h.tenant_id = ? AND h.hide_from_social = ?))`
+		hideArgs = []any{q.UserID, q.TenantID, true}
+	}
 
 	order := `total_ms ASC`
 	if q.Period == game.PeriodWeek {
@@ -255,6 +263,7 @@ func (r *SQLRepository) ListBoard(ctx context.Context, q game.BoardQuery) ([]gam
 		LEFT JOIN users u ON u.id = a.user_id
 		WHERE a.tenant_id = ? AND a.puzzle_date >= ? AND a.puzzle_date <= ? AND a.status = 'solved'
 		  AND ` + membership + `
+		  ` + hideSocial + `
 		  AND NOT EXISTS (
 			SELECT 1 FROM user_connections b
 			WHERE b.tenant_id = a.tenant_id AND b.status = 'blocked'
@@ -262,6 +271,7 @@ func (r *SQLRepository) ListBoard(ctx context.Context, q game.BoardQuery) ([]gam
 		GROUP BY a.user_id, u.username, u.display_name, u.avatar_url
 		ORDER BY ` + order + `, MIN(a.solved_at) ASC, a.user_id ASC
 		LIMIT ` + strconv.Itoa(limit)
+	args = append(args, hideArgs...)
 	args = append(args, q.UserID, q.UserID)
 
 	rows, err := r.db.QueryContext(ctx, r.q(query), args...)

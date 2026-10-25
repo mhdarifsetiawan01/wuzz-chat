@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { ApiError, GameBoardEntry, GameBoardPeriod, GameBoardScope, GameLeaderboard as Board, gameApi } from '../../api';
+import { ApiError, GameBoardEntry, GameBoardPeriod, GameBoardScope, GameLeaderboard as Board, GameSettings, gameApi } from '../../api';
 import { Avatar } from '../Avatar';
 import { Icon } from '../Icon';
 import { ReportModal, ReportTarget } from '../ReportModal';
@@ -34,10 +34,10 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
-  // Opt-in papan publik (diambil dari pengaturan server saat tab Publik dibuka).
-  const [optIn, setOptIn] = useState<boolean | null>(null);
-  const [optInBusy, setOptInBusy] = useState(false);
-  const [optInError, setOptInError] = useState<string | null>(null);
+  // Pengaturan privasi game (opt-in papan publik, sembunyikan dari teman dan grup) diambil dari server sekali.
+  const [settings, setSettings] = useState<GameSettings | null>(null);
+  const [settingsBusy, setSettingsBusy] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
 
   // Grup terpilih harus selalu salah satu grup yang masih ada.
@@ -68,33 +68,31 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
   }, [load, refreshKey]);
 
   useEffect(() => {
-    if (scope !== 'public') return;
     let cancelled = false;
     gameApi
       .getSettings()
       .then((st) => {
-        if (!cancelled) setOptIn(st.leaderboard_public);
+        if (!cancelled) setSettings(st);
       })
       .catch(() => {
-        if (!cancelled) setOptIn(null);
+        if (!cancelled) setSettings(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [scope]);
+  }, []);
 
-  const toggleOptIn = useCallback(
-    async (next: boolean) => {
-      setOptInBusy(true);
-      setOptInError(null);
+  const updateSetting = useCallback(
+    async (patch: Partial<GameSettings>) => {
+      setSettingsBusy(true);
+      setSettingsError(null);
       try {
-        const st = await gameApi.updateSettings({ leaderboard_public: next });
-        setOptIn(st.leaderboard_public);
+        setSettings(await gameApi.updateSettings(patch));
         await load();
       } catch (err) {
-        setOptInError((err as ApiError)?.detail || 'Tidak dapat menyimpan pengaturan.');
+        setSettingsError((err as ApiError)?.detail || 'Tidak dapat menyimpan pengaturan.');
       } finally {
-        setOptInBusy(false);
+        setSettingsBusy(false);
       }
     },
     [load]
@@ -132,9 +130,9 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
           <View style={styles.optInRow}>
             <Text style={styles.optInTitle}>Tampilkan saya di papan publik</Text>
             <Switch
-              value={optIn === true}
-              disabled={optIn === null || optInBusy}
-              onValueChange={toggleOptIn}
+              value={settings?.leaderboard_public === true}
+              disabled={settings === null || settingsBusy}
+              onValueChange={(v) => updateSetting({ leaderboard_public: v })}
               trackColor={{ false: colors.borderStrong, true: colors.accentFill }}
               thumbColor={colors.bgSurface}
               accessibilityLabel="Tampilkan saya di papan publik"
@@ -144,7 +142,7 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
             Bila menyala, orang lain bisa melihat @username dan waktu Anda. Nama dan foto profil tidak ditampilkan.
             Anda bisa mematikannya kapan saja.
           </Text>
-          {optInError ? <Text style={styles.errorText}>{optInError}</Text> : null}
+          {settingsError ? <Text style={styles.errorText}>{settingsError}</Text> : null}
         </View>
       ) : null}
 
@@ -194,6 +192,28 @@ export const GameLeaderboard: React.FC<GameLeaderboardProps> = ({ refreshKey }) 
           ))}
         </View>
       )}
+
+      {scope !== 'public' ? (
+        <View style={styles.optInBox}>
+          <View style={styles.optInRow}>
+            <Text style={styles.optInTitle}>Sembunyikan hasil saya dari teman dan grup</Text>
+            <Switch
+              value={settings?.hide_from_social === true}
+              disabled={settings === null || settingsBusy}
+              onValueChange={(v) => updateSetting({ hide_from_social: v })}
+              trackColor={{ false: colors.borderStrong, true: colors.accentFill }}
+              thumbColor={colors.bgSurface}
+              accessibilityLabel="Sembunyikan hasil saya dari teman dan grup"
+            />
+          </View>
+          <Text style={styles.optInHint}>
+            {settings?.hide_from_social
+              ? 'Teman dan anggota grup tidak melihat waktu Anda. Anda tetap melihat hasil sendiri, dan streak tidak terpengaruh.'
+              : 'Saat ini teman dan anggota grup Anda melihat nama, foto, dan waktu Anda di papan ini. Nyalakan untuk menyembunyikannya.'}
+          </Text>
+          {settingsError ? <Text style={styles.errorText}>{settingsError}</Text> : null}
+        </View>
+      ) : null}
 
       <ReportModal visible={Boolean(reportTarget)} target={reportTarget} onClose={() => setReportTarget(null)} />
     </View>

@@ -561,6 +561,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 			user_id VARCHAR(64) NOT NULL,
 			leaderboard_public BOOLEAN NOT NULL DEFAULT FALSE,
 			reminder_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+			hide_from_social BOOLEAN NOT NULL DEFAULT FALSE,
 			tz VARCHAR(64) NOT NULL DEFAULT 'Asia/Jakarta',
 			tz_changed_at TIMESTAMP DEFAULT NULL,
 			PRIMARY KEY (tenant_id, user_id)
@@ -675,6 +676,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// Auto-migration Milestone M-Mobile-10: User Connections & Private Profile (PostgreSQL)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_private_account BOOLEAN DEFAULT FALSE;`)
 		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_canonical_connection ON user_connections (tenant_id, LEAST(requester_id, receiver_id), GREATEST(requester_id, receiver_id));`)
+		// Wuzz Grid: sembunyikan hasil dari papan teman dan grup (tabel game_settings sudah ada di produksi sejak 25 Okt 2026).
+		_, _ = s.db.Exec(`ALTER TABLE game_settings ADD COLUMN IF NOT EXISTS hide_from_social BOOLEAN NOT NULL DEFAULT FALSE;`)
 	} else {
 		// SQLite ALTER TABLE ADD COLUMN
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN status_message VARCHAR(255) DEFAULT 'Tersedia untuk mengobrol';`)
@@ -756,6 +759,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// Auto-migration Milestone M-Mobile-10: User Connections & Private Profile (SQLite)
 		_, _ = s.db.Exec(`ALTER TABLE users ADD COLUMN is_private_account BOOLEAN DEFAULT 0;`)
 		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_canonical_connection ON user_connections (tenant_id, MIN(requester_id, receiver_id), MAX(requester_id, receiver_id));`)
+		_, _ = s.db.Exec(`ALTER TABLE game_settings ADD COLUMN hide_from_social BOOLEAN NOT NULL DEFAULT 0;`)
 	}
 
 	// Auto-seeder tenant default (Milestone 1)

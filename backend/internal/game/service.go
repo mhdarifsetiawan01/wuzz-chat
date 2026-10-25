@@ -201,6 +201,7 @@ func (s *Service) GetSettings(ctx context.Context, tenantID, userID string) (*Se
 type SettingsInput struct {
 	LeaderboardPublic *bool   `json:"leaderboard_public"`
 	ReminderEnabled   *bool   `json:"reminder_enabled"`
+	HideFromSocial    *bool   `json:"hide_from_social"`
 	Timezone          *string `json:"timezone"`
 }
 
@@ -220,6 +221,9 @@ func (s *Service) UpdateSettings(ctx context.Context, tenantID, userID string, i
 	}
 	if in.ReminderEnabled != nil {
 		cur.ReminderEnabled = *in.ReminderEnabled
+	}
+	if in.HideFromSocial != nil {
+		cur.HideFromSocial = *in.HideFromSocial
 	}
 	if in.Timezone != nil {
 		tz := strings.TrimSpace(*in.Timezone)

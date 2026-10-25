@@ -409,3 +409,73 @@ func rebindFor(e *env, q string) string {
 	}
 	return strings.Replace(q, "?", "$1", 1)
 }
+
+func (e *env) hideFromSocial(user string, hide bool) {
+	e.t.Helper()
+	if _, err := e.svc.UpdateSettings(e.ctx, "default", user, game.SettingsInput{HideFromSocial: &hide}); err != nil {
+		e.t.Fatalf("hide_from_social %s: %v", user, err)
+	}
+}
+
+func TestBoard_HideFromSocialRemovesOwnerFromFriendsAndGroupBoardsOnly(t *testing.T) {
+	e := newEnv(t, true)
+	me, shy, open := e.newUser("me"), e.newUser("shy"), e.newUser("open")
+	e.connect(me, shy, "accepted")
+	e.connect(me, open, "accepted")
+	e.newGroup("grp_hide", me, shy, open)
+	for _, u := range []string{me, shy, open} {
+		e.solve(u, 60*time.Second)
+	}
+	e.optIn(shy) // papan publik punya opt-in sendiri dan tidak ikut disembunyikan
+	e.hideFromSocial(shy, true)
+
+	for _, c := range []struct {
+		name, scope, group, period string
+	}{
+		{"teman/hari", game.ScopeFriends, "", game.PeriodDay},
+		{"teman/minggu", game.ScopeFriends, "", game.PeriodWeek},
+		{"grup/hari", game.ScopeGroup, "grp_hide", game.PeriodDay},
+		{"grup/minggu", game.ScopeGroup, "grp_hide", game.PeriodWeek},
+	} {
+		got := ids(e.board(me, c.scope, c.group, c.period))
+		if contains(got, shy) || !contains(got, me) || !contains(got, open) {
+			t.Errorf("%s: %v harus memuat saya dan open, tanpa shy", c.name, got)
+		}
+		// Pemiliknya sendiri tetap melihat barisnya dan peringkat sendiri.
+		own := e.board(shy, c.scope, c.group, c.period)
+		if !contains(ids(own), shy) || own.MyRank == nil {
+			t.Errorf("%s: pemilik harus tetap melihat barisnya sendiri: %v rank=%v", c.name, ids(own), own.MyRank)
+		}
+	}
+
+	// Papan publik tidak terpengaruh: shy opt-in dan tetap tampil.
+	if pub := e.board(me, game.ScopePublic, "", game.PeriodDay); !contains(ids(pub), shy) {
+		t.Errorf("papan publik harus tetap memuat shy: %v", ids(pub))
+	}
+
+	// Dimatikan kembali: tampil lagi di papan teman dan grup.
+	e.hideFromSocial(shy, false)
+	if !contains(ids(e.board(me, game.ScopeFriends, "", game.PeriodDay)), shy) ||
+		!contains(ids(e.board(me, game.ScopeGroup, "grp_hide", game.PeriodDay)), shy) {
+		t.Error("setelah pilihan dimatikan shy harus tampil lagi")
+	}
+}
+
+func TestBoard_HideFromSocialIsPersistedAndPerUser(t *testing.T) {
+	e := newEnv(t, true)
+	a, b := e.newUser("a"), e.newUser("b")
+	e.hideFromSocial(a, true)
+	sa, _ := e.svc.GetSettings(e.ctx, "default", a)
+	sb, _ := e.svc.GetSettings(e.ctx, "default", b)
+	if !sa.HideFromSocial || sb.HideFromSocial {
+		t.Fatalf("a=%v b=%v, mau true/false (default tampil)", sa.HideFromSocial, sb.HideFromSocial)
+	}
+	// Mengubah pengaturan lain tidak mengembalikan pilihan ini.
+	yes := true
+	if _, err := e.svc.UpdateSettings(e.ctx, "default", a, game.SettingsInput{ReminderEnabled: &yes}); err != nil {
+		t.Fatal(err)
+	}
+	if sa, _ = e.svc.GetSettings(e.ctx, "default", a); !sa.HideFromSocial || !sa.ReminderEnabled {
+		t.Errorf("pilihan hilang: %+v", sa)
+	}
+}

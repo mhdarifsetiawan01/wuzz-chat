@@ -117,13 +117,13 @@ func TestGameHandler_SettingsAndRouting(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("zona tidak sah: %d, mau 400", rec.Code)
 	}
-	rec = gameCall(h, http.MethodPut, "/api/game/settings", map[string]any{"leaderboard_public": true, "timezone": "Asia/Makassar"}, true)
+	rec = gameCall(h, http.MethodPut, "/api/game/settings", map[string]any{"leaderboard_public": true, "hide_from_social": true, "timezone": "Asia/Makassar"}, true)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("simpan: %d %s", rec.Code, rec.Body.String())
 	}
 	var st map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &st)
-	if st["leaderboard_public"] != true || st["timezone"] != "Asia/Makassar" {
+	if st["leaderboard_public"] != true || st["hide_from_social"] != true || st["timezone"] != "Asia/Makassar" {
 		t.Errorf("tersimpan: %v", st)
 	}
 

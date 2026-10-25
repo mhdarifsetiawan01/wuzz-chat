@@ -90,10 +90,13 @@ type Streak struct {
 
 // Settings adalah preferensi game seorang pengguna.
 type Settings struct {
-	TenantID          string    `json:"-"`
-	UserID            string    `json:"-"`
-	LeaderboardPublic bool      `json:"leaderboard_public"`
-	ReminderEnabled   bool      `json:"reminder_enabled"`
+	TenantID          string `json:"-"`
+	UserID            string `json:"-"`
+	LeaderboardPublic bool   `json:"leaderboard_public"`
+	ReminderEnabled   bool   `json:"reminder_enabled"`
+	// HideFromSocial menyembunyikan hasil pemilik dari papan Teman dan Grup milik orang lain (pemilik tetap melihat
+	// barisnya sendiri). Tidak memengaruhi papan Publik, yang punya opt-in sendiri.
+	HideFromSocial    bool      `json:"hide_from_social"`
 	Timezone          string    `json:"timezone"`
 	TimezoneChangedAt time.Time `json:"-"`
 }
