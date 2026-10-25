@@ -46,13 +46,13 @@ let lastSignature: string | null = null;
 // membaca SecureStore (Keystore Android) berulang kali.
 const enabledCache = new Map<string, boolean>();
 
-async function cancelAll(N: NotificationsModule): Promise<void> {
+async function ownScheduled(N: NotificationsModule) {
   const scheduled = await N.getAllScheduledNotificationsAsync();
-  await Promise.all(
-    scheduled
-      .filter((n) => (n.content?.data as Record<string, unknown> | undefined)?.kind === REMINDER_KIND)
-      .map((n) => N.cancelScheduledNotificationAsync(n.identifier))
-  );
+  return scheduled.filter((n) => (n.content?.data as Record<string, unknown> | undefined)?.kind === REMINDER_KIND);
+}
+
+async function cancelAll(N: NotificationsModule): Promise<void> {
+  await Promise.all((await ownScheduled(N)).map((n) => N.cancelScheduledNotificationAsync(n.identifier)));
 }
 
 async function ensureChannel(N: NotificationsModule): Promise<void> {
@@ -118,7 +118,10 @@ export const gameReminder = {
           numberToday: today.number,
         });
         const signature = `${userId}|${plan.map((p) => `${p.at.getTime()}:${p.body}`).join('|')}`;
-        if (signature === lastSignature) return;
+        // Jadwal yang sama hanya dilewati bila alarm di sistem memang masih ada sebanyak rencana. Alarm bisa hilang di
+        // luar kendali aplikasi (dibersihkan sistem atau penghemat baterai); memeriksanya membuat jadwal pulih sendiri
+        // saat aplikasi dibuka, dengan satu panggilan baca yang murah.
+        if (signature === lastSignature && (await ownScheduled(N)).length === plan.length) return;
 
         await ensureChannel(N);
         await cancelAll(N);
