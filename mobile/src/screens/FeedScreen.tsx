@@ -531,6 +531,10 @@ const makeStyles = (colors: ColorTokens) => StyleSheet.create({
   postCardPinned: {
     borderColor: colors.tintAccent30,
     backgroundColor: colors.tintAccent10,
+    // Latar tembus pandang + elevation membuat bayangan Android terlihat menembus kartu (bingkai abu-abu dan kotak
+    // bergeser di tema terang). Tanpa elevasi, tinta biru tampil bersih di atas latar daftar.
+    elevation: 0,
+    shadowOpacity: 0,
   },
   pinnedHeader: {
     flexDirection: 'row',
