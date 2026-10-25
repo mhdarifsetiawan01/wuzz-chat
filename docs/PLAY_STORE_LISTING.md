@@ -68,6 +68,16 @@ bila ragu, lebih aman mendeklarasikan "Dibagikan" untuk Pesan (penyedia LLM, han
 - Pemberitahuan moderasi lewat Telegram hanya memuat metadata laporan (jenis, alasan, tautan), tanpa isi pesan, bukti, atau identitas pengguna; bukan "berbagi data pengguna".
 
 ### 2.5 Game harian Wuzz Grid (ditambahkan 26 Okt 2026) ⚠️
+
+> ### ⛔ GERBANG RILIS: jangan lewatkan
+> **Jangan mempromosikan build yang memuat Wuzz Grid (semua AAB Play dengan versionCode ≥ 74, versi 1.42.0 ke atas) ke Closed testing maupun Produksi sebelum Data Safety di Play Console diperbarui sesuai bagian ini.**
+> Alasan: Data Safety harus sesuai dengan yang benar-benar dikumpulkan build yang dirilis. Rilis Closed testing saat ini (build 72) belum memuat game, jadi jawabannya sekarang masih cocok. Build 74 dan seterusnya mengumpulkan data game (percobaan puzzle, streak, pengaturan, papan skor).
+> Lakukan **tepat sebelum** menekan *Promote release* dari Internal ke Closed/Produksi, bukan sesudahnya:
+> 1. `/privacy`, `/terms`, `/delete-account` terbaru sudah **tayang** (buka URL-nya dan pastikan teks Wuzz Grid ada).
+> 2. Formulir **Data Safety** di Console diperbarui memakai pemetaan di bawah, lalu disimpan/dikirim; butir ⚠️ dicocokkan dengan pertanyaan terbaru di Console.
+> 3. Kuesioner **IARC** dicek ulang (jawaban tidak berubah, tetapi konfirmasi).
+> 4. Baru lakukan promosi.
+> Internal testing (hanya akun Anda) boleh menerima build ini kapan saja tanpa menunggu langkah di atas.
 Sumber kebenaran: `/privacy` (bagian 1, 3, 5, 8) yang diperbarui bersamaan dengan bagian ini. **Fitur sudah menyala di produksi sejak 25 Okt 2026 (`GAME_ENABLED`), jadi `/privacy` baru (frontend) wajib segera di-deploy.**
 
 **Data yang diproses (semua terkait akun, hanya untuk fungsi aplikasi; tidak dijual; tidak ada SDK baru; tidak ada pihak ketiga baru):**
@@ -179,6 +189,7 @@ Rekam via adb: `adb exec-out screencap -p > shot.png` (lihat catatan alur build)
 - [~] Akun demo peninjau `peninjau_play` dibuat 7 Okt 2026 (login password diuji lewat API, perangkat uji sudah dibersihkan). **Akun tanpa tautan Google DIBEKUKAN mulai 30 Okt 2026 23:59 WIB** (`GOOGLE_LINK_FREEZE=true`); pengecualiannya kini ada di kode (daftar putih `GOOGLE_LINK_FREEZE_EXEMPT`), tinggal diisi `peninjau_play` di `.env` VPS dan backend dideploy/di-restart. Belum dites login di build Play.
 - [x] ~~Putuskan Crashlytics/Sentry~~ **Crashlytics dipilih, dipasang, diaktifkan di Firebase Console, dan terbukti menerima laporan (8 Okt 2026)**; jawaban 2.2 sudah memuatnya. Lihat `docs/CRASH_REPORTING.md` bagian 5.
 - [x] Gerbang usia 13+ dipasang di aplikasi (7 Okt 2026; belum diuji visual di HP) sehingga klaim "13+" di Target audiens punya penegakan pernyataan diri.
+- [ ] ⛔ **GERBANG: Data Safety diperbarui SEBELUM build Wuzz Grid (versionCode ≥ 74) dipromosikan ke Closed/Produksi** (rincian dan langkah di bagian 2.5). Closed testing sekarang masih build 72 (tanpa game).
 - [ ] **Deploy frontend `/privacy`, `/terms`, `/delete-account` yang memuat Wuzz Grid** (diperbarui 26 Okt 2026; game sudah menyala di produksi). Lalu cocokkan jawaban Data Safety dengan 2.5.
 - [ ] Cocokkan butir bertanda ⚠️ dengan teks pertanyaan terbaru di Console.
 - [ ] Build rilis memakai `EXPO_PUBLIC_UPDATE_CHANNEL=play`; `PLAY_STORE_URL` backend sesuai paket; banner pembaruan APK dimatikan untuk channel Play (sudah di kode).

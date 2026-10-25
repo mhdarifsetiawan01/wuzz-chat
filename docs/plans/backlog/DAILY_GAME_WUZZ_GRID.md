@@ -184,6 +184,7 @@ Pengujian wajib tiap tahap: `go test -v ./...` (backend), `npx tsc --noEmit` (mo
 
 ## 12. Catatan tahap 6 (privasi dan deklarasi)
 
+- ⛔ **Gerbang rilis Play:** Data Safety di Play Console wajib diperbarui **sebelum** build Wuzz Grid (versionCode ≥ 74) dipromosikan ke Closed atau Produksi; langkahnya ada di `docs/PLAY_STORE_LISTING.md` bagian 2.5. Closed testing per 26 Okt 2026 masih build 72 (tanpa game).
 - **Temuan 26 Okt 2026:** game sudah menyala di produksi (`GAME_ENABLED`) sebelum `/privacy` menyebut data game. Teks sudah diperbarui di repo; **perlu deploy frontend segera**.
 - `frontend/app/privacy/page.tsx`: bagian 1 (data game, papan skor), 3 (penggunaan), 5 (penghapusan), 8 (anak-anak). `frontend/app/terms/page.tsx`: larangan memanipulasi game/papan skor dan hak mengeluarkan dari papan publik. `frontend/app/delete-account/page.tsx`: daftar data game yang dihapus. `LEGAL_EFFECTIVE_DATE` = 26 Oktober 2026.
 - `docs/PLAY_STORE_LISTING.md` bagian 2.5 (baru), baris 2.2/2.4, dan butir checklist: draf jawaban Data Safety. Butir bertanda ⚠️ harus dicocokkan dengan pertanyaan terbaru di Console sebelum dikirim.

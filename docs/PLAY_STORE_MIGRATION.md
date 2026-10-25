@@ -67,6 +67,7 @@ APK sebelumnya (hingga build 18) ditandatangani **kunci debug bawaan template** 
 ### 2.2 Konfigurasi Play Console
 - [ ] Buat aplikasi dengan package `com.wuzzchat.mobile`.
 - [ ] Isi formulir kebijakan (privasi, data safety, izin: notifikasi, kamera untuk pindai QR, mikrofon untuk pesan suara/panggilan).
+- [ ] ⛔ **Sebelum mempromosikan build yang memuat Wuzz Grid (versionCode ≥ 74, 1.42.0+) dari Internal ke Closed/Produksi: perbarui Data Safety di Console** dan pastikan `/privacy`, `/terms`, `/delete-account` terbaru sudah tayang. Langkah lengkap: `docs/PLAY_STORE_LISTING.md` bagian 2.5. Closed testing saat ini (build 72) belum memuat game.
 - [ ] Unggah build ke **internal testing** terlebih dahulu.
 - [ ] Siapkan tautan kebijakan privasi dan aset toko (ikon, screenshot, deskripsi).
 
