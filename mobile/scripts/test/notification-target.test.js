@@ -54,3 +54,8 @@ test('native tap listener and cold-start response share deduplication', async ()
     await fresh.checkColdStartNotification((t) => calls.push(t)); assert.equal(calls.length, 2);
   } finally { Module._load = original; }
 });
+test('game reminder tap opens the game screen and never needs a room', () => {
+  assert.deepEqual(parse({ type: 'game_reminder', kind: 'game_reminder' }), { type: 'game' });
+  assert.deepEqual(parse({ type: 'game_reminder', room_id: 'grp_x' }), { type: 'game' }, 'tipe game menang atas room_id');
+  assert.notDeepEqual(parse({ type: 'game_remind' }), { type: 'game' });
+});

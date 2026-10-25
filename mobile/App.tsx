@@ -325,6 +325,10 @@ function AppContent() {
     if (!isAuthenticated) return;
 
     const handleTargetNavigation = (target: NotificationTarget) => {
+      if (target.type === 'game') {
+        navigationRef.navigate('Game');
+        return;
+      }
       if (target.type === 'memory_draft_ready') {
         navigationRef.navigate('GroupInfo', {
           groupId: target.groupId,

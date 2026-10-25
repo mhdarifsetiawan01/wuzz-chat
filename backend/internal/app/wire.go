@@ -420,6 +420,9 @@ func New(cfg *config.Config) (*Application, error) {
 	if gameRepo != nil {
 		gameEnabled := cfg != nil && cfg.GameEnabled
 		gameSvc := game.NewService(gameRepo, gameEnabled)
+		if cfg != nil {
+			gameSvc.SetReminderTime(cfg.GameReminderTime)
+		}
 		app.GameHandler = api.NewGameHandler(gameSvc)
 		if app.ModerationHandler != nil {
 			app.ModerationHandler.SetGameBoardModerator(gameSvc)

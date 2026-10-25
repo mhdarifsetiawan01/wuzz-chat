@@ -14,11 +14,14 @@ export type RoomNotificationTarget = {
 export type MemoryNotificationTarget = {
   type: 'memory_draft_ready'; groupId: string; forumId: string; draftId: string;
 };
-export type NotificationTarget = RoomNotificationTarget | MemoryNotificationTarget;
+/** Pengingat harian Wuzz Grid (notifikasi lokal): ketukan membuka layar game. */
+export type GameNotificationTarget = { type: 'game' };
+export type NotificationTarget = RoomNotificationTarget | MemoryNotificationTarget | GameNotificationTarget;
 const value = (v: unknown): string | null => typeof v === 'string' && v.trim() ? v.trim() : null;
 
 export function parseNotificationTarget(data?: Record<string, unknown>): NotificationTarget | null {
   if (!data) return null;
+  if (data.type === 'game_reminder') return { type: 'game' };
   if (data.type === 'memory_draft_ready') {
     const groupId = value(data.group_id), forumId = value(data.forum_id), draftId = value(data.draft_id);
     if (!groupId?.startsWith('grp_') || !forumId?.startsWith('sub_') || !draftId) return null;

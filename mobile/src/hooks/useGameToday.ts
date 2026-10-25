@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, GameSubmitResult, GameToday, gameApi } from '../api';
+import { gameReminder } from '../services/gameReminder';
 import { gameStorage } from '../services/gameStorage';
 
 export type GameLoadStatus = 'loading' | 'ready' | 'disabled' | 'error';
@@ -66,7 +67,11 @@ export function useGameToday(userId: string | undefined): UseGameToday {
 
   const apply = useCallback(
     (next: GameToday) => {
-      if (userId) cache.set(userId, next);
+      if (userId) {
+        cache.set(userId, next);
+        // Selaraskan jadwal pengingat (jam dari server, dilewati bila hari ini sudah selesai). Aman dipanggil berulang.
+        void gameReminder.sync(userId, next);
+      }
       if (!alive.current) return;
       setData(next);
       setStatus(next.enabled ? 'ready' : 'disabled');

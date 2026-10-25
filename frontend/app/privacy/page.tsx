@@ -35,7 +35,7 @@ export default function PrivacyPage() {
       <ul>
         <li><strong>Kamera:</strong> hanya untuk memindai kode QR (pemindahan kunci E2EE dan tautan undangan). Pemindaian memakai Google ML Kit yang berjalan di perangkat.</li>
         <li><strong>Mikrofon:</strong> hanya untuk pesan suara dan panggilan suara.</li>
-        <li><strong>Notifikasi:</strong> untuk memberi tahu pesan dan panggilan masuk.</li>
+        <li><strong>Notifikasi:</strong> untuk memberi tahu pesan dan panggilan masuk, dan, bila Anda menyalakannya, pengingat harian Wuzz Grid. Pengingat dijadwalkan di perangkat Anda sendiri (bukan dikirim dari server) dan dapat dimatikan kapan saja.</li>
         <li><strong>Foto/berkas:</strong> hanya berkas yang Anda pilih sendiri untuk dikirim atau dijadikan foto profil.</li>
       </ul>
 

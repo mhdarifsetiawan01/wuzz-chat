@@ -21,6 +21,7 @@ import { Button } from '../components/Button';
 import { Icon } from '../components/Icon';
 import { GameGrid } from '../components/game/GameGrid';
 import { GameLeaderboard } from '../components/game/GameLeaderboard';
+import { GameReminderCard } from '../components/game/GameReminderCard';
 import { GameResultSheet } from '../components/game/GameResultSheet';
 import { useAuth } from '../context';
 import { useGameToday } from '../hooks/useGameToday';
@@ -322,6 +323,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({ onBack }) => {
         )}
 
         <GameLeaderboard refreshKey={attempt?.status ?? 'none'} />
+        <GameReminderCard today={data} />
         <Text style={styles.freezeNote}>
           Pembeku streak: 1 per minggu, terpakai otomatis bila Anda melewatkan satu hari.
         </Text>

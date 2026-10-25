@@ -22,6 +22,7 @@ import { deviceIdService } from '../services/deviceIdService';
 import { signInWithGoogle, signOutGoogleLocal } from '../services/googleAuth';
 import { isGoogleLinkRequiredError, onGoogleLinkRequired } from '../utils/linkFrozen';
 import { isAccountSuspendedError, onAccountSuspended } from '../utils/accountSuspended';
+import { gameReminder } from '../services/gameReminder';
 import { mediaCache } from '../services/mediaCache';
 import { resetMediaReceipts } from '../services/mediaReceipt';
 import { notificationService } from '../services/notificationService';
@@ -102,6 +103,8 @@ interface AuthContextType {
  */
 async function clearLocalAccountData(userId: string | undefined | null): Promise<void> {
   resetMediaReceipts();
+  // Pengingat game melekat pada perangkat, bukan akun: batalkan agar tidak muncul untuk akun lain di perangkat ini.
+  await gameReminder.cancelAll();
   await mediaCache.cancelPendingDownloads();
   if (!userId) return;
   try {

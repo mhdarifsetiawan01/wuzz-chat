@@ -402,3 +402,46 @@ func TestService_PuzzleNumberStartsAtOneOnEpochDay(t *testing.T) {
 		t.Errorf("Minggu harus 9x9, dapat %d", res.Puzzle.Size)
 	}
 }
+
+func TestService_ReminderTimeIsServerConfigurable(t *testing.T) {
+	e := newEnv(t, true)
+	res, _ := e.svc.Today(e.ctx, "default", "u1")
+	if res.ReminderTime != "19:00" {
+		t.Fatalf("bawaan %q, mau 19:00", res.ReminderTime)
+	}
+
+	e.svc.SetReminderTime("20:30")
+	if res, _ = e.svc.Today(e.ctx, "default", "u1"); res.ReminderTime != "20:30" {
+		t.Errorf("setelah diubah server: %q, mau 20:30", res.ReminderTime)
+	}
+	// Nilai yang tidak sah tidak boleh merusak pengaturan yang sedang berlaku.
+	for _, bad := range []string{"", "25:00", "7:30", "19-00", "19:60", "abc", "19:0", "24:00"} {
+		e.svc.SetReminderTime(bad)
+		if res, _ = e.svc.Today(e.ctx, "default", "u1"); res.ReminderTime != "20:30" {
+			t.Errorf("nilai tidak sah %q mengubah jam menjadi %q", bad, res.ReminderTime)
+		}
+	}
+	e.svc.SetReminderTime(" 06:05 ")
+	if res, _ = e.svc.Today(e.ctx, "default", "u1"); res.ReminderTime != "06:05" {
+		t.Errorf("spasi di sekitar nilai harus dipangkas: %q", res.ReminderTime)
+	}
+
+	// Fitur mati: tidak ada konfigurasi yang bocor.
+	off := newEnv(t, false)
+	if r, _ := off.svc.Today(off.ctx, "default", "u1"); r.ReminderTime != "" {
+		t.Errorf("fitur mati tidak boleh mengirim reminder_time: %q", r.ReminderTime)
+	}
+}
+
+func TestValidReminderTime(t *testing.T) {
+	for _, ok := range []string{"00:00", "07:05", "19:00", "23:59"} {
+		if !game.ValidReminderTime(ok) {
+			t.Errorf("%q harus sah", ok)
+		}
+	}
+	for _, bad := range []string{"", "24:00", "12:60", "7:05", "07:5", "07-05", "07:05:00", "ab:cd"} {
+		if game.ValidReminderTime(bad) {
+			t.Errorf("%q harus ditolak", bad)
+		}
+	}
+}

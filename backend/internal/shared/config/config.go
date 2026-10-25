@@ -49,7 +49,10 @@ type Config struct {
 	// MemoryQuotaEnabled menyalakan kuota ringkasan AI per paket (env MEMORY_QUOTA_ENABLED=true). Default mati.
 	MemoryQuotaEnabled      bool
 	// GameEnabled menyalakan game harian Wuzz Grid (env GAME_ENABLED=true). Default mati: endpoint /api/game/* menolak.
-	GameEnabled             bool
+	GameEnabled bool
+	// GameReminderTime adalah jam pengingat harian Wuzz Grid, format HH:MM waktu perangkat pemain (env GAME_REMINDER_TIME,
+	// bawaan 19:00). Dikirim ke aplikasi lewat /api/game/today, jadi dapat diubah tanpa build APK baru.
+	GameReminderTime        string
 	MemoryJobBatchSize      int
 	SubGroupWorkerInterval  time.Duration
 	PurgeWorkerInterval     time.Duration
@@ -128,6 +131,7 @@ func Load() (*Config, error) {
 		ForumLimitsEnabled:      isTrueEnv(os.Getenv("FORUM_LIMITS_ENABLED")),
 		MemoryQuotaEnabled:      isTrueEnv(os.Getenv("MEMORY_QUOTA_ENABLED")),
 		GameEnabled:             isTrueEnv(os.Getenv("GAME_ENABLED")),
+		GameReminderTime:        strings.TrimSpace(os.Getenv("GAME_REMINDER_TIME")),
 		SubGroupWorkerInterval:  15 * time.Minute,
 		PurgeWorkerInterval:     1 * time.Hour,
 		TokenCleanupInterval:    1 * time.Hour,

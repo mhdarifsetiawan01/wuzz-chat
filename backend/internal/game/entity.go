@@ -108,6 +108,8 @@ type TodayResponse struct {
 	Number  int      `json:"number,omitempty"`
 	Attempt *Attempt `json:"attempt,omitempty"`
 	Streak  *Streak  `json:"streak,omitempty"`
+	// ReminderTime adalah jam pengingat harian (HH:MM, waktu perangkat), diatur server agar bisa diubah tanpa build baru.
+	ReminderTime string `json:"reminder_time,omitempty"`
 }
 
 // SubmitResult adalah isi POST /api/game/today/submit.

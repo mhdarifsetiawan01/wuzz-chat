@@ -40,6 +40,8 @@ export interface GameToday {
   number?: number;
   attempt?: GameAttempt;
   streak?: GameStreak;
+  /** Jam pengingat harian (HH:MM, waktu perangkat), diatur server. */
+  reminder_time?: string;
 }
 
 export interface GameSubmitResult {

@@ -80,6 +80,9 @@ func TestGameHandler_PlayFlowNeverLeaksSolution(t *testing.T) {
 	if puzzle == nil || puzzle["regions"] == nil {
 		t.Fatalf("puzzle harus memuat regions: %s", rec.Body.String())
 	}
+	if raw["reminder_time"] != "19:00" {
+		t.Errorf("today harus membawa reminder_time bawaan 19:00: %v", raw["reminder_time"])
+	}
 	if _, leaked := puzzle["solution"]; leaked || bytes.Contains(rec.Body.Bytes(), []byte("Solution")) {
 		t.Fatalf("solusi bocor ke klien: %s", rec.Body.String())
 	}

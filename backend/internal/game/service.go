@@ -21,16 +21,36 @@ func MinPlausibleSolve(size int) time.Duration {
 	return time.Duration(size) * 500 * time.Millisecond
 }
 
+// DefaultReminderTime adalah jam pengingat harian bila server tidak mengatur nilai yang sah.
+const DefaultReminderTime = "19:00"
+
+// ValidReminderTime memeriksa format HH:MM (00:00-23:59).
+func ValidReminderTime(v string) bool {
+	if len(v) != 5 || v[2] != ':' {
+		return false
+	}
+	t, err := time.Parse("15:04", v)
+	return err == nil && t.Format("15:04") == v
+}
+
 // Service mengorkestrasi logika bisnis game harian.
 type Service struct {
-	repo    Repository
-	enabled bool
-	now     func() time.Time
+	repo         Repository
+	enabled      bool
+	now          func() time.Time
+	reminderTime string
 }
 
 // NewService membuat Service. enabled berasal dari sakelar GAME_ENABLED (default mati).
 func NewService(repo Repository, enabled bool) *Service {
-	return &Service{repo: repo, enabled: enabled, now: time.Now}
+	return &Service{repo: repo, enabled: enabled, now: time.Now, reminderTime: DefaultReminderTime}
+}
+
+// SetReminderTime mengatur jam pengingat harian (HH:MM). Nilai tidak sah diabaikan dan jam bawaan tetap dipakai.
+func (s *Service) SetReminderTime(v string) {
+	if v = strings.TrimSpace(v); ValidReminderTime(v) {
+		s.reminderTime = v
+	}
 }
 
 // SetClock mengganti jam (untuk pengujian).
@@ -72,6 +92,8 @@ func (s *Service) Today(ctx context.Context, tenantID, userID string) (*TodayRes
 		Number:  puzzleNumber(puzzle.Date),
 		Attempt: attempt,
 		Streak:  streak,
+
+		ReminderTime: s.reminderTime,
 	}, nil
 }
 
