@@ -19,6 +19,8 @@ import (
 	connectioninfra "github.com/bms-del112/wuzz-chat/internal/connection/infra"
 	"github.com/bms-del112/wuzz-chat/internal/feed"
 	feedinfra "github.com/bms-del112/wuzz-chat/internal/feed/infra"
+	"github.com/bms-del112/wuzz-chat/internal/game"
+	gameinfra "github.com/bms-del112/wuzz-chat/internal/game/infra"
 	"github.com/bms-del112/wuzz-chat/internal/group"
 	groupinfra "github.com/bms-del112/wuzz-chat/internal/group/infra"
 	groupworker "github.com/bms-del112/wuzz-chat/internal/group/worker"
@@ -84,6 +86,7 @@ type Application struct {
 	ProvisioningHandler *api.ProvisioningHandler
 	OpenAPIHandler      *api.OpenAPIHandler
 	FeedHandler         *api.FeedHandler
+	GameHandler         *api.GameHandler
 	ReportHandler       *api.ReportHandler
 	ModerationHandler   *api.ModerationHandler
 	EntitlementHandler  *api.EntitlementHandler
@@ -142,6 +145,7 @@ func New(cfg *config.Config) (*Application, error) {
 	var rolePolicy *authz.RolePolicy
 	var roleResolver auth.RoleResolver // peran istimewa diverifikasi ke database; nil bila alat moderasi tidak aktif
 	var feedRepo feed.FeedRepository
+	var gameRepo game.Repository
 	var connRepo connection.ConnectionRepository
 	var entitlementStore store.EntitlementStore
 
@@ -186,6 +190,7 @@ func New(cfg *config.Config) (*Application, error) {
 		}
 
 		feedRepo = feedinfra.NewSQLFeedRepository(sqlStore.DB(), sqlStore.DriverName())
+		gameRepo = gameinfra.NewSQLRepository(sqlStore.DB(), sqlStore.DriverName())
 		connRepo = connectioninfra.NewSQLConnectionRepository(sqlStore.DB(), sqlStore.DriverName())
 	}
 
@@ -409,6 +414,15 @@ func New(cfg *config.Config) (*Application, error) {
 	if feedRepo != nil {
 		feedSvc := feed.NewFeedService(feedRepo)
 		app.FeedHandler = api.NewFeedHandlerWithService(feedSvc)
+	}
+
+	// Game harian Wuzz Grid: mati kecuali GAME_ENABLED=true (tanpa cfg/pengujian juga mati).
+	if gameRepo != nil {
+		gameEnabled := cfg != nil && cfg.GameEnabled
+		app.GameHandler = api.NewGameHandler(game.NewService(gameRepo, gameEnabled))
+		if gameEnabled {
+			log.Printf("🎮 Game harian Wuzz Grid AKTIF (GAME_ENABLED=true)")
+		}
 	}
 
 	// Inisialisasi User Connections & Friendlist Engine (Milestone M-Mobile-10)

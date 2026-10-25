@@ -445,6 +445,17 @@ func (a *Application) setupRouter() http.Handler {
 	}
 
 	// =========================================================================
+	// 9B2. GAME HARIAN WUZZ GRID (mati kecuali GAME_ENABLED=true; lihat internal/game)
+	// =========================================================================
+	if a.GameHandler != nil {
+		// Start/submit dibatasi per pengguna agar jawaban tidak bisa ditebak dengan brute force.
+		gameWriteLimit := api.UserRateLimitMsg(ratelimit.NewIPRateLimiter(60, time.Minute), "Terlalu banyak permintaan game, coba lagi sebentar.", 60)
+		mux.HandleFunc("/api/game/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(gameWriteLimit(http.HandlerFunc(a.GameHandler.Route))).ServeHTTP(w, r)
+		}))
+	}
+
+	// =========================================================================
 	// 9C. USER CONNECTIONS & FRIENDLIST ENGINE (Milestone M-Mobile-10)
 	// =========================================================================
 	if a.ConnectionHandler != nil {

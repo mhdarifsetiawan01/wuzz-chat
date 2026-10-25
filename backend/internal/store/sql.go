@@ -525,6 +525,46 @@ func (s *SQLMessageStore) autoMigrate() error {
 			created_at TIMESTAMP NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_entitlement_events_user ON entitlement_events(tenant_id, user_id, created_at);`,
+		// Game harian Wuzz Grid (lihat internal/game). Tanggal puzzle = tanggal kalender lokal pengguna (YYYY-MM-DD).
+		`CREATE TABLE IF NOT EXISTS game_puzzles (
+			puzzle_date VARCHAR(10) PRIMARY KEY,
+			size INT NOT NULL,
+			regions TEXT NOT NULL,
+			solution TEXT NOT NULL,
+			seed BIGINT NOT NULL,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS game_attempts (
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			puzzle_date VARCHAR(10) NOT NULL,
+			started_at TIMESTAMP NOT NULL,
+			solved_at TIMESTAMP DEFAULT NULL,
+			duration_ms BIGINT NOT NULL DEFAULT 0,
+			mistakes INT NOT NULL DEFAULT 0,
+			status VARCHAR(16) NOT NULL DEFAULT 'playing',
+			PRIMARY KEY (tenant_id, user_id, puzzle_date)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_game_attempts_board ON game_attempts(tenant_id, puzzle_date, status, duration_ms);`,
+		`CREATE TABLE IF NOT EXISTS game_streaks (
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			current_streak INT NOT NULL DEFAULT 0,
+			best_streak INT NOT NULL DEFAULT 0,
+			last_solved_date VARCHAR(10) NOT NULL DEFAULT '',
+			freezes_available INT NOT NULL DEFAULT 0,
+			freeze_week VARCHAR(10) NOT NULL DEFAULT '',
+			PRIMARY KEY (tenant_id, user_id)
+		);`,
+		`CREATE TABLE IF NOT EXISTS game_settings (
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			leaderboard_public BOOLEAN NOT NULL DEFAULT FALSE,
+			reminder_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+			tz VARCHAR(64) NOT NULL DEFAULT 'Asia/Jakarta',
+			tz_changed_at TIMESTAMP DEFAULT NULL,
+			PRIMARY KEY (tenant_id, user_id)
+		);`,
 		// Hitungan forum aktif per pembuat (batas paket).
 		`CREATE INDEX IF NOT EXISTS idx_conv_created_by_status ON conversations(created_by, status);`,
 	}

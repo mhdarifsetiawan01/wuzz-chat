@@ -1,6 +1,6 @@
 # Game Harian "Wuzz Grid" — Rancangan
 
-> **Status:** rancangan hasil diskusi 25 Oktober 2026. **Belum ada kode.** Dikerjakan di branch `dev`, di balik sakelar mati.
+> **Status (25 Okt 2026):** rancangan hasil diskusi. **Tahap 1 selesai** (penyelesai, pembuat puzzle, pemeriksa jawaban; commit 4a34329). **Tahap 2 selesai di `dev`, belum di-commit**: tabel, repository, service, endpoint, sakelar `GAME_ENABLED`, penghapusan akun. Belum ada kode mobile. Dikerjakan di branch `dev`, di balik sakelar mati.
 > **Aturan kerja:** deploy backend/frontend dan build APK dilakukan pengguna. Jangan menaikkan versi/build number. Tidak ada `git commit` sebelum pengguna menyatakan "selesai", dan tidak ada `git push` tanpa persetujuan tertulis terpisah.
 > **Tujuan:** membuat pengguna betah lewat fitur di luar chat: satu puzzle logika per hari, dengan streak dan papan skor sosial. Sasaran: milenial dan Gen Z.
 
@@ -46,17 +46,19 @@ Mengikuti pola `feed` dan `connection`: `entity.go`, `repository.go`, `service.g
 
 | Tabel | Kolom penting | Fungsi |
 |---|---|---|
-| `game_puzzles` | `puzzle_date` (PK, tanggal UTC), `size`, `regions` (JSON), `solution` (JSON), `seed`, `difficulty` | Satu puzzle per tanggal, dibuat di muka |
+| `game_puzzles` | `puzzle_date` (PK, **tanggal kalender lokal pengguna** `YYYY-MM-DD`), `size`, `regions` (JSON), `solution` (JSON), `seed`, `difficulty` | Satu puzzle per tanggal, dibuat di muka |
 | `game_attempts` | `tenant_id`, `user_id`, `puzzle_date`, `started_at`, `solved_at`, `duration_ms`, `mistakes`, `status` (`playing`/`solved`/`suspicious`) | Satu baris per pengguna per puzzle; `UNIQUE(tenant_id, user_id, puzzle_date)` |
 | `game_streaks` | `tenant_id`, `user_id`, `current`, `best`, `last_solved_local_date`, `freezes_available`, `freeze_week` | Status streak |
 | `game_settings` | `tenant_id`, `user_id`, `leaderboard_public` (default `false`), `reminder_enabled` (default `false`), `tz`, `tz_changed_at` | Preferensi pengguna |
 
 `solution` **tidak pernah dikirim ke klien**. `regions` dikirim untuk menggambar grid. Indeks papan skor: `(tenant_id, puzzle_date, duration_ms)`.
 
+> **Keputusan implementasi (tahap 2):** karena hari baru mengikuti jam lokal, puzzle dikunci pada tanggal lokal pengguna, bukan tanggal UTC. Pemain di WIB mendapat puzzle baru pukul 00.00 WIB, pemain di Los Angeles pukul 00.00 PST; ukuran grid mengikuti hari dalam minggu pada tanggal itu. Zona waktu default `Asia/Jakarta` sampai klien menyimpan zona perangkat lewat `PUT /api/game/settings`. Kolom di DB: `current_streak`, `best_streak`, `tz`, `tz_changed_at` (bukan `current`/`best`/`tz` polos).
+
 ### 3.2 Pembuat dan penyelesai puzzle
 - Input: seed dari tanggal; ukuran dari hari dalam minggu (6×6 awal minggu sampai 9×9 akhir minggu).
 - Langkah: taruh bintang sah, bentuk wilayah di sekitarnya, jalankan penyelesai untuk memastikan **solusi unik**; bila tidak unik, ganti seed dan ulangi.
-- Puzzle 7 hari ke depan dibuat di muka oleh worker kecil (pola `subgroup_ttl_worker`). Bila puzzle hari ini belum ada, service membuatnya saat diminta (cadangan).
+- Tahap 2: puzzle dibuat saat diminta pertama kali (rata-rata 9×9 sekitar 31 ms, terburuk sekitar 210 ms; hasil disimpan sehingga pemanggil berikutnya membaca dari DB). **Worker pembuatan di muka belum dibuat**; tambahkan bila kelak terasa perlu (pola `subgroup_ttl_worker`).
 - **Keunikan solusi adalah bagian paling berisiko**; dikerjakan dan diuji lebih dulu (tahap 1).
 
 ### 3.3 Endpoint (`/api/game/`, didaftarkan di `app/router.go` seperti `/api/feed`)
@@ -66,7 +68,7 @@ Mengikuti pola `feed` dan `connection`: `entity.go`, `repository.go`, `service.g
 | GET | `/api/game/today` | Puzzle hari ini (tanpa solusi), status percobaan, streak, `enabled` |
 | POST | `/api/game/today/start` | Mulai percobaan; `started_at` dicatat server (idempoten) |
 | POST | `/api/game/today/submit` | Kirim penempatan bintang; server memeriksa dan mengisi `solved_at` |
-| GET | `/api/game/leaderboard?scope=friends\|group\|public&group_id=&period=day\|week` | Papan skor |
+| GET | `/api/game/leaderboard?scope=friends\|group\|public&group_id=&period=day\|week` | Papan skor (**tahap 4**, belum ada) |
 | GET/PUT | `/api/game/settings` | Papan publik, pengingat, zona waktu |
 
 ### 3.4 Penilaian dan anti-curang
