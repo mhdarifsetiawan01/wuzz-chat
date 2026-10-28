@@ -5,6 +5,18 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { APP_DOWNLOAD_URL, IS_WEB_PAUSED, WEB_PAUSED_EXEMPT_PREFIXES } from '@/lib/app-download'
 
+// Logo segitiga Google Play (warna merek tetap, tidak ikut tema).
+function PlayLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <polygon points="3.5,2 13,12 3.5,22" fill="#00A0FF" />
+      <polygon points="3.5,2 17,9.7 13,12" fill="#00E676" />
+      <polygon points="3.5,22 17,14.3 13,12" fill="#FF3A44" />
+      <polygon points="17,9.7 21,12 17,14.3 13,12" fill="#FFD500" />
+    </svg>
+  )
+}
+
 export default function WebPausedGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '/'
   // Tampilkan tautan pindah kunci hanya jika peramban ini masih punya sesi login
@@ -47,8 +59,9 @@ export default function WebPausedGate({ children }: { children: React.ReactNode 
           profil pengguna di HP Anda (termasuk profil lain/Tamu bila ada). Riwayat chat lama di perangkat tidak ikut terbawa.
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
-          <a className="btn btn-primary" style={{ justifyContent: 'center' }} href={APP_DOWNLOAD_URL} rel="noopener noreferrer">
-            ⬇️ Dapatkan di Google Play
+          <a className="btn btn-primary" style={{ justifyContent: 'center', gap: 'var(--space-2)' }} href={APP_DOWNLOAD_URL} rel="noopener noreferrer">
+            <PlayLogo />
+            Dapatkan di Google Play
           </a>
           {hasSession && (
             <Link className="btn btn-secondary" style={{ justifyContent: 'center' }} href="/transfer/share">

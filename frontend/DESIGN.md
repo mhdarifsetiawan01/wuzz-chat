@@ -156,6 +156,7 @@ Use for **all** modals and drawers. Do not create new backdrop families.
 | `MessageBubble.tsx:SENDER_COLORS` | JS array hex | Runtime sender color constant |
 | `app/layout.tsx:themeColor` | `'#090d16'` | HTML meta viewport (var() not applicable) |
 | SVG `stopColor` attributes | hex | SVG attributes don't support `var()` |
+| `WebPausedGate.tsx:PlayLogo` | 4 hex fill | Warna merek Google Play, tetap di semua tema |
 | `border-radius: 50%` | `50%` | Circle idiom |
 
 ---
