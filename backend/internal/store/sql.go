@@ -660,6 +660,9 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conversations_tenant ON conversations(tenant_id);`)
 		// Keunikan username grup dijamin di level DB (menutup race check-then-insert)
 		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_conv_group_username ON conversations(tenant_id, LOWER(group_username)) WHERE group_username IS NOT NULL AND group_username <> '';`)
+		// Kode tautan pendek grup/subgrup (diberikan malas saat pertama dibagikan); unik di level DB
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS short_code VARCHAR(16);`)
+		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_conv_short_code ON conversations(short_code) WHERE short_code IS NOT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE forum_memory_jobs ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_fmj_tenant ON forum_memory_jobs(tenant_id);`)
 		_, _ = s.db.Exec(`ALTER TABLE memory_drafts ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
@@ -736,6 +739,8 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conversations_tenant ON conversations(tenant_id);`)
 		// Keunikan username grup dijamin di level DB (menutup race check-then-insert)
 		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_conv_group_username ON conversations(tenant_id, LOWER(group_username)) WHERE group_username IS NOT NULL AND group_username <> '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN short_code VARCHAR(16);`)
+		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_conv_short_code ON conversations(short_code) WHERE short_code IS NOT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE forum_memory_jobs ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_fmj_tenant ON forum_memory_jobs(tenant_id);`)
 		_, _ = s.db.Exec(`ALTER TABLE memory_drafts ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)

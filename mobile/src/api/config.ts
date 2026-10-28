@@ -57,6 +57,8 @@ export const APP_LINK_CONFIG = {
     `https://chat.wuzzhub.id/g/${encodeURIComponent(groupId)}`,
   getSubGroupShareUrl: (subGroupId: string) =>
     `https://chat.wuzzhub.id/sub/${encodeURIComponent(subGroupId)}`,
+  /** Tautan pendek dari path yang dikembalikan POST /api/links (mis. /g/Ab3xK9qz). */
+  getShortShareUrl: (path: string) => `https://chat.wuzzhub.id${path}`,
 } as const;
 
 /** Alamat dukungan yang tercantum di halaman legal publik; dipakai tautan "hubungi support" di aplikasi. */

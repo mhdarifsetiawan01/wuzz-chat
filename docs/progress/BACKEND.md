@@ -7,6 +7,15 @@
 - Semua tercantum sudah dideploy pengguna ke produksi. Sakelar dan tenggat: `docs/OPERATIONS.md`.
 
 
+### Tautan pendek grup/forum (28 Oktober 2026)
+
+- Kolom `conversations.short_code VARCHAR(16)` + indeks unik `uq_conv_short_code` (migrasi otomatis Postgres dan SQLite). Kode dibuat malas di `store.ShortLinkStore.GetOrCreate` (UPDATE bersyarat anti-balapan, ulang bila tabrakan); tidak ada backfill grup lama. Endpoint: `POST /api/links` (JWT, anggota) dan `GET /api/links/{code}` (publik, 60/menit per IP). Detail: `docs/BACKEND_API.md` #35b, `docs/domains/GROUP_FORUM.md` aturan 8, kedua `openapi.yaml`.
+- Mobile: `linksApi`, Bagikan Grup memakai tautan pendek (gagal → tautan panjang), `handleDeepLink` menerjemahkan kode. Web: `OpenInAppLanding` menerjemahkan kode di server.
+- Bukti: **tes saja** — `TestShortLinkHandler_CreateAndResolve` (idempoten, non-anggota 403, 404, bentuk salah), `go test ./...` lulus, `npm run build` frontend lulus, `npx tsc --noEmit` mobile bersih. **Belum teruji** di produksi/HP: Bagikan Grup → buka tautan pendek di HP lain (terpasang dan belum), landing web saat web dijeda, App Links `/g/<kode>` (intent filter sudah mencakup prefix `/g`, belum dibuktikan).
+- Audit keamanan/performa khusus fitur ini (28 Okt 2026, tinjauan kode): ruang kode 54^8 ≈ 7×10^13 + 60 permintaan/menit per IP membuat tebakan tidak praktis; Resolve hanya mengembalikan ID dan semua endpoint grup tetap menegakkan tenant, keanggotaan, dan 403 grup privat; kode hanya bisa dibuat anggota; input divalidasi regex sebelum query dan sebelum fetch server web (tanpa SSRF/SQL injection). Performa: Resolve memakai indeks unik `uq_conv_short_code` (satu baris), pembuatan kode sekali per grup, migrasi ADD COLUMN nullable tanpa default tidak mengunci tabel. **Bug ditemukan dan diperbaiki**: fetch server Next.js ke `/api/links/{code}` tidak membawa IP pengunjung sehingga semua pengunjung landing berbagi satu jatah 60/menit; kini `X-Forwarded-For` diteruskan. Catatan: `GetClientIP` memercayai header IP (perilaku proyek yang sudah ada), jadi rate limit bisa dilewati dengan memalsukan header; tidak berdampak praktis di sini karena ruang kode sangat besar. Belum diuji di Postgres nyata (tes memakai SQLite).
+- Perlu: deploy backend (`ssh deploy@<VPS_IP> ./deploy-chat.sh`, migrasi kolom otomatis), deploy frontend, dan build APK baru (tanpa itu, APK lama tidak mengenali kode pendek dan masih membagikan tautan panjang). Dikerjakan pengguna.
+
+
 ### Forum Completion Loop — daftar forum berakhir (18 Oktober 2026)
 
 - Endpoint subgroups kini mengembalikan forum aktif dan berakhir; status arsip tetap dikecualikan. Nama internal `GetActiveSubGroups` dipertahankan untuk kompatibilitas. Gerbang membership induk tetap berlaku; query mencocokkan tenant forum, induk, dan viewer. Membuka riwayat tetap memerlukan otorisasi forum yang sudah ada.

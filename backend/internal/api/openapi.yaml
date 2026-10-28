@@ -1349,6 +1349,77 @@ paths:
               schema:
                 $ref: '#/components/schemas/Group'
 
+  /api/links:
+    post:
+      tags:
+        - Groups & Communities
+      summary: Get or Create Short Link
+      description: >
+        Returns the short link code of a group (grp_) or forum topic (sub_), creating it on first request.
+        The code never changes once issued. Only members of the group may ask.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [room_id]
+              properties:
+                room_id:
+                  type: string
+                  example: grp_3f2b9c1e-0000-0000-0000-000000000000
+      responses:
+        '200':
+          description: Short link code and public path
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: Ab3xK9qz
+                  path:
+                    type: string
+                    description: "/g/{code} for groups, /sub/{code} for forum topics. Public URL is https://chat.wuzzhub.id{path}"
+                    example: /g/Ab3xK9qz
+        '403':
+          description: Caller is not a member of the group
+        '404':
+          description: Group not found or room_id is not a group/forum topic
+
+  /api/links/{code}:
+    get:
+      tags:
+        - Groups & Communities
+      summary: Resolve Short Link
+      description: >
+        Public (no token). Translates an 8-character short code into the group/forum ID. Only the ID is returned;
+        access to the room is still enforced by the group endpoints (private groups reject non-members with 403).
+        Rate limited per IP (60 requests/minute).
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved room ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room_id:
+                    type: string
+        '404':
+          description: Unknown code or malformed code
+        '429':
+          description: Too many requests
+
   /api/groups/{id}/join:
     post:
       tags:

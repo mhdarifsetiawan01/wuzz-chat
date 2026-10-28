@@ -23,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { APP_LINK_CONFIG } from '../api/config';
 import { memoryDraftTargetError } from '../components/memory/memoryDraftTarget';
 import { groupsApi } from '../api/groups';
+import { linksApi } from '../api/links';
 import { searchUsers } from '../api/users';
 import { Conversation, GroupDetails, GroupMember, User } from '../api/types';
 import { Avatar } from '../components/Avatar';
@@ -194,9 +195,16 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
     if (!group) return;
     try {
       const isSub = groupId.startsWith('sub_');
-      const shareUrl = isSub
+      // Tautan pendek dari server; bila gagal (offline/timeout) pakai tautan panjang agar berbagi tidak terhambat.
+      let shareUrl = isSub
         ? APP_LINK_CONFIG.getSubGroupShareUrl(groupId)
         : APP_LINK_CONFIG.getGroupShareUrl(groupId);
+      try {
+        const short = await linksApi.createShortLink(groupId);
+        shareUrl = APP_LINK_CONFIG.getShortShareUrl(short.path);
+      } catch (linkErr) {
+        console.warn('[GroupInfoScreen] Short link unavailable, using long link:', linkErr);
+      }
       const privateNote = group.is_public
         ? ''
         : '\n(Grup privat: hanya anggota yang dapat membuka tautan ini)';

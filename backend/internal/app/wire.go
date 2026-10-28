@@ -90,6 +90,7 @@ type Application struct {
 	ReportHandler       *api.ReportHandler
 	ModerationHandler   *api.ModerationHandler
 	EntitlementHandler  *api.EntitlementHandler
+	ShortLinkHandler    *api.ShortLinkHandler
 	// EvidenceWorker menghapus bukti laporan yang melewati masa simpan; nil bila alat moderasi/retensi tidak aktif.
 	EvidenceWorker *worker.EvidenceRetentionWorker
 	// Notifier mengirim pemberitahuan laporan baru ke Telegram dll; nil bila tidak ada saluran aktif.
@@ -148,6 +149,7 @@ func New(cfg *config.Config) (*Application, error) {
 	var gameRepo game.Repository
 	var connRepo connection.ConnectionRepository
 	var entitlementStore store.EntitlementStore
+	var shortLinkStore *store.ShortLinkStore
 
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 		sqlUserStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
@@ -157,6 +159,7 @@ func New(cfg *config.Config) (*Application, error) {
 		sqlGroupStore.SetForumLimitsEnabled(cfg != nil && cfg.ForumLimitsEnabled)
 		groupStore = sqlGroupStore
 		entitlementStore = store.NewSQLEntitlementStore(sqlStore.DB(), sqlStore.DriverName())
+		shortLinkStore = store.NewShortLinkStore(sqlStore.DB(), sqlStore.DriverName())
 		transferStore = store.NewSQLTransferStore(sqlStore.DB(), sqlStore.DriverName())
 		memoryStore = store.NewSQLMemoryStore(sqlStore.DB(), sqlStore.DriverName())
 		sqlTokenStore := store.NewSQLTokenStore(sqlStore.DB(), sqlStore.DriverName())
@@ -374,6 +377,9 @@ func New(cfg *config.Config) (*Application, error) {
 	auth.SetRoleResolver(roleResolver)
 	limitsEnforced := cfg != nil && cfg.ForumLimitsEnabled
 	quotaEnforced := cfg != nil && cfg.MemoryQuotaEnabled
+	if shortLinkStore != nil {
+		app.ShortLinkHandler = api.NewShortLinkHandler(shortLinkStore)
+	}
 	if entitlementStore != nil {
 		app.EntitlementHandler = api.NewEntitlementHandler(entitlementStore, limitsEnforced, quotaEnforced)
 		if limitsEnforced {
