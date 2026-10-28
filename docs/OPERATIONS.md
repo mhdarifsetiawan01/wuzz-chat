@@ -53,7 +53,7 @@ File env ada di `~/wuzz-chat/backend/.env` di VPS (bukan di root home). Terapkan
 - Build manual untuk tes di HP: `./gradlew assembleRelease -PskipSmartBump` di `mobile/android` (tanpa flag itu smart-bump mengubah versi). Butuh env `WUZZ_KEYSTORE_PATH`, `WUZZ_KEY_ALIAS`, `WUZZ_KEYSTORE_PASSWORD`, `WUZZ_KEY_PASSWORD`; pengguna menjalankannya di terminal sendiri. Hasil dipecah per ABI. `mobile/android/` di-gitignore (hasil `expo prebuild`); perubahan native lewat `app.json` atau plugin di `mobile/plugins/`.
 - Pola pemeriksaan APK/AAB baru: versi dengan `aapt dump badging`, tanda tangan dengan `apksigner verify --print-certs`, cocokkan source map dengan working tree, cari string fitur baru di bundle kedua ABI, arsipkan.
 - Smart-bump: commit bertipe `feat` menaikkan MINOR; versionCode harus unik dan naik. Satu nomor build pernah dipakai beberapa biner berbeda: rilis berikutnya harus nomor baru.
-- Versi terakhir: **1.43.0 / versionCode 75** (Produksi Play, disetujui 28 Okt 2026).
+- Versi terakhir: **1.43.0 / versionCode 75** (Produksi Play, disetujui 28 Okt 2026); build **1.44.0 / 76** (tautan pendek + landing pratinjau) dibuat 28 Okt 2026, belum diunggah ke Play.
 
 ### Dua kunci tanda tangan (penting)
 
