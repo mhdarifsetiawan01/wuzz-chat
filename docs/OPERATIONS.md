@@ -96,6 +96,7 @@ Akun AdMob dibuat; publisher `pub-2083809888162993`. `frontend/public/app-ads.tx
 - **Reset kunci E2EE menghapus kunci** dan membuat pesan lama terkunci permanen bila tidak ada perangkat lain. Jangan menguji reset kunci di akun nyata dan jangan menekan "Reset Kunci Baru" tanpa persetujuan pengguna.
 - Data Safety wajib mendeklarasikan **Alamat email** (login Google menyimpan email Google).
 - Forum: durasi daftar kini satu sumber (`store.SubGroupDurationDays`); Perpanjang forum: `POST /api/groups/{id}/subgroups/{subId}/extend` body `{"days":1..3}`, hanya pembuat berpaket Pro, total maks 30 hari (`conversations.extended_days`); forum expired tidak bisa diaktifkan ulang (sengaja). Tombol "Perpanjang" tampil juga untuk akun Free; server yang menolak.
+- Tautan pendek grup/forum (28 Okt 2026): tanpa env baru; migrasi kolom `conversations.short_code` berjalan otomatis saat backend start. Kode dibuat saat pertama dibagikan, tautan panjang lama tetap valid. Butuh deploy backend + frontend + APK baru (APK lama tidak mengenali kode pendek). Domain tetap `chat.wuzzhub.id`.
 - Teks UI paket Pro harus netral (tanpa ajakan bayar): kebijakan Play Billing belum diverifikasi dari sumber resmi.
 - Epoch nomor puzzle `gridEpoch` (2026-10-25) tidak boleh lebih lambat dari hari pertama fitur menyala.
 

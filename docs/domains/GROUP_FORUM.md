@@ -25,6 +25,10 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Obrolan Grup, Forum Topi
    - Membuka tautan grup publik atau hasil pencarian memunculkan bottom sheet / modal konfirmasi pratinjau (`GroupPreviewModal.tsx`), bukan langsung auto-join.
 6. **Gerbang Otorisasi Tautan Privat (Authorization Shield)**:
    - Non-anggota yang membuka link grup privat ditolak di gerbang HTTP 403 dan disajikan layar proteksi (*Private Group Shield*), tidak diizinkan masuk ke ruang obrolan kosong.
+8. **Tautan Pendek (28 Okt 2026)**:
+   - Tautan bagikan memakai kode acak 8 karakter (`conversations.short_code`, indeks unik), mis. `chat.wuzzhub.id/g/Ab3xK9qz` dan `/sub/Ab3xK9qz`. Kode dibuat malas oleh `POST /api/links` (hanya anggota), tidak pernah berganti, dan diterjemahkan publik oleh `GET /api/links/{code}` (hanya mengembalikan ID; akses ruang tetap lewat gerbang 403 di atas).
+   - Tautan panjang `/g/grp_<uuid>` dan `wuzzchat://g/...` tetap diterima (kompatibilitas tautan lama). Klien membedakan kode pendek dari ID lewat pola `^[2-9a-hj-km-np-zA-HJ-NP-Z]{8}$` (ID selalu berawalan `grp_/sub_/dm_`).
+   - Kode: `store.ShortLinkStore`, `api.ShortLinkHandler`, `mobile/src/api/links.ts`, `frontend/app/OpenInAppLanding.tsx`. Slug kustom sengaja ditunda (kandidat fitur Pro; cek `ADS_AND_REWARDS_PLAN.md` dulu).
 7. **Penyebutan Multi-User (@mentions)**:
    - Autocomplete popover `@username` dengan validasi fail-closed keanggotaan room di WebSocket Hub.
 

@@ -344,6 +344,17 @@ func (a *Application) setupRouter() http.Handler {
 		}))
 	}
 
+	// Tautan pendek grup/subgrup: pembuatan butuh JWT (anggota), penerjemahan kode publik tetapi dibatasi per IP.
+	if a.ShortLinkHandler != nil {
+		linkResolveLimiter := ratelimit.NewIPRateLimiter(60, time.Minute)
+		mux.HandleFunc("/api/links", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(http.HandlerFunc(a.ShortLinkHandler.Create)).ServeHTTP(w, r)
+		}))
+		mux.HandleFunc("/api/links/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			api.UserRateLimit(linkResolveLimiter)(http.HandlerFunc(a.ShortLinkHandler.Resolve)).ServeHTTP(w, r)
+		}))
+	}
+
 	// Status paket milik pemanggil (batas forum aktif, durasi yang diizinkan).
 	if a.EntitlementHandler != nil {
 		mux.HandleFunc("/api/me/entitlement", withCORS(func(w http.ResponseWriter, r *http.Request) {

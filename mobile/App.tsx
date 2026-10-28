@@ -34,6 +34,7 @@ import {
 import { ConversationItem, ConnectionStatusResponse } from './src/api/types';
 import { getUserProfile, startDirectChat } from './src/api/users';
 import { connectionsApi } from './src/api/connections';
+import { isShortCode, linksApi } from './src/api/links';
 import { AccountSuspendedScreen, GoogleLinkRequiredScreen, GoogleOnboardingScreen, LoginScreen, RegisterScreen } from './src/screens';
 import type { GooglePending } from './src/screens/GoogleOnboardingScreen';
 import {
@@ -274,7 +275,17 @@ function AppContent() {
           url.match(/[?&]room=([^&#]+)/i);
 
         if (groupMatch && groupMatch[1]) {
-          const roomId = decodeURIComponent(groupMatch[1]).trim();
+          let roomId = decodeURIComponent(groupMatch[1]).trim();
+          // Tautan pendek (chat.wuzzhub.id/g/Ab3xK9qz): terjemahkan ke ID grup sebelum membuka chat
+          if (isShortCode(roomId)) {
+            try {
+              roomId = (await linksApi.resolveShortCode(roomId)).room_id;
+            } catch (linkErr: any) {
+              console.warn('[App] Failed to resolve short link:', linkErr);
+              showAlert('Tautan Tidak Ditemukan', linkErr?.detail || linkErr?.message || 'Tautan grup ini tidak valid atau sudah tidak berlaku.');
+              return;
+            }
+          }
           const isGroupRoom = roomId.startsWith('grp_') || roomId.startsWith('sub_');
           const targetConv: ConversationItem = {
             id: roomId,

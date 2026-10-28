@@ -1313,6 +1313,14 @@ Bergabung ke grup publik secara mandiri (*self-join*). Ditolak (403 Forbidden) j
 
 ---
 
+#### 35b. Tautan Pendek Grup/Forum — `POST /api/links` dan `GET /api/links/{code}`
+Tautan bagikan grup/forum berbentuk `https://chat.wuzzhub.id/g/Ab3xK9qz` (forum: `/sub/Ab3xK9qz`), bukan `/g/grp_<uuid>`. Kode 8 karakter acak (alfabet tanpa `0/O/1/l/I`) disimpan di `conversations.short_code` (unik), dibuat malas saat pertama kali dibagikan dan **tidak pernah berganti**. Tautan lama `/g/grp_<uuid>` tetap berfungsi.
+- **`POST /api/links`** — Bearer wajib. Body `{"room_id": "grp_..."}` (atau `sub_...`). Hanya **anggota** grup yang boleh meminta (403 bila bukan; 404 bila grup tidak ada atau bukan `grp_`/`sub_`). Respons 200: `{"code": "Ab3xK9qz", "path": "/g/Ab3xK9qz"}`.
+- **`GET /api/links/{code}`** — **publik** (tanpa token), dibatasi 60 permintaan/menit per IP. Respons 200: `{"room_id": "grp_..."}`; 404 bila kode tak dikenal atau bentuknya salah. Hanya ID yang dikembalikan; hak akses tetap ditegakkan endpoint grup (grup privat menolak non-anggota 403).
+- Klien: mobile memanggil `POST /api/links` saat Bagikan Grup (gagal → pakai tautan panjang); `handleDeepLink` dan landing web (`OpenInAppLanding`) menerjemahkan kode lewat `GET /api/links/{code}`.
+
+---
+
 #### 36. `GET /api/groups/{id}/members`
 Mengambil daftar anggota grup beserta peran (`creator`, `admin`, `member`) dan status verified badge.
 - **Autentikasi**: `Bearer <token>` (wajib anggota grup)
