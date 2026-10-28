@@ -14,10 +14,13 @@ import (
 // dan GET /api/links/{code} (publik; menerjemahkan kode ke ID ruang).
 type ShortLinkHandler struct {
 	store *store.ShortLinkStore
+	// createEnabled (env SHORT_LINKS_ENABLED) menahan pembuatan kode baru sampai APK yang mengenalinya beredar luas.
+	// Resolve tetap aktif supaya kode yang sudah terlanjur dibagikan tetap bisa dibuka.
+	createEnabled bool
 }
 
-func NewShortLinkHandler(s *store.ShortLinkStore) *ShortLinkHandler {
-	return &ShortLinkHandler{store: s}
+func NewShortLinkHandler(s *store.ShortLinkStore, createEnabled bool) *ShortLinkHandler {
+	return &ShortLinkHandler{store: s, createEnabled: createEnabled}
 }
 
 type shortLinkRequest struct {
@@ -33,6 +36,12 @@ func (h *ShortLinkHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method != http.MethodPost {
 		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	if !h.createEnabled {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error":"Tautan pendek belum diaktifkan","code":"short_links_disabled"}`))
 		return
 	}
 	var req shortLinkRequest

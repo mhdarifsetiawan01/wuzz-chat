@@ -46,6 +46,8 @@ type Config struct {
 	// ForumLimitsEnabled menyalakan penegakan batas forum aktif per paket (env FORUM_LIMITS_ENABLED=true).
 	// Default mati: tanpa env ini perilaku pembuatan forum tidak berubah.
 	ForumLimitsEnabled      bool
+	// ShortLinksEnabled mengizinkan pembuatan tautan pendek grup (env SHORT_LINKS_ENABLED=true); mati = klien memakai tautan panjang.
+	ShortLinksEnabled bool
 	// MemoryQuotaEnabled menyalakan kuota ringkasan AI per paket (env MEMORY_QUOTA_ENABLED=true). Default mati.
 	MemoryQuotaEnabled      bool
 	// GameEnabled menyalakan game harian Wuzz Grid (env GAME_ENABLED=true). Default mati: endpoint /api/game/* menolak.
@@ -129,6 +131,7 @@ func Load() (*Config, error) {
 		MemoryWorkerDisabled:    isFalseEnv(os.Getenv("MEMORY_WORKER_ENABLED")),
 		MemoryEnabledGroups:     strings.TrimSpace(os.Getenv("MEMORY_ENABLED_GROUPS")),
 		ForumLimitsEnabled:      isTrueEnv(os.Getenv("FORUM_LIMITS_ENABLED")),
+		ShortLinksEnabled:       isTrueEnv(os.Getenv("SHORT_LINKS_ENABLED")),
 		MemoryQuotaEnabled:      isTrueEnv(os.Getenv("MEMORY_QUOTA_ENABLED")),
 		GameEnabled:             isTrueEnv(os.Getenv("GAME_ENABLED")),
 		GameReminderTime:        strings.TrimSpace(os.Getenv("GAME_REMINDER_TIME")),

@@ -378,7 +378,7 @@ func New(cfg *config.Config) (*Application, error) {
 	limitsEnforced := cfg != nil && cfg.ForumLimitsEnabled
 	quotaEnforced := cfg != nil && cfg.MemoryQuotaEnabled
 	if shortLinkStore != nil {
-		app.ShortLinkHandler = api.NewShortLinkHandler(shortLinkStore)
+		app.ShortLinkHandler = api.NewShortLinkHandler(shortLinkStore, cfg != nil && cfg.ShortLinksEnabled)
 	}
 	if entitlementStore != nil {
 		app.EntitlementHandler = api.NewEntitlementHandler(entitlementStore, limitsEnforced, quotaEnforced)

@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -27,7 +28,7 @@ func TestShortLinkHandler_CreateAndResolve(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Gagal membuat grup: %v", err)
 	}
-	h := NewShortLinkHandler(store.NewShortLinkStore(sqlStore.DB(), sqlStore.DriverName()))
+	h := NewShortLinkHandler(store.NewShortLinkStore(sqlStore.DB(), sqlStore.DriverName()), true)
 
 	create := func(userID, roomID string) *httptest.ResponseRecorder {
 		raw, _ := json.Marshal(map[string]string{"room_id": roomID})
@@ -103,5 +104,42 @@ func TestShortLinkHandler_CreateAndResolve(t *testing.T) {
 	}
 	if rr := resolve("grp_bad"); rr.Code != http.StatusNotFound {
 		t.Errorf("bentuk salah: want 404, got %d", rr.Code)
+	}
+}
+
+func TestShortLinkHandler_CreateDisabledStillResolves(t *testing.T) {
+	sqlStore, err := store.NewSQLMessageStore("sqlite", filepath.Join(t.TempDir(), "short_link_off.db"))
+	if err != nil {
+		t.Fatalf("Gagal init SQLMessageStore: %v", err)
+	}
+	userStore := store.NewSQLUserStore(sqlStore.DB(), sqlStore.DriverName())
+	groupStore := store.NewSQLGroupStore(sqlStore.DB(), sqlStore.DriverName())
+	alice, _ := userStore.Register("alice_off", "Alice", "pass12345")
+	grp, err := groupStore.CreateGroup("Grup Off", "", "", alice.ID, "", true, nil)
+	if err != nil {
+		t.Fatalf("Gagal membuat grup: %v", err)
+	}
+	linkStore := store.NewShortLinkStore(sqlStore.DB(), sqlStore.DriverName())
+
+	// Kode yang sudah ada sebelum sakelar dimatikan tetap harus bisa dibuka.
+	code, err := linkStore.GetOrCreate(context.Background(), grp.ID, alice.ID)
+	if err != nil {
+		t.Fatalf("GetOrCreate: %v", err)
+	}
+
+	h := NewShortLinkHandler(linkStore, false)
+	raw, _ := json.Marshal(map[string]string{"room_id": grp.ID})
+	req := httptest.NewRequest(http.MethodPost, "/api/links", bytes.NewReader(raw))
+	req = req.WithContext(auth.SetUserContext(req.Context(), &auth.UserClaims{UserID: alice.ID}))
+	rr := httptest.NewRecorder()
+	h.Create(rr, req)
+	if rr.Code != http.StatusServiceUnavailable || !strings.Contains(rr.Body.String(), "short_links_disabled") {
+		t.Fatalf("Create saat mati: want 503 short_links_disabled, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	rr = httptest.NewRecorder()
+	h.Resolve(rr, httptest.NewRequest(http.MethodGet, "/api/links/"+code, nil))
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), grp.ID) {
+		t.Fatalf("Resolve saat mati: want 200 + %s, got %d: %s", grp.ID, rr.Code, rr.Body.String())
 	}
 }
