@@ -60,14 +60,14 @@ func (h *ShortLinkHandler) Create(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "path": prefix + code})
 }
 
-// Resolve menangani GET /api/links/{code}. Publik: hanya mengembalikan ID; akses ruang tetap diperiksa endpoint grup.
+// Resolve menangani GET /api/links/{code}. Publik: mengembalikan ID (+ nama/avatar untuk grup publik); akses ruang tetap diperiksa endpoint grup.
 func (h *ShortLinkHandler) Resolve(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 		return
 	}
 	code := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/links/"), "/")
-	id, err := h.store.Resolve(r.Context(), code)
+	id, preview, err := h.store.Resolve(r.Context(), code)
 	if errors.Is(err, store.ErrShortLinkNotFound) {
 		http.Error(w, `{"error":"Tautan tidak ditemukan"}`, http.StatusNotFound)
 		return
@@ -78,5 +78,8 @@ func (h *ShortLinkHandler) Resolve(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
-	_ = json.NewEncoder(w).Encode(map[string]string{"room_id": id})
+	_ = json.NewEncoder(w).Encode(struct {
+		RoomID  string                  `json:"room_id"`
+		Preview *store.ShortLinkPreview `json:"preview,omitempty"`
+	}{RoomID: id, Preview: preview})
 }

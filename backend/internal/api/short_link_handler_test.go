@@ -75,6 +75,29 @@ func TestShortLinkHandler_CreateAndResolve(t *testing.T) {
 	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), grp.ID) {
 		t.Fatalf("Resolve: want 200 + %s, got %d: %s", grp.ID, rr.Code, rr.Body.String())
 	}
+	// Grup privat tidak boleh membocorkan nama/avatar tanpa login.
+	if strings.Contains(rr.Body.String(), "preview") || strings.Contains(rr.Body.String(), "Grup Tautan") {
+		t.Errorf("grup privat membocorkan pratinjau: %s", rr.Body.String())
+	}
+
+	// Grup publik: pratinjau nama + avatar tersedia.
+	pub, err := groupStore.CreateGroup("Grup Publik Tautan", "", "emoji:🔥", alice.ID, "", true, nil)
+	if err != nil {
+		t.Fatalf("Gagal membuat grup publik: %v", err)
+	}
+	var pubCreated struct{ Code string }
+	_ = json.Unmarshal(create(alice.ID, pub.ID).Body.Bytes(), &pubCreated)
+	var pubResp struct {
+		RoomID  string `json:"room_id"`
+		Preview *struct {
+			Title     string `json:"title"`
+			AvatarURL string `json:"avatar_url"`
+		} `json:"preview"`
+	}
+	_ = json.Unmarshal(resolve(pubCreated.Code).Body.Bytes(), &pubResp)
+	if pubResp.RoomID != pub.ID || pubResp.Preview == nil || pubResp.Preview.Title != "Grup Publik Tautan" || pubResp.Preview.AvatarURL != "emoji:🔥" {
+		t.Errorf("pratinjau grup publik salah: %+v", pubResp)
+	}
 	if rr := resolve("aaaaaaaa"); rr.Code != http.StatusNotFound {
 		t.Errorf("kode tak dikenal: want 404, got %d", rr.Code)
 	}

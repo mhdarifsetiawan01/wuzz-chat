@@ -1404,9 +1404,10 @@ paths:
         - Groups & Communities
       summary: Resolve Short Link
       description: >
-        Public (no token). Translates an 8-character short code into the group/forum ID. Only the ID is returned;
-        access to the room is still enforced by the group endpoints (private groups reject non-members with 403).
-        Rate limited per IP (60 requests/minute).
+        Public (no token). Translates an 8-character short code into the group/forum ID. Access to the room is still
+        enforced by the group endpoints (private groups reject non-members with 403). For a public top-level group the
+        response also carries a `preview` (name and avatar) used by the web landing page; private groups and forum topics
+        never include it. Rate limited per IP (60 requests/minute).
       parameters:
         - name: code
           in: path
@@ -1423,6 +1424,15 @@ paths:
                 properties:
                   room_id:
                     type: string
+                  preview:
+                    type: object
+                    description: Only for public top-level groups
+                    properties:
+                      title:
+                        type: string
+                      avatar_url:
+                        type: string
+                        description: "https URL, relative path, or emoji:<char>; may be empty"
         '404':
           description: Unknown code or malformed code
         '429':
