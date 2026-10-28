@@ -114,19 +114,36 @@ func (s *ShortLinkStore) GetOrCreate(ctx context.Context, roomID, userID string)
 	return "", fmt.Errorf("gagal membuat kode tautan pendek setelah %d percobaan", shortCodeAttempts)
 }
 
-// Resolve menerjemahkan kode pendek menjadi ID grup/subgrup. Hanya ID yang dikembalikan; hak akses tetap diperiksa
-// oleh endpoint grup (grup privat menolak non-anggota).
-func (s *ShortLinkStore) Resolve(ctx context.Context, code string) (string, error) {
+// ShortLinkPreview adalah pratinjau publik grup untuk halaman landing tautan. Hanya nama dan avatar.
+type ShortLinkPreview struct {
+	Title     string `json:"title"`
+	AvatarURL string `json:"avatar_url"`
+}
+
+// Resolve menerjemahkan kode pendek menjadi ID grup/subgrup. Hanya ID yang menjadi kunci akses: hak akses tetap diperiksa
+// oleh endpoint grup (grup privat menolak non-anggota). Pratinjau (nama + avatar) hanya diberikan untuk grup utama yang
+// publik; grup privat dan subgrup forum tidak pernah membocorkan metadata ke pemanggil tanpa login.
+func (s *ShortLinkStore) Resolve(ctx context.Context, code string) (string, *ShortLinkPreview, error) {
 	if !IsShortCode(code) {
-		return "", ErrShortLinkNotFound
+		return "", nil, ErrShortLinkNotFound
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	var id string
+	var (
+		id, title, avatar, parentID string
+		isPublic                    bool
+	)
 	err := s.db.QueryRowContext(ctx, rebindQuery(s.driverName,
-		`SELECT id FROM conversations WHERE short_code = ?`), code).Scan(&id)
+		`SELECT id, is_public, COALESCE(title, ''), COALESCE(avatar_url, ''), COALESCE(parent_id, '')
+		 FROM conversations WHERE short_code = ?`), code).Scan(&id, &isPublic, &title, &avatar, &parentID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", ErrShortLinkNotFound
+		return "", nil, ErrShortLinkNotFound
 	}
-	return id, err
+	if err != nil {
+		return "", nil, err
+	}
+	if !isPublic || parentID != "" || !strings.HasPrefix(id, "grp_") {
+		return id, nil, nil
+	}
+	return id, &ShortLinkPreview{Title: title, AvatarURL: avatar}, nil
 }
