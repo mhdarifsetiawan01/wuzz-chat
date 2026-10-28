@@ -1389,6 +1389,8 @@ paths:
           description: Caller is not a member of the group
         '404':
           description: Group not found or room_id is not a group/forum topic
+        '503':
+          description: Short link creation is disabled on this server (SHORT_LINKS_ENABLED off); code `short_links_disabled`. Clients fall back to the long link.
 
   /api/links/{code}:
     get:

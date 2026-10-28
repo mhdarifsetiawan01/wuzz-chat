@@ -28,6 +28,7 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Obrolan Grup, Forum Topi
 8. **Tautan Pendek (28 Okt 2026)**:
    - Tautan bagikan memakai kode acak 8 karakter (`conversations.short_code`, indeks unik), mis. `chat.wuzzhub.id/g/Ab3xK9qz` dan `/sub/Ab3xK9qz`. Kode dibuat malas oleh `POST /api/links` (hanya anggota), tidak pernah berganti, dan diterjemahkan publik oleh `GET /api/links/{code}` (akses ruang tetap lewat gerbang 403 di atas). Untuk **grup utama publik** respons menyertakan `preview` (nama + avatar) yang dipakai landing web; grup privat dan forum tidak pernah mengeluarkan metadata tanpa login. Landing menampilkan avatar hanya bila `https://`, path relatif, atau `emoji:`; selain itu inisial.
    - Tautan panjang `/g/grp_<uuid>` dan `wuzzchat://g/...` tetap diterima (kompatibilitas tautan lama). Klien membedakan kode pendek dari ID lewat pola `^[2-9a-hj-km-np-zA-HJ-NP-Z]{8}$` (ID selalu berawalan `grp_/sub_/dm_`).
+   - **Sakelar rollout `SHORT_LINKS_ENABLED` (default mati)**: APK lama menganggap kode pendek sebagai ID DM dan membuka obrolan kosong (terbukti di HP, 28 Okt 2026), jadi pembuatan kode ditahan sampai build baru beredar luas. Resolve tetap aktif. Lihat `docs/OPERATIONS.md`.
    - Kode: `store.ShortLinkStore`, `api.ShortLinkHandler`, `mobile/src/api/links.ts`, `frontend/app/OpenInAppLanding.tsx`. Slug kustom sengaja ditunda (kandidat fitur Pro; cek `ADS_AND_REWARDS_PLAN.md` dulu).
 7. **Penyebutan Multi-User (@mentions)**:
    - Autocomplete popover `@username` dengan validasi fail-closed keanggotaan room di WebSocket Hub.

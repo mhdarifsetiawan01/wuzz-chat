@@ -25,6 +25,7 @@ File env ada di `~/wuzz-chat/backend/.env` di VPS (bukan di root home). Terapkan
 |---|---|---|
 | `GAME_ENABLED` | menyala | Mati → `/api/game/today` menjawab `{"enabled": false}`, endpoint lain 403 |
 | `GAME_REMINDER_TIME` | bawaan `19:00` | Aplikasi memakai jam baru pada sinkron berikutnya, tanpa build baru |
+| `SHORT_LINKS_ENABLED` | **kosong (mati)** | Mengizinkan pembuatan tautan pendek grup (`POST /api/links`). Mati = `503 short_links_disabled` dan APK baru memakai tautan panjang. **Nyalakan hanya setelah build mobile yang mengenali kode pendek beredar luas di Play**: APK lama membuka obrolan kosong berjudul "Obrolan" untuk kode pendek. `GET /api/links/{code}` selalu aktif, jadi kode yang sudah dibagikan tetap terbuka. Ubah lalu restart. |
 | `FORUM_LIMITS_ENABLED`, `MEMORY_QUOTA_ENABLED` | keduanya `true` | Free 1 forum aktif/7 hari/2 ringkasan AI per bulan; Pro 5 forum/7 atau 30 hari/20 ringkasan. Tenant non-default tidak dibatasi |
 | `MEMORY_WORKER_ENABLED`, `MEMORY_ENABLED_GROUPS` | AI Memory hanya untuk grup di whitelist | Daftar ID dipisahkan **koma** (bukan titik koma). Kosong = mati (fail-closed), `*` = semua grup. `MEMORY_ENABLED_GROUPS` dicek lebih dulu dan menjadi sakelar darurat |
 | `GOOGLE_OAUTH_CLIENT_IDS` | terisi (client Web) | Server hanya butuh client Web (aud token = Web) |
@@ -96,7 +97,7 @@ Akun AdMob dibuat; publisher `pub-2083809888162993`. `frontend/public/app-ads.tx
 - **Reset kunci E2EE menghapus kunci** dan membuat pesan lama terkunci permanen bila tidak ada perangkat lain. Jangan menguji reset kunci di akun nyata dan jangan menekan "Reset Kunci Baru" tanpa persetujuan pengguna.
 - Data Safety wajib mendeklarasikan **Alamat email** (login Google menyimpan email Google).
 - Forum: durasi daftar kini satu sumber (`store.SubGroupDurationDays`); Perpanjang forum: `POST /api/groups/{id}/subgroups/{subId}/extend` body `{"days":1..3}`, hanya pembuat berpaket Pro, total maks 30 hari (`conversations.extended_days`); forum expired tidak bisa diaktifkan ulang (sengaja). Tombol "Perpanjang" tampil juga untuk akun Free; server yang menolak.
-- Tautan pendek grup/forum (28 Okt 2026): tanpa env baru; migrasi kolom `conversations.short_code` berjalan otomatis saat backend start. Kode dibuat saat pertama dibagikan, tautan panjang lama tetap valid. Butuh deploy backend + frontend + APK baru (APK lama tidak mengenali kode pendek). Domain tetap `chat.wuzzhub.id`.
+- Tautan pendek grup/forum (28 Okt 2026): migrasi kolom `conversations.short_code` berjalan otomatis saat backend start; tautan panjang lama tetap valid; domain tetap `chat.wuzzhub.id`. **Uji nyata: APK lama membuka obrolan kosong "Obrolan" untuk kode pendek** (menganggapnya ID DM), karena itu pembuatan kode ditahan sakelar `SHORT_LINKS_ENABLED` (default mati). Urutan rilis: deploy backend + frontend, rilis build mobile baru dengan nomor build lebih tinggi ke Play, tunggu mayoritas update, baru nyalakan sakelar. Landing web menampilkan nama + avatar grup publik.
 - Teks UI paket Pro harus netral (tanpa ajakan bayar): kebijakan Play Billing belum diverifikasi dari sumber resmi.
 - Epoch nomor puzzle `gridEpoch` (2026-10-25) tidak boleh lebih lambat dari hari pertama fitur menyala.
 
