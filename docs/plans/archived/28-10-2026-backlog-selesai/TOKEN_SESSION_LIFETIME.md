@@ -1,5 +1,7 @@
 # Backlog: Masa Berlaku Token & Cache Lokal Saat Sesi Habis
 
+> **ARSIP (28 Okt 2026):** Tahap 1-3 (JWT 30 hari, `POST /api/auth/refresh`, batas absolut sesi 365 hari, cache lokal dipertahankan saat 401) **sudah dideploy dan dirilis** (mulai mobile 1.20.0/30, 5 Okt 2026). "Belum di-commit/deploy" di bawah adalah riwayat. Yang tidak pernah dikonfirmasi: log produksi `refreshed:true` dari aplikasi; cara cek ada di `docs/OPERATIONS.md`.
+
 > Dibuat 2026-10-05 dari diskusi auth. **Status: Tahap 1–3 diterapkan di `dev` (belum di-commit/deploy); lihat bagian 7.** Seluruh temuan di bawah sudah diverifikasi di kode
 > kecuali yang ditandai **(belum diverifikasi)**.
 

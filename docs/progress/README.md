@@ -16,6 +16,10 @@ Direktori ini memuat **Log Progres & Riwayat Implementasi** yang terpisah per do
 
 ---
 
+> Entri terbaru ada di **atas** tiap berkas. Status operasional dan sisa pekerjaan jangan hanya ditulis di log ini: perbarui juga [`../OPERATIONS.md`](../OPERATIONS.md) dan [`../plans/backlog/README.md`](../plans/backlog/README.md).
+
+---
+
 ## 📝 Konvensi Pembaruan Dokumen Progres
 Setiap kali menyelesaikan tugas pada suatu domain:
 1. Perbarui dokumen progres yang bersangkutan di direktori ini (`docs/progress/<DOMAIN>.md`).

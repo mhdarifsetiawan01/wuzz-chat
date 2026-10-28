@@ -1,5 +1,7 @@
 # Backlog: Alat Moderasi Laporan (Halaman Web Moderator)
 
+> **ARSIP (28 Okt 2026):** Seluruh tahap P0-P3 **live di produksi sejak 6 Okt 2026** (`/admin`, Telegram, penangguhan, retensi bukti). Kata "belum dideploy/di-commit" di bawah adalah riwayat saat dokumen ditulis, bukan keadaan sekarang. Invarian yang berlaku: `docs/domains/AUTH_SESSION.md` nomor 8-9. Sisa kecil (tidak mendesak) tercatat di `docs/plans/backlog/README.md`.
+
 > Dibuat 2026-10-05. **Status (2026-10-06): P0 backend di-commit di `dev` (`9ffb183`, belum dideploy); P1 halaman web di-commit di `dev` (`64f7f88`, belum dideploy); P2 notifikasi Telegram selesai di `dev` (belum di-commit/dideploy); P3 belum dikerjakan.** Lihat bagian 9, 10, dan 11. Keputusan pemilik proyek: **Pilihan 1 (halaman web khusus moderator)**.
 > Dokumen ini ditulis agar developer berikutnya (atau sesi AI berikutnya) bisa langsung mengerjakan tanpa konteks percakapan.
 > Fakta bertanda **(terverifikasi)** sudah dicek di kode per tanggal di atas; bertanda **(belum diverifikasi)** harus dicek dulu.

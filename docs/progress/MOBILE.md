@@ -1,5 +1,13 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+## Ringkasan 19-28 Oktober 2026 (disusun 28 Okt saat merapikan dokumen)
+
+- **Rilis:** 1.40.0/71 (monetisasi forum), 1.41.0/72 (Perpanjang forum), 1.42.0/74 dan **1.43.0/75** (Wuzz Grid, pengingat, pemulihan jadwal alarm). **1.43.0/75 disetujui di Produksi Google Play 28 Okt 2026.** Build ditangani pengguna; arsip di `~/wuzz-releases/`.
+- **Wuzz Grid (mobile):** kartu di atas Feed, `GameScreen`, papan skor Teman/Grup/Publik, pengingat harian lokal (alarm dijadwalkan 3 hari ke depan dan memeriksa jumlah alarm nyata untuk memulihkan diri). Kode: `src/{api/gameApi.ts, hooks/useGameToday.ts, screens/GameScreen.tsx, components/game/*, services/{gameStorage,gameReminder}.ts, utils/{gameBoard,gameReminder}.ts}`. Spesifikasi: `docs/domains/GAME_WUZZ_GRID.md`.
+- **Forum:** batas Free/Pro di modal Buat Topik, label kuota di Forum Saya, tombol Perpanjang (server menolak non-Pro).
+- Belum teruji di HP: notifikasi pengingat nyata, opsi sembunyikan dari akun lain, tema gelap kartu pengingat/papan skor. Daftar lengkap: `docs/plans/backlog/README.md`.
+
+
 ## Forum Completion Loop — Paket B (18 Oktober 2026)
 
 - `GET /api/forums/mine` menambah `parent_role`, `memory_enabled`, `memory_state`, serta `memory_id`/`draft_id` opsional. Status diturunkan dari forum, job, draf, dan Memori; tidak ada migrasi/kolom baru. Satu query join dengan pasangan forum + grup + tenant, membership topik dan induk tetap wajib, batas 300 forum tetap berlaku.
@@ -425,7 +433,7 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ## Fokus Berikutnya (What's Next)
 
-- **Alat moderasi laporan (halaman web moderator)** — rencana lengkap di `docs/plans/backlog/MODERATION_TOOL.md` (backend: penangguhan akun + audit + endpoint admin; frontend: `/admin/reports`; SOP). Dicatat 5 Okt 2026, belum dikerjakan.
+- **Alat moderasi laporan (halaman web moderator)** — rencana lengkap di `docs/plans/archived/28-10-2026-backlog-selesai/MODERATION_TOOL.md` (backend: penangguhan akun + audit + endpoint admin; frontend: `/admin/reports`; SOP). Dicatat 5 Okt 2026, belum dikerjakan.
 - [x] **Milestone M-Mobile-9: Community Social Feed & User Acquisition Engine (Model B)**:
 
   - [x] **Tahap 1 (M-Mobile-9.1)**: Fondasi Profil & Identitas Publik Mobile (`bio`, `role`, `metadata` JSONB di `users`, upload avatar kamera/galeri mobile, `UserProfileScreen.tsx`).
@@ -542,7 +550,7 @@ Mobile/web memakai jendela sementara di luar cache history terbaru, request berb
 
 Otomatis: backend `go test -v ./...` lulus; mobile typecheck lulus dan unit **43/43 berkas**; tes terarah web sumber/lifecycle lulus; frontend build lulus. **Belum**: uji scroll/highlight Android/iOS, browser interaktif, E2E detail/review nyata, PostgreSQL produksi. Notifikasi nyata A tetap ditunda; verifikasi HP B yang sudah tercatat tidak mencakup badge >0 dan review. Tidak membuat/mengubah data produksi, deploy, build APK/AAB, mengubah versi/env/signing, commit, merge, atau push. Pengguna perlu deploy dan build APK baru; data produksi baru untuk E2E hanya setelah instruksi khusus.
 
-Rincian audit dan matriks tes: [Forum Completion Loop Paket C](../plans/backlog/FORUM_COMPLETION_LOOP.md#paket-c--implementasi-lokal-19-oktober-2026).
+Rincian audit dan matriks tes: [Forum Completion Loop Paket C](../plans/archived/28-10-2026-backlog-selesai/FORUM_COMPLETION_LOOP.md#paket-c--implementasi-lokal-19-oktober-2026).
 
 ### Verifikasi HP Paket C — 19 Oktober 2026, sekitar 00:59–01:03 WIB
 

@@ -96,7 +96,7 @@ Mobile/web memakai jendela sementara di luar cache history terbaru, request berb
 
 Otomatis: backend `go test -v ./...` lulus; mobile typecheck lulus dan unit **43/43 berkas**; tes terarah web sumber/lifecycle lulus; frontend build lulus. **Belum**: uji scroll/highlight Android/iOS, browser interaktif, E2E detail/review nyata, PostgreSQL produksi. Notifikasi nyata A tetap ditunda; verifikasi HP B yang sudah tercatat tidak mencakup badge >0 dan review. Tidak membuat/mengubah data produksi, deploy, build APK/AAB, mengubah versi/env/signing, commit, merge, atau push. Pengguna perlu deploy dan build APK baru; data produksi baru untuk E2E hanya setelah instruksi khusus.
 
-Rincian audit dan matriks tes: [Forum Completion Loop Paket C](../plans/backlog/FORUM_COMPLETION_LOOP.md#paket-c--implementasi-lokal-19-oktober-2026).
+Rincian audit dan matriks tes: [Forum Completion Loop Paket C](../plans/archived/28-10-2026-backlog-selesai/FORUM_COMPLETION_LOOP.md#paket-c--implementasi-lokal-19-oktober-2026).
 
 ### Verifikasi HP Paket C — 19 Oktober 2026, sekitar 00:59–01:03 WIB
 

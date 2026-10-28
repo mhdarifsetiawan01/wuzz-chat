@@ -1,5 +1,7 @@
 # Backlog lanjutan: Monetisasi Forum (Freemium)
 
+> **Diperbarui 28 Okt 2026:** tulisan "untuk dilanjutkan 22 Oktober" di bawah adalah riwayat. Perpanjang forum (F5) selesai 24 Okt; sisanya masih terbuka. Indeks gabungan: [`README.md`](README.md).
+
 > Dibuat 21 Oktober 2026 (akhir sesi). **Untuk dilanjutkan 22 Oktober 2026.** Rencana, keputusan, dan hasil uji: [`FORUM_MONETIZATION_PLAN.md`](FORUM_MONETIZATION_PLAN.md). Ringkasan keadaan produksi ada di memori proyek (`forum-monetization-status-21okt`).
 >
 > Fakta bertanda **(terbukti)** sudah dilihat langsung atau diuji; **(tes saja)** hanya terbukti lewat tes otomatis, belum di produksi; **(belum)** belum diuji sama sekali.
@@ -27,8 +29,8 @@
 | U4 | Dialog batas perangkat di halaman login (`DeviceLimitModal`) setelah `.modal-card-unified` memakai `--bg-card` | **(belum)** dilihat | Login akun ke-3 di perangkat ke-3 (atau tiru lewat tes) dan lihat dialognya | Pengguna |
 | U5 | Modal Buat Topik di web chat (batas, durasi terkunci, kuota AI) | **(belum)** di browser; hanya build dan tes logika | Menunggu gate jeda web dibuka, atau uji di lokal | Saya (lokal) |
 | U6 | iOS | **(belum)** sama sekali | Menunggu build iOS | Pengguna |
-| U7 | Paket C (dari backlog lama): bukti dari review draf, sumber hilang atau terhapus atau tidak berhak, pergantian akun/tenant/role, timeout/offline saat respons tertunda, tema gelap | **(belum)** | Lihat `FORUM_COMPLETION_LOOP.md` bagian "Verifikasi HP Paket C" | Pengguna |
-| U8 | Notifikasi nyata Paket A (dari backlog lama) | **(belum)**, ditunda pengguna | Lihat `FORUM_COMPLETION_LOOP.md` | Pengguna |
+| U7 | Paket C (dari backlog lama): bukti dari review draf, sumber hilang atau terhapus atau tidak berhak, pergantian akun/tenant/role, timeout/offline saat respons tertunda, tema gelap | **(belum)** | Lihat `../archived/28-10-2026-backlog-selesai/FORUM_COMPLETION_LOOP.md` bagian "Verifikasi HP Paket C" | Pengguna |
+| U8 | Notifikasi nyata Paket A (dari backlog lama) | **(belum)**, ditunda pengguna | Lihat `../archived/28-10-2026-backlog-selesai/FORUM_COMPLETION_LOOP.md` | Pengguna |
 | U9 | Badge di tombol Forum menghitung draf lebih dari 0 (Paket B) | **(terbukti 21 Okt)**: tombol menampilkan "2 draf perlu ditinjau" | Tidak perlu lagi; catatan lama "belum teruji" sudah usang | Selesai |
 | U10 | Tenant non-default tidak dibatasi | **(tes saja)**, tidak ada tenant B2B di produksi | Tidak mendesak | Ditunda bersama B2B |
 | U11 | Perilaku kuota di Postgres produksi pada beban nyata (pengecekan dan insert job tidak atomik) | **(tes saja)** | Pantau log `[MemoryQuota]` setelah rilis; lihat B3 | Saya |

@@ -1,7 +1,7 @@
 # 📌 WuzzChat — Canonical Project State & Architecture Single Source of Truth (SSOT)
 
 > **Document Status**: CANONICAL & CURRENT  
-> **Last Verified Against Codebase**: 2026-09-24  
+> **Last Verified Against Codebase**: bagian 2, 11, 12 diperbarui 2026-10-28 dari catatan rilis, dokumen domain, dan riwayat git (tidak ditelusuri ulang baris demi baris ke kode); bagian lain terakhir diverifikasi 2026-09-24 dan bisa tertinggal. Kebenaran operasional: [`OPERATIONS.md`](OPERATIONS.md).  
 > **Target Audience**: AI Coding Agents, Software Architects, and Core Developers  
 > **Rule of Thumb**: Jika terdapat perbedaan antara dokumentasi lama dengan dokumen ini, **dokumen ini bersama source code aktual adalah sumber kebenaran utama (Single Source of Truth)**.
 
@@ -44,8 +44,10 @@ Status eksplisit kapabilitas sistem berdasarkan implementasi aktual di codebase:
 | Capability | Status | Detail Implementasi Aktual |
 |---|---|---|
 | **Identity & User Profiles** | `IMPLEMENTED` | Registrasi akun, avatar studio, kompresi WebP, verifikasi lencana centang biru (`is_verified`), bio/status message, UUID-first identity. |
-| **Authentication & Sessions** | `IMPLEMENTED` | JWT token (7 hari), password hashing bcrypt, revocation blacklist (`token_blacklist`), session inventory table (`sessions`), remote logout, revoke other devices. |
-| **Device Management & Gating** | `IMPLEMENTED` | Tabel `devices`, batas maksimal 2 perangkat aktif bersamaan, deteksi konflik HTTP 409 (`DEVICE_LIMIT_REACHED`), pengeluaran perangkat selektif / FIFO kick, platform tracking (`web`, `android`, `ios`). |
+| **Authentication & Sessions** | `IMPLEMENTED` | JWT 30 hari + `POST /api/auth/refresh` (batas absolut sesi 365 hari), bcrypt, revocation blacklist (`token_blacklist`), tabel `sessions`, remote logout, revoke other devices. Detail: `domains/AUTH_SESSION.md`. |
+| **Login Google** | `IMPLEMENTED (live)` | Akun baru wajib Google (username + display name); akun lama menautkan Google lalu **dibekukan otomatis 30 Okt 2026 23:59:59 WIB** (`GOOGLE_LINK_FREEZE`). Fase 5 (hapus akun tidak aktif) ditunda. Web belum. Lihat `plans/backlog/GOOGLE_LOGIN.md`. |
+| **Moderasi & Penangguhan** | `IMPLEMENTED (live)` | `/admin` (laporan berprioritas, aksi, penangguhan/pemulihan, Kelola Moderator, Telegram, retensi bukti 90 hari), laporan pengguna, blokir, hapus akun yang membersihkan media. Arsip: `plans/archived/28-10-2026-backlog-selesai/MODERATION_TOOL.md`. |
+| **Device Management & Gating** | `IMPLEMENTED` | Tabel `devices`, batas perangkat aktif (HTTP 409 `DEVICE_LIMIT_REACHED`), menu Perangkat Tertaut di mobile (cabut perangkat lain),  deteksi konflik HTTP 409 (`DEVICE_LIMIT_REACHED`), pengeluaran perangkat selektif / FIFO kick, platform tracking (`web`, `android`, `ios`). |
 | **Direct Messaging (1-on-1)** | `IMPLEMENTED` | Room deterministik, linimasa pesan real-time, 3-stage receipts (`sent` ✓, `delivered` ✓✓ abu-abu, `read` ✓✓ biru), quote reply, reactions emoji, unread counters. |
 | **Group Messaging** | `IMPLEMENTED` | Grup persisten (`grp_<UUID>`), RBAC (`creator`, `admin`, `member`), approval join request grup privat, penyesuaian profil grup. |
 | **Subgroups / Forum Topics** | `IMPLEMENTED` | Subgrup bertopik efemeral (`sub_<UUID>`), waktu hidup terbatas (*TTL expiration*), purging otomatis keanggotaan saat masa aktif usai. |
@@ -53,7 +55,7 @@ Status eksplisit kapabilitas sistem berdasarkan implementasi aktual di codebase:
 | **Cluster Synchronization** | `IMPLEMENTED` | Redis Pub/Sub multi-instance Go hub via channel `wuzz:cluster:events`, mekanisme anti-echo loop UUID, in-memory dedup cache. |
 | **End-to-End Encryption (E2EE)** | `IMPLEMENTED (DM Only)` | ECDH P-256 + HKDF + AES-256-GCM via Web Crypto API (Web) & pure crypto (Mobile), penyimpanan kunci privat lokal di IndexedDB (Web) / Keystore (Mobile), Safety Number fingerprint 30-digit, pola Trusted Device persisten lintas normal logout. *Grup dan Forum bersifat non-E2EE.* |
 | **E2EE Device Migration (QR)** | `IMPLEMENTED` | Pemindahan keypair E2EE antar perangkat secara Zero-Knowledge menggunakan QR code ephemeral (TTL 5 menit), enkripsi AES-256-GCM dari entropy PBKDF2. |
-| **Store-and-Forward Media** | `IMPLEMENTED` | Unggah gambar, dokumen (PDF/Word/ZIP), voice note berformat audio kustom; auto-purge di server via `POST /api/media/ack` (DM) dan background TTL purge worker (7 hari). |
+| **Store-and-Forward Media** | `IMPLEMENTED` | Unggah gambar, dokumen (PDF/Word/ZIP), voice note berformat audio kustom; retensi 1 hari (`MEDIA_RETENTION_DAYS`) dihapus oleh `PurgeWorker`; antrean `media_purge_queue` untuk hapus akun. **Penyimpanan Cloudflare R2** (`STORAGE_DRIVER=r2`, tanpa fallback VPS) dan **video chat** (maks 25 MB/60 dtk, thumbnail). Detail: `domains/MEDIA_LIFECYCLE.md`. |
 | **Shared Media Hub (Group/Forum)**| `IMPLEMENTED` | Untuk grup dan forum, panggilan ack download tidak menghapus media fisik sebelum masa TTL habis agar seluruh anggota berkesempatan mengunduh ke cache lokal. |
 | **Offline Media Cache** | `IMPLEMENTED` | IndexedDB browser klien (`mediaCache.ts`) menyimpan file terunduh sehingga dapat dibuka kembali secara offline dan instan ($0 server latency). |
 | **Write-Through Message Cache** | `IMPLEMENTED` | IndexedDB (`wuzzchat_msg_db`) menyimpan riwayat obrolan terdekripsi secara lokal; pemuatan room 0ms (*Cache-First*). |
@@ -61,12 +63,15 @@ Status eksplisit kapabilitas sistem berdasarkan implementasi aktual di codebase:
 | **Search Message** | `IMPLEMENTED` | Endpoint `GET /api/chat/messages/search` dengan query SQL LIKE, verifikasi otorisasi anggota room, dan penandaan hasil pencarian. |
 | **Edit & Delete Message** | `IMPLEMENTED` | Edit pesan dalam batas 15 menit (`PUT /api/chat/messages/edit`), Delete for Everyone dalam 1 jam, Delete for Me (soft-delete lokal), event real-time `message_edited`/`message_deleted`. |
 | **OpenGraph Link Preview** | `IMPLEMENTED` | Scraper backend aman dengan proteksi Anti-SSRF (socket-level IP pinning, blokir subnet privat/loopback), Redis caching 24 jam. |
-| **Voice Calling (WebRTC P2P)** | `IMPLEMENTED` | Panggilan suara 1-on-1 latensi rendah dengan signaling WebSocket, STUN + OpenRelay TURN fallback, ringtone prosedural Web Audio API. |
-| **AI Memory (Forum)** | `IMPLEMENTED` | Ekstraksi otomatis saat forum kedaluwarsa, antrean kerja `forum_memory_jobs` (Postgres `SKIP LOCKED`), Gemini 2.5 Flash / Groq LLM, draf tinjauan admin, audit trail, publikasi snapshot memori. |
+| **Voice Calling (WebRTC P2P)** | `IMPLEMENTED` | Panggilan suara 1-on-1 latensi rendah dengan signaling WebSocket, STUN + coturn milik sendiri di VPS (kredensial berumur pendek via `TURN_SECRET`), ringtone prosedural Web Audio API. |
+| **AI Memory (Forum)** | `IMPLEMENTED (uji terbatas)` | Ekstraksi otomatis saat forum berakhir, antrean `forum_memory_jobs` (Postgres `SKIP LOCKED`), Gemini/Groq, draf tinjauan admin, audit trail, arsip memori, hapus memori. **Aktif hanya untuk grup di `MEMORY_ENABLED_GROUPS`** (kosong = mati); naskah Play tidak menyebutnya. Forum Completion Loop (Paket A/B/C): forum berakhir tetap terbaca, status memori terlihat. |
+| **Monetisasi Forum (Free/Pro)** | `IMPLEMENTED (live)` | Free 1 forum aktif/7 hari/2 ringkasan AI per bulan; Pro 5/7 atau 30 hari/20; Perpanjang forum Pro 1-3 hari (total 30). `/admin/plans`, grandfather Pro 6 akun sampai ±20 Des 2026. Pembayaran (Fase 5) ditunda. Lihat `plans/backlog/FORUM_MONETIZATION_*.md`. |
+| **Wuzz Grid (game harian)** | `IMPLEMENTED (live)` | Puzzle logika harian, streak + pembeku mingguan, papan skor Teman/Grup/Publik (opt-in, hanya @username), pengingat lokal, moderasi papan publik. Sakelar `GAME_ENABLED`. Spesifikasi: `domains/GAME_WUZZ_GRID.md`. |
+| **Community Feed & Koneksi** | `IMPLEMENTED` | Community Social Feed (posting, komentar, mode baca, link preview), koneksi pengguna dan Private Profile Shield. Lihat `domains/COMMUNITY_FEED.md`, `domains/USER_CONNECTIONS.md`. |
 | **AI Memory (Group Chat)** | `PARTIAL` | Interface `ContextSource` telah mendukung `ContextTypeGroup`, namun belum ada penjadwal / trigger summarization on-demand di luar siklus expired forum. |
 | **AI Memory (Personal Chat)** | `NOT IMPLEMENTED` | Terkendala arsitektur E2EE (server hanya memegang ciphertext, tidak memiliki akses plaintext pesan direct chat). Memerlukan pipeline ekspor / LLM di sisi klien. |
 | **AI Memory (Meeting)** | `NOT IMPLEMENTED` | Belum ada pipeline transkrip audio / Speech-to-Text (STT) dan prompt agenda/action items. |
-| **Mobile Client App** | `IMPLEMENTED` | Aplikasi React Native Expo (Android & iOS) di direktori `mobile/`, release APK teruji via USB, Zero-Knowledge background decryption push FCM v1, WebRTC voice calling, dan integrasi penuh REST/WebSocket. |
+| **Mobile Client App** | `IMPLEMENTED (Android live di Google Play)` | React Native Expo di `mobile/`. Rilis terakhir **1.43.0 / versionCode 75** (Produksi Play, disetujui 28 Okt 2026). iOS belum dibuild/diuji. Web `chat.wuzzhub.id` **dijeda** (gate popup menuju Google Play). |
 | **Passkey / WebAuthn (FIDO2)** | `NOT IMPLEMENTED` | Desain arsitektur telah tercatat di `docs/ARCHITECTURE_AUDIT.md` (Fase 11 Phase 4), namun belum diimplementasikan di kode. |
 
 ---
@@ -261,7 +266,7 @@ User (UUID PK)
 | **Presence Tracking** | **Local-Only Presence**. Pengecekan anggota online di room (`h.rooms[roomID]`) hanya memeriksa memori lokal pada instance node yang sama. | `CURRENT LIMITATION` (Bisa memicu pengiriman push notification ke user yang sebenarnya sedang online di node backend lain). | Simpan status online global di Redis Set / Hash dengan TTL heartbeat (`SET user:{id}:online 1 EX 60`). |
 | **Hub Mutex** | Mutex global `h.mu.RLock()` / `h.mu.Lock()` masih mengunci struktur room saat ada koneksi baru atau broadcast. | `CURRENT LIMITATION` (Dedup dan member cache sudah dipisah, lock contention rendah di skala saat ini). | Gunakan pemisahan *Sharded Hub* atau *Room-Level Mutex*. |
 
-> ⚠️ **Catatan Penting**: Batasan di atas **TIDAK PERLU diperbaiki sekarang**. Sistem saat ini terbukti sangat stabil, lulus tes konkurensi, dan beban server di Fly.io sangat minim.
+> ⚠️ **Catatan Penting**: Batasan di atas **TIDAK PERLU diperbaiki sekarang**. Sistem saat ini terbukti sangat stabil, lulus tes konkurensi, dan beban server sangat minim (catatan 2026-09: saat itu di Fly.io; kini VPS Docker Compose).
 
 ---
 
@@ -286,7 +291,7 @@ User (UUID PK)
 ```
 
 1. **Authentication & Session**: Klien mobile cukup memanggil `POST /api/auth/login` dengan menyertakan header `X-Device-Platform: android` atau `X-Device-Platform: ios`.
-2. **WebSocket Signaling**: Klien mobile dapat langsung menghubungkan library WebSocket standar (misal OkHttp di Android, URLSession di iOS, atau bawaan React Native) ke endpoint `wss://wuzz-chat-backend.fly.dev/ws?token=<JWT>&device_id=<DEV_ID>`.
+2. **WebSocket Signaling**: Klien mobile dapat langsung menghubungkan library WebSocket standar (misal OkHttp di Android, URLSession di iOS, atau bawaan React Native) ke endpoint `wss://chat-api.wuzzhub.id/ws?token=<JWT>&device_id=<DEV_ID>`.
 3. **Push Notifications**:
    - Backend telah mendukung perutean otomatis di `POST /api/notifications/subscribe`.
    - Token registrasi FCM dari Android / iOS native dapat langsung dikirimkan sebagai `endpoint: "<FCM_DEVICE_TOKEN>"`.
@@ -329,48 +334,42 @@ Daftar utang teknis aktual yang sengaja ditunda karena tidak menghambat fungsi s
 Roadmap berbasis milestone terstruktur berdasarkan kapabilitas aktual:
 
 ```text
-[Milestone 1] Architecture Foundation & Zero-Risk Cleanup         ==> DONE (Sep 2026) ✅
-[Milestone 2] Realtime Ingestion Decoupling via Domain Repo       ==> DONE (Sep 2026) ✅
-[Milestone 3] Mobile Gateway Readiness & Pluggable Push Provider  ==> DONE (Sep 2026) ✅
-[Milestone 4] AI Memory Engine (Forum Memory Production-Ready)   ==> DONE (Sep 2026) ✅
-[Milestone 5] Single Source of Truth Documentation Alignment      ==> DONE (Sep 2026) ✅
-──────────────────────────────────────────────────────────────────────────────────────────
-─── Track A: Application & Native Feature Roadmap ────────────────────────────────────────
-[Milestone 6] Mobile Client App (React Native / Flutter Cross-Plat) ==> NEXT (Client App) 🎯
+[Milestone 1-5] Fondasi arsitektur, decoupling realtime, push provider, AI Memory, SSOT docs ==> DONE (Sep 2026) ✅
+─── Track A: Fitur & aplikasi native ─────────────────────────────────────────────────────
+[Milestone 6] Mobile Client App (React Native)                    ==> DONE; Android live di Play (1.43.0/75) ✅
 [Milestone 7] On-Demand Group Chat Memory Summarization           ==> LATER ⏳
 [Milestone 8] Passkey / WebAuthn Biometric Login (FIDO2)          ==> LATER ⏳
 [Milestone 9] Audio Meeting Memory & Speech-to-Text Pipeline      ==> LATER ⏳
 [Milestone 10] Realtime Scaling: Room Partitioned Pub/Sub Channels==> LATER (Scale-Triggered) ⏳
 [Milestone 11] Personal Chat Memory (Client-Side Privacy Export)  ==> BLOCKED (E2EE Constraint) 🛑
-──────────────────────────────────────────────────────────────────────────────────────────
-─── Track B: Tenant-Aware & Integration-Ready Engine (TENANT_ENGINE_MASTER_PLAN.md) ──────
-[Milestone 0] Codebase & Hub Prerequisite Stabilization        ==> DONE & DEPLOYED (Sep 2026) ✅
-[Milestone 1] Additive Schema Migration & Tenant Registry       ==> NEXT (Engine Track) 🎯
-[Milestone 2] Tenant Context Propagation in Services & Repos    ==> LATER ⏳
-[Milestone 3] External Provisioning & B2B Auth Gateway          ==> LATER ⏳
-[Milestone 4] Realtime & Cluster Envelope Tenant Isolation      ==> LATER ⏳
-[Milestone 5] AI Memory Context Tenant Scoping                  ==> LATER ⏳
-[Milestone 6] OpenAPI Contract & Headless Integration Guide     ==> LATER ⏳
+─── Track B: Tenant-aware engine ─────────────────────────────────────────────────────────
+[Milestone 0-6] Stabilisasi, skema aditif, propagasi context, B2B gateway, isolasi realtime, AI scoping ==> DONE ✅
+[Audit isolasi T1-T6, 5 Okt 2026]                                 ==> DONE & DEPLOYED ✅
+[B2B widget customer service]                                     ==> DITUNDA (plans/backlog/b2b-widget)
+─── Track C: Produk Okt 2026 (semua live kecuali dicatat) ────────────────────────────────
+Login Google + pembekuan akun lama (30 Okt)  | Alat moderasi | Perangkat Tertaut | Video chat R2
+Forum Completion Loop A/B/C | Bubble Forum T1-2 | Monetisasi Free/Pro + Perpanjang | Wuzz Grid
+Iklan/poin (AdMob)                          ==> HANYA RENCANA (plans/backlog/ADS_AND_REWARDS_PLAN.md)
 ```
+
+Sisa pekerjaan dan keputusan yang menunggu: [`plans/backlog/README.md`](plans/backlog/README.md).
 
 ---
 
 ## 12. Project State Snapshot (2-Minute Briefing)
 
 * **Project ini sekarang apa?**  
-  Aplikasi chat real-time produksi (Web PWA live di `https://chat.wuzzhub.id` dan backend Go di Fly.io `https://wuzz-chat-backend.fly.dev`) yang dilengkapi E2EE 1-on-1, voice note, WebRTC audio calling, store-and-forward media buffer ($0 cost), obrolan grup/forum, dan AI Memory Engine.
+  Aplikasi chat real-time produksi: backend Go di VPS (Docker Compose, DB PostgreSQL Supabase, Redis Upstash, media di Cloudflare R2), klien utama **Android di Google Play** (1.43.0/75), dan web Next.js di Vercel yang **dijeda** (pengecualian: `/u`, `/g`, `/sub`, `/room`, `/transfer/share`, halaman legal, `/delete-account`, `/child-safety`, `/admin`).
 * **Fitur apa saja yang sudah ada?**  
-  DM terenkripsi, grup, subgrup forum efemeral, unread badge, centang biru 3-tahap, reaksi emoji, kutipan balas, pencarian pesan, edit/delete pesan, transfer kunci via QR code, push notification VAPID & FCM, serta kurasi memori AI otomatis untuk forum.
+  DM E2EE, grup, forum efemeral dengan AI Memory (uji terbatas per grup), video/voice/gambar/dokumen, panggilan suara WebRTC, login Google, perangkat tertaut, moderasi, Free/Pro forum, game harian Wuzz Grid, linimasa dan koneksi (lihat bagian 2).
 * **Arsitekturnya seperti apa?**  
-  Modular Monolith Go (Transport → Application Service → Domain Repository → Infrastructure) dengan Next.js 16 di frontend, Redis Pub/Sub untuk sinkronisasi multi-instance, dan PostgreSQL / SQLite untuk basis data.
+  Modular Monolith Go (Transport → Application Service → Domain Repository → Infrastructure), Next.js 16 di frontend, React Native Expo di mobile, Redis Pub/Sub, PostgreSQL / SQLite.
 * **Apa yang masih belum selesai?**  
-  Aplikasi mobile native (klien React Native / Android / iOS), peringkasan grup on-demand di luar forum expired, dan autentikasi biometrik Passkey.
+  Lihat [`plans/backlog/README.md`](plans/backlog/README.md): iklan/poin (rencana), pembayaran Pro, login Google web, iOS, passkey, Fase 5 Google, B2B widget, ringkasan grup on-demand.
 * **Apa technical debt yang diketahui?**  
-  Dependensi struct `ws.Message` di domain messaging/group (TD-02), wire `RealtimeMessageManager` langsung ke repo (TD-01), nama tabel `forum_memory_jobs` (TD-04), dan single global Redis channel (TD-05). *(Catatan: TD-03 Identity Encapsulation telah terselesaikan 100% di Milestone 0)*.
-* **Apa milestone yang sedang dikerjakan?**  
-  Tenant Engine Milestone 0 (Codebase & Hub Prerequisite Stabilization — Selesai & Deployed ✅).
-* **Apa milestone berikutnya?**  
-  Tenant Engine Milestone 1 (Additive Schema Migration & Tenant Registry) untuk isolasi data multi-tenant, dan Klien Mobile (Track A Milestone 6).
+  Bagian 10 (TD-01, TD-02, TD-04, TD-05); dua salinan OpenAPI yang berbeda ±136 baris; audit OpenAPI dan dokumen domain terhadap kode belum penuh.
+* **Apa yang perlu diingat segera?**  
+  Pembekuan akun Google otomatis 30 Okt 2026 23:59:59 WIB; kuota AI dihitung ulang 1 Nov; Pro grandfather berakhir ±20 Des 2026. Rinciannya di [`OPERATIONS.md`](OPERATIONS.md) bagian 6.
 
 ---
 
@@ -394,7 +393,7 @@ Panduan wajib bagi AI Coding Agent yang bekerja pada repositori ini:
    - Dilarang melakukan `git commit` sebelum pengguna menyatakan secara eksplisit bahwa tugas **"selesai"**.
    - Dilarang melakukan `git push` tanpa instruksi tertulis terpisah.
 6. **Patuhi Backend Deployment Notification**:
-   - Setiap perubahan pada kode backend Go (`backend/...`), wajib sertakan instruksi deployment ke VPS (`ssh deploy@<VPS_IP> ./deploy-chat.sh`) dalam laporan akhir.
+   - Setiap perubahan pada kode backend Go (`backend/...`), wajib sertakan instruksi deployment ke VPS (`ssh deploy@<VPS_IP> ./deploy-chat.sh`) dalam laporan akhir. AI **tidak** menjalankan deploy, build APK/AAB, atau menaikkan versi (lihat `PROMPT.md` aturan 5-6 dan `OPERATIONS.md` bagian 1).
 
 ---
 
@@ -413,10 +412,17 @@ Untuk mencegah desinkronisasi dokumentasi di masa mendatang, seluruh tim dan AI 
 | **Mobile Integration** | [`docs/MOBILE_INTEGRATION_GUIDE.md`](MOBILE_INTEGRATION_GUIDE.md) | Panduan teknis pengembang aplikasi mobile (Android/iOS) untuk menghubungkan REST & WS. |
 | **Roadmap & Milestones** | [`docs/ROADMAP.md`](ROADMAP.md) | Peta jalan jangka panjang dan tahapan milestone. |
 | **Historical Work Log** | [`docs/PROGRESS.md`](PROGRESS.md) | Catatan kronologis pekerjaan yang telah diselesaikan per tanggal/sesi. |
+| **Operasional (sakelar env, rilis, Play, tenggat, jebakan)** | [`docs/OPERATIONS.md`](OPERATIONS.md) | Runbook lintas sesi/AI. Menggantikan catatan memori pribadi sebagai sumber. |
+| **Sisa pekerjaan & backlog** | [`docs/plans/backlog/README.md`](plans/backlog/README.md) | Indeks backlog aktif dan sisa dari rencana yang diarsipkan. |
 
 ### Aturan Sinkronisasi Dokumentasi (Sync Gate):
+**Wajib dan bagian dari definisi "selesai"** (`PROMPT.md` aturan 10): dokumen diperbarui sebelum tugas dilaporkan selesai dan masuk commit yang sama dengan kodenya; laporan akhir menyebut dokumen yang diperbarui. Spesifikasi domain di `docs/domains/` adalah tempat utama.
+
 Jika sebuah perubahan kode memengaruhi:
 - Penambahan / perubahan parameter REST API atau event WebSocket ➔ **Wajib update `docs/BACKEND_API.md`**.
 - Perubahan skema tabel atau indeks basis data ➔ **Wajib update `docs/ARCHITECTURE.md`**.
 - Penambahan fitur produk baru atau penyelesaian milestone ➔ **Wajib update `docs/PROJECT_STATE.md` dan `docs/ROADMAP.md`**.
 - Catatan pengerjaan harian ➔ **Wajib catat di `docs/PROGRESS.md`**.
+- Aturan bisnis, kontrak, atau perilaku sebuah domain ➔ **Wajib update `docs/domains/<DOMAIN>.md`** dan log `docs/progress/<DOMAIN>.md`.
+- Env/sakelar baru, alur rilis, tenggat, atau jebakan operasional ➔ **Wajib update `docs/OPERATIONS.md`**.
+- Status item backlog berubah atau rencana tuntas ➔ **Wajib update `docs/plans/backlog/README.md`** dan arsipkan rencana yang selesai.

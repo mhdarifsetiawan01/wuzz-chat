@@ -1,5 +1,7 @@
 # Forum Completion Loop — Rencana Implementasi dan Handoff
 
+> **ARSIP (28 Okt 2026):** Paket A, B, C selesai, ada di `main`, dan berjalan di produksi (mobile 1.39.1/70 ke atas). Spesifikasi berlaku ada di `docs/domains/GROUP_FORUM.md` dan `docs/domains/AI_MEMORY.md`. Sisa (uji notifikasi `memory_draft_ready` nyata warm/background/cold start, dedup ketukan, pencarian arsip, "Lihat Pesan Asli") ditunda pengguna dan dicatat di `docs/plans/backlog/README.md`.
+
 > **Status terkini:** Paket A/B/C sudah diimplementasikan, digabung ke main, dan main dipush; commit Paket C `b958669`. Pengguna sudah deploy backend dan memasang ulang APK 1.39.1 build 70 pada 19 Oktober 2026 00:58:11 WIB. Uji HP Paket C untuk dua bukti Memori terbit, scroll/highlight, kembali ke history terbaru, dan background/resume normal lulus; batas verifikasi ada pada catatan terbaru di akhir dokumen. Notifikasi nyata Paket A tetap ditunda pengguna.
 > **Tanggal perancangan:** 18 Oktober 2026
 > **Target awal:** Mobile, lalu penyelarasan Web

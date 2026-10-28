@@ -17,6 +17,10 @@ Direktori ini memuat **Domain Context Primers** modular untuk pengembang dan age
 
 ---
 
+> Untuk operasional (sakelar env, rilis, Play Console, tenggat, jebakan lingkungan) baca [`../OPERATIONS.md`](../OPERATIONS.md); status produk di [`../PROJECT_STATE.md`](../PROJECT_STATE.md).
+
+---
+
 ## 💡 Prinsip Penggunaan untuk AI Agent
 1. **Targeted Priming**: AI **HANYA** memuat dokumen konteks yang secara langsung relevan dengan instruksi yang diberikan oleh pengguna.
 2. **Token Efficiency**: Hindari membaca semua primer sekaligus. Jika tugas berkaitan dengan "Auth Backend", cukup buka `BACKEND.md`.

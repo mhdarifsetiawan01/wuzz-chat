@@ -1,6 +1,6 @@
 # 🎮 Domain: Game Harian Wuzz Grid (`GAME_WUZZ_GRID`)
 
-Spesifikasi definitif domain **game puzzle harian**: puzzle, percobaan, streak, papan skor (teman, grup, publik), pengingat, dan moderasi papan publik. Rancangan dan riwayat keputusan: [`docs/plans/backlog/DAILY_GAME_WUZZ_GRID.md`](../plans/backlog/DAILY_GAME_WUZZ_GRID.md). Kontrak API: [`BACKEND_API.md` bagian 3.13](../BACKEND_API.md) dan `docs/openapi.yaml`.
+Spesifikasi definitif domain **game puzzle harian**: puzzle, percobaan, streak, papan skor (teman, grup, publik), pengingat, dan moderasi papan publik. Rancangan dan riwayat keputusan: [`docs/plans/archived/28-10-2026-backlog-selesai/DAILY_GAME_WUZZ_GRID.md`](../plans/archived/28-10-2026-backlog-selesai/DAILY_GAME_WUZZ_GRID.md). Kontrak API: [`BACKEND_API.md` bagian 3.13](../BACKEND_API.md) dan `docs/openapi.yaml`.
 
 ---
 

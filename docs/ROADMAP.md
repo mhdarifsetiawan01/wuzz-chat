@@ -538,6 +538,19 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
   - **Play Integrity API & Device Attestation**: Integrasi Google Play Integrity API (Android) dan DeviceCheck/App Attest (iOS) untuk memverifikasi keaslian hardware dan memastikan biner aplikasi tidak dimodifikasi, di-hook, atau di-recompile oleh pihak ketiga (*anti-tamper / anti-reverse-engineering*).
   - **Shield Anti-Bot & Unauthorized Scraper**: Penolakan otomatis pada tingkat middleware terhadap HTTP client liar (Postman, cURL, Python/Go bot scrapers) yang mencoba mengakses API tanpa signature atau token integritas yang valid.
 
+### Fase 14: Produk & Operasional Okt 2026 — Google Login, Moderasi, Monetisasi Forum, Game, Rilis Play (Status: ✅ SELESAI kecuali dicatat)
+*Tujuan: membawa Wuzz Chat dari APK Drive ke Google Play dengan kepatuhan kebijakan, plus fitur retensi dan monetisasi awal. Detail operasional: [`OPERATIONS.md`](OPERATIONS.md); sisa: [`plans/backlog/README.md`](plans/backlog/README.md).*
+
+- **Login Google** (fase 1-4 live; fase 5 ditunda; web belum). Pembekuan akun lama otomatis **30 Okt 2026 23:59:59 WIB**.
+- **Alat moderasi** (`/admin`, Telegram, penangguhan, retensi bukti 90 hari) dan kepatuhan Play (hapus akun, laporan, blokir, halaman legal, `assetlinks.json`). **SELESAI ✅**
+- **Perangkat Tertaut**, token JWT 30 hari + refresh, antrean hapus media, coturn sendiri. **SELESAI ✅**
+- **Video chat + Cloudflare R2** (tanpa fallback VPS); sisi web ditunda. **SELESAI (mobile) ✅**
+- **AI Memory uji terbatas per grup**, Forum Completion Loop A/B/C, Bubble Forum Tahap 1-2 (Tahap 3 ditunda). **SELESAI ✅**
+- **Monetisasi forum Free/Pro** + Perpanjang forum Pro. Live; pembayaran (Fase 5) **ditunda**.
+- **Wuzz Grid** (game harian, streak, papan skor, pengingat). **SELESAI ✅** (ditutup pengguna 28 Okt 2026).
+- **Rilis Play Produksi** 1.43.0/75 disetujui 28 Okt 2026; gate web diarahkan ke Play. **SELESAI ✅**
+- **Iklan/poin AdMob**: akun dan `app-ads.txt` siap; kode/SDK **belum**, rencana draf (`plans/backlog/ADS_AND_REWARDS_PLAN.md`). **🔮 PLANNED**
+
 ---
 
 ## 🏛️ Arsitektur Target Platform

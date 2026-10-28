@@ -46,5 +46,5 @@ Isolasi: satu database dengan `tenant_id` (lihat `docs/context/MULTI_TENANT.md`)
 ## 4. Status
 
 - Tahap 1: dikerjakan 13 Okt 2026 (lihat `docs/progress/MOBILE.md`).
-- Tahap 2: dikerjakan 13 Okt 2026 (endpoint `GET /api/forums/mine` + `MyForumsView`; belum dideploy).
+- Tahap 2: dikerjakan 13 Okt 2026 (endpoint `GET /api/forums/mine` + `MyForumsView`; selesai, di `main`, berjalan di produksi).
 - Tahap 3: **ditunda atas keputusan user (13 Okt 2026)**. AI Memory kelak harus bisa diaktifkan per tenant (tidak semua tenant boleh memakai AI), jadi butuh desain khusus, bukan sekadar `*`. Tahap 1-2 tidak bergantung padanya karena teks pengenal bersyarat `memory_enabled`.

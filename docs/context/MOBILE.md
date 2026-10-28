@@ -202,7 +202,7 @@ mobile/
 
 `ForumBubble` memiliki snapshot Forum Saya per sesi yang dipakai daftar, badge, dan pintasan review; `forumLifecycle.ts` menjaga urutan response dan cancellation. Refresh pada fokus/foreground, membuka sheet dan setelah review/hapus/penutupan arsip; tanpa interval polling. Kegagalan menyembunyikan snapshot/badge sampai retry; token berbeda langsung menyembunyikan data lama. Review memakai target Paket A, memori terbit memakai ID langsung. Badge terbatas pada forum yang diikuti dalam respons 300 item.
 
-Hasil tes dan batas verifikasi: [rencana Forum Completion Loop](../plans/backlog/FORUM_COMPLETION_LOOP.md). Paket B belum diuji di perangkat; uji notifikasi nyata Paket A tetap ditunda pengguna. Deploy/APK dilakukan pengguna; tidak ada perubahan versi atau data produksi.
+Hasil tes dan batas verifikasi: [rencana Forum Completion Loop](../plans/archived/28-10-2026-backlog-selesai/FORUM_COMPLETION_LOOP.md). Paket B belum diuji di perangkat; uji notifikasi nyata Paket A tetap ditunda pengguna. Deploy/APK dilakukan pengguna; tidak ada perubahan versi atau data produksi.
 
 ## Forum Completion Loop — Paket C (19 Oktober 2026, lokal)
 
@@ -210,4 +210,4 @@ Hasil tes dan batas verifikasi: [rencana Forum Completion Loop](../plans/backlog
 
 Detail/review Memori mobile/web menyediakan **Lihat Pesan Asli**, navigasi forum, scroll/highlight sementara, serta galat sumber tidak tersedia atau coba lagi manual untuk gangguan jaringan. Jendela konteks terpisah dari cache history terbaru; request dibatalkan saat target/sesi berganti dan hasil terlambat diabaikan. Web memakai lifecycle Forum Saya, istilah yang sama, dan gate `memory_enabled`; deep link/notifikasi A dan lifecycle/badge B dipertahankan.
 
-Tes otomatis lulus; Paket C belum diuji di APK/browser interaktif/E2E atau PostgreSQL produksi. Deploy backend/frontend dan APK baru dilakukan pengguna. Rincian kontrak, tes, dan batas verifikasi: [rencana Forum Completion Loop](../plans/backlog/FORUM_COMPLETION_LOOP.md#paket-c--implementasi-lokal-19-oktober-2026). Catatan “Paket B belum diuji di perangkat” di entri historis sebelumnya sudah digantikan oleh hasil HP B pada akhir rencana; badge >0/review B dan notifikasi nyata A tetap belum terverifikasi.
+Tes otomatis lulus; Paket C belum diuji di APK/browser interaktif/E2E atau PostgreSQL produksi. Deploy backend/frontend dan APK baru dilakukan pengguna. Rincian kontrak, tes, dan batas verifikasi: [rencana Forum Completion Loop](../plans/archived/28-10-2026-backlog-selesai/FORUM_COMPLETION_LOOP.md#paket-c--implementasi-lokal-19-oktober-2026). Catatan “Paket B belum diuji di perangkat” di entri historis sebelumnya sudah digantikan oleh hasil HP B pada akhir rencana; badge >0/review B dan notifikasi nyata A tetap belum terverifikasi.

@@ -2149,7 +2149,7 @@ Modul ini mengelola pertemanan antar pengguna (*user connections*), daftar teman
 
 ### 3.13 Wuzz Grid (Game Harian)
 
-Game puzzle harian ("grid logika"): letakkan **satu bintang di setiap baris, kolom, dan wilayah berwarna**, dan **dua bintang tidak boleh bersentuhan** (termasuk diagonal). Ukuran grid mengikuti hari dalam minggu (Senin-Selasa 6×6, Rabu-Kamis 7×7, Jumat-Sabtu 8×8, Minggu 9×9). Semua pengguna mendapat puzzle yang sama pada tanggal yang sama; puzzle selalu memiliki **tepat satu solusi**. Rancangan lengkap: [`plans/backlog/DAILY_GAME_WUZZ_GRID.md`](plans/backlog/DAILY_GAME_WUZZ_GRID.md).
+Game puzzle harian ("grid logika"): letakkan **satu bintang di setiap baris, kolom, dan wilayah berwarna**, dan **dua bintang tidak boleh bersentuhan** (termasuk diagonal). Ukuran grid mengikuti hari dalam minggu (Senin-Selasa 6×6, Rabu-Kamis 7×7, Jumat-Sabtu 8×8, Minggu 9×9). Semua pengguna mendapat puzzle yang sama pada tanggal yang sama; puzzle selalu memiliki **tepat satu solusi**. Rancangan lengkap: [`plans/archived/28-10-2026-backlog-selesai/DAILY_GAME_WUZZ_GRID.md`](plans/archived/28-10-2026-backlog-selesai/DAILY_GAME_WUZZ_GRID.md).
 
 **Aturan umum**
 - **Autentikasi**: `Bearer <token>` pada semua endpoint. Data dibatasi tenant dari klaim JWT.

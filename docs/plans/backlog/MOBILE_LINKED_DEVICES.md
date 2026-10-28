@@ -1,6 +1,6 @@
 # Backlog: Perangkat Tertaut Mobile
 
-> Dibuat 18 Oktober 2026. **Status: implementasi dan alur utama selesai; pencabutan dua perangkat nyata serta penghentian push pada target sudah lulus uji produksi. Audit akar penyebab inventaris lama/kuota dan target yang sepenuhnya offline masih terbuka.**
+> Dibuat 18 Oktober 2026. **Status (diverifikasi 28 Okt 2026 tanpa perubahan): implementasi dan alur utama selesai; pencabutan dua perangkat nyata serta penghentian push pada target sudah lulus uji produksi. Audit akar penyebab inventaris lama/kuota dan target yang sepenuhnya offline masih terbuka.**
 
 > Verifikasi 18 Oktober 2026: UI awal diperiksa pada v1.38.1 build 67; uji pencabutan nyata dilanjutkan pada v1.39.0 build 68. Perangkat lama berhasil dikeluarkan, inventaris akhirnya turun menjadi perangkat aktif saja, dan perangkat pemanggil tetap aktif. Uji push terkontrol memakai akun pengirim skrip membuktikan kedua HP menerima baseline, lalu setelah remote revoke hanya HP aktif yang menerima. Target berada di background dan masih terhubung jaringan; kasus target sepenuhnya offline belum diuji.
 > Dicatat atas permintaan pengguna agar pengelolaan perangkat tertaut tidak terlupakan setelah pemisahan alur transfer kunci.

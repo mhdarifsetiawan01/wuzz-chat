@@ -1,6 +1,6 @@
 # Backlog: Login dengan Google (wajib untuk akun baru, migrasi akun lama)
 
-> Dibuat 2026-10-06. **Status: fase 1 (backend) sudah di produksi (mati sampai client ID diisi). Fase 2 (mobile Android) kodenya selesai di `dev` tapi BELUM pernah dijalankan di perangkat (butuh OAuth client). Fase 3 sampai 5 belum.** Fase 3 (pengumuman) live di backend; fase 4 (pembekuan) kodenya selesai di `dev`, lihat bagian 11. Lihat juga bagian 8 dan 9. Seluruh keputusan di bagian 2 berasal dari diskusi dengan pemilik proyek.
+> Dibuat 2026-10-06. **Status (28 Okt 2026): fase 1-4 LIVE di produksi** (Google aktif, mobile teruji di HP asli, pengumuman, dan pembekuan otomatis `GOOGLE_LINK_FREEZE=true` yang menyala **30 Okt 2026 23:59:59 WIB**; pengecualian lewat `GOOGLE_LINK_FREEZE_EXEMPT`). **Fase 5 (hapus akun tidak aktif) sengaja ditunda.** Kalimat "belum dideploy/diuji" di bagian 8-14 adalah riwayat per tanggalnya. Sisa pekerjaan dan tenggat: `docs/OPERATIONS.md` bagian Tenggat dan `docs/plans/backlog/README.md`. Lihat juga bagian 8 dan 9. Seluruh keputusan di bagian 2 berasal dari diskusi dengan pemilik proyek.
 > Fakta bertanda **(terverifikasi)** sudah dicek di kode per tanggal di atas; bertanda **(belum diverifikasi)** harus dicek dulu.
 
 ## 1. Latar belakang dan tujuan
@@ -109,7 +109,7 @@ Tujuan: **semua akun akhirnya terikat ke satu akun Google**. Akun baru wajib lew
 - **Google Cloud Console:** OAuth consent screen, client ID Android, iOS (bila ada), dan Web; SHA-1 debug dan release.
 - **Play Console:** Data safety form (Google account ID), akun uji untuk reviewer (**wajib**: siapkan akun Google khusus reviewer, karena login password tidak ada lagi untuk akun baru; lihat `docs/PLAY_STORE_MIGRATION.md`).
 - **Hapus akun tetap bisa untuk akun Google-only** (syarat Play) lewat re-auth Google.
-- **Penghapusan manual oleh admin (sementara):** skrip yang memanggil `EraseUser`, memeriksa `last_active_at`, dan mencatat jejak. Alat resminya masuk ke `docs/plans/backlog/MODERATION_TOOL.md`.
+- **Penghapusan manual oleh admin (sementara):** skrip yang memanggil `EraseUser`, memeriksa `last_active_at`, dan mencatat jejak. Alat resminya masuk ke `docs/plans/archived/28-10-2026-backlog-selesai/MODERATION_TOOL.md`.
 
 ## 5. Fase pengerjaan
 

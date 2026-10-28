@@ -183,7 +183,7 @@ Rekam via adb: `adb exec-out screencap -p > shot.png` (lihat catatan alur build)
 **Short description** (71/80): `Chat, groups and voice calls. Direct messages are end-to-end encrypted.`
 
 ## 6. Daftar periksa sebelum mengirim ke Play
-- [x] Alat moderasi **sudah live** (6 Okt 2026, `docs/plans/backlog/MODERATION_TOOL.md`). Tinggal pastikan SOP tinjauan harian disepakati dan janji `/child-safety` dapat dipenuhi.
+- [x] Alat moderasi **sudah live** (6 Okt 2026, `docs/plans/archived/28-10-2026-backlog-selesai/MODERATION_TOOL.md`). Tinggal pastikan SOP tinjauan harian disepakati dan janji `/child-safety` dapat dipenuhi.
 - [ ] `support@semanticdigital.id` aktif (default kode sudah ini) dan `NEXT_PUBLIC_SUPPORT_EMAIL` di Vercel diisi bila ingin alamat lain (lalu rebuild frontend). Belum terverifikasi.
 - [ ] Halaman `/privacy`, `/terms`, `/delete-account` terbuka dari jaringan luar (tanpa gate). Teks privasi sudah dicocokkan dengan produksi 7 Okt 2026 (retensi media 1 hari, pemroses netral-penyedia); **cocokkan sekali lagi dengan jawaban Data Safety saat mengisi Console**, dan perbarui keduanya bila penyedia infrastruktur berganti.
 - [~] Akun demo peninjau `peninjau_play` dibuat 7 Okt 2026 (login password diuji lewat API, perangkat uji sudah dibersihkan). **Akun tanpa tautan Google DIBEKUKAN mulai 30 Okt 2026 23:59 WIB** (`GOOGLE_LINK_FREEZE=true`); pengecualiannya kini ada di kode (daftar putih `GOOGLE_LINK_FREEZE_EXEMPT`), tinggal diisi `peninjau_play` di `.env` VPS dan backend dideploy/di-restart. Belum dites login di build Play.

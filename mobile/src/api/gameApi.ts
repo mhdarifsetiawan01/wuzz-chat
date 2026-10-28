@@ -1,6 +1,6 @@
 /**
  * WuzzChat Game Harian (Wuzz Grid) API.
- * Kontrak sisi server: backend/internal/api/game_handler.go dan docs/plans/backlog/DAILY_GAME_WUZZ_GRID.md.
+ * Kontrak sisi server: backend/internal/api/game_handler.go dan docs/plans/archived/28-10-2026-backlog-selesai/DAILY_GAME_WUZZ_GRID.md.
  * Server tidak pernah mengirim solusi; waktu penyelesaian dihitung server dari started_at.
  */
 

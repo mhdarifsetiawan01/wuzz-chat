@@ -1,12 +1,22 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
+### Rapikan dokumentasi, arsipkan backlog selesai, tambah runbook (28 Oktober 2026)
+
+- Tujuan: sumber kebenaran lintas sesi/AI ada di dokumen, bukan memori pribadi. Dokumen baru: [`OPERATIONS.md`](OPERATIONS.md) (sakelar env produksi, rilis, Play Console, AdMob, tenggat, jebakan) dan [`plans/backlog/README.md`](plans/backlog/README.md) (indeks backlog dan sisa).
+- Diarsipkan ke `plans/archived/28-10-2026-backlog-selesai/`: `MODERATION_TOOL`, `TOKEN_SESSION_LIFETIME`, `MOBILE_PERFORMA_DAN_PENYIMPANAN`, `FORUM_COMPLETION_LOOP`, `DAILY_GAME_WUZZ_GRID` (tiap berkas diberi banner status akhir; tautan silang diperbarui).
+- Header status usang diperbaiki di `GOOGLE_LOGIN`, `VIDEO_MESSAGE_R2`, `FORUM_MONETIZATION_PLAN/_BACKLOG`, `FORUM_BUBBLE`, `FEED_UPLOAD_HARDENING`. `PROJECT_STATE.md` (bagian 2, 11, 12, 14), `ROADMAP.md` (Fase 14), `PLAY_STORE_MIGRATION.md`, indeks `domains/` dan `context/` disegarkan. Tidak ada perubahan kode (selain komentar di `mobile/src/api/gameApi.ts`).
+- Rilis produksi Play **1.43.0/75 disetujui 28 Okt 2026**; Data Safety dan IARC beres; gate web menunjuk Play (`47a9ca1`, `dfa68ae`); `MIN_MOBILE_BUILD=74`. Wuzz Grid ditutup pengguna.
+- AdMob: akun dibuat, `frontend/public/app-ads.txt` ditambahkan (`94c3ad2`), menunggu verifikasi AdMob. Belum ada kode iklan.
+- Belum diverifikasi ulang terhadap kode: isi tabel kapabilitas selain baris yang diubah, `openapi.yaml` (dua salinan berbeda ±136 baris), dan sebagian dokumen domain.
+
+
 ### Handoff Forum Completion Loop — Paket B berikutnya (18 Oktober 2026)
 
 - Paket A sudah diimplementasikan dan main dipush (`3fa080a`); main/dev lokal diselaraskan ke `eadd5d0` (1.39.1 build 70), branch kerja dev. Dokumentasi hasil uji dan handoff diperbarui lokal, belum di-commit pada sesi handoff.
 - APK terbaru dipasang pengguna. Forum berakhir terbuka dari Forum Saya dan Info Grup, riwayat terbaca, banner read-only tampil, input/rekaman suara disabled. Arsip Memori, background/resume normal, dan cold start normal berhasil; log error kosong.
 - Uji notifikasi Memori nyata warm/background/cold start dan dedup ketukan **ditunda pengguna**, tetap belum terverifikasi; tidak ada notifikasi aktif atau draf pending. Bukan blocker Paket B.
 - Sesi berikutnya: **Paket B — Buat lifecycle terlihat** (Tahap 2 + 4), dengan role/tenant/membership/whitelist tetap fail-closed. Paket C, pencarian arsip, dan perubahan edit/hapus/reaksi belum dikerjakan.
-- Deploy dan build APK/AAB sepenuhnya tugas pengguna. AI hanya memberi tahu kebutuhannya, tidak menaikkan versi/build number. Lihat `docs/plans/backlog/FORUM_COMPLETION_LOOP.md` bagian 13 sebelum memulai.
+- Deploy dan build APK/AAB sepenuhnya tugas pengguna. AI hanya memberi tahu kebutuhannya, tidak menaikkan versi/build number. Lihat `docs/plans/archived/28-10-2026-backlog-selesai/FORUM_COMPLETION_LOOP.md` bagian 13 sebelum memulai.
 
 
 ### Perapian desain Perangkat Tertaut (18 Oktober 2026)

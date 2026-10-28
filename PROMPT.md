@@ -17,7 +17,7 @@
 
 ## 🗺️ 2. Master Domain Router (Peta Acuan Konteks AI)
 
-Sebelum mengeksekusi tugas, AI **HANYA PERLU MEMBACA** dokumen primer yang relevan di bawah ini:
+Sebelum mengeksekusi tugas, AI **HANYA PERLU MEMBACA** dokumen primer yang relevan di bawah ini. Untuk tugas yang menyentuh produksi, rilis, env, Play Console, atau tenggat, **baca juga [`docs/OPERATIONS.md`](docs/OPERATIONS.md)**; sisa pekerjaan ada di [`docs/plans/backlog/README.md`](docs/plans/backlog/README.md). Sumber kebenaran lintas sesi adalah dokumen di repo, bukan memori pribadi sesi AI:
 
 | Kategori Tugas / Topik Fitur | Spesifikasi Domain (DDD) | Konteks Platform | Log Progres |
 |---|---|---|---|
@@ -29,7 +29,10 @@ Sebelum mengeksekusi tugas, AI **HANYA PERLU MEMBACA** dokumen primer yang relev
 | **WebRTC Voice Calling & P2P Audio** | 📞 **[`docs/domains/WEBRTC_CALLING.md`](docs/domains/WEBRTC_CALLING.md)** | [`docs/context/MOBILE.md`](docs/context/MOBILE.md) | [`docs/progress/MOBILE.md`](docs/progress/MOBILE.md) |
 | **Group Memory AI, Worker, LLM M1-M7** | 🤖 **[`docs/domains/AI_MEMORY.md`](docs/domains/AI_MEMORY.md)** | [`docs/context/AI_MEMORY.md`](docs/context/AI_MEMORY.md) | [`docs/progress/AI_MEMORY.md`](docs/progress/AI_MEMORY.md) |
 | **Multi-Tenancy Engine & Isolasi Data** | 🏢 **[`docs/domains/MULTI_TENANT.md`](docs/domains/MULTI_TENANT.md)** | [`docs/context/MULTI_TENANT.md`](docs/context/MULTI_TENANT.md) | [`docs/progress/MULTI_TENANT.md`](docs/progress/MULTI_TENANT.md) |
-| **Game Harian Wuzz Grid, Streak & Papan Skor** | 🎮 **[`docs/domains/GAME_WUZZ_GRID.md`](docs/domains/GAME_WUZZ_GRID.md)** | [`docs/context/MOBILE.md`](docs/context/MOBILE.md) | [`docs/plans/backlog/DAILY_GAME_WUZZ_GRID.md`](docs/plans/backlog/DAILY_GAME_WUZZ_GRID.md) |
+| **Game Harian Wuzz Grid, Streak & Papan Skor** | 🎮 **[`docs/domains/GAME_WUZZ_GRID.md`](docs/domains/GAME_WUZZ_GRID.md)** | [`docs/context/MOBILE.md`](docs/context/MOBILE.md) | [`docs/plans/backlog/README.md`](docs/plans/backlog/README.md) |
+| **Linimasa/Feed Komunitas** | 📰 **[`docs/domains/COMMUNITY_FEED.md`](docs/domains/COMMUNITY_FEED.md)** | [`docs/context/FRONTEND.md`](docs/context/FRONTEND.md) | [`docs/plans/backlog/FEED_UPLOAD_HARDENING.md`](docs/plans/backlog/FEED_UPLOAD_HARDENING.md) |
+| **Koneksi/Pertemanan & Profil Privat** | 🤝 **[`docs/domains/USER_CONNECTIONS.md`](docs/domains/USER_CONNECTIONS.md)** | [`docs/context/BACKEND.md`](docs/context/BACKEND.md) | [`docs/progress/BACKEND.md`](docs/progress/BACKEND.md) |
+| **Operasional: sakelar env, rilis, Play Console, AdMob, tenggat, jebakan** | ⚙️ **[`docs/OPERATIONS.md`](docs/OPERATIONS.md)** | [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) | [`docs/plans/backlog/README.md`](docs/plans/backlog/README.md) |
 | **Push Notification & Kluster Sync** | 🔔 **[`docs/domains/NOTIFICATION_SYNC.md`](docs/domains/NOTIFICATION_SYNC.md)** | [`docs/context/BACKEND.md`](docs/context/BACKEND.md) | [`docs/progress/MOBILE.md`](docs/progress/MOBILE.md) |
 | **Update Aplikasi Mobile, APK & Rilis Play Store** | 🚀 **[`docs/PLAY_STORE_MIGRATION.md`](docs/PLAY_STORE_MIGRATION.md)** | [`docs/context/MOBILE.md`](docs/context/MOBILE.md) | [`docs/progress/MOBILE.md`](docs/progress/MOBILE.md) |
 | **Arsitektur Global & Skema DB** | 🏛️ **[`docs/context/ARCHITECTURE.md`](docs/context/ARCHITECTURE.md)** | — | [`docs/PROGRESS.md`](docs/PROGRESS.md) |
@@ -57,6 +60,15 @@ Sebelum mengeksekusi tugas, AI **HANYA PERLU MEMBACA** dokumen primer yang relev
 7. **Ketahanan Jaringan Lambat & Flaky Server**: Selalu asumsikan latensi 200–800ms+, soket putus, atau timeout. Terapkan `AbortController`, Optimistic UI, dan Write-Through local storage.
 8. **Kepatuhan Design System**: Frontend web wajib mematuhi token CSS di `frontend/app/globals.css` dan panduan `frontend/DESIGN.md` (anti raw hex, anti magic z-index `99999`, unified modal primitives).
 9. **Selaras dengan Rencana Monetisasi (keputusan 23 Oktober 2026)**: Sebelum mengerjakan fitur baru, periksa terhadap [`docs/plans/backlog/ADS_AND_REWARDS_PLAN.md`](docs/plans/backlog/ADS_AND_REWARDS_PLAN.md) (iklan AdMob, hadiah/poin, sponsor mitra, batas Free/Pro). Rencana itu **belum boleh dieksekusi** tanpa perintah eksplisit. Bila sebuah fitur bertabrakan dengannya, hentikan dan putuskan bersama pengguna: perbarui rencana atau sesuaikan fitur (lihat bagian 13 dokumen itu).
+10. **Sinkron Dokumen = Bagian dari "Selesai" (keputusan 28 Oktober 2026)**: Dokumen di repo adalah satu-satunya sumber kebenaran lintas sesi dan lintas AI (memori pribadi sesi tidak dianggap sumber). **Sebuah tugas belum selesai sebelum dokumennya sinkron dengan keadaan proyek.** Sebelum melapor atau meminta pengguna menyatakan "selesai", AI wajib memperbarui dokumen yang terdampak, dan perubahan dokumen ikut dalam commit yang sama dengan kodenya:
+   - **Spesifikasi domain** (`docs/domains/<DOMAIN>.md`): aturan bisnis/invarian, kontrak, perilaku, jebakan. Ini tempat utama; ubah di sini dulu.
+   - **Konteks platform** (`docs/context/<BACKEND|FRONTEND|MOBILE>.md`) bila peta kode atau konvensi berubah.
+   - **Log progres** (`docs/progress/<DOMAIN>.md`, dan `docs/PROGRESS.md` untuk ringkasan lintas domain): apa yang dikerjakan, berkas terdampak, bukti tes, serta yang **belum teruji**. Tandai fakta sebagai *terbukti* (dilihat/diuji di produksi atau perangkat), *tes saja* (hanya tes otomatis), atau *belum*. Jangan menulis "selesai" untuk yang belum diverifikasi.
+   - **API dan skema**: `docs/BACKEND_API.md` dan **kedua** salinan OpenAPI (`docs/openapi.yaml`, `backend/internal/api/openapi.yaml`) bila endpoint/payload berubah; `docs/ARCHITECTURE.md` bila tabel/indeks berubah.
+   - **Status produk**: baris kapabilitas di `docs/PROJECT_STATE.md` (bagian 2) dan `docs/ROADMAP.md` bila fitur baru, berubah, atau selesai.
+   - **Operasional**: `docs/OPERATIONS.md` bila ada env/sakelar baru, perubahan alur rilis/Play, tenggat, atau jebakan yang baru ditemukan.
+   - **Backlog**: `docs/plans/backlog/README.md` dan header status berkas rencana terkait; bila rencana tuntas, pindahkan ke `docs/plans/archived/<tanggal>-<nama>/` dan perbaiki tautan silangnya.
+   - Dokumen yang tidak terdampak tidak perlu disentuh, tetapi laporan akhir wajib menyebut **dokumen apa saja yang diperbarui** (atau alasan tidak ada yang perlu). Jangan menaruh rahasia (kata sandi, token, IP VPS) di dokumen yang di-commit.
 
 ---
 

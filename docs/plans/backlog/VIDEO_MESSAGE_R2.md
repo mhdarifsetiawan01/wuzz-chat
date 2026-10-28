@@ -1,6 +1,6 @@
 # Kirim Video di Chat (Mobile + Web) dengan Cloudflare R2 — Rencana
 
-> Dirancang 16 Okt 2026. Status: **rencana, belum ada kode**. Dibahas bersama user; keputusan di bagian 1 sudah disetujui.
+> Dirancang 16 Okt 2026. Status (28 Okt 2026): **Tahap 1-4 selesai di `main`; R2 produksi aktif (`STORAGE_DRIVER=r2`) dan teruji di HP; sisi web ditunda; rencana 17 Okt (bagian 6) cek apakah sudah dikerjakan sebelum dianggap terbuka.** Keputusan di bagian 1 disetujui. Konfigurasi produksi tanpa rahasia: `docs/OPERATIONS.md`.
 
 ## 1. Keputusan
 

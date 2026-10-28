@@ -1,5 +1,12 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
+### Ringkasan 19-28 Oktober 2026 (disusun 28 Okt saat merapikan dokumen)
+
+- **Monetisasi forum:** batas Free/Pro, kuota ringkasan AI, `/admin/plans`, grandfather Pro, Perpanjang forum (`POST /api/groups/{id}/subgroups/{subId}/extend`, kolom `conversations.extended_days`). Sakelar `FORUM_LIMITS_ENABLED` dan `MEMORY_QUOTA_ENABLED` menyala di produksi.
+- **Wuzz Grid:** paket `internal/game` (solver, generator, streak), tabel `game_*`, `GAME_ENABLED`, `GAME_REMINDER_TIME`, moderasi papan publik (`/api/admin/users/{id}/game-board`), hapus akun menghapus data game. API: `docs/BACKEND_API.md` bagian 3.13.
+- Semua tercantum sudah dideploy pengguna ke produksi. Sakelar dan tenggat: `docs/OPERATIONS.md`.
+
+
 ### Forum Completion Loop — daftar forum berakhir (18 Oktober 2026)
 
 - Endpoint subgroups kini mengembalikan forum aktif dan berakhir; status arsip tetap dikecualikan. Nama internal `GetActiveSubGroups` dipertahankan untuk kompatibilitas. Gerbang membership induk tetap berlaku; query mencocokkan tenant forum, induk, dan viewer. Membuka riwayat tetap memerlukan otorisasi forum yang sudah ada.

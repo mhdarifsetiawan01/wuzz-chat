@@ -1,7 +1,7 @@
 # Backlog: Feed Reader, Upload Hardening & Optimasi Gambar
 
 > Dibuat 2026-10-02 dari audit fitur Feed mobile. Berisi pekerjaan yang **belum** diterapkan.
-> Yang sudah diterapkan (branch `dev`, belum di-commit saat dokumen ini ditulis): link aktif, "Selengkapnya" 6 baris,
+> Yang sudah diterapkan (bagian mobile sudah di `main`, commit `c26f13f`; bagian backend belum saya verifikasi 28 Okt 2026): link aktif, "Selengkapnya" 6 baris,
 > Mode Baca (`PostReaderScreen`), link preview, zoom gambar, validasi `media_urls`, hardening link-preview,
 > header keamanan `/uploads/`, rate limit upload, daftar hitam ekstensi, mode `?purpose=feed`.
 

@@ -1,5 +1,7 @@
 # Game Harian "Wuzz Grid" — Rancangan
 
+> **ARSIP (28 Okt 2026):** Tahap 1-6 selesai dan **ditutup pengguna pada 28 Okt 2026**; rilis Play 1.43.0/75 disetujui. Spesifikasi berlaku: `docs/domains/GAME_WUZZ_GRID.md`; API: `docs/BACKEND_API.md` bagian 3.13. Dokumen ini tinggal riwayat keputusan. Butir yang tidak pernah diuji di HP tercatat di `docs/plans/backlog/README.md`.
+
 > **Status (26 Okt 2026):** rancangan hasil diskusi 25 Okt. **Tahap 1** (penyelesai, pembuat puzzle; commit 4a34329), **tahap 2** (tabel, endpoint, sakelar `GAME_ENABLED`, hapus akun; 535ba39) dan **tahap 3** (mobile: kartu, layar permainan, hasil; 7e65571, perbaikan 1dd500f) selesai di `main` dan **teruji di HP Realme Android 11**. **Tahap 4** (papan skor teman/grup, indikator pembeku) selesai dan teruji di HP (9259e54, d83b028). **Tahap 5** (papan publik opt-in, moderasi staf, laporan) selesai dan teruji di HP dengan dua akun (c06f251). **Tahap 6**: teks privasi/syarat/hapus-akun, draf Data Safety, opsi sembunyikan dari teman/grup (f9f1a0e), pengingat harian (lihat bagian 13), dan dokumentasi API (`docs/BACKEND_API.md` 3.13, kedua salinan OpenAPI, `docs/domains/GAME_WUZZ_GRID.md`) selesai. **Seluruh tahap 1-6 selesai**; sisa hanya hal yang bergantung pada uji di perangkat dan tindakan Anda (deploy, build, Data Safety di Play Console). Dikerjakan di branch `dev`, di balik sakelar mati.
 > **Aturan kerja:** deploy backend/frontend dan build APK dilakukan pengguna. Jangan menaikkan versi/build number. Tidak ada `git commit` sebelum pengguna menyatakan "selesai", dan tidak ada `git push` tanpa persetujuan tertulis terpisah.
 > **Tujuan:** membuat pengguna betah lewat fitur di luar chat: satu puzzle logika per hari, dengan streak dan papan skor sosial. Sasaran: milenial dan Gen Z.
@@ -31,7 +33,7 @@
 
 ## 2. Kecocokan dengan rencana lain
 
-Diperiksa terhadap [`ADS_AND_REWARDS_PLAN.md`](ADS_AND_REWARDS_PLAN.md) (bagian 13):
+Diperiksa terhadap [`ADS_AND_REWARDS_PLAN.md`](../../backlog/ADS_AND_REWARDS_PLAN.md) (bagian 13):
 - Tidak ada batas Free/Pro baru, tidak ada kuota, tidak menyentuh langit-langit hadiah (bagian 4).
 - Tidak ada poin yang bisa ditukar menjadi manfaat berbayar; ledger poin (bagian 11) tidak dipakai.
 - Tidak ada iklan di game. Kartu masuk di Feed tidak boleh berdampingan dengan iklan native sehingga tampak seperti iklan.

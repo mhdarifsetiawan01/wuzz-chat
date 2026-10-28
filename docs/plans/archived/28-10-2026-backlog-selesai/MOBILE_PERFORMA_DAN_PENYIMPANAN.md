@@ -1,5 +1,7 @@
 # Backlog: Performa, Penyimpanan & Keamanan Data Lokal Mobile
 
+> **ARSIP (28 Okt 2026):** Tuntas 4 Okt 2026. Hanya **B3** (opsional, butuh keputusan keamanan) dan **D6** (diukur bila riwayat panjang terasa lambat) yang tersisa; keduanya dicatat di `docs/plans/backlog/README.md`.
+
 > Dibuat 2026-10-04 di akhir sesi optimasi mobile, lalu dituntaskan di sesi lanjutan hari yang sama. **Status akhir:**
 > semua item selesai, teruji di HP, atau diputuskan tidak dikerjakan; yang masih terbuka hanya **B3** (opsional, butuh
 > keputusan keamanan) dan **D6** (hanya diukur bila riwayat panjang terasa lambat). Setiap baris item mencatat hasil dan

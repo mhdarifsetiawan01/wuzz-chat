@@ -1,6 +1,6 @@
 # Rencana Monetisasi Forum (Freemium) — Hasil Audit & Keputusan MVP
 
-> **Status:** Fase 1-3 selesai (Fase 2 `7b957a4`, Fase 3 `8fb96df`). **Fase 4 (UI mobile + web) diimplementasi lokal 20 Oktober 2026**, belum commit, belum diuji di HP/browser, belum di-deploy/build. Batas forum dan kuota AI mati secara default (`FORUM_LIMITS_ENABLED`, `MEMORY_QUOTA_ENABLED`). Fase 5 ditunda. Disusun dari audit read-only pada branch `dev` (commit `4ae842b`).
+> **Status:** Fase 1-3 selesai (Fase 2 `7b957a4`, Fase 3 `8fb96df`). **Fase 4 (UI mobile + web) selesai dan LIVE (21 Okt 2026; mobile 1.40.0/71)**, sakelar `FORUM_LIMITS_ENABLED` dan `MEMORY_QUOTA_ENABLED` menyala di produksi, grandfather Pro diterapkan ke 6 akun (berakhir sekitar 20 Des 2026), dan Perpanjang forum Pro selesai 24 Okt. Status terperinci: `FORUM_MONETIZATION_BACKLOG.md`. Kedua sakelar mati secara default di kode. Fase 5 (pembayaran) ditunda. Disusun dari audit read-only pada branch `dev` (commit `4ae842b`).
 > **Aturan kerja:** deploy backend/frontend dan build APK dilakukan pengguna. Jangan menaikkan versi/build number. Tidak ada `git push` tanpa persetujuan tertulis terpisah.
 
 ---
