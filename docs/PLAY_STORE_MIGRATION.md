@@ -74,7 +74,7 @@ APK sebelumnya (hingga build 18) ditandatangani **kunci debug bawaan template** 
 ### 2.3 Konfigurasi Build & Backend
 - [ ] Build Play Store memakai `EXPO_PUBLIC_UPDATE_CHANNEL=play`.
 - [ ] Pastikan `PLAY_STORE_URL` di backend sesuai paket `com.wuzzchat.mobile`.
-- [ ] Setelah Play live: ganti `NEXT_PUBLIC_APK_URL` frontend ke tautan Play Store, rebuild frontend.
+- [x] Setelah Play live: `NEXT_PUBLIC_APK_URL` frontend diganti ke tautan Play Store di Vercel dan dideploy (28 Okt 2026); teks `WebPausedGate` sudah disesuaikan (tombol Google Play, tanpa petunjuk APK).
 - [ ] Pertimbangkan membiarkan `APK_DOWNLOAD_URL` tetap terisi selama masih ada pengguna APK.
 
 ---

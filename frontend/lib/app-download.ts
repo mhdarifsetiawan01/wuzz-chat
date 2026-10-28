@@ -1,10 +1,9 @@
 // Konfigurasi jeda web & tautan unduh aplikasi mobile (satu sumber untuk semua halaman).
 // Nilai NEXT_PUBLIC_* di-inline saat build: ubah env lalu rebuild untuk membuka/menutup web.
 
-// Format direct download Google Drive: https://drive.google.com/uc?export=download&id=<FILE_ID>
-// Update APK cukup lewat Drive > Manage versions agar ID/link tidak berubah.
+// Tautan unduh mengarah ke Google Play (aplikasi sudah rilis di Produksi sejak 28 Okt 2026).
 export const APP_DOWNLOAD_URL =
-  process.env.NEXT_PUBLIC_APK_URL || 'https://drive.google.com/uc?export=download&id=GANTI_DENGAN_FILE_ID'
+  process.env.NEXT_PUBLIC_APK_URL || 'https://play.google.com/store/apps/details?id=com.wuzzchat.mobile'
 
 export const IS_WEB_PAUSED = process.env.NEXT_PUBLIC_WEB_PAUSED === 'true'
 
