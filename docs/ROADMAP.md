@@ -32,6 +32,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 │ [ ] Fase 11: Passkey / WebAuthn (Ph 4)    │                                            │
 │ [x] Fase 12: Community Feed (Model B)     │                                            │
 │ [ ] Fase 9: Monetisasi & Avatar Asset     │                                            │
+│ [ ] Fase 15: Star & Grup Berbayar (ide)   │                                            │
 │ [ ] Mobile Native Client (Kotlin/Swift)   │                                            │
 └───────────────────────────────────────────┴────────────────────────────────────────────┘
 ```
@@ -361,6 +362,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
   - **Backend (Sudah Ada, Perlu Diperluas ✅)**:
     - Field `avatar_url TEXT` di tabel `users` → sudah ada, dipakai sebagai "slot avatar aktif".
     - Infrastruktur wallet/saldo belum ada, perlu dirancang tersendiri (integrasi payment gateway atau in-app currency).
+    - *Catatan (5 Nov 2026):* kebutuhan wallet ini beririsan dengan Fase 15 (Star) dan rencana Poin; satu buku besar bersama direncanakan, dengan saldo yang dipisah menurut jenis (lihat `plans/backlog/ADS_AND_REWARDS_PLAN.md` bagian 11 dan 14.1).
   - **Frontend (Belum Ada ❌ — Perlu Dibuat)**:
     - Halaman/Modal **Avatar Marketplace**: Grid avatar premium bergambar, badge harga, tombol beli/pasang.
     - **Inventory Drawer**: Daftar avatar yang sudah dimiliki, tombol "Pasang sebagai Avatar Aktif".
@@ -550,6 +552,16 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
 - **Wuzz Grid** (game harian, streak, papan skor, pengingat). **SELESAI ✅** (ditutup pengguna 28 Okt 2026).
 - **Rilis Play Produksi** 1.43.0/75 disetujui 28 Okt 2026; gate web diarahkan ke Play. **SELESAI ✅**
 - **Iklan/poin AdMob**: akun dan `app-ads.txt` siap; kode/SDK **belum**, rencana draf (`plans/backlog/ADS_AND_REWARDS_PLAN.md`). **🔮 PLANNED**
+
+### Fase 15: Star & Grup Privat Berbayar (Status: 🔮 IDE / DRAF — belum diputuskan, jangan dieksekusi)
+*Tujuan: memungkinkan admin kreator yang disetujui menjadikan grup privat berbayar; pengunjung tautan membeli "Star" (Google Play Billing) lalu membelanjakannya untuk masuk. Dicatat 5 Nov 2026. Rencana lengkap, risiko, dan keputusan terbuka: [`plans/backlog/ADS_AND_REWARDS_PLAN.md`](plans/backlog/ADS_AND_REWARDS_PLAN.md) bagian 14.*
+
+- **Tahap 0 (tanpa kode):** konsultasi hukum soal mata uang virtual dan pencairan (BI/OJK), pertanyaan ke dukungan Play soal pembayaran akses grup buatan pengguna dan pencairan, baca "Financial features declaration" di Play Console, putuskan badan usaha/merchant, model harga dan persentase platform.
+- **Tahap 1:** token undangan grup yang bisa dicabut, gerbang masuk bertipe (terbuka / persetujuan admin / berbayar), tombol reset tautan, penegakan "hanya admin" untuk tautan grup privat di server. Berguna sendiri, tanpa uang.
+- **Tahap 2:** pembelian Star lewat Play Billing, **hanya bisa dibelanjakan**; hak kreator diberikan manual lewat `/admin`; buku besar append-only dan idempoten (desain fleksibel di rencana bagian 14.1).
+- **Tahap 3 (awal):** laporan pendapatan per kreator, **pembayaran manual** oleh pemilik setelah dana Google diterima. **Tahap 3b:** pencairan di dalam aplikasi, hanya bila hukum jelas (kemungkinan lewat mitra penyalur dana berlisensi).
+- **Fakta kebijakan Play yang sudah terverifikasi (5 Nov 2026):** menjual Star wajib Play Billing; mata uang virtual terkunci ke satu aplikasi; dilarang mengarahkan ke metode bayar lain di dalam aplikasi; Indonesia belum termasuk program billing choice; potongan 15% (hingga USD 1 juta/tahun) sampai 30%. Pencairan **tidak diatur** kebijakan Play. Detail dan sumber: rencana bagian 14.
+- **Terkait:** Fase 9 (wallet), `ADS_AND_REWARDS_PLAN.md` bagian 11 (Poin; Star bukan Poin), `GROUP_FORUM.md` (tautan grup).
 
 ---
 

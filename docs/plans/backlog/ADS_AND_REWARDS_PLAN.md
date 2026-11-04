@@ -137,6 +137,96 @@ Tujuan: mitra dapat memposting produk/promosi di Wuzz Chat. Yang sudah ada hanya
 - Bila sebuah fitur **bertabrakan** dengan rencana (misalnya menambah batas baru, jalur yang melewati kuota, atau tempat yang menyerang aturan "tidak ada iklan di chat"), jangan lanjut diam-diam: putuskan bersama pengguna antara **memperbarui rencana ini** atau **menyesuaikan fiturnya**, lalu catat keputusan di dokumen ini.
 - Fitur yang menambah kapasitas/biaya (penyimpanan, LLM, forum, media) sebaiknya ditandai: apakah ia perlu kuota Free/Pro dan apakah dapat menjadi hadiah.
 
+## 14. Star dan grup privat berbayar (IDE, belum diputuskan; dicatat 5 Nov 2026)
+
+> **Status: draf ide. Jangan dieksekusi** (tidak ada kode, tabel, produk Play, atau perubahan deklarasi) sampai pengguna memerintahkan secara eksplisit. Dicatat karena bertabrakan dengan bagian 1 dan 11 (Poin tidak bisa dicairkan), sesuai aturan bagian 13.
+
+**Ide pengguna (5 Nov 2026):** admin dapat menjadikan grup privat berbayar. Pengunjung tautan grup membeli "Star" di Wuzz Chat (dibeli dengan uang), membayar dengan Star itu untuk masuk, lalu pemilik grup menerima Star dan dapat mencairkannya (withdraw). Mirip grup berbayar Telegram dengan Stars.
+
+**Hubungan dengan rencana Poin (bagian 11):**
+- Star **bukan** Poin. Poin tunduk pada langit-langit Free dan tidak bisa dicairkan; Star bernilai seperti uang dan (rencananya) bisa dicairkan. Jangan digabung dalam satu saldo.
+- Yang bisa dipakai bersama: pola buku besar (*ledger*) berkunci idempoten (`purchase_token`) dan tabel pengaturan di database. ROADMAP.md juga menyebut kebutuhan wallet untuk marketplace avatar; satu infrastruktur dompet bisa melayani keduanya.
+- Saldo perlu dipisah menurut jenis: **dibeli** (hanya bisa dibelanjakan) dan **diterima kreator** (bisa dicairkan setelah masa tahan).
+
+**Risiko dan hal yang harus dipastikan sebelum desain dikunci (ditulis sebelum riset; lihat bagian "Hasil verifikasi" di bawah bila sudah diisi):**
+
+| Area | Masalah |
+|---|---|
+| Google Play Billing | Penjualan Star adalah barang digital di aplikasi; asumsi: wajib Play Billing (komisi 15-30%). Belum jelas: apakah membayar akses ke grup buatan pengguna lewat mata uang virtual diperbolehkan, dan bagaimana aturan pembayaran antarpengguna serta pencairan |
+| Pencairan | Mata uang virtual yang dapat ditukar uang kemungkinan teregulasi di Indonesia (uang elektronik / penyelenggara jasa pembayaran, BI/OJK). Butuh konsultasi hukum **sebelum** desain dikunci |
+| Pajak dan identitas | PPN jasa digital, PPh penerima, KYC (identitas dan rekening), batas pencairan minimum |
+| Penipuan | Kartu curian untuk beli Star, dicairkan lewat grup sendiri (pencucian uang). Penangkal: masa tahan saldo, KYC, batas pencairan |
+| Refund | Google dapat menarik kembali pembelian setelah Star dicairkan; tanpa masa tahan, saldo kreator bisa negatif |
+| Konten | Penipuan "bayar lalu grup dihapus", konten bermasalah di grup berbayar; butuh kebijakan refund, laporan, dan alat moderasi |
+| Data Safety Play | Pembelian dan riwayat transaksi wajib dideklarasikan sebelum rilis (gerbang rilis di `OPERATIONS.md`) |
+| Badan usaha | Profil merchant Play dan mitra pencairan biasanya butuh badan usaha; belum diputuskan |
+
+**Prasyarat teknis (diperkirakan):**
+- Gerbang masuk grup bertipe: terbuka, persetujuan admin, berbayar. Tautan undangan berupa **token terpisah yang bisa dicabut**, bukan kode pendek permanen (`conversations.short_code`) atau ID `grp_<uuid>`, karena keduanya tidak bisa dicabut.
+- Pondasi sudah ada untuk persetujuan admin: tabel `conversation_join_requests` dan alur `RequestToJoinSubGroup`/`RespondJoinRequest` (kini hanya untuk forum privat).
+- Verifikasi pembelian di server (Google Play Developer API), transaksi atomik "bayar lalu masuk", buku besar berimbang dengan kunci idempoten, alat admin untuk sengketa dan pencairan, jejak audit, tes di Postgres.
+
+**Urutan usulan (belum disetujui):**
+1. Tahap 0 (tanpa kode): verifikasi kebijakan Play dari sumber resmi, konsultasi hukum soal mata uang virtual dan pencairan, putuskan badan usaha/merchant, model harga (tarif beli versus tarif cairkan, persen platform).
+2. Tahap 1: token undangan yang bisa dicabut, gerbang terbuka/persetujuan admin, tombol reset tautan. Berguna sendiri, tanpa uang.
+3. Tahap 2: Star dibeli lewat Play Billing, **hanya bisa dibelanjakan** (tanpa pencairan).
+4. Tahap 3 (awal): **laporan pendapatan per kreator** (ekspor per bulan) dan pembayaran manual oleh pengguna setelah dana Google diterima. Tahap 3b (hanya setelah tahap 0 jelas): pencairan di dalam aplikasi, kemungkinan lewat mitra penyalur dana berlisensi, dengan KYC, masa tahan, dan alat admin sengketa.
+
+**Arah yang dicondongkan pengguna (5 Nov 2026, belum keputusan final):** awalnya **program mitra kreator**: hanya kreator yang disetujui (hak diberikan manual lewat `/admin`, pola `user_entitlements`) yang boleh membuat grup berbayar; **pembayaran ke kreator dilakukan manual di luar aplikasi** oleh pengguna, sistem hanya mencatat dan menampilkan jumlah Star dan laporan pendapatan. Bila urusan hukum sudah jelas, pencairan di dalam aplikasi mungkin ditambahkan, jadi **desain harus fleksibel sejak awal** (lihat 14.1). Syarat agar posisinya aman: Star tidak bisa ditarik oleh siapa pun, kreator menerima **bagi hasil menurut perjanjian tertulis** (bukan "penukaran Star menjadi uang"), kurs dan persentase ditetapkan di perjanjian, UI tidak menjanjikan pencairan, dan pembayaran manual dilakukan **setelah dana dari Google diterima** plus masa tahan.
+
+**Keputusan terbuka (menunggu pengguna):**
+1. ~~Apakah pencairan ke rekening termasuk cakupan awal~~ Arah awal: pembayaran manual (lihat di atas); tinggal dikonfirmasi bersama hasil konsultasi hukum.
+2. Satu kali bayar atau langganan per grup (usulan: satu kali dulu).
+3. Persentase platform; target pasar hanya Indonesia (rupiah)?
+4. Badan usaha/merchant yang akan menjadi penerima dan penerbit.
+5. Apakah pemohon boleh melihat nama/avatar grup privat sebelum membayar (menyangkut kebocoran keberadaan grup).
+6. Apakah anggota baru boleh melihat riwayat lama (sudah ada `history_gate` untuk grup).
+7. ~~Satuan tampilan dan persetujuan kedua~~ **Diputuskan 5 Nov 2026:** tampil dalam Star; penyesuaian besar disetujui `wuzz_admin` atau `wuzz_finance` yang bukan pembuatnya (14.1 butir 11-13). Dikonfirmasi 5 Nov 2026: `wuzz_finance` boleh membuat maupun menyetujui; semua penyesuaian hanya oleh `wuzz_admin`/`wuzz_finance`. Tersisa: besar ambang "penyesuaian besar".
+
+### 14.1 Prinsip desain fleksibel (agar pencairan otomatis bisa ditambah tanpa membongkar yang lama)
+
+Yang disiapkan sekarang hanya **bentuk datanya**. Pencairan mandiri, KYC, dan integrasi bank/mitra **tidak dibangun** sampai tahap 3b.
+1. **Buku besar append-only dan idempoten.** Jenis entri: `purchase` (kunci: `purchase_token` Google), `spend` (bayar masuk grup), `refund`, `creator_earning`, `payout`, `adjustment` (admin), `reversal`. Koreksi lewat entri pembalik, tidak pernah mengubah/menghapus baris. Berimbang (debit = kredit) dan diuji di Postgres.
+2. **Pisahkan dua hal:** (a) saldo **Star pengguna** (hanya bisa dibelanjakan) dan (b) **pendapatan kreator** (nilai uang dalam satuan minor + kode mata uang, bukan Star). Kolom mata uang tidak di-hardcode ke rupiah.
+3. **Rekam snapshot di setiap transaksi:** ID pesanan Play, jumlah kotor dan mata uang, persen potongan Google yang berlaku, persen platform, bagian kreator. Perubahan tarif atau hukum di kemudian hari tidak menulis ulang riwayat.
+4. **Status pendapatan:** `pending` -> `available` (setelah masa tahan `hold_days`, parameter di tabel pengaturan database) -> `paid`. Reversal saat refund hanya berlaku sebelum `paid`.
+5. **Payout adalah entitas sendiri** (kreator, jumlah, periode, status, metode, referensi, dibuat oleh siapa). Sekarang diisi admin: ekspor laporan, bayar manual, tandai `paid`. Nanti, permintaan dari aplikasi membuat baris yang sama dengan status `requested -> approved -> paid`. Yang berganti hanya siapa/apa yang membuat baris, bukan skemanya. Kolom `method` memungkinkan mengganti ke mitra penyalur berlisensi.
+6. **Kelayakan kreator lewat hak (entitlement)**, bukan hard-code. Awalnya diberikan manual; nanti bisa menjadi swalayan dengan status verifikasi (tabel profil pembayaran baru, ditambahkan saat dibutuhkan).
+7. **Sakelar bertingkat, bawaan mati:** `STARS_ENABLED`, `PAID_GROUPS_ENABLED`, `CREATOR_SELF_SERVICE_PAYOUT` (mati sampai hukum jelas). Angka (harga paket, persen platform, `hold_days`) di tabel pengaturan database seperti bagian 4.1.
+8. **Jejak audit** untuk semua tindakan admin (pola `moderation_actions`), dan semua angka di laporan harus dapat ditelusuri ke entri buku besar.
+9. **Teks UI dan perjanjian netral:** tidak menyebut "tarik/cairkan" sebelum hukum jelas.
+10. **Rekonsiliasi:** laporan bulanan dicocokkan dengan laporan pembayaran Play Console sebelum kreator dibayar.
+11. **Penyesuaian saldo kreator oleh admin Wuzz (persyaratan pengguna, 5 Nov 2026).** Admin harus bisa mengurangi (atau menambah) saldo kreator, mis. setelah kreator dibayar manual. Caranya **selalu lewat entri baru di buku besar, tidak pernah menimpa angka saldo**:
+    - Tindakan **"Catat pembayaran"** membuat entri `payout` (jumlah, periode, referensi transfer, pencatat) yang mengurangi saldo tersedia. Ini jalur normal.
+    - Tindakan **`adjustment`** untuk koreksi (salah hitung, penipuan, refund), dengan **alasan wajib**; bisa menambah atau mengurangi.
+    - Hanya peran `wuzz_admin` (bukan moderator); jejak audit lengkap; kunci idempoten agar klik ganda tidak mengurangi dua kali; konfirmasi jumlah dan batas wajar per tindakan; saldo tidak boleh negatif tanpa konfirmasi eksplisit.
+    - **Kreator dapat melihat riwayatnya** (pembayaran dan koreksi beserta alasan).
+    - Saldo Star **pengguna biasa** tidak disentuh jalur ini; pengembalian ke pengguna lewat alur refund terpisah.
+    - **Satuan tampilan: Star (diputuskan pengguna, 5 Nov 2026).** Nilai tersimpan tetap uang (satuan minor + kode mata uang); tampilan Star dikonversi dengan kurs tetap yang tertulis di perjanjian.
+12. **Istilah UI netral (diputuskan 5 Nov 2026).** Di aplikasi dan listing toko hindari kata "pendapatan", "penghasilan", "earnings", "tarik", "cairkan", "withdraw". Pakai "Star diterima", "Saldo Star", "Riwayat Star" (isi: diterima, penyesuaian, penyelesaian). Nama kolom/tabel internal boleh teknis. **Batasan:** netralitas hanya untuk tampilan; jawaban di Play Console (Financial features declaration, Data Safety) dan saat review harus **jujur** bahwa kreator menerima bagi hasil.
+13. **Penyesuaian besar memakai maker-checker (diputuskan 5 Nov 2026).** Peran baru **`wuzz_finance`** (penulisan dikonfirmasi pengguna). **Semua** penyesuaian saldo kreator, kecil maupun besar, termasuk "Catat pembayaran", **hanya bisa dilakukan oleh `wuzz_admin` atau `wuzz_finance`** (keduanya boleh membuat); peran lain, termasuk `wuzz_moderator`, ditolak. Penyesuaian di bawah ambang langsung berlaku; di atas ambang berstatus **menunggu persetujuan** dan harus disetujui `wuzz_admin` atau `wuzz_finance` yang **bukan pembuatnya** (termasuk bila pembuatnya admin). Ambang di tabel pengaturan database. Moderator tidak punya akses. Peran baru perlu perubahan pada pemeriksaan peran istimewa (`auth.RequireJWT`, verifikasi DB + cache 15 detik), konstanta peran, dan `/admin` untuk memberikannya; dokumentasikan di `AUTH_SESSION.md` saat dikerjakan.
+
+**Hasil verifikasi kebijakan resmi Google Play (5 Nov 2026).** Sumber: tiga halaman Play Console Help yang dibaca langsung (ringkasan teks dibuat subagen, kutipan di bawah dari laporannya; halaman tidak mencantumkan tanggal "last updated"), jadi **cek ulang kutipan di halaman aslinya sebelum keputusan final**: [Payments](https://support.google.com/googleplay/android-developer/answer/9858738), [Understanding Payments policy (FAQ)](https://support.google.com/googleplay/android-developer/answer/10281818), [Service fees](https://support.google.com/googleplay/android-developer/answer/112622), [lower service fees](https://support.google.com/googleplay/android-developer/answer/16954621), [billing choice program](https://support.google.com/googleplay/android-developer/answer/17161464).
+
+*Terverifikasi dari teks resmi:*
+- **Menjual Star wajib Play Billing.** Payments, poin 2: aplikasi yang menerima pembayaran untuk "in-app features or services, including any app functionality, digital content or goods" wajib memakai Google Play Billing; contoh yang disebut termasuk "virtual currencies" dan "avatars". FAQ: "if these points (or other types of virtual currency) are sold in-app, Google Play's billing system must be used".
+- **Mata uang virtual terkunci ke satu aplikasi.** Poin 5: "In-app virtual currencies must only be used within the app or game title for which they were purchased." Star tidak boleh dirancang sebagai mata uang lintas aplikasi.
+- **Dilarang mengarahkan ke metode bayar lain di dalam aplikasi** (poin 4), termasuk tombol, tautan, atau kalimat ajakan membeli di luar aplikasi. Di luar aplikasi pengembang bebas berkomunikasi soal opsi pembelian lain. Ini memperkuat aturan "teks UI netral" yang sudah dipakai.
+- **Pengecualian pembayaran antarpengguna (P2P)** hanya untuk kasus sempit. FAQ tips/kontribusi kreator: bila "100% of the tip or contribution from a user goes to the creator and the payment does not grant access to any digital content or services", dianggap P2P dan Play Billing tidak wajib; "If any of these things is not true", Play Billing wajib. Layanan 1:1 berbayar dikecualikan hanya bila antara dua individu dan tidak bisa diputar ulang.
+- **Biaya untuk Indonesia (masuk "all remaining markets")**: 15% untuk USD 1 juta pertama pendapatan tahunan pengembang dan 30% di atasnya; langganan berulang 15%. Struktur baru (biaya layanan dan biaya penagihan terpisah, 10-25% + biaya penagihan) baru berlaku untuk "Rest of World" pada **30 September 2027**, dan rincian biaya penagihan wilayah lain masih "forthcoming".
+- **Indonesia tidak termasuk program billing choice** (alternative billing): pasar yang tersedia hanya Australia, Jepang, Inggris, EEA, dan AS. Jadi untuk Indonesia, jalur satu-satunya per 5 Nov 2026 adalah Play Billing.
+
+*Kesimpulan yang ditarik dari teks (BUKAN kutipan; halaman tidak menyebut kata "group" atau "community"):*
+- Membayar untuk masuk grup privat memberi akses ke konten/layanan digital, dan platform mengambil sebagian (bukan 100% ke kreator). Dengan dua syarat P2P gagal, pembelian Star untuk itu **wajib Play Billing**, dan **Star tidak bisa dibayar lewat jalur lain** di Android.
+
+*Tidak disebutkan di halaman mana pun (perlu jalur lain):*
+- **Pencairan (payout) ke kreator**: tidak ada ketentuan tentang pengembang yang menyalurkan uang ke pengguna lain, tentang menukar mata uang virtual menjadi uang nyata, maupun tentang lisensi finansial atau KYC. Kebijakan Play tidak melarang maupun mengizinkannya secara eksplisit. Artinya jawabannya harus datang dari **konsultasi hukum (BI/OJK)** dan, bila perlu, **pertanyaan langsung ke dukungan Play**. Ada juga halaman Play Console "Financial features declaration" yang judulnya terlihat tetapi isinya belum dibaca; wajib diperiksa.
+- **Pajak** (PPN jasa digital, PPh penerima) bukan urusan kebijakan Play.
+
+*Belum terverifikasi (hanya hasil pencarian berita, bukan sumber resmi):* putusan KPPU dan Mahkamah Agung (Maret 2026) yang disebut mewajibkan Google membuka pilihan penagihan di Indonesia. Halaman resmi billing choice belum mencantumkan Indonesia, jadi jangan merencanakan jalur selain Play Billing sampai halaman resmi berubah. Pantau halaman billing choice.
+
+*Dampak ke rencana:* (1) potongan Google 15% (hingga USD 1 juta per tahun) sampai 30% harus dihitung di harga Star sebelum bagian platform dan kreator; (2) tarif pencairan harus lebih rendah dari tarif pembelian; (3) tahap 0 yang tersisa: konsultasi hukum soal pencairan, pertanyaan ke dukungan Play soal pembayaran akses grup buatan pengguna dan pencairan, baca Financial features declaration, putuskan badan usaha.
+
 ## 9. Urutan kerja (usulan)
 
 0. **Sekarang:** selesaikan closed testing dan ajukan produksi tanpa perubahan deklarasi.
@@ -152,7 +242,7 @@ Tujuan: mitra dapat memposting produk/promosi di Wuzz Chat. Yang sudah ada hanya
 - **Satu buku besar poin** (ledger) untuk semua sumber: `ad_reward`, `purchase`, `grant` (admin), `refund`, `spend`. Setiap baris punya kunci idempoten (`transaction_id` AdMob atau `purchase_token` Google) agar tidak terhitung dua kali. Saldo = jumlah buku besar. Desain ini dibuat sejak backend iklan supaya pembelian tinggal ditambahkan.
 - Produk Play: **consumable** (paket poin), bukan langganan. Lebih sederhana daripada langganan Pro, yang butuh siklus perpanjangan, masa tenggang, dan pembatalan.
 - Backend memverifikasi pembelian lewat Google Play Developer API (akun layanan), lalu mengakui/mengonsumsi pembelian. Pengembalian dana (refund) ditangani lewat notifikasi atau pemeriksaan berkala dan dicatat sebagai baris `refund`.
-- Pembelian hanya di Android (web tidak bisa memakai Play Billing). Teks UI netral sampai aturan Play diverifikasi dari sumber resmi.
+- Pembelian hanya di Android (web tidak bisa memakai Play Billing). Teks UI netral (larangan mengarahkan ke metode bayar lain terverifikasi dari teks resmi 5 Nov 2026; sisanya: bagian 14).
 - Prasyarat di luar kode: profil pembayaran/merchant Play Console, produk dibuat di Console, penguji lisensi, dan aplikasi sudah diunggah ke track pengujian.
 - Pengujian membutuhkan build yang diunggah ke Play (internal testing); build dan unggah dilakukan pengguna.
 
