@@ -10,7 +10,7 @@
 |---|---|---|
 | A1 | **Kompresi & resize gambar di mobile** (sisi terpanjang ~1600px, JPEG/WebP q≈0.8) | Butuh dependency `expo-image-manipulator` ⇒ **build native baru** (APK/EAS), bukan OTA. Sekaligus menghapus EXIF/GPS. Terapkan di `CreatePostModal` (juga pertimbangkan chat & avatar). Target: 3–5 MB ⇒ 200–500 KB. |
 | A2 | **Thumbnail / ukuran responsif untuk feed** | Feed saat ini memuat gambar asli ke kotak 120–200px. Opsi: transform Supabase Storage (`/render/image`) atau thumbnail saat upload. |
-| A3 | **Pembersihan file yatim** | Upload feed yang ditolak/gagal posting meninggalkan file di storage. Tambah job pembersih (file tak direferensikan > N jam). |
+| A3 | **Pembersihan file yatim** | **Sebagian (5 Nov 2026, kode di `dev`, tes otomatis saja, belum dideploy/diuji di produksi):** hapus postingan Feed dan ganti foto profil kini melepas berkas lama ke `media_purge_queue` (`store.MediaReleaser`; lihat `MEDIA_LIFECYCLE.md`). **Sisa:** unggahan yang tidak pernah dipakai (tiket signed URL tidak dicatat server, perlu tabel tiket atau sapu bucket dengan `ListObjectsV2`), avatar grup yang diganti, postingan yang dihapus moderator (bukti laporan), berkas yatim lama. |
 | A4 | **Cek EXIF/GPS terbawa** | Pastikan picker tidak mengirim lokasi; A1 menutup ini. |
 
 ## Prioritas B — Keamanan lanjutan

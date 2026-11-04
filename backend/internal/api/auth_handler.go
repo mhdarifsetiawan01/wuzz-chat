@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -23,6 +24,9 @@ type AuthHandler struct {
 	deviceStore   store.DeviceStore
 	hub           WebSocketHub
 	authSvc       *authz.AuthService
+
+	// mediaReleaser (opsional): melepas foto profil lama yang diganti agar berkasnya dibersihkan PurgeWorker.
+	mediaReleaser MediaReleaser
 
 	// googleLinkDeadline: batas waktu pengumuman penautan Google (zero = tidak ada pengumuman).
 	googleLinkDeadline time.Time
@@ -63,6 +67,14 @@ func NewAuthHandlerWithService(authSvc *authz.AuthService, us store.UserStore) *
 	}
 	return h
 }
+
+// MediaReleaser melepas berkas media yang tidak lagi dirujuk (best-effort).
+type MediaReleaser interface {
+	Release(ctx context.Context, urls ...string)
+}
+
+// SetMediaReleaser memasang pelepas media untuk foto profil yang diganti. nil = berkas lama dibiarkan.
+func (h *AuthHandler) SetMediaReleaser(r MediaReleaser) { h.mediaReleaser = r }
 
 func (h *AuthHandler) SetAuthService(authSvc *authz.AuthService) {
 	h.authSvc = authSvc
@@ -474,10 +486,21 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	req.Bio = strings.TrimSpace(req.Bio)
 	req.Role = strings.TrimSpace(req.Role)
 
+	// Foto profil lama dicatat sebelum diganti supaya bisa dilepas sesudahnya.
+	oldAvatar := ""
+	if h.mediaReleaser != nil && req.AvatarURL != "" {
+		if prev, perr := h.userStore.GetUserByID(claims.UserID); perr == nil && prev != nil {
+			oldAvatar = prev.AvatarURL
+		}
+	}
+
 	updatedUser, err := h.userStore.UpdateProfileExtended(claims.UserID, req.DisplayName, req.StatusMessage, req.AvatarURL, req.Bio, req.Role, req.Metadata)
 	if err != nil {
 		http.Error(w, `{"error":"Gagal memperbarui profil"}`, http.StatusInternalServerError)
 		return
+	}
+	if oldAvatar != "" && oldAvatar != updatedUser.AvatarURL {
+		h.mediaReleaser.Release(r.Context(), oldAvatar)
 	}
 
 	if req.IsPrivateAccount != nil {

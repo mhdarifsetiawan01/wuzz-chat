@@ -195,6 +195,13 @@ func (s *R2Storage) keyFromURL(fileURL string) (string, bool) {
 	return "", false
 }
 
+// OwnsURL melaporkan apakah URL menunjuk objek di bucket R2 ini (awalan R2_PUBLIC_BASE_URL). URL asing, termasuk media
+// lama Supabase, dianggap bukan milik sehingga tidak pernah dihapus lewat jalur pelepasan otomatis.
+func (s *R2Storage) OwnsURL(fileURL string) bool {
+	_, ok := s.keyFromURL(fileURL)
+	return ok
+}
+
 // Delete menghapus objek R2 (404 dianggap sukses). URL yang bukan milik R2 diteruskan ke driver lama bila ada.
 func (s *R2Storage) Delete(ctx context.Context, fileKey string) error {
 	key, ok := s.keyFromURL(fileKey)
