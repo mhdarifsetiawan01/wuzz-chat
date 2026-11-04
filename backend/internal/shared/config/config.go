@@ -55,6 +55,11 @@ type Config struct {
 	// GameReminderTime adalah jam pengingat harian Wuzz Grid, format HH:MM waktu perangkat pemain (env GAME_REMINDER_TIME,
 	// bawaan 19:00). Dikirim ke aplikasi lewat /api/game/today, jadi dapat diubah tanpa build APK baru.
 	GameReminderTime        string
+	// UploadOrphanSweep: mode penyapu unggahan yatim (env UPLOAD_ORPHAN_SWEEP): kosong/off = mati (bawaan), dry = hanya
+	// log, true = antrekan penghapusan. UploadOrphanMinAge: umur minimum tiket sebelum disapu (env
+	// UPLOAD_ORPHAN_MIN_AGE_HOURS, bawaan 72, minimum 24).
+	UploadOrphanSweep  string
+	UploadOrphanMinAge time.Duration
 	MemoryJobBatchSize      int
 	SubGroupWorkerInterval  time.Duration
 	PurgeWorkerInterval     time.Duration
@@ -135,6 +140,8 @@ func Load() (*Config, error) {
 		MemoryQuotaEnabled:      isTrueEnv(os.Getenv("MEMORY_QUOTA_ENABLED")),
 		GameEnabled:             isTrueEnv(os.Getenv("GAME_ENABLED")),
 		GameReminderTime:        strings.TrimSpace(os.Getenv("GAME_REMINDER_TIME")),
+		UploadOrphanSweep:       strings.TrimSpace(os.Getenv("UPLOAD_ORPHAN_SWEEP")),
+		UploadOrphanMinAge:      time.Duration(getEnvInt("UPLOAD_ORPHAN_MIN_AGE_HOURS", 72)) * time.Hour,
 		SubGroupWorkerInterval:  15 * time.Minute,
 		PurgeWorkerInterval:     1 * time.Hour,
 		TokenCleanupInterval:    1 * time.Hour,

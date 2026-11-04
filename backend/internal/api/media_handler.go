@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	tenantshared "github.com/bms-del112/wuzz-chat/internal/shared/tenant"
 	"github.com/bms-del112/wuzz-chat/internal/storage"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
@@ -75,7 +76,17 @@ type MediaHandler struct {
 	maxVideoDurationSec  int
 	retentionDays        int
 	autoDeleteOnDownload bool
+	// tickets (opsional): mencatat tiket signed upload yang diterbitkan untuk penyapu unggahan yatim.
+	tickets UploadTicketRecorder
 }
+
+// UploadTicketRecorder mencatat tiket unggah (best-effort, tidak mengembalikan galat).
+type UploadTicketRecorder interface {
+	Record(ctx context.Context, publicURL, tenantID, userID, purpose string)
+}
+
+// SetUploadTicketRecorder memasang pencatat tiket. nil = tiket tidak dicatat.
+func (h *MediaHandler) SetUploadTicketRecorder(r UploadTicketRecorder) { h.tickets = r }
 
 // NewMediaHandler membuat instance baru MediaHandler dengan membaca environment variable.
 func NewMediaHandler(mediaStorage storage.MediaStorage, msgStore store.MessageStore) *MediaHandler {
@@ -435,6 +446,17 @@ func (h *MediaHandler) CreateSignedUploadURL(w http.ResponseWriter, r *http.Requ
 	userTag := "anonymous"
 	if claims, ok := auth.GetUserFromContext(r.Context()); ok && claims != nil && claims.Username != "" {
 		userTag = fmt.Sprintf("%s (%s)", claims.Username, claims.UserID)
+	}
+
+	if h.tickets != nil {
+		ticketUser, tenantID := "", ""
+		if claims, ok := auth.GetUserFromContext(r.Context()); ok && claims != nil {
+			ticketUser = claims.UserID
+		}
+		if t, ok := tenantshared.FromContext(r.Context()); ok {
+			tenantID = t.TenantID()
+		}
+		h.tickets.Record(r.Context(), res.PublicURL, tenantID, ticketUser, r.URL.Query().Get("purpose"))
 	}
 
 	log.Printf("🎟️ [DirectUpload] Tiket signed upload diterbitkan untuk user=%s | file=%s (%d bytes, %s) | key=%s | provider=%s",

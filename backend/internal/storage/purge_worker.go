@@ -16,6 +16,7 @@ type PurgeWorker struct {
 	interval      time.Duration
 	stopCh        chan struct{}
 	queue         store.MediaPurgeQueue
+	sweeper       OrphanSweeper
 }
 
 const (
@@ -25,6 +26,14 @@ const (
 	// queueMaxAttempts: setelah sekian kali gagal berkas dibuang dari antrean dan dicatat di log.
 	queueMaxAttempts = 10
 )
+
+// OrphanSweeper menyapu unggahan yang tidak pernah dipakai (mengantrekan penghapusannya). Opsional.
+type OrphanSweeper interface {
+	Sweep(ctx context.Context)
+}
+
+// SetSweeper memasang penyapu unggahan yatim; dijalankan tiap siklus sebelum antrean dikosongkan.
+func (w *PurgeWorker) SetSweeper(s OrphanSweeper) { w.sweeper = s }
 
 // SetQueue menyambungkan antrean penghapusan berkas yatim (mis. dari hapus akun). Panggil sebelum Start.
 func (w *PurgeWorker) SetQueue(q store.MediaPurgeQueue) {
@@ -82,6 +91,9 @@ func (w *PurgeWorker) Stop() {
 // runCycle menjalankan satu siklus: berkas kedaluwarsa lalu antrean berkas yatim.
 func (w *PurgeWorker) runCycle(ctx context.Context) {
 	w.PurgeOnce(ctx)
+	if w.sweeper != nil {
+		w.sweeper.Sweep(ctx)
+	}
 	w.DrainQueue(ctx)
 }
 
