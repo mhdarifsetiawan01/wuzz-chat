@@ -1,5 +1,15 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
+### Penyapu unggahan yatim lewat tiket (5 Nov 2026, A3 langkah 2)
+
+- **Masalah:** unggahan langsung ke R2 yang tak pernah dipakai (post dibatalkan, aplikasi ditutup) tidak terlihat server, jadi tidak ada yang membersihkannya.
+- **Perubahan:** tabel `upload_tickets` (`store/sql.go`); `store.UploadTicketStore.Record` dipanggil `MediaHandler.CreateSignedUploadURL` (`SetUploadTicketRecorder`); `store.UploadOrphanSweeper` (mode `off|dry|true`, umur minimum ≥ 24 jam) dipasang ke `PurgeWorker.SetSweeper` dan dijalankan di `runCycle`; env `UPLOAD_ORPHAN_SWEEP`, `UPLOAD_ORPHAN_MIN_AGE_HOURS` (`config.go`, `.env.example`). Perakitan di `app/wire.go` hanya bila storage punya `OwnsURL` (R2).
+- **Berkas:** `store/upload_tickets.go`, `store/sql.go`, `api/media_handler.go`, `storage/purge_worker.go`, `shared/config/config.go`, `app/wire.go`; tes: `store/upload_tickets_test.go`, `api/media_ticket_record_test.go`.
+- **Bukti:** *tes saja*. Tes penyapu (true/dry/off/nilai tak dikenal, umur minimum, tiket terpakai/asing/baru) dan pencatatan tiket lolos di SQLite dan Postgres 16 sementara; `go test ./...` lolos. **Belum:** deploy, penyapuan nyata di bucket produksi, log `[UploadSweep]`.
+- **Temuan terpisah:** `TestShortLinkHandler_CreateAndResolve` (`api/short_link_handler_test.go`) flaky sejak sebelum perubahan ini (gagal 5 dari 20 kali pada kode asli: pratinjau grup publik `nil`); lolos pada suite penuh. Belum diselidiki.
+- **Perlu deploy backend** (tugas pengguna). Sakelar baru mati secara bawaan; urutan pengaktifan di `docs/OPERATIONS.md`.
+
+
 ### Pelepasan media saat hapus postingan Feed / ganti foto profil (5 Nov 2026, A3 sebagian)
 
 - **Masalah:** `FeedService.DeletePost` hanya menghapus baris DB; berkas lampiran tetap di R2 selamanya. Mengganti `avatar_url` juga membiarkan berkas lama. Hanya hapus akun yang membersihkan (lewat `media_purge_queue`).

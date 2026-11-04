@@ -481,6 +481,16 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_media_purge_queue_due ON media_purge_queue(next_attempt_at);`,
 
+		// Tiket unggah langsung (signed URL) yang diterbitkan; dasar penyapu unggahan yatim (UploadOrphanSweeper).
+		`CREATE TABLE IF NOT EXISTS upload_tickets (
+			public_url TEXT PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL DEFAULT '',
+			purpose VARCHAR(16) NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_upload_tickets_created ON upload_tickets(created_at);`,
+
 		// Tabel User Connections (Milestone M-Mobile-10)
 		`CREATE TABLE IF NOT EXISTS user_connections (
 			id VARCHAR(64) PRIMARY KEY,

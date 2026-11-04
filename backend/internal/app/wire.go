@@ -253,11 +253,22 @@ func New(cfg *config.Config) (*Application, error) {
 
 	// Pelepas media: postingan Feed dihapus / foto profil diganti -> berkas lama masuk media_purge_queue (dihapus
 	// PurgeWorker). Hanya aktif bila driver storage bisa memastikan kepemilikan URL (R2); driver lain = tanpa pelepasan.
-	var mediaReleaser *store.MediaReleaser
+	// Tiket unggah dicatat pada kondisi yang sama (butuh OwnsURL) supaya penyapu unggahan yatim punya dasar data;
+	// penyapunya sendiri mati kecuali UPLOAD_ORPHAN_SWEEP=dry|true.
+	var (
+		mediaReleaser *store.MediaReleaser
+		uploadTickets *store.UploadTicketStore
+		orphanSweeper *store.UploadOrphanSweeper
+	)
 	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok && mediaStorage != nil {
 		if o, ok := mediaStorage.(interface{ OwnsURL(string) bool }); ok {
 			mediaReleaser = store.NewMediaReleaser(sqlStore.DB(), sqlStore.DriverName(),
 				store.NewSQLMediaPurgeQueue(sqlStore.DB(), sqlStore.DriverName()), o.OwnsURL)
+			uploadTickets = store.NewUploadTicketStore(sqlStore.DB(), sqlStore.DriverName())
+			if mode := store.ParseOrphanSweepMode(cfg.UploadOrphanSweep); mode != store.OrphanSweepOff {
+				orphanSweeper = store.NewUploadOrphanSweeper(uploadTickets, mediaReleaser, mode, cfg.UploadOrphanMinAge)
+				log.Printf("🧹 Penyapu unggahan yatim AKTIF (mode=%s, umur minimum %v)", mode, cfg.UploadOrphanMinAge)
+			}
 		}
 	}
 
@@ -374,6 +385,9 @@ func New(cfg *config.Config) (*Application, error) {
 	}
 
 	app.MediaHandler = api.NewMediaHandler(mediaStorage, messageStore)
+	if uploadTickets != nil {
+		app.MediaHandler.SetUploadTicketRecorder(uploadTickets)
+	}
 	if userStore != nil {
 		app.MediaHandler.SetUserStore(userStore)
 	}
@@ -483,6 +497,9 @@ func New(cfg *config.Config) (*Application, error) {
 		app.PurgeWorker = storage.NewPurgeWorker(mediaStorage, messageStore, cfg.MediaRetentionDays, cfg.PurgeWorkerInterval)
 		if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
 			app.PurgeWorker.SetQueue(store.NewSQLMediaPurgeQueue(sqlStore.DB(), sqlStore.DriverName()))
+		}
+		if orphanSweeper != nil {
+			app.PurgeWorker.SetSweeper(orphanSweeper)
 		}
 	}
 
