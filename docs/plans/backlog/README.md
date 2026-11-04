@@ -34,6 +34,7 @@
 ## 3. Backlog lain yang belum dimulai (dari serah terima 7 Okt 2026)
 
 - Hardening unggahan Feed (lihat berkas di atas).
+- Nyalakan `SHORT_LINKS_ENABLED` (tautan pendek grup/forum). Build 1.44.0/76 sudah di Play dan per 5 Nov 2026 ±26 dari 27 IP aktif sudah di 1.44.0; keputusan pengguna kapan menyalakan (env VPS + `docker compose up -d`). Detail dan alasan urutan: `docs/OPERATIONS.md` bagian 2 dan 7.
 - Login Google di web (moderator Google-only belum bisa masuk `/admin`).
 - Fase 5 Google: hapus akun tidak aktif (ditunda sengaja; tinjau paling lambat kuartal 2 2027).
 - Tutup `POST /api/auth/register` lama setelah klien baru tersebar; hapus kartu "Saya sudah punya akun" setelah masa transisi (`GOOGLE_LOGIN.md` bagian 14.1).

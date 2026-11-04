@@ -71,7 +71,7 @@ Status eksplisit kapabilitas sistem berdasarkan implementasi aktual di codebase:
 | **AI Memory (Group Chat)** | `PARTIAL` | Interface `ContextSource` telah mendukung `ContextTypeGroup`, namun belum ada penjadwal / trigger summarization on-demand di luar siklus expired forum. |
 | **AI Memory (Personal Chat)** | `NOT IMPLEMENTED` | Terkendala arsitektur E2EE (server hanya memegang ciphertext, tidak memiliki akses plaintext pesan direct chat). Memerlukan pipeline ekspor / LLM di sisi klien. |
 | **AI Memory (Meeting)** | `NOT IMPLEMENTED` | Belum ada pipeline transkrip audio / Speech-to-Text (STT) dan prompt agenda/action items. |
-| **Mobile Client App** | `IMPLEMENTED (Android live di Google Play)` | React Native Expo di `mobile/`. Rilis terakhir **1.43.0 / versionCode 75** (Produksi Play, disetujui 28 Okt 2026). iOS belum dibuild/diuji. Web `chat.wuzzhub.id` **dijeda** (gate popup menuju Google Play). |
+| **Mobile Client App** | `IMPLEMENTED (Android live di Google Play)` | React Native Expo di `mobile/`. Rilis terakhir **1.44.0 / versionCode 76** (tersedia di Play per 5 Nov 2026; memuat pengenalan tautan pendek dan landing pratinjau grup, pembuatan kode ditahan sakelar `SHORT_LINKS_ENABLED`, saat ini mati); sebelumnya 1.43.0 / 75 (Produksi Play, disetujui 28 Okt 2026). iOS belum dibuild/diuji. Web `chat.wuzzhub.id` **dijeda** (gate popup menuju Google Play). |
 | **Passkey / WebAuthn (FIDO2)** | `NOT IMPLEMENTED` | Desain arsitektur telah tercatat di `docs/ARCHITECTURE_AUDIT.md` (Fase 11 Phase 4), namun belum diimplementasikan di kode. |
 
 ---
@@ -336,7 +336,7 @@ Roadmap berbasis milestone terstruktur berdasarkan kapabilitas aktual:
 ```text
 [Milestone 1-5] Fondasi arsitektur, decoupling realtime, push provider, AI Memory, SSOT docs ==> DONE (Sep 2026) ✅
 ─── Track A: Fitur & aplikasi native ─────────────────────────────────────────────────────
-[Milestone 6] Mobile Client App (React Native)                    ==> DONE; Android live di Play (1.43.0/75) ✅
+[Milestone 6] Mobile Client App (React Native)                    ==> DONE; Android live di Play (1.44.0/76) ✅
 [Milestone 7] On-Demand Group Chat Memory Summarization           ==> LATER ⏳
 [Milestone 8] Passkey / WebAuthn Biometric Login (FIDO2)          ==> LATER ⏳
 [Milestone 9] Audio Meeting Memory & Speech-to-Text Pipeline      ==> LATER ⏳
@@ -359,7 +359,7 @@ Sisa pekerjaan dan keputusan yang menunggu: [`plans/backlog/README.md`](plans/ba
 ## 12. Project State Snapshot (2-Minute Briefing)
 
 * **Project ini sekarang apa?**  
-  Aplikasi chat real-time produksi: backend Go di VPS (Docker Compose, DB PostgreSQL Supabase, Redis Upstash, media di Cloudflare R2), klien utama **Android di Google Play** (1.43.0/75), dan web Next.js di Vercel yang **dijeda** (pengecualian: `/u`, `/g`, `/sub`, `/room`, `/transfer/share`, halaman legal, `/delete-account`, `/child-safety`, `/admin`).
+  Aplikasi chat real-time produksi: backend Go di VPS (Docker Compose, DB PostgreSQL Supabase, Redis Upstash, media di Cloudflare R2), klien utama **Android di Google Play** (1.44.0/76), dan web Next.js di Vercel yang **dijeda** (pengecualian: `/u`, `/g`, `/sub`, `/room`, `/transfer/share`, halaman legal, `/delete-account`, `/child-safety`, `/admin`).
 * **Fitur apa saja yang sudah ada?**  
   DM E2EE, grup, forum efemeral dengan AI Memory (uji terbatas per grup), video/voice/gambar/dokumen, panggilan suara WebRTC, login Google, perangkat tertaut, moderasi, Free/Pro forum, game harian Wuzz Grid, linimasa dan koneksi (lihat bagian 2).
 * **Arsitekturnya seperti apa?**  
