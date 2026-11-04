@@ -31,6 +31,29 @@
 
 **Forum Completion Loop (selesai):** uji notifikasi `memory_draft_ready` nyata (warm/background/cold start) dan dedup ketukan; kasus akses dicabut atau draf dihapus/ditinjau admin lain; pencarian arsip; "Lihat Pesan Asli"; membuka whitelist AI Memory.
 
+## 2b. Belum teruji: pelepasan media & penyapu unggahan yatim (5 Nov 2026)
+
+Kode ada di `main` (`78cfd04`, `bf913a0`, `770f38a`). Deploy backend oleh pengguna: `78cfd04` dan `bf913a0` **sudah** (5 Nov 2026); `770f38a` **belum** (per catatan ini; ubah baris ini saat sudah). Rincian teknis: `docs/domains/MEDIA_LIFECYCLE.md`, `docs/progress/BACKEND.md`, `FEED_UPLOAD_HARDENING.md` (A3). Legenda: **terbukti** = dilihat di produksi; **tes saja** = hanya tes otomatis; **belum** = belum dicoba.
+
+| # | Hal | Status | Cara memverifikasi |
+|---|---|---|---|
+| 1 | Hapus postingan Feed mengantrekan lampiran | **terbukti** (log `[MediaRelease] Berkas diantrekan`, 5 Nov 2026 19:05 waktu server) | - |
+| 2 | Berkas dari #1 benar-benar hilang dari R2 | **belum** (menunggu pengguna) | Buka `https://media.wuzzhub.id/902d11b9-59c9-4593-adfc-f0dd0369d6fb.jpg` (jendela penyamaran / Ctrl+Shift+R); harus 404. Log: `[PurgeWorker] Antrean berkas yatim: 1 terhapus`. Siklus `PurgeWorker` jatuh di menit :52 waktu server, jatuh tempo 1 jam setelah diantrekan |
+| 3 | Ganti foto profil melepas foto lama | tes saja | Ganti avatar akun uji, cari `[MediaRelease]` di log, cek link foto lama setelah ±2 jam. Catatan: foto dari login Google bukan milik R2 dan sengaja diabaikan (belum dicoba) |
+| 4 | Tiket unggah tercatat di `upload_tickets` | **belum** (sudah dideploy, belum dilihat; saat dicek tepat setelah deploy belum ada tiket) | Unggah media dari HP, lalu di DB: `SELECT COUNT(*), MIN(created_at) FROM upload_tickets;` (akses DB oleh pengguna). Tidak ada baris log sukses; hanya `[UploadTicket] Gagal` bila galat |
+| 5 | Penyapu unggahan yatim, mode `dry` | **belum** (`UPLOAD_ORPHAN_SWEEP` kosong = mati) | Tunggu ≥ 4 hari sejak deploy `bf913a0` agar ada tiket matang, set `dry`, `docker compose up -d`, baca log `[UploadSweep]`, cocokkan contoh yatim dengan bucket |
+| 6 | Penyapu mode `true` (penghapusan nyata) | **belum**, jangan sebelum #5 bersih | Hanya setelah `dry` tidak menandai berkas yang masih dipakai |
+| 7 | Hapus pesan untuk semua orang melepas lampiran | tes saja, **belum dideploy** | Kirim gambar ke grup uji, hapus untuk semua orang dalam 60 detik, cari `[MediaRelease]`, cek link ±2 jam kemudian (404) |
+| 8 | Kasus tepi #7 | **belum** | (a) pesan yang sudah diteruskan: berkas harus tetap ada; (b) "hapus untuk saya": berkas harus tetap ada; (c) media DM E2EE; (d) video: thumbnail ikut hilang |
+| 9 | Ganti avatar grup melepas avatar lama | tes saja, **belum dideploy** | Ganti avatar grup uji (foto, bukan emoji), cari `[MediaRelease]`, cek link lama |
+| 10 | `cmd/orphanreport` | **terbukti** (dijalankan pengguna di produksi 5 Nov 2026: 20 objek, 5 kandidat yatim 2,3 MiB) | - |
+| 11 | Kelima kandidat yatim dicek manual | **belum** | Buka link tiap kunci; bila ada yang ternyata masih tampil di aplikasi, pemeriksaan rujukan tidak lengkap (kabari AI), lalu boleh dihapus dari dashboard R2 bila memang yatim |
+| 12 | Ukur ulang bucket | **belum** (jadwal: antara 19 Nov dan 3 Des 2026) | `cd backend && ( set -a; source .env; set +a; go run ./cmd/orphanreport -csv ~/kandidat.csv )`; bila kandidat tidak bertambah dari 5, A3 dianggap selesai (lalu `rm ~/kandidat.csv`) |
+
+**Sengaja tidak dicakup:** pesan dan postingan yang dihapus moderator (bukti laporan ditahan 90 hari; keputusan terpisah), media lama Supabase (bukan milik R2, tidak disentuh), dan sapu bucket otomatis (diputuskan tidak dibangun karena nilainya kecil). **Batas yang diketahui:** pemeriksaan rujukan dilakukan saat berkas dilepas, bukan saat dihapus fisik, jadi rujukan baru dalam jeda 1 jam tidak terdeteksi.
+
+**Temuan terpisah, belum diselidiki:** `TestShortLinkHandler_CreateAndResolve` (`backend/internal/api/short_link_handler_test.go`) flaky sejak sebelum pekerjaan ini (gagal 5 dari 20 kali pada kode asli: pratinjau grup publik `nil`); lolos bila seluruh suite dijalankan. Akibatnya `go test ./...` kadang merah tanpa regresi nyata.
+
 ## 3. Backlog lain yang belum dimulai (dari serah terima 7 Okt 2026)
 
 - Hardening unggahan Feed (lihat berkas di atas).
