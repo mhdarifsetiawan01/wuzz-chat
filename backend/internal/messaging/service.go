@@ -38,7 +38,17 @@ type MessageService struct {
 	convRepo    ConversationRepository
 	userRepo    UserLookupRepository
 	broadcaster MessageBroadcaster
+	// releaser (opsional): melepas berkas media pesan yang dihapus untuk semua orang agar dibersihkan PurgeWorker.
+	releaser MediaReleaser
 }
+
+// MediaReleaser melepas berkas media yang tidak lagi dirujuk (best-effort, tidak mengembalikan galat).
+type MediaReleaser interface {
+	Release(ctx context.Context, urls ...string)
+}
+
+// SetMediaReleaser memasang pelepas media. nil = berkas pesan yang dihapus dibiarkan (perilaku lama).
+func (s *MessageService) SetMediaReleaser(r MediaReleaser) { s.releaser = r }
 
 // NewMessageService membuat instance MessageService baru dengan dependensi yang diinjeksi.
 func NewMessageService(
@@ -101,9 +111,21 @@ func (s *MessageService) DeleteMessage(ctx context.Context, input DeleteMessageI
 		return nil, ErrMissingMessageID
 	}
 
+	// "Hapus untuk semua orang" mengosongkan media_url di database, jadi URL lama harus dicatat SEBELUM dihapus
+	// supaya berkasnya bisa dilepas sesudahnya. "Hapus untuk saya" tidak menyentuh berkas (penerima lain masih memakainya).
+	oldMediaURL := ""
+	if input.DeleteForEveryone && s.releaser != nil {
+		if prev, perr := s.msgRepo.GetMessageByID(msgID); perr == nil && prev != nil {
+			oldMediaURL = prev.MediaURL
+		}
+	}
+
 	updatedMsg, err := s.msgRepo.DeleteMessage(msgID, input.UserID, input.DeleteForEveryone)
 	if err != nil {
 		return nil, err
+	}
+	if oldMediaURL != "" {
+		s.releaser.Release(ctx, oldMediaURL)
 	}
 
 	// Jika delete for everyone, broadcast event pembatalan pesan

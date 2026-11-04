@@ -51,6 +51,9 @@ func (m *mockMessageRepo) DeleteMessage(msgID, userID string, deleteForEveryone 
 		return nil, errors.New("pesan tidak ditemukan")
 	}
 	msg.IsDeleted = true
+	if deleteForEveryone {
+		msg.MediaURL = "" // meniru store SQL: media_url dikosongkan saat dihapus untuk semua orang
+	}
 	return msg, nil
 }
 
@@ -539,3 +542,56 @@ func TestMessageService_ToggleReactionAndHistory(t *testing.T) {
 	}
 }
 
+
+type recordingReleaser struct{ urls []string }
+
+func (r *recordingReleaser) Release(_ context.Context, urls ...string) { r.urls = append(r.urls, urls...) }
+
+func TestMessageService_DeleteMessage_ReleasesMedia(t *testing.T) {
+	ctx := context.Background()
+	msgRepo := newMockMessageRepo()
+	svc := messaging.NewMessageService(msgRepo, newMockConvRepo(), nil, &mockBroadcaster{})
+	rel := &recordingReleaser{}
+	svc.SetMediaReleaser(rel)
+
+	seed := func(id string) {
+		msgRepo.messages[id] = &messaging.Message{ID: id, RoomID: "room-1", FromID: "user-1", MediaURL: "https://m.id/" + id + ".jpg"}
+	}
+
+	// Hapus untuk saya: berkas TIDAK boleh dilepas (penerima lain masih memakainya).
+	seed("m1")
+	if _, err := svc.DeleteMessage(ctx, messaging.DeleteMessageInput{MessageID: "m1", UserID: "user-1", DeleteForEveryone: false}); err != nil {
+		t.Fatal(err)
+	}
+	if len(rel.urls) != 0 {
+		t.Fatalf("hapus untuk saya tidak boleh melepas berkas: %v", rel.urls)
+	}
+
+	// Hapus untuk semua orang: URL lama (sebelum dikosongkan) dilepas.
+	seed("m2")
+	if _, err := svc.DeleteMessage(ctx, messaging.DeleteMessageInput{MessageID: "m2", UserID: "user-1", DeleteForEveryone: true}); err != nil {
+		t.Fatal(err)
+	}
+	if len(rel.urls) != 1 || rel.urls[0] != "https://m.id/m2.jpg" {
+		t.Fatalf("want m2 dilepas, got %v", rel.urls)
+	}
+
+	// Pesan teks tanpa media: tidak ada pelepasan.
+	msgRepo.messages["m3"] = &messaging.Message{ID: "m3", RoomID: "room-1", FromID: "user-1", Content: "halo"}
+	if _, err := svc.DeleteMessage(ctx, messaging.DeleteMessageInput{MessageID: "m3", UserID: "user-1", DeleteForEveryone: true}); err != nil {
+		t.Fatal(err)
+	}
+	if len(rel.urls) != 1 {
+		t.Fatalf("pesan tanpa media tidak boleh melepas: %v", rel.urls)
+	}
+
+	// Gagal menghapus: tidak ada pelepasan.
+	seed("m4")
+	msgRepo.deleteErr = errors.New("sudah lewat 1 menit")
+	if _, err := svc.DeleteMessage(ctx, messaging.DeleteMessageInput{MessageID: "m4", UserID: "user-1", DeleteForEveryone: true}); err == nil {
+		t.Fatal("want galat")
+	}
+	if len(rel.urls) != 1 {
+		t.Fatalf("penghapusan gagal tidak boleh melepas: %v", rel.urls)
+	}
+}

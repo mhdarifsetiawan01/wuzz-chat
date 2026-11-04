@@ -16,7 +16,7 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Perpesanan Langsung (Dir
    - Pesan yang diedit memiliki tanda visual `(diedit)` pada bubble obrolan.
 3. **Aturan Hapus Pesan**:
    - **Hapus untuk Saya (*Delete for Me*)**: Kapan saja, hanya menyembunyikan pesan di perangkat pengguna sendiri.
-   - **Hapus untuk Semua Orang (*Delete for Everyone*)**: Maksimal **1 menit** sejak pesan dikirim. Konten di server dan linimasa lawan bicara digantikan oleh placeholder `🚫 Pesan ini telah dihapus`.
+   - **Hapus untuk Semua Orang (*Delete for Everyone*)**: Maksimal **1 menit** sejak pesan dikirim. Konten di server dan linimasa lawan bicara digantikan oleh placeholder `🚫 Pesan ini telah dihapus`. Berkas medianya ikut dijadwalkan dihapus dari storage (sejak 5 Nov 2026) lewat `media_purge_queue`, kecuali masih dirujuk tempat lain (mis. pesan yang meneruskannya); "Hapus untuk Saya" tidak menyentuh berkas. Detail: `MEDIA_LIFECYCLE.md`.
 4. **Penyematan Pesan (*Pin Message*)**:
    - Maksimal **3 pesan disematkan** per ruang percakapan.
    - Menggunakan mekanisme FIFO: jika menyematkan pesan ke-4, pesan pin terlama otomatis dilepas (*unpinned*).

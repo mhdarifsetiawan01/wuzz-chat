@@ -47,7 +47,17 @@ type GroupService struct {
 	userRepo    UserLookupRepository
 	broadcaster GroupBroadcaster
 	notifier    GroupNotifier
+	// releaser (opsional): melepas avatar grup lama yang diganti agar berkasnya dibersihkan PurgeWorker.
+	releaser MediaReleaser
 }
+
+// MediaReleaser melepas berkas media yang tidak lagi dirujuk (best-effort, tidak mengembalikan galat).
+type MediaReleaser interface {
+	Release(ctx context.Context, urls ...string)
+}
+
+// SetMediaReleaser memasang pelepas media. nil = avatar lama dibiarkan (perilaku lama).
+func (s *GroupService) SetMediaReleaser(r MediaReleaser) { s.releaser = r }
 
 // NewGroupService membuat instance baru GroupService.
 func NewGroupService(
@@ -280,12 +290,23 @@ func (s *GroupService) UpdateGroupInfo(ctx context.Context, input UpdateGroupInp
 		input.GroupUsername = &empty
 	}
 
+	// Avatar lama dicatat sebelum diganti supaya bisa dilepas sesudahnya. Avatar kosong berarti "tidak diubah".
+	oldAvatar := ""
+	if s.releaser != nil && input.AvatarURL != "" {
+		if prev, perr := s.repo.GetGroupSummary(input.ConversationID); perr == nil && prev != nil {
+			oldAvatar = prev.AvatarURL
+		}
+	}
+
 	if err := s.repo.UpdateGroupInfo(
 		input.ConversationID, input.ActorUserID,
 		input.Title, input.Description, input.AvatarURL,
 		input.IsPublic, input.GroupUsername,
 	); err != nil {
 		return err
+	}
+	if oldAvatar != "" && oldAvatar != input.AvatarURL {
+		s.releaser.Release(ctx, oldAvatar)
 	}
 
 	if s.broadcaster != nil {

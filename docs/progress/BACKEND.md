@@ -1,5 +1,25 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
+### Pelepasan media pesan dihapus & avatar grup diganti; hasil laporan bucket (5 Nov 2026)
+
+- **Hasil `cmd/orphanreport` di produksi (dijalankan pengguna, *terbukti*):** 20 objek di bucket, 13 dipakai (1,5 MiB), 1 diantre hapus, 1 terlalu baru, 5 kandidat yatim (2,3 MiB; 16-25 Okt 2026, semua sebelum langkah 1-2). Tanda tangan `ListObjectsV2` diterima R2 asli dan kredensial server punya izin list. Keputusan: sapu bucket otomatis tidak dibangun.
+- **Temuan dari kode:** `DeleteMessage(deleteForEveryone)` (`store/sql.go`) dan jalur moderasi mengosongkan `media_url` tanpa menghapus berkas, sehingga berkasnya yatim (dugaan sumber sebagian dari 5 kandidat, belum dibuktikan).
+- **Perubahan:** `messaging.MessageService.SetMediaReleaser` (melepas URL lama pada hapus-untuk-semua-orang; hapus-untuk-saya tidak), `group.GroupService.SetMediaReleaser` (melepas avatar lama pada `UpdateGroupInfo`), dirakit di `app/wire.go`. Memakai `store.MediaReleaser` yang sama (hanya URL milik R2 dan tidak dirujuk tempat lain).
+- **Berkas tes:** `messaging/service_test.go` (`..._ReleasesMedia`), `group/service_test.go` (`..._ReleasesReplacedAvatar`).
+- **Bukti:** *tes saja*. `go test ./...` lolos kecuali `TestShortLinkHandler_CreateAndResolve` yang flaky sejak sebelumnya. **Belum:** deploy, penghapusan nyata di produksi.
+- **Belum dicakup:** pesan dan postingan yang dihapus moderator (bukti laporan).
+- **Perlu deploy backend** (tugas pengguna). Tanpa env baru.
+
+
+### Alat laporan berkas yatim bucket R2 (5 Nov 2026, A3 langkah 3 tahap laporan)
+
+- **Tujuan:** mengukur apakah sapu bucket layak dan apakah pemeriksaan rujukan lengkap, tanpa menghapus apa pun.
+- **Perubahan:** `storage.R2Storage.ListObjects` + `KeyFromURL` (`storage/r2_list.go`), `presignParams.Query` (`storage/sigv4.go`), paket `internal/orphanreport` (`LoadReferences`, `Analyze`, `Report.Write`), perintah `cmd/orphanreport` (flag `-csv`, `-min-age-hours`, `-prefix`, `-max-objects`, `-sample`, `-db-driver`, `-db`). Tidak membaca `.env`, tidak ada kode hapus, DB dibuka READ ONLY (Postgres), CSV berizin 0600.
+- **Berkas tes:** `storage/r2_list_test.go`, `orphanreport/report_test.go`.
+- **Bukti:** *tes saja* + uji ujung-ke-ujung binari dengan server R2 palsu lokal dan SQLite sementara (kategori, CSV, izin berkas). **Terbukti kemudian (5 Nov 2026):** dijalankan pengguna terhadap bucket dan DB produksi, tanda tangan `ListObjectsV2` diterima R2 asli (hasil di entri berikutnya di atas).
+- **Tanpa deploy:** alat dijalankan manual, tidak mengubah server.
+
+
 ### Penyapu unggahan yatim lewat tiket (5 Nov 2026, A3 langkah 2)
 
 - **Masalah:** unggahan langsung ke R2 yang tak pernah dipakai (post dibatalkan, aplikasi ditutup) tidak terlihat server, jadi tidak ada yang membersihkannya.

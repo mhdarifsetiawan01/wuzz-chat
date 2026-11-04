@@ -612,3 +612,63 @@ func TestGroupService_DescriptionLimit(t *testing.T) {
 		t.Errorf("update 500 karakter harus diterima: %v", err)
 	}
 }
+
+type recordingReleaser struct{ urls []string }
+
+func (r *recordingReleaser) Release(_ context.Context, urls ...string) { r.urls = append(r.urls, urls...) }
+
+func TestGroupService_UpdateGroupInfo_ReleasesReplacedAvatar(t *testing.T) {
+	current := "https://m.id/old.jpg"
+	var failUpdate error
+	repo := &mockGroupRepo{
+		getGroupDetailsFunc: func(id, _ string) (*GroupDetails, error) {
+			return &GroupDetails{ID: id, AvatarURL: current}, nil
+		},
+		updateGroupInfoFunc: func(_, _, _, _, avatar string, _ *bool, _ *string) error {
+			if failUpdate != nil {
+				return failUpdate
+			}
+			if avatar != "" {
+				current = avatar
+			}
+			return nil
+		},
+	}
+	svc := NewGroupService(repo, &mockUserRepo{users: make(map[string]*User)}, &mockBroadcaster{}, nil)
+	rel := &recordingReleaser{}
+	svc.SetMediaReleaser(rel)
+	ctx := context.Background()
+	upd := func(avatar string) error {
+		return svc.UpdateGroupInfo(ctx, UpdateGroupInput{ConversationID: "grp_1", ActorUserID: "usr_1", AvatarURL: avatar})
+	}
+
+	// Tanpa avatar baru (mis. hanya ganti judul): tidak ada pelepasan.
+	if err := upd(""); err != nil || len(rel.urls) != 0 {
+		t.Fatalf("tanpa avatar baru: err=%v urls=%v", err, rel.urls)
+	}
+	// URL sama: tidak ada pelepasan.
+	if err := upd("https://m.id/old.jpg"); err != nil || len(rel.urls) != 0 {
+		t.Fatalf("URL sama: err=%v urls=%v", err, rel.urls)
+	}
+	// Gagal memperbarui (bukan admin): tidak ada pelepasan.
+	failUpdate = errors.New("bukan admin")
+	if err := upd("https://m.id/new.jpg"); err == nil || len(rel.urls) != 0 {
+		t.Fatalf("update gagal: err=%v urls=%v", err, rel.urls)
+	}
+	failUpdate = nil
+	// Diganti: yang lama dilepas.
+	if err := upd("https://m.id/new.jpg"); err != nil {
+		t.Fatal(err)
+	}
+	if len(rel.urls) != 1 || rel.urls[0] != "https://m.id/old.jpg" {
+		t.Fatalf("want old dilepas, got %v", rel.urls)
+	}
+	// Avatar emoji (bukan URL berkas) diganti: tetap diteruskan ke releaser, yang menyaring sendiri lewat OwnsURL.
+	current = "emoji:🔥"
+	if err := upd("https://m.id/third.jpg"); err != nil {
+		t.Fatal(err)
+	}
+	if len(rel.urls) != 2 || rel.urls[1] != "emoji:🔥" {
+		t.Fatalf("want emoji diteruskan ke releaser, got %v", rel.urls)
+	}
+}
