@@ -351,10 +351,16 @@ func New(cfg *config.Config) (*Application, error) {
 
 		messagingRepo = messaginginfra.NewSQLMessagingRepository(messageStore, userStore)
 		messagingSvc := messaging.NewMessageService(messagingRepo, messagingRepo, messagingRepo, nil)
+		if mediaReleaser != nil {
+			messagingSvc.SetMediaReleaser(mediaReleaser)
+		}
 		app.ChatHandler = api.NewChatHandlerWithService(messagingSvc, userStore, messageStore, authSvc)
 
 		groupRepo := groupinfra.NewSQLGroupRepository(groupStore, userStore)
 		groupSvc := group.NewGroupService(groupRepo, groupRepo, nil, nil)
+		if mediaReleaser != nil {
+			groupSvc.SetMediaReleaser(mediaReleaser)
+		}
 		forumSvc := group.NewForumService(groupRepo, groupRepo, jobStore, nil, nil)
 		app.GroupHandler = api.NewGroupHandlerWithServices(groupSvc, forumSvc, groupStore, userStore)
 

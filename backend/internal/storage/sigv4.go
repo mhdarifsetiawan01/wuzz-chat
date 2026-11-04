@@ -21,6 +21,7 @@ type presignParams struct {
 	Now         time.Time
 	Expires     time.Duration     // dibulatkan ke detik, 1 detik s/d 7 hari
 	Headers     map[string]string // header tambahan yang ikut ditandatangani (kunci huruf kecil), mis. content-type
+	Query       map[string]string // parameter query tambahan yang ikut ditandatangani, mis. list-type untuk ListObjectsV2
 }
 
 // presignURL mengembalikan "path?query" lengkap dengan X-Amz-Signature. Payload ditandai UNSIGNED-PAYLOAD
@@ -57,6 +58,9 @@ func presignURL(p presignParams) string {
 		"X-Amz-Date":          amzDate,
 		"X-Amz-Expires":       strconv.FormatInt(expires, 10),
 		"X-Amz-SignedHeaders": signedHeaders,
+	}
+	for k, v := range p.Query {
+		query[k] = v
 	}
 	canonQuery := canonicalQuery(query)
 	canonPath := encodePath(p.Path)
