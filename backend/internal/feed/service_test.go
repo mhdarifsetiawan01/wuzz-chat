@@ -359,3 +359,47 @@ func TestFeedService_DeleteAuthorization(t *testing.T) {
 		t.Fatalf("author delete failed: %v", err)
 	}
 }
+
+type fakeReleaser struct{ calls [][]string }
+
+func (f *fakeReleaser) Release(_ context.Context, urls ...string) { f.calls = append(f.calls, urls) }
+
+func TestFeedService_DeletePostReleasesMedia(t *testing.T) {
+	repo := newMockFeedRepository()
+	service := feed.NewFeedService(repo)
+	rel := &fakeReleaser{}
+	service.SetMediaReleaser(rel)
+	ctx := context.Background()
+
+	post, err := service.CreatePost(ctx, "default", "author-1", feed.SystemRoleUser, feed.CreatePostInput{
+		Content: "dengan gambar", MediaURLs: []string{"https://a.id/1.jpg", "https://a.id/2.jpg"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Ditolak -> tidak ada pelepasan.
+	if err := service.DeletePost(ctx, "default", post.ID, "stranger", feed.SystemRoleUser); err != feed.ErrUnauthorizedAction {
+		t.Fatalf("want ErrUnauthorizedAction, got %v", err)
+	}
+	if len(rel.calls) != 0 {
+		t.Fatalf("pelepasan tidak boleh terjadi saat ditolak: %v", rel.calls)
+	}
+
+	// Berhasil -> semua lampiran dilepas sekali.
+	if err := service.DeletePost(ctx, "default", post.ID, "author-1", feed.SystemRoleUser); err != nil {
+		t.Fatal(err)
+	}
+	if len(rel.calls) != 1 || len(rel.calls[0]) != 2 {
+		t.Fatalf("want 1 panggilan dengan 2 URL, got %v", rel.calls)
+	}
+
+	// Postingan tanpa lampiran -> tidak memanggil releaser.
+	p2, _ := service.CreatePost(ctx, "default", "author-1", feed.SystemRoleUser, feed.CreatePostInput{Content: "teks saja"})
+	if err := service.DeletePost(ctx, "default", p2.ID, "author-1", feed.SystemRoleUser); err != nil {
+		t.Fatal(err)
+	}
+	if len(rel.calls) != 1 {
+		t.Fatalf("postingan tanpa lampiran tidak boleh memanggil releaser: %v", rel.calls)
+	}
+}

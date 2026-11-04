@@ -165,3 +165,21 @@ func TestR2Storage_VideoKeysUseVideoPrefix(t *testing.T) {
 		}
 	}
 }
+
+func TestR2Storage_OwnsURL(t *testing.T) {
+	s, _ := NewR2Storage(testR2Config())
+	for url, want := range map[string]bool{
+		"https://media.contoh.id/abc.jpg":                                   true,
+		"https://media.contoh.id/video/abc.mp4":                             true,
+		"https://media.contoh.id/../etc/passwd":                             false,
+		"https://media.contoh.id/":                                          false,
+		"https://asing.id/abc.jpg":                                          false,
+		"https://xyz.supabase.co/storage/v1/object/public/chat-media/a.jpg": false,
+		"/uploads/a.jpg":                                                    false,
+		"":                                                                  false,
+	} {
+		if got := s.OwnsURL(url); got != want {
+			t.Errorf("OwnsURL(%q) = %v, want %v", url, got, want)
+		}
+	}
+}

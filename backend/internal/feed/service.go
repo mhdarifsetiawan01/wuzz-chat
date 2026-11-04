@@ -15,7 +15,17 @@ import (
 // FeedService mengorkestrasi logika bisnis untuk domain Community Social Feed.
 type FeedService struct {
 	repo FeedRepository
+	// releaser (opsional) melepas berkas media postingan yang dihapus agar dibersihkan PurgeWorker.
+	releaser MediaReleaser
 }
+
+// MediaReleaser melepas berkas media yang tidak lagi dirujuk (best-effort, tidak mengembalikan galat).
+type MediaReleaser interface {
+	Release(ctx context.Context, urls ...string)
+}
+
+// SetMediaReleaser memasang pelepas media. nil = postingan dihapus tanpa menyentuh berkasnya.
+func (s *FeedService) SetMediaReleaser(r MediaReleaser) { s.releaser = r }
 
 // NewFeedService membuat instance baru FeedService.
 func NewFeedService(repo FeedRepository) *FeedService {
@@ -310,7 +320,14 @@ func (s *FeedService) DeletePost(ctx context.Context, tenantID, postID, callerUs
 		return ErrUnauthorizedAction
 	}
 
-	return s.repo.DeletePost(ctx, tenantID, postID)
+	if err := s.repo.DeletePost(ctx, tenantID, postID); err != nil {
+		return err
+	}
+	// Setelah baris terhapus: lepas berkas lampirannya (yang masih dirujuk tempat lain dipertahankan oleh releaser).
+	if s.releaser != nil && len(post.MediaURLs) > 0 {
+		s.releaser.Release(ctx, post.MediaURLs...)
+	}
+	return nil
 }
 
 // isSafeMediaURL memastikan URL lampiran hanya http/https absolut (berhost, tanpa userinfo)

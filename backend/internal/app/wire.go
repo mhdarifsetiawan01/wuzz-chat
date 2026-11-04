@@ -251,6 +251,16 @@ func New(cfg *config.Config) (*Application, error) {
 	}
 	app.Storage = mediaStorage
 
+	// Pelepas media: postingan Feed dihapus / foto profil diganti -> berkas lama masuk media_purge_queue (dihapus
+	// PurgeWorker). Hanya aktif bila driver storage bisa memastikan kepemilikan URL (R2); driver lain = tanpa pelepasan.
+	var mediaReleaser *store.MediaReleaser
+	if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok && mediaStorage != nil {
+		if o, ok := mediaStorage.(interface{ OwnsURL(string) bool }); ok {
+			mediaReleaser = store.NewMediaReleaser(sqlStore.DB(), sqlStore.DriverName(),
+				store.NewSQLMediaPurgeQueue(sqlStore.DB(), sqlStore.DriverName()), o.OwnsURL)
+		}
+	}
+
 	// -------------------------------------------------------------------------
 	// TAHAP 3 & 4: Domain Repositories & Application Services
 	// -------------------------------------------------------------------------
@@ -290,6 +300,9 @@ func New(cfg *config.Config) (*Application, error) {
 			}
 		}
 		app.AuthHandler = api.NewAuthHandlerWithService(authSvc, userStore)
+		if mediaReleaser != nil {
+			app.AuthHandler.SetMediaReleaser(mediaReleaser)
+		}
 		if tokenStore != nil {
 			app.AuthHandler.SetTokenStore(tokenStore)
 		}
@@ -419,6 +432,9 @@ func New(cfg *config.Config) (*Application, error) {
 	// Inisialisasi Community Social Feed Engine (Milestone M-Mobile-9.2)
 	if feedRepo != nil {
 		feedSvc := feed.NewFeedService(feedRepo)
+		if mediaReleaser != nil {
+			feedSvc.SetMediaReleaser(mediaReleaser)
+		}
 		app.FeedHandler = api.NewFeedHandlerWithService(feedSvc)
 	}
 

@@ -1,5 +1,15 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
+### Pelepasan media saat hapus postingan Feed / ganti foto profil (5 Nov 2026, A3 sebagian)
+
+- **Masalah:** `FeedService.DeletePost` hanya menghapus baris DB; berkas lampiran tetap di R2 selamanya. Mengganti `avatar_url` juga membiarkan berkas lama. Hanya hapus akun yang membersihkan (lewat `media_purge_queue`).
+- **Perubahan:** `store.MediaReleaser` (`store/media_release.go`) mengantrekan URL ke `media_purge_queue` bila (a) dimiliki storage (`R2Storage.OwnsURL`) dan (b) tidak dirujuk `messages.media_url`/`users.avatar_url`/`conversations.avatar_url`/`feed_posts.media_urls`. Dipasang di `FeedService.DeletePost` (`SetMediaReleaser`) dan `AuthHandler.UpdateProfile` (`SetMediaReleaser`), dirakit di `app/wire.go` hanya bila driver storage punya `OwnsURL` (R2). Best-effort, galat hanya dicatat.
+- **Berkas:** `store/media_release.go`, `feed/service.go`, `api/auth_handler.go`, `storage/r2_storage.go`, `app/wire.go`; tes: `store/media_release_test.go`, `feed/service_test.go`, `api/auth_profile_avatar_release_test.go`, `storage/r2_storage_test.go`.
+- **Bukti:** *tes saja*. `go test ./...` lolos; tes releaser juga lolos di Postgres 16 sementara (`PG_TEST_ADMIN_DSN`). **Belum:** deploy, penghapusan nyata di bucket R2 produksi, log `[MediaRelease]`/`[PurgeWorker]` di produksi.
+- **Belum dicakup:** avatar grup, postingan yang dihapus moderator, unggahan tak terpakai, yatim lama (lihat `FEED_UPLOAD_HARDENING.md` A3).
+- **Perlu deploy backend** (tugas pengguna). Tanpa env baru.
+
+
 ### Ringkasan 19-28 Oktober 2026 (disusun 28 Okt saat merapikan dokumen)
 
 - **Monetisasi forum:** batas Free/Pro, kuota ringkasan AI, `/admin/plans`, grandfather Pro, Perpanjang forum (`POST /api/groups/{id}/subgroups/{subId}/extend`, kolom `conversations.extended_days`). Sakelar `FORUM_LIMITS_ENABLED` dan `MEMORY_QUOTA_ENABLED` menyala di produksi.

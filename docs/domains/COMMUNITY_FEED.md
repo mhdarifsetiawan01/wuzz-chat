@@ -32,6 +32,7 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Community Social Feed & 
    - **Penghapusan Postingan**: Sebuah postingan HANYA dapat dihapus jika pemanggil adalah pemilik asli postingan (`post.user_id == caller.user_id`) ATAU staf (`wuzz_admin` / `wuzz_moderator`) dalam tenant yang sama (`caller.tenant_id == post.tenant_id`).
    - Upaya penghapusan oleh pihak lain akan ditolak dengan status `403 Forbidden` (`ErrUnauthorizedPostAction`).
    - Penghapusan postingan memicu pembersihan menyeluruh (*cascade delete*) pada `feed_likes` dan `feed_comments` terkait.
+   - Berkas lampiran (`media_urls`) ikut dijadwalkan dihapus dari storage lewat `media_purge_queue` (sejak 5 Nov 2026), kecuali masih dirujuk tempat lain. Detail dan batasannya: `docs/domains/MEDIA_LIFECYCLE.md`.
 6. **Performa & Cursor-Based Pagination**:
    - Linimasa feed publik menggunakan pagination berbasis kursor waktu (`before` timestamp/ID, default `limit=20`, maks `50`).
    - Pengurutan linimasa: `is_pinned DESC, created_at DESC` yang didukung indeks komposit `(tenant_id, is_pinned DESC, created_at DESC)`. Postingan yang di-pin akan selalu berada di urutan teratas.
