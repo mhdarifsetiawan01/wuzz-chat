@@ -48,6 +48,12 @@ type Config struct {
 	ForumLimitsEnabled      bool
 	// ShortLinksEnabled mengizinkan pembuatan tautan pendek grup (env SHORT_LINKS_ENABLED=true); mati = klien memakai tautan panjang.
 	ShortLinksEnabled bool
+	// Star & grup berbayar (V2 Tahap 2a, bawaan mati). StarsEnabled: dompet, riwayat, dan endpoint admin Star.
+	// PaidGroupsEnabled: grup berbayar (butuh StarsEnabled). StarsTestGrants: staf boleh mengkreditkan Star uji;
+	// jangan dinyalakan di produksi setelah ada pengguna nyata.
+	StarsEnabled      bool
+	PaidGroupsEnabled bool
+	StarsTestGrants   bool
 	// MemoryQuotaEnabled menyalakan kuota ringkasan AI per paket (env MEMORY_QUOTA_ENABLED=true). Default mati.
 	MemoryQuotaEnabled      bool
 	// GameEnabled menyalakan game harian Wuzz Grid (env GAME_ENABLED=true). Default mati: endpoint /api/game/* menolak.
@@ -137,6 +143,9 @@ func Load() (*Config, error) {
 		MemoryEnabledGroups:     strings.TrimSpace(os.Getenv("MEMORY_ENABLED_GROUPS")),
 		ForumLimitsEnabled:      isTrueEnv(os.Getenv("FORUM_LIMITS_ENABLED")),
 		ShortLinksEnabled:       isTrueEnv(os.Getenv("SHORT_LINKS_ENABLED")),
+		StarsEnabled:            isTrueEnv(os.Getenv("STARS_ENABLED")),
+		PaidGroupsEnabled:       isTrueEnv(os.Getenv("STARS_ENABLED")) && isTrueEnv(os.Getenv("PAID_GROUPS_ENABLED")),
+		StarsTestGrants:         isTrueEnv(os.Getenv("STARS_ENABLED")) && isTrueEnv(os.Getenv("STARS_TEST_GRANTS")),
 		MemoryQuotaEnabled:      isTrueEnv(os.Getenv("MEMORY_QUOTA_ENABLED")),
 		GameEnabled:             isTrueEnv(os.Getenv("GAME_ENABLED")),
 		GameReminderTime:        strings.TrimSpace(os.Getenv("GAME_REMINDER_TIME")),

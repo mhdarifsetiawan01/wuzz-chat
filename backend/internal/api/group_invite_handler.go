@@ -20,6 +20,22 @@ import (
 //   POST /api/invites/{token}/join     ajukan gabung
 //   DELETE /api/invites/{token}/request batalkan pengajuan sendiri
 
+// SetStarsHandler memasang grup berbayar. Anggota yang masuk lewat pembayaran disiarkan seperti anggota baru lainnya.
+func (h *GroupHandler) SetStarsHandler(sh *StarsHandler) {
+	h.stars = sh
+	if sh == nil {
+		return
+	}
+	sh.SetOnJoined(func(groupID, userID string) {
+		if h.hub == nil {
+			return
+		}
+		h.hub.InvalidateRoomMembersCache(groupID)
+		h.hub.BroadcastRoomUsers(groupID)
+		h.hub.BroadcastGroupSystemEvent(groupID, "group_member_joined", h.resolveDisplayName(userID)+" bergabung ke grup.")
+	})
+}
+
 // SetInviteService memasang layanan undangan. nil = endpoint undangan menjawab 404 (fitur tidak dirakit).
 func (h *GroupHandler) SetInviteService(svc *group.InviteService) {
 	h.inviteSvc = svc
@@ -65,6 +81,8 @@ func writeInviteError(w http.ResponseWriter, err error) {
 		writeInviteJSON(w, http.StatusTooManyRequests, map[string]string{"error": "Grup ini sedang menerima terlalu banyak permohonan. Coba lagi nanti.", "code": "too_many_pending"})
 	case errors.Is(err, store.ErrJoinRequestNotFound):
 		writeInviteJSON(w, http.StatusNotFound, map[string]string{"error": "Permohonan tidak ditemukan", "code": "request_not_found"})
+	case errors.Is(err, store.ErrPaymentRequired):
+		writeInviteJSON(w, http.StatusPaymentRequired, map[string]string{"error": "Grup ini berbayar. Bayar dengan Star untuk bergabung.", "code": "payment_required"})
 	case errors.Is(err, store.ErrJoinRequestProcessed):
 		writeInviteJSON(w, http.StatusConflict, map[string]string{"error": "Permohonan sudah diproses", "code": "request_processed"})
 	default:
@@ -176,6 +194,8 @@ func (h *GroupHandler) RouteInviteRequest(w http.ResponseWriter, r *http.Request
 			status = http.StatusOK
 		}
 		writeInviteJSON(w, status, res)
+	case len(parts) == 2 && parts[1] == "purchase" && r.Method == http.MethodPost && h.stars.PaidGroupsEnabled():
+		h.stars.HandlePurchase(w, r, claims, token)
 	case len(parts) == 2 && parts[1] == "request" && r.Method == http.MethodDelete:
 		if err := h.inviteSvc.CancelRequest(r.Context(), token, claims.UserID); err != nil {
 			writeInviteError(w, err)

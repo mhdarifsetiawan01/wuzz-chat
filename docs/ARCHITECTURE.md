@@ -27,6 +27,11 @@ erDiagram
     CONVERSATIONS ||--o{ CONVERSATION_JOIN_REQUESTS : receives
     CONVERSATIONS ||--o{ GROUP_INVITE_LINKS : invites_via
     GROUP_INVITE_LINKS ||--o{ CONVERSATION_JOIN_REQUESTS : source_of
+    USERS ||--|| STAR_WALLETS : holds
+    USERS ||--o{ STAR_LEDGER : records
+    CONVERSATIONS ||--o| PAID_GROUPS : priced_by
+    STAR_LEDGER ||--o| CREATOR_EARNINGS : credits
+    STAR_LEDGER ||--o| PAID_GROUP_ACCESS : grants
     CONVERSATIONS ||--o{ MESSAGES : has
     CONVERSATIONS ||--o{ PINNED_MESSAGES : pins
     MESSAGES ||--o{ PINNED_MESSAGES : pinned_as
@@ -158,6 +163,59 @@ erDiagram
         varchar invite_link_id FK "tautan undangan yang dipakai (NULL untuk forum)"
         timestamp created_at "waktu pengajuan terakhir (diperbarui saat diajukan ulang)"
         timestamp updated_at "waktu perubahan status (dasar jeda 24 jam setelah ditolak)"
+    }
+
+    STAR_LEDGER {
+        varchar id PK "stl_<UUID>; append-only"
+        varchar user_id FK
+        int delta "Star bertanda"
+        varchar kind "purchase/spend/refund/test_grant/adjustment"
+        varchar idempotency_key UK
+        varchar group_id
+        varchar ref_id "refund -> spend"
+        varchar created_by
+        timestamp created_at
+    }
+
+    STAR_WALLETS {
+        varchar user_id PK "PK (tenant_id, user_id)"
+        int balance "CHECK >= 0; = SUM(delta)"
+    }
+
+    CREATOR_EARNINGS {
+        varchar id PK
+        varchar creator_id FK
+        varchar ledger_id UK "spend"
+        bigint amount_minor "uang, bukan Star"
+        varchar currency
+        int platform_pct "snapshot (juga store_fee_pct, star_value_minor)"
+        varchar status "pending/reversed/paid"
+        timestamp available_at "akhir masa tahan"
+    }
+
+    PAID_GROUPS {
+        varchar group_id PK "grp_ privat"
+        varchar creator_id FK "pembuat grup, mitra aktif"
+        int price_stars
+        boolean enabled
+    }
+
+    PAID_GROUP_CREATORS {
+        varchar user_id PK "PK (tenant_id, user_id); mitra kreator"
+        varchar status "active/revoked"
+        varchar granted_by "wuzz_admin"
+    }
+
+    STAR_SETTINGS {
+        varchar setting_key PK "PK (tenant_id, setting_key)"
+        text setting_value "angka sementara bisa diubah tanpa deploy"
+    }
+
+    PAID_GROUP_ACCESS {
+        varchar ledger_id PK
+        varchar group_id
+        varchar user_id
+        int stars_paid
     }
 
     GROUP_INVITE_LINKS {

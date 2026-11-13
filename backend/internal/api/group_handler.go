@@ -27,6 +27,8 @@ type GroupHandler struct {
 	memoryHandler *MemoryHandler
 	// inviteSvc (opsional): tautan undangan dan pengajuan gabung grup utama privat (SetInviteService).
 	inviteSvc *group.InviteService
+	// stars (opsional): grup berbayar (/paid) dan pembayaran akses (/api/invites/{token}/purchase).
+	stars *StarsHandler
 }
 
 // NewGroupHandler membuat instance baru GroupHandler dengan adapter service internal (backward-compatible).
@@ -307,6 +309,16 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// 6c. /api/groups/{grp_id}/paid (grup berbayar, V2 Tahap 2a; PAID_GROUPS_ENABLED)
+	if len(parts) == 2 && parts[1] == "paid" {
+		if !h.stars.PaidGroupsEnabled() || !strings.HasPrefix(groupID, "grp_") {
+			http.NotFound(w, r)
+			return
+		}
+		h.stars.HandleGroupPaid(w, r, claims, groupID)
+		return
+	}
+
 	// 7. /api/groups/{id}/join-request
 	if len(parts) == 2 && parts[1] == "join-request" {
 		if r.Method == http.MethodPost {
@@ -567,6 +579,10 @@ func (h *GroupHandler) handleUpdateGroup(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		if errors.Is(err, store.ErrUnauthorizedGroup) {
 			writeGroupJSONError(w, http.StatusForbidden, "Hanya Admin atau Creator yang dapat memperbarui info grup")
+			return
+		}
+		if errors.Is(err, store.ErrPaidGroupPublic) {
+			writeInviteJSON(w, http.StatusConflict, map[string]string{"error": store.ErrPaidGroupPublic.Error(), "code": "paid_group_public"})
 			return
 		}
 		if errors.Is(err, store.ErrGroupUsernameTaken) {

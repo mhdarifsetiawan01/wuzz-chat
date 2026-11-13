@@ -1,5 +1,14 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
+### Star & grup privat berbayar, Wuzz Chat V2 Tahap 2a (14 Nov 2026, di `dev`, belum dideploy, sakelar mati)
+
+- **Tujuan:** pondasi Star tanpa Play Billing (keputusan pengguna 14 Nov 2026; Tahap 0 belum, angka sementara). Desain: `docs/plans/backlog/STARS_PAID_GROUPS.md`; aturan: `docs/domains/STARS_WALLET.md`.
+- **Perubahan:** tabel `star_settings`, `star_wallets` (`CHECK balance >= 0`), `star_ledger` (append-only, `idempotency_key` unik), `creator_earnings` (uang + snapshot tarif), `paid_group_creators`, `paid_groups`, `paid_group_access` (`store/sql.go`); `store.StarStore` (`store/stars.go`): pengaturan, dompet, kredit uji, refund, mitra kreator, grup berbayar, bayar akses; integrasi tautan undangan mode `paid` (`InviteLinkStore.SetStarStore`; pratinjau harga + saldo; `join` approval 402); `GroupService.SetPaidGroupChecker` (grup berbayar tidak bisa publik); `api/stars_handler.go` + rute di `group_handler.go`, `group_invite_handler.go`, `app/router.go`; sakelar `STARS_ENABLED`, `PAID_GROUPS_ENABLED`, `STARS_TEST_GRANTS` (`config.go`, `.env.example`); penghapus akun menghapus `paid_groups` grup yang dihapus dan **mempertahankan** catatan keuangan (K1).
+- **Celah yang ditemukan dan ditutup sebelum commit:** dua pembayaran bersamaan ke grup yang sama dengan kunci idempoten berbeda bisa memotong saldo dua kali. Kini keanggotaan disisipkan lebih dulu sebagai kunci; terbukti di Postgres (8 permintaan bersamaan = sekali potong, diulang 10x).
+- **Tes:** `store/stars_test.go` (pengaturan + rumus bagian kreator 100 Star = Rp6.800 dari Rp10.000; kredit uji idempoten; aturan K2/K3, mitra dicabut, reset tautan; bayar: saldo kurang, harga berubah, tanpa kunci, idempoten, sudah anggota, masa tahan pending → tersedia, refund sekali, keanggotaan tetap, dikeluarkan = bayar lagi; pembayaran bersamaan + invarian `balance = SUM(ledger)`), `api/stars_handler_test.go` (sakelar mati = 404, admin saja, alur HTTP lengkap, kredit uji ikut sakelar, PATCH publik 409).
+- **Bukti:** *tes saja*. `go vet ./...` dan `go test ./...` lolos di SQLite dan Postgres 16 sementara. Di SQLite sebagian transaksi bersamaan ditolak `SQLITE_BUSY` (keterbatasan lama: `busy_timeout` hanya terpasang di satu koneksi pool); tes menerima itu di SQLite dan menuntut hasil tepat di Postgres.
+- **Belum:** deploy (aman: semua sakelar mati, migrasi hanya menambah tabel), `/admin` web, mobile, Play Billing (2b), uji di produksi. **Jangan menyalakan sakelar untuk pengguna** sebelum Tahap 0 dan deklarasi Play.
+
 ### Teks notifikasi push sistem lewat FCM (14 Nov 2026, di `dev`, belum dideploy)
 
 - **Masalah (terbukti di HP saat uji undangan):** notifikasi permohonan bergabung (grup dan forum) dan status permohonan tampil "Pesan baru diterima", karena FCM data-only tidak membawa teks.

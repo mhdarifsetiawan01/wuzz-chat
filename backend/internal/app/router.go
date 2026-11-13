@@ -370,6 +370,19 @@ func (a *Application) setupRouter() http.Handler {
 		}))
 	}
 
+	// Star & grup berbayar (V2 Tahap 2a): dompet milik pemanggil dan alat admin. Sakelar mati = handler nil = 404.
+	if a.StarsHandler != nil {
+		starsAdminLimit := api.UserRateLimitMsg(ratelimit.NewIPRateLimiter(60, time.Minute), "Terlalu banyak permintaan, coba lagi sebentar lagi.", 60)
+		for _, p := range []string{"/api/me/stars", "/api/me/stars/"} {
+			mux.HandleFunc(p, withCORS(func(w http.ResponseWriter, r *http.Request) {
+				auth.RequireJWT()(http.HandlerFunc(a.StarsHandler.HandleMe)).ServeHTTP(w, r)
+			}))
+		}
+		mux.HandleFunc("/api/admin/stars/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			auth.RequireJWT()(starsAdminLimit(http.HandlerFunc(a.StarsHandler.HandleAdmin))).ServeHTTP(w, r)
+		}))
+	}
+
 	// Status paket milik pemanggil (batas forum aktif, durasi yang diizinkan).
 	if a.EntitlementHandler != nil {
 		mux.HandleFunc("/api/me/entitlement", withCORS(func(w http.ResponseWriter, r *http.Request) {

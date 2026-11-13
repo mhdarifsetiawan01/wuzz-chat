@@ -505,6 +505,88 @@ func (s *SQLMessageStore) autoMigrate() error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS uq_group_invite_token ON group_invite_links(token);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS uq_group_invite_active ON group_invite_links(conversation_id) WHERE revoked_at IS NULL;`,
 
+		// Star & grup privat berbayar (V2 Tahap 2a). Catatan keuangan: tidak dihapus penghapus akun (keputusan K1).
+		`CREATE TABLE IF NOT EXISTS star_settings (
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			setting_key VARCHAR(64) NOT NULL,
+			setting_value TEXT NOT NULL,
+			updated_by VARCHAR(64) NOT NULL DEFAULT '',
+			updated_at TIMESTAMP NOT NULL,
+			PRIMARY KEY (tenant_id, setting_key)
+		);`,
+		`CREATE TABLE IF NOT EXISTS star_wallets (
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			balance INTEGER NOT NULL DEFAULT 0 CHECK (balance >= 0),
+			updated_at TIMESTAMP NOT NULL,
+			PRIMARY KEY (tenant_id, user_id)
+		);`,
+		`CREATE TABLE IF NOT EXISTS star_ledger (
+			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			delta INTEGER NOT NULL,
+			kind VARCHAR(16) NOT NULL,
+			idempotency_key VARCHAR(200) NOT NULL,
+			group_id VARCHAR(128) NOT NULL DEFAULT '',
+			ref_id VARCHAR(64) NOT NULL DEFAULT '',
+			reason TEXT NOT NULL DEFAULT '',
+			created_by VARCHAR(64) NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS uq_star_ledger_idem ON star_ledger(idempotency_key);`,
+		`CREATE INDEX IF NOT EXISTS idx_star_ledger_user ON star_ledger(tenant_id, user_id, created_at);`,
+		`CREATE TABLE IF NOT EXISTS creator_earnings (
+			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			creator_id VARCHAR(64) NOT NULL,
+			group_id VARCHAR(128) NOT NULL,
+			buyer_id VARCHAR(64) NOT NULL,
+			ledger_id VARCHAR(64) NOT NULL,
+			stars INTEGER NOT NULL,
+			gross_minor BIGINT NOT NULL,
+			amount_minor BIGINT NOT NULL,
+			currency VARCHAR(3) NOT NULL,
+			star_value_minor BIGINT NOT NULL,
+			store_fee_pct INTEGER NOT NULL,
+			platform_pct INTEGER NOT NULL,
+			status VARCHAR(16) NOT NULL DEFAULT 'pending',
+			available_at TIMESTAMP NOT NULL,
+			reversed_at TIMESTAMP DEFAULT NULL,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS uq_creator_earnings_ledger ON creator_earnings(ledger_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_creator_earnings_creator ON creator_earnings(tenant_id, creator_id, created_at);`,
+		`CREATE TABLE IF NOT EXISTS paid_group_creators (
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			status VARCHAR(16) NOT NULL DEFAULT 'active',
+			granted_by VARCHAR(64) NOT NULL DEFAULT '',
+			revoked_by VARCHAR(64) NOT NULL DEFAULT '',
+			note TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			PRIMARY KEY (tenant_id, user_id)
+		);`,
+		`CREATE TABLE IF NOT EXISTS paid_groups (
+			group_id VARCHAR(128) PRIMARY KEY,
+			creator_id VARCHAR(64) NOT NULL,
+			price_stars INTEGER NOT NULL,
+			enabled BOOLEAN NOT NULL DEFAULT FALSE,
+			updated_by VARCHAR(64) NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_paid_groups_creator ON paid_groups(creator_id);`,
+		`CREATE TABLE IF NOT EXISTS paid_group_access (
+			ledger_id VARCHAR(64) PRIMARY KEY,
+			group_id VARCHAR(128) NOT NULL,
+			user_id VARCHAR(64) NOT NULL,
+			stars_paid INTEGER NOT NULL,
+			created_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_paid_group_access_group_user ON paid_group_access(group_id, user_id);`,
+
 		// Tabel User Connections (Milestone M-Mobile-10)
 		`CREATE TABLE IF NOT EXISTS user_connections (
 			id VARCHAR(64) PRIMARY KEY,
