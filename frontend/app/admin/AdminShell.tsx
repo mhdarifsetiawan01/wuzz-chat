@@ -114,6 +114,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           {role === 'wuzz_admin' && (
             <Link href="/admin/plans" className={pathname.startsWith('/admin/plans') ? 'is-active' : ''}>Paket</Link>
           )}
+          {role === 'wuzz_admin' && (
+            <Link href="/admin/stars" className={pathname.startsWith('/admin/stars') ? 'is-active' : ''}>Star</Link>
+          )}
         </nav>
         <main className="adm-main">{children}</main>
       </div>

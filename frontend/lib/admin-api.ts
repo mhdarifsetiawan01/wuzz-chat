@@ -3,6 +3,7 @@
 // sebenarnya ada di backend; peran dari JWT di sini hanya untuk menyembunyikan UI.
 
 import type { AdminEntitlementRow, AdminEntitlementStatus, GrandfatherPreview } from './adminPlans'
+import type { PaidCreator, StarFlags, StarSettings, StarWallet } from './adminStars'
 
 const TOKEN_KEY = 'wuzz_admin_token'
 
@@ -409,4 +410,45 @@ export function applyGrandfather(days: number, expectedEligible: number, note: s
     '/api/admin/entitlements/grandfather',
     { method: 'POST', body: JSON.stringify({ days, confirm: true, expected_eligible: expectedEligible, note }) },
   )
+}
+
+// ── Star & grup berbayar (V2 Tahap 2a; khusus wuzz_admin) ───────────────────────────────────────────────────────
+// Sakelar STARS_ENABLED mati = semua endpoint 404.
+
+export function getStarSettings() {
+  return adminFetch<{ settings: StarSettings; flags: StarFlags }>('/api/admin/stars/settings')
+}
+
+export function updateStarSettings(settings: StarSettings) {
+  return adminFetch<{ settings: StarSettings }>('/api/admin/stars/settings', { method: 'PUT', body: JSON.stringify(settings) })
+}
+
+export function listPaidCreators() {
+  return adminFetch<{ creators: PaidCreator[] }>('/api/admin/stars/creators')
+}
+
+// user = ID atau @username.
+export function setPaidCreator(user: string, active: boolean, note: string) {
+  return adminFetch<{ user_id: string; active: boolean }>('/api/admin/stars/creators', {
+    method: 'POST',
+    body: JSON.stringify({ user: user.trim(), active, note }),
+  })
+}
+
+export function getStarUser(ref: string) {
+  return adminFetch<{ user_id: string; wallet: StarWallet }>(`/api/admin/stars/users/${encodeURIComponent(ref.trim().replace(/^@/, ''))}`)
+}
+
+export function grantTestStars(ref: string, stars: number, reason: string, idempotencyKey: string) {
+  return adminFetch<{ user_id: string; balance: number }>(
+    `/api/admin/stars/users/${encodeURIComponent(ref.trim().replace(/^@/, ''))}/test-grant`,
+    { method: 'POST', body: JSON.stringify({ stars, reason }), headers: { 'Idempotency-Key': idempotencyKey } },
+  )
+}
+
+export function refundStarSpend(spendId: string, reason: string) {
+  return adminFetch<{ balance: number }>('/api/admin/stars/refund', {
+    method: 'POST',
+    body: JSON.stringify({ spend_id: spendId, reason }),
+  })
 }
