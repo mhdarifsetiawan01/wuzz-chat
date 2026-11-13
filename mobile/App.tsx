@@ -35,6 +35,7 @@ import { ConversationItem, ConnectionStatusResponse } from './src/api/types';
 import { getUserProfile, startDirectChat } from './src/api/users';
 import { connectionsApi } from './src/api/connections';
 import { isShortCode, linksApi } from './src/api/links';
+import { isInviteToken } from './src/api/invites';
 import { AccountSuspendedScreen, GoogleLinkRequiredScreen, GoogleOnboardingScreen, LoginScreen, RegisterScreen } from './src/screens';
 import type { GooglePending } from './src/screens/GoogleOnboardingScreen';
 import {
@@ -264,7 +265,22 @@ function AppContent() {
           }
         }
 
-        // 2. Match Group / Subgroup Forum / Room link:
+        // 2. Tautan undangan grup privat: https://chat.wuzzhub.id/join/<token> atau wuzzchat://join/<token>
+        const inviteMatch = url.match(/(?:\/|wuzzchat:\/\/)join\/([^/?#]+)/i);
+        if (inviteMatch && inviteMatch[1]) {
+          const token = decodeURIComponent(inviteMatch[1]).trim();
+          if (!isInviteToken(token)) {
+            showAlert('Tautan Tidak Valid', 'Tautan undangan ini tidak lengkap atau rusak. Minta tautan baru kepada admin grup.');
+            return;
+          }
+          const isNavReady = await ensureNavReady();
+          if (isNavReady) {
+            navigationRef.navigate('Invite', { token });
+          }
+          return;
+        }
+
+        // 3. Match Group / Subgroup Forum / Room link:
         // Examples:
         // - https://chat.wuzzhub.id/g/grp_xxx or wuzzchat://g/grp_xxx
         // - https://chat.wuzzhub.id/sub/sub_xxx or wuzzchat://sub/sub_xxx

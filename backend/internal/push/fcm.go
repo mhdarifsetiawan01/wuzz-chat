@@ -207,6 +207,31 @@ func (p *FCMv1PushProvider) getAccessToken(ctx context.Context) (string, error) 
 	return p.accessToken, nil
 }
 
+// FCMNotifTextKey membawa teks notifikasi sistem (bukan pesan chat) ke aplikasi mobile, yang menampilkannya lewat
+// background task. Sengaja bukan "body": kunci "title"/"body" di root data bisa membuat notifikasi mentah otomatis.
+const FCMNotifTextKey = "notif_text"
+
+// buildFCMData menyusun data attributes FCM v1 (semua value wajib string).
+// Catatan: Jangan sertakan key "title" atau "body" di root data map agar Expo/Android Native FCM receiver
+// tidak membuat notifikasi mentah otomatis di background, melainkan didekripsi murni oleh background task.
+// Teks notifikasi (Body) hanya ikut sebagai notif_text untuk push TANPA kunci encrypted_content, yaitu notifikasi
+// sistem (permohonan bergabung, status permohonan, memori). Push pesan chat selalu membawa encrypted_content
+// (juga saat kosong), jadi teks/cuplikan pesan tidak pernah dikirim polos lewat jalur ini.
+func buildFCMData(p NotificationPayload) map[string]string {
+	fcmData := make(map[string]string)
+	for k, v := range p.Data {
+		fcmData[k] = fmt.Sprintf("%v", v)
+	}
+	if fcmData["sender_nickname"] == "" {
+		fcmData["sender_nickname"] = p.Title
+	}
+	if _, isChat := p.Data["encrypted_content"]; !isChat && p.Body != "" && fcmData[FCMNotifTextKey] == "" {
+		fcmData[FCMNotifTextKey] = p.Body
+	}
+	fcmData["timestamp"] = fmt.Sprintf("%d", p.Timestamp)
+	return fcmData
+}
+
 // Send mengirimkan push notification via FCM HTTP v1 API.
 func (p *FCMv1PushProvider) Send(ctx context.Context, sub store.PushSubscription, payload []byte) error {
 	rawEndpoint := strings.TrimSpace(sub.Endpoint)
@@ -233,17 +258,7 @@ func (p *FCMv1PushProvider) Send(ctx context.Context, sub store.PushSubscription
 		}
 	}
 
-	// Susun data attributes (semua value data field pada FCM v1 wajib string)
-	// Catatan: Jangan sertakan key "title" atau "body" di root data map agar Expo/Android Native FCM receiver
-	// tidak membuat notifikasi mentah otomatis di background, melainkan didekripsi murni oleh background task.
-	fcmData := make(map[string]string)
-	for k, v := range notifPayload.Data {
-		fcmData[k] = fmt.Sprintf("%v", v)
-	}
-	if fcmData["sender_nickname"] == "" {
-		fcmData["sender_nickname"] = notifPayload.Title
-	}
-	fcmData["timestamp"] = fmt.Sprintf("%d", notifPayload.Timestamp)
+	fcmData := buildFCMData(notifPayload)
 
 	// Susun FCM HTTP v1 Message Payload (Data-Only Silent Push untuk Background Decryption)
 	type fcmAndroidConfig struct {

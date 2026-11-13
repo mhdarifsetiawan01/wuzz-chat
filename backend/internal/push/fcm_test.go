@@ -136,3 +136,35 @@ func TestFCMv1PushProvider_Lifecycle(t *testing.T) {
 		t.Fatalf("expected ErrSubscriptionExpired, got: %v", errExpired)
 	}
 }
+
+// Notifikasi sistem (tanpa encrypted_content) membawa teksnya sebagai notif_text; push pesan chat tidak pernah,
+// juga saat encrypted_content kosong (media). Kunci "title"/"body" tidak pernah ada di root data.
+func TestBuildFCMData_NotifTextOnlyForSystemPush(t *testing.T) {
+	sys := buildFCMData(NotificationPayload{
+		Title: "Permohonan Bergabung Grup", Body: "Ma Stw meminta bergabung ke grup 'Grup Tes'",
+		Data: map[string]interface{}{"url": "/chat?room=grp_x"},
+	})
+	if sys[FCMNotifTextKey] != "Ma Stw meminta bergabung ke grup 'Grup Tes'" || sys["sender_nickname"] != "Permohonan Bergabung Grup" {
+		t.Fatalf("push sistem: %v", sys)
+	}
+	for _, chat := range []map[string]interface{}{
+		{"room_id": "dm_x", "encrypted_content": "e2ee:abc"},
+		{"room_id": "grp_x", "encrypted_content": "", "media_type": "image"},
+	} {
+		d := buildFCMData(NotificationPayload{Title: "Alice", Body: "isi pesan rahasia", Data: chat})
+		if _, ok := d[FCMNotifTextKey]; ok {
+			t.Fatalf("push chat tidak boleh membawa notif_text: %v", d)
+		}
+	}
+	for _, d := range []map[string]string{sys} {
+		if _, ok := d["body"]; ok {
+			t.Fatalf("kunci body tidak boleh ada di root data: %v", d)
+		}
+		if _, ok := d["title"]; ok {
+			t.Fatalf("kunci title tidak boleh ada di root data: %v", d)
+		}
+	}
+	if d := buildFCMData(NotificationPayload{Title: "X"}); d[FCMNotifTextKey] != "" {
+		t.Fatalf("body kosong tidak boleh membuat notif_text: %v", d)
+	}
+}

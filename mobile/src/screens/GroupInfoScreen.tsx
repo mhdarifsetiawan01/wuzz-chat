@@ -32,6 +32,8 @@ import { EditGroupInfoModal } from '../components/EditGroupInfoModal';
 import { SubGroupListModal } from '../components/SubGroupListModal';
 import { MemoryArchiveModal } from '../components/memory/MemoryArchiveModal';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
+import { InviteLinkSection, buildInviteShareMessage } from '../components/InviteLinkSection';
+import { invitesApi } from '../api/invites';
 import { useAuth } from '../context/AuthContext';
 import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
 import { IconText } from '../components/IconText';
@@ -172,6 +174,22 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
     return () => groupAbortRef.current?.abort();
   }, [loadGroupData]);
 
+  // Muat ulang daftar anggota saja (mis. setelah permohonan bergabung disetujui) tanpa mengosongkan layar,
+  // agar lembar permohonan yang sedang terbuka tidak ikut tertutup.
+  const reloadMembers = useCallback(async () => {
+    try {
+      const memberList = await groupsApi.getGroupMembers(groupId);
+      const memberArray = Array.isArray(memberList)
+        ? memberList
+        : (memberList as any)?.members && Array.isArray((memberList as any).members)
+        ? (memberList as any).members
+        : [];
+      setMembers(memberArray);
+    } catch (err) {
+      console.warn('[GroupInfoScreen] Failed to reload members:', err);
+    }
+  }, [groupId]);
+
 
   useEffect(() => {
     if (!openMemoryDraftId || !group || group.id !== groupId) return;
@@ -193,6 +211,18 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
 
   const handleShareGroup = useCallback(async () => {
     if (!group) return;
+    // Grup privat: bagikan tautan undangan (bisa dicabut, butuh persetujuan admin). Tautan /g/ tidak membuka akses
+    // bagi non-anggota, jadi tidak dipakai lagi untuk grup privat.
+    if (!group.is_public && !groupId.startsWith('sub_')) {
+      try {
+        const link = await invitesApi.createLink(groupId, false);
+        await Share.share({ message: buildInviteShareMessage(group.title, link), title: `Undang ke ${group.title}` });
+      } catch (err: any) {
+        console.warn('[GroupInfoScreen] Failed to share invite link:', err);
+        showAlert('Gagal membagikan', err?.detail || 'Tautan undangan belum bisa dibuat. Periksa koneksi lalu coba lagi.');
+      }
+      return;
+    }
     try {
       const isSub = groupId.startsWith('sub_');
       // Tautan pendek dari server; bila gagal (offline/timeout) pakai tautan panjang agar berbagi tidak terhambat.
@@ -610,6 +640,11 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
             <Text style={styles.quickActionText} numberOfLines={1}>Media</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Tautan undangan grup privat (khusus creator/admin; bukan forum sub_) */}
+        {isAdmin && group && !group.is_public && !groupId.startsWith('sub_') ? (
+          <InviteLinkSection groupId={groupId} groupTitle={group.title} onMembersChanged={reloadMembers} />
+        ) : null}
 
         {/* Member Section Header */}
         <View style={styles.membersSectionHeader}>

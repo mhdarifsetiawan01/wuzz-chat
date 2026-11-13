@@ -1,6 +1,6 @@
 # Undangan Grup Privat (Wuzz Chat V2, Tahap 1)
 
-> **Status (14 Nov 2026): desain DISETUJUI pengguna (D1-D5 semua sesuai usulan). Backend SELESAI di `dev`** (*tes saja*: SQLite + Postgres 16; belum dideploy). **Mobile dan web belum dikerjakan** (bagian 10 langkah 3-4). Aturan yang berlaku kini ada di `docs/domains/GROUP_FORUM.md` aturan 9 dan `docs/BACKEND_API.md` 35c; dokumen ini menyimpan alasan desain. Ini Tahap 1 dari Fase 15 (`docs/ROADMAP.md`) dan rencana Star di `ADS_AND_REWARDS_PLAN.md` bagian 14. Tahap ini **tidak menyentuh uang**: tidak ada Star, Play Billing, atau buku besar. Diputuskan 14 Nov 2026: V2 dimulai dari Tahap 1, sementara Tahap 0 (hukum, merchant, harga) berjalan paralel di sisi pengguna.
+> **Status (14 Nov 2026): desain DISETUJUI pengguna (D1-D5 semua sesuai usulan). Backend SELESAI dan DIDEPLOY 14 Nov 2026** (*tes saja* + rute terpasang di produksi; alur nyata belum dicoba). **Mobile SELESAI di kode** (14 Nov 2026, `tsc` lolos, butuh build APK dan uji dua HP; daftar belum teruji di `docs/progress/MOBILE.md`). **Web belum** (bagian 10 langkah 4). Aturan yang berlaku kini ada di `docs/domains/GROUP_FORUM.md` aturan 9 dan `docs/BACKEND_API.md` 35c; dokumen ini menyimpan alasan desain. Ini Tahap 1 dari Fase 15 (`docs/ROADMAP.md`) dan rencana Star di `ADS_AND_REWARDS_PLAN.md` bagian 14. Tahap ini **tidak menyentuh uang**: tidak ada Star, Play Billing, atau buku besar. Diputuskan 14 Nov 2026: V2 dimulai dari Tahap 1, sementara Tahap 0 (hukum, merchant, harga) berjalan paralel di sisi pengguna.
 > Pemeriksaan terhadap `ADS_AND_REWARDS_PLAN.md` (aturan PROMPT.md no. 9): tidak bertabrakan. Mode gerbang `paid` hanya **dicadangkan** namanya, tidak dibangun.
 
 ## 1. Masalah yang diselesaikan
@@ -119,6 +119,6 @@ Implementasi backend (14 Nov 2026): `store/invite_links.go`, `group/invite_servi
 
 1. **[SELESAI 14 Nov 2026, tes saja]** Backend: tabel dan migrasi, store, service, handler, laju, notifikasi, perbaikan K3, tes.
 2. **[SELESAI 14 Nov 2026]** Dokumen: `GROUP_FORUM.md` (aturan 6, bagian 6 backlog), kedua OpenAPI, `BACKEND_API.md`, `ARCHITECTURE.md` (tabel baru), progres.
-3. Mobile: pembuka tautan, layar undangan, bagian admin, lembar pengajuan, intent filter.
+3. **[SELESAI 14 Nov 2026, tes saja]** Mobile: pembuka tautan, layar undangan, bagian admin, lembar pengajuan, intent filter.
 4. Frontend: pengecualian gerbang dan landing `/join`.
 5. Pengguna: deploy backend, deploy frontend, build APK baru, uji dua HP. Urutan aman: backend dulu (endpoint baru tidak dipakai APK lama), lalu APK.

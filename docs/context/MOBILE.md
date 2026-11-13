@@ -102,6 +102,12 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 - **Tombol dan logo Google**: komponen di `src/components/google/` (logo resmi, `GoogleSignInButton`, `GoogleAccountChip`), warna merek dikurung di `src/theme/brand/google.ts`, tampilan global diatur di `googleUi.tsx` (ganti `buttonAppearance`/`renderLogo` untuk desain sendiri). Onboarding dipecah: `GoogleOnboardingView` (murni) + `GoogleOnboardingScreen` (logika) + `copy.ts` (teks). Lihat `mobile/DESIGN.md` bagian 7.
 - Detail keputusan, bukti kompatibilitas, dan cara mengaktifkan: `docs/plans/backlog/GOOGLE_LOGIN.md` bagian 9.
 
+### F3. Deep link dan intent filter (jebakan rilis)
+
+- `handleDeepLink` di `App.tsx` urutannya: `/u/` (profil), `/join/<token>` (undangan grup privat → layar `Invite`), lalu `/g|sub|room/` (grup/forum, termasuk kode pendek).
+- App Links `https://chat.wuzzhub.id/<prefix>` hanya membuka aplikasi untuk prefiks yang terdaftar: `/u`, `/g`, `/sub`, `/room`, `/join` (sejak 14 Nov 2026). Skema `wuzzchat://` menerima semua path.
+- **Jebakan:** rilis memakai `mobile/android/` hasil `expo prebuild` yang di-gitignore dan **tidak** di-prebuild ulang oleh skrip rilis. Prefiks baru wajib ditambahkan di `app.json` (sumber kebenaran) **dan** di `android/app/src/main/AndroidManifest.xml` lokal, atau jalankan prebuild; kalau tidak, tautan https terbuka di browser.
+
 ### G. Community Social Feed & Viral Share Loop (Milestone M-Mobile-9)
 - **SWR FeedContext & Local SQLite Persistensi**: Linimasa postingan dikelola melalui `FeedContext.tsx` dengan SQLite cache lokal (`local_feed_posts`) untuk cold start < 50ms dan rolling cap 50 posts per tab ("⏱️ Terbaru" & "🎲 Jelajah").
 - **Optimistic Interactions**: Like instan 0ms dengan locking per-post (`likeInFlightRef`) dan rollback otomatis jika gagal. Thread komentar ber-pagination kursor waktu (`PostCommentsModal.tsx`).
@@ -121,6 +127,8 @@ mobile/
 │   ├── api/
 │   │   ├── client.ts           # Axios REST client (User-Agent: WuzzChat-Mobile/1.0, X-Device-Platform: android)
 │   │   ├── feed.ts             # API client untuk Community Social Feed
+│   │   ├── invites.ts          # Tautan undangan grup privat (V2 Tahap 1): kelola tautan, pratinjau, ajukan, batal
+│   │   ├── links.ts            # Tautan pendek grup/forum (pola kode menerima huruf `i` sejak 14 Nov 2026)
 │   │   ├── messages.ts         # API client riwayat obrolan & direct chat
 │   │   └── types.ts            # Type definitions API, User, Feed, & Error response
 │   ├── context/
@@ -140,12 +148,15 @@ mobile/
 │   │   ├── RecentChatsScreen.tsx   # Fullscreen chat list, debounced search, pill filters, FAB (+ Chat)
 │   │   ├── ChatScreen.tsx          # Fullscreen active chat room, timeline, voice notes, attachments
 │   │   ├── FeedScreen.tsx          # Community Social Feed timeline (Terbaru & Jelajah)
+│   │   ├── InviteScreen.tsx        # Undangan grup privat dari /join/<token>: pratinjau, Ajukan Bergabung, status menunggu/ditolak
 │   │   ├── CallsHistoryScreen.tsx  # Riwayat panggilan WebRTC tersimpan di SQLite & dialer
 │   │   ├── SettingsScreen.tsx      # Pengaturan akun, E2EE keys, perangkat tertaut, cache storage
 │   │   └── UserProfileScreen.tsx   # Profil publik modular, avatar, bio, medsos, & E2EE fingerprint
 │   ├── components/
 │   │   ├── ChatInputBar.tsx        # Input teks, tombol mic voice note, panel media picker
 │   │   ├── MessageBubble.tsx       # Bubble chat mobile, receipts centang, quote view
+│   │   ├── InviteLinkSection.tsx   # Kartu "Tautan Undangan" di Info Grup (admin grup privat) + pintu ke JoinRequestsModal
+│   │   ├── JoinRequestsModal.tsx   # Tinjau permohonan bergabung forum privat (sub_) dan grup privat (grp_)
 │   │   ├── CreatePostModal.tsx     # Modal buat postingan feed komunitas (teks, media, char counter)
 │   │   ├── PostCommentsModal.tsx   # Modal thread komentar feed dengan cursor-based infinite scroll
 │   │   ├── SharePostToChatModal.tsx# Modal bagikan postingan feed ke obrolan chat

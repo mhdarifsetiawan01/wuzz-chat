@@ -1,7 +1,8 @@
 /**
  * JoinRequestsModal — M-Mobile-8.2B
- * Displays pending join-requests for a private forum topic.
- * Accessible only to admin / creator of the parent group.
+ * Displays pending join-requests for a private forum topic (sub_) or, since V2 Tahap 1,
+ * a private group joined through an invite link (grp_). Both use the same endpoints.
+ * Accessible only to admin / creator.
  *
  * Conforms to:
  *  - Mandatory Dual-Platform Frontend Architecture Rule
@@ -106,7 +107,11 @@ export const JoinRequestsModal: React.FC<JoinRequestsModalProps> = ({
           onRequestActioned?.();
         }
       } catch (err: any) {
-        if (err?.name !== 'AbortError') {
+        if (err?.code === 'request_processed' || err?.code === 'request_not_found') {
+          // Sudah diputuskan admin lain atau pemohon membatalkan: buang dari daftar, tidak perlu dicoba lagi.
+          setRequests((prev) => prev.filter((r) => r.id !== requestId));
+          showAlert('Permohonan sudah diproses', 'Permohonan ini sudah diputuskan admin lain atau dibatalkan pemohon.');
+        } else if (err?.name !== 'AbortError') {
           showAlert(
             approve ? 'Gagal menyetujui' : 'Gagal menolak',
             'Silakan coba lagi.'

@@ -1,6 +1,13 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
-### Tautan undangan grup privat, Wuzz Chat V2 Tahap 1 (14 Nov 2026, di `dev`, belum dideploy)
+### Teks notifikasi push sistem lewat FCM (14 Nov 2026, di `dev`, belum dideploy)
+
+- **Masalah (terbukti di HP saat uji undangan):** notifikasi permohonan bergabung (grup dan forum) dan status permohonan tampil "Pesan baru diterima", karena FCM data-only tidak membawa teks.
+- **Perubahan:** `push.buildFCMData` (dipisah dari `FCMv1PushProvider.Send`) menambah `notif_text` = Body hanya untuk push tanpa kunci `encrypted_content`; push pesan chat tidak terpengaruh. Pasangan mobile: `notificationBackgroundTask.ts` membaca `notif_text`.
+- **Tes:** `push/fcm_test.go` `TestBuildFCMData_NotifTextOnlyForSystemPush` (sistem dapat teks; chat, juga media dengan `encrypted_content` kosong, tidak; tidak ada kunci `title`/`body`). *tes saja*.
+- **Perlu deploy backend** (tugas pengguna) dan build APK. Aman untuk APK lama (kunci baru diabaikan; tetap "Pesan baru diterima").
+
+### Tautan undangan grup privat, Wuzz Chat V2 Tahap 1 (14 Nov 2026, di `main`, DIDEPLOY 14 Nov 2026)
 
 - **Tujuan:** non-anggota bisa masuk grup utama privat lewat tautan undangan yang bisa dicabut, dengan persetujuan admin. Desain dan keputusan D1-D5 (disetujui pengguna 14 Nov 2026): `docs/plans/backlog/PRIVATE_GROUP_INVITES.md`. Aturan: `docs/domains/GROUP_FORUM.md` aturan 9. Tanpa uang (Star/Play Billing = Tahap 2, belum).
 - **Perubahan:** tabel `group_invite_links` (indeks unik token dan satu-aktif-per-grup parsial) dan kolom `conversation_join_requests.invite_link_id` (auto-migrasi Postgres dan SQLite, `store/sql.go`); `store.InviteLinkStore`; `group.InviteService` (notifikasi WS/push ke admin dan pemohon); `GroupService.SetInviteRevoker` (grup dijadikan publik mencabut tautan); `api/group_invite_handler.go` (`/api/groups/{grp_id}/invite-link`, `/api/invites/{token}[/join|/request]`, `join-requests` dan `action` untuk `grp_`); laju per pengguna di `app/router.go` (ajukan 10/jam, baca 60/jam); perakitan di `app/wire.go`. Penghapus akun ikut menghapus tautan grup yang dihapus (`account_eraser.go`).
@@ -8,8 +15,8 @@
 - **Bug lama ditemukan dan diperbaiki:** pola validasi kode pendek (`IsShortCode`, juga `mobile/src/api/links.ts` dan `frontend/app/OpenInAppLanding.tsx`) menolak huruf `i` padahal alfabet pembuat kode memuatnya, jadi ±13% kode pendek tidak pernah bisa dibuka (backend 404). Ini akar `TestShortLinkHandler_CreateAndResolve` yang flaky (kini lolos 40/40). Tes regresi: `store/short_code_alphabet_test.go`.
 - **Tes lama diperbaiki:** `store/forum_extend_test.go` memakai placeholder `?` mentah sehingga 4 tes gagal di Postgres (bukan bug produksi); kini lewat `rebindPG`.
 - **Berkas tes:** `store/invite_links_test.go` (admin saja, satu aktif + konkurensi, reset, grup publik, alur ajukan/setujui/tolak, jeda 24 jam, batal, batas 500, beda tenant, dikeluarkan lalu mengajukan lagi), `api/group_invite_handler_test.go` (HTTP end-to-end + notifikasi + K3), `store/short_code_alphabet_test.go`.
-- **Bukti:** *tes saja*. `go vet ./...` dan `go test ./...` lolos penuh di SQLite dan di Postgres 16 sementara (`PG_TEST_ADMIN_DSN`). `npx tsc --noEmit` (mobile) dan `npm run build` (frontend) lolos untuk perubahan regex. **Belum:** deploy, uji di produksi, klien mobile/web untuk undangan (belum dibuat).
-- **Perlu deploy backend** (tugas pengguna; migrasi otomatis, tanpa env baru). Aman sebelum APK baru: endpoint baru tidak dipakai APK lama; satu-satunya perubahan perilaku untuk APK lama adalah anggota biasa grup privat tidak lagi mendapat kode pendek (APK jatuh ke tautan panjang, yang memang tidak membuka akses). Deploy frontend menghidupkan kode pendek ber-`i` di landing web.
+- **Bukti:** *tes saja*. `go vet ./...` dan `go test ./...` lolos penuh di SQLite dan di Postgres 16 sementara (`PG_TEST_ADMIN_DSN`). `npx tsc --noEmit` (mobile) dan `npm run build` (frontend) lolos untuk perubahan regex. **Dideploy** pengguna 14 Nov 2026; terlihat dari luar: `GET /api/invites/{token}` dan `/api/groups/{id}/invite-link` tanpa token menjawab 401 (rute terpasang). **Belum:** alur nyata di produksi (buat tautan, ajukan, setujui), log startup migrasi belum dilihat AI.
+- Deploy backend (dilakukan pengguna 14 Nov 2026; migrasi otomatis, tanpa env baru). Aman sebelum APK baru: endpoint baru tidak dipakai APK lama; satu-satunya perubahan perilaku untuk APK lama adalah anggota biasa grup privat tidak lagi mendapat kode pendek (APK jatuh ke tautan panjang, yang memang tidak membuka akses). Deploy frontend menghidupkan kode pendek ber-`i` di landing web.
 
 ### Pelepasan media pesan dihapus & avatar grup diganti; hasil laporan bucket (5 Nov 2026)
 
