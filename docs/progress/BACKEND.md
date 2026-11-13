@@ -6,9 +6,9 @@
 - **Temuan dari kode:** `DeleteMessage(deleteForEveryone)` (`store/sql.go`) dan jalur moderasi mengosongkan `media_url` tanpa menghapus berkas, sehingga berkasnya yatim (dugaan sumber sebagian dari 5 kandidat, belum dibuktikan).
 - **Perubahan:** `messaging.MessageService.SetMediaReleaser` (melepas URL lama pada hapus-untuk-semua-orang; hapus-untuk-saya tidak), `group.GroupService.SetMediaReleaser` (melepas avatar lama pada `UpdateGroupInfo`), dirakit di `app/wire.go`. Memakai `store.MediaReleaser` yang sama (hanya URL milik R2 dan tidak dirujuk tempat lain).
 - **Berkas tes:** `messaging/service_test.go` (`..._ReleasesMedia`), `group/service_test.go` (`..._ReleasesReplacedAvatar`).
-- **Bukti:** *tes saja*. `go test ./...` lolos kecuali `TestShortLinkHandler_CreateAndResolve` yang flaky sejak sebelumnya. **Belum:** deploy, penghapusan nyata di produksi.
+- **Bukti:** *tes saja*. `go test ./...` lolos kecuali `TestShortLinkHandler_CreateAndResolve` yang flaky sejak sebelumnya. **Dideploy** (dikonfirmasi pengguna 14 Nov 2026). **Belum:** dicoba di produksi (hapus pesan untuk semua orang, ganti avatar grup; lihat `docs/plans/backlog/README.md` bagian 2b).
 - **Belum dicakup:** pesan dan postingan yang dihapus moderator (bukti laporan).
-- **Perlu deploy backend** (tugas pengguna). Tanpa env baru.
+- Sudah dideploy pengguna. Tanpa env baru.
 
 
 ### Alat laporan berkas yatim bucket R2 (5 Nov 2026, A3 langkah 3 tahap laporan)
@@ -25,9 +25,9 @@
 - **Masalah:** unggahan langsung ke R2 yang tak pernah dipakai (post dibatalkan, aplikasi ditutup) tidak terlihat server, jadi tidak ada yang membersihkannya.
 - **Perubahan:** tabel `upload_tickets` (`store/sql.go`); `store.UploadTicketStore.Record` dipanggil `MediaHandler.CreateSignedUploadURL` (`SetUploadTicketRecorder`); `store.UploadOrphanSweeper` (mode `off|dry|true`, umur minimum ≥ 24 jam) dipasang ke `PurgeWorker.SetSweeper` dan dijalankan di `runCycle`; env `UPLOAD_ORPHAN_SWEEP`, `UPLOAD_ORPHAN_MIN_AGE_HOURS` (`config.go`, `.env.example`). Perakitan di `app/wire.go` hanya bila storage punya `OwnsURL` (R2).
 - **Berkas:** `store/upload_tickets.go`, `store/sql.go`, `api/media_handler.go`, `storage/purge_worker.go`, `shared/config/config.go`, `app/wire.go`; tes: `store/upload_tickets_test.go`, `api/media_ticket_record_test.go`.
-- **Bukti:** *tes saja*. Tes penyapu (true/dry/off/nilai tak dikenal, umur minimum, tiket terpakai/asing/baru) dan pencatatan tiket lolos di SQLite dan Postgres 16 sementara; `go test ./...` lolos. **Belum:** deploy, penyapuan nyata di bucket produksi, log `[UploadSweep]`.
+- **Bukti:** *tes saja*. Tes penyapu (true/dry/off/nilai tak dikenal, umur minimum, tiket terpakai/asing/baru) dan pencatatan tiket lolos di SQLite dan Postgres 16 sementara; `go test ./...` lolos. **Dideploy** (5 Nov 2026). **Belum:** penyapuan nyata di bucket produksi, log `[UploadSweep]`.
 - **Temuan terpisah:** `TestShortLinkHandler_CreateAndResolve` (`api/short_link_handler_test.go`) flaky sejak sebelum perubahan ini (gagal 5 dari 20 kali pada kode asli: pratinjau grup publik `nil`); lolos pada suite penuh. Belum diselidiki.
-- **Perlu deploy backend** (tugas pengguna). Sakelar baru mati secara bawaan; urutan pengaktifan di `docs/OPERATIONS.md`.
+- Sudah dideploy pengguna. Sakelar baru mati secara bawaan; urutan pengaktifan di `docs/OPERATIONS.md`.
 
 
 ### Pelepasan media saat hapus postingan Feed / ganti foto profil (5 Nov 2026, A3 sebagian)
@@ -35,9 +35,9 @@
 - **Masalah:** `FeedService.DeletePost` hanya menghapus baris DB; berkas lampiran tetap di R2 selamanya. Mengganti `avatar_url` juga membiarkan berkas lama. Hanya hapus akun yang membersihkan (lewat `media_purge_queue`).
 - **Perubahan:** `store.MediaReleaser` (`store/media_release.go`) mengantrekan URL ke `media_purge_queue` bila (a) dimiliki storage (`R2Storage.OwnsURL`) dan (b) tidak dirujuk `messages.media_url`/`users.avatar_url`/`conversations.avatar_url`/`feed_posts.media_urls`. Dipasang di `FeedService.DeletePost` (`SetMediaReleaser`) dan `AuthHandler.UpdateProfile` (`SetMediaReleaser`), dirakit di `app/wire.go` hanya bila driver storage punya `OwnsURL` (R2). Best-effort, galat hanya dicatat.
 - **Berkas:** `store/media_release.go`, `feed/service.go`, `api/auth_handler.go`, `storage/r2_storage.go`, `app/wire.go`; tes: `store/media_release_test.go`, `feed/service_test.go`, `api/auth_profile_avatar_release_test.go`, `storage/r2_storage_test.go`.
-- **Bukti:** *tes saja*. `go test ./...` lolos; tes releaser juga lolos di Postgres 16 sementara (`PG_TEST_ADMIN_DSN`). **Belum:** deploy, penghapusan nyata di bucket R2 produksi, log `[MediaRelease]`/`[PurgeWorker]` di produksi.
+- **Bukti:** *tes saja*. `go test ./...` lolos; tes releaser juga lolos di Postgres 16 sementara (`PG_TEST_ADMIN_DSN`). **Dideploy** (5 Nov 2026). **Terbukti:** log `[MediaRelease] Berkas diantrekan` saat postingan Feed dihapus (5 Nov 2026). **Belum:** penghapusan nyata di bucket R2 produksi (status terbaru: `docs/plans/backlog/README.md` bagian 2b).
 - **Belum dicakup:** avatar grup, postingan yang dihapus moderator, unggahan tak terpakai, yatim lama (lihat `FEED_UPLOAD_HARDENING.md` A3).
-- **Perlu deploy backend** (tugas pengguna). Tanpa env baru.
+- Sudah dideploy pengguna. Tanpa env baru.
 
 
 ### Ringkasan 19-28 Oktober 2026 (disusun 28 Okt saat merapikan dokumen)

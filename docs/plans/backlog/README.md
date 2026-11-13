@@ -33,7 +33,7 @@
 
 ## 2b. Belum teruji: pelepasan media & penyapu unggahan yatim (5 Nov 2026)
 
-Kode ada di `main` (`78cfd04`, `bf913a0`, `770f38a`). Deploy backend oleh pengguna: `78cfd04` dan `bf913a0` **sudah** (5 Nov 2026); `770f38a` **belum** (per catatan ini; ubah baris ini saat sudah). Rincian teknis: `docs/domains/MEDIA_LIFECYCLE.md`, `docs/progress/BACKEND.md`, `FEED_UPLOAD_HARDENING.md` (A3). Legenda: **terbukti** = dilihat di produksi; **tes saja** = hanya tes otomatis; **belum** = belum dicoba.
+Kode ada di `main` (`78cfd04`, `bf913a0`, `770f38a`). Deploy backend oleh pengguna: `78cfd04` dan `bf913a0` **sudah** (5 Nov 2026); `770f38a` **sudah** (dikonfirmasi pengguna 14 Nov 2026). Rincian teknis: `docs/domains/MEDIA_LIFECYCLE.md`, `docs/progress/BACKEND.md`, `FEED_UPLOAD_HARDENING.md` (A3). Legenda: **terbukti** = dilihat di produksi; **tes saja** = hanya tes otomatis; **belum** = belum dicoba.
 
 | # | Hal | Status | Cara memverifikasi |
 |---|---|---|---|
@@ -43,9 +43,9 @@ Kode ada di `main` (`78cfd04`, `bf913a0`, `770f38a`). Deploy backend oleh penggu
 | 4 | Tiket unggah tercatat di `upload_tickets` | **belum** (sudah dideploy, belum dilihat; saat dicek tepat setelah deploy belum ada tiket) | Unggah media dari HP, lalu di DB: `SELECT COUNT(*), MIN(created_at) FROM upload_tickets;` (akses DB oleh pengguna). Tidak ada baris log sukses; hanya `[UploadTicket] Gagal` bila galat |
 | 5 | Penyapu unggahan yatim, mode `dry` | **belum** (`UPLOAD_ORPHAN_SWEEP` kosong = mati) | Tunggu ≥ 4 hari sejak deploy `bf913a0` agar ada tiket matang, set `dry`, `docker compose up -d`, baca log `[UploadSweep]`, cocokkan contoh yatim dengan bucket |
 | 6 | Penyapu mode `true` (penghapusan nyata) | **belum**, jangan sebelum #5 bersih | Hanya setelah `dry` tidak menandai berkas yang masih dipakai |
-| 7 | Hapus pesan untuk semua orang melepas lampiran | tes saja, **belum dideploy** | Kirim gambar ke grup uji, hapus untuk semua orang dalam 60 detik, cari `[MediaRelease]`, cek link ±2 jam kemudian (404) |
+| 7 | Hapus pesan untuk semua orang melepas lampiran | tes saja (sudah dideploy, belum dicoba di produksi) | Kirim gambar ke grup uji, hapus untuk semua orang dalam 60 detik, cari `[MediaRelease]`, cek link ±2 jam kemudian (404) |
 | 8 | Kasus tepi #7 | **belum** | (a) pesan yang sudah diteruskan: berkas harus tetap ada; (b) "hapus untuk saya": berkas harus tetap ada; (c) media DM E2EE; (d) video: thumbnail ikut hilang |
-| 9 | Ganti avatar grup melepas avatar lama | tes saja, **belum dideploy** | Ganti avatar grup uji (foto, bukan emoji), cari `[MediaRelease]`, cek link lama |
+| 9 | Ganti avatar grup melepas avatar lama | tes saja (sudah dideploy, belum dicoba di produksi) | Ganti avatar grup uji (foto, bukan emoji), cari `[MediaRelease]`, cek link lama |
 | 10 | `cmd/orphanreport` | **terbukti** (dijalankan pengguna di produksi 5 Nov 2026: 20 objek, 5 kandidat yatim 2,3 MiB) | - |
 | 11 | Kelima kandidat yatim dicek manual | **belum** | Buka link tiap kunci; bila ada yang ternyata masih tampil di aplikasi, pemeriksaan rujukan tidak lengkap (kabari AI), lalu boleh dihapus dari dashboard R2 bila memang yatim |
 | 12 | Ukur ulang bucket | **belum** (jadwal: antara 19 Nov dan 3 Des 2026) | `cd backend && ( set -a; source .env; set +a; go run ./cmd/orphanreport -csv ~/kandidat.csv )`; bila kandidat tidak bertambah dari 5, A3 dianggap selesai (lalu `rm ~/kandidat.csv`) |
