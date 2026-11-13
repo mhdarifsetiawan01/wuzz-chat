@@ -25,6 +25,8 @@ type GroupHandler struct {
 	hub           *ws.Hub
 	pushService   *push.Service
 	memoryHandler *MemoryHandler
+	// inviteSvc (opsional): tautan undangan dan pengajuan gabung grup utama privat (SetInviteService).
+	inviteSvc *group.InviteService
 }
 
 // NewGroupHandler membuat instance baru GroupHandler dengan adapter service internal (backward-compatible).
@@ -71,6 +73,9 @@ func (h *GroupHandler) SetHub(hub *ws.Hub) {
 	if h.forumSvc != nil {
 		h.forumSvc.SetBroadcaster(hub)
 	}
+	if h.inviteSvc != nil {
+		h.inviteSvc.SetBroadcaster(hub)
+	}
 }
 
 func (h *GroupHandler) SetPushService(ps *push.Service) {
@@ -80,6 +85,9 @@ func (h *GroupHandler) SetPushService(ps *push.Service) {
 	}
 	if h.forumSvc != nil {
 		h.forumSvc.SetNotifier(ps)
+	}
+	if h.inviteSvc != nil {
+		h.inviteSvc.SetNotifier(ps)
 	}
 }
 
@@ -293,6 +301,12 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// 6b. /api/groups/{grp_id}/invite-link (tautan undangan grup privat)
+	if len(parts) == 2 && parts[1] == "invite-link" {
+		h.handleInviteLink(w, r, claims.UserID, groupID)
+		return
+	}
+
 	// 7. /api/groups/{id}/join-request
 	if len(parts) == 2 && parts[1] == "join-request" {
 		if r.Method == http.MethodPost {
@@ -305,7 +319,9 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 
 	// 8. /api/groups/{id}/join-requests
 	if len(parts) == 2 && parts[1] == "join-requests" {
-		if r.Method == http.MethodGet {
+		if r.Method == http.MethodGet && h.inviteSvc != nil && strings.HasPrefix(groupID, "grp_") {
+			h.handleGroupJoinRequests(w, r, claims.UserID, groupID)
+		} else if r.Method == http.MethodGet {
 			h.handleGetJoinRequests(w, claims.UserID, groupID)
 		} else {
 			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
@@ -316,7 +332,9 @@ func (h *GroupHandler) RouteGroupRequest(w http.ResponseWriter, r *http.Request)
 	// 9. /api/groups/{id}/join-requests/{requestId}/action
 	if len(parts) == 4 && parts[1] == "join-requests" && parts[3] == "action" {
 		targetRequestID := parts[2]
-		if r.Method == http.MethodPost {
+		if r.Method == http.MethodPost && h.inviteSvc != nil && strings.HasPrefix(groupID, "grp_") {
+			h.handleGroupJoinRequestAction(w, r, claims.UserID, groupID, targetRequestID)
+		} else if r.Method == http.MethodPost {
 			h.handleRespondJoinRequest(w, r, claims.UserID, groupID, targetRequestID)
 		} else {
 			http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)

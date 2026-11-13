@@ -1,5 +1,16 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
+### Tautan undangan grup privat, Wuzz Chat V2 Tahap 1 (14 Nov 2026, di `dev`, belum dideploy)
+
+- **Tujuan:** non-anggota bisa masuk grup utama privat lewat tautan undangan yang bisa dicabut, dengan persetujuan admin. Desain dan keputusan D1-D5 (disetujui pengguna 14 Nov 2026): `docs/plans/backlog/PRIVATE_GROUP_INVITES.md`. Aturan: `docs/domains/GROUP_FORUM.md` aturan 9. Tanpa uang (Star/Play Billing = Tahap 2, belum).
+- **Perubahan:** tabel `group_invite_links` (indeks unik token dan satu-aktif-per-grup parsial) dan kolom `conversation_join_requests.invite_link_id` (auto-migrasi Postgres dan SQLite, `store/sql.go`); `store.InviteLinkStore`; `group.InviteService` (notifikasi WS/push ke admin dan pemohon); `GroupService.SetInviteRevoker` (grup dijadikan publik mencabut tautan); `api/group_invite_handler.go` (`/api/groups/{grp_id}/invite-link`, `/api/invites/{token}[/join|/request]`, `join-requests` dan `action` untuk `grp_`); laju per pengguna di `app/router.go` (ajukan 10/jam, baca 60/jam); perakitan di `app/wire.go`. Penghapus akun ikut menghapus tautan grup yang dihapus (`account_eraser.go`).
+- **Perbaikan K3:** `POST /api/links` untuk grup utama privat kini hanya creator/admin (403 `admin_only`); sebelumnya aturan ini hanya di UI.
+- **Bug lama ditemukan dan diperbaiki:** pola validasi kode pendek (`IsShortCode`, juga `mobile/src/api/links.ts` dan `frontend/app/OpenInAppLanding.tsx`) menolak huruf `i` padahal alfabet pembuat kode memuatnya, jadi ±13% kode pendek tidak pernah bisa dibuka (backend 404). Ini akar `TestShortLinkHandler_CreateAndResolve` yang flaky (kini lolos 40/40). Tes regresi: `store/short_code_alphabet_test.go`.
+- **Tes lama diperbaiki:** `store/forum_extend_test.go` memakai placeholder `?` mentah sehingga 4 tes gagal di Postgres (bukan bug produksi); kini lewat `rebindPG`.
+- **Berkas tes:** `store/invite_links_test.go` (admin saja, satu aktif + konkurensi, reset, grup publik, alur ajukan/setujui/tolak, jeda 24 jam, batal, batas 500, beda tenant, dikeluarkan lalu mengajukan lagi), `api/group_invite_handler_test.go` (HTTP end-to-end + notifikasi + K3), `store/short_code_alphabet_test.go`.
+- **Bukti:** *tes saja*. `go vet ./...` dan `go test ./...` lolos penuh di SQLite dan di Postgres 16 sementara (`PG_TEST_ADMIN_DSN`). `npx tsc --noEmit` (mobile) dan `npm run build` (frontend) lolos untuk perubahan regex. **Belum:** deploy, uji di produksi, klien mobile/web untuk undangan (belum dibuat).
+- **Perlu deploy backend** (tugas pengguna; migrasi otomatis, tanpa env baru). Aman sebelum APK baru: endpoint baru tidak dipakai APK lama; satu-satunya perubahan perilaku untuk APK lama adalah anggota biasa grup privat tidak lagi mendapat kode pendek (APK jatuh ke tautan panjang, yang memang tidak membuka akses). Deploy frontend menghidupkan kode pendek ber-`i` di landing web.
+
 ### Pelepasan media pesan dihapus & avatar grup diganti; hasil laporan bucket (5 Nov 2026)
 
 - **Hasil `cmd/orphanreport` di produksi (dijalankan pengguna, *terbukti*):** 20 objek di bucket, 13 dipakai (1,5 MiB), 1 diantre hapus, 1 terlalu baru, 5 kandidat yatim (2,3 MiB; 16-25 Okt 2026, semua sebelum langkah 1-2). Tanda tangan `ListObjectsV2` diterima R2 asli dan kredensial server punya izin list. Keputusan: sapu bucket otomatis tidak dibangun.
@@ -26,7 +37,7 @@
 - **Perubahan:** tabel `upload_tickets` (`store/sql.go`); `store.UploadTicketStore.Record` dipanggil `MediaHandler.CreateSignedUploadURL` (`SetUploadTicketRecorder`); `store.UploadOrphanSweeper` (mode `off|dry|true`, umur minimum ≥ 24 jam) dipasang ke `PurgeWorker.SetSweeper` dan dijalankan di `runCycle`; env `UPLOAD_ORPHAN_SWEEP`, `UPLOAD_ORPHAN_MIN_AGE_HOURS` (`config.go`, `.env.example`). Perakitan di `app/wire.go` hanya bila storage punya `OwnsURL` (R2).
 - **Berkas:** `store/upload_tickets.go`, `store/sql.go`, `api/media_handler.go`, `storage/purge_worker.go`, `shared/config/config.go`, `app/wire.go`; tes: `store/upload_tickets_test.go`, `api/media_ticket_record_test.go`.
 - **Bukti:** *tes saja*. Tes penyapu (true/dry/off/nilai tak dikenal, umur minimum, tiket terpakai/asing/baru) dan pencatatan tiket lolos di SQLite dan Postgres 16 sementara; `go test ./...` lolos. **Dideploy** (5 Nov 2026). **Belum:** penyapuan nyata di bucket produksi, log `[UploadSweep]`.
-- **Temuan terpisah:** `TestShortLinkHandler_CreateAndResolve` (`api/short_link_handler_test.go`) flaky sejak sebelum perubahan ini (gagal 5 dari 20 kali pada kode asli: pratinjau grup publik `nil`); lolos pada suite penuh. Belum diselidiki.
+- **Temuan terpisah (akar ditemukan 14 Nov 2026: pola kode menolak huruf `i`; lihat entri 14 Nov):** `TestShortLinkHandler_CreateAndResolve` (`api/short_link_handler_test.go`) flaky sejak sebelum perubahan ini (gagal 5 dari 20 kali pada kode asli: pratinjau grup publik `nil`); lolos pada suite penuh. Belum diselidiki.
 - Sudah dideploy pengguna. Sakelar baru mati secara bawaan; urutan pengaktifan di `docs/OPERATIONS.md`.
 
 

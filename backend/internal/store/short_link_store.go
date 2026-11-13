@@ -23,8 +23,10 @@ var (
 	ErrShortLinkNotFound = errors.New("tautan tidak ditemukan")
 	// ErrShortLinkForbidden berarti pemanggil bukan anggota grup yang dimintai tautan.
 	ErrShortLinkForbidden = errors.New("hanya anggota yang dapat membuat tautan")
+	// ErrShortLinkAdminOnly berarti grup utama privat: hanya creator/admin yang boleh membuat tautan.
+	ErrShortLinkAdminOnly = errors.New("hanya admin yang dapat membagikan tautan grup privat")
 
-	shortCodePattern = regexp.MustCompile(`^[2-9a-hj-km-np-zA-HJ-NP-Z]{8}$`)
+	shortCodePattern = regexp.MustCompile(`^[2-9a-km-np-zA-HJ-NP-Z]{8}$`)
 )
 
 // IsShortCode memeriksa apakah s berbentuk kode tautan pendek (bukan ID grp_/sub_/dm_).
@@ -54,7 +56,9 @@ func generateShortCode() (string, error) {
 }
 
 // GetOrCreate mengembalikan kode pendek grup/subgrup roomID, membuatnya bila belum ada.
-// Hanya anggota grup yang boleh meminta; kode sudah ada tidak pernah diganti sehingga tautan lama tetap berlaku.
+// Hanya anggota grup yang boleh meminta; untuk grup utama privat hanya creator/admin (aturan "grup privat: hanya admin
+// yang membagikan" ditegakkan di server, bukan hanya di UI). Kode sudah ada tidak pernah diganti sehingga tautan lama
+// tetap berlaku.
 func (s *ShortLinkStore) GetOrCreate(ctx context.Context, roomID, userID string) (string, error) {
 	if !strings.HasPrefix(roomID, "grp_") && !strings.HasPrefix(roomID, "sub_") {
 		return "", ErrShortLinkNotFound
@@ -63,8 +67,9 @@ func (s *ShortLinkStore) GetOrCreate(ctx context.Context, roomID, userID string)
 	defer cancel()
 
 	var code sql.NullString
+	var isPublic bool
 	err := s.db.QueryRowContext(ctx, rebindQuery(s.driverName,
-		`SELECT short_code FROM conversations WHERE id = ?`), roomID).Scan(&code)
+		`SELECT short_code, is_public FROM conversations WHERE id = ?`), roomID).Scan(&code, &isPublic)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", ErrShortLinkNotFound
 	}
@@ -72,13 +77,17 @@ func (s *ShortLinkStore) GetOrCreate(ctx context.Context, roomID, userID string)
 		return "", err
 	}
 
-	var member int
-	if err := s.db.QueryRowContext(ctx, rebindQuery(s.driverName,
-		`SELECT COUNT(*) FROM conversation_members WHERE conversation_id = ? AND user_id = ?`), roomID, userID).Scan(&member); err != nil {
+	var role string
+	err = s.db.QueryRowContext(ctx, rebindQuery(s.driverName,
+		`SELECT role FROM conversation_members WHERE conversation_id = ? AND user_id = ?`), roomID, userID).Scan(&role)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrShortLinkForbidden
+	}
+	if err != nil {
 		return "", err
 	}
-	if member == 0 {
-		return "", ErrShortLinkForbidden
+	if strings.HasPrefix(roomID, "grp_") && !isPublic && role != "creator" && role != "admin" {
+		return "", ErrShortLinkAdminOnly
 	}
 	if code.Valid && code.String != "" {
 		return code.String, nil

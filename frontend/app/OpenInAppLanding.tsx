@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { APP_DOWNLOAD_URL, IS_WEB_PAUSED } from '@/lib/app-download'
 
 // Kode tautan pendek (8 karakter tanpa 0/O/1/l/I); ID ruang selalu berawalan grp_/sub_/dm_ sehingga tidak bisa tertukar.
-const SHORT_CODE_PATTERN = /^[2-9a-hj-km-np-zA-HJ-NP-Z]{8}$/
+const SHORT_CODE_PATTERN = /^[2-9a-km-np-zA-HJ-NP-Z]{8}$/
 
 interface LinkPreview {
   title: string

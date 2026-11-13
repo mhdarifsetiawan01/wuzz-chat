@@ -363,6 +363,9 @@ func New(cfg *config.Config) (*Application, error) {
 		}
 		forumSvc := group.NewForumService(groupRepo, groupRepo, jobStore, nil, nil)
 		app.GroupHandler = api.NewGroupHandlerWithServices(groupSvc, forumSvc, groupStore, userStore)
+		if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
+			app.GroupHandler.SetInviteService(group.NewInviteService(store.NewInviteLinkStore(sqlStore.DB(), sqlStore.DriverName()), groupRepo))
+		}
 
 		app.NotificationHandler = api.NewNotificationHandler(pushService, userStore)
 

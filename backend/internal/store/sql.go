@@ -491,6 +491,20 @@ func (s *SQLMessageStore) autoMigrate() error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_upload_tickets_created ON upload_tickets(created_at);`,
 
+		// Tautan undangan grup privat (V2 Tahap 1). Riwayat semua tautan; paling banyak satu aktif per grup.
+		`CREATE TABLE IF NOT EXISTS group_invite_links (
+			id VARCHAR(64) PRIMARY KEY,
+			conversation_id VARCHAR(128) NOT NULL,
+			token VARCHAR(32) NOT NULL,
+			mode VARCHAR(16) NOT NULL DEFAULT 'approval',
+			created_by VARCHAR(64) NOT NULL,
+			created_at TIMESTAMP NOT NULL,
+			revoked_at TIMESTAMP DEFAULT NULL,
+			revoked_by VARCHAR(64) NOT NULL DEFAULT ''
+		);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS uq_group_invite_token ON group_invite_links(token);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS uq_group_invite_active ON group_invite_links(conversation_id) WHERE revoked_at IS NULL;`,
+
 		// Tabel User Connections (Milestone M-Mobile-10)
 		`CREATE TABLE IF NOT EXISTS user_connections (
 			id VARCHAR(64) PRIMARY KEY,
@@ -671,6 +685,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		// Keunikan username grup dijamin di level DB (menutup race check-then-insert)
 		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_conv_group_username ON conversations(tenant_id, LOWER(group_username)) WHERE group_username IS NOT NULL AND group_username <> '';`)
 		// Kode tautan pendek grup/subgrup (diberikan malas saat pertama dibagikan); unik di level DB
+		_, _ = s.db.Exec(`ALTER TABLE conversation_join_requests ADD COLUMN IF NOT EXISTS invite_link_id VARCHAR(64) DEFAULT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS short_code VARCHAR(16);`)
 		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_conv_short_code ON conversations(short_code) WHERE short_code IS NOT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE forum_memory_jobs ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)
@@ -749,6 +764,7 @@ func (s *SQLMessageStore) autoMigrate() error {
 		_, _ = s.db.Exec(`CREATE INDEX IF NOT EXISTS idx_conversations_tenant ON conversations(tenant_id);`)
 		// Keunikan username grup dijamin di level DB (menutup race check-then-insert)
 		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_conv_group_username ON conversations(tenant_id, LOWER(group_username)) WHERE group_username IS NOT NULL AND group_username <> '';`)
+		_, _ = s.db.Exec(`ALTER TABLE conversation_join_requests ADD COLUMN invite_link_id VARCHAR(64) DEFAULT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE conversations ADD COLUMN short_code VARCHAR(16);`)
 		_, _ = s.db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_conv_short_code ON conversations(short_code) WHERE short_code IS NOT NULL;`)
 		_, _ = s.db.Exec(`ALTER TABLE forum_memory_jobs ADD COLUMN tenant_id VARCHAR(64) NOT NULL DEFAULT 'default';`)

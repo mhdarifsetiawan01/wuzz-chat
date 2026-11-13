@@ -25,11 +25,25 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Obrolan Grup, Forum Topi
    - Membuka tautan grup publik atau hasil pencarian memunculkan bottom sheet / modal konfirmasi pratinjau (`GroupPreviewModal.tsx`), bukan langsung auto-join.
 6. **Gerbang Otorisasi Tautan Privat (Authorization Shield)**:
    - Non-anggota yang membuka link grup privat ditolak di gerbang HTTP 403 dan disajikan layar proteksi (*Private Group Shield*), tidak diizinkan masuk ke ruang obrolan kosong.
+   - Satu-satunya jalan masuk non-anggota ke grup privat selain ditambahkan admin adalah **tautan undangan** (aturan 9). Tautan `/g/...` dan kode pendek tidak pernah memberi akses.
 8. **Tautan Pendek (28 Okt 2026)**:
-   - Tautan bagikan memakai kode acak 8 karakter (`conversations.short_code`, indeks unik), mis. `chat.wuzzhub.id/g/Ab3xK9qz` dan `/sub/Ab3xK9qz`. Kode dibuat malas oleh `POST /api/links` (hanya anggota), tidak pernah berganti, dan diterjemahkan publik oleh `GET /api/links/{code}` (akses ruang tetap lewat gerbang 403 di atas). Untuk **grup utama publik** respons menyertakan `preview` (nama + avatar) yang dipakai landing web; grup privat dan forum tidak pernah mengeluarkan metadata tanpa login. Landing menampilkan avatar hanya bila `https://`, path relatif, atau `emoji:`; selain itu inisial.
-   - Tautan panjang `/g/grp_<uuid>` dan `wuzzchat://g/...` tetap diterima (kompatibilitas tautan lama). Klien membedakan kode pendek dari ID lewat pola `^[2-9a-hj-km-np-zA-HJ-NP-Z]{8}$` (ID selalu berawalan `grp_/sub_/dm_`).
+   - Tautan bagikan memakai kode acak 8 karakter (`conversations.short_code`, indeks unik), mis. `chat.wuzzhub.id/g/Ab3xK9qz` dan `/sub/Ab3xK9qz`. Kode dibuat malas oleh `POST /api/links` (hanya anggota; untuk **grup utama privat hanya creator/admin**, selain itu 403 `code: admin_only`, ditegakkan server sejak 14 Nov 2026), tidak pernah berganti, dan diterjemahkan publik oleh `GET /api/links/{code}` (akses ruang tetap lewat gerbang 403 di atas). Untuk **grup utama publik** respons menyertakan `preview` (nama + avatar) yang dipakai landing web; grup privat dan forum tidak pernah mengeluarkan metadata tanpa login. Landing menampilkan avatar hanya bila `https://`, path relatif, atau `emoji:`; selain itu inisial.
+   - Tautan panjang `/g/grp_<uuid>` dan `wuzzchat://g/...` tetap diterima (kompatibilitas tautan lama). Klien membedakan kode pendek dari ID lewat pola `^[2-9a-km-np-zA-HJ-NP-Z]{8}$` (ID selalu berawalan `grp_/sub_/dm_`).
    - **Sakelar rollout `SHORT_LINKS_ENABLED` (default mati)**: APK lama menganggap kode pendek sebagai ID DM dan membuka obrolan kosong (terbukti di HP, 28 Okt 2026), jadi pembuatan kode ditahan sampai build baru beredar luas. Resolve tetap aktif. Lihat `docs/OPERATIONS.md`.
    - Kode: `store.ShortLinkStore`, `api.ShortLinkHandler`, `mobile/src/api/links.ts`, `frontend/app/OpenInAppLanding.tsx`. Slug kustom sengaja ditunda (kandidat fitur Pro; cek `ADS_AND_REWARDS_PLAN.md` dulu).
+   - **Jebakan (diperbaiki 14 Nov 2026):** alfabet pembuat kode memuat huruf kecil `i`, tetapi pola validasi di backend, web, dan mobile dulu `a-hj-k` (menolak `i`). Kode yang mengandung `i` (±13% kode) tidak bisa diterjemahkan: backend menjawab 404 dan klien menganggapnya ID. Kini polanya `a-km-n`; tes `TestCodePatternsAcceptWholeAlphabet` memeriksa setiap huruf alfabet. Kode lama yang mengandung `i` hidup lagi setelah backend dan frontend dideploy; mobile butuh build baru.
+9. **Tautan Undangan Grup Privat (V2 Tahap 1, 14 Nov 2026; backend selesai, *tes saja*, mobile/web belum)**:
+   - Hanya untuk grup utama privat (`grp_`, `is_public = false`). Tabel `group_invite_links`: token acak 16 karakter (alfabet tautan pendek), **paling banyak satu aktif per grup** (indeks unik parsial `WHERE revoked_at IS NULL`). Reset = cabut + buat baru dalam satu transaksi; riwayat tautan disimpan. Hanya creator/admin yang bisa melihat, membuat, mereset, atau mematikan; tautan milik grup (tetap aktif bila pembuatnya turun peran).
+   - Tautan publik: `https://chat.wuzzhub.id/join/<token>` dan `wuzzchat://join/<token>` (prefiks baru agar APK lama tidak mencegatnya).
+   - Mode Tahap 1 hanya **`approval`**: token memberi hak **mengajukan**, bukan masuk. `direct` dan `paid` dicadangkan, belum dibangun.
+   - Pratinjau (`GET /api/invites/{token}`) **wajib login**: nama, avatar, jumlah anggota, `my_status` (`member`/`pending`/`rejected`/`none`), `retry_after_seconds` saat dalam jeda. Tanpa deskripsi dan daftar anggota. Token tak dikenal, dicabut, grup sudah publik, atau beda tenant semuanya 404 `invite_not_found` yang sama.
+   - Pengajuan (`POST /api/invites/{token}/join`) idempoten: anggota = 200 `member`, pending = 202 tanpa notifikasi ulang. Ditolak kurang dari **24 jam** lalu = 429 `rejoin_cooldown` + `Retry-After`. Pengajuan lama (ditolak/dibatalkan/disetujui lalu keluar atau dikeluarkan) diaktifkan lagi pada baris yang sama. Maksimal **500** pending per grup (429 `too_many_pending`). Batal sendiri: `DELETE /api/invites/{token}/request` (juga lewat tautan yang sudah dicabut).
+   - Pengajuan menunggu **tetap ada** saat tautan direset/dimatikan; admin yang memutuskan. Grup dijadikan publik mencabut tautan aktif (`GroupService.SetInviteRevoker`); store juga selalu menolak token grup publik.
+   - Persetujuan memakai endpoint `join-requests` yang sama dengan forum (dirutekan menurut prefiks `grp_`), dalam satu transaksi dengan UPDATE bersyarat `status = 'pending'` (dua admin tidak bisa memproses ganda: 409 `request_processed`). Pesan sistem `group_member_joined` ("X bergabung lewat tautan undangan.").
+   - Notifikasi: pengajuan baru ke creator/admin (WS `join_request` + push tag `join-request-<grp_id>`, sehingga beruntun menumpuk jadi satu); keputusan ke pemohon (tag `join-response-<grp_id>`).
+   - Laju per pengguna: ajukan 10/jam, pratinjau/batal 60/jam.
+   - Anggota baru tetap melihat seluruh riwayat (keputusan D4); riwayat hanya dipotong `cleared_at`.
+   - Kode: `store.InviteLinkStore` (`store/invite_links.go`), `group.InviteService`, `api/group_invite_handler.go`, rute `/api/invites/` di `app/router.go`. Desain: `docs/plans/backlog/PRIVATE_GROUP_INVITES.md`.
 7. **Penyebutan Multi-User (@mentions)**:
    - Autocomplete popover `@username` dengan validasi fail-closed keanggotaan room di WebSocket Hub.
 
@@ -72,8 +86,12 @@ backend/internal/group/
 | `GET` | `/api/forums/mine` | Forum yang diikuti user (aktif dan berakhir) beserta `memory_state` |
 | `GET` | `/api/me/entitlement` | Paket, jatah forum aktif, durasi yang diizinkan, dan kuota ringkasan AI milik pemanggil |
 | `POST` | `/api/groups/{sub_id}/join-request` | Mengajukan izin gabung ke forum privat |
-| `GET` | `/api/groups/{sub_id}/join-requests` | Daftar pengajuan izin (Admin only) |
-| `POST` | `/api/groups/{sub_id}/join-requests/{req_id}/action` | Setujui / tolak pengajuan izin |
+| `GET` | `/api/groups/{id}/join-requests` | Daftar pengajuan izin (Admin only; `sub_` forum atau `grp_` grup privat) |
+| `POST` | `/api/groups/{id}/join-requests/{req_id}/action` | Setujui / tolak pengajuan izin (`sub_` atau `grp_`) |
+| `GET` / `POST` / `DELETE` | `/api/groups/{grp_id}/invite-link` | Lihat / buat atau reset / matikan tautan undangan grup privat (Admin/Creator) |
+| `GET` | `/api/invites/{token}` | Pratinjau grup undangan (login) |
+| `POST` | `/api/invites/{token}/join` | Ajukan gabung lewat tautan undangan |
+| `DELETE` | `/api/invites/{token}/request` | Batalkan pengajuan sendiri |
 
 ---
 
@@ -86,7 +104,9 @@ backend/internal/group/
 
 ## 🧭 6. Backlog: Izin Gabung Grup Privat (`grp_`) via Tautan
 
-**Status saat ini**: Tombol "Bagikan Grup" mobile sudah ada (`GroupInfoScreen.tsx`; publik: semua anggota, privat: admin/creator). Non-anggota yang membuka tautan grup privat `grp_` mendapat 403 + `AuthorizationShield` (buntu, hanya disuruh minta admin menambahkan). `join-request` backend baru berlaku untuk `sub_`.
+**Status 14 Nov 2026: backend SELESAI (tes saja)** lewat tautan undangan (aturan 9, `docs/plans/backlog/PRIVATE_GROUP_INVITES.md`). Pengajuan tidak memakai `join-request` dengan ID grup, melainkan token tautan, agar ID `grp_` yang permanen tidak menjadi jalan masuk. Keputusan pratinjau: nama, avatar, jumlah anggota (D2). Sisa: mobile dan web. Catatan di bawah adalah keadaan sebelum 14 Nov.
+
+**Status sebelumnya**: Tombol "Bagikan Grup" mobile sudah ada (`GroupInfoScreen.tsx`; publik: semua anggota, privat: admin/creator). Non-anggota yang membuka tautan grup privat `grp_` mendapat 403 + `AuthorizationShield` (buntu, hanya disuruh minta admin menambahkan). `join-request` backend baru berlaku untuk `sub_`.
 
 **Rencana (ditunda)**: non-anggota bisa **Ajukan Gabung** lalu disetujui admin.
 - **Backend**: buka `join-request` untuk `grp_` (tenant sama); sesuaikan `join-requests` & `/action`; `GetGroupDetails` mengembalikan pratinjau minimal untuk non-anggota (bukan 403); satu pending per user + rate limit.
