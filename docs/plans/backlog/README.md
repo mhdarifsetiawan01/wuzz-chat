@@ -1,7 +1,28 @@
 # Backlog Wuzz Chat — Indeks dan Sisa Pekerjaan
 
-> Diperbarui 28 Okt 2026. Sumber kebenaran sisa pekerjaan untuk sesi AI mana pun. Berkas selesai ada di `../archived/28-10-2026-backlog-selesai/`. Aturan kerja ada di `PROMPT.md`; runbook operasional di `docs/OPERATIONS.md`.
+> Diperbarui 14 Nov 2026 (serah terima sesi: bagian 0). Sumber kebenaran sisa pekerjaan untuk sesi AI mana pun. Berkas selesai ada di `../archived/28-10-2026-backlog-selesai/`. Aturan kerja ada di `PROMPT.md`; runbook operasional di `docs/OPERATIONS.md`.
 > **Kerjakan hanya yang diminta pengguna.** Memiliki item di sini bukan izin implementasi.
+
+## 0. Serah terima sesi 14 Nov 2026 (BACA DULU)
+
+**Fokus terakhir: Wuzz Chat V2** (Fase 15 `docs/ROADMAP.md`). Semua kode di bawah sudah di `main` dan di-push (`origin/main` = `cdf50f7`); `dev` sama dengan `main`.
+
+**Tahap 1, tautan undangan grup privat: LIVE.** Backend dan landing web `/join` sudah dideploy; mobile teruji di HP (dua profil Android). Rincian: `PRIVATE_GROUP_INVITES.md`, `docs/domains/GROUP_FORUM.md` aturan 9, `docs/progress/MOBILE.md`.
+- Belum: **rilis APK lewat Play** (memuat undangan, teks notifikasi `notif_text`, perbaikan kode pendek huruf `i`); cek gerbang Data Safety di `OPERATIONS.md` sebelum promosi build.
+- Belum dilihat di HP: **teks notifikasi baru** (`notif_text`, backend sudah dideploy, APK lokal sudah dipasang). Akun uji Ma Stw (@mastwofficial, profil Android kedua di HP uji) bisa mengajukan lagi ke "Grup Tes Privat" setelah ±02:16 15 Nov 2026; tautan uji grup itu sudah dimatikan (buat baru). Lalu catat hasilnya di `docs/progress/MOBILE.md`.
+
+**Tahap 2a, Star & grup privat berbayar (tanpa Play Billing): SEBAGIAN, semua sakelar mati.** Desain disetujui (`STARS_PAID_GROUPS.md`), aturan `docs/domains/STARS_WALLET.md`.
+- Selesai di `main`: backend (buku besar, dompet, mitra kreator, grup berbayar, bayar akses, refund, kredit uji; tes SQLite + Postgres) dan halaman `/admin/stars` (uji ujung-ke-ujung lokal).
+- **Deploy backend dan frontend Tahap 2a belum dikonfirmasi pengguna** (aman kapan saja; sakelar `STARS_ENABLED`, `PAID_GROUPS_ENABLED`, `STARS_TEST_GRANTS` tetap kosong).
+- **Langkah berikutnya yang disepakati: mobile Tahap 2a** (`STARS_PAID_GROUPS.md` bagian 8 langkah 3): Saldo/Riwayat Star, layar undangan berbayar ("Bayar N Star & Masuk", kirim `expected_price` + header `Idempotency-Key`, tangani 402/409), pengaturan harga grup untuk kreator (`GET/PUT /api/groups/{id}/paid`), ringkasan "Star diterima". Semua tersembunyi bila endpoint 404 (sakelar mati). Istilah UI netral. Butuh build APK (pengguna).
+- Tahap 2b (Play Billing) menunggu **Tahap 0** di sisi pengguna: konsultasi hukum, profil merchant Play, badan usaha. Angka saat ini sementara (Rp100/Star, platform 20%, potongan toko 15%, masa tahan 14 hari).
+- **Jangan menyalakan sakelar Star untuk pengguna** sebelum Tahap 0 dan deklarasi Play (Financial features, Data Safety) selesai.
+
+**Pelajaran sesi ini (jebakan):**
+- Periksa `git branch --show-current` tepat sebelum commit; branch sempat berpindah ke `main` di tengah sesi.
+- Uji HP lewat adb dengan dua profil Android: FCM ke profil di latar belakang tertunda sampai profil aktif; tiap pindah profil, profil utama terkunci pola (pengguna harus membuka). Hindari mengendalikan Chrome di HP pengguna untuk uji web (tab pribadi dan lembar kata sandi tersimpan muncul); pakai Chrome headless di laptop dengan profil sementara.
+- Uji backend lokal tanpa menyentuh produksi: jalankan binari dari folder yang tidak berisi `.env` (`.env` lokal = produksi), `DATABASE_URL=sqlite://...`; rewrite `/api` frontend terkunci ke `localhost:8080` saat build.
+- SQLite: `busy_timeout` hanya terpasang di satu koneksi pool, jadi tulis bersamaan bisa `SQLITE_BUSY`; uji konkurensi di Postgres (`PG_TEST_ADMIN_DSN`, kontainer `postgres:16-alpine` port 54329).
 
 ## 1. Berkas aktif
 
