@@ -48,6 +48,8 @@ var (
 	ErrRejoinCooldown = errors.New("permohonan baru ditolak, tunggu sebelum mengajukan lagi")
 	// ErrTooManyPending: pengajuan menunggu di grup ini sudah mencapai batas.
 	ErrTooManyPending = errors.New("terlalu banyak permohonan menunggu di grup ini")
+	// ErrPaymentRequired: grup berbayar; pengajuan approval tidak berlaku, pemohon harus membayar (PurchaseAccess).
+	ErrPaymentRequired = errors.New("grup ini berbayar")
 	// ErrJoinRequestNotFound / ErrJoinRequestProcessed: untuk persetujuan admin.
 	ErrJoinRequestNotFound  = errors.New("permohonan bergabung tidak ditemukan")
 	ErrJoinRequestProcessed = errors.New("permohonan bergabung sudah diproses")
@@ -86,6 +88,9 @@ type InvitePreview struct {
 	MyStatus    string `json:"my_status"`
 	// RetryAfterSeconds hanya diisi bila MyStatus = rejected dan jeda belum lewat.
 	RetryAfterSeconds int `json:"retry_after_seconds,omitempty"`
+	// Grup berbayar (Mode = paid, V2 Tahap 2a): harga dan saldo Star pemanggil.
+	PriceStars int  `json:"price_stars,omitempty"`
+	MyBalance  *int `json:"my_balance,omitempty"`
 }
 
 // InviteJoinResult adalah hasil POST /api/invites/{token}/join.
@@ -101,6 +106,19 @@ type InviteLinkStore struct {
 	db         *sql.DB
 	driverName string
 	now        func() time.Time
+	// stars (opsional, PAID_GROUPS_ENABLED): grup berbayar memakai mode paid. nil = semua tautan mode approval.
+	stars *StarStore
+}
+
+// SetStarStore mengaktifkan grup berbayar pada tautan undangan. nil = mati.
+func (s *InviteLinkStore) SetStarStore(st *StarStore) { s.stars = st }
+
+// effectivePaid mengembalikan info grup berbayar yang berlaku, atau nil (mode approval).
+func (s *InviteLinkStore) effectivePaid(ctx context.Context, groupID string) (*PaidGroupInfo, error) {
+	if s.stars == nil {
+		return nil, nil
+	}
+	return s.stars.activePaidGroup(ctx, s.db, groupID)
 }
 
 func NewInviteLinkStore(db *sql.DB, driverName string) *InviteLinkStore {
@@ -261,6 +279,12 @@ func (s *InviteLinkStore) insertLink(ctx context.Context, groupID, actorID, toke
 	}
 	defer func() { _ = tx.Rollback() }()
 	now := s.now()
+	mode := InviteModeApproval
+	if paid, err := s.effectivePaid(ctx, groupID); err != nil {
+		return nil, err
+	} else if paid != nil {
+		mode = InviteModePaid
+	}
 	if revokeExisting {
 		if _, err := tx.ExecContext(ctx, s.q(`UPDATE group_invite_links SET revoked_at = ?, revoked_by = ?
 			WHERE conversation_id = ? AND revoked_at IS NULL`), now, actorID, groupID); err != nil {
@@ -268,13 +292,13 @@ func (s *InviteLinkStore) insertLink(ctx context.Context, groupID, actorID, toke
 		}
 	}
 	if _, err := tx.ExecContext(ctx, s.q(`INSERT INTO group_invite_links (id, conversation_id, token, mode, created_by, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)`), uuid.New().String(), groupID, token, InviteModeApproval, actorID, now); err != nil {
+		VALUES (?, ?, ?, ?, ?, ?)`), uuid.New().String(), groupID, token, mode, actorID, now); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return &InviteLink{Token: token, Path: InvitePath(token), Mode: InviteModeApproval, CreatedBy: actorID, CreatedAt: now}, nil
+	return &InviteLink{Token: token, Path: InvitePath(token), Mode: mode, CreatedBy: actorID, CreatedAt: now}, nil
 }
 
 // Revoke mematikan tautan aktif tanpa pengganti. Hanya creator/admin. Tidak ada tautan aktif = bukan galat.
@@ -380,9 +404,25 @@ func (s *InviteLinkStore) Preview(ctx context.Context, token, userID string) (*I
 	if err != nil {
 		return nil, err
 	}
+	paid, err := s.effectivePaid(ctx, g.id)
+	if err != nil {
+		return nil, err
+	}
+	if paid != nil {
+		p.Mode = InviteModePaid
+		p.PriceStars = paid.PriceStars
+		b, err := s.stars.balance(ctx, s.db, starTenantDefault, userID)
+		if err != nil {
+			return nil, err
+		}
+		p.MyBalance = &b
+	}
 	if role != "" {
 		p.MyStatus = InviteStatusMember
 		return p, nil
+	}
+	if paid != nil {
+		return p, nil // grup berbayar: tidak ada status pengajuan/jeda
 	}
 	row, err := s.requestRow(ctx, g.id, userID)
 	if err != nil {
@@ -414,6 +454,11 @@ func (s *InviteLinkStore) RequestJoin(ctx context.Context, token, userID string)
 	}
 	if role != "" {
 		return &InviteJoinResult{GroupID: g.id, Status: InviteStatusMember}, nil
+	}
+	if paid, err := s.effectivePaid(ctx, g.id); err != nil {
+		return nil, err
+	} else if paid != nil {
+		return nil, ErrPaymentRequired
 	}
 	row, err := s.requestRow(ctx, g.id, userID)
 	if err != nil {

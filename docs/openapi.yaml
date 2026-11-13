@@ -1605,6 +1605,165 @@ paths:
         '404':
           description: No pending request (`request_not_found`) or invite not valid (`invite_not_found`)
 
+  /api/me/stars:
+    get:
+      tags: [Stars]
+      summary: My Star balance and history (STARS_ENABLED; 404 when off)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Balance and the 50 most recent ledger entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StarWallet'
+        '404':
+          description: Stars disabled
+
+  /api/me/stars/received:
+    get:
+      tags: [Stars]
+      summary: Stars received by a partner creator, per group
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 'Body: {"is_creator": bool, "groups": [...]}; refunded purchases excluded'
+
+  /api/groups/{id}/paid:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Stars]
+      summary: Paid group settings (PAID_GROUPS_ENABLED)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 'Body: {"paid": PaidGroup|null, "is_creator", "price_min", "price_max"}'
+    put:
+      tags: [Stars]
+      summary: Set price and enable/disable a paid group (group creator who is an active partner creator)
+      description: Changing the paid status resets the active invite link so its mode follows (old link stops working).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [price_stars, enabled]
+              properties:
+                price_stars:
+                  type: integer
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Saved
+        '400':
+          description: price_out_of_range
+        '403':
+          description: not_group_creator or not_paid_creator
+        '409':
+          description: not_private
+
+  /api/invites/{token}/purchase:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          maxLength: 100
+    post:
+      tags: [Stars]
+      summary: Pay Stars for access to a paid group and join (one transaction)
+      description: >
+        Idempotent per user and Idempotency-Key. Already a member, or a repeated key, returns 200 without a new charge.
+        Concurrent payments for the same group charge at most once.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expected_price]
+              properties:
+                expected_price:
+                  type: integer
+      responses:
+        '200':
+          description: 'Body: {"group_id", "status": "member", "stars_paid", "balance"}'
+        '400':
+          description: idempotency_key_required
+        '402':
+          description: insufficient_stars
+        '404':
+          description: invite_not_found (also when the group is no longer paid)
+        '409':
+          description: price_changed
+
+  /api/admin/stars/{path}:
+    parameters:
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+        description: settings | creators | users/{id or username} | users/{ref}/test-grant | refund
+    get:
+      tags: [Stars]
+      summary: Star admin tools, read (wuzz_admin only)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: settings (with flags), creators list, or a user's wallet
+        '403':
+          description: admin_only
+    post:
+      tags: [Stars]
+      summary: Star admin tools, write (wuzz_admin only)
+      description: >
+        creators {user, active, note}; users/{ref}/test-grant {stars 1..10000, reason} with Idempotency-Key
+        (403 test_grants_disabled unless STARS_TEST_GRANTS); refund {spend_id, reason} (409 already_refunded /
+        earning_already_paid).
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Done
+    put:
+      tags: [Stars]
+      summary: Update Star settings (wuzz_admin only)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StarSettings'
+      responses:
+        '200':
+          description: Saved
+        '400':
+          description: settings_invalid
+
   /api/groups/{id}/join:
     post:
       tags:
@@ -2752,6 +2911,57 @@ components:
       description: Third-party tenant secret key.
 
   schemas:
+    StarWallet:
+      type: object
+      properties:
+        balance:
+          type: integer
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              delta:
+                type: integer
+              kind:
+                type: string
+                enum: [purchase, spend, refund, test_grant, adjustment]
+              group_id:
+                type: string
+              group_title:
+                type: string
+              ref_id:
+                type: string
+              reason:
+                type: string
+              created_by:
+                type: string
+              created_at:
+                type: string
+                format: date-time
+    StarSettings:
+      type: object
+      properties:
+        star_value_minor:
+          type: integer
+        currency:
+          type: string
+        packages:
+          type: array
+          items:
+            type: integer
+        group_price_min:
+          type: integer
+        group_price_max:
+          type: integer
+        store_fee_pct:
+          type: integer
+        platform_pct:
+          type: integer
+        hold_days:
+          type: integer
     InviteLink:
       type: object
       properties:
@@ -2783,10 +2993,16 @@ components:
           type: integer
         mode:
           type: string
-          enum: [approval]
+          enum: [approval, paid]
         my_status:
           type: string
           enum: [member, pending, rejected, none]
+        price_stars:
+          type: integer
+          description: Paid groups only (mode paid)
+        my_balance:
+          type: integer
+          description: Paid groups only; caller's Star balance
         retry_after_seconds:
           type: integer
           description: Only when my_status is rejected and the 24-hour cooldown has not passed

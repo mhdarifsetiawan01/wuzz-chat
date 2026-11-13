@@ -1331,6 +1331,22 @@ Satu-satunya jalan non-anggota masuk grup utama privat selain ditambahkan admin.
 - **`POST /api/invites/{token}/join`** — ajukan gabung. 202 `{"group_id","status":"pending"}` (juga bila sudah menunggu; idempoten, aman dicoba ulang setelah timeout), 200 `{"status":"member"}` bila sudah anggota. 429 `rejoin_cooldown` + header `Retry-After` + `retry_after_seconds` bila ditolak < 24 jam lalu; 429 `too_many_pending` bila grup sudah punya 500 pengajuan menunggu; 404 `invite_not_found`. Laju 10/jam per pengguna (429 dengan `Retry-After: 600`).
 - **`DELETE /api/invites/{token}/request`** — batalkan pengajuan menunggu milik sendiri (juga lewat token yang sudah dicabut). 200 `{"status":"none"}`; 404 `request_not_found` bila tidak ada pengajuan menunggu.
 - Pengajuan baru memberi tahu creator/admin (WS `join_request`, push judul "Permohonan Bergabung Grup", tag `join-request-<grp_id>`). Daftar dan keputusan memakai endpoint 44 dan 45 dengan `id = grp_...`.
+- **Grup berbayar (V2 Tahap 2a, 35d):** pratinjau grup berbayar memuat `mode: "paid"`, `price_stars`, `my_balance`; `POST …/join` menjawab 402 `payment_required`.
+
+#### 35d. Star & Grup Privat Berbayar (V2 Tahap 2a, 14 Nov 2026; semua sakelar mati)
+Aturan: `docs/domains/STARS_WALLET.md`. Semua Bearer; galat `{"error","code"}`. Sakelar mati = 404. Hanya tenant `default`.
+- **`GET /api/me/stars`** (`STARS_ENABLED`) → `{"balance": 150, "history": [{"id","delta","kind","group_id","group_title","ref_id","reason","created_by","created_at"}]}` (50 terbaru).
+- **`GET /api/me/stars/received`** → `{"is_creator": true, "groups": [{"group_id","group_title","purchases","stars","pending_stars","available_stars","amount_minor","currency"}]}` (tanpa yang direfund).
+- **`GET /api/groups/{grp_id}/paid`** (`PAID_GROUPS_ENABLED`) → `{"paid": {"group_id","creator_id","price_stars","enabled"} | null, "is_creator", "price_min", "price_max"}`.
+- **`PUT /api/groups/{grp_id}/paid`** `{"price_stars": 100, "enabled": true}` → `{"paid": {...}}`. Galat: 403 `not_group_creator` / `not_paid_creator`, 409 `not_private`, 400 `price_out_of_range`. Mengubah status berbayar mereset tautan undangan aktif.
+- **`POST /api/invites/{token}/purchase`** `{"expected_price": 100}` + header **`Idempotency-Key`** (wajib, ≤100 karakter) → 200 `{"group_id","status":"member","stars_paid","balance"}`; sudah anggota atau kunci diulang = 200 tanpa potongan. Galat: 402 `insufficient_stars`, 409 `price_changed`, 400 `idempotency_key_required`, 404 `invite_not_found` (juga bila grup tidak lagi berbayar). Laju bersama `POST /api/invites/…` 10/jam per pengguna.
+- **Admin (`wuzz_admin`; 403 `admin_only` untuk lainnya), laju 60/menit:**
+  - `GET|PUT /api/admin/stars/settings` → `{"settings": {"star_value_minor","currency","packages","group_price_min","group_price_max","store_fee_pct","platform_pct","hold_days"}, "flags": {...}}`; PUT 400 `settings_invalid`.
+  - `GET /api/admin/stars/creators` → `{"creators": [...]}`; `POST` `{"user": "<id atau @username>", "active": true, "note": ""}`.
+  - `GET /api/admin/stars/users/{id atau username}` → `{"user_id", "wallet": {...}}`.
+  - `POST /api/admin/stars/users/{ref}/test-grant` `{"stars": 1..10000, "reason"}` + `Idempotency-Key` → `{"balance"}`; 403 `test_grants_disabled` bila `STARS_TEST_GRANTS` mati.
+  - `POST /api/admin/stars/refund` `{"spend_id", "reason"}` → `{"balance"}`; 409 `already_refunded` / `earning_already_paid`, 404 `ledger_not_found`.
+- `PATCH /api/groups/{id}` dengan `is_public: true` pada grup berbayar: 409 `paid_group_public`.
 
 ---
 

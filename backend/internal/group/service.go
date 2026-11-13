@@ -51,12 +51,22 @@ type GroupService struct {
 	releaser MediaReleaser
 	// inviteRevoker (opsional): mencabut tautan undangan saat grup dijadikan publik.
 	inviteRevoker InviteRevoker
+	// paidChecker (opsional): menolak grup berbayar dijadikan publik.
+	paidChecker PaidGroupChecker
 }
 
 // InviteRevoker mencabut tautan undangan grup (best-effort). *InviteService memenuhinya.
 type InviteRevoker interface {
 	RevokeOnPublic(ctx context.Context, groupID, actorID string)
 }
+
+// PaidGroupChecker menjawab apakah grup sedang berbayar (V2 Tahap 2a). *store.StarStore memenuhinya.
+type PaidGroupChecker interface {
+	IsPaidGroup(ctx context.Context, groupID string) (bool, error)
+}
+
+// SetPaidGroupChecker memasang pemeriksa grup berbayar: grup berbayar tidak boleh dijadikan publik (keputusan K3).
+func (s *GroupService) SetPaidGroupChecker(c PaidGroupChecker) { s.paidChecker = c }
 
 // SetInviteRevoker memasang pencabut tautan undangan. nil = tautan tidak dicabut otomatis (store tetap menolak token
 // grup publik).
@@ -299,6 +309,16 @@ func (s *GroupService) UpdateGroupInfo(ctx context.Context, input UpdateGroupInp
 	if input.IsPublic != nil && !*input.IsPublic {
 		empty := ""
 		input.GroupUsername = &empty
+	}
+
+	if s.paidChecker != nil && input.IsPublic != nil && *input.IsPublic {
+		paid, err := s.paidChecker.IsPaidGroup(ctx, input.ConversationID)
+		if err != nil {
+			return err
+		}
+		if paid {
+			return store.ErrPaidGroupPublic
+		}
 	}
 
 	// Avatar lama dicatat sebelum diganti supaya bisa dilepas sesudahnya. Avatar kosong berarti "tidak diubah".

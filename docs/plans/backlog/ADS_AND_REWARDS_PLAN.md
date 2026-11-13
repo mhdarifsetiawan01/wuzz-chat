@@ -139,7 +139,7 @@ Tujuan: mitra dapat memposting produk/promosi di Wuzz Chat. Yang sudah ada hanya
 
 ## 14. Star dan grup privat berbayar (IDE, belum diputuskan; dicatat 5 Nov 2026)
 
-> **Status: draf ide. Jangan dieksekusi** (tidak ada kode, tabel, produk Play, atau perubahan deklarasi) sampai pengguna memerintahkan secara eksplisit. Dicatat karena bertabrakan dengan bagian 1 dan 11 (Poin tidak bisa dicairkan), sesuai aturan bagian 13.
+> **Status: draf ide. Jangan dieksekusi** (tidak ada kode, tabel, produk Play, atau perubahan deklarasi) sampai pengguna memerintahkan secara eksplisit. **Pembaruan 14 Nov 2026:** pengguna memerintahkan Tahap 1 (tautan undangan, selesai) dan Tahap 2a (Star tanpa Play Billing, backend di `dev`, sakelar mati): `STARS_PAID_GROUPS.md`, `docs/domains/STARS_WALLET.md`. Produk Play dan deklarasi tetap belum. Dicatat karena bertabrakan dengan bagian 1 dan 11 (Poin tidak bisa dicairkan), sesuai aturan bagian 13.
 
 **Ide pengguna (5 Nov 2026):** admin dapat menjadikan grup privat berbayar. Pengunjung tautan grup membeli "Star" di Wuzz Chat (dibeli dengan uang), membayar dengan Star itu untuk masuk, lalu pemilik grup menerima Star dan dapat mencairkannya (withdraw). Mirip grup berbayar Telegram dengan Stars.
 

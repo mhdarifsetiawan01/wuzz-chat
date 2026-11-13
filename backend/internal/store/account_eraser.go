@@ -172,6 +172,10 @@ func (s *SQLAccountEraser) EraseUser(ctx context.Context, userID string) error {
 			if err := exec(`DELETE FROM group_invite_links WHERE conversation_id = ?`, convID); err != nil {
 				return err
 			}
+			// Pengaturan berbayar ikut grup; catatan keuangan (star_ledger, creator_earnings, paid_group_access) dipertahankan (K1).
+			if err := exec(`DELETE FROM paid_groups WHERE group_id = ?`, convID); err != nil {
+				return err
+			}
 			if err := exec(`DELETE FROM conversation_members WHERE conversation_id = ?`, convID); err != nil {
 				return err
 			}

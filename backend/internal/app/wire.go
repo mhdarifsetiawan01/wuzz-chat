@@ -91,6 +91,8 @@ type Application struct {
 	ModerationHandler   *api.ModerationHandler
 	EntitlementHandler  *api.EntitlementHandler
 	ShortLinkHandler    *api.ShortLinkHandler
+	// StarsHandler: Star & grup berbayar (V2 Tahap 2a). nil = STARS_ENABLED mati.
+	StarsHandler *api.StarsHandler
 	// EvidenceWorker menghapus bukti laporan yang melewati masa simpan; nil bila alat moderasi/retensi tidak aktif.
 	EvidenceWorker *worker.EvidenceRetentionWorker
 	// Notifier mengirim pemberitahuan laporan baru ke Telegram dll; nil bila tidak ada saluran aktif.
@@ -364,7 +366,19 @@ func New(cfg *config.Config) (*Application, error) {
 		forumSvc := group.NewForumService(groupRepo, groupRepo, jobStore, nil, nil)
 		app.GroupHandler = api.NewGroupHandlerWithServices(groupSvc, forumSvc, groupStore, userStore)
 		if sqlStore, ok := messageStore.(*store.SQLMessageStore); ok {
-			app.GroupHandler.SetInviteService(group.NewInviteService(store.NewInviteLinkStore(sqlStore.DB(), sqlStore.DriverName()), groupRepo))
+			inviteStore := store.NewInviteLinkStore(sqlStore.DB(), sqlStore.DriverName())
+			app.GroupHandler.SetInviteService(group.NewInviteService(inviteStore, groupRepo))
+			// Star & grup berbayar: semua sakelar bawaan mati (STARS_ENABLED, PAID_GROUPS_ENABLED, STARS_TEST_GRANTS).
+			if cfg != nil && cfg.StarsEnabled {
+				starStore := store.NewStarStore(sqlStore.DB(), sqlStore.DriverName(), inviteStore)
+				if cfg.PaidGroupsEnabled {
+					inviteStore.SetStarStore(starStore)
+					groupSvc.SetPaidGroupChecker(starStore)
+				}
+				app.StarsHandler = api.NewStarsHandler(starStore, cfg.StarsEnabled, cfg.PaidGroupsEnabled, cfg.StarsTestGrants)
+				app.GroupHandler.SetStarsHandler(app.StarsHandler)
+				log.Printf("⭐ Star aktif (grup berbayar: %v, kredit uji: %v)", cfg.PaidGroupsEnabled, cfg.StarsTestGrants)
+			}
 		}
 
 		app.NotificationHandler = api.NewNotificationHandler(pushService, userStore)
