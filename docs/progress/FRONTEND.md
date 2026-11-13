@@ -4,10 +4,10 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
-### Landing tautan undangan grup privat `/join/<token>` (14 Nov 2026, di `dev`, belum dideploy)
+### Landing tautan undangan grup privat `/join/<token>` (14 Nov 2026, di `main`, DIDEPLOY 14 Nov 2026)
 
 - Halaman `app/join/[token]/page.tsx` (V2 Tahap 1): "Anda diundang ke grup privat", tombol "Buka di Aplikasi WuzzChat" (`wuzzchat://join/<token>`), unduh dari Play, dan saran memperbarui aplikasi (APK lama tidak mengenali `/join`). Token berbentuk salah: "Tautan undangan tidak valid". Tanpa pratinjau dan tanpa memanggil backend (sesuai keputusan D2). Metadata `robots: noindex, nofollow` dan `referrer: no-referrer`. `/join` ditambahkan ke `WEB_PAUSED_EXEMPT_PREFIXES` (`lib/app-download.ts`).
-- Bukti: *tes saja*: `npm run build` lolos; HTML hasil `next start` lokal diperiksa (judul, tombol `wuzzchat://join/...`, meta robots dan referrer, halaman token salah). **Belum:** deploy frontend, dilihat di browser HP, perilaku tombol di HP tanpa aplikasi atau dengan APK lama.
+- Bukti: *tes saja*: `npm run build` lolos; HTML hasil `next start` lokal diperiksa (judul, tombol `wuzzchat://join/...`, meta robots dan referrer, halaman token salah). **Dideploy** pengguna 14 Nov 2026; *terbukti* dari luar: `https://chat.wuzzhub.id/join/<token>` menjawab 200 dengan judul, tombol `wuzzchat://join/...`, meta `noindex` dan `no-referrer`; token salah menampilkan "Tautan undangan tidak valid". **Belum:** dilihat di browser (gate web sisi klien tidak menutupi halaman), perilaku tombol di HP tanpa aplikasi atau dengan APK lama.
 
 ### Perbaikan pola kode tautan pendek di landing (14 Nov 2026, di `dev`, belum dideploy)
 
