@@ -106,7 +106,7 @@ backend/internal/group/
 
 ## 🧭 6. Backlog: Izin Gabung Grup Privat (`grp_`) via Tautan
 
-**Status 14 Nov 2026: backend dan mobile SELESAI di kode (tes saja; mobile butuh build baru)** lewat tautan undangan (aturan 9, `docs/plans/backlog/PRIVATE_GROUP_INVITES.md`). Pengajuan tidak memakai `join-request` dengan ID grup, melainkan token tautan, agar ID `grp_` yang permanen tidak menjadi jalan masuk. Keputusan pratinjau: nama, avatar, jumlah anggota (D2). Sisa: lihat teks notifikasi baru di HP, lihat landing `/join` di browser. Catatan di bawah adalah keadaan sebelum 14 Nov.
+**Status 14 Nov 2026: backend dan mobile SELESAI di kode (tes saja; mobile butuh build baru)** lewat tautan undangan (aturan 9, `docs/plans/backlog/PRIVATE_GROUP_INVITES.md`). Pengajuan tidak memakai `join-request` dengan ID grup, melainkan token tautan, agar ID `grp_` yang permanen tidak menjadi jalan masuk. Keputusan pratinjau: nama, avatar, jumlah anggota (D2). Sisa: lihat teks notifikasi baru di HP, rilis APK lewat Play. Catatan di bawah adalah keadaan sebelum 14 Nov.
 
 **Status sebelumnya**: Tombol "Bagikan Grup" mobile sudah ada (`GroupInfoScreen.tsx`; publik: semua anggota, privat: admin/creator). Non-anggota yang membuka tautan grup privat `grp_` mendapat 403 + `AuthorizationShield` (buntu, hanya disuruh minta admin menambahkan). `join-request` backend baru berlaku untuk `sub_`.
 
