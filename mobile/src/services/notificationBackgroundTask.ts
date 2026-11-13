@@ -59,7 +59,9 @@ export async function decryptNotificationPayload(data: Record<string, any>): Pro
     ? MENTION_NOTIFICATION_CHANNEL_ID
     : DEFAULT_NOTIFICATION_CHANNEL_ID;
 
-  const rawContent = data.encrypted_content || data.body || '';
+  // notif_text: teks notifikasi sistem dari backend (permohonan bergabung, status permohonan, memori). Backend hanya
+  // mengisinya untuk push tanpa encrypted_content, jadi tidak pernah berisi pesan chat.
+  const rawContent = data.encrypted_content || data.body || data.notif_text || '';
   const senderPubKey = data.sender_public_key;
   const roomId = data.room_id;
   const mediaType = data.media_type;

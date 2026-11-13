@@ -68,6 +68,8 @@ export type RootStackParamList = {
   };
   /** Game harian Wuzz Grid (layar penuh) */
   Game: undefined;
+  /** Undangan grup privat dari tautan /join/<token> (V2 Tahap 1) */
+  Invite: { token: string };
   /** Friends list & pending connection requests */
   FriendsList?: {
     initialTab?: 'friends' | 'requests';

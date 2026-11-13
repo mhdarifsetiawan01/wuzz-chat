@@ -22,6 +22,7 @@ import {
   FriendsListScreen,
   PostReaderScreen,
   GameScreen,
+  InviteScreen,
 } from '../screens';
 import { MainTabNavigator } from './MainTabNavigator';
 import { useTheme } from '../theme';
@@ -263,6 +264,33 @@ export const AppNavigator: React.FC = () => {
         }}
       >
         {({ navigation }) => <GameScreen onBack={() => navigation.goBack()} />}
+      </Stack.Screen>
+
+      {/* 10. Undangan grup privat (tautan /join/<token>) */}
+      <Stack.Screen
+        name="Invite"
+        options={{
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+        }}
+      >
+        {({ route, navigation }) => (
+          <InviteScreen
+            token={route.params.token}
+            onBack={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MainTabs'))}
+            onOpenGroup={(g) => {
+              const conversation: ConversationItem = {
+                id: g.id,
+                room_id: g.id,
+                title: g.title,
+                avatar_url: g.avatarUrl,
+                is_group: true,
+                type: 'group',
+              } as ConversationItem;
+              navigation.replace('Chat', { conversation });
+            }}
+          />
+        )}
       </Stack.Screen>
 
       {/* Future modular screens can simply be appended here */}

@@ -16,3 +16,4 @@ export * from './FriendsListScreen';
 
 export * from './PostReaderScreen';
 export * from './GameScreen';
+export * from './InviteScreen';

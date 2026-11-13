@@ -71,6 +71,11 @@
               "scheme": "https",
               "host": "chat.wuzzhub.id",
               "pathPrefix": "/room"
+            },
+            {
+              "scheme": "https",
+              "host": "chat.wuzzhub.id",
+              "pathPrefix": "/join"
             }
           ],
           "category": [

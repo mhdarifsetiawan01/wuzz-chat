@@ -8,7 +8,8 @@ Dokumen ini adalah spesifikasi definitif untuk domain **Notifikasi Latar Belakan
 
 1. **Zero-Knowledge Background Push Decryption**:
    - Server tidak pernah mengirimkan plaintext pesan E2EE ke Google FCM atau Apple APNs.
-   - Payload dikirim murni dalam format *Silent Data-Only* (`priority: HIGH`).
+   - Payload dikirim murni dalam format *Silent Data-Only* (`priority: HIGH`). Kunci `title`/`body` tidak pernah ada di root data (mencegah notifikasi mentah otomatis); judul dibawa `sender_nickname`.
+   - **Teks notifikasi sistem (14 Nov 2026):** push tanpa kunci `encrypted_content` (permohonan bergabung grup/forum, status permohonan, memori) membawa teksnya di data `notif_text` (`push.buildFCMData`); background task mobile menampilkannya (`decryptNotificationPayload`). Push pesan chat selalu membawa `encrypted_content` (juga saat kosong), jadi tidak pernah mendapat `notif_text`. Sebelumnya notifikasi sistem tampil "Pesan baru diterima" (terbukti di HP 14 Nov 2026). APK lama tetap "Pesan baru diterima" sampai diperbarui.
    - Latar belakang perangkat (Service Worker `sw.js` di Web / Background Task di Android) menerima paket data terenkripsi, mendekripsi secara lokal menggunakan kunci privat Keystore/IndexedDB, lalu menampilkan notifikasi OS.
 2. **Pluggable Push Provider Auto-Routing**:
    - Backend membedakan tipe token secara otomatis pada `POST /api/notifications/subscribe`:
