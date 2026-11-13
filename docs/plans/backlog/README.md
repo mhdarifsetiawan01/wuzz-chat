@@ -14,7 +14,7 @@
 | [`FORUM_BUBBLE.md`](FORUM_BUBBLE.md) | Tahap 1-2 selesai, tahap 3 ditunda | Tahap 3 butuh desain per-tenant untuk AI Memory. |
 | [`MOBILE_LINKED_DEVICES.md`](MOBILE_LINKED_DEVICES.md) | Selesai kecuali audit | Audit akar penyebab inventaris lama/kuota dan target yang sepenuhnya offline masih terbuka. |
 | [`FEED_UPLOAD_HARDENING.md`](FEED_UPLOAD_HARDENING.md) | Belum dikerjakan | A1 (kompresi gambar) butuh dependency native, jadi build baru. |
-| [`PRIVATE_GROUP_INVITES.md`](PRIVATE_GROUP_INVITES.md) | Disetujui 14 Nov 2026. Backend di `main`, **dideploy 14 Nov 2026** (alur nyata belum dicoba). **Mobile selesai di `dev`** (tes saja; butuh build APK dan uji dua HP). Web `/join` belum | Wuzz Chat V2 Tahap 1: tautan undangan grup privat yang bisa dicabut + persetujuan admin. Tanpa uang; Star/grup berbayar menyusul (Fase 15). |
+| [`PRIVATE_GROUP_INVITES.md`](PRIVATE_GROUP_INVITES.md) | Disetujui 14 Nov 2026. Backend di `main`, **dideploy 14 Nov 2026** (alur nyata belum dicoba). **Mobile selesai di `dev`** (tes saja; butuh build APK dan uji dua HP). Landing web `/join` selesai di kode (belum dideploy) | Wuzz Chat V2 Tahap 1: tautan undangan grup privat yang bisa dicabut + persetujuan admin. Tanpa uang; Star/grup berbayar menyusul (Fase 15). |
 | [`b2b-widget/README.md`](b2b-widget/README.md) | Diskusi, ditunda | Prasyarat audit tenant T1-T6 sudah selesai. |
 
 ## 2. Sisa dari rencana yang sudah diarsipkan

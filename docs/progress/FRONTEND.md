@@ -4,6 +4,11 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+### Landing tautan undangan grup privat `/join/<token>` (14 Nov 2026, di `dev`, belum dideploy)
+
+- Halaman `app/join/[token]/page.tsx` (V2 Tahap 1): "Anda diundang ke grup privat", tombol "Buka di Aplikasi WuzzChat" (`wuzzchat://join/<token>`), unduh dari Play, dan saran memperbarui aplikasi (APK lama tidak mengenali `/join`). Token berbentuk salah: "Tautan undangan tidak valid". Tanpa pratinjau dan tanpa memanggil backend (sesuai keputusan D2). Metadata `robots: noindex, nofollow` dan `referrer: no-referrer`. `/join` ditambahkan ke `WEB_PAUSED_EXEMPT_PREFIXES` (`lib/app-download.ts`).
+- Bukti: *tes saja*: `npm run build` lolos; HTML hasil `next start` lokal diperiksa (judul, tombol `wuzzchat://join/...`, meta robots dan referrer, halaman token salah). **Belum:** deploy frontend, dilihat di browser HP, perilaku tombol di HP tanpa aplikasi atau dengan APK lama.
+
 ### Perbaikan pola kode tautan pendek di landing (14 Nov 2026, di `dev`, belum dideploy)
 
 - `SHORT_CODE_PATTERN` di `app/OpenInAppLanding.tsx` dulu menolak huruf `i` (sama dengan backend dan mobile), sehingga kode pendek ber-`i` tidak diterjemahkan di landing. Pola kini `^[2-9a-km-np-zA-HJ-NP-Z]{8}$`. Bukti: *tes saja* (`npm run build` lolos). **Belum:** deploy frontend, dilihat di browser. Landing `/join/<token>` untuk tautan undangan grup privat belum dibuat (`docs/plans/backlog/PRIVATE_GROUP_INVITES.md` bagian 5).

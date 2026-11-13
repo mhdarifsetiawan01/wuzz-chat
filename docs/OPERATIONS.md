@@ -40,7 +40,7 @@ File env ada di `~/wuzz-chat/backend/.env` di VPS (bukan di root home). Terapkan
 | `REPORT_EVIDENCE_RETENTION_DAYS` | 90 | Worker tiap 6 jam; bukti yang ditahan tidak dihapus |
 | `DATABASE_URL`, `REDIS_URL` | Postgres Supabase (Seoul, pooler), Upstash Redis | Setiap putaran ke DB ±171 ms; lantai API = 2 putaran |
 
-**Frontend (Vercel, build-time):** `NEXT_PUBLIC_WEB_PAUSED=true` (web dijeda, `WebPausedGate`), `NEXT_PUBLIC_APK_URL` = tautan Play Store (28 Okt 2026), `NEXT_PUBLIC_SUPPORT_EMAIL` menimpa email dukungan bawaan. Mengubahnya butuh rebuild. Pengecualian route gate (`WEB_PAUSED_EXEMPT_PREFIXES` di `frontend/lib/app-download.ts`): `/u`, `/g`, `/sub`, `/room`, `/transfer/share`, `/privacy`, `/terms`, `/delete-account`, `/child-safety`, `/admin`. `app-ads.txt` dilayani sebagai berkas statis (`frontend/public/`), tidak lewat gate.
+**Frontend (Vercel, build-time):** `NEXT_PUBLIC_WEB_PAUSED=true` (web dijeda, `WebPausedGate`), `NEXT_PUBLIC_APK_URL` = tautan Play Store (28 Okt 2026), `NEXT_PUBLIC_SUPPORT_EMAIL` menimpa email dukungan bawaan. Mengubahnya butuh rebuild. Pengecualian route gate (`WEB_PAUSED_EXEMPT_PREFIXES` di `frontend/lib/app-download.ts`): `/u`, `/g`, `/sub`, `/room`, `/join` (undangan grup privat, 14 Nov 2026), `/transfer/share`, `/privacy`, `/terms`, `/delete-account`, `/child-safety`, `/admin`. `app-ads.txt` dilayani sebagai berkas statis (`frontend/public/`), tidak lewat gate.
 
 **R2 (Cloudflare):** bucket `wuzzchat`, domain publik `media.wuzzhub.id`, CORS untuk `https://chat.wuzzhub.id`, Cache Rule **Bypass cache** untuk hostname itu, lifecycle rule hanya untuk awalan `video/` (hapus setelah 3 hari). **Jangan** pasang aturan lifecycle tanpa awalan: avatar dan media Feed ada di bucket yang sama. Batas video 25 MB / 60 dtk.
 
