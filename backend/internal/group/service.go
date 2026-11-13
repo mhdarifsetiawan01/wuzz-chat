@@ -49,7 +49,18 @@ type GroupService struct {
 	notifier    GroupNotifier
 	// releaser (opsional): melepas avatar grup lama yang diganti agar berkasnya dibersihkan PurgeWorker.
 	releaser MediaReleaser
+	// inviteRevoker (opsional): mencabut tautan undangan saat grup dijadikan publik.
+	inviteRevoker InviteRevoker
 }
+
+// InviteRevoker mencabut tautan undangan grup (best-effort). *InviteService memenuhinya.
+type InviteRevoker interface {
+	RevokeOnPublic(ctx context.Context, groupID, actorID string)
+}
+
+// SetInviteRevoker memasang pencabut tautan undangan. nil = tautan tidak dicabut otomatis (store tetap menolak token
+// grup publik).
+func (s *GroupService) SetInviteRevoker(r InviteRevoker) { s.inviteRevoker = r }
 
 // MediaReleaser melepas berkas media yang tidak lagi dirujuk (best-effort, tidak mengembalikan galat).
 type MediaReleaser interface {
@@ -307,6 +318,9 @@ func (s *GroupService) UpdateGroupInfo(ctx context.Context, input UpdateGroupInp
 	}
 	if oldAvatar != "" && oldAvatar != input.AvatarURL {
 		s.releaser.Release(ctx, oldAvatar)
+	}
+	if s.inviteRevoker != nil && input.IsPublic != nil && *input.IsPublic {
+		s.inviteRevoker.RevokeOnPublic(ctx, input.ConversationID, input.ActorUserID)
 	}
 
 	if s.broadcaster != nil {

@@ -14,6 +14,7 @@
 | [`FORUM_BUBBLE.md`](FORUM_BUBBLE.md) | Tahap 1-2 selesai, tahap 3 ditunda | Tahap 3 butuh desain per-tenant untuk AI Memory. |
 | [`MOBILE_LINKED_DEVICES.md`](MOBILE_LINKED_DEVICES.md) | Selesai kecuali audit | Audit akar penyebab inventaris lama/kuota dan target yang sepenuhnya offline masih terbuka. |
 | [`FEED_UPLOAD_HARDENING.md`](FEED_UPLOAD_HARDENING.md) | Belum dikerjakan | A1 (kompresi gambar) butuh dependency native, jadi build baru. |
+| [`PRIVATE_GROUP_INVITES.md`](PRIVATE_GROUP_INVITES.md) | Disetujui 14 Nov 2026. **Backend selesai di `dev` (tes saja, belum dideploy)**; mobile dan web belum | Wuzz Chat V2 Tahap 1: tautan undangan grup privat yang bisa dicabut + persetujuan admin. Tanpa uang; Star/grup berbayar menyusul (Fase 15). |
 | [`b2b-widget/README.md`](b2b-widget/README.md) | Diskusi, ditunda | Prasyarat audit tenant T1-T6 sudah selesai. |
 
 ## 2. Sisa dari rencana yang sudah diarsipkan
@@ -52,7 +53,7 @@ Kode ada di `main` (`78cfd04`, `bf913a0`, `770f38a`). Deploy backend oleh penggu
 
 **Sengaja tidak dicakup:** pesan dan postingan yang dihapus moderator (bukti laporan ditahan 90 hari; keputusan terpisah), media lama Supabase (bukan milik R2, tidak disentuh), dan sapu bucket otomatis (diputuskan tidak dibangun karena nilainya kecil). **Batas yang diketahui:** pemeriksaan rujukan dilakukan saat berkas dilepas, bukan saat dihapus fisik, jadi rujukan baru dalam jeda 1 jam tidak terdeteksi.
 
-**Temuan terpisah, belum diselidiki:** `TestShortLinkHandler_CreateAndResolve` (`backend/internal/api/short_link_handler_test.go`) flaky sejak sebelum pekerjaan ini (gagal 5 dari 20 kali pada kode asli: pratinjau grup publik `nil`); lolos bila seluruh suite dijalankan. Akibatnya `go test ./...` kadang merah tanpa regresi nyata.
+**Temuan terpisah, SELESAI 14 Nov 2026:** `TestShortLinkHandler_CreateAndResolve` flaky karena pola validasi kode pendek menolak huruf `i` (±13% kode pendek produksi tidak bisa dibuka). Diperbaiki di backend, web, dan mobile (`docs/progress/BACKEND.md`, entri 14 Nov). Berlaku setelah deploy backend/frontend dan build APK baru.
 
 ## 3. Backlog lain yang belum dimulai (dari serah terima 7 Okt 2026)
 
@@ -61,7 +62,7 @@ Kode ada di `main` (`78cfd04`, `bf913a0`, `770f38a`). Deploy backend oleh penggu
 - Fase 5 Google: hapus akun tidak aktif (ditunda sengaja; tinjau paling lambat kuartal 2 2027).
 - Tutup `POST /api/auth/register` lama setelah klien baru tersebar; hapus kartu "Saya sudah punya akun" setelah masa transisi (`GOOGLE_LOGIN.md` bagian 14.1).
 - Latensi kecil opsional: `POST /api/messages/receipt` (3 putaran DB), `POST /api/media/ack` (4 putaran), pemanasan cache tenant/peran/penangguhan saat startup. Konteks: `docs/SECURITY_AND_PERFORMANCE.md`, bagian "Putaran kedua".
-- Ide baru (5 Nov 2026), belum diputuskan: Star dan grup privat berbayar dengan pencairan ke kreator; benturan dengan Poin dicatat di `ADS_AND_REWARDS_PLAN.md` bagian 14. Tautan privat saat ini hanya berguna untuk anggota yang sudah ada (tombol bagikan: grup publik atau admin; server hanya memeriksa keanggotaan).
+- Ide baru (5 Nov 2026), belum diputuskan: Star dan grup privat berbayar dengan pencairan ke kreator; benturan dengan Poin dicatat di `ADS_AND_REWARDS_PLAN.md` bagian 14. Tahap 1 (tautan undangan, tanpa uang) dikerjakan sejak 14 Nov 2026: `PRIVATE_GROUP_INVITES.md`. Tahap 0 (hukum, merchant, harga) di sisi pengguna.
 - Ide ditunda: bubble chat AI atas memori (RAG), sinkron kontak (biaya OTP, izin `READ_CONTACTS`), multi-tenant B2B/widget, SVG ikon final (ikon mobile masih placeholder; pengguna menggambar sendiri).
 - Dokumentasi: audit `docs/openapi.yaml` terhadap handler (satu skema pernah salah total) dan verifikasi ulang dokumen domain terhadap kode (`FORUM_MONETIZATION_BACKLOG.md` B8, B9). Dua salinan OpenAPI sudah berbeda ±136 baris sejak sebelum game.
 - Utang tautan dokumen (sudah ada sebelum 28 Okt): `PROGRESS.md`, `SECURITY_AND_PERFORMANCE.md`, `PROJECT_STATE.md`, dan `MOBILE_INTEGRATION_GUIDE.md` memuat tautan `file:///home/...` absolut (hanya jalan di satu mesin); `ARCHITECTURE_AUDIT.md`, `GROUP_MEMORY_AI_SPEC.md`, `HEADLESS_INTEGRATION_GUIDE.md`, `MODULAR_MONOLITH_DDD.md`, dan `mobile/DESIGN.md` dirujuk dari `docs/` dengan jalur relatif yang salah atau berkasnya tidak ada atau bukan di `docs/`. Perbaiki bertahap (ganti ke tautan relatif atau hapus rujukan).

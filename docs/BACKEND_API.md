@@ -1315,9 +1315,22 @@ Bergabung ke grup publik secara mandiri (*self-join*). Ditolak (403 Forbidden) j
 
 #### 35b. Tautan Pendek Grup/Forum — `POST /api/links` dan `GET /api/links/{code}`
 Tautan bagikan grup/forum berbentuk `https://chat.wuzzhub.id/g/Ab3xK9qz` (forum: `/sub/Ab3xK9qz`), bukan `/g/grp_<uuid>`. Kode 8 karakter acak (alfabet tanpa `0/O/1/l/I`) disimpan di `conversations.short_code` (unik), dibuat malas saat pertama kali dibagikan dan **tidak pernah berganti**. Tautan lama `/g/grp_<uuid>` tetap berfungsi.
-- **`POST /api/links`** — Bearer wajib. Body `{"room_id": "grp_..."}` (atau `sub_...`). Hanya **anggota** grup yang boleh meminta (403 bila bukan; 404 bila grup tidak ada atau bukan `grp_`/`sub_`). Respons 200: `{"code": "Ab3xK9qz", "path": "/g/Ab3xK9qz"}`. **Sakelar `SHORT_LINKS_ENABLED`** (default mati): saat mati endpoint ini membalas `503 {"code":"short_links_disabled"}` dan klien memakai tautan panjang; `GET /api/links/{code}` tetap aktif.
+- **`POST /api/links`** — Bearer wajib. Body `{"room_id": "grp_..."}` (atau `sub_...`). Hanya **anggota** grup yang boleh meminta (403 bila bukan; 404 bila grup tidak ada atau bukan `grp_`/`sub_`). Untuk **grup utama privat** hanya creator/admin (anggota biasa: 403 `{"code":"admin_only"}`, sejak 14 Nov 2026); untuk grup privat klien sebaiknya membagikan tautan undangan (35c), karena kode pendek tidak memberi akses ke non-anggota. Respons 200: `{"code": "Ab3xK9qz", "path": "/g/Ab3xK9qz"}`. **Sakelar `SHORT_LINKS_ENABLED`** (default mati): saat mati endpoint ini membalas `503 {"code":"short_links_disabled"}` dan klien memakai tautan panjang; `GET /api/links/{code}` tetap aktif.
 - **`GET /api/links/{code}`** — **publik** (tanpa token), dibatasi 60 permintaan/menit per IP. Respons 200: `{"room_id": "grp_...", "preview": {"title": "...", "avatar_url": "..."}}`; 404 bila kode tak dikenal atau bentuknya salah. `preview` (nama + avatar, untuk halaman landing web) **hanya ada untuk grup utama yang publik**; grup privat dan forum `sub_` tidak pernah menyertakannya. Hak akses tetap ditegakkan endpoint grup (grup privat menolak non-anggota 403).
 - Klien: mobile memanggil `POST /api/links` saat Bagikan Grup (gagal → pakai tautan panjang); `handleDeepLink` dan landing web (`OpenInAppLanding`) menerjemahkan kode lewat `GET /api/links/{code}`.
+
+---
+
+#### 35c. Tautan Undangan Grup Privat — `/api/groups/{grp_id}/invite-link` dan `/api/invites/{token}` (14 Nov 2026)
+Satu-satunya jalan non-anggota masuk grup utama privat selain ditambahkan admin. Token 16 karakter (alfabet tautan pendek), tautan publik `https://chat.wuzzhub.id/join/<token>`. Paling banyak satu tautan aktif per grup. Mode Tahap 1 hanya `approval`: token memberi hak **mengajukan**, admin yang memutuskan. Aturan lengkap: `docs/domains/GROUP_FORUM.md` aturan 9. Semua endpoint wajib Bearer; galat berbentuk `{"error": "...", "code": "..."}`.
+
+- **`GET /api/groups/{grp_id}/invite-link`** (creator/admin) → 200 `{"link": {"token","path","mode","created_by","created_at"}}` atau `{"link": null}` (belum ada / grup publik). Anggota biasa/non-anggota: 403 `admin_only`; grup tak ada atau bukan `grp_`: 404.
+- **`POST /api/groups/{grp_id}/invite-link`** (creator/admin) — body opsional `{"reset": true}`. Tanpa reset: kembalikan tautan aktif atau buat baru. Dengan reset: cabut tautan aktif lalu buat baru (token lama langsung 404). 200 `{"link": {...}}`. Grup publik: 409 `not_private`.
+- **`DELETE /api/groups/{grp_id}/invite-link`** (creator/admin) → 200 `{"link": null}`. Pengajuan yang sudah menunggu tidak ikut dihapus.
+- **`GET /api/invites/{token}`** — pratinjau. 200 `{"group_id","title","avatar_url","member_count","mode":"approval","my_status":"member|pending|rejected|none","retry_after_seconds"?}`. `Cache-Control: no-store`. 404 `invite_not_found` untuk token tak dikenal, berbentuk salah, dicabut, grup sudah publik, atau beda tenant (sengaja tidak dibedakan). Laju 60/jam per pengguna.
+- **`POST /api/invites/{token}/join`** — ajukan gabung. 202 `{"group_id","status":"pending"}` (juga bila sudah menunggu; idempoten, aman dicoba ulang setelah timeout), 200 `{"status":"member"}` bila sudah anggota. 429 `rejoin_cooldown` + header `Retry-After` + `retry_after_seconds` bila ditolak < 24 jam lalu; 429 `too_many_pending` bila grup sudah punya 500 pengajuan menunggu; 404 `invite_not_found`. Laju 10/jam per pengguna (429 dengan `Retry-After: 600`).
+- **`DELETE /api/invites/{token}/request`** — batalkan pengajuan menunggu milik sendiri (juga lewat token yang sudah dicabut). 200 `{"status":"none"}`; 404 `request_not_found` bila tidak ada pengajuan menunggu.
+- Pengajuan baru memberi tahu creator/admin (WS `join_request`, push judul "Permohonan Bergabung Grup", tag `join-request-<grp_id>`). Daftar dan keputusan memakai endpoint 44 dan 45 dengan `id = grp_...`.
 
 ---
 
@@ -1575,9 +1588,9 @@ Mengajukan permohonan izin bergabung ke subgrup privat. Pemohon wajib anggota ak
 ---
 
 #### 44. `GET /api/groups/{id}/join-requests`
-Mengambil seluruh daftar permohonan bergabung berstatus `pending` untuk subgrup privat tertentu. Hanya dapat diakses oleh admin/creator subgrup atau admin/creator grup induk.
+Mengambil seluruh daftar permohonan bergabung berstatus `pending` untuk subgrup privat tertentu. Hanya dapat diakses oleh admin/creator subgrup atau admin/creator grup induk. **Sejak 14 Nov 2026 juga untuk grup utama privat** (`id = grp_...`, pengajuan lewat tautan undangan 35c; hanya creator/admin grup itu, galat `{"code":"admin_only"}` 403; maksimal 500 baris, terlama dulu).
 - **Autentikasi**: `Bearer <token>` (wajib admin/creator)
-- **Path Parameter**: `id` — ID subgrup (`sub_<UUID>`)
+- **Path Parameter**: `id` — ID subgrup (`sub_<UUID>`) atau grup utama privat (`grp_<UUID>`)
 - **Success Response (200 OK)**:
   ```json
   {
@@ -1603,7 +1616,7 @@ Mengambil seluruh daftar permohonan bergabung berstatus `pending` untuk subgrup 
 ---
 
 #### 45. `POST /api/groups/{id}/join-requests/{requestId}/action`
-Menyetujui (`approve: true`) atau menolak (`approve: false`) permohonan bergabung ke subgrup privat. Jika disetujui, pemohon otomatis ditambahkan sebagai `member` di `conversation_members` dan status request menjadi `approved`.
+Menyetujui (`approve: true`) atau menolak (`approve: false`) permohonan bergabung ke subgrup privat. Jika disetujui, pemohon otomatis ditambahkan sebagai `member` di `conversation_members` dan status request menjadi `approved`. **Untuk `id = grp_...`** (tautan undangan): status dan keanggotaan berubah dalam satu transaksi dengan UPDATE bersyarat; galat 404 `request_not_found`, 409 `request_processed` (sudah diproses, termasuk dua admin bersamaan), 403 `admin_only`. Penolakan memulai jeda 24 jam sebelum pemohon boleh mengajukan lagi.
 - **Autentikasi**: `Bearer <token>` (wajib admin/creator)
 - **Path Parameter**:
   - `id` — ID subgrup (`sub_<UUID>`)

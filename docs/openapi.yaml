@@ -1394,7 +1394,9 @@ paths:
                     description: "/g/{code} for groups, /sub/{code} for forum topics. Public URL is https://chat.wuzzhub.id{path}"
                     example: /g/Ab3xK9qz
         '403':
-          description: Caller is not a member of the group
+          description: >
+            Caller is not a member of the group, or (code `admin_only`) the group is a private top-level group and the
+            caller is not creator/admin. Private groups should be shared with an invite link instead.
         '404':
           description: Group not found or room_id is not a group/forum topic
         '503':
@@ -1439,6 +1441,169 @@ paths:
           description: Unknown code or malformed code
         '429':
           description: Too many requests
+
+  /api/groups/{id}/invite-link:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Top-level private group ID (grp_). Other IDs return 404.
+    get:
+      tags:
+        - Groups & Communities
+      summary: Get Private Group Invite Link (creator/admin)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Active invite link, or null when none exists or the group is public
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  link:
+                    nullable: true
+                    allOf:
+                      - $ref: '#/components/schemas/InviteLink'
+        '403':
+          description: Caller is not creator/admin (code `admin_only`)
+        '404':
+          description: Group not found
+    post:
+      tags:
+        - Groups & Communities
+      summary: Create or Reset Private Group Invite Link (creator/admin)
+      description: >
+        Without `reset`, returns the active link or creates one. With `{"reset": true}`, revokes the active link and
+        creates a new one in one transaction (the old token immediately returns 404). At most one active link per group.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reset:
+                  type: boolean
+      responses:
+        '200':
+          description: Active invite link
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  link:
+                    $ref: '#/components/schemas/InviteLink'
+        '403':
+          description: Caller is not creator/admin (code `admin_only`)
+        '404':
+          description: Group not found
+        '409':
+          description: Group is public (code `not_private`)
+    delete:
+      tags:
+        - Groups & Communities
+      summary: Disable Private Group Invite Link (creator/admin)
+      description: Revokes the active link without a replacement. Pending join requests are kept for admins to decide.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 'Link disabled; body is `{"link": null}`'
+        '403':
+          description: Caller is not creator/admin (code `admin_only`)
+
+  /api/invites/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[2-9a-km-np-zA-HJ-NP-Z]{16}$'
+    get:
+      tags:
+        - Groups & Communities
+      summary: Preview Private Group Invite
+      description: >
+        Login required. Unknown, malformed, revoked, public-group, and other-tenant tokens all return the same 404
+        (`invite_not_found`). Rate limited to 60 requests/hour per user. Response is `Cache-Control: no-store`.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Group preview and caller status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitePreview'
+        '404':
+          description: Invite not valid (code `invite_not_found`)
+        '429':
+          description: Too many requests
+
+  /api/invites/{token}/join:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - Groups & Communities
+      summary: Request to Join via Invite Link
+      description: >
+        Mode `approval`: creates (or reactivates) a pending join request and notifies the group's creator/admins.
+        Idempotent: an existing pending request returns 202 again without a new notification. Rate limited to
+        10 requests/hour per user.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Caller is already a member (`status` = `member`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteJoinResult'
+        '202':
+          description: Request is pending admin approval (`status` = `pending`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InviteJoinResult'
+        '404':
+          description: Invite not valid (code `invite_not_found`)
+        '429':
+          description: >
+            `rejoin_cooldown` (rejected less than 24 hours ago; `Retry-After` header and `retry_after_seconds`),
+            `too_many_pending` (group has 500 pending requests), or the per-user rate limit.
+
+  /api/invites/{token}/request:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema:
+          type: string
+    delete:
+      tags:
+        - Groups & Communities
+      summary: Cancel Own Join Request
+      description: Also works through a token that has since been revoked.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 'Request cancelled; body is `{"status": "none"}`'
+        '404':
+          description: No pending request (`request_not_found`) or invite not valid (`invite_not_found`)
 
   /api/groups/{id}/join:
     post:
@@ -2587,6 +2752,52 @@ components:
       description: Third-party tenant secret key.
 
   schemas:
+    InviteLink:
+      type: object
+      properties:
+        token:
+          type: string
+          example: Ab3xK9qzMn4pQr7s
+        path:
+          type: string
+          description: "Public URL is https://chat.wuzzhub.id{path}"
+          example: /join/Ab3xK9qzMn4pQr7s
+        mode:
+          type: string
+          enum: [approval]
+        created_by:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    InvitePreview:
+      type: object
+      properties:
+        group_id:
+          type: string
+        title:
+          type: string
+        avatar_url:
+          type: string
+        member_count:
+          type: integer
+        mode:
+          type: string
+          enum: [approval]
+        my_status:
+          type: string
+          enum: [member, pending, rejected, none]
+        retry_after_seconds:
+          type: integer
+          description: Only when my_status is rejected and the 24-hour cooldown has not passed
+    InviteJoinResult:
+      type: object
+      properties:
+        group_id:
+          type: string
+        status:
+          type: string
+          enum: [member, pending]
     ProblemDetails:
       type: object
       description: Standardized error envelope adhering to RFC 7807 Problem Details for HTTP APIs.

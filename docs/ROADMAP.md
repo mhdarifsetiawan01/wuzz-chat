@@ -32,7 +32,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 │ [ ] Fase 11: Passkey / WebAuthn (Ph 4)    │                                            │
 │ [x] Fase 12: Community Feed (Model B)     │                                            │
 │ [ ] Fase 9: Monetisasi & Avatar Asset     │                                            │
-│ [ ] Fase 15: Star & Grup Berbayar (ide)   │                                            │
+│ [~] Fase 15: Star & Grup Berbayar (T1)    │                                            │
 │ [ ] Mobile Native Client (Kotlin/Swift)   │                                            │
 └───────────────────────────────────────────┴────────────────────────────────────────────┘
 ```
@@ -553,11 +553,11 @@ Infrastructure Layer (SQL Implementation: SQLGroupStore, SQLUserStore, Redis, AI
 - **Rilis Play Produksi** 1.43.0/75 disetujui 28 Okt 2026; gate web diarahkan ke Play. **SELESAI ✅**
 - **Iklan/poin AdMob**: akun dan `app-ads.txt` siap; kode/SDK **belum**, rencana draf (`plans/backlog/ADS_AND_REWARDS_PLAN.md`). **🔮 PLANNED**
 
-### Fase 15: Star & Grup Privat Berbayar (Status: 🔮 IDE / DRAF — belum diputuskan, jangan dieksekusi)
+### Fase 15: Star & Grup Privat Berbayar — "Wuzz Chat V2" (Status: 🚧 Tahap 1 berjalan sejak 14 Nov 2026; Tahap 2-3 tetap draf, jangan dieksekusi)
 *Tujuan: memungkinkan admin kreator yang disetujui menjadikan grup privat berbayar; pengunjung tautan membeli "Star" (Google Play Billing) lalu membelanjakannya untuk masuk. Dicatat 5 Nov 2026. Rencana lengkap, risiko, dan keputusan terbuka: [`plans/backlog/ADS_AND_REWARDS_PLAN.md`](plans/backlog/ADS_AND_REWARDS_PLAN.md) bagian 14.*
 
 - **Tahap 0 (tanpa kode):** konsultasi hukum soal mata uang virtual dan pencairan (BI/OJK), pertanyaan ke dukungan Play soal pembayaran akses grup buatan pengguna dan pencairan, baca "Financial features declaration" di Play Console, putuskan badan usaha/merchant, model harga dan persentase platform.
-- **Tahap 1:** token undangan grup yang bisa dicabut, gerbang masuk bertipe (terbuka / persetujuan admin / berbayar), tombol reset tautan, penegakan "hanya admin" untuk tautan grup privat di server. Berguna sendiri, tanpa uang.
+- **Tahap 1 (disetujui dan dikerjakan 14 Nov 2026; backend selesai di `dev`, tes saja; mobile/web belum; desain: [`plans/backlog/PRIVATE_GROUP_INVITES.md`](plans/backlog/PRIVATE_GROUP_INVITES.md)):** token undangan grup yang bisa dicabut, gerbang masuk bertipe (terbuka / persetujuan admin / berbayar), tombol reset tautan, penegakan "hanya admin" untuk tautan grup privat di server. Berguna sendiri, tanpa uang.
 - **Tahap 2:** pembelian Star lewat Play Billing, **hanya bisa dibelanjakan**; hak kreator diberikan manual lewat `/admin`; buku besar append-only dan idempoten (desain fleksibel di rencana bagian 14.1).
 - **Tahap 3 (awal):** laporan pendapatan per kreator, **pembayaran manual** oleh pemilik setelah dana Google diterima. **Tahap 3b:** pencairan di dalam aplikasi, hanya bila hukum jelas (kemungkinan lewat mitra penyalur dana berlisensi).
 - **Fakta kebijakan Play yang sudah terverifikasi (5 Nov 2026):** menjual Star wajib Play Billing; mata uang virtual terkunci ke satu aplikasi; dilarang mengarahkan ke metode bayar lain di dalam aplikasi; Indonesia belum termasuk program billing choice; potongan 15% (hingga USD 1 juta/tahun) sampai 30%. Pencairan **tidak diatur** kebijakan Play. Detail dan sumber: rencana bagian 14.

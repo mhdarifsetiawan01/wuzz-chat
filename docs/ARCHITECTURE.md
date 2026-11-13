@@ -25,6 +25,8 @@ erDiagram
     USERS ||--o{ PUSH_SUBSCRIPTIONS : registers
     CONVERSATIONS ||--o{ CONVERSATION_MEMBERS : contains
     CONVERSATIONS ||--o{ CONVERSATION_JOIN_REQUESTS : receives
+    CONVERSATIONS ||--o{ GROUP_INVITE_LINKS : invites_via
+    GROUP_INVITE_LINKS ||--o{ CONVERSATION_JOIN_REQUESTS : source_of
     CONVERSATIONS ||--o{ MESSAGES : has
     CONVERSATIONS ||--o{ PINNED_MESSAGES : pins
     MESSAGES ||--o{ PINNED_MESSAGES : pinned_as
@@ -149,12 +151,24 @@ erDiagram
 
     CONVERSATION_JOIN_REQUESTS {
         varchar id PK "req_<UUIDv4>"
-        varchar conversation_id FK "subgroup ID"
+        varchar conversation_id FK "sub_ (forum privat) atau grp_ (grup privat lewat tautan undangan)"
         uuid user_id FK "applicant user UUID"
-        varchar status "pending / approved / rejected"
+        varchar status "pending / approved / rejected / cancelled"
         varchar reviewed_by FK "admin user UUID who reviewed"
+        varchar invite_link_id FK "tautan undangan yang dipakai (NULL untuk forum)"
+        timestamp created_at "waktu pengajuan terakhir (diperbarui saat diajukan ulang)"
+        timestamp updated_at "waktu perubahan status (dasar jeda 24 jam setelah ditolak)"
+    }
+
+    GROUP_INVITE_LINKS {
+        varchar id PK "UUID"
+        varchar conversation_id FK "grp_ privat; UNIQUE parsial WHERE revoked_at IS NULL (1 aktif per grup)"
+        varchar token UK "16 karakter acak, path /join/<token>"
+        varchar mode "approval (direct/paid dicadangkan)"
+        varchar created_by FK "creator/admin"
         timestamp created_at
-        timestamp updated_at
+        timestamp revoked_at "NULL = aktif; diisi saat reset/dimatikan/grup jadi publik"
+        varchar revoked_by
     }
 
     PINNED_MESSAGES {
@@ -328,7 +342,11 @@ Koneksi WebSocket mewajibkan autentikasi token JWT sebelum upgrade connection di
 | `GET` | `/api/groups/{id}/subgroups` | Daftar topik & forum aktif (Parent-Membership Gate) | Bearer Token |
 | `POST` | `/api/groups/{id}/subgroups` | Membuat topik forum baru dengan durasi TTL (7d/30d) dan visibilitas (khusus Admin/Creator) | Bearer Token |
 | `POST` | `/api/groups/{id}/join-request` | Mengajukan izin bergabung ke topik forum privat | Bearer Token |
-| `GET` | `/api/groups/{id}/join-requests` | Daftar permohonan izin pending (khusus Admin/Creator) | Bearer Token |
+| `GET` / `POST` / `DELETE` | `/api/groups/{grp_id}/invite-link` | Lihat / buat atau reset (`{"reset":true}`) / matikan tautan undangan grup privat (khusus Admin/Creator) | Bearer Token |
+| `GET` | `/api/invites/{token}` | Pratinjau grup undangan (nama, avatar, jumlah anggota, `my_status`) | Bearer Token |
+| `POST` | `/api/invites/{token}/join` | Mengajukan gabung lewat tautan undangan (202 pending / 200 member) | Bearer Token |
+| `DELETE` | `/api/invites/{token}/request` | Membatalkan pengajuan sendiri | Bearer Token |
+| `GET` | `/api/groups/{id}/join-requests` | Daftar permohonan izin pending (khusus Admin/Creator; `sub_` forum atau `grp_` grup privat) | Bearer Token |
 | `POST` | `/api/groups/{id}/join-requests/{requestId}/action` | Menyetujui atau menolak izin bergabung (`approve`/`reject`) | Bearer Token |
 
 > **🛡️ Message Deletion Ownership & Interface**: Pengecekan kepemilikan pesan pada *Delete for Everyone* divalidasi secara ketat di backend menggunakan `msg.FromID == claims.UserID` (UUID). Parameter display name dihilangkan sepenuhnya dari kontrak `MessageStore.DeleteMessage(msgID, userID string, deleteForEveryone bool)`.

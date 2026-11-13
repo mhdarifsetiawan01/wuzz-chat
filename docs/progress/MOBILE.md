@@ -1,5 +1,10 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+## Perbaikan pola kode tautan pendek (14 Nov 2026, di `dev`, butuh build baru)
+
+- `SHORT_CODE_PATTERN` di `src/api/links.ts` dulu menolak huruf `i` padahal server membuat kode dengan `i`; tautan pendek ber-`i` dianggap ID dan gagal dibuka. Pola kini `^[2-9a-km-np-zA-HJ-NP-Z]{8}$`. Bukti: *tes saja* (`npx tsc --noEmit` lolos; tes regresi alfabet di backend). **Belum:** build APK, uji membuka kode ber-`i` di HP. Rincian: `docs/progress/BACKEND.md` entri 14 Nov.
+- Klien tautan undangan grup privat (V2 Tahap 1) **belum dikerjakan**; rencana: `docs/plans/backlog/PRIVATE_GROUP_INVITES.md` bagian 6.
+
 ## Ringkasan 19-28 Oktober 2026 (disusun 28 Okt saat merapikan dokumen)
 
 - **Rilis:** 1.40.0/71 (monetisasi forum), 1.41.0/72 (Perpanjang forum), 1.42.0/74 dan **1.43.0/75** (Wuzz Grid, pengingat, pemulihan jadwal alarm). **1.43.0/75 disetujui di Produksi Google Play 28 Okt 2026.** Build ditangani pengguna; arsip di `~/wuzz-releases/`.

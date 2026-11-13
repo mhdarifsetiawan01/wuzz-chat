@@ -344,6 +344,21 @@ func (a *Application) setupRouter() http.Handler {
 		}))
 	}
 
+	// Tautan undangan grup privat: semua butuh login. Pengajuan gabung 10/jam per pengguna, pratinjau/batal 60/jam.
+	if a.GroupHandler != nil {
+		inviteJoinLimiter := ratelimit.NewIPRateLimiter(10, time.Hour)
+		inviteReadLimiter := ratelimit.NewIPRateLimiter(60, time.Hour)
+		inviteJoin := api.UserRateLimitMsg(inviteJoinLimiter, "Terlalu banyak permohonan bergabung, coba lagi nanti.", 600)(http.HandlerFunc(a.GroupHandler.RouteInviteRequest))
+		inviteRead := api.UserRateLimitMsg(inviteReadLimiter, "Terlalu banyak permintaan, coba lagi nanti.", 600)(http.HandlerFunc(a.GroupHandler.RouteInviteRequest))
+		mux.HandleFunc("/api/invites/", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			next := inviteRead
+			if r.Method == http.MethodPost {
+				next = inviteJoin
+			}
+			auth.RequireJWT()(next).ServeHTTP(w, r)
+		}))
+	}
+
 	// Tautan pendek grup/subgrup: pembuatan butuh JWT (anggota), penerjemahan kode publik tetapi dibatasi per IP.
 	if a.ShortLinkHandler != nil {
 		linkResolveLimiter := ratelimit.NewIPRateLimiter(60, time.Minute)

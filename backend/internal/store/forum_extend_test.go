@@ -12,7 +12,7 @@ import (
 func (e *limitEnv) expiresAt(subID string) time.Time {
 	e.t.Helper()
 	var at time.Time
-	if err := e.ms.DB().QueryRow(`SELECT expires_at FROM conversations WHERE id = ?`, subID).Scan(&at); err != nil {
+	if err := e.ms.DB().QueryRow(rebindPG(e.ms, `SELECT expires_at FROM conversations WHERE id = ?`), subID).Scan(&at); err != nil {
 		e.t.Fatalf("baca expires_at: %v", err)
 	}
 	return at.UTC()
@@ -56,7 +56,7 @@ func TestExtendSubGroup_ExpiredProLosesRight(t *testing.T) {
 	e.grantPro(u, &until)
 	g := e.group(u, "Grup")
 	sub := e.mustSub(g, u, "7_days")
-	if _, err := e.ms.DB().Exec(`UPDATE user_entitlements SET valid_until = ? WHERE user_id = ?`, time.Now().UTC().Add(-time.Minute), u); err != nil {
+	if _, err := e.ms.DB().Exec(rebindPG(e.ms, `UPDATE user_entitlements SET valid_until = ? WHERE user_id = ?`), time.Now().UTC().Add(-time.Minute), u); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.gs.ExtendSubGroup(e.ctx, g, sub.ID, u, 1); !errors.Is(err, store.ErrExtendProRequired) {
@@ -150,7 +150,7 @@ func TestExtendSubGroup_ExpiredForumCannotBeExtended(t *testing.T) {
 	g := e.group(u, "Grup")
 
 	byTime := e.mustSub(g, u, "7_days")
-	if _, err := e.ms.DB().Exec(`UPDATE conversations SET expires_at = ? WHERE id = ?`, time.Now().UTC().Add(-time.Minute), byTime.ID); err != nil {
+	if _, err := e.ms.DB().Exec(rebindPG(e.ms, `UPDATE conversations SET expires_at = ? WHERE id = ?`), time.Now().UTC().Add(-time.Minute), byTime.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.gs.ExtendSubGroup(e.ctx, g, byTime.ID, u, 1); !errors.Is(err, store.ErrExtendForumExpired) {
@@ -158,7 +158,7 @@ func TestExtendSubGroup_ExpiredForumCannotBeExtended(t *testing.T) {
 	}
 
 	byStatus := e.mustSub(g, u, "7_days")
-	if _, err := e.ms.DB().Exec(`UPDATE conversations SET status = 'expired' WHERE id = ?`, byStatus.ID); err != nil {
+	if _, err := e.ms.DB().Exec(rebindPG(e.ms, `UPDATE conversations SET status = 'expired' WHERE id = ?`), byStatus.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.gs.ExtendSubGroup(e.ctx, g, byStatus.ID, u, 1); !errors.Is(err, store.ErrExtendForumExpired) {
@@ -207,7 +207,7 @@ func TestExtendSubGroup_ConcurrentNeverExceeds30(t *testing.T) {
 	}
 	wg.Wait()
 	var total int
-	if err := e.ms.DB().QueryRow(`SELECT extended_days FROM conversations WHERE id = ?`, sub.ID).Scan(&total); err != nil {
+	if err := e.ms.DB().QueryRow(rebindPG(e.ms, `SELECT extended_days FROM conversations WHERE id = ?`), sub.ID).Scan(&total); err != nil {
 		t.Fatal(err)
 	}
 	if total > 30 || total%3 != 0 {

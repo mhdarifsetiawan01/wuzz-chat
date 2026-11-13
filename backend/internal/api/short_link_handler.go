@@ -54,6 +54,9 @@ func (h *ShortLinkHandler) Create(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, store.ErrShortLinkNotFound):
 		http.Error(w, `{"error":"Grup tidak ditemukan"}`, http.StatusNotFound)
 		return
+	case errors.Is(err, store.ErrShortLinkAdminOnly):
+		http.Error(w, `{"error":"Hanya admin yang dapat membagikan tautan grup privat","code":"admin_only"}`, http.StatusForbidden)
+		return
 	case errors.Is(err, store.ErrShortLinkForbidden):
 		http.Error(w, `{"error":"Hanya anggota grup yang dapat membagikan tautan"}`, http.StatusForbidden)
 		return

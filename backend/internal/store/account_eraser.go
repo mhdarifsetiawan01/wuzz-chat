@@ -169,6 +169,9 @@ func (s *SQLAccountEraser) EraseUser(ctx context.Context, userID string) error {
 			if err := exec(`DELETE FROM conversation_join_requests WHERE conversation_id = ?`, convID); err != nil {
 				return err
 			}
+			if err := exec(`DELETE FROM group_invite_links WHERE conversation_id = ?`, convID); err != nil {
+				return err
+			}
 			if err := exec(`DELETE FROM conversation_members WHERE conversation_id = ?`, convID); err != nil {
 				return err
 			}
