@@ -15,7 +15,7 @@
 | [`MOBILE_LINKED_DEVICES.md`](MOBILE_LINKED_DEVICES.md) | Selesai kecuali audit | Audit akar penyebab inventaris lama/kuota dan target yang sepenuhnya offline masih terbuka. |
 | [`FEED_UPLOAD_HARDENING.md`](FEED_UPLOAD_HARDENING.md) | Belum dikerjakan | A1 (kompresi gambar) butuh dependency native, jadi build baru. |
 | [`PRIVATE_GROUP_INVITES.md`](PRIVATE_GROUP_INVITES.md) | Disetujui 14 Nov 2026. Backend di `main`, **dideploy 14 Nov 2026** (alur nyata belum dicoba). **Mobile selesai di `dev`** (tes saja; butuh build APK dan uji dua HP). Landing web `/join` dideploy 14 Nov 2026 | Wuzz Chat V2 Tahap 1: tautan undangan grup privat yang bisa dicabut + persetujuan admin. Tanpa uang; Star/grup berbayar menyusul (Fase 15). |
-| [`STARS_PAID_GROUPS.md`](STARS_PAID_GROUPS.md) | Disetujui 14 Nov 2026. **Backend 2a selesai di `dev`** (tes saja, sakelar mati); `/admin` web, mobile, Play Billing belum | Wuzz Chat V2 Tahap 2: Star (hanya dibelanjakan) dan grup privat berbayar. 2a tanpa Play dulu; 2b Play Billing setelah merchant aktif. Tahap 0 belum; semua sakelar mati. |
+| [`STARS_PAID_GROUPS.md`](STARS_PAID_GROUPS.md) | Disetujui 14 Nov 2026. **Backend 2a di `main`, `/admin/stars` web di `dev`** (sakelar mati); mobile, Play Billing belum | Wuzz Chat V2 Tahap 2: Star (hanya dibelanjakan) dan grup privat berbayar. 2a tanpa Play dulu; 2b Play Billing setelah merchant aktif. Tahap 0 belum; semua sakelar mati. |
 | [`b2b-widget/README.md`](b2b-widget/README.md) | Diskusi, ditunda | Prasyarat audit tenant T1-T6 sudah selesai. |
 
 ## 2. Sisa dari rencana yang sudah diarsipkan

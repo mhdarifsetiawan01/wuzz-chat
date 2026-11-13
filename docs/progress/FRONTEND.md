@@ -4,6 +4,14 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+### Halaman `/admin/stars` (V2 Tahap 2a, 14 Nov 2026, di `dev`, belum dideploy)
+
+- Halaman khusus `wuzz_admin` (tautan nav "Star"): status sakelar server (peringatan merah bila kredit uji aktif), pengaturan angka dengan contoh rumus bagian kreator dan dialog daftar perubahan, mitra kreator (jadikan/cabut, peringatan bahwa grup berbayarnya ikut nonaktif), dompet pengguna (saldo, riwayat dengan nama grup, refund per pembayaran dengan alasan wajib, kredit uji dengan kunci idempoten per dialog bila `STARS_TEST_GRANTS` menyala). Sakelar `STARS_ENABLED` mati = pesan "Star dimatikan di server". Istilah netral.
+- Berkas: `app/admin/stars/page.tsx`, `lib/adminStars.ts` (helper murni: rumus sama dengan backend, validasi pengaturan sama dengan backend, format), fungsi di `lib/admin-api.ts`, gaya `.adm-stars-grid` di `app/admin/admin.css`, nav di `app/admin/AdminShell.tsx`. Tes: `scripts/test/admin-stars.cjs`.
+- Bukti: *tes saja + uji ujung-ke-ujung lokal*: `npm run build` lolos; `node scripts/test/admin-stars.cjs` lolos; skenario 15 langkah di Chrome headless (profil sementara, viewport HP) terhadap backend lokal SQLite terisolasi dengan semua sakelar Star menyala: jadikan mitra, kreator mengaktifkan grup berbayar, kredit uji (alasan wajib), tamu membayar, refund (saldo kembali, Star diterima kreator dibatalkan, tombol Refund hilang), validasi dan simpan pengaturan, cabut mitra (grup berbayar nonaktif). **Belum:** deploy, dilihat terhadap backend produksi (sakelar di sana mati, halaman akan menampilkan "Star dimatikan").
+- Catatan uji: pesan sukses tampil di atas halaman, sedangkan tindakan dompet ada di bawah (admin perlu menggulir untuk melihatnya); tidak diubah.
+
+
 ### Landing tautan undangan grup privat `/join/<token>` (14 Nov 2026, di `main`, DIDEPLOY 14 Nov 2026)
 
 - Halaman `app/join/[token]/page.tsx` (V2 Tahap 1): "Anda diundang ke grup privat", tombol "Buka di Aplikasi WuzzChat" (`wuzzchat://join/<token>`), unduh dari Play, dan saran memperbarui aplikasi (APK lama tidak mengenali `/join`). Token berbentuk salah: "Tautan undangan tidak valid". Tanpa pratinjau dan tanpa memanggil backend (sesuai keputusan D2). Metadata `robots: noindex, nofollow` dan `referrer: no-referrer`. `/join` ditambahkan ke `WEB_PAUSED_EXEMPT_PREFIXES` (`lib/app-download.ts`).
