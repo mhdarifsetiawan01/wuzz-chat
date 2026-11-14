@@ -5,7 +5,7 @@
 
 ## 0. Serah terima sesi 14 Nov 2026 (BACA DULU)
 
-**Fokus terakhir: Wuzz Chat V2** (Fase 15 `docs/ROADMAP.md`). Semua kode di bawah sudah di `main` dan di-push (`origin/main` = `cdf50f7`); `dev` sama dengan `main`.
+**Fokus terakhir: Wuzz Chat V2** (Fase 15 `docs/ROADMAP.md`). Semua kode di bawah, termasuk mobile Tahap 2a, sudah di `main` dan di-push (merge `8f57f3f`, 14 Nov 2026); isi `dev` sama dengan `main`. Untuk keadaan terkini pakai `git log origin/main`, bukan hash di catatan ini.
 
 **Tahap 1, tautan undangan grup privat: LIVE.** Backend dan landing web `/join` sudah dideploy; mobile teruji di HP (dua profil Android). Rincian: `PRIVATE_GROUP_INVITES.md`, `docs/domains/GROUP_FORUM.md` aturan 9, `docs/progress/MOBILE.md`.
 - Belum: **rilis APK lewat Play** (memuat undangan, teks notifikasi `notif_text`, perbaikan kode pendek huruf `i`); cek gerbang Data Safety di `OPERATIONS.md` sebelum promosi build.
