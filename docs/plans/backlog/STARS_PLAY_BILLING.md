@@ -120,11 +120,30 @@ Token akses diambil dengan JWT service account (scope `https://www.googleapis.co
 - Pemulihan `recoverStarPurchases()`: 5 detik setelah sesi terbentuk (`App.tsx`, modul dimuat malas) dan saat layar Saldo Star dibuka; tidak membuka koneksi Play bila `/packages` 404.
 - UI: bagian "Tambah Star" di `StarsScreen` (kartu paket: jumlah Star + harga Play; tombol terkunci sampai ada hasil; pesan sukses/tertunda/gagal; harga gagal dimuat = tautan coba lagi), kartu peringatan utang, label riwayat `reversal`/`debt_repay`. `InviteScreen`: tombol "Tambah Star" saat saldo kurang (hanya bila `/packages` tersedia), galat `stars_debt`, penyegaran saat kembali fokus.
 
+## 12d. Uji nyata di produksi (14-15 Nov 2026, *terbukti*)
+
+Build 1.45.0 (77) diunggah ke **Internal testing** (hanya agar Play mengenal aplikasi ber-billing); APK yang sama dipasang lewat adb di HP Realme profil utama (akun Wuzz @mhdarifsetiawan, akun Play terdaftar sebagai penguji lisensi). Keempat sakelar Star dinyalakan sementara 23.13 WIB lalu **dimatikan lagi oleh pengguna 15 Nov 2026 ±01.10 WIB** (dicek di `.env` VPS).
+
+| Uji | Hasil |
+|---|---|
+| Paket + harga lokal dari Play | Rp5.000 / Rp10.000 / Rp50.000 tampil |
+| Kartu uji "always approves" (50) | +50, `POST /purchases 200`; paket yang sama bisa dibeli lagi = sudah dikonsumsi |
+| Dialog ditutup | tanpa pesan galat, saldo tetap |
+| Kartu "always declines" | "Pembelian tidak berhasil…", saldo tetap |
+| Kartu lambat "approves after a few minutes" (100) | pesan "sedang diproses", lalu +100 otomatis ±2 menit kemudian |
+| Kartu "approves then charges back" (500) | +500, lalu sapuan 00.13 WIB `1 dibalik (voided)`: saldo 650 → 150, riwayat "Pembatalan pembelian −500" |
+| Ujung ke ujung dari HP kedua (@vanyzter) | beli Star lewat Play dari halaman undangan berbayar → bayar 50 Star → langsung masuk grup; kreator melihat "Star diterima" 60 diproses (2 akses: @semantic 10 + @vanyzter 50) |
+
+- Persiapan yang sudah ada: produk `star_50`/`star_100`/`star_500` aktif (hanya Indonesia, Digital content, kuantitas tunggal, opsi beli `buy`); daftar penguji lisensi khusus **`Penguji Star`** (bukan daftar "Internal Test" 11 orang, agar mereka tidak mendapat Star gratis); service account `play-billing-wc@…` diundang di Play Console; `PLAY_SERVICE_ACCOUNT_JSON` di `.env` VPS.
+- Dialog Play menampilkan "+ tax", sedangkan Console menulis "No VAT" untuk Indonesia: tanyakan ke konsultan pajak (Tahap 0 C).
+- **Belum teruji:** halaman kedua voided (`pageSelection.token`; daftar hanya satu halaman), aplikasi dimatikan setelah bayar (pemulihan saat dibuka), akun lain di perangkat yang sama (`purchase_account_mismatch`), utang (voided setelah Star dibelanjakan), refund manual dari Order management.
+- **Temuan kecil:** layar Saldo Star yang sedang terbuka tidak memuat ulang saat aplikasi kembali dari latar belakang; saldo baru setelah layar dibuka ulang.
+
 ## 13. Urutan kerja (setelah disetujui)
 
 1. **[SELESAI 14 Nov 2026, tes saja]** Backend: helper token Google, klien Play (get, consume, voided), tabel dan migrasi, endpoint paket dan pembelian, worker konsumsi dan voided, utang (bila K4), admin, sakelar, tes SQLite + Postgres.
 2. Web `/admin/stars`: daftar pembelian dan utang.
 3. **[SELESAI di kode 14 Nov 2026, tes saja]** Mobile: `expo-iap`, bagian Tambah Star, pemulihan, tes unit; build APK (pengguna).
-4. Pengguna menyiapkan Play Console dan Google Cloud (bagian 10); uji Internal testing dengan penguji lisensi.
+4. **[SELESAI 15 Nov 2026, *terbukti*]** Pengguna menyiapkan Play Console dan Google Cloud (bagian 10); uji Internal testing dengan penguji lisensi (bagian 12d).
 5. Dokumen: `STARS_WALLET.md`, API, OpenAPI (dua salinan), `ARCHITECTURE.md`, `OPERATIONS.md`, progres.
 6. Rilis: hanya setelah gerbang `STARS_STAGE0.md` bagian 4 lengkap.

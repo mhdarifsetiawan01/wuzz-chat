@@ -1,14 +1,14 @@
 # Backlog Wuzz Chat — Indeks dan Sisa Pekerjaan
 
-> Diperbarui 14 Nov 2026 sore (serah terima sesi: bagian 0). Sumber kebenaran sisa pekerjaan untuk sesi AI mana pun. Berkas selesai ada di `../archived/28-10-2026-backlog-selesai/`. Aturan kerja ada di `PROMPT.md`; runbook operasional di `docs/OPERATIONS.md`.
+> Diperbarui 15 Nov 2026 dini hari (serah terima sesi: bagian 0). Sumber kebenaran sisa pekerjaan untuk sesi AI mana pun. Berkas selesai ada di `../archived/28-10-2026-backlog-selesai/`. Aturan kerja ada di `PROMPT.md`; runbook operasional di `docs/OPERATIONS.md`.
 > **Kerjakan hanya yang diminta pengguna.** Memiliki item di sini bukan izin implementasi.
 
-## 0. Serah terima sesi 14 Nov 2026 sore (BACA DULU)
+## 0. Serah terima sesi 14-15 Nov 2026 (BACA DULU)
 
 **Fokus terakhir: Wuzz Chat V2** (Fase 15 `docs/ROADMAP.md`). Semua kode di bawah sudah di `main` dan di-push; isi `dev` sama dengan `main`. Untuk keadaan terkini pakai `git log origin/main`, bukan hash di catatan ini.
 
 **Tahap 1, tautan undangan grup privat: LIVE.** Backend dan landing web `/join` sudah dideploy; mobile teruji di HP (dua profil Android). Rincian: `PRIVATE_GROUP_INVITES.md`, `docs/domains/GROUP_FORUM.md` aturan 9, `docs/progress/MOBILE.md`.
-- Belum: **rilis APK lewat Play** (memuat undangan, teks notifikasi `notif_text`, perbaikan kode pendek huruf `i`, dan kode Star yang tersembunyi selama sakelar mati); cek gerbang Data Safety di `OPERATIONS.md` sebelum promosi build.
+- Build **1.45.0 (77)** di **Internal testing** sejak 14 Nov 2026 (memuat undangan, teks notifikasi `notif_text`, perbaikan kode pendek huruf `i`, Star 2a/2b, perbaikan garis gestur). Belum: **promosi ke Produksi**; tertahan gerbang `PLAY_STORE_LISTING.md` 2.6 karena build ini memuat library billing.
 - Belum dilihat di HP: **teks notifikasi baru** (`notif_text`). Ma Stw bisa mengajukan lagi ke "Grup Tes Privat" setelah ±02:30 15 Nov 2026 (jeda penolakan). Tautan aktif grup itu sekarang mode persetujuan (lihat Info Grup). Catat hasilnya di `docs/progress/MOBILE.md`.
 
 **Tahap 2a, Star & grup privat berbayar (tanpa Play Billing): SELESAI dan *terbukti* di HP 14 Nov 2026; semua sakelar MATI di produksi.** Desain `STARS_PAID_GROUPS.md`, aturan `docs/domains/STARS_WALLET.md`.
@@ -17,8 +17,12 @@
 - **Perbaikan lain sesi ini, *terbukti* di HP:** garis gestur Android tidak lagi menimpa tab bar dan kolom ketik (jarak bawah minimum 16 dp; HP Realme melaporkan inset bawah ±1 dp). Rincian `docs/progress/MOBILE.md`.
 - **Data uji yang tertinggal di produksi (sengaja, tidak dihapus):** @semantic berstatus mitra kreator aktif; "Grup Tes Privat" punya baris `paid_groups` nonaktif (harga 95); @mastwofficial bersaldo **100 Star dari `test_grant`** (riwayat: kredit uji +100, akses −10, refund +10). Buku besar append-only: bila perlu dinolkan, pakai entri koreksi admin, jangan hapus baris.
 - **Tahap 0 DIMULAI 14 Nov 2026** (sisi pengguna): daftar kerja dan gerbang di `STARS_STAGE0.md`. Keputusan: jual atas nama pribadi dulu (akun developer personal; jenis profil pembayaran tidak bisa diubah setelah dibuat). Tahap 2b (Play Billing) baru setelah gerbang bagian 4 dokumen itu lengkap. Angka masih sementara (Rp100/Star, platform 20%, potongan toko 15%, masa tahan 14 hari).
-- **Tahap 2b (pembelian Star lewat Play): backend dan mobile SELESAI di `dev` 14 Nov 2026** (*tes saja*; `STARS_PLAY_BILLING.md`). Berikutnya: build APK (pengguna), web admin (daftar pembelian/utang), persiapan Play Console + Google Cloud oleh pengguna (bagian 10 dokumen itu), uji Internal testing dengan penguji lisensi.
-- **Jangan menyalakan sakelar Star untuk pengguna** sebelum Tahap 0 dan deklarasi Play selesai. Sakelar berlaku global (bukan per akun); selama menyala, hanya APK baru dan `/admin/stars` yang melihat fitur.
+- **Tahap 2b (pembelian Star lewat Play): SELESAI, dideploy, dan *terbukti* dengan pembelian uji nyata 14-15 Nov 2026; keempat sakelar MATI lagi (dicek di `.env` VPS 15 Nov ±01.10 WIB).** Hasil per kasus: `STARS_PLAY_BILLING.md` 12d (beli, konsumsi, batal, ditolak, tertunda, voided dibalik, beli Star lalu bayar grup dari HP kedua).
+  - Play Console: build **1.45.0 (77)** ber-billing ada di **Internal testing** saja; **jangan dipromosikan** ke Closed/Produksi sebelum gerbang `PLAY_STORE_LISTING.md` 2.6 (privacy/terms, Data Safety, IARC). Gerbang ini juga menahan rilis Play biasa, karena semua build baru memuat library billing.
+  - Produk `star_50`/`star_100`/`star_500` aktif (hanya Indonesia, harga sementara). Penguji lisensi: daftar `Penguji Star` (hanya akun pemilik); jangan centang daftar "Internal Test".
+  - Berikutnya (hanya bila diminta): web admin daftar pembelian/utang, perbaikan kecil Saldo Star memuat ulang saat aplikasi kembali aktif, uji yang tersisa (pemulihan setelah aplikasi dimatikan, akun lain di perangkat yang sama, utang, halaman kedua voided), draf teks Star untuk `/privacy` `/terms` `/delete-account`.
+- **Data uji Star di produksi (sengaja dibiarkan):** @mhdarifsetiawan mitra kreator aktif, saldo **150 Star dari pembelian uji Play** (gratis, penguji lisensi), pemilik grup "Pasukan Gibran Bersatu" (berbayar 50 Star, anggota @semantic yang membayar 10 dan @vanyzter yang membayar 50; pendapatan kreator 60 "diproses"). @vanyzter juga punya pembelian uji Play. Data uji 2a di bawah tetap.
+- **Jangan menyalakan sakelar Star untuk pengguna** sebelum Tahap 0 dan deklarasi Play selesai. Sakelar berlaku global (bukan per akun). Selama `STARS_PLAY_BILLING` menyala, pengguna build 77 yang **bukan** penguji lisensi ditagih uang sungguhan.
 
 **Pelajaran sesi ini (jebakan):**
 - Periksa `git branch --show-current` tepat sebelum commit; branch sempat berpindah ke `main` di tengah sesi.
@@ -30,6 +34,9 @@
 - Uji backend lokal tanpa menyentuh produksi: jalankan binari dari folder yang tidak berisi `.env` (`.env` lokal = produksi), `DATABASE_URL=sqlite://...`; rewrite `/api` frontend terkunci ke `localhost:8080` saat build.
 - SQLite: `busy_timeout` hanya terpasang di satu koneksi pool, jadi tulis bersamaan bisa `SQLITE_BUSY`; uji konkurensi di Postgres (`PG_TEST_ADMIN_DSN`, kontainer `postgres:16-alpine` port 54329).
 - Teramati, belum diselidiki: setelah mengeluarkan anggota lalu berpindah profil Android, dialog "Sukses" tampil di atas daftar obrolan, bukan di Info Grup.
+- Uji Play Billing: penguji lisensi boleh memakai APK sideload (nama paket sama), tapi Play baru mengenal produk setelah satu build ber-billing diunggah ke track mana pun. Kartu uji ada di dialog Play (approves, declines, slow approve/decline, approves then charges back). Voided baru terbaca pada sapuan per jam berikutnya (jam ke-n sejak backend dinyalakan).
+- Saat mengendalikan HP lewat adb, ambil tangkapan layar sebelum setiap ketukan: pengguna bisa sedang memakai HP yang sama, dan ketukan yang meleset bisa membuka aplikasi lain (sempat membuka aplikasi Pesan).
+- Di kolom harga Grup Berbayar, ketukan pertama pada "Simpan" saat keyboard terbuka hanya menutup keyboard; ketuk sekali lagi dan pastikan `PUT /api/groups/{id}/paid` muncul di log.
 
 ## 1. Berkas aktif
 
@@ -44,7 +51,7 @@
 | [`FEED_UPLOAD_HARDENING.md`](FEED_UPLOAD_HARDENING.md) | Belum dikerjakan | A1 (kompresi gambar) butuh dependency native, jadi build baru. |
 | [`PRIVATE_GROUP_INVITES.md`](PRIVATE_GROUP_INVITES.md) | Disetujui 14 Nov 2026. Backend di `main`, **dideploy 14 Nov 2026** (alur nyata belum dicoba). **Mobile selesai di `dev`** (tes saja; butuh build APK dan uji dua HP). Landing web `/join` dideploy 14 Nov 2026 | Wuzz Chat V2 Tahap 1: tautan undangan grup privat yang bisa dicabut + persetujuan admin. Tanpa uang; Star/grup berbayar menyusul (Fase 15). |
 | [`STARS_PAID_GROUPS.md`](STARS_PAID_GROUPS.md) | Disetujui 14 Nov 2026. **Tahap 2a selesai, dideploy, *terbukti* di HP 14 Nov 2026** (sakelar mati); Play Billing (2b) belum | Wuzz Chat V2 Tahap 2: Star (hanya dibelanjakan) dan grup privat berbayar. 2a tanpa Play dulu; 2b Play Billing setelah merchant aktif. Tahap 0 belum; semua sakelar mati. |
-| [`STARS_PLAY_BILLING.md`](STARS_PLAY_BILLING.md) | Disetujui 14 Nov 2026. **Backend + mobile selesai di `dev`** (tes saja, sakelar mati); web admin, Play Console, uji nyata belum | Star Tahap 2b: produk Play, pembelian mobile (`expo-iap`), verifikasi dan konsumsi di server, voided/utang, sakelar `STARS_PLAY_BILLING`. Kode boleh paralel dengan Tahap 0; rilis menunggu gerbang. |
+| [`STARS_PLAY_BILLING.md`](STARS_PLAY_BILLING.md) | Disetujui 14 Nov 2026. **Backend + mobile dideploy/di build 77 (Internal testing), *terbukti* dengan pembelian uji 15 Nov 2026** (sakelar mati); web admin belum; rilis menunggu gerbang | Star Tahap 2b: produk Play, pembelian mobile (`expo-iap`), verifikasi dan konsumsi di server, voided/utang, sakelar `STARS_PLAY_BILLING`. Kode boleh paralel dengan Tahap 0; rilis menunggu gerbang. |
 | [`STARS_STAGE0.md`](STARS_STAGE0.md) | Dimulai 14 Nov 2026 (tanpa kode) | Tahap 0 Star: profil pembayaran Play (individu), pertanyaan ke dukungan Play, konsultasi hukum/pajak, keputusan harga, dokumen pengguna, deklarasi Play; gerbang sebelum Tahap 2b. |
 | [`b2b-widget/README.md`](b2b-widget/README.md) | Diskusi, ditunda | Prasyarat audit tenant T1-T6 sudah selesai. |
 

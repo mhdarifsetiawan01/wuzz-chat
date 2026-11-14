@@ -1,6 +1,9 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
-### Pembelian Star lewat Google Play, Wuzz Chat V2 Tahap 2b (14 Nov 2026, di `dev`, belum dideploy, sakelar mati)
+### Pembelian Star lewat Google Play, Wuzz Chat V2 Tahap 2b (14 Nov 2026, di `main`, DIDEPLOY 14 Nov 2026, *terbukti* 15 Nov 2026, sakelar mati)
+
+- **Uji nyata 14-15 Nov 2026 (*terbukti*):** dengan sakelar dinyalakan sementara: log `⭐ Star aktif (… pembelian Play: true)`; `POST /api/me/stars/purchases 200` untuk pembelian disetujui dan tertunda-lalu-disetujui; konsumsi berhasil (paket sama bisa dibeli ulang); sapuan per jam `⭐ [PlayBilling] sapuan: 0 dikonsumsi, 1 dibalik (voided)` membalik 500 Star; pembayaran akses grup setelah beli Star `POST /api/invites/{token}/purchase 200`. Rincian `docs/plans/backlog/STARS_PLAY_BILLING.md` 12d. Sakelar dimatikan lagi 15 Nov 2026.
+- **Jebakan:** `STARS_PLAY_BILLING` harus ada sebagai baris di `.env` VPS; tanpa baris itu `/packages` 404 walau `STARS_ENABLED=true`.
 
 - **Tujuan:** menjual Star lewat Play Billing (desain disetujui pengguna 14 Nov 2026: `docs/plans/backlog/STARS_PLAY_BILLING.md`; aturan: `docs/domains/STARS_WALLET.md` aturan 14-15). Dikerjakan paralel dengan Tahap 0; rilis menunggu gerbang `STARS_STAGE0.md`.
 - **Perubahan:** paket baru `internal/playbilling` (token service account jwt-bearer dengan cache; klien Play Developer API: `productsv2` get, `products.consume`, `voidedpurchases.list`; layanan verifikasi + kredit + sapuan); tabel `play_purchases` (PK hash token) dan `star_debts`; `store/stars_play.go` (kredit idempoten per token, tolak token akun lain, pelunasan utang `debt_repay`, pembalikan `reversal` sampai saldo 0 + utang, cursor voided di `star_settings`); `PurchaseAccess` menolak 402 `stars_debt` saat berutang; dompet memuat `debt`; endpoint `GET /api/me/stars/packages`, `POST /api/me/stars/purchases` (30/jam per pengguna), admin `play_purchases` dan `/debtors`; `worker/play_billing_worker.go` (per jam); sakelar `STARS_PLAY_BILLING`, `PLAY_PACKAGE_NAME`, `PLAY_SERVICE_ACCOUNT_FILE`.
