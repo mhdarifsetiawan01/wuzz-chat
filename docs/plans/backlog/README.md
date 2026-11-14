@@ -5,10 +5,16 @@
 
 ## 0. Serah terima sesi 14-15 Nov 2026 (BACA DULU)
 
+**Mulai di sini (sesi berikutnya):**
+1. Cek status build 77 di Play Console > Publishing overview: bila disetujui, pengguna klik **Publish**; tandai di dokumen. Bila ditolak, baca alasannya dulu.
+2. Sakelar Star di VPS tetap `false` semua (build 77 di Produksi memuat Play Billing).
+3. Sisa Star Tahap 0 (sisi pengguna): rekening bank (A2), kirim pertanyaan dukungan Play (`STARS_STAGE0.md` Lampiran B), konsultasi C1-C3, trader status UE tingkat aplikasi, perjanjian mitra kreator (E3).
+4. Sebelum Star dinyalakan untuk pengguna: build 78+ (modal Hapus Akun dengan peringatan saldo), gerbang `STARS_STAGE0.md` bagian 4.
+
 **Fokus terakhir: Wuzz Chat V2** (Fase 15 `docs/ROADMAP.md`). Semua kode di bawah sudah di `main` dan di-push; isi `dev` sama dengan `main`. Untuk keadaan terkini pakai `git log origin/main`, bukan hash di catatan ini.
 
 **Tahap 1, tautan undangan grup privat: LIVE.** Backend dan landing web `/join` sudah dideploy; mobile teruji di HP (dua profil Android). Rincian: `PRIVATE_GROUP_INVITES.md`, `docs/domains/GROUP_FORUM.md` aturan 9, `docs/progress/MOBILE.md`.
-- Build **1.45.0 (77)** di **Internal testing** sejak 14 Nov 2026 (memuat undangan, teks notifikasi `notif_text`, perbaikan kode pendek huruf `i`, Star 2a/2b, perbaikan garis gestur). Belum: **promosi ke Produksi**; tertahan gerbang `PLAY_STORE_LISTING.md` 2.6 karena build ini memuat library billing.
+- Build **1.45.0 (77)** di **Internal testing** sejak 14 Nov 2026 (memuat undangan, teks notifikasi `notif_text`, perbaikan kode pendek huruf `i`, Star 2a/2b, perbaikan garis gestur). **Dikirim ke Produksi 15 Nov 2026 ±04.10 WIB, sedang ditinjau Google**; setelah disetujui, pengguna harus klik **Publish** (managed publishing), lalu tandai di dokumen ini, `OPERATIONS.md` bagian 4, dan `PLAY_STORE_LISTING.md` 2.6.
 - Belum dilihat di HP: **teks notifikasi baru** (`notif_text`). Ma Stw bisa mengajukan lagi ke "Grup Tes Privat" setelah ±02:30 15 Nov 2026 (jeda penolakan). Tautan aktif grup itu sekarang mode persetujuan (lihat Info Grup). Catat hasilnya di `docs/progress/MOBILE.md`.
 
 **Tahap 2a, Star & grup privat berbayar (tanpa Play Billing): SELESAI dan *terbukti* di HP 14 Nov 2026; semua sakelar MATI di produksi.** Desain `STARS_PAID_GROUPS.md`, aturan `docs/domains/STARS_WALLET.md`.
