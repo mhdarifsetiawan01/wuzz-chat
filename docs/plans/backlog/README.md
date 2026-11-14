@@ -1,29 +1,34 @@
 # Backlog Wuzz Chat — Indeks dan Sisa Pekerjaan
 
-> Diperbarui 14 Nov 2026 (serah terima sesi: bagian 0). Sumber kebenaran sisa pekerjaan untuk sesi AI mana pun. Berkas selesai ada di `../archived/28-10-2026-backlog-selesai/`. Aturan kerja ada di `PROMPT.md`; runbook operasional di `docs/OPERATIONS.md`.
+> Diperbarui 14 Nov 2026 sore (serah terima sesi: bagian 0). Sumber kebenaran sisa pekerjaan untuk sesi AI mana pun. Berkas selesai ada di `../archived/28-10-2026-backlog-selesai/`. Aturan kerja ada di `PROMPT.md`; runbook operasional di `docs/OPERATIONS.md`.
 > **Kerjakan hanya yang diminta pengguna.** Memiliki item di sini bukan izin implementasi.
 
-## 0. Serah terima sesi 14 Nov 2026 (BACA DULU)
+## 0. Serah terima sesi 14 Nov 2026 sore (BACA DULU)
 
-**Fokus terakhir: Wuzz Chat V2** (Fase 15 `docs/ROADMAP.md`). Semua kode di bawah, termasuk mobile Tahap 2a, sudah di `main` dan di-push (merge `8f57f3f`, 14 Nov 2026); isi `dev` sama dengan `main`. Untuk keadaan terkini pakai `git log origin/main`, bukan hash di catatan ini.
+**Fokus terakhir: Wuzz Chat V2** (Fase 15 `docs/ROADMAP.md`). Semua kode di bawah sudah di `main` dan di-push; isi `dev` sama dengan `main`. Untuk keadaan terkini pakai `git log origin/main`, bukan hash di catatan ini.
 
 **Tahap 1, tautan undangan grup privat: LIVE.** Backend dan landing web `/join` sudah dideploy; mobile teruji di HP (dua profil Android). Rincian: `PRIVATE_GROUP_INVITES.md`, `docs/domains/GROUP_FORUM.md` aturan 9, `docs/progress/MOBILE.md`.
-- Belum: **rilis APK lewat Play** (memuat undangan, teks notifikasi `notif_text`, perbaikan kode pendek huruf `i`); cek gerbang Data Safety di `OPERATIONS.md` sebelum promosi build.
-- Belum dilihat di HP: **teks notifikasi baru** (`notif_text`, backend sudah dideploy, APK lokal sudah dipasang). Akun uji Ma Stw (@mastwofficial, profil Android kedua di HP uji) bisa mengajukan lagi ke "Grup Tes Privat" setelah ±02:16 15 Nov 2026; tautan uji grup itu sudah dimatikan (buat baru). Lalu catat hasilnya di `docs/progress/MOBILE.md`.
+- Belum: **rilis APK lewat Play** (memuat undangan, teks notifikasi `notif_text`, perbaikan kode pendek huruf `i`, dan kode Star yang tersembunyi selama sakelar mati); cek gerbang Data Safety di `OPERATIONS.md` sebelum promosi build.
+- Belum dilihat di HP: **teks notifikasi baru** (`notif_text`). Ma Stw bisa mengajukan lagi ke "Grup Tes Privat" setelah ±02:30 15 Nov 2026 (jeda penolakan). Tautan aktif grup itu sekarang mode persetujuan (lihat Info Grup). Catat hasilnya di `docs/progress/MOBILE.md`.
 
-**Tahap 2a, Star & grup privat berbayar (tanpa Play Billing): SEBAGIAN, semua sakelar mati.** Desain disetujui (`STARS_PAID_GROUPS.md`), aturan `docs/domains/STARS_WALLET.md`.
-- Selesai di `main`: backend (buku besar, dompet, mitra kreator, grup berbayar, bayar akses, refund, kredit uji; tes SQLite + Postgres) dan halaman `/admin/stars` (uji ujung-ke-ujung lokal).
-- **Deploy backend dan frontend Tahap 2a belum dikonfirmasi pengguna** (aman kapan saja; sakelar `STARS_ENABLED`, `PAID_GROUPS_ENABLED`, `STARS_TEST_GRANTS` tetap kosong).
-- **Mobile Tahap 2a: SELESAI dan *terbukti* di HP 14 Nov 2026** (backend 2a sudah dideploy; sakelar dinyalakan sementara untuk uji lalu **sudah dimatikan lagi**). Saldo/Riwayat Star, undangan berbayar, kartu Grup Berbayar, Star diterima, refund manual. Rincian, temuan, dan yang belum teruji: `docs/progress/MOBILE.md`.
-- **Langkah berikutnya:** dua perbaikan kecil `InviteScreen` (jumlah anggota setelah bayar, tombol terkunci setelah galat) ada di kode, ikut build APK berikutnya. Tahap 2b dan rilis Star ke pengguna tetap menunggu Tahap 0 dan deklarasi Play.
-- Tahap 2b (Play Billing) menunggu **Tahap 0** di sisi pengguna: konsultasi hukum, profil merchant Play, badan usaha. Angka saat ini sementara (Rp100/Star, platform 20%, potongan toko 15%, masa tahan 14 hari).
-- **Jangan menyalakan sakelar Star untuk pengguna** sebelum Tahap 0 dan deklarasi Play (Financial features, Data Safety) selesai.
+**Tahap 2a, Star & grup privat berbayar (tanpa Play Billing): SELESAI dan *terbukti* di HP 14 Nov 2026; semua sakelar MATI di produksi.** Desain `STARS_PAID_GROUPS.md`, aturan `docs/domains/STARS_WALLET.md`.
+- Backend + `/admin/stars` (web) + mobile sudah di `main`; backend dan frontend 2a **sudah dideploy**. Uji HP 16.07-16.38 dengan `STARS_ENABLED`, `PAID_GROUPS_ENABLED`, `STARS_TEST_GRANTS` dinyalakan sementara lalu dikosongkan lagi oleh pengguna (dicek: baris Saldo Star hilang). Rincian per langkah, temuan, dan yang belum teruji: `docs/progress/MOBILE.md`.
+- **Sudah di APK lokal terpasang (build 14 Nov 17.07), belum dilihat di HP:** dua perbaikan `InviteScreen` (jumlah anggota dimuat ulang setelah bayar; tombol tidak lagi terkunci setelah galat 402/409/404). Lihat sekilas saat uji Star berikutnya.
+- **Perbaikan lain sesi ini, *terbukti* di HP:** garis gestur Android tidak lagi menimpa tab bar dan kolom ketik (jarak bawah minimum 16 dp; HP Realme melaporkan inset bawah ±1 dp). Rincian `docs/progress/MOBILE.md`.
+- **Data uji yang tertinggal di produksi (sengaja, tidak dihapus):** @semantic berstatus mitra kreator aktif; "Grup Tes Privat" punya baris `paid_groups` nonaktif (harga 95); @mastwofficial bersaldo **100 Star dari `test_grant`** (riwayat: kredit uji +100, akses −10, refund +10). Buku besar append-only: bila perlu dinolkan, pakai entri koreksi admin, jangan hapus baris.
+- **Berikutnya (sisi pengguna):** Tahap 0 (konsultasi hukum, profil merchant Play, badan usaha) lalu deklarasi Play (Financial features, Data Safety). Baru setelah itu Tahap 2b (Play Billing). Angka masih sementara (Rp100/Star, platform 20%, potongan toko 15%, masa tahan 14 hari).
+- **Jangan menyalakan sakelar Star untuk pengguna** sebelum Tahap 0 dan deklarasi Play selesai. Sakelar berlaku global (bukan per akun); selama menyala, hanya APK baru dan `/admin/stars` yang melihat fitur.
 
 **Pelajaran sesi ini (jebakan):**
 - Periksa `git branch --show-current` tepat sebelum commit; branch sempat berpindah ke `main` di tengah sesi.
-- Uji HP lewat adb dengan dua profil Android: FCM ke profil di latar belakang tertunda sampai profil aktif; tiap pindah profil, profil utama terkunci pola (pengguna harus membuka). Hindari mengendalikan Chrome di HP pengguna untuk uji web (tab pribadi dan lembar kata sandi tersimpan muncul); pakai Chrome headless di laptop dengan profil sementara.
+- Ubah env backend VPS di `~/wuzz-chat/backend/.env` lalu `docker compose up -d` (bukan `restart`). Endpoint Star tanpa token menjawab 401 baik sakelar nyala maupun mati; cek lewat aplikasi atau `docker compose exec ... env`.
+- Uji HP lewat adb dengan dua profil Android (user 0 = @semantic, user 10 = @mastwofficial): **kedua profil terkunci** setiap kali dipindah (`am switch-user`); pengguna harus membuka, dan tangkapan layar layar kunci kosong. Kelompokkan langkah per profil agar perpindahan sedikit. FCM ke profil di latar belakang tertunda sampai profil aktif.
+- Memicu penyegaran AppState: `input keyevent HOME` lalu `am start --user <n> -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n com.wuzzchat.mobile/.MainActivity` (`monkey --user` tidak membuka aplikasi). Deep link: `am start --user <n> -a android.intent.action.VIEW -d https://chat.wuzzhub.id/join/<token> com.wuzzchat.mobile`.
+- Sebelum `adb install -r` APK lokal, bandingkan sidik SHA-256 penanda tangan (`apksigner verify --print-certs`) dengan APK terpasang (`adb pull` dari `pm path`); beda tanda tangan berarti jangan uninstall (kunci E2EE hilang). Satu install memperbarui semua profil.
+- Hindari mengendalikan Chrome di HP pengguna untuk uji web (tab pribadi dan lembar kata sandi tersimpan muncul); pakai Chrome headless di laptop dengan profil sementara.
 - Uji backend lokal tanpa menyentuh produksi: jalankan binari dari folder yang tidak berisi `.env` (`.env` lokal = produksi), `DATABASE_URL=sqlite://...`; rewrite `/api` frontend terkunci ke `localhost:8080` saat build.
 - SQLite: `busy_timeout` hanya terpasang di satu koneksi pool, jadi tulis bersamaan bisa `SQLITE_BUSY`; uji konkurensi di Postgres (`PG_TEST_ADMIN_DSN`, kontainer `postgres:16-alpine` port 54329).
+- Teramati, belum diselidiki: setelah mengeluarkan anggota lalu berpindah profil Android, dialog "Sukses" tampil di atas daftar obrolan, bukan di Info Grup.
 
 ## 1. Berkas aktif
 
@@ -37,7 +42,7 @@
 | [`MOBILE_LINKED_DEVICES.md`](MOBILE_LINKED_DEVICES.md) | Selesai kecuali audit | Audit akar penyebab inventaris lama/kuota dan target yang sepenuhnya offline masih terbuka. |
 | [`FEED_UPLOAD_HARDENING.md`](FEED_UPLOAD_HARDENING.md) | Belum dikerjakan | A1 (kompresi gambar) butuh dependency native, jadi build baru. |
 | [`PRIVATE_GROUP_INVITES.md`](PRIVATE_GROUP_INVITES.md) | Disetujui 14 Nov 2026. Backend di `main`, **dideploy 14 Nov 2026** (alur nyata belum dicoba). **Mobile selesai di `dev`** (tes saja; butuh build APK dan uji dua HP). Landing web `/join` dideploy 14 Nov 2026 | Wuzz Chat V2 Tahap 1: tautan undangan grup privat yang bisa dicabut + persetujuan admin. Tanpa uang; Star/grup berbayar menyusul (Fase 15). |
-| [`STARS_PAID_GROUPS.md`](STARS_PAID_GROUPS.md) | Disetujui 14 Nov 2026. **Backend 2a, `/admin/stars` web, dan mobile 2a di kode** (sakelar mati; mobile *tes saja*, belum diuji di HP); Play Billing belum | Wuzz Chat V2 Tahap 2: Star (hanya dibelanjakan) dan grup privat berbayar. 2a tanpa Play dulu; 2b Play Billing setelah merchant aktif. Tahap 0 belum; semua sakelar mati. |
+| [`STARS_PAID_GROUPS.md`](STARS_PAID_GROUPS.md) | Disetujui 14 Nov 2026. **Tahap 2a selesai, dideploy, *terbukti* di HP 14 Nov 2026** (sakelar mati); Play Billing (2b) belum | Wuzz Chat V2 Tahap 2: Star (hanya dibelanjakan) dan grup privat berbayar. 2a tanpa Play dulu; 2b Play Billing setelah merchant aktif. Tahap 0 belum; semua sakelar mati. |
 | [`b2b-widget/README.md`](b2b-widget/README.md) | Diskusi, ditunda | Prasyarat audit tenant T1-T6 sudah selesai. |
 
 ## 2. Sisa dari rencana yang sudah diarsipkan

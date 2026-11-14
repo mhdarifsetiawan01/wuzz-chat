@@ -1,5 +1,11 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+## Garis gestur menimpa tab bar dan kolom ketik (14 Nov 2026, di `dev`, butuh build baru)
+
+- Dilaporkan pengguna ("bottom menu aneh"); dilihat di HP uji (Realme RMX3506, profil utama, navigasi gestur `navigation_mode=2`): HP melaporkan inset navigasi bawah hanya 2 px (±1 dp), jadi tab bar kapsul hanya berjarak minimum 8 dp dan garis gestur Android (±7 dp dari tepi) menimpa tepi bawah kapsul. Hal sama di kolom ketik `ChatInputBar`. Profil dengan navigasi 3 tombol (inset ±48 dp) tidak terdampak. Bukan regresi kode (jarak minimum 8 dp sudah ada sejak redesain kapsul).
+- Perbaikan: jarak bawah minimum 16 dp di `src/navigation/MainTabNavigator.tsx` dan `src/components/ChatInputBar.tsx` (saat keyboard/emoji tertutup). HP yang melaporkan inset benar tidak berubah.
+- Bukti: `npx tsc --noEmit` lolos; *terbukti* di HP 14 Nov 2026 17.08 (APK lokal build 17.07, profil utama navigasi gestur, tema gelap): tab bar dan kolom ketik kini berjarak jelas dari garis gestur. **Belum:** tema terang dan HP lain.
+
 ## Klien Star & grup privat berbayar, V2 Tahap 2a (14 Nov 2026, di `dev`, butuh build baru; semua tersembunyi selama sakelar server mati)
 
 - **Saldo & Riwayat Star:** baris "Saldo Star" di Pengaturan (bagian "Star") hanya tampil bila `GET /api/me/stars` menjawab 200; dicek setiap kali tab Pengaturan fokus, 404 menyembunyikan baris, galat jaringan tidak mengubah keadaan terakhir. Layar `StarsScreen` (route `Stars`): saldo, ringkasan "Star diterima" per grup (mitra kreator saja; tersedia/diproses), Riwayat Star 50 entri dengan label netral, tarik-untuk-segarkan. Tidak ada tombol beli Star.

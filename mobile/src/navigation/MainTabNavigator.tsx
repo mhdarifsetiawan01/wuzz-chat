@@ -182,7 +182,9 @@ function AuroraTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     <View
       style={[
         styles.tabBarOuter,
-        { paddingBottom: Math.max(insets.bottom, spacing.sm) },
+        // Minimal 16 dp: sebagian HP (mis. Realme dengan navigasi gestur) melaporkan inset bawah ±1 dp padahal garis
+        // gestur digambar ±7 dp dari tepi, sehingga dengan 8 dp garis itu menimpa tepi bawah kapsul.
+        { paddingBottom: Math.max(insets.bottom, spacing.lg) },
       ]}
     >
       <View
