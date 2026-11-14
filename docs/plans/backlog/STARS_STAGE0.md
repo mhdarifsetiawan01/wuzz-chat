@@ -26,7 +26,7 @@ Sumber: support.google.com/googleplay/android-developer/answer/13634885, /answer
 3. Catat di `docs/OPERATIONS.md` (tanpa nomor rekening/identitas): tanggal aktif, jenis profil, mata uang pembayaran.
 4. Setelah aktif, Play Console mengizinkan membuat produk dalam aplikasi; **jangan membuat produk Star dulu** sampai gerbang bagian 4 lengkap.
 
-### B. Pertanyaan ke dukungan Play (P kirim; AI bisa menyusun draf)
+### B. Pertanyaan ke dukungan Play (P kirim; draf siap di Lampiran B)
 1. Bolehkah pengguna membayar akses ke grup privat **buatan pengguna lain** dengan mata uang virtual yang dibeli lewat Play Billing, lalu sebagian nilainya dibagikan ke pembuat grup di luar Google (pembayaran manual)?
 2. Apakah ada persyaratan tambahan untuk konten/akses digital yang dijual kreator (mis. kebijakan "konten buatan pengguna" atau program kreator)?
 3. Bila kelak pindah ke badan usaha: bagaimana memindahkan aplikasi berbayar dan profil pembayaran tanpa memutus pembelian dan langganan yang ada?
@@ -71,3 +71,35 @@ Tahap 2b (produk Star di Play, library billing, verifikasi pembelian server) bar
 - **Belum (A2):** rekening bank. Metode pembayaran untuk Indonesia hanya "wire transfer" (SWIFT); pakai bank yang menerima transfer internasional masuk (bank digital belum tentu), nama pemilik rekening sama persis dengan profil. Ditunda pengguna 14 Nov 2026; pendapatan ditahan sampai rekening ada. Wajib terpasang dan terverifikasi sebelum Star dirilis.
 - **Belum:** "app-level trader status declaration" (status pedagang UE) muncul di dashboard Play. Bila tergolong trader, nama, alamat, telepon, email ditampilkan publik untuk pengguna UE; putuskan setelah cek negara distribusi dan ketentuan resmi. Jangan diisi asal.
 - **Untuk D1 (harga):** artikel resmi tarif 15% berasal dari 2021; halaman Google yang lebih baru menyebut struktur lain (mis. 10% untuk pemasangan baru di program Apps & Games, tarif bergantung pada pemasangan baru atau lama). Periksa ulang dari support.google.com/googleplay/android-developer/answer/16954621 sebelum menetapkan `store_fee_pct`.
+
+## Lampiran B. Draf pertanyaan ke dukungan Play (disusun 14 Nov 2026; BELUM dikirim)
+
+Kirim lewat Play Console > Help (?) > Contact support, topik terdekat *Policy* atau *Monetization/Payments*. Jangan menambahkan data pribadi; tiket sudah terkait akun. Setelah dikirim, catat tanggal dan nomor tiket di bawah, lalu jawaban Google per nomor pertanyaan.
+
+> **Subject:** Policy question before launch: virtual currency used to pay for access to creator-run private groups (com.wuzzchat.mobile)
+>
+> Hello Google Play team,
+>
+> We publish **WuzzChat** (package `com.wuzzchat.mobile`), a messaging app with groups and forums. Before building anything with Google Play Billing, we would like to confirm that the following model complies with Google Play policies.
+>
+> **Planned model**
+> 1. Users buy an in-app virtual currency called "Star" through **Google Play Billing only** (consumable in-app products, e.g. packs of 50, 100 or 500 Stars). No other payment method is offered or mentioned in the app.
+> 2. Stars can **only be spent inside WuzzChat**. They cannot be transferred between users, withdrawn or exchanged for money by the buyer.
+> 3. A small number of **approved creators** (manually approved by us) can mark their *private* group as paid. A user pays a one-time price in Stars to join that group, which gives them access to the group's chat content for as long as they remain a member.
+> 4. We plan to share part of the revenue with the creator **outside the app**: under a written agreement, we pay creators manually from our own earnings, only after Google has paid us and after a holding period. The app never offers a cash-out button and never promises payouts to regular users.
+> 5. Refunds of Stars are handled manually by our staff. We will honour Google Play refunds and revocations.
+>
+> **Questions**
+> 1. Is it allowed under Google Play policies for users to pay, with a Play Billing virtual currency, for access to a private group **created and run by another user** (a creator), when the content is chat messages and media posted by that creator and other members?
+> 2. Is sharing part of the revenue with those creators **outside the app** (manual payments under a contract, not a cash-out feature) compatible with the Payments policy? Are there any requirements for how this must be disclosed to users or creators?
+> 3. Which category, if any, should we select in the **Financial features declaration** for this feature? Currently we declare that the app has no financial features.
+> 4. Our developer account and payments profile are registered as an **individual** in Indonesia. If we later form a company, what is the recommended way to move the app and its in-app revenue to an organization account and a new payments profile without interrupting existing purchases?
+> 5. We are enrolled in the 15% service fee tier. Could you confirm which service fee applies to **consumable in-app currency** purchases in Indonesia for an app like ours (including any differences between new and existing installs)?
+>
+> Thank you. We are happy to provide screenshots or a test build if helpful.
+
+Pemetaan ke daftar kerja: pertanyaan 1-2 = B1-B2, 3 = F1, 4 = B3, 5 = D1.
+
+**Status pengiriman:** belum dikirim.
+
+**Jawaban Google:** (belum ada)

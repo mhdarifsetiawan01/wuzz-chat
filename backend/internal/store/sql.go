@@ -586,6 +586,35 @@ func (s *SQLMessageStore) autoMigrate() error {
 			created_at TIMESTAMP NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_paid_group_access_group_user ON paid_group_access(group_id, user_id);`,
+		// Pembelian Star lewat Google Play (V2 Tahap 2b). Catatan keuangan: dipertahankan saat hapus akun (K1).
+		`CREATE TABLE IF NOT EXISTS play_purchases (
+			token_hash VARCHAR(64) PRIMARY KEY,
+			purchase_token TEXT NOT NULL,
+			order_id VARCHAR(128) NOT NULL DEFAULT '',
+			product_id VARCHAR(64) NOT NULL,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			stars INTEGER NOT NULL,
+			state VARCHAR(16) NOT NULL,
+			consumed BOOLEAN NOT NULL DEFAULT FALSE,
+			is_test BOOLEAN NOT NULL DEFAULT FALSE,
+			purchase_time TIMESTAMP DEFAULT NULL,
+			ledger_id VARCHAR(64) NOT NULL DEFAULT '',
+			reversal_ledger_id VARCHAR(64) NOT NULL DEFAULT '',
+			voided_reason INTEGER NOT NULL DEFAULT -1,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_play_purchases_user ON play_purchases(tenant_id, user_id, created_at);`,
+		`CREATE INDEX IF NOT EXISTS idx_play_purchases_consume ON play_purchases(consumed, state);`,
+		// Utang Star: sisa pembalikan pembelian yang tidak tertutup saldo (K4). Selama > 0, belanja Star diblokir.
+		`CREATE TABLE IF NOT EXISTS star_debts (
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			amount INTEGER NOT NULL DEFAULT 0 CHECK (amount >= 0),
+			updated_at TIMESTAMP NOT NULL,
+			PRIMARY KEY (tenant_id, user_id)
+		);`,
 
 		// Tabel User Connections (Milestone M-Mobile-10)
 		`CREATE TABLE IF NOT EXISTS user_connections (

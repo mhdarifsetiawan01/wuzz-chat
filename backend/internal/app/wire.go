@@ -28,6 +28,7 @@ import (
 	"github.com/bms-del112/wuzz-chat/internal/messaging"
 	messaginginfra "github.com/bms-del112/wuzz-chat/internal/messaging/infra"
 	"github.com/bms-del112/wuzz-chat/internal/notify"
+	"github.com/bms-del112/wuzz-chat/internal/playbilling"
 	"github.com/bms-del112/wuzz-chat/internal/push"
 	"github.com/bms-del112/wuzz-chat/internal/shared/config"
 	"github.com/bms-del112/wuzz-chat/internal/shared/cors"
@@ -95,6 +96,8 @@ type Application struct {
 	StarsHandler *api.StarsHandler
 	// EvidenceWorker menghapus bukti laporan yang melewati masa simpan; nil bila alat moderasi/retensi tidak aktif.
 	EvidenceWorker *worker.EvidenceRetentionWorker
+	// PlayBillingWorker: konsumsi tertunda + pembalikan voided pembelian Star (Tahap 2b); nil bila STARS_PLAY_BILLING mati.
+	PlayBillingWorker *worker.PlayBillingWorker
 	// Notifier mengirim pemberitahuan laporan baru ke Telegram dll; nil bila tidak ada saluran aktif.
 	Notifier *notify.Dispatcher
 	// Suspension menolak akun yang ditangguhkan moderator; nil bila alat moderasi tidak aktif.
@@ -377,7 +380,17 @@ func New(cfg *config.Config) (*Application, error) {
 				}
 				app.StarsHandler = api.NewStarsHandler(starStore, cfg.StarsEnabled, cfg.PaidGroupsEnabled, cfg.StarsTestGrants)
 				app.GroupHandler.SetStarsHandler(app.StarsHandler)
-				log.Printf("⭐ Star aktif (grup berbayar: %v, kredit uji: %v)", cfg.PaidGroupsEnabled, cfg.StarsTestGrants)
+				playOn := false
+				if cfg.StarsPlayBilling {
+					if svc, err := newPlayBillingService(cfg, starStore); err != nil {
+						log.Printf("⚠️ Pembelian Star (STARS_PLAY_BILLING) tidak aktif: %v", err)
+					} else {
+						app.StarsHandler.SetPlayBilling(svc)
+						app.PlayBillingWorker = worker.NewPlayBillingWorker(svc, time.Hour)
+						playOn = true
+					}
+				}
+				log.Printf("⭐ Star aktif (grup berbayar: %v, kredit uji: %v, pembelian Play: %v)", cfg.PaidGroupsEnabled, cfg.StarsTestGrants, playOn)
 			}
 		}
 
@@ -697,6 +710,7 @@ func (a *Application) Run() error {
 	}
 	a.Notifier.Start()
 	a.EvidenceWorker.Start()
+	a.PlayBillingWorker.Start()
 
 	// 2. Banner info server
 	log.Printf("🚀 Wuzz Chat backend berjalan di ws://localhost%s/ws", a.Server.Addr)
@@ -714,6 +728,7 @@ func (a *Application) Shutdown(ctx context.Context) error {
 	// 1. Matikan background workers terlebih dahulu
 	a.Notifier.Stop()
 	a.EvidenceWorker.Stop()
+	a.PlayBillingWorker.Stop()
 	if a.AuthCleanupWorker != nil {
 		a.AuthCleanupWorker.Stop()
 	}
@@ -742,4 +757,21 @@ func (a *Application) Close() error {
 		a.Broker.Close()
 	}
 	return nil
+}
+
+// newPlayBillingService merakit layanan pembelian Star lewat Google Play (Tahap 2b). Berkas service account wajib ada.
+func newPlayBillingService(cfg *config.Config, starStore *store.StarStore) (*playbilling.Service, error) {
+	if cfg.PlayServiceAccountFile == "" {
+		return nil, fmt.Errorf("PLAY_SERVICE_ACCOUNT_FILE kosong")
+	}
+	sa, err := playbilling.LoadServiceAccountFile(cfg.PlayServiceAccountFile)
+	if err != nil {
+		return nil, err
+	}
+	tokens, err := playbilling.NewServiceAccountTokenSource(sa, playbilling.AndroidPublisherScope, nil)
+	if err != nil {
+		return nil, err
+	}
+	client := playbilling.NewClient("", cfg.PlayPackageName, tokens, nil)
+	return playbilling.NewService(client, starStore), nil
 }

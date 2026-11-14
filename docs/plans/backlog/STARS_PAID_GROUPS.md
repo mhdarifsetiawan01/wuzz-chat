@@ -14,7 +14,7 @@
 5. `/admin`: kelola kreator, lihat saldo dan riwayat Star pengguna, **refund manual**, dan **kredit uji** (hanya bila sakelar uji menyala).
 6. Mobile: saldo dan riwayat Star, layar undangan berbayar, pengaturan harga grup untuk kreator. Tombol "Beli Star" **tidak ada** di Tahap 2a.
 
-**Tahap 2b (setelah profil merchant Play aktif):** produk Star di Play Console, library billing di mobile, verifikasi pembelian di server (Google Play Developer API), konsumsi pembelian, penanganan pembatalan/refund dari Google (RTDN atau pemeriksaan berkala).
+**Tahap 2b (desain disetujui 14 Nov 2026, backend selesai di `dev`: `STARS_PLAY_BILLING.md`; kode boleh paralel dengan Tahap 0, rilis tetap menunggu gerbang):** produk Star di Play Console, library billing di mobile, verifikasi pembelian di server (Google Play Developer API), konsumsi pembelian, penanganan pembatalan/refund dari Google (RTDN atau pemeriksaan berkala).
 
 **Bukan Tahap 2:** pembayaran ke kreator, laporan bulanan, maker-checker `wuzz_finance` (Tahap 3); langganan; pencairan di aplikasi (Tahap 3b).
 

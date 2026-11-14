@@ -1,6 +1,6 @@
 # 💫 Domain: Star & Grup Privat Berbayar (V2 Tahap 2)
 
-> Status (14 Nov 2026): **Tahap 2a backend selesai di `dev`, *tes saja*, semua sakelar mati.** `/admin/stars` web selesai di `dev` (uji ujung-ke-ujung lokal). Mobile selesai dan *terbukti* di HP 14 Nov 2026 dengan sakelar dinyalakan sementara (`docs/progress/MOBILE.md`). Play Billing (Tahap 2b) belum. **Tidak boleh dirilis ke pengguna** sebelum Tahap 0 (hukum, merchant Play, badan usaha) dan deklarasi Play (Financial features, Data Safety) selesai. Desain dan alasan: `docs/plans/backlog/STARS_PAID_GROUPS.md`; prinsip dan kebijakan Play: `docs/plans/backlog/ADS_AND_REWARDS_PLAN.md` bagian 14.
+> Status (14 Nov 2026): **Tahap 2a backend selesai di `dev`, *tes saja*, semua sakelar mati.** `/admin/stars` web selesai di `dev` (uji ujung-ke-ujung lokal). Mobile selesai dan *terbukti* di HP 14 Nov 2026 dengan sakelar dinyalakan sementara (`docs/progress/MOBILE.md`). Play Billing (Tahap 2b): **backend selesai di `dev` 14 Nov 2026, *tes saja*, sakelar `STARS_PLAY_BILLING` mati**; mobile belum. **Tidak boleh dirilis ke pengguna** sebelum Tahap 0 (hukum, merchant Play, badan usaha) dan deklarasi Play (Financial features, Data Safety) selesai. Desain dan alasan: `docs/plans/backlog/STARS_PAID_GROUPS.md`; prinsip dan kebijakan Play: `docs/plans/backlog/ADS_AND_REWARDS_PLAN.md` bagian 14.
 
 ## 1. Aturan bisnis (invarian)
 
@@ -18,9 +18,12 @@
 12. **Hapus akun (K1, usulan menunggu konsultasi hukum):** `star_ledger`, `star_wallets`, `creator_earnings`, `paid_group_access` **dipertahankan** (hanya `user_id`); `paid_groups` ikut dihapus bersama grup.
 13. **UI netral:** "Saldo Star", "Riwayat Star", "Star diterima"; jangan "pendapatan", "tarik", "cairkan", dan jangan menyebut metode bayar lain.
 
+14. **Pembelian lewat Google Play (Tahap 2b)**: Star hanya dijual lewat Play Billing. Server memverifikasi setiap token ke Google (`productsv2`): status `PURCHASED`, produk `star_<n>` sesuai paket di pengaturan, satu produk per pembelian, dan `obfuscatedExternalAccountId` = SHA-256 ID pengguna (token akun lain ditolak). Satu token = satu baris `play_purchases` = paling banyak satu kredit (`kind=purchase`, kunci `purchase:<hash token>`). `PENDING` tidak dikreditkan. Pembelian dikonsumsi di Google setelah kredit; gagal = dicoba ulang worker, kredit tidak dibatalkan.
+15. **Pembelian dibatalkan Google (voided)**: worker per jam membaca Voided Purchases API (jendela maks 30 hari) dan membalik sekali (`kind=reversal`). Saldo dikurangi paling rendah sampai 0; sisanya menjadi **utang** (`star_debts`). Selama utang > 0, bayar akses grup ditolak 402 `stars_debt`; kredit pembelian berikutnya melunasi utang dulu (`kind=debt_repay`). Bagian kreator tidak dibalik otomatis (K5).
+
 ## 2. Sakelar (env, bawaan mati)
 
-`STARS_ENABLED` (dompet, admin), `PAID_GROUPS_ENABLED` (butuh `STARS_ENABLED`), `STARS_TEST_GRANTS` (butuh `STARS_ENABLED`; **jangan di produksi setelah ada pengguna nyata**). Mati = endpoint 404 seragam, tautan undangan tetap mode approval.
+`STARS_ENABLED` (dompet, admin), `PAID_GROUPS_ENABLED` (butuh `STARS_ENABLED`), `STARS_PLAY_BILLING` (butuh `STARS_ENABLED` + `PLAY_SERVICE_ACCOUNT_FILE`; pembelian Play dan worker), `STARS_TEST_GRANTS` (butuh `STARS_ENABLED`; **jangan di produksi setelah ada pengguna nyata**). Mati = endpoint 404 seragam, tautan undangan tetap mode approval.
 
 ## 3. Angka (tabel `star_settings`, `GET/PUT /api/admin/stars/settings`)
 
@@ -32,7 +35,7 @@ Rincian payload: `docs/BACKEND_API.md` 35d. Ringkas: `GET /api/me/stars`, `GET /
 
 ## 5. Kode
 
-`store/stars.go` (`StarStore`), integrasi undangan di `store/invite_links.go` (`SetStarStore`, mode `paid`), `api/stars_handler.go`, rute di `api/group_handler.go` / `api/group_invite_handler.go` / `app/router.go`, perakitan `app/wire.go`, `GroupService.SetPaidGroupChecker`. Tes: `store/stars_test.go` (termasuk pembayaran bersamaan; di SQLite sebagian transaksi bersamaan ditolak `SQLITE_BUSY` karena `busy_timeout` hanya terpasang di satu koneksi pool, keterbatasan lama), `api/stars_handler_test.go`. Mobile: `mobile/src/api/stars.ts`, `StarsScreen`, `PaidGroupSection`, mode paid di `InviteScreen` (semua tersembunyi bila endpoint 404).
+`store/stars.go` (`StarStore`), integrasi undangan di `store/invite_links.go` (`SetStarStore`, mode `paid`), `api/stars_handler.go`, rute di `api/group_handler.go` / `api/group_invite_handler.go` / `app/router.go`, perakitan `app/wire.go`, `GroupService.SetPaidGroupChecker`. Tes: `store/stars_test.go` (termasuk pembayaran bersamaan; di SQLite sebagian transaksi bersamaan ditolak `SQLITE_BUSY` karena `busy_timeout` hanya terpasang di satu koneksi pool, keterbatasan lama), `api/stars_handler_test.go`. Tahap 2b: `playbilling/` (`token.go` token service account, `client.go` Play Developer API, `service.go` verifikasi/kredit/sapuan), `store/stars_play.go`, `worker/play_billing_worker.go`, perakitan `newPlayBillingService` di `app/wire.go`. Tes: `store/stars_play_test.go` (termasuk token sama bersamaan), `playbilling/*_test.go`, `api/stars_play_handler_test.go`. Mobile: `mobile/src/api/stars.ts`, `StarsScreen`, `PaidGroupSection`, mode paid di `InviteScreen` (semua tersembunyi bila endpoint 404).
 
 ## 6. Jebakan
 

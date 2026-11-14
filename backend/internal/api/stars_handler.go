@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/playbilling"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
 
@@ -14,6 +15,8 @@ import (
 //
 //	GET  /api/me/stars                          saldo + riwayat (STARS_ENABLED)
 //	GET  /api/me/stars/received                 Star diterima kreator per grup
+//	GET  /api/me/stars/packages                 paket Star yang dijual (STARS_PLAY_BILLING, Tahap 2b)
+//	POST /api/me/stars/purchases                verifikasi + kredit pembelian Google Play (STARS_PLAY_BILLING)
 //	GET|PUT /api/groups/{grp_id}/paid           pengaturan grup berbayar (PAID_GROUPS_ENABLED; lewat GroupHandler)
 //	POST /api/invites/{token}/purchase          bayar akses grup berbayar (lewat GroupHandler)
 //	/api/admin/stars/...                        alat staf (wuzz_admin)
@@ -26,7 +29,12 @@ type StarsHandler struct {
 	testGrants bool
 	// onJoined (opsional): menyiarkan anggota baru setelah pembayaran akses (pesan sistem + daftar anggota).
 	onJoined func(groupID, userID string)
+	// play (opsional): pembelian Star lewat Google Play (Tahap 2b). nil = STARS_PLAY_BILLING mati = 404.
+	play *playbilling.Service
 }
+
+// SetPlayBilling memasang layanan pembelian Play (STARS_PLAY_BILLING).
+func (h *StarsHandler) SetPlayBilling(svc *playbilling.Service) { h.play = svc }
 
 func NewStarsHandler(s *store.StarStore, starsEnabled, paidEnabled, testGrants bool) *StarsHandler {
 	return &StarsHandler{store: s, stars: starsEnabled, paid: starsEnabled && paidEnabled, testGrants: starsEnabled && testGrants}
@@ -71,9 +79,28 @@ func writeStarError(w http.ResponseWriter, err error) {
 		writeInviteJSON(w, http.StatusBadRequest, e{"error": "Pengaturan Star tidak valid", "code": "settings_invalid"})
 	case errors.Is(err, store.ErrUserNotFound):
 		writeInviteJSON(w, http.StatusNotFound, e{"error": "Pengguna tidak ditemukan", "code": "user_not_found"})
+	case errors.Is(err, store.ErrStarsDebt):
+		writeInviteJSON(w, http.StatusPaymentRequired, e{"error": "Ada pembelian Star yang dibatalkan. Tambah Star untuk melunasinya dulu.", "code": "stars_debt"})
+	case errors.Is(err, store.ErrPlayUnknownProduct):
+		writeInviteJSON(w, http.StatusBadRequest, e{"error": "Paket Star tidak dikenal", "code": "unknown_product"})
+	case errors.Is(err, store.ErrPlayPurchaseOtherUser), errors.Is(err, playbilling.ErrAccountMismatch):
+		writeInviteJSON(w, http.StatusForbidden, e{"error": "Pembelian ini bukan milik akun Anda", "code": "purchase_account_mismatch"})
+	case errors.Is(err, playbilling.ErrInvalidToken):
+		writeInviteJSON(w, http.StatusBadRequest, e{"error": "Pembelian tidak dikenali Google Play", "code": "invalid_purchase_token"})
+	case errors.Is(err, playbilling.ErrProductMismatch):
+		writeInviteJSON(w, http.StatusBadRequest, e{"error": "Produk pembelian tidak cocok", "code": "product_mismatch"})
+	case errors.Is(err, playbilling.ErrCancelled):
+		writeInviteJSON(w, http.StatusConflict, e{"error": "Pembelian ini sudah dibatalkan", "code": "purchase_cancelled"})
+	case isPlayAPIError(err):
+		writeInviteJSON(w, http.StatusBadGateway, e{"error": "Google Play sedang tidak bisa dihubungi. Coba lagi sebentar lagi.", "code": "play_unavailable"})
 	default:
 		writeInviteError(w, err) // galat undangan/grup (invite_not_found, group_not_found, ...) atau 500
 	}
+}
+
+func isPlayAPIError(err error) bool {
+	var apiErr *playbilling.APIError
+	return errors.As(err, &apiErr)
 }
 
 func (h *StarsHandler) claims(w http.ResponseWriter, r *http.Request) (*auth.UserClaims, bool) {
@@ -95,11 +122,27 @@ func (h *StarsHandler) HandleMe(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	path := strings.TrimSuffix(r.URL.Path, "/")
+	if path == "/api/me/stars/purchases" {
+		h.handlePlayPurchase(w, r, c)
+		return
+	}
 	if r.Method != http.MethodGet {
 		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 		return
 	}
-	switch strings.TrimSuffix(r.URL.Path, "/") {
+	switch path {
+	case "/api/me/stars/packages":
+		if h.play == nil {
+			http.NotFound(w, r)
+			return
+		}
+		pkgs, err := h.play.Packages(r.Context())
+		if err != nil {
+			writeStarError(w, err)
+			return
+		}
+		writeInviteJSON(w, http.StatusOK, map[string]any{"packages": pkgs, "account_id": playbilling.AccountHash(c.UserID)})
 	case "/api/me/stars":
 		wallet, err := h.store.Wallet(r.Context(), c.TenantID, c.UserID)
 		if err != nil {
@@ -122,6 +165,41 @@ func (h *StarsHandler) HandleMe(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// handlePlayPurchase melayani POST /api/me/stars/purchases {product_id, purchase_token}: verifikasi ke Google Play lalu
+// kreditkan Star (idempoten per token). 200 credited, 202 pending (pembayaran belum selesai, mis. tunai di gerai).
+func (h *StarsHandler) handlePlayPurchase(w http.ResponseWriter, r *http.Request, c *auth.UserClaims) {
+	if h.play == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	if err := store.RequireStarsTenant(c.TenantID); err != nil {
+		writeStarError(w, err)
+		return
+	}
+	var req struct {
+		ProductID     string `json:"product_id"`
+		PurchaseToken string `json:"purchase_token"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&req); err != nil {
+		writeInviteJSON(w, http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
+		return
+	}
+	res, err := h.play.VerifyAndCredit(r.Context(), c.UserID, req.ProductID, req.PurchaseToken)
+	if err != nil {
+		writeStarError(w, err)
+		return
+	}
+	status := http.StatusOK
+	if res.State == playbilling.ResultPending {
+		status = http.StatusAccepted
+	}
+	writeInviteJSON(w, status, res)
 }
 
 // HandleGroupPaid melayani GET|PUT /api/groups/{grp_id}/paid (dipanggil GroupHandler).
@@ -192,7 +270,8 @@ func (h *StarsHandler) HandlePurchase(w http.ResponseWriter, r *http.Request, c 
 //
 //	GET|PUT  /api/admin/stars/settings
 //	GET      /api/admin/stars/creators            POST {user, active, note}
-//	GET      /api/admin/stars/users/{ref}          saldo + riwayat (ref = ID atau username)
+//	GET      /api/admin/stars/users/{ref}          saldo + riwayat + pembelian Play (ref = ID atau username)
+//	GET      /api/admin/stars/debtors              akun dengan utang Star (Tahap 2b)
 //	POST     /api/admin/stars/users/{ref}/test-grant {stars, reason}  header Idempotency-Key (STARS_TEST_GRANTS)
 //	POST     /api/admin/stars/refund               {spend_id, reason}
 func (h *StarsHandler) HandleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -225,7 +304,7 @@ func (h *StarsHandler) HandleAdmin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeInviteJSON(w, http.StatusOK, map[string]any{"settings": st, "flags": map[string]bool{
-			"stars_enabled": h.stars, "paid_groups_enabled": h.paid, "test_grants": h.testGrants}})
+			"stars_enabled": h.stars, "paid_groups_enabled": h.paid, "test_grants": h.testGrants, "play_billing": h.play != nil}})
 	case len(parts) == 1 && parts[0] == "settings" && r.Method == http.MethodPut:
 		var st store.StarSettings
 		if !decode(&st) {
@@ -272,7 +351,19 @@ func (h *StarsHandler) HandleAdmin(w http.ResponseWriter, r *http.Request) {
 			writeStarError(w, err)
 			return
 		}
-		writeInviteJSON(w, http.StatusOK, map[string]any{"user_id": uid, "wallet": wallet})
+		purchases, err := h.store.PlayPurchasesForUser(ctx, uid, 50)
+		if err != nil {
+			writeStarError(w, err)
+			return
+		}
+		writeInviteJSON(w, http.StatusOK, map[string]any{"user_id": uid, "wallet": wallet, "play_purchases": purchases})
+	case len(parts) == 1 && parts[0] == "debtors" && r.Method == http.MethodGet:
+		list, err := h.store.ListDebtors(ctx, 100)
+		if err != nil {
+			writeStarError(w, err)
+			return
+		}
+		writeInviteJSON(w, http.StatusOK, map[string]any{"debtors": list})
 	case len(parts) == 3 && parts[0] == "users" && parts[2] == "test-grant" && r.Method == http.MethodPost:
 		if !h.testGrants {
 			writeInviteJSON(w, http.StatusForbidden, map[string]string{"error": "Kredit uji dimatikan (STARS_TEST_GRANTS)", "code": "test_grants_disabled"})

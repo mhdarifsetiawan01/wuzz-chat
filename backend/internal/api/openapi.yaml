@@ -1613,6 +1613,52 @@ paths:
         '404':
           description: Stars disabled
 
+  /api/me/stars/packages:
+    get:
+      tags: [Stars]
+      summary: Star packages sold through Google Play (STARS_PLAY_BILLING; 404 when off)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 'Body: {"packages": [{"product_id": "star_50", "stars": 50}], "account_id": "<SHA-256 of user id; pass as obfuscatedAccountId>"}'
+        '404':
+          description: Play billing disabled
+
+  /api/me/stars/purchases:
+    post:
+      tags: [Stars]
+      summary: Verify a Google Play purchase and credit Stars (idempotent per purchase token; 30/hour per user)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id, purchase_token]
+              properties:
+                product_id:
+                  type: string
+                purchase_token:
+                  type: string
+      responses:
+        '200':
+          description: 'Credited. Body: {"state": "credited", "stars_added", "balance", "debt"} (stars_added 0 when the token was already credited)'
+        '202':
+          description: 'Payment pending at Google (e.g. cash). Body: {"state": "pending", ...}'
+        '400':
+          description: 'unknown_product, invalid_purchase_token, product_mismatch'
+        '403':
+          description: purchase_account_mismatch (token bound to another account)
+        '404':
+          description: Play billing disabled
+        '409':
+          description: purchase_cancelled
+        '502':
+          description: play_unavailable (Google Play API error)
+
   /api/me/stars/received:
     get:
       tags: [Stars]
@@ -2987,6 +3033,9 @@ components:
       properties:
         balance:
           type: integer
+        debt:
+          type: integer
+          description: Star debt from voided Play purchases; spending is refused (402 stars_debt) while > 0
         history:
           type: array
           items:

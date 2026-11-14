@@ -1347,6 +1347,11 @@ Aturan: `docs/domains/STARS_WALLET.md`. Semua Bearer; galat `{"error","code"}`. 
   - `POST /api/admin/stars/users/{ref}/test-grant` `{"stars": 1..10000, "reason"}` + `Idempotency-Key` → `{"balance"}`; 403 `test_grants_disabled` bila `STARS_TEST_GRANTS` mati.
   - `POST /api/admin/stars/refund` `{"spend_id", "reason"}` → `{"balance"}`; 409 `already_refunded` / `earning_already_paid`, 404 `ledger_not_found`.
 - `PATCH /api/groups/{id}` dengan `is_public: true` pada grup berbayar: 409 `paid_group_public`.
+- **Pembelian Star lewat Google Play (Tahap 2b, sakelar `STARS_PLAY_BILLING`, butuh `STARS_ENABLED`; mati = 404):** desain `docs/plans/backlog/STARS_PLAY_BILLING.md`.
+  - `GET /api/me/stars/packages` → `{"packages": [{"product_id": "star_50", "stars": 50}], "account_id": "<SHA-256 ID pengguna>"}`. ID produk = `star_<n>` untuk setiap `n` di pengaturan `packages`. Klien wajib memasang `account_id` sebagai `obfuscatedAccountId` saat membeli.
+  - `POST /api/me/stars/purchases` `{"product_id", "purchase_token"}` → 200 `{"state":"credited","stars_added","balance","debt"}` (token yang sudah dikreditkan: `stars_added` 0, tanpa kredit kedua); 202 `{"state":"pending"}` bila pembayaran belum selesai di Google. Galat: 400 `unknown_product` / `invalid_purchase_token` / `product_mismatch`, 403 `purchase_account_mismatch`, 409 `purchase_cancelled`, 502 `play_unavailable`. Laju 30/jam per pengguna.
+  - `GET /api/me/stars` kini memuat `debt` (utang Star dari pembelian yang dibatalkan Google). Selama `debt > 0`, `POST /api/invites/{token}/purchase` menjawab 402 `stars_debt`.
+  - Admin: `GET /api/admin/stars/users/{ref}` menambah `play_purchases` (tanpa token mentah); `GET /api/admin/stars/debtors` → `{"debtors": [{"user_id","username","amount","updated_at"}]}`; `flags.play_billing` di `GET /api/admin/stars/settings`.
 
 ---
 

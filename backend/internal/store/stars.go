@@ -113,7 +113,9 @@ type StarLedgerEntry struct {
 }
 
 type StarWallet struct {
-	Balance int               `json:"balance"`
+	Balance int `json:"balance"`
+	// Debt: utang Star dari pembelian Play yang dibatalkan (0 bila tidak ada). Selama > 0 belanja Star ditolak.
+	Debt    int               `json:"debt"`
 	History []StarLedgerEntry `json:"history"`
 }
 
@@ -182,6 +184,9 @@ func normTenant(t string) string {
 	}
 	return t
 }
+
+// RequireStarsTenant: Star hanya untuk tenant default (dipakai handler sebelum memanggil layanan Play).
+func RequireStarsTenant(t string) error { return requireDefaultTenant(t) }
 
 func requireDefaultTenant(t string) error {
 	if normTenant(t) != starTenantDefault {
@@ -324,6 +329,10 @@ func (s *StarStore) Wallet(ctx context.Context, tenantID, userID string) (*StarW
 	if err != nil {
 		return nil, err
 	}
+	d, err := s.debt(ctx, s.db, userID)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := s.db.QueryContext(ctx, s.q(`SELECT l.id, l.delta, l.kind, COALESCE(l.group_id, ''), COALESCE(c.title, ''),
 		COALESCE(l.ref_id, ''), COALESCE(l.reason, ''), COALESCE(l.created_by, ''), l.created_at
 		FROM star_ledger l LEFT JOIN conversations c ON c.id = l.group_id
@@ -332,7 +341,7 @@ func (s *StarStore) Wallet(ctx context.Context, tenantID, userID string) (*StarW
 		return nil, err
 	}
 	defer rows.Close()
-	w := &StarWallet{Balance: b, History: []StarLedgerEntry{}}
+	w := &StarWallet{Balance: b, Debt: d, History: []StarLedgerEntry{}}
 	for rows.Next() {
 		var e StarLedgerEntry
 		if err := rows.Scan(&e.ID, &e.Delta, &e.Kind, &e.GroupID, &e.GroupTitle, &e.RefID, &e.Reason, &e.CreatedBy, &e.CreatedAt); err != nil {
@@ -650,6 +659,12 @@ func (s *StarStore) PurchaseAccess(ctx context.Context, token, userID string, ex
 		return nil, ErrPriceChanged
 	}
 	key := "spend:" + userID + ":" + idemKey
+	// Utang Star dari pembelian yang dibatalkan Google memblokir belanja sampai lunas (STARS_PLAY_BILLING.md K4).
+	if debt, err := s.debt(ctx, s.db, userID); err != nil {
+		return nil, err
+	} else if debt > 0 {
+		return nil, ErrStarsDebt
+	}
 	settings, err := s.GetSettings(ctx)
 	if err != nil {
 		return nil, err

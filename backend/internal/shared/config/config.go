@@ -54,6 +54,10 @@ type Config struct {
 	StarsEnabled      bool
 	PaidGroupsEnabled bool
 	StarsTestGrants   bool
+	// StarsPlayBilling: pembelian Star lewat Google Play (V2 Tahap 2b; butuh StarsEnabled dan berkas service account).
+	StarsPlayBilling       bool
+	PlayPackageName        string
+	PlayServiceAccountFile string
 	// MemoryQuotaEnabled menyalakan kuota ringkasan AI per paket (env MEMORY_QUOTA_ENABLED=true). Default mati.
 	MemoryQuotaEnabled      bool
 	// GameEnabled menyalakan game harian Wuzz Grid (env GAME_ENABLED=true). Default mati: endpoint /api/game/* menolak.
@@ -146,6 +150,9 @@ func Load() (*Config, error) {
 		StarsEnabled:            isTrueEnv(os.Getenv("STARS_ENABLED")),
 		PaidGroupsEnabled:       isTrueEnv(os.Getenv("STARS_ENABLED")) && isTrueEnv(os.Getenv("PAID_GROUPS_ENABLED")),
 		StarsTestGrants:         isTrueEnv(os.Getenv("STARS_ENABLED")) && isTrueEnv(os.Getenv("STARS_TEST_GRANTS")),
+		StarsPlayBilling:        isTrueEnv(os.Getenv("STARS_ENABLED")) && isTrueEnv(os.Getenv("STARS_PLAY_BILLING")),
+		PlayPackageName:         getEnv("PLAY_PACKAGE_NAME", "com.wuzzchat.mobile"),
+		PlayServiceAccountFile:  strings.TrimSpace(os.Getenv("PLAY_SERVICE_ACCOUNT_FILE")),
 		MemoryQuotaEnabled:      isTrueEnv(os.Getenv("MEMORY_QUOTA_ENABLED")),
 		GameEnabled:             isTrueEnv(os.Getenv("GAME_ENABLED")),
 		GameReminderTime:        strings.TrimSpace(os.Getenv("GAME_REMINDER_TIME")),
