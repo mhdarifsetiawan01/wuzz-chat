@@ -9,7 +9,7 @@
 
 ## 1. Fakta dasar (dari kode)
 - Paket `com.wuzzchat.mobile`; kategori **Komunikasi** (Communication).
-- **Tidak ada** (diverifikasi di APK 1.32.0): iklan dan SDK iklan, izin `AD_ID`, Firebase Analytics/GA4 (komponen `measurement` tidak ada), izin lokasi, akses kontak/buku telepon, pembelian dalam aplikasi, pembayaran.
+- **Tidak ada** (diverifikasi di APK 1.32.0): iklan dan SDK iklan, izin `AD_ID`, Firebase Analytics/GA4 (komponen `measurement` tidak ada), izin lokasi, akses kontak/buku telepon. **Pembelian dalam aplikasi: ADA sejak build berisi Star Tahap 2b** (`expo-iap`, Play Billing Library, izin `com.android.vending.BILLING`; kode 14 Nov 2026, tersembunyi selama sakelar server mati). Lihat 2.6.
 - **SDK Google yang ada di build**: Firebase Cloud Messaging, **Crashlytics** (beserta Firebase Installations dan Firebase Sessions), dan **ML Kit barcode** (`com.google.mlkit:barcode-scanning` 17.3.0, dibawa `expo-camera` untuk pemindai QR). **ML Kit (diperiksa 8 Okt 2026 di developers.google.com/ml-kit/android-data-disclosure):** mengumpulkan informasi perangkat (produsen, model, versi OS dan build), nama paket dan versi aplikasi, pengenal per-instalasi yang tidak dimaksudkan mengidentifikasi pengguna secara unik, metrik kinerja (mis. latensi), dan jenis peristiwa (inisialisasi fitur, unduh model, deteksi); untuk pemindai barcode ditambah ID sesi pemindaian. Tujuan: "diagnostics and usage analytics". Dokumen menyatakan data tidak dipindahkan ke pihak ketiga dan dienkripsi saat transit (HTTPS). Halaman itu **tidak** menyatakan gambar/barcode yang dipindai ikut dikirim, dan tidak membedakan artefak bundled dan unbundled. Model pemindai ada di dalam APK (`libbarhopper_v3.so` dan `mlkit_barcode_models/*.tflite`), jadi pemindaian berjalan di perangkat. **Pemetaan ke Data Safety:** "Diagnostics" (metrik kinerja, peristiwa, info perangkat) dan "Device or other IDs" (pengenal per-instalasi), tujuan "Analytics", **tidak dibagikan**. Kedua baris itu sudah ada di tabel 2.2 (lihat catatan di sana). Tanggung jawab jawaban akhir ada pada pengembang (dokumen Google menyatakannya) dan perlu dicocokkan dengan kuesioner terbaru.
 - Izin di manifest hasil merge: `INTERNET`, `ACCESS_NETWORK_STATE`, `RECORD_AUDIO`, `CAMERA`, `POST_NOTIFICATIONS`, `MODIFY_AUDIO_SETTINGS`, `VIBRATE`, `WAKE_LOCK`,
   `RECEIVE_BOOT_COMPLETED`, `READ_APP_BADGE` (badge ikon, dari expo-notifications), `USE_BIOMETRIC`/`USE_FINGERPRINT` (dari expo-secure-store),
@@ -46,7 +46,7 @@
 | ID perangkat/lainnya | **ID perangkat atau ID lain** (ID perangkat dibuat aplikasi, token FCM, alamat IP pada sesi) ⚠️ | Ya | Tidak ⚠️ | Fungsi aplikasi (notifikasi), Keamanan (pembatasan 2 perangkat, pencabutan sesi), **Analitik** (ID instalasi Firebase dan pengenal per-instalasi ML Kit untuk diagnostik) | Tujuan "Analitik" ditambahkan 8 Okt 2026 karena Firebase Installations dan ML Kit memakai pengenal per-instalasi untuk diagnostik. Cek panduan Google terkini soal alamat IP |
 | Kontak | (tidak dideklarasikan) ⚠️ | - | - | - | Daftar teman hanya di dalam aplikasi; tidak membaca buku telepon. Bila Console menanyakan, relasi teman dapat dianggap "Konten pengguna lain" |
 
-**Tidak dikumpulkan:** lokasi, nomor telepon, info keuangan, kesehatan, riwayat penjelajahan, riwayat pencarian di server.
+**Tidak dikumpulkan:** lokasi, nomor telepon, kesehatan, riwayat penjelajahan, riwayat pencarian di server. **Info keuangan: dikumpulkan sejak Star (riwayat pembelian dan saldo Star; lihat 2.6); data kartu/pembayaran TIDAK, karena dibayar langsung ke Google Play.**
 Masuk dengan Google **sudah aktif** (email Google dan ID akun Google tersimpan; baris Alamat email di atas) dan `/privacy` sudah memuatnya (6 Okt 2026).
 Crashlytics **sudah dipasang** (baris Log kerusakan/Diagnostik di atas) dan `/privacy` sudah diperbarui. Bila menambah SDK atau data baru, perbarui tabel ini dan `/privacy`.
 
@@ -103,14 +103,44 @@ Sumber kebenaran: `/privacy` (bagian 1, 3, 5, 8) yang diperbarui bersamaan denga
 - **Pengingat harian (bila dirilis):** notifikasi lokal dijadwalkan di perangkat; server hanya menyimpan pilihan `reminder_enabled`. Tidak menambah data baru.
 - Bila kelak ada hadiah/poin atau iklan di game: ikuti `docs/plans/backlog/ADS_AND_REWARDS_PLAN.md` dan checklist 2.3b.
 
+### 2.6 Star dan grup privat berbayar (ditambahkan 14 Nov 2026) ⚠️
+
+> ### ⛔ GERBANG RILIS STAR
+> - **Internal testing** (hanya akun penguji) boleh menerima build ber-billing kapan saja. Ini juga **prasyarat membuat produk Star**: Play baru membuka konfigurasi produk setelah ada build berisi Play Billing Library yang diunggah.
+> - **Sebelum build ber-billing dipromosikan ke Closed/Produksi** (semua build sejak kode 2b, termasuk saat sakelar Star mati, karena library billing sudah ada di APK): (1) `/privacy` dan `/terms` memuat bagian Star dan sudah tayang; (2) Data Safety diperbarui sesuai tabel di bawah; (3) IARC diperbarui (pembelian digital **Ya**); (4) Financial features declaration dicek ulang (bawah); (5) gerbang `plans/backlog/STARS_STAGE0.md` bagian 4 untuk **menyalakan** Star bagi pengguna.
+
+**Data yang diproses (terkait akun, tidak dijual, tidak ada pihak ketiga baru selain Google Play sebagai penyedia pembayaran):**
+| Data | Tabel | Dipakai untuk |
+|---|---|---|
+| Riwayat Star: setiap perubahan saldo (tambah lewat Play, bayar akses grup, refund, pembatalan, pelunasan), waktu, grup terkait | `star_ledger`, `star_wallets`, `star_debts` | Saldo, riwayat, sengketa, pencegahan penyalahgunaan |
+| Pembelian Play: ID pesanan Google, produk, jumlah Star, waktu, status (dikreditkan/dibatalkan), token pembelian, tanda pembelian uji | `play_purchases` | Verifikasi pembelian, pembatalan/refund, pencegahan penipuan |
+| Akses grup berbayar yang dibayar | `paid_group_access` | Bukti akses, refund |
+| Star diterima kreator (nilai uang + tarif saat transaksi) | `creator_earnings` | Bagi hasil ke mitra kreator (dibayar manual di luar aplikasi) |
+| Status mitra kreator | `paid_group_creators` | Hak membuat grup berbayar |
+
+**Tidak dikumpulkan:** nomor kartu, rekening, atau metode bayar pembeli (diproses Google Play). Data identitas/rekening kreator untuk pembayaran manual **tidak** dikumpulkan di aplikasi (bila kelak dikumpulkan lewat aplikasi, tambahkan baris baru).
+
+**Pemetaan Data Safety (usulan):**
+| Kategori Play | Tipe | Dikumpulkan | Dibagikan | Tujuan | Catatan |
+|---|---|---|---|---|---|
+| Info keuangan | **Riwayat pembelian** (Purchase history) | Ya | Tidak ⚠️ | Fungsi aplikasi, Pencegahan penipuan/keamanan | Pembelian Star, riwayat Star, akses grup berbayar. Opsional (hanya bila pengguna membeli/membayar) |
+| Info keuangan | **Info keuangan lainnya** (Other financial info) ⚠️ | Ya | Tidak | Fungsi aplikasi | Saldo Star, utang Star, Star diterima kreator. Bila Console menilai saldo mata uang virtual sudah termasuk "Riwayat pembelian", baris ini boleh tidak dipakai; pilih yang lebih aman (deklarasikan) bila ragu |
+| Info keuangan | Info pembayaran pengguna | **Tidak** | - | - | Dibayar langsung ke Google Play |
+
+- **"Dibagikan":** Google Play memproses pembayaran sebagai penyedia layanan pembayaran; server hanya **menerima** status pembelian dari Google. Tidak ada data Star yang dikirim ke pihak lain. Cocokkan dengan definisi terkini di Console ⚠️.
+- **Penghapusan akun (keputusan K1, menunggu konsultasi hukum):** catatan keuangan (`star_ledger`, `star_wallets`, `star_debts`, `play_purchases`, `creator_earnings`, `paid_group_access`) **dipertahankan** dengan `user_id` saja setelah akun dihapus, untuk kewajiban hukum/pajak dan sengketa. Jawaban "pengguna dapat meminta penghapusan" tetap **Ya**, tetapi `/privacy` dan `/delete-account` **wajib** menyebut pengecualian ini dan masa simpannya.
+- **IARC:** pertanyaan pembelian digital berubah menjadi **Ya** (pembelian dalam aplikasi, mata uang virtual). Halaman toko akan otomatis menampilkan "Pembelian dalam aplikasi".
+- **Financial features declaration:** Star (mata uang virtual yang hanya bisa dibelanjakan, dibeli lewat Play Billing) tampaknya tidak termasuk kategori fitur keuangan (pinjaman, perbankan, asuransi, kripto, dll.), jadi usulan tetap **"Tidak menyediakan fitur keuangan"**. **Tunggu jawaban dukungan Play** (pertanyaan 3, `STARS_STAGE0.md` Lampiran B) sebelum mengirim ⚠️.
+- **Teks `/privacy` dan `/terms` yang perlu ditambahkan (draf belum dibuat):** Star hanya bisa dibelanjakan di WuzzChat, tidak bisa ditransfer atau ditarik; pembelian lewat Google Play (kebijakan refund Google berlaku; Star dari pembelian yang direfund ditarik kembali dan bisa menjadi utang); grup berbayar sekali bayar, akses selama tidak dikeluarkan; refund manual oleh admin; data transaksi yang disimpan dan masa simpannya. Selaras dengan `STARS_STAGE0.md` bagian E dan hasil konsultasi.
+
 ## 3. Deklarasi lain di Play Console
 | Bagian | Jawaban yang disarankan |
 |---|---|
 | **Akses aplikasi** | Aplikasi memerlukan login. Berikan **akun uji khusus peninjau** (akun demo `peninjau_play` sudah dibuat di produksi 7 Okt 2026; **sandi TIDAK disimpan di repo atau memori**, isi langsung ke Play Console; `reviewer_wuzz` ditolak karena kata `wuzz` terlarang sebagai akhiran username) beserta petunjuk: "Di layar awal ketuk tautan **Login menggunakan username** (di bawah tombol Google), masukkan username dan sandi, lalu buka tab Obrolan." Tautan itu terlihat semua pengguna (bukan fitur tersembunyi). **Tambahkan juga di kolom petunjuk:** "Jika muncul 'Batas Perangkat Tercapai', pilih sesi mana pun lalu ketuk 'Keluarkan & Masuk'. Jika muncul 'Kunci Keamanan Terdaftar', ketuk 'Reset Kunci Baru' dan masukkan password yang sama. Akun ini hanya berisi data uji." Alasan: kunci E2EE dibuat per perangkat; peninjau yang login dari perangkat kedua pasti melihat dialog kunci, dan batas 2 perangkat bisa terisi oleh sesi peninjau sebelumnya. **JANGAN login `peninjau_play` di perangkat sendiri sebelum review**: akun itu belum punya kunci E2EE (dibuat lewat API), dan login pertama di perangkat mana pun mengikatnya ke kunci perangkat itu. Uji jalur "Login menggunakan username" dengan akun sementara (buat lewat API, hapus setelahnya). Akun ini masuk **daftar putih pembekuan** (`GOOGLE_LINK_FREEZE_EXEMPT=peninjau_play` di `.env` VPS) sehingga tetap bisa dipakai setelah 30 Okt 2026. **Jangan** pakai akun nyata. |
 | **Iklan** | Tidak ada iklan |
 | **Target audiens** | **13+** (pilih 13-15, 16-17, 18+); bukan untuk anak di bawah 13 (selaras dengan Syarat Layanan) |
-| **Rating konten (IARC)** | Kategori *Komunikasi/Jejaring sosial*. Jawab: pengguna berinteraksi **Ya**; berbagi konten buatan pengguna **Ya**; berbagi lokasi **Tidak**; pembelian digital **Tidak**; konten dewasa/kekerasan **Tidak ada dari aplikasi** (konten dari pengguna dimoderasi lewat laporan dan blokir). Perkiraan hasil: Remaja (Teen)/12+ |
-| **Fitur keuangan, kesehatan, berita, pemerintah** | Tidak ada |
+| **Rating konten (IARC)** | Kategori *Komunikasi/Jejaring sosial*. Jawab: pengguna berinteraksi **Ya**; berbagi konten buatan pengguna **Ya**; berbagi lokasi **Tidak**; pembelian digital **Tidak** (**berubah menjadi Ya untuk build ber-Star**, lihat 2.6); konten dewasa/kekerasan **Tidak ada dari aplikasi** (konten dari pengguna dimoderasi lewat laporan dan blokir). Perkiraan hasil: Remaja (Teen)/12+ |
+| **Fitur keuangan, kesehatan, berita, pemerintah** | Tidak ada (Star: lihat 2.6, tunggu jawaban dukungan Play sebelum mengubah) |
 | **Izin sensitif** | Tidak ada yang memerlukan formulir deklarasi khusus (tidak ada SMS, log panggilan, lokasi, semua-berkas, Foreground Service, atau aksesibilitas) |
 | **Standar keselamatan anak** ⚠️ | Halaman publik **`https://chat.wuzzhub.id/child-safety`** sudah dibuat (larangan CSAE, batas usia 13+, pelaporan dalam aplikasi dan email, tindakan, kontak). Bila Console menampilkan formulir ini, tempel URL itu dan kontak `support@semanticdigital.id`. **Pastikan Anda sanggup memenuhi janji di halaman itu** (laporan keselamatan anak ditinjau prioritas tertinggi, pelaporan ke pihak berwenang) |
 | **Kebijakan privasi** | `https://chat.wuzzhub.id/privacy` |
