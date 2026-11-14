@@ -1,5 +1,14 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
+### Pembelian Star lewat Google Play, Wuzz Chat V2 Tahap 2b (14 Nov 2026, di `dev`, belum dideploy, sakelar mati)
+
+- **Tujuan:** menjual Star lewat Play Billing (desain disetujui pengguna 14 Nov 2026: `docs/plans/backlog/STARS_PLAY_BILLING.md`; aturan: `docs/domains/STARS_WALLET.md` aturan 14-15). Dikerjakan paralel dengan Tahap 0; rilis menunggu gerbang `STARS_STAGE0.md`.
+- **Perubahan:** paket baru `internal/playbilling` (token service account jwt-bearer dengan cache; klien Play Developer API: `productsv2` get, `products.consume`, `voidedpurchases.list`; layanan verifikasi + kredit + sapuan); tabel `play_purchases` (PK hash token) dan `star_debts`; `store/stars_play.go` (kredit idempoten per token, tolak token akun lain, pelunasan utang `debt_repay`, pembalikan `reversal` sampai saldo 0 + utang, cursor voided di `star_settings`); `PurchaseAccess` menolak 402 `stars_debt` saat berutang; dompet memuat `debt`; endpoint `GET /api/me/stars/packages`, `POST /api/me/stars/purchases` (30/jam per pengguna), admin `play_purchases` dan `/debtors`; `worker/play_billing_worker.go` (per jam); sakelar `STARS_PLAY_BILLING`, `PLAY_PACKAGE_NAME`, `PLAY_SERVICE_ACCOUNT_FILE`.
+- **Celah yang ditemukan tes dan ditutup:** token yang sudah dikreditkan bila dikirim ulang dengan `product_id` lain dijawab "credited" (tanpa Star tambahan); kini 400 `product_mismatch`.
+- **Tes:** `store/stars_play_test.go` (pemetaan produk; kredit idempoten dan kepemilikan; void dengan saldo cukup, dengan utang, blokir belanja, pelunasan penuh dan sebagian; cursor; 8 kredit bersamaan token sama = tepat 1), `playbilling/client_test.go` (pertukaran dan cache token, parsing `productsv2`, 404/500, consume, voided + halaman), `playbilling/service_test.go` (alur kredit, pending lalu purchased, akun/produk tidak cocok, dibatalkan, konsumsi gagal lalu disapu, voided sekali, cursor), `api/stars_play_handler_test.go` (404 saat mati, kode status, token tidak bocor ke admin).
+- **Bukti:** *tes saja*. `go test ./...` lolos (SQLite); `./internal/store ./internal/api ./internal/playbilling` lolos di Postgres 16 sementara.
+- **Belum:** deploy (aman: sakelar mati, migrasi hanya menambah tabel), web admin, mobile, persiapan Play Console/Google Cloud, uji nyata dengan penguji lisensi (termasuk nama parameter halaman voided).
+
 ### Star & grup privat berbayar, Wuzz Chat V2 Tahap 2a (14 Nov 2026, di `dev`, belum dideploy, sakelar mati)
 
 - **Tujuan:** pondasi Star tanpa Play Billing (keputusan pengguna 14 Nov 2026; Tahap 0 belum, angka sementara). Desain: `docs/plans/backlog/STARS_PAID_GROUPS.md`; aturan: `docs/domains/STARS_WALLET.md`.

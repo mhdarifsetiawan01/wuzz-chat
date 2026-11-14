@@ -169,7 +169,7 @@ erDiagram
         varchar id PK "stl_<UUID>; append-only"
         varchar user_id FK
         int delta "Star bertanda"
-        varchar kind "purchase/spend/refund/test_grant/adjustment"
+        varchar kind "purchase/spend/refund/test_grant/adjustment/reversal/debt_repay"
         varchar idempotency_key UK
         varchar group_id
         varchar ref_id "refund -> spend"
@@ -204,6 +204,25 @@ erDiagram
         varchar user_id PK "PK (tenant_id, user_id); mitra kreator"
         varchar status "active/revoked"
         varchar granted_by "wuzz_admin"
+    }
+
+    PLAY_PURCHASES {
+        varchar token_hash PK "SHA-256 token pembelian Play (Tahap 2b)"
+        text purchase_token "untuk konsumsi ulang; tidak dikirim ke admin"
+        varchar order_id
+        varchar product_id "star_<n>"
+        varchar user_id FK
+        int stars
+        varchar state "credited/voided"
+        boolean consumed
+        boolean is_test "penguji lisensi"
+        varchar ledger_id "entri purchase"
+        varchar reversal_ledger_id "entri reversal"
+    }
+
+    STAR_DEBTS {
+        varchar user_id PK "PK (tenant_id, user_id)"
+        int amount "CHECK >= 0; sisa pembalikan yang tidak tertutup saldo"
     }
 
     STAR_SETTINGS {
