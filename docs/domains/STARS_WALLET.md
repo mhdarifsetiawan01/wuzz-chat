@@ -1,6 +1,6 @@
 # 💫 Domain: Star & Grup Privat Berbayar (V2 Tahap 2)
 
-> Status (14 Nov 2026): **Tahap 2a backend selesai di `dev`, *tes saja*, semua sakelar mati.** `/admin/stars` web selesai di `dev` (uji ujung-ke-ujung lokal). Mobile selesai di `dev` (*tes saja*, belum diuji di HP; `docs/progress/MOBILE.md`). Play Billing (Tahap 2b) belum. **Tidak boleh dirilis ke pengguna** sebelum Tahap 0 (hukum, merchant Play, badan usaha) dan deklarasi Play (Financial features, Data Safety) selesai. Desain dan alasan: `docs/plans/backlog/STARS_PAID_GROUPS.md`; prinsip dan kebijakan Play: `docs/plans/backlog/ADS_AND_REWARDS_PLAN.md` bagian 14.
+> Status (14 Nov 2026): **Tahap 2a backend selesai di `dev`, *tes saja*, semua sakelar mati.** `/admin/stars` web selesai di `dev` (uji ujung-ke-ujung lokal). Mobile selesai dan *terbukti* di HP 14 Nov 2026 dengan sakelar dinyalakan sementara (`docs/progress/MOBILE.md`). Play Billing (Tahap 2b) belum. **Tidak boleh dirilis ke pengguna** sebelum Tahap 0 (hukum, merchant Play, badan usaha) dan deklarasi Play (Financial features, Data Safety) selesai. Desain dan alasan: `docs/plans/backlog/STARS_PAID_GROUPS.md`; prinsip dan kebijakan Play: `docs/plans/backlog/ADS_AND_REWARDS_PLAN.md` bagian 14.
 
 ## 1. Aturan bisnis (invarian)
 

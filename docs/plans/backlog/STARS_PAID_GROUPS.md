@@ -1,6 +1,6 @@
 # Star & Grup Privat Berbayar (Wuzz Chat V2, Tahap 2)
 
-> **Status (14 Nov 2026): desain DISETUJUI (termasuk K1-K3). Backend Tahap 2a SELESAI di `dev`** (*tes saja*: SQLite + Postgres 16, termasuk pembayaran bersamaan); semua sakelar mati. `/admin/stars` web selesai di `dev`. **Mobile 2a selesai di `dev` (14 Nov 2026, *tes saja*, butuh build APK; belum diuji di HP).** Belum: Play Billing (2b). Aturan yang berlaku: `docs/domains/STARS_WALLET.md`. Ini Tahap 2 dari Fase 15 (`docs/ROADMAP.md`); prinsip, risiko hukum, dan fakta kebijakan Play ada di `ADS_AND_REWARDS_PLAN.md` bagian 14 dan 14.1 (dokumen ini tidak mengulanginya). Tahap 1 (tautan undangan) selesai: `PRIVATE_GROUP_INVITES.md`.
+> **Status (14 Nov 2026): desain DISETUJUI (termasuk K1-K3). Backend Tahap 2a SELESAI di `dev`** (*tes saja*: SQLite + Postgres 16, termasuk pembayaran bersamaan); semua sakelar mati. `/admin/stars` web selesai di `dev`. **Mobile 2a selesai dan *terbukti* di HP 14 Nov 2026** (sakelar dinyalakan sementara lalu dimatikan; rincian `docs/progress/MOBILE.md`). Belum: Play Billing (2b). Aturan yang berlaku: `docs/domains/STARS_WALLET.md`. Ini Tahap 2 dari Fase 15 (`docs/ROADMAP.md`); prinsip, risiko hukum, dan fakta kebijakan Play ada di `ADS_AND_REWARDS_PLAN.md` bagian 14 dan 14.1 (dokumen ini tidak mengulanginya). Tahap 1 (tautan undangan) selesai: `PRIVATE_GROUP_INVITES.md`.
 > **Keputusan pengguna 14 Nov 2026:** grup berbayar **sekali bayar**, akses selama tidak dikeluarkan; **tanpa refund otomatis**, admin Wuzz bisa mengembalikan Star secara manual (entri `refund`); semua angka memakai **nilai sementara** di tabel pengaturan; urutan kerja: bagian yang **tidak bergantung pada Play** dulu (Tahap 2a), Play Billing menyusul (Tahap 2b) setelah profil merchant aktif.
 > **Tahap 0 BELUM** (hukum, merchant Play, badan usaha). Karena itu semua sakelar bawaan **mati**, tidak ada UI pembelian, dan **tidak ada yang boleh dirilis ke pengguna** sebelum Tahap 0 dan deklarasi Play (Financial features, Data Safety) selesai.
 
@@ -91,6 +91,6 @@ Rumus bagian kreator per pembelian akses: `gross = harga × star_value_minor`; `
 
 1. Backend: tabel dan migrasi, store buku besar + dompet (transaksi, kunci, idempoten), pengaturan, mitra kreator, grup berbayar, pembayaran akses, refund, kredit uji, endpoint, sakelar, tes SQLite + Postgres (termasuk pembayaran bersamaan dan invarian saldo).
 2. **[SELESAI 14 Nov 2026, uji ujung-ke-ujung lokal]** `/admin` web: halaman Star (kreator, pengguna, refund, kredit uji, pengaturan).
-3. **[SELESAI di kode 14 Nov 2026, *tes saja*; uji HP menunggu build + sakelar uji]** Mobile: dompet, undangan berbayar, pengaturan harga kreator (semua tersembunyi bila sakelar mati).
+3. **[SELESAI 14 Nov 2026, *terbukti* di HP dengan sakelar uji]** Mobile: dompet, undangan berbayar, pengaturan harga kreator (semua tersembunyi bila sakelar mati).
 4. Dokumen: domain baru `docs/domains/STARS_WALLET.md`, `GROUP_FORUM.md`, API, OpenAPI, `ARCHITECTURE.md`, `OPERATIONS.md` (sakelar), progres.
-5. Uji di produksi hanya dengan sakelar dinyalakan sementara pada akun uji dan `STARS_TEST_GRANTS`, lalu dimatikan lagi.
+5. **[DILAKUKAN 14 Nov 2026 16.07-16.38, sakelar sudah dimatikan lagi]** Uji di produksi hanya dengan sakelar dinyalakan sementara pada akun uji dan `STARS_TEST_GRANTS`, lalu dimatikan lagi.
