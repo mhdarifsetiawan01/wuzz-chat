@@ -50,7 +50,7 @@ Sumber: support.google.com/googleplay/android-developer/answer/13634885, /answer
 2. Kebijakan privasi: data transaksi dan riwayat Star, masa simpan.
 3. Perjanjian mitra kreator (bagi hasil, jadwal, pajak, penghentian).
 
-### F. Deklarasi Play (P mengisi; AI bisa menyusun isian)
+### F. Deklarasi Play (P mengisi; isian usulan siap di `docs/PLAY_STORE_LISTING.md` bagian 2.6)
 1. **Financial features declaration:** tentukan apakah fitur Star termasuk salah satu kategori fitur keuangan; perbarui sebelum build ber-Star masuk track mana pun.
 2. **Data Safety:** tambah riwayat pembelian/transaksi (gerbang rilis di `docs/OPERATIONS.md`).
 
