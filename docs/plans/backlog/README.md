@@ -14,7 +14,8 @@
 **Tahap 2a, Star & grup privat berbayar (tanpa Play Billing): SEBAGIAN, semua sakelar mati.** Desain disetujui (`STARS_PAID_GROUPS.md`), aturan `docs/domains/STARS_WALLET.md`.
 - Selesai di `main`: backend (buku besar, dompet, mitra kreator, grup berbayar, bayar akses, refund, kredit uji; tes SQLite + Postgres) dan halaman `/admin/stars` (uji ujung-ke-ujung lokal).
 - **Deploy backend dan frontend Tahap 2a belum dikonfirmasi pengguna** (aman kapan saja; sakelar `STARS_ENABLED`, `PAID_GROUPS_ENABLED`, `STARS_TEST_GRANTS` tetap kosong).
-- **Langkah berikutnya yang disepakati: mobile Tahap 2a** (`STARS_PAID_GROUPS.md` bagian 8 langkah 3): Saldo/Riwayat Star, layar undangan berbayar ("Bayar N Star & Masuk", kirim `expected_price` + header `Idempotency-Key`, tangani 402/409), pengaturan harga grup untuk kreator (`GET/PUT /api/groups/{id}/paid`), ringkasan "Star diterima". Semua tersembunyi bila endpoint 404 (sakelar mati). Istilah UI netral. Butuh build APK (pengguna).
+- **Mobile Tahap 2a: SELESAI di kode di `dev` (14 Nov 2026, *tes saja*: `tsc`, `test:unit` 47/47).** Saldo/Riwayat Star (`StarsScreen`, pintu dari Pengaturan), undangan berbayar di `InviteScreen` ("Bayar N Star & Masuk", `Idempotency-Key` dipakai ulang saat timeout, tangani 402/409), kartu "Grup Berbayar" untuk kreator di Info Grup, "Star diterima". Semua tersembunyi bila endpoint 404. Rincian dan daftar uji HP: `docs/progress/MOBILE.md`.
+- **Langkah berikutnya:** (1) pengguna mendeploy backend + frontend 2a dan membuat build APK; (2) uji HP dengan sakelar dinyalakan sementara di produksi untuk akun uji (`STARS_PAID_GROUPS.md` bagian 8 langkah 5), lalu dimatikan lagi; (3) catat hasilnya di `docs/progress/MOBILE.md`.
 - Tahap 2b (Play Billing) menunggu **Tahap 0** di sisi pengguna: konsultasi hukum, profil merchant Play, badan usaha. Angka saat ini sementara (Rp100/Star, platform 20%, potongan toko 15%, masa tahan 14 hari).
 - **Jangan menyalakan sakelar Star untuk pengguna** sebelum Tahap 0 dan deklarasi Play (Financial features, Data Safety) selesai.
 
@@ -36,7 +37,7 @@
 | [`MOBILE_LINKED_DEVICES.md`](MOBILE_LINKED_DEVICES.md) | Selesai kecuali audit | Audit akar penyebab inventaris lama/kuota dan target yang sepenuhnya offline masih terbuka. |
 | [`FEED_UPLOAD_HARDENING.md`](FEED_UPLOAD_HARDENING.md) | Belum dikerjakan | A1 (kompresi gambar) butuh dependency native, jadi build baru. |
 | [`PRIVATE_GROUP_INVITES.md`](PRIVATE_GROUP_INVITES.md) | Disetujui 14 Nov 2026. Backend di `main`, **dideploy 14 Nov 2026** (alur nyata belum dicoba). **Mobile selesai di `dev`** (tes saja; butuh build APK dan uji dua HP). Landing web `/join` dideploy 14 Nov 2026 | Wuzz Chat V2 Tahap 1: tautan undangan grup privat yang bisa dicabut + persetujuan admin. Tanpa uang; Star/grup berbayar menyusul (Fase 15). |
-| [`STARS_PAID_GROUPS.md`](STARS_PAID_GROUPS.md) | Disetujui 14 Nov 2026. **Backend 2a di `main`, `/admin/stars` web di `dev`** (sakelar mati); mobile, Play Billing belum | Wuzz Chat V2 Tahap 2: Star (hanya dibelanjakan) dan grup privat berbayar. 2a tanpa Play dulu; 2b Play Billing setelah merchant aktif. Tahap 0 belum; semua sakelar mati. |
+| [`STARS_PAID_GROUPS.md`](STARS_PAID_GROUPS.md) | Disetujui 14 Nov 2026. **Backend 2a, `/admin/stars` web, dan mobile 2a di kode** (sakelar mati; mobile *tes saja*, belum diuji di HP); Play Billing belum | Wuzz Chat V2 Tahap 2: Star (hanya dibelanjakan) dan grup privat berbayar. 2a tanpa Play dulu; 2b Play Billing setelah merchant aktif. Tahap 0 belum; semua sakelar mati. |
 | [`b2b-widget/README.md`](b2b-widget/README.md) | Diskusi, ditunda | Prasyarat audit tenant T1-T6 sudah selesai. |
 
 ## 2. Sisa dari rencana yang sudah diarsipkan

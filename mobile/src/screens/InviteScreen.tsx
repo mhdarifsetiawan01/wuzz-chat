@@ -3,6 +3,10 @@
  * Dibuka dari https://chat.wuzzhub.id/join/<token> atau wuzzchat://join/<token>.
  * Menampilkan pratinjau minimal (nama, avatar, jumlah anggota) lalu "Ajukan Bergabung"; admin grup yang memutuskan.
  *
+ * Grup berbayar (V2 Tahap 2a, mode "paid"): menampilkan harga dan Saldo Star, lalu "Bayar N Star & Masuk" (bayar dan masuk
+ * atomik di server). Kunci idempoten disimpan per niat bayar dan dipakai ulang saat mencoba lagi setelah timeout, sehingga
+ * Star tidak terpotong dua kali. Tidak ada tombol beli Star di Tahap 2a.
+ *
  * Ketahanan jaringan: setiap permintaan punya AbortController (dibatalkan saat layar ditutup), tombol dikunci selama
  * permintaan berjalan, dan status selalu diambil dari jawaban server (POST join idempoten, aman diulang).
  */
@@ -11,6 +15,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { invitesApi, InvitePreview } from '../api/invites';
+import { formatStars, newIdempotencyKey, starsApi } from '../api/stars';
 import { Avatar } from '../components/Avatar';
 import { Icon } from '../components/Icon';
 import { useTheme, useThemedStyles, ColorTokens } from '../theme';
@@ -43,6 +48,8 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
   const [isActing, setIsActing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Niat bayar yang belum mendapat jawaban pasti (mis. timeout): kunci yang sama dipakai ulang untuk harga yang sama.
+  const payIntentRef = useRef<{ key: string; price: number } | null>(null);
 
   const newController = () => {
     abortRef.current?.abort();
@@ -102,6 +109,9 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
         setPreview({ ...preview, my_status: 'rejected', retry_after_seconds: err?.data?.retry_after_seconds });
       } else if (err?.status === 404) {
         setLoadError('invalid');
+      } else if (err?.code === 'payment_required') {
+        // Grup baru saja dijadikan berbayar: muat ulang agar harga tampil.
+        load(true);
       } else if (err?.code === 'too_many_pending') {
         setNotice('Grup ini sedang menerima terlalu banyak permohonan. Coba lagi nanti.');
       } else if (err?.status === 429) {
@@ -113,6 +123,55 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
     } finally {
       if (!controller.signal.aborted) setIsActing(false);
     }
+  };
+
+  const doPay = async (price: number) => {
+    if (isActing || !preview) return;
+    setIsActing(true);
+    setNotice(null);
+    const intent =
+      payIntentRef.current && payIntentRef.current.price === price ? payIntentRef.current : { key: newIdempotencyKey(), price };
+    payIntentRef.current = intent;
+    const controller = newController();
+    try {
+      const res = await starsApi.purchase(token, price, intent.key, controller.signal);
+      payIntentRef.current = null;
+      setPreview({ ...preview, my_status: 'member', my_balance: res.balance });
+    } catch (err: any) {
+      if (controller.signal.aborted) return;
+      const definitive = err?.status >= 400 && err?.status < 500 && err?.status !== 408 && err?.status !== 429;
+      if (definitive) payIntentRef.current = null;
+      if (err?.code === 'insufficient_stars') {
+        setNotice('Saldo Star Anda tidak cukup untuk masuk grup ini.');
+        load(true);
+      } else if (err?.code === 'price_changed') {
+        setNotice('Harga grup baru saja berubah. Periksa harga terbaru lalu coba lagi.');
+        load(true);
+      } else if (err?.status === 404) {
+        // Token dicabut atau grup tidak lagi berbayar: muat ulang untuk menampilkan keadaan terbaru.
+        load();
+      } else if (err?.status === 429) {
+        setNotice('Terlalu banyak percobaan. Coba lagi beberapa saat lagi.');
+      } else {
+        // Timeout/jaringan: server mungkin sudah memproses; mencoba lagi memakai kunci yang sama sehingga tidak terpotong dua kali.
+        setNotice('Pembayaran belum terkonfirmasi. Periksa koneksi lalu ketuk lagi; Star tidak akan terpotong dua kali.');
+      }
+    } finally {
+      if (!controller.signal.aborted) setIsActing(false);
+    }
+  };
+
+  const handlePay = () => {
+    if (isActing || !preview || preview.price_stars == null) return;
+    const price = preview.price_stars;
+    showAlert(
+      `Bayar ${formatStars(price)}?`,
+      `${formatStars(price)} akan dipotong dari Saldo Star Anda dan Anda langsung masuk ke grup ini. Akses berlaku selama Anda tidak dikeluarkan dari grup.`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        { text: 'Bayar & Masuk', onPress: () => void doPay(price) },
+      ]
+    );
   };
 
   const handleCancel = () => {
@@ -143,6 +202,49 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
         },
       },
     ]);
+  };
+
+  const renderPaid = () => {
+    if (!preview || preview.price_stars == null) return null;
+    const price = preview.price_stars;
+    const balance = preview.my_balance ?? 0;
+    const enough = balance >= price;
+    return (
+      <>
+        <View style={styles.priceBox}>
+          <View style={styles.priceRow}>
+            <Icon name="star" size={18} color={colors.accentPrimary} />
+            <Text style={styles.priceText}>{formatStars(price)}</Text>
+          </View>
+          <Text style={styles.balanceText}>Saldo Star Anda: {formatStars(balance)}</Text>
+        </View>
+        <Text style={styles.statusText}>
+          Grup ini berbayar. Bayar sekali dengan Star untuk langsung masuk; akses berlaku selama Anda tidak dikeluarkan dari grup.
+        </Text>
+        {preview.my_status === 'pending' ? (
+          <Text style={styles.statusText}>Permohonan bergabung Anda sebelumnya masih menunggu keputusan admin.</Text>
+        ) : null}
+        <TouchableOpacity
+          style={[styles.primaryBtn, (isActing || !enough) && styles.btnDisabled]}
+          onPress={handlePay}
+          disabled={isActing || !enough}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isActing || !enough }}
+        >
+          {isActing ? (
+            <ActivityIndicator color={colors.textOnAccent} />
+          ) : (
+            <Text style={styles.primaryBtnText}>Bayar {formatStars(price)} & Masuk</Text>
+          )}
+        </TouchableOpacity>
+        {!enough ? <Text style={styles.statusText}>Saldo Star Anda belum cukup untuk masuk grup ini.</Text> : null}
+        {preview.my_status === 'pending' ? (
+          <TouchableOpacity onPress={handleCancel} disabled={isActing} accessibilityRole="button" style={styles.linkBtn}>
+            <Text style={styles.dangerLinkText}>Batalkan Permohonan</Text>
+          </TouchableOpacity>
+        ) : null}
+      </>
+    );
   };
 
   const renderBody = () => {
@@ -178,6 +280,7 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
     }
 
     const title = preview.title || 'Grup Privat';
+    const isPaid = preview.mode === 'paid' && preview.price_stars != null;
     return (
       <ScrollView contentContainerStyle={styles.content}>
         <Avatar name={title} avatarUrl={preview.avatar_url} size={88} />
@@ -202,7 +305,9 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
           </>
         )}
 
-        {preview.my_status === 'none' && (
+        {isPaid && preview.my_status !== 'member' && renderPaid()}
+
+        {!isPaid && preview.my_status === 'none' && (
           <>
             <Text style={styles.statusText}>
               Anda diundang ke grup privat ini. Admin grup akan meninjau permohonan Anda sebelum Anda bisa masuk.
@@ -222,7 +327,7 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
           </>
         )}
 
-        {preview.my_status === 'pending' && (
+        {!isPaid && preview.my_status === 'pending' && (
           <>
             <View style={styles.pendingBadge}>
               <Icon name="hourglass" size={16} color={colors.colorWarningText} />
@@ -245,7 +350,7 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
           </>
         )}
 
-        {preview.my_status === 'rejected' && (
+        {!isPaid && preview.my_status === 'rejected' && (
           <Text style={styles.statusText}>
             Permohonan Anda sebelumnya ditolak admin. Anda bisa mengajukan lagi {formatRetryAfter(preview.retry_after_seconds)}.
           </Text>
@@ -325,6 +430,17 @@ const makeStyles = (colors: ColorTokens) =>
       backgroundColor: colors.tintWarning10,
     },
     pendingText: { fontSize: 14, fontWeight: '600', color: colors.colorWarningText },
+    priceBox: {
+      alignSelf: 'stretch',
+      alignItems: 'center',
+      marginTop: 24,
+      paddingVertical: 16,
+      borderRadius: 14,
+      backgroundColor: colors.tintAccent10,
+    },
+    priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    priceText: { fontSize: 22, fontWeight: '800', color: colors.textPrimary },
+    balanceText: { fontSize: 13, color: colors.textSecondary, marginTop: 6 },
     linkBtn: { marginTop: 16, padding: 8 },
     dangerLinkText: { fontSize: 14, fontWeight: '600', color: colors.colorErrorText },
     noticeText: { fontSize: 13, lineHeight: 19, color: colors.colorErrorText, textAlign: 'center', marginTop: 16 },

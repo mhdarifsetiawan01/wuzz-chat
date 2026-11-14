@@ -38,6 +38,7 @@ function installNativeStubs() {
         return {
           getRandomBytes: (n) => new Uint8Array(nodeCrypto.randomBytes(n)),
           getRandomValues: (arr) => nodeCrypto.getRandomValues(arr),
+          randomUUID: () => nodeCrypto.randomUUID(),
         };
       case 'expo-secure-store':
         return {

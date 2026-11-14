@@ -33,6 +33,7 @@ import { SubGroupListModal } from '../components/SubGroupListModal';
 import { MemoryArchiveModal } from '../components/memory/MemoryArchiveModal';
 import { ChatMediaGalleryModal } from '../components/ChatMediaGalleryModal';
 import { InviteLinkSection, buildInviteShareMessage } from '../components/InviteLinkSection';
+import { PaidGroupSection } from '../components/PaidGroupSection';
 import { invitesApi } from '../api/invites';
 import { useAuth } from '../context/AuthContext';
 import { radius, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
@@ -90,6 +91,8 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
   // Milestone M-Mobile-8.30: Media Gallery Modal state
   const [showMediaGallery, setShowMediaGallery] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  // Naik saat status grup berbayar berubah: server mereset tautan undangan, jadi InviteLinkSection memuat ulang.
+  const [inviteRefreshKey, setInviteRefreshKey] = useState(0);
 
   const onGroupUpdatedRef = useRef(onGroupUpdated);
   useEffect(() => {
@@ -642,8 +645,18 @@ export const GroupInfoScreen: React.FC<GroupInfoScreenProps> = ({
         </View>
 
         {/* Tautan undangan grup privat (khusus creator/admin; bukan forum sub_) */}
+        {/* Grup berbayar (V2 Tahap 2a): hanya pembuat grup; tersembunyi bila sakelar mati atau bukan mitra kreator */}
+        {isCreator && group && !group.is_public && !groupId.startsWith('sub_') ? (
+          <PaidGroupSection groupId={groupId} onLinkReset={() => setInviteRefreshKey((k) => k + 1)} />
+        ) : null}
+
         {isAdmin && group && !group.is_public && !groupId.startsWith('sub_') ? (
-          <InviteLinkSection groupId={groupId} groupTitle={group.title} onMembersChanged={reloadMembers} />
+          <InviteLinkSection
+            groupId={groupId}
+            groupTitle={group.title}
+            onMembersChanged={reloadMembers}
+            refreshKey={inviteRefreshKey}
+          />
         ) : null}
 
         {/* Member Section Header */}

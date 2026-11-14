@@ -20,13 +20,16 @@ export interface InviteLinkSectionProps {
   groupTitle: string;
   /** Dipanggil setelah ada permohonan yang disetujui, agar daftar anggota dimuat ulang. */
   onMembersChanged?: () => void;
+  /** Naikkan nilainya untuk memuat ulang tautan (mis. setelah status grup berbayar berubah dan server mereset tautan). */
+  refreshKey?: number;
 }
 
 /** Pesan bagikan tautan undangan; dipakai juga tombol "Bagikan" di Info Grup. */
 export const buildInviteShareMessage = (groupTitle: string, link: InviteLink): string =>
-  `Gabung grup privat WuzzChat: ${groupTitle}\n${APP_LINK_CONFIG.getShortShareUrl(link.path)}\n(Admin grup akan menyetujui permohonan Anda)`;
+  `Gabung grup privat WuzzChat: ${groupTitle}\n${APP_LINK_CONFIG.getShortShareUrl(link.path)}\n` +
+  (link.mode === 'paid' ? '(Grup berbayar: bayar dengan Star lalu langsung masuk)' : '(Admin grup akan menyetujui permohonan Anda)');
 
-export const InviteLinkSection: React.FC<InviteLinkSectionProps> = ({ groupId, groupTitle, onMembersChanged }) => {
+export const InviteLinkSection: React.FC<InviteLinkSectionProps> = ({ groupId, groupTitle, onMembersChanged, refreshKey }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
 
@@ -61,7 +64,7 @@ export const InviteLinkSection: React.FC<InviteLinkSectionProps> = ({ groupId, g
   useEffect(() => {
     load();
     return () => abortRef.current?.abort();
-  }, [load]);
+  }, [load, refreshKey]);
 
   const runAction = async (action: () => Promise<void>, failTitle: string) => {
     if (isBusy) return;
@@ -134,7 +137,9 @@ export const InviteLinkSection: React.FC<InviteLinkSectionProps> = ({ groupId, g
         {isBusy ? <ActivityIndicator size="small" color={colors.accentPrimary} style={styles.busy} /> : null}
       </View>
       <Text style={styles.caption}>
-        Orang yang membuka tautan ini bisa mengajukan bergabung. Anda yang menyetujui atau menolak.
+        {link?.mode === 'paid'
+          ? 'Grup berbayar: orang yang membuka tautan ini membayar dengan Star lalu langsung masuk.'
+          : 'Orang yang membuka tautan ini bisa mengajukan bergabung. Anda yang menyetujui atau menolak.'}
       </Text>
 
       {isLoading ? (

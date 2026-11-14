@@ -16,10 +16,13 @@ export interface InviteLink {
   token: string;
   /** "/join/<token>"; URL publik = https://chat.wuzzhub.id{path} */
   path: string;
-  mode: 'approval';
+  /** approval = mengajukan lalu admin memutuskan; paid = bayar Star lalu langsung masuk (V2 Tahap 2a). */
+  mode: InviteMode;
   created_by: string;
   created_at: string;
 }
+
+export type InviteMode = 'approval' | 'paid';
 
 export type InviteStatus = 'member' | 'pending' | 'rejected' | 'none';
 
@@ -28,8 +31,12 @@ export interface InvitePreview {
   title: string;
   avatar_url: string;
   member_count: number;
-  mode: 'approval';
+  mode: InviteMode;
   my_status: InviteStatus;
+  /** Hanya mode paid: harga akses dalam Star. */
+  price_stars?: number;
+  /** Hanya mode paid: saldo Star pemanggil. */
+  my_balance?: number;
   /** Hanya saat my_status = rejected dan jeda 24 jam belum lewat. */
   retry_after_seconds?: number;
 }
