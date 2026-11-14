@@ -14,8 +14,8 @@
 **Tahap 2a, Star & grup privat berbayar (tanpa Play Billing): SEBAGIAN, semua sakelar mati.** Desain disetujui (`STARS_PAID_GROUPS.md`), aturan `docs/domains/STARS_WALLET.md`.
 - Selesai di `main`: backend (buku besar, dompet, mitra kreator, grup berbayar, bayar akses, refund, kredit uji; tes SQLite + Postgres) dan halaman `/admin/stars` (uji ujung-ke-ujung lokal).
 - **Deploy backend dan frontend Tahap 2a belum dikonfirmasi pengguna** (aman kapan saja; sakelar `STARS_ENABLED`, `PAID_GROUPS_ENABLED`, `STARS_TEST_GRANTS` tetap kosong).
-- **Mobile Tahap 2a: SELESAI di kode di `dev` (14 Nov 2026, *tes saja*: `tsc`, `test:unit` 47/47).** Saldo/Riwayat Star (`StarsScreen`, pintu dari Pengaturan), undangan berbayar di `InviteScreen` ("Bayar N Star & Masuk", `Idempotency-Key` dipakai ulang saat timeout, tangani 402/409), kartu "Grup Berbayar" untuk kreator di Info Grup, "Star diterima". Semua tersembunyi bila endpoint 404. Rincian dan daftar uji HP: `docs/progress/MOBILE.md`.
-- **Langkah berikutnya:** (1) pengguna mendeploy backend + frontend 2a dan membuat build APK; (2) uji HP dengan sakelar dinyalakan sementara di produksi untuk akun uji (`STARS_PAID_GROUPS.md` bagian 8 langkah 5), lalu dimatikan lagi; (3) catat hasilnya di `docs/progress/MOBILE.md`.
+- **Mobile Tahap 2a: SELESAI dan *terbukti* di HP 14 Nov 2026** (backend 2a sudah dideploy; sakelar dinyalakan sementara untuk uji lalu **sudah dimatikan lagi**). Saldo/Riwayat Star, undangan berbayar, kartu Grup Berbayar, Star diterima, refund manual. Rincian, temuan, dan yang belum teruji: `docs/progress/MOBILE.md`.
+- **Langkah berikutnya:** dua perbaikan kecil `InviteScreen` (jumlah anggota setelah bayar, tombol terkunci setelah galat) ada di kode, ikut build APK berikutnya. Tahap 2b dan rilis Star ke pengguna tetap menunggu Tahap 0 dan deklarasi Play.
 - Tahap 2b (Play Billing) menunggu **Tahap 0** di sisi pengguna: konsultasi hukum, profil merchant Play, badan usaha. Angka saat ini sementara (Rp100/Star, platform 20%, potongan toko 15%, masa tahan 14 hari).
 - **Jangan menyalakan sakelar Star untuk pengguna** sebelum Tahap 0 dan deklarasi Play (Financial features, Data Safety) selesai.
 

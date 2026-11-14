@@ -8,7 +8,7 @@
  * Star tidak terpotong dua kali. Tidak ada tombol beli Star di Tahap 2a.
  *
  * Ketahanan jaringan: setiap permintaan punya AbortController (dibatalkan saat layar ditutup), tombol dikunci selama
- * permintaan berjalan, dan status selalu diambil dari jawaban server (POST join idempoten, aman diulang).
+ * permintaan berjalan dan selalu dibuka lagi di finally (juga saat load() membatalkan controller aksi), dan status selalu diambil dari jawaban server (POST join idempoten, aman diulang).
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -121,7 +121,7 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
         setNotice(err?.detail || 'Gagal mengirim permohonan. Periksa koneksi lalu coba lagi.');
       }
     } finally {
-      if (!controller.signal.aborted) setIsActing(false);
+      setIsActing(false);
     }
   };
 
@@ -137,6 +137,8 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
       const res = await starsApi.purchase(token, price, intent.key, controller.signal);
       payIntentRef.current = null;
       setPreview({ ...preview, my_status: 'member', my_balance: res.balance });
+      // Jumlah anggota dan status lain diambil ulang dari server (tanpa spinner) agar tidak menampilkan angka lama.
+      load(true);
     } catch (err: any) {
       if (controller.signal.aborted) return;
       const definitive = err?.status >= 400 && err?.status < 500 && err?.status !== 408 && err?.status !== 429;
@@ -157,7 +159,7 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
         setNotice('Pembayaran belum terkonfirmasi. Periksa koneksi lalu ketuk lagi; Star tidak akan terpotong dua kali.');
       }
     } finally {
-      if (!controller.signal.aborted) setIsActing(false);
+      setIsActing(false);
     }
   };
 
@@ -197,7 +199,7 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
               setNotice(err?.detail || 'Gagal membatalkan permohonan. Coba lagi.');
             }
           } finally {
-            if (!controller.signal.aborted) setIsActing(false);
+            setIsActing(false);
           }
         },
       },
