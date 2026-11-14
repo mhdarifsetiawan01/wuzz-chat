@@ -16,7 +16,7 @@
 - **Sudah di APK lokal terpasang (build 14 Nov 17.07), belum dilihat di HP:** dua perbaikan `InviteScreen` (jumlah anggota dimuat ulang setelah bayar; tombol tidak lagi terkunci setelah galat 402/409/404). Lihat sekilas saat uji Star berikutnya.
 - **Perbaikan lain sesi ini, *terbukti* di HP:** garis gestur Android tidak lagi menimpa tab bar dan kolom ketik (jarak bawah minimum 16 dp; HP Realme melaporkan inset bawah ±1 dp). Rincian `docs/progress/MOBILE.md`.
 - **Data uji yang tertinggal di produksi (sengaja, tidak dihapus):** @semantic berstatus mitra kreator aktif; "Grup Tes Privat" punya baris `paid_groups` nonaktif (harga 95); @mastwofficial bersaldo **100 Star dari `test_grant`** (riwayat: kredit uji +100, akses −10, refund +10). Buku besar append-only: bila perlu dinolkan, pakai entri koreksi admin, jangan hapus baris.
-- **Berikutnya (sisi pengguna):** Tahap 0 (konsultasi hukum, profil merchant Play, badan usaha) lalu deklarasi Play (Financial features, Data Safety). Baru setelah itu Tahap 2b (Play Billing). Angka masih sementara (Rp100/Star, platform 20%, potongan toko 15%, masa tahan 14 hari).
+- **Tahap 0 DIMULAI 14 Nov 2026** (sisi pengguna): daftar kerja dan gerbang di `STARS_STAGE0.md`. Keputusan: jual atas nama pribadi dulu (akun developer personal; jenis profil pembayaran tidak bisa diubah setelah dibuat). Tahap 2b (Play Billing) baru setelah gerbang bagian 4 dokumen itu lengkap. Angka masih sementara (Rp100/Star, platform 20%, potongan toko 15%, masa tahan 14 hari).
 - **Jangan menyalakan sakelar Star untuk pengguna** sebelum Tahap 0 dan deklarasi Play selesai. Sakelar berlaku global (bukan per akun); selama menyala, hanya APK baru dan `/admin/stars` yang melihat fitur.
 
 **Pelajaran sesi ini (jebakan):**
@@ -43,6 +43,7 @@
 | [`FEED_UPLOAD_HARDENING.md`](FEED_UPLOAD_HARDENING.md) | Belum dikerjakan | A1 (kompresi gambar) butuh dependency native, jadi build baru. |
 | [`PRIVATE_GROUP_INVITES.md`](PRIVATE_GROUP_INVITES.md) | Disetujui 14 Nov 2026. Backend di `main`, **dideploy 14 Nov 2026** (alur nyata belum dicoba). **Mobile selesai di `dev`** (tes saja; butuh build APK dan uji dua HP). Landing web `/join` dideploy 14 Nov 2026 | Wuzz Chat V2 Tahap 1: tautan undangan grup privat yang bisa dicabut + persetujuan admin. Tanpa uang; Star/grup berbayar menyusul (Fase 15). |
 | [`STARS_PAID_GROUPS.md`](STARS_PAID_GROUPS.md) | Disetujui 14 Nov 2026. **Tahap 2a selesai, dideploy, *terbukti* di HP 14 Nov 2026** (sakelar mati); Play Billing (2b) belum | Wuzz Chat V2 Tahap 2: Star (hanya dibelanjakan) dan grup privat berbayar. 2a tanpa Play dulu; 2b Play Billing setelah merchant aktif. Tahap 0 belum; semua sakelar mati. |
+| [`STARS_STAGE0.md`](STARS_STAGE0.md) | Dimulai 14 Nov 2026 (tanpa kode) | Tahap 0 Star: profil pembayaran Play (individu), pertanyaan ke dukungan Play, konsultasi hukum/pajak, keputusan harga, dokumen pengguna, deklarasi Play; gerbang sebelum Tahap 2b. |
 | [`b2b-widget/README.md`](b2b-widget/README.md) | Diskusi, ditunda | Prasyarat audit tenant T1-T6 sudah selesai. |
 
 ## 2. Sisa dari rencana yang sudah diarsipkan
