@@ -46,12 +46,13 @@ Sumber: support.google.com/googleplay/android-developer/answer/13634885, /answer
 4. Ambang "penyesuaian besar" yang butuh persetujuan kedua (rencana bagian 14, keputusan terbuka 7).
 
 ### E. Dokumen untuk pengguna (P memutuskan; AI bisa menyusun draf setelah C selesai)
-> 15 Nov 2026: **teks E1-E2 sudah ditulis** di halaman `/terms` (5a), `/privacy`, `/delete-account` (di `dev`, belum tayang; rincian `docs/PLAY_STORE_LISTING.md` 2.6), dengan keputusan pengguna K9 (saldo hangus + konfirmasi di aplikasi), K10 (catatan keuangan 10 tahun), K11 (refund akses grup 7 hari, manual) di `STARS_PAID_GROUPS.md`; klaim "Star bukan uang elektronik" sengaja tidak ditulis. Konsultan tetap dibutuhkan untuk C1-C3, dan sebaiknya ikut membaca teks ini. E3 (perjanjian mitra kreator) belum.
+> 15 Nov 2026: **teks E1-E2 sudah ditulis** di halaman `/terms` (5a), `/privacy`, `/delete-account` (**tayang 15 Nov 2026**; rincian `docs/PLAY_STORE_LISTING.md` 2.6), dengan keputusan pengguna K9 (saldo hangus + konfirmasi di aplikasi), K10 (catatan keuangan 10 tahun), K11 (refund akses grup 7 hari, manual) di `STARS_PAID_GROUPS.md`; klaim "Star bukan uang elektronik" sengaja tidak ditulis. Konsultan tetap dibutuhkan untuk C1-C3, dan sebaiknya ikut membaca teks ini. E3 (perjanjian mitra kreator) belum.
 1. Syarat layanan: bagian Star (tidak bisa ditransfer/ditarik, refund, grup berbayar).
 2. Kebijakan privasi: data transaksi dan riwayat Star, masa simpan.
 3. Perjanjian mitra kreator (bagi hasil, jadwal, pajak, penghentian).
 
 ### F. Deklarasi Play (P mengisi; isian usulan siap di `docs/PLAY_STORE_LISTING.md` bagian 2.6)
+> 15 Nov 2026: **F1 dan F2 selesai** (Data Safety dipublikasikan; Financial features tetap "tidak ada"; IARC pembelian digital Ya dikirim). Hasil: `PLAY_STORE_LISTING.md` 2.6 "Hasil pengisian Console".
 1. **Financial features declaration:** tentukan apakah fitur Star termasuk salah satu kategori fitur keuangan; perbarui sebelum build ber-Star masuk track mana pun.
 2. **Data Safety:** tambah riwayat pembelian/transaksi (gerbang rilis di `docs/OPERATIONS.md`).
 
@@ -63,7 +64,7 @@ Tahap 2b (produk Star di Play, library billing, verifikasi pembelian server) bar
 - [ ] C1-C3: hasil konsultasi tertulis tidak mewajibkan izin yang belum dimiliki.
 - [ ] D1-D2: harga paket dan persentase diputuskan.
 - [ ] E1-E3 siap terbit sebelum rilis (boleh paralel dengan 2b).
-- [ ] F1-F2 diperbarui sebelum build ber-Star masuk track Play mana pun.
+- [x] F1-F2 diperbarui sebelum build ber-Star masuk track Play mana pun. *(15 Nov 2026)*
 
 ## 5. Catatan kemajuan
 
@@ -72,6 +73,7 @@ Tahap 2b (produk Star di Play, library billing, verifikasi pembelian server) bar
 - **Belum (A2):** rekening bank. Metode pembayaran untuk Indonesia hanya "wire transfer" (SWIFT); pakai bank yang menerima transfer internasional masuk (bank digital belum tentu), nama pemilik rekening sama persis dengan profil. Ditunda pengguna 14 Nov 2026; pendapatan ditahan sampai rekening ada. Wajib terpasang dan terverifikasi sebelum Star dirilis.
 - **Belum:** "app-level trader status declaration" (status pedagang UE) muncul di dashboard Play. Bila tergolong trader, nama, alamat, telepon, email ditampilkan publik untuk pengguna UE; putuskan setelah cek negara distribusi dan ketentuan resmi. Jangan diisi asal.
 - 14-15 Nov 2026 (persiapan 2b, sisi Play): build 1.45.0 (77) ber-billing di **Internal testing** saja (boleh menurut `PLAY_STORE_LISTING.md` 2.6; **jangan dipromosikan** sebelum F1-F2 dan E selesai); produk `star_50`/`star_100`/`star_500` aktif, hanya Indonesia, harga sementara Rp5.000/10.000/50.000; daftar penguji lisensi `Penguji Star` (hanya akun pemilik). Uji pembelian nyata lolos (`STARS_PLAY_BILLING.md` 12d); semua sakelar Star dimatikan lagi.
+- 15 Nov 2026: teks Star `/privacy` `/terms` `/delete-account` tayang; Data Safety (plus 4 kategori lama yang ternyata kurang) dipublikasikan; IARC pembelian digital Ya dikirim (Brasil naik ke 14+); Financial features dicek, tetap "tidak ada". Trader status UE tingkat aplikasi masih kosong (isu quick checks dilewati).
 - **Untuk C (pajak):** dialog pembelian Play menulis "+ tax" sedangkan Console menulis "No VAT" untuk Indonesia. Tanyakan apakah harga sudah termasuk PPN dan siapa yang menyetor.
 - **Untuk D1 (harga):** artikel resmi tarif 15% berasal dari 2021; halaman Google yang lebih baru menyebut struktur lain (mis. 10% untuk pemasangan baru di program Apps & Games, tarif bergantung pada pemasangan baru atau lama). Periksa ulang dari support.google.com/googleplay/android-developer/answer/16954621 sebelum menetapkan `store_fee_pct`.
 
