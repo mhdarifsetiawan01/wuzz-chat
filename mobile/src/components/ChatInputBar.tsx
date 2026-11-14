@@ -424,7 +424,9 @@ export const ChatInputBar: React.FC<ChatInputBarProps> = ({
     <View
       style={[
         styles.wrapper,
-        { paddingBottom: (showEmojiPicker || isKeyboardVisible) ? 8 : Math.max(insets.bottom, 8) },
+        // Minimal 16 dp saat keyboard tertutup: sebagian HP dengan navigasi gestur melaporkan inset bawah ±1 dp,
+        // sehingga garis gestur menimpa tepi bawah kolom ketik (sama dengan tab bar di MainTabNavigator).
+        { paddingBottom: (showEmojiPicker || isKeyboardVisible) ? 8 : Math.max(insets.bottom, 16) },
       ]}
     >
       {/* Edit Mode Preview Banner */}
