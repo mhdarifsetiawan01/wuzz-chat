@@ -1,5 +1,15 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+## Tambah Star lewat Google Play, V2 Tahap 2b (14 Nov 2026, di `dev`, butuh build baru; tersembunyi selama `STARS_PLAY_BILLING` mati)
+
+- **Pustaka:** `expo-iap` 6.4.4 (`npx expo install`), plugin `app.json` dengan toko dipin ke Play; baris `openiapStore=play` ditambahkan ke `android/gradle.properties` lokal (folder di-gitignore, tidak di-prebuild ulang).
+- **Alur:** `src/services/starBilling.ts`: paket + `account_id` dari server → `requestPurchase` dengan `obfuscatedAccountId` → hasil lewat listener → `POST /api/me/stars/purchases` → `finishTransaction(isConsumable)` hanya setelah server menjawab credited. Tertunda/202/akun lain/galat jaringan tidak diselesaikan. Pemulihan saat sesi terbentuk (tertunda 5 detik, modul dimuat malas) dan saat layar Saldo Star dibuka.
+- **UI:** bagian "Tambah Star" di Saldo Star (paket + harga Play), kartu utang Star, label riwayat baru; layar undangan berbayar menampilkan "Tambah Star" saat saldo kurang (hanya bila penjualan aktif), menangani 402 `stars_debt`, dan menyegarkan saldo saat kembali dari Saldo Star.
+- **Berkas:** `package.json`, `package-lock.json`, `app.json`, `src/services/starBilling.ts` (baru), `src/api/stars.ts`, `src/screens/StarsScreen.tsx`, `src/screens/InviteScreen.tsx`, `src/navigation/AppNavigator.tsx`, `App.tsx`, `scripts/test/star-billing.test.js` (baru), `scripts/test/stars-api.test.js`.
+- **Bukti:** *tes saja* (`npx tsc --noEmit` lolos; `npm run test:unit` 48/48, termasuk `star-billing.test.js`: selesai hanya setelah kredit, tidak selesai saat akun lain/tertunda/jaringan, token sama tidak dikirim dua kali, pemulihan, 404 = mati).
+- **Build dan instal (14 Nov 2026 18.43, APK lokal):** *terbukti* Gradle menerima `expo-iap` dengan `android/` lokal; APK memuat `BillingClient`, modul OpenIAP, dan izin `com.android.vending.BILLING`; aplikasi terbuka normal di HP uji tanpa crash dengan sakelar mati (Tambah Star tidak tampil).
+- **Belum:** produk di Play Console, uji pembelian dengan penguji lisensi di track Internal testing, refund dari Order management (voided terbaca di server). **Gerbang Play:** build ini memuat library billing; perbarui Data Safety/deklarasi sebelum masuk track mana pun (`OPERATIONS.md`).
+
 ## Garis gestur menimpa tab bar dan kolom ketik (14 Nov 2026, di `dev`, butuh build baru)
 
 - Dilaporkan pengguna ("bottom menu aneh"); dilihat di HP uji (Realme RMX3506, profil utama, navigasi gestur `navigation_mode=2`): HP melaporkan inset navigasi bawah hanya 2 px (±1 dp), jadi tab bar kapsul hanya berjarak minimum 8 dp dan garis gestur Android (±7 dp dari tepi) menimpa tepi bawah kapsul. Hal sama di kolom ketik `ChatInputBar`. Profil dengan navigasi 3 tombol (inset ±48 dp) tidak terdampak. Bukan regresi kode (jarak minimum 8 dp sudah ada sejak redesain kapsul).

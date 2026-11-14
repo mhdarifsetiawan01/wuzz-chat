@@ -14,6 +14,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { invitesApi, InvitePreview } from '../api/invites';
 import { formatStars, newIdempotencyKey, starsApi } from '../api/stars';
 import { Avatar } from '../components/Avatar';
@@ -26,6 +27,8 @@ export interface InviteScreenProps {
   onBack: () => void;
   /** Membuka chat grup setelah pengguna menjadi anggota. */
   onOpenGroup: (group: { id: string; title: string; avatarUrl?: string }) => void;
+  /** Membuka layar Saldo Star (Tambah Star, Tahap 2b). */
+  onOpenStars?: () => void;
 }
 
 type LoadError = 'invalid' | 'network' | null;
@@ -37,7 +40,7 @@ export function formatRetryAfter(seconds?: number): string {
   return `sekitar ${Math.ceil(seconds / 3600)} jam lagi`;
 }
 
-export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpenGroup }) => {
+export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpenGroup, onOpenStars }) => {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
@@ -48,6 +51,22 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
   const [isActing, setIsActing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Tautan "Tambah Star" hanya bila penjualan Star aktif di server (GET /packages tidak 404).
+  const [canTopUp, setCanTopUp] = useState(false);
+  const needsTopUp =
+    preview?.mode === 'paid' && preview.my_status !== 'member' && (preview.my_balance ?? 0) < (preview.price_stars ?? 0);
+  useEffect(() => {
+    if (!needsTopUp || !onOpenStars || canTopUp) return;
+    const controller = new AbortController();
+    starsApi
+      .getPackages(controller.signal)
+      .then((r) => {
+        if (!controller.signal.aborted && r.packages.length > 0) setCanTopUp(true);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [needsTopUp, onOpenStars, canTopUp]);
+
   // Niat bayar yang belum mendapat jawaban pasti (mis. timeout): kunci yang sama dipakai ulang untuk harga yang sama.
   const payIntentRef = useRef<{ key: string; price: number } | null>(null);
 
@@ -86,6 +105,18 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
     load();
     return () => abortRef.current?.abort();
   }, [load]);
+
+  // Kembali dari layar Saldo Star (mis. setelah Tambah Star): segarkan saldo dan status tanpa spinner.
+  const focusedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!focusedOnce.current) {
+        focusedOnce.current = true;
+        return;
+      }
+      load(true);
+    }, [load])
+  );
 
   // Saat kembali ke aplikasi (mis. setelah menerima notifikasi persetujuan), segarkan status pengajuan.
   useEffect(() => {
@@ -143,7 +174,9 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
       if (controller.signal.aborted) return;
       const definitive = err?.status >= 400 && err?.status < 500 && err?.status !== 408 && err?.status !== 429;
       if (definitive) payIntentRef.current = null;
-      if (err?.code === 'insufficient_stars') {
+      if (err?.code === 'stars_debt') {
+        setNotice('Ada pembelian Star yang dibatalkan dan perlu dilunasi dulu. Buka Saldo Star untuk rinciannya.');
+      } else if (err?.code === 'insufficient_stars') {
         setNotice('Saldo Star Anda tidak cukup untuk masuk grup ini.');
         load(true);
       } else if (err?.code === 'price_changed') {
@@ -240,6 +273,11 @@ export const InviteScreen: React.FC<InviteScreenProps> = ({ token, onBack, onOpe
           )}
         </TouchableOpacity>
         {!enough ? <Text style={styles.statusText}>Saldo Star Anda belum cukup untuk masuk grup ini.</Text> : null}
+        {!enough && canTopUp && onOpenStars ? (
+          <TouchableOpacity style={styles.secondaryBtn} onPress={onOpenStars} accessibilityRole="button">
+            <Text style={styles.secondaryBtnText}>Tambah Star</Text>
+          </TouchableOpacity>
+        ) : null}
         {preview.my_status === 'pending' ? (
           <TouchableOpacity onPress={handleCancel} disabled={isActing} accessibilityRole="button" style={styles.linkBtn}>
             <Text style={styles.dangerLinkText}>Batalkan Permohonan</Text>

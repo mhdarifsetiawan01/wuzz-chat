@@ -436,6 +436,16 @@ function AppContent() {
     };
   }, [isAuthenticated, user?.id]);
 
+  // Star Tahap 2b: kirim ulang pembelian Star yang belum selesai (aplikasi mati setelah bayar). Tidak membuka koneksi
+  // Play bila penjualan Star mati di server (404). Modul dimuat malas agar tidak menambah beban startup.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const t = setTimeout(() => {
+      import('./src/services/starBilling').then((m) => m.recoverStarPurchases()).catch(() => {});
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [isAuthenticated, user?.id]);
+
   // Sesi terbentuk: buang sisa state alur Google/pesan login supaya tidak muncul lagi setelah logout berikutnya.
   useEffect(() => {
     if (isAuthenticated) {

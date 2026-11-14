@@ -3,7 +3,9 @@
  * Dibuka dari Pengaturan (baris "Saldo Star" hanya tampil bila GET /api/me/stars tidak 404).
  *
  * Menampilkan saldo, ringkasan "Star diterima" untuk mitra kreator, dan Riwayat Star (50 entri terakhir).
- * Tahap 2a tidak menjual Star: tidak ada tombol beli, tidak ada kata "pendapatan/tarik/cairkan" (STARS_WALLET.md aturan 13).
+ * Tahap 2b: bagian "Tambah Star" (paket dari server, harga dari Google Play) hanya tampil bila GET /api/me/stars/packages
+ * tidak 404 dan perangkat Android. Star selalu dari jawaban server; pembelian yang belum selesai dipulihkan saat layar dibuka.
+ * Tidak ada kata "pendapatan/tarik/cairkan" dan tidak ada metode bayar lain (STARS_WALLET.md aturan 13).
  * Ketahanan jaringan: AbortController per muat, tarik-untuk-segarkan, data lama tetap tampil bila penyegaran gagal.
  */
 
@@ -16,9 +18,17 @@ import {
   isStarsUnavailable,
   starKindLabel,
   starsApi,
+  StarPackage,
   StarsReceived,
   StarWallet,
 } from '../api/stars';
+import {
+  buyStars,
+  isStarBillingSupported,
+  loadStarPrices,
+  recoverStarPurchases,
+  subscribeStarBilling,
+} from '../services/starBilling';
 import { Icon } from '../components/Icon';
 import { useTheme, useThemedStyles, ColorTokens } from '../theme';
 
@@ -27,6 +37,8 @@ export interface StarsScreenProps {
 }
 
 type LoadError = 'unavailable' | 'network' | null;
+
+type BillingNotice = { kind: 'success' | 'info' | 'error'; text: string } | null;
 
 /** "14 Nov 2026, 09.30" — tanggal singkat untuk baris riwayat. */
 export function formatStarDate(iso: string): string {
@@ -49,6 +61,31 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<LoadError>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // Tambah Star (Tahap 2b). packages null = bagian tersembunyi (sakelar mati, bukan Android, atau gagal dimuat).
+  const [packages, setPackages] = useState<StarPackage[] | null>(null);
+  const [accountId, setAccountId] = useState('');
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [pricesFailed, setPricesFailed] = useState(false);
+  const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<BillingNotice>(null);
+
+  const loadPackages = useCallback(async () => {
+    if (!isStarBillingSupported()) return;
+    try {
+      const res = await starsApi.getPackages();
+      setPackages(res.packages);
+      setAccountId(res.account_id);
+      try {
+        setPrices(await loadStarPrices(res.packages.map((p) => p.product_id)));
+        setPricesFailed(false);
+      } catch {
+        setPricesFailed(true);
+      }
+    } catch {
+      setPackages(null); // 404 (sakelar mati) atau jaringan: tidak menampilkan tombol beli
+    }
+  }, []);
 
   const load = useCallback(async (mode: 'initial' | 'refresh') => {
     abortRef.current?.abort();
@@ -79,8 +116,103 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
 
   useEffect(() => {
     load('initial');
+    loadPackages();
+    void recoverStarPurchases();
     return () => abortRef.current?.abort();
-  }, [load]);
+  }, [load, loadPackages]);
+
+  useEffect(
+    () =>
+      subscribeStarBilling((e) => {
+        setBuyingId(null);
+        switch (e.type) {
+          case 'credited':
+            setNotice(
+              e.starsAdded > 0
+                ? { kind: 'success', text: `${formatStars(e.starsAdded)} ditambahkan ke Saldo Star.` }
+                : { kind: 'success', text: 'Pembelian sudah tercatat.' }
+            );
+            setWallet((w) => (w ? { ...w, balance: e.balance, debt: e.debt } : w));
+            load('refresh');
+            break;
+          case 'pending':
+            setNotice({ kind: 'info', text: 'Pembayaran sedang diproses Google Play. Star masuk setelah pembayaran selesai.' });
+            break;
+          case 'cancelled':
+            setNotice(null);
+            break;
+          case 'failed':
+            setNotice({ kind: 'error', text: e.message });
+            break;
+        }
+      }),
+    [load]
+  );
+
+  const handleBuy = async (pkg: StarPackage) => {
+    if (buyingId) return;
+    setNotice(null);
+    setBuyingId(pkg.product_id);
+    try {
+      await buyStars(pkg.product_id, accountId);
+      // Hasil datang lewat subscribeStarBilling; tombol tetap terkunci sampai ada peristiwa.
+    } catch (err: any) {
+      setBuyingId(null);
+      setNotice({ kind: 'error', text: err?.message || 'Google Play tidak bisa dibuka. Coba lagi.' });
+    }
+  };
+
+  const renderTopUp = () => {
+    if (!packages || packages.length === 0) return null;
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Tambah Star</Text>
+        <Text style={styles.cardCaption}>Dibayar lewat Google Play. Star langsung masuk ke saldo setelah pembayaran selesai.</Text>
+        <View style={styles.packRow}>
+          {packages.map((pkg) => {
+            const price = prices[pkg.product_id];
+            const disabled = !!buyingId || !price;
+            return (
+              <TouchableOpacity
+                key={pkg.product_id}
+                style={[styles.packBtn, disabled && styles.packBtnDisabled]}
+                onPress={() => handleBuy(pkg)}
+                disabled={disabled}
+                accessibilityRole="button"
+                accessibilityLabel={`Tambah ${formatStars(pkg.stars)}${price ? `, ${price}` : ''}`}
+              >
+                {buyingId === pkg.product_id ? (
+                  <ActivityIndicator color={colors.accentPrimary} />
+                ) : (
+                  <>
+                    <Icon name="star" size={18} color={colors.accentPrimary} />
+                    <Text style={styles.packStars}>{formatThousands(pkg.stars)}</Text>
+                    <Text style={styles.packPrice}>{price ?? '—'}</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {pricesFailed ? (
+          <TouchableOpacity onPress={loadPackages} accessibilityRole="button">
+            <Text style={styles.noticeLink}>Harga belum bisa dimuat dari Google Play. Ketuk untuk mencoba lagi.</Text>
+          </TouchableOpacity>
+        ) : null}
+        {notice ? (
+          <Text
+            style={[
+              styles.notice,
+              notice.kind === 'error' && styles.noticeError,
+              notice.kind === 'success' && styles.noticeSuccess,
+            ]}
+          >
+            {notice.text}
+          </Text>
+        ) : null}
+      </View>
+    );
+  };
 
   const renderReceived = () => {
     if (!received || (!received.is_creator && received.groups.length === 0)) return null;
@@ -158,6 +290,18 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
           </Text>
           <Text style={styles.balanceCaption}>Star dipakai untuk masuk grup privat berbayar di WuzzChat.</Text>
         </View>
+
+        {wallet.debt > 0 ? (
+          <View style={styles.debtCard}>
+            <Text style={styles.debtTitle}>Ada pembelian Star yang dibatalkan</Text>
+            <Text style={styles.debtText}>
+              {formatStars(wallet.debt)} perlu dilunasi. Star dari penambahan berikutnya dipakai untuk melunasinya lebih dulu, dan
+              selama itu Star belum bisa dipakai untuk masuk grup.
+            </Text>
+          </View>
+        ) : null}
+
+        {renderTopUp()}
 
         {renderReceived()}
 
@@ -261,4 +405,25 @@ const makeStyles = (colors: ColorTokens) =>
     delta: { fontSize: 15, fontWeight: '700' },
     deltaPlus: { color: colors.accentPrimary },
     deltaMinus: { color: colors.textPrimary },
+    packRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+    packBtn: {
+      flex: 1,
+      minHeight: 84,
+      borderRadius: 14,
+      backgroundColor: colors.tintAccent10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+      gap: 2,
+    },
+    packBtnDisabled: { opacity: 0.6 },
+    packStars: { fontSize: 18, fontWeight: '800', color: colors.textPrimary },
+    packPrice: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+    notice: { fontSize: 13, lineHeight: 18, color: colors.textSecondary, marginTop: 12 },
+    noticeError: { color: colors.colorErrorText },
+    noticeSuccess: { color: colors.accentPrimary },
+    noticeLink: { fontSize: 13, color: colors.accentPrimary, marginTop: 10 },
+    debtCard: { padding: 16, borderRadius: 16, backgroundColor: colors.tintWarning10 },
+    debtTitle: { fontSize: 14, fontWeight: '700', color: colors.colorWarningText },
+    debtText: { fontSize: 13, lineHeight: 18, color: colors.textSecondary, marginTop: 6 },
   });

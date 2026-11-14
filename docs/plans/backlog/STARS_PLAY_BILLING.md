@@ -1,6 +1,6 @@
 # Star Tahap 2b: Pembelian Star lewat Google Play Billing
 
-> **Status (14 Nov 2026): desain DISETUJUI pengguna (K4-K8 sesuai usulan). Backend SELESAI di `dev`** (*tes saja*: SQLite + Postgres 16, termasuk token sama bersamaan); sakelar `STARS_PLAY_BILLING` mati, belum dideploy. Belum: web admin, mobile, persiapan Play Console/Google Cloud, uji nyata. Lanjutan `STARS_PAID_GROUPS.md` (Tahap 2a selesai). Keputusan pengguna 14 Nov 2026: kode 2b boleh dikerjakan **paralel** dengan Tahap 0 (`STARS_STAGE0.md`) di belakang sakelar mati; **rilis ke pengguna tetap menunggu gerbang Tahap 0** (dokumen pengguna, deklarasi Play, jawaban dukungan Play, konsultasi). Aturan Star yang berlaku: `docs/domains/STARS_WALLET.md`.
+> **Status (14 Nov 2026): desain DISETUJUI pengguna (K4-K8 sesuai usulan). Backend SELESAI di `dev`** (*tes saja*: SQLite + Postgres 16, termasuk token sama bersamaan); sakelar `STARS_PLAY_BILLING` mati, belum dideploy. **Mobile selesai di `dev` 14 Nov 2026** (*tes saja*, butuh build APK). Belum: web admin, persiapan Play Console/Google Cloud, uji nyata. Lanjutan `STARS_PAID_GROUPS.md` (Tahap 2a selesai). Keputusan pengguna 14 Nov 2026: kode 2b boleh dikerjakan **paralel** dengan Tahap 0 (`STARS_STAGE0.md`) di belakang sakelar mati; **rilis ke pengguna tetap menunggu gerbang Tahap 0** (dokumen pengguna, deklarasi Play, jawaban dukungan Play, konsultasi). Aturan Star yang berlaku: `docs/domains/STARS_WALLET.md`.
 > Butir bertanda **(verifikasi)** harus dipastikan dari dokumentasi resmi saat implementasi.
 
 ## 1. Cakupan
@@ -15,7 +15,7 @@
 - Server memeriksa status lewat Play Developer API `purchases.productsv2.getproductpurchasev2` (status harus PURCHASED sebelum memberi Star) dan mengonsumsi lewat `purchases.products.consume` (v1; belum ada padanan v2 di dokumentasi) **(verifikasi)**.
 - Pembelian yang dibatalkan, direfund, atau chargeback tersedia di **Voided Purchases API** (bisa dipanggil berkala, tanpa Pub/Sub).
 - Play Billing Library 8 tidak lagi bisa mengambil pembelian consumable yang sudah dikonsumsi dari perangkat, jadi riwayat pembelian harus disimpan server.
-- Pustaka mobile: `react-native-iap` dilaporkan diarsipkan Agustus 2026 dan `expo-iap` (pengelola yang sama) menjadi penerusnya, mendukung Play Billing Library 8 **(verifikasi di repo resminya)**. Butuh config plugin = **build APK baru**.
+- Pustaka mobile: **`expo-iap` 6.4.4** (dicek di npm 14 Nov 2026; monorepo `hyodotdev/openiap`). Klaim pihak ketiga bahwa `react-native-iap` diarsipkan **keliru**: paket itu tetap dirawat (17.3.6, berbasis Nitro); `expo-iap` dipilih karena Expo Module + config plugin. Butuh **build APK baru**.
 
 Sumber: developers.google.com/android-publisher (productsv2, voided-purchases), developer.android.com/google/play/billing (lifecycle/one-time, security), hyochan.github.io/expo-iap.
 
@@ -113,11 +113,18 @@ Token akses diambil dengan JWT service account (scope `https://www.googleapis.co
 - Token yang sudah dikreditkan lalu dikirim ulang dengan `product_id` lain ditolak `product_mismatch` (ditemukan oleh tes handler).
 - **(verifikasi saat uji nyata)** nama parameter halaman Voided Purchases: dipakai `pageSelection.token` (tabel skema), padahal contoh URL Google memakai `token`.
 
+## 12c. Mobile (14 Nov 2026)
+
+- `expo-iap` dipasang dengan plugin `["expo-iap", {"android": {"store": "play"}}]` di `app.json`. **Jebakan:** folder `android/` lokal tidak di-prebuild ulang oleh skrip rilis, jadi pin toko juga ditulis manual di `android/gradle.properties` lokal (`openiapStore=play`); tanpa itu, Gradle memilih toko dari flavor/perangkat.
+- `src/services/starBilling.ts` satu-satunya pemakai `expo-iap`: koneksi sekali, harga dari Play, `requestPurchase` dengan `obfuscatedAccountId` = `account_id` dari server, `purchaseUpdatedListener` → POST server → `finishTransaction(isConsumable)` **hanya setelah server menjawab credited**. Tidak diselesaikan saat: tertunda, server 202, akun lain (Google mengembalikan dana bila tak diklaim dalam 3 hari), galat jaringan (dipulihkan nanti). Token yang sedang diproses tidak dikirim dua kali.
+- Pemulihan `recoverStarPurchases()`: 5 detik setelah sesi terbentuk (`App.tsx`, modul dimuat malas) dan saat layar Saldo Star dibuka; tidak membuka koneksi Play bila `/packages` 404.
+- UI: bagian "Tambah Star" di `StarsScreen` (kartu paket: jumlah Star + harga Play; tombol terkunci sampai ada hasil; pesan sukses/tertunda/gagal; harga gagal dimuat = tautan coba lagi), kartu peringatan utang, label riwayat `reversal`/`debt_repay`. `InviteScreen`: tombol "Tambah Star" saat saldo kurang (hanya bila `/packages` tersedia), galat `stars_debt`, penyegaran saat kembali fokus.
+
 ## 13. Urutan kerja (setelah disetujui)
 
 1. **[SELESAI 14 Nov 2026, tes saja]** Backend: helper token Google, klien Play (get, consume, voided), tabel dan migrasi, endpoint paket dan pembelian, worker konsumsi dan voided, utang (bila K4), admin, sakelar, tes SQLite + Postgres.
 2. Web `/admin/stars`: daftar pembelian dan utang.
-3. Mobile: `expo-iap`, bagian Tambah Star, pemulihan, tes unit; build APK (pengguna).
+3. **[SELESAI di kode 14 Nov 2026, tes saja]** Mobile: `expo-iap`, bagian Tambah Star, pemulihan, tes unit; build APK (pengguna).
 4. Pengguna menyiapkan Play Console dan Google Cloud (bagian 10); uji Internal testing dengan penguji lisensi.
 5. Dokumen: `STARS_WALLET.md`, API, OpenAPI (dua salinan), `ARCHITECTURE.md`, `OPERATIONS.md`, progres.
 6. Rilis: hanya setelah gerbang `STARS_STAGE0.md` bagian 4 lengkap.

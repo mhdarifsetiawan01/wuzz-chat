@@ -290,6 +290,7 @@ export const AppNavigator: React.FC = () => {
               } as ConversationItem;
               navigation.replace('Chat', { conversation });
             }}
+            onOpenStars={() => navigation.navigate('Stars')}
           />
         )}
       </Stack.Screen>
