@@ -42,6 +42,14 @@ export default function DeleteAccountPage() {
         <li>Berkas media yang sedang menunggu penghapusan otomatis (biasanya terhapus dalam waktu kurang dari satu hari).</li>
         <li>Salinan cadangan teknis untuk pemulihan bencana (mengikuti siklus rotasinya), dan catatan laporan moderasi seperlunya untuk keamanan.</li>
       </ul>
+
+      {/* Keputusan K1, K9, K10 (15 Nov 2026). */}
+      <h2>Star dan transaksi</h2>
+      <ul>
+        <li><strong>Saldo Star yang tersisa hangus</strong> bila Anda memilih menghapus akun, karena Star terikat pada akun dan tidak dapat dipindahkan atau diuangkan. Aplikasi menampilkan saldo Anda dan meminta konfirmasi sebelum akun dihapus. Pakai saldo Anda lebih dulu bila masih ingin memanfaatkannya.</li>
+        <li>Catatan transaksi Star (riwayat Star, data pembelian Google Play, akses grup berbayar yang dibayar, utang Star, dan Star yang diterima mitra kreator) <strong>tetap disimpan sampai 10 tahun</strong> setelah akun dihapus, sesuai kewajiban penyimpanan dokumen pajak, hanya dengan ID akun internal tanpa nama atau profil, lalu dihapus.</li>
+        <li>Pengembalian dana pembelian Star diajukan lewat Google Play, bukan lewat penghapusan akun.</li>
+      </ul>
       <p>Lihat juga <a href="/privacy">Kebijakan Privasi</a>.</p>
     </LegalPage>
   )

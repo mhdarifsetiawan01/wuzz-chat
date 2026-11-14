@@ -46,6 +46,7 @@ Sumber: support.google.com/googleplay/android-developer/answer/13634885, /answer
 4. Ambang "penyesuaian besar" yang butuh persetujuan kedua (rencana bagian 14, keputusan terbuka 7).
 
 ### E. Dokumen untuk pengguna (P memutuskan; AI bisa menyusun draf setelah C selesai)
+> 15 Nov 2026: **teks E1-E2 sudah ditulis** di halaman `/terms` (5a), `/privacy`, `/delete-account` (di `dev`, belum tayang; rincian `docs/PLAY_STORE_LISTING.md` 2.6), dengan keputusan pengguna K9 (saldo hangus + konfirmasi di aplikasi), K10 (catatan keuangan 10 tahun), K11 (refund akses grup 7 hari, manual) di `STARS_PAID_GROUPS.md`; klaim "Star bukan uang elektronik" sengaja tidak ditulis. Konsultan tetap dibutuhkan untuk C1-C3, dan sebaiknya ikut membaca teks ini. E3 (perjanjian mitra kreator) belum.
 1. Syarat layanan: bagian Star (tidak bisa ditransfer/ditarik, refund, grup berbayar).
 2. Kebijakan privasi: data transaksi dan riwayat Star, masa simpan.
 3. Perjanjian mitra kreator (bagi hasil, jadwal, pajak, penghentian).

@@ -86,6 +86,9 @@ Rumus bagian kreator per pembelian akses: `gross = harga × star_value_minor`; `
 | K1 | Catatan keuangan saat akun dihapus | Dipertahankan (hanya `user_id`), dikonfirmasi lewat konsultasi hukum |
 | K2 | Admin grup (bukan creator) boleh mengubah harga? | Tidak; hanya creator grup yang mitra |
 | K3 | Grup berbayar boleh dijadikan publik? | Tidak; nonaktifkan berbayar dulu |
+| K9 | Saldo Star saat akun dihapus (**diputuskan 15 Nov 2026**) | Hangus, sebagai akibat pilihan pengguna; aplikasi menampilkan saldo dan mengunci tombol hapus sampai pengguna mencentang konfirmasi. Refund pembelian tetap lewat Google Play. Risiko diketahui: UU PK Pasal 18 (klausula baku soal penolakan pengembalian uang), jadi teks ditulis sebagai akibat pilihan pengguna |
+| K10 | Masa simpan catatan keuangan setelah akun dihapus (**diputuskan 15 Nov 2026**) | 10 tahun (kewajiban penyimpanan dokumen pajak, UU KUP Pasal 28), hanya `user_id`, lalu dihapus. Penghapus otomatis > 10 tahun belum dibuat (backlog, tidak mendesak) |
+| K11 | Refund pembayaran akses grup (**diputuskan 15 Nov 2026**) | Manual lewat email, dalam 7 hari setelah bayar bila grup dihapus, pembeli dikeluarkan bukan karena pelanggaran, atau akses tidak berfungsi; di luar itu tidak dikembalikan. Teks syarat layanan tidak mengklaim status hukum Star (izin BI/OJK tetap pertanyaan C1) |
 
 ## 8. Urutan kerja Tahap 2a (setelah disetujui)
 

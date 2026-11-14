@@ -51,6 +51,21 @@ export default function TermsPage() {
         <a href="/privacy"> Kebijakan Privasi</a>.
       </p>
 
+      {/* Keputusan K9-K11 (15 Nov 2026). Status izin BI/OJK dan pajak (STARS_STAGE0 C1-C3) masih terbuka; jangan klaim status hukum Star di sini. */}
+      <h2>5a. Star dan grup privat berbayar</h2>
+      <p>Bagian ini berlaku bila fitur Star tersedia untuk akun Anda.</p>
+      <ul>
+        <li><strong>Apa itu Star:</strong> Star adalah satuan digital di dalam WuzzChat untuk membayar akses ke grup privat berbayar. Star <strong>hanya bisa dibelanjakan di WuzzChat</strong>: tidak bisa ditransfer ke pengguna lain, ditukar dengan uang, atau ditarik, dan tidak memiliki nilai di luar aplikasi.</li>
+        <li><strong>Pembelian:</strong> Star dibeli di aplikasi Android lewat Google Play. Harga ditampilkan Google Play sebelum Anda membayar, dan pembayaran tunduk pada ketentuan Google Play. Star masuk ke saldo setelah pembelian diverifikasi dan pembayarannya selesai; pembayaran yang masih tertunda di Google Play belum menambah saldo.</li>
+        <li><strong>Pengembalian dana Google Play:</strong> pengembalian dana atas pembelian Star diajukan lewat Google Play dan mengikuti kebijakan Google. Bila Google membatalkan atau mengembalikan dana sebuah pembelian, Star dari pembelian itu kami tarik kembali. Bila Star tersebut sudah dibelanjakan, kekurangannya dicatat sebagai <strong>utang Star</strong>; selama ada utang, Anda tidak dapat membayar akses grup, dan pembelian Star berikutnya dipakai untuk melunasinya lebih dulu.</li>
+        <li><strong>Grup berbayar:</strong> hanya mitra kreator yang kami setujui yang dapat menjadikan grup privatnya berbayar dan menentukan harganya. Pembayaran berlaku <strong>sekali</strong> dan memberi akses selama Anda tetap menjadi anggota. Bila Anda keluar atau dikeluarkan dari grup, masuk kembali berarti membayar lagi. Isi grup berbayar adalah tanggung jawab kreator dan anggotanya, dan tetap tunduk pada aturan konten di bagian 2.</li>
+        <li><strong>Pengembalian Star untuk akses grup:</strong> kami mengembalikan Star ke saldo Anda bila, <strong>dalam 7 hari setelah Anda membayar</strong>, (a) grup dihapus, (b) Anda dikeluarkan oleh admin grup bukan karena melanggar aturan, atau (c) akses grup tidak berfungsi. Ajukan lewat email di bawah dengan menyebut nama grup dan waktu pembayaran; kami meninjau setiap pengajuan. Di luar keadaan itu, pembayaran akses grup tidak dikembalikan.</li>
+        <li><strong>Mitra kreator:</strong> Star yang dibayarkan untuk grup berbayar tidak menjadi saldo kreator. Bagi hasil untuk mitra kreator diatur dalam perjanjian tertulis terpisah dan dibayar di luar aplikasi; tidak ada fitur penarikan atau pencairan di aplikasi. Kami dapat mencabut status mitra kreator, dan grup berbayarnya berhenti menerima pembayaran.</li>
+        <li><strong>Penyalahgunaan:</strong> kami dapat membatalkan Star yang diperoleh lewat kesalahan sistem, penipuan, atau pembelian yang tidak sah, dan menangguhkan akun yang terlibat.</li>
+        <li><strong>Akun dihapus atau ditutup:</strong> saldo Star yang tersisa hangus dan tidak dapat dikembalikan atau diuangkan. Catatan transaksi Star disimpan seperti dijelaskan di <a href="/privacy">Kebijakan Privasi</a>.</li>
+        <li><strong>Perubahan fitur:</strong> kami dapat mengubah harga paket Star, harga minimum dan maksimum grup, atau menghentikan fitur Star dengan pemberitahuan di aplikasi. Bila fitur Star dihentikan, kami akan memberi tahu cara penanganan saldo yang tersisa.</li>
+      </ul>
+
       <h2>6. Layanan apa adanya</h2>
       <p>
         Layanan disediakan &ldquo;sebagaimana adanya&rdquo; selama masa beta. Kami berupaya menjaganya tetap berjalan, tetapi tidak

@@ -1,11 +1,15 @@
 /**
  * WuzzChat Mobile UI - DeleteAccountModal
  * Konfirmasi hapus akun permanen dengan re-autentikasi password atau akun Google (syarat kebijakan Google Play).
+ * Star (keputusan K9): bila fitur Star aktif dan saldo > 0, saldo ditampilkan dan tombol hapus terkunci sampai pengguna
+ * mencentang bahwa saldo akan hangus. Saldo dimuat ulang setiap modal dibuka; 404 (fitur mati) = tanpa bagian Star.
  */
 
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { radius, shadows, spacing, useThemedStyles, ColorTokens, makeTypography } from '../theme';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { radius, shadows, spacing, useTheme, useThemedStyles, ColorTokens, makeTypography } from '../theme';
+import { formatStars, starsApi } from '../api/stars';
+import { Icon } from './Icon';
 import { Button } from './Button';
 import { Input } from './Input';
 import { IconText } from './IconText';
@@ -26,7 +30,11 @@ export interface DeleteAccountModalProps {
 
 export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible, onClose, onConfirm, hasPassword = true, googleLinked = false }) => {
   const styles = useThemedStyles(makeStyles);
+  const { colors } = useTheme();
   const [password, setPassword] = useState('');
+  // null = fitur Star mati atau belum dimuat (tanpa bagian Star).
+  const [starBalance, setStarBalance] = useState<number | null>(null);
+  const [starsAck, setStarsAck] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   // Akun dengan dua metode: pengguna memilih password atau Google. Akun Google-only selalu Google.
@@ -40,10 +48,29 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
       setError(null);
       setIsDeleting(false);
       setPreferGoogle(false);
+      setStarBalance(null);
+      setStarsAck(false);
+      return;
     }
+    const controller = new AbortController();
+    starsApi
+      .getWallet(controller.signal)
+      .then((w) => {
+        if (!controller.signal.aborted) setStarBalance(w.balance);
+      })
+      .catch(() => {
+        // 404 = fitur mati; galat jaringan: tidak menahan penghapusan (server tetap menyimpan catatan transaksi).
+      });
+    return () => controller.abort();
   }, [visible]);
 
+  const needsStarsAck = starBalance !== null && starBalance > 0;
+
   const handleConfirm = async () => {
+    if (needsStarsAck && !starsAck) {
+      setError('Centang konfirmasi saldo Star untuk melanjutkan.');
+      return;
+    }
     if (usePassword && !password) {
       setError('Masukkan kata sandi untuk melanjutkan.');
       return;
@@ -91,7 +118,33 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
               <Text style={styles.listItem}>• Semua pesan yang Anda kirim, postingan, dan komentar</Text>
               <Text style={styles.listItem}>• Daftar teman dan keanggotaan grup (kepemilikan grup dialihkan)</Text>
               <Text style={styles.listItem}>• Riwayat chat dan media di perangkat ini</Text>
+              {starBalance !== null ? (
+                <Text style={styles.listItem}>• Catatan transaksi Star tetap disimpan sampai 10 tahun (kewajiban pajak), tanpa profil Anda</Text>
+              ) : null}
             </View>
+            {needsStarsAck ? (
+              <View style={styles.starBox}>
+                <Text style={styles.starTitle}>Saldo Star Anda: {formatStars(starBalance!)}</Text>
+                <Text style={styles.starText}>Saldo ini akan hangus dan tidak dapat dipindahkan, dikembalikan, atau diuangkan.</Text>
+                <TouchableOpacity
+                  style={styles.ackRow}
+                  onPress={() => {
+                    setStarsAck((v) => !v);
+                    if (error) setError(null);
+                  }}
+                  disabled={isDeleting}
+                  activeOpacity={0.7}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: starsAck, disabled: isDeleting }}
+                  accessibilityLabel={`Saya mengerti saldo ${formatStars(starBalance!)} akan hangus`}
+                >
+                  <View style={[styles.ackBox, starsAck && styles.ackBoxChecked]}>
+                    {starsAck ? <Icon name="check" size={16} color={colors.textOnAccent} /> : null}
+                  </View>
+                  <Text style={styles.ackText}>Saya mengerti saldo {formatStars(starBalance!)} akan hangus.</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
             {usePassword ? (
               <Input
                 label="Kata sandi"
@@ -115,7 +168,14 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({ visible,
             )}
             {!usePassword && error ? <Text style={styles.errorText}>{error}</Text> : null}
             <View style={styles.actions}>
-              <Button title={usePassword ? 'Hapus Akun Saya' : 'Konfirmasi dengan Google & Hapus'} variant="danger" isLoading={isDeleting} onPress={handleConfirm} style={styles.btn} />
+              <Button
+                title={usePassword ? 'Hapus Akun Saya' : 'Konfirmasi dengan Google & Hapus'}
+                variant="danger"
+                isLoading={isDeleting}
+                disabled={needsStarsAck && !starsAck}
+                onPress={handleConfirm}
+                style={styles.btn}
+              />
               {canChoose ? (
                 <Button
                   title={usePassword ? 'Lupa kata sandi? Gunakan Google' : 'Gunakan kata sandi'}
@@ -178,6 +238,31 @@ const makeStyles = (colors: ColorTokens) => {
   googleNote: { ...typography.bodySecondary, color: colors.textSecondary, alignSelf: 'stretch', marginBottom: spacing.sm },
   errorText: { ...typography.caption, color: colors.colorError, alignSelf: 'stretch', marginBottom: spacing.sm },
   actions: { width: '100%', gap: spacing.sm, marginTop: spacing.md },
+  starBox: {
+    alignSelf: 'stretch',
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.colorWarning,
+    backgroundColor: colors.tintWarning10,
+    gap: spacing.xs,
+  },
+  starTitle: { ...typography.body, color: colors.textPrimary, fontWeight: '700' },
+  starText: { ...typography.bodySecondary, color: colors.textSecondary },
+  ackRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, marginTop: spacing.sm },
+  ackBox: {
+    width: 24,
+    height: 24,
+    borderRadius: radius.sm,
+    borderWidth: 1.5,
+    borderColor: colors.borderDefault,
+    backgroundColor: colors.bgInput,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ackBoxChecked: { backgroundColor: colors.accentFill, borderColor: colors.accentPrimary },
+  ackText: { ...typography.bodySecondary, color: colors.textPrimary, flex: 1 },
   btn: { width: '100%', height: 48, borderRadius: radius.lg },
 });
 };

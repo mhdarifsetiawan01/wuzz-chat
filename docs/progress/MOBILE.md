@@ -1,5 +1,10 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+## Peringatan saldo Star di Hapus Akun, keputusan K9 (15 Nov 2026, di `dev`, butuh build baru)
+
+- `DeleteAccountModal` memuat saldo Star setiap kali dibuka (`GET /api/me/stars`; 404 = fitur mati, tanpa bagian Star). Saldo > 0: kotak peringatan "Saldo Star Anda: N Star … akan hangus" dan centang "Saya mengerti …"; tombol hapus terkunci sampai dicentang. Bila fitur aktif, daftar yang dihapus menambah baris "Catatan transaksi Star tetap disimpan sampai 10 tahun". Galat jaringan saat memuat saldo tidak menahan penghapusan.
+- **Bukti:** *tes saja* (`npx tsc --noEmit` lolos, `npm run test:unit` 48/48; tidak ada tes unit khusus modal). **Belum** dilihat di HP (butuh build baru dan sakelar `STARS_ENABLED` menyala sementara).
+
 ## Tambah Star lewat Google Play, V2 Tahap 2b (14 Nov 2026; build 1.45.0/77 di Internal testing; *terbukti* di HP 15 Nov 2026; tersembunyi selama `STARS_PLAY_BILLING` mati)
 
 - **Uji nyata 14-15 Nov 2026 (*terbukti*):** APK 1.45.0 (77) via adb, profil utama Realme, akun Play penguji lisensi. Lolos: harga Play, beli + konsumsi, batal, kartu ditolak, tertunda lalu masuk otomatis, voided dibalik server (−500), dan dari HP kedua beli Star di halaman undangan berbayar lalu bayar dan masuk grup. Rincian: `docs/plans/backlog/STARS_PLAY_BILLING.md` 12d. Sakelar dimatikan lagi setelah uji.
