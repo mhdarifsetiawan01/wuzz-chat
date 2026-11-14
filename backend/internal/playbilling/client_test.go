@@ -66,6 +66,23 @@ func TestServiceAccountTokenSource_ExchangesAndCaches(t *testing.T) {
 	}
 }
 
+func TestParseServiceAccountJSON(t *testing.T) {
+	sa := testServiceAccount(t, "")
+	raw, _ := json.Marshal(map[string]string{"type": "service_account", "client_email": sa.ClientEmail, "private_key": sa.PrivateKey})
+	got, err := ParseServiceAccountJSON(raw)
+	if err != nil || got.ClientEmail != sa.ClientEmail {
+		t.Fatalf("parse: %+v %v", got, err)
+	}
+	if _, err := NewServiceAccountTokenSource(got, AndroidPublisherScope, nil); err != nil {
+		t.Fatalf("kunci dari JSON satu baris: %v", err)
+	}
+	for _, bad := range []string{"", "{", `{"client_email":"x"}`} {
+		if _, err := ParseServiceAccountJSON([]byte(bad)); err == nil {
+			t.Fatalf("%q seharusnya ditolak", bad)
+		}
+	}
+}
+
 func TestServiceAccountTokenSource_Rejected(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"invalid_grant"}`, http.StatusBadRequest)

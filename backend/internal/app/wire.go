@@ -761,10 +761,16 @@ func (a *Application) Close() error {
 
 // newPlayBillingService merakit layanan pembelian Star lewat Google Play (Tahap 2b). Berkas service account wajib ada.
 func newPlayBillingService(cfg *config.Config, starStore *store.StarStore) (*playbilling.Service, error) {
-	if cfg.PlayServiceAccountFile == "" {
-		return nil, fmt.Errorf("PLAY_SERVICE_ACCOUNT_FILE kosong")
+	var sa *playbilling.ServiceAccount
+	var err error
+	switch {
+	case cfg.PlayServiceAccountJSON != "":
+		sa, err = playbilling.ParseServiceAccountJSON([]byte(cfg.PlayServiceAccountJSON))
+	case cfg.PlayServiceAccountFile != "":
+		sa, err = playbilling.LoadServiceAccountFile(cfg.PlayServiceAccountFile)
+	default:
+		return nil, fmt.Errorf("PLAY_SERVICE_ACCOUNT_JSON dan PLAY_SERVICE_ACCOUNT_FILE kosong")
 	}
-	sa, err := playbilling.LoadServiceAccountFile(cfg.PlayServiceAccountFile)
 	if err != nil {
 		return nil, err
 	}

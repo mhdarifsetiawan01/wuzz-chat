@@ -59,6 +59,11 @@ func LoadServiceAccountFile(path string) (*ServiceAccount, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gagal membaca berkas service account: %w", err)
 	}
+	return ParseServiceAccountJSON(b)
+}
+
+// ParseServiceAccountJSON membaca isi JSON service account (mis. dari env satu baris, sama seperti FCM_CREDENTIALS).
+func ParseServiceAccountJSON(b []byte) (*ServiceAccount, error) {
 	var sa ServiceAccount
 	if err := json.Unmarshal(b, &sa); err != nil {
 		return nil, fmt.Errorf("berkas service account bukan JSON yang valid: %w", err)

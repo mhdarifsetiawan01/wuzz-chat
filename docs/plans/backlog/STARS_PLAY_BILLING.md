@@ -64,7 +64,7 @@ Sumber: developers.google.com/android-publisher (productsv2, voided-purchases), 
 |---|---|
 | `STARS_PLAY_BILLING` | Menyalakan daftar paket, endpoint pembelian, worker konsumsi dan voided. Butuh `STARS_ENABLED=true`. |
 | `PLAY_PACKAGE_NAME` | Bawaan `com.wuzzchat.mobile` |
-| `PLAY_SERVICE_ACCOUNT_FILE` | Berkas JSON service account Google Cloud yang diberi akses di Play Console. **Terpisah dari kredensial FCM.** Disimpan di VPS, tidak di-commit. |
+| `PLAY_SERVICE_ACCOUNT_JSON` / `PLAY_SERVICE_ACCOUNT_FILE` | Kunci JSON service account Google Cloud yang diberi akses di Play Console. **Terpisah dari kredensial FCM.** Di VPS pakai `_JSON` (satu baris di `.env`; kontainer tidak me-mount berkas), `_FILE` untuk lokal. Tidak di-commit. |
 
 Token akses diambil dengan JWT service account (scope `https://www.googleapis.com/auth/androidpublisher`), memakai ulang pola `push/fcm.go` (dipindah ke helper bersama), tanpa dependensi baru.
 
@@ -86,7 +86,7 @@ Token akses diambil dengan JWT service account (scope `https://www.googleapis.co
 1. **Produk:** buat 3 produk sekali beli (bagian 3), harga IDR, status aktif. Tidak terlihat pengguna sampai aplikasi memakainya.
 2. **Penguji lisensi:** Pengaturan > Pengujian lisensi; tambahkan akun Google penguji (pembelian uji tidak menagih).
 3. **Akses API:** buat/ pilih proyek Google Cloud, aktifkan *Google Play Android Developer API*, buat service account, unduh kunci JSON; di Play Console > Pengguna dan izin, undang email service account dengan izin melihat data keuangan dan mengelola pesanan **(verifikasi nama izin)**. Izin baru bisa butuh waktu sampai sekitar sehari sebelum aktif **(verifikasi)**.
-4. Simpan JSON di VPS, isi `PLAY_SERVICE_ACCOUNT_FILE`, sakelar tetap mati sampai uji.
+4. Masukkan JSON sebagai satu baris ke `PLAY_SERVICE_ACCOUNT_JSON` di `.env` VPS, sakelar tetap mati sampai uji.
 5. Uji di track **Internal testing** dengan build ber-`expo-iap`.
 
 ## 11. Pengujian
