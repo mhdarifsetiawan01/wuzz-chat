@@ -58,6 +58,8 @@ type Config struct {
 	StarsPlayBilling       bool
 	PlayPackageName        string
 	PlayServiceAccountFile string
+	// PlayServiceAccountJSON: isi JSON service account satu baris (alternatif berkas; kontainer produksi tidak me-mount berkas).
+	PlayServiceAccountJSON string
 	// MemoryQuotaEnabled menyalakan kuota ringkasan AI per paket (env MEMORY_QUOTA_ENABLED=true). Default mati.
 	MemoryQuotaEnabled      bool
 	// GameEnabled menyalakan game harian Wuzz Grid (env GAME_ENABLED=true). Default mati: endpoint /api/game/* menolak.
@@ -153,6 +155,7 @@ func Load() (*Config, error) {
 		StarsPlayBilling:        isTrueEnv(os.Getenv("STARS_ENABLED")) && isTrueEnv(os.Getenv("STARS_PLAY_BILLING")),
 		PlayPackageName:         getEnv("PLAY_PACKAGE_NAME", "com.wuzzchat.mobile"),
 		PlayServiceAccountFile:  strings.TrimSpace(os.Getenv("PLAY_SERVICE_ACCOUNT_FILE")),
+		PlayServiceAccountJSON:  strings.TrimSpace(os.Getenv("PLAY_SERVICE_ACCOUNT_JSON")),
 		MemoryQuotaEnabled:      isTrueEnv(os.Getenv("MEMORY_QUOTA_ENABLED")),
 		GameEnabled:             isTrueEnv(os.Getenv("GAME_ENABLED")),
 		GameReminderTime:        strings.TrimSpace(os.Getenv("GAME_REMINDER_TIME")),

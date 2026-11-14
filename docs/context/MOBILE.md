@@ -106,6 +106,7 @@ Dokumen ini adalah acuan konteks utama untuk pengembangan aplikasi mobile (**Rea
 
 - `handleDeepLink` di `App.tsx` urutannya: `/u/` (profil), `/join/<token>` (undangan grup privat → layar `Invite`), lalu `/g|sub|room/` (grup/forum, termasuk kode pendek).
 - App Links `https://chat.wuzzhub.id/<prefix>` hanya membuka aplikasi untuk prefiks yang terdaftar: `/u`, `/g`, `/sub`, `/room`, `/join` (sejak 14 Nov 2026). Skema `wuzzchat://` menerima semua path.
+- **Jebakan yang sama untuk `expo-iap` (Star Tahap 2b, 14 Nov 2026):** pin toko Play ada di plugin `app.json` dan **juga** baris `openiapStore=play` di `android/gradle.properties` lokal (tidak di-commit). Prebuild ulang menulisnya dari plugin.
 - **Jebakan:** rilis memakai `mobile/android/` hasil `expo prebuild` yang di-gitignore dan **tidak** di-prebuild ulang oleh skrip rilis. Prefiks baru wajib ditambahkan di `app.json` (sumber kebenaran) **dan** di `android/app/src/main/AndroidManifest.xml` lokal, atau jalankan prebuild; kalau tidak, tautan https terbuka di browser.
 
 ### G. Community Social Feed & Viral Share Loop (Milestone M-Mobile-9)
@@ -128,7 +129,7 @@ mobile/
 │   │   ├── client.ts           # Axios REST client (User-Agent: WuzzChat-Mobile/1.0, X-Device-Platform: android)
 │   │   ├── feed.ts             # API client untuk Community Social Feed
 │   │   ├── invites.ts          # Tautan undangan grup privat (V2 Tahap 1): kelola tautan, pratinjau, ajukan, batal
-│   │   ├── stars.ts            # Star & grup berbayar (V2 Tahap 2a): dompet, Star diterima, harga grup, bayar akses (Idempotency-Key); 404 = sembunyikan UI
+│   │   ├── stars.ts            # Star & grup berbayar (V2 Tahap 2a/2b): dompet (+utang), Star diterima, harga grup, bayar akses (Idempotency-Key), paket & kirim pembelian Play; 404 = sembunyikan UI
 │   │   ├── links.ts            # Tautan pendek grup/forum (pola kode menerima huruf `i` sejak 14 Nov 2026)
 │   │   ├── messages.ts         # API client riwayat obrolan & direct chat
 │   │   └── types.ts            # Type definitions API, User, Feed, & Error response

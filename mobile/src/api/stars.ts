@@ -4,13 +4,14 @@
  *
  * Semua endpoint di belakang sakelar server (STARS_ENABLED, PAID_GROUPS_ENABLED). Sakelar mati = 404, dan klien
  * menyembunyikan seluruh UI Star. Istilah UI netral: "Saldo Star", "Riwayat Star", "Star diterima".
- * Tahap 2a tidak punya pembelian Star (tidak ada tombol "Beli Star").
+ * Tahap 2b: Star dibeli lewat Google Play (sakelar STARS_PLAY_BILLING; 404 = tombol "Tambah Star" tersembunyi).
+ * Alur pembelian native ada di services/starBilling.ts; berkas ini hanya klien HTTP (bebas modul native, diuji di Node).
  */
 
 import * as Crypto from 'expo-crypto';
 import { apiClient } from './client';
 
-export type StarLedgerKind = 'purchase' | 'spend' | 'refund' | 'test_grant' | 'adjustment' | 'reversal';
+export type StarLedgerKind = 'purchase' | 'spend' | 'refund' | 'test_grant' | 'adjustment' | 'reversal' | 'debt_repay';
 
 export interface StarLedgerEntry {
   id: string;
@@ -26,6 +27,8 @@ export interface StarLedgerEntry {
 
 export interface StarWallet {
   balance: number;
+  /** Utang Star dari pembelian Play yang dibatalkan Google. Selama > 0, bayar akses grup ditolak (402 stars_debt). */
+  debt: number;
   /** 50 entri terbaru, terbaru lebih dulu. */
   history: StarLedgerEntry[];
 }
@@ -62,6 +65,26 @@ export interface PaidGroupSettings {
   price_max: number;
 }
 
+/** Paket Star yang dijual lewat Google Play (Tahap 2b). */
+export interface StarPackage {
+  product_id: string;
+  stars: number;
+}
+
+export interface StarPackagesResponse {
+  packages: StarPackage[];
+  /** SHA-256 ID pengguna; wajib dipasang sebagai obfuscatedAccountId saat membeli. */
+  account_id: string;
+}
+
+/** Hasil POST /api/me/stars/purchases. state "pending" = pembayaran belum selesai di Google (HTTP 202). */
+export interface PlayCreditResult {
+  state: 'credited' | 'pending';
+  stars_added: number;
+  balance: number;
+  debt: number;
+}
+
 export interface StarPurchaseResult {
   group_id: string;
   status: 'member';
@@ -79,7 +102,26 @@ export const starsApi = {
   /** GET /api/me/stars: saldo + 50 entri terakhir. 404 bila STARS_ENABLED mati. */
   async getWallet(signal?: AbortSignal): Promise<StarWallet> {
     const res = await apiClient<StarWallet>('/api/me/stars', { method: 'GET', signal });
-    return { balance: res?.balance ?? 0, history: Array.isArray(res?.history) ? res.history : [] };
+    return { balance: res?.balance ?? 0, debt: res?.debt ?? 0, history: Array.isArray(res?.history) ? res.history : [] };
+  },
+
+  /** GET /api/me/stars/packages: paket Star yang dijual. 404 bila STARS_PLAY_BILLING mati. */
+  async getPackages(signal?: AbortSignal): Promise<StarPackagesResponse> {
+    const res = await apiClient<StarPackagesResponse>('/api/me/stars/packages', { method: 'GET', signal });
+    return { packages: Array.isArray(res?.packages) ? res.packages : [], account_id: res?.account_id ?? '' };
+  },
+
+  /**
+   * POST /api/me/stars/purchases: server memverifikasi token ke Google lalu menambah Star. Idempoten per token, jadi aman
+   * dikirim ulang (setelah timeout atau saat memulihkan pembelian yang belum selesai).
+   */
+  async submitPlayPurchase(productId: string, purchaseToken: string, signal?: AbortSignal): Promise<PlayCreditResult> {
+    return apiClient<PlayCreditResult>('/api/me/stars/purchases', {
+      method: 'POST',
+      body: JSON.stringify({ product_id: productId, purchase_token: purchaseToken }),
+      signal,
+      timeoutMs: 30_000,
+    });
   },
 
   /** GET /api/me/stars/received: ringkasan Star diterima per grup (untuk mitra kreator). */
@@ -141,7 +183,9 @@ export const starKindLabel = (kind: string): string => {
     case 'purchase':
       return 'Tambah Star';
     case 'reversal':
-      return 'Pembatalan';
+      return 'Pembatalan pembelian';
+    case 'debt_repay':
+      return 'Pelunasan Star';
     default:
       return 'Star';
   }

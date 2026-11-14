@@ -7,6 +7,7 @@
 - **Celah yang ditemukan tes dan ditutup:** token yang sudah dikreditkan bila dikirim ulang dengan `product_id` lain dijawab "credited" (tanpa Star tambahan); kini 400 `product_mismatch`.
 - **Tes:** `store/stars_play_test.go` (pemetaan produk; kredit idempoten dan kepemilikan; void dengan saldo cukup, dengan utang, blokir belanja, pelunasan penuh dan sebagian; cursor; 8 kredit bersamaan token sama = tepat 1), `playbilling/client_test.go` (pertukaran dan cache token, parsing `productsv2`, 404/500, consume, voided + halaman), `playbilling/service_test.go` (alur kredit, pending lalu purchased, akun/produk tidak cocok, dibatalkan, konsumsi gagal lalu disapu, voided sekali, cursor), `api/stars_play_handler_test.go` (404 saat mati, kode status, token tidak bocor ke admin).
 - **Bukti:** *tes saja*. `go test ./...` lolos (SQLite); `./internal/store ./internal/api ./internal/playbilling` lolos di Postgres 16 sementara.
+- **Tambahan 14 Nov 2026:** `PLAY_SERVICE_ACCOUNT_JSON` (JSON satu baris, seperti `FCM_CREDENTIALS`) karena kontainer produksi tidak me-mount berkas; tes `TestParseServiceAccountJSON`.
 - **Belum:** deploy (aman: sakelar mati, migrasi hanya menambah tabel), web admin, mobile, persiapan Play Console/Google Cloud, uji nyata dengan penguji lisensi (termasuk nama parameter halaman voided).
 
 ### Star & grup privat berbayar, Wuzz Chat V2 Tahap 2a (14 Nov 2026, di `dev`, belum dideploy, sakelar mati)
