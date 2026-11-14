@@ -23,6 +23,7 @@ import {
   PostReaderScreen,
   GameScreen,
   InviteScreen,
+  StarsScreen,
 } from '../screens';
 import { MainTabNavigator } from './MainTabNavigator';
 import { useTheme } from '../theme';
@@ -291,6 +292,17 @@ export const AppNavigator: React.FC = () => {
             }}
           />
         )}
+      </Stack.Screen>
+
+      {/* 11. Saldo & Riwayat Star (V2 Tahap 2a) */}
+      <Stack.Screen
+        name="Stars"
+        options={{
+          animation: 'slide_from_right',
+          gestureEnabled: true,
+        }}
+      >
+        {({ navigation }) => <StarsScreen onBack={() => navigation.goBack()} />}
       </Stack.Screen>
 
       {/* Future modular screens can simply be appended here */}

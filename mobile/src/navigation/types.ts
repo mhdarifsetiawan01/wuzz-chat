@@ -70,6 +70,8 @@ export type RootStackParamList = {
   Game: undefined;
   /** Undangan grup privat dari tautan /join/<token> (V2 Tahap 1) */
   Invite: { token: string };
+  /** Saldo & Riwayat Star (V2 Tahap 2a; hanya terjangkau bila STARS_ENABLED) */
+  Stars: undefined;
   /** Friends list & pending connection requests */
   FriendsList?: {
     initialTab?: 'friends' | 'requests';

@@ -1,6 +1,6 @@
 # 💫 Domain: Star & Grup Privat Berbayar (V2 Tahap 2)
 
-> Status (14 Nov 2026): **Tahap 2a backend selesai di `dev`, *tes saja*, semua sakelar mati.** `/admin/stars` web selesai di `dev` (uji ujung-ke-ujung lokal). Mobile dan Play Billing (Tahap 2b) belum. **Tidak boleh dirilis ke pengguna** sebelum Tahap 0 (hukum, merchant Play, badan usaha) dan deklarasi Play (Financial features, Data Safety) selesai. Desain dan alasan: `docs/plans/backlog/STARS_PAID_GROUPS.md`; prinsip dan kebijakan Play: `docs/plans/backlog/ADS_AND_REWARDS_PLAN.md` bagian 14.
+> Status (14 Nov 2026): **Tahap 2a backend selesai di `dev`, *tes saja*, semua sakelar mati.** `/admin/stars` web selesai di `dev` (uji ujung-ke-ujung lokal). Mobile selesai di `dev` (*tes saja*, belum diuji di HP; `docs/progress/MOBILE.md`). Play Billing (Tahap 2b) belum. **Tidak boleh dirilis ke pengguna** sebelum Tahap 0 (hukum, merchant Play, badan usaha) dan deklarasi Play (Financial features, Data Safety) selesai. Desain dan alasan: `docs/plans/backlog/STARS_PAID_GROUPS.md`; prinsip dan kebijakan Play: `docs/plans/backlog/ADS_AND_REWARDS_PLAN.md` bagian 14.
 
 ## 1. Aturan bisnis (invarian)
 
@@ -32,7 +32,7 @@ Rincian payload: `docs/BACKEND_API.md` 35d. Ringkas: `GET /api/me/stars`, `GET /
 
 ## 5. Kode
 
-`store/stars.go` (`StarStore`), integrasi undangan di `store/invite_links.go` (`SetStarStore`, mode `paid`), `api/stars_handler.go`, rute di `api/group_handler.go` / `api/group_invite_handler.go` / `app/router.go`, perakitan `app/wire.go`, `GroupService.SetPaidGroupChecker`. Tes: `store/stars_test.go` (termasuk pembayaran bersamaan; di SQLite sebagian transaksi bersamaan ditolak `SQLITE_BUSY` karena `busy_timeout` hanya terpasang di satu koneksi pool, keterbatasan lama), `api/stars_handler_test.go`.
+`store/stars.go` (`StarStore`), integrasi undangan di `store/invite_links.go` (`SetStarStore`, mode `paid`), `api/stars_handler.go`, rute di `api/group_handler.go` / `api/group_invite_handler.go` / `app/router.go`, perakitan `app/wire.go`, `GroupService.SetPaidGroupChecker`. Tes: `store/stars_test.go` (termasuk pembayaran bersamaan; di SQLite sebagian transaksi bersamaan ditolak `SQLITE_BUSY` karena `busy_timeout` hanya terpasang di satu koneksi pool, keterbatasan lama), `api/stars_handler_test.go`. Mobile: `mobile/src/api/stars.ts`, `StarsScreen`, `PaidGroupSection`, mode paid di `InviteScreen` (semua tersembunyi bila endpoint 404).
 
 ## 6. Jebakan
 

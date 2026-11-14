@@ -128,6 +128,7 @@ mobile/
 │   │   ├── client.ts           # Axios REST client (User-Agent: WuzzChat-Mobile/1.0, X-Device-Platform: android)
 │   │   ├── feed.ts             # API client untuk Community Social Feed
 │   │   ├── invites.ts          # Tautan undangan grup privat (V2 Tahap 1): kelola tautan, pratinjau, ajukan, batal
+│   │   ├── stars.ts            # Star & grup berbayar (V2 Tahap 2a): dompet, Star diterima, harga grup, bayar akses (Idempotency-Key); 404 = sembunyikan UI
 │   │   ├── links.ts            # Tautan pendek grup/forum (pola kode menerima huruf `i` sejak 14 Nov 2026)
 │   │   ├── messages.ts         # API client riwayat obrolan & direct chat
 │   │   └── types.ts            # Type definitions API, User, Feed, & Error response
@@ -148,7 +149,8 @@ mobile/
 │   │   ├── RecentChatsScreen.tsx   # Fullscreen chat list, debounced search, pill filters, FAB (+ Chat)
 │   │   ├── ChatScreen.tsx          # Fullscreen active chat room, timeline, voice notes, attachments
 │   │   ├── FeedScreen.tsx          # Community Social Feed timeline (Terbaru & Jelajah)
-│   │   ├── InviteScreen.tsx        # Undangan grup privat dari /join/<token>: pratinjau, Ajukan Bergabung, status menunggu/ditolak
+│   │   ├── InviteScreen.tsx        # Undangan grup privat dari /join/<token>: pratinjau, Ajukan Bergabung, status menunggu/ditolak; mode paid: Bayar N Star & Masuk
+│   │   ├── StarsScreen.tsx         # Saldo Star, Star diterima (mitra kreator), Riwayat Star (route Stars; pintu dari Pengaturan bila STARS_ENABLED)
 │   │   ├── CallsHistoryScreen.tsx  # Riwayat panggilan WebRTC tersimpan di SQLite & dialer
 │   │   ├── SettingsScreen.tsx      # Pengaturan akun, E2EE keys, perangkat tertaut, cache storage
 │   │   └── UserProfileScreen.tsx   # Profil publik modular, avatar, bio, medsos, & E2EE fingerprint
@@ -156,6 +158,7 @@ mobile/
 │   │   ├── ChatInputBar.tsx        # Input teks, tombol mic voice note, panel media picker
 │   │   ├── MessageBubble.tsx       # Bubble chat mobile, receipts centang, quote view
 │   │   ├── InviteLinkSection.tsx   # Kartu "Tautan Undangan" di Info Grup (admin grup privat) + pintu ke JoinRequestsModal
+│   │   ├── PaidGroupSection.tsx    # Kartu "Grup Berbayar" di Info Grup (creator grup privat yang mitra kreator; tersembunyi bila sakelar mati)
 │   │   ├── JoinRequestsModal.tsx   # Tinjau permohonan bergabung forum privat (sub_) dan grup privat (grp_)
 │   │   ├── CreatePostModal.tsx     # Modal buat postingan feed komunitas (teks, media, char counter)
 │   │   ├── PostCommentsModal.tsx   # Modal thread komentar feed dengan cursor-based infinite scroll

@@ -18,7 +18,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
@@ -47,6 +47,7 @@ import { isGoogleSignInAvailable } from '../services/googleAuth';
 import { useLinkGoogle } from '../hooks/useLinkGoogle';
 import { useReplaceGoogle } from '../hooks/useReplaceGoogle';
 import { formatDeadlineDate, getLinkDeadlineState } from '../utils/googleLinkDeadline';
+import { formatStars, starsApi } from '../api/stars';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Settings Menu Item
@@ -163,6 +164,24 @@ export const SettingsScreen: React.FC = () => {
   const linkDeadline = getLinkDeadlineState(user?.google_link_required_by, user?.google_linked, new Date());
   const { friends, pendingCount } = useConnection();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Saldo Star (V2 Tahap 2a): baris hanya tampil bila server menjawab (sakelar STARS_ENABLED menyala).
+  // 404 = sakelar mati, baris disembunyikan; galat jaringan tidak mengubah keadaan terakhir.
+  const [starBalance, setStarBalance] = useState<number | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      starsApi
+        .getWallet(controller.signal)
+        .then((w) => {
+          if (!controller.signal.aborted) setStarBalance(w.balance);
+        })
+        .catch((err: any) => {
+          if (!controller.signal.aborted && err?.status === 404) setStarBalance(null);
+        });
+      return () => controller.abort();
+    }, []),
+  );
 
   // Modals state
   const [isLinkedDevicesVisible, setIsLinkedDevicesVisible] = useState(false);
@@ -383,6 +402,17 @@ export const SettingsScreen: React.FC = () => {
             </>
           )}
         </SettingsSection>
+
+        {starBalance !== null && (
+          <SettingsSection title="Star">
+            <SettingsItem
+              icon={<Icon name="star" size={22} color={colors.accentPrimary} />}
+              title="Saldo Star"
+              subtitle={`${formatStars(starBalance)} · Riwayat Star`}
+              onPress={() => navigation.navigate('Stars')}
+            />
+          </SettingsSection>
+        )}
 
         <SettingsSection title="Perangkat & Keamanan">
           <SettingsItem
