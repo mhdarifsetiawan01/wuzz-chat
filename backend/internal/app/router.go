@@ -378,6 +378,15 @@ func (a *Application) setupRouter() http.Handler {
 		mux.HandleFunc("/api/me/stars/purchases", withCORS(func(w http.ResponseWriter, r *http.Request) {
 			auth.RequireJWT()(starsPurchaseLimit(http.HandlerFunc(a.StarsHandler.HandleMe))).ServeHTTP(w, r)
 		}))
+		// Daftar menjadi Creator: pengajuan 5/jam per pengguna (pembacaan status lewat rute umum di bawah).
+		creatorApplyLimit := api.UserRateLimitMsg(ratelimit.NewIPRateLimiter(5, time.Hour), "Terlalu banyak percobaan, coba lagi nanti.", 600)
+		mux.HandleFunc("/api/me/stars/creator-application", withCORS(func(w http.ResponseWriter, r *http.Request) {
+			next := http.Handler(http.HandlerFunc(a.StarsHandler.HandleMe))
+			if r.Method == http.MethodPost {
+				next = creatorApplyLimit(next)
+			}
+			auth.RequireJWT()(next).ServeHTTP(w, r)
+		}))
 		for _, p := range []string{"/api/me/stars", "/api/me/stars/"} {
 			mux.HandleFunc(p, withCORS(func(w http.ResponseWriter, r *http.Request) {
 				auth.RequireJWT()(http.HandlerFunc(a.StarsHandler.HandleMe)).ServeHTTP(w, r)

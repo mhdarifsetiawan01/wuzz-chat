@@ -357,3 +357,21 @@ func TestBuild(t *testing.T) {
 		t.Fatalf("telegram valid (tanpa duplikat): %v", d.Channels())
 	}
 }
+
+func TestDispatcher_CreatorApplicationLinksToStarsAndIsNotThrottled(t *testing.T) {
+	f := &fakeNotifier{name: "f"}
+	d := NewDispatcher(fastOpts(f))
+	d.Start()
+	defer d.Stop()
+	for i := 0; i < 4; i++ { // lebih dari NormalBurst (2): pendaftar Creator tidak ikut kuota laporan biasa
+		d.Enqueue(Event{Kind: KindCreatorApplication})
+	}
+	waitUntil(t, func() bool { return len(f.events()) == 4 }, "semua pendaftar terkirim")
+	ev := f.events()[0]
+	if ev.URL != "https://x/admin/stars" {
+		t.Fatalf("tautan: %q", ev.URL)
+	}
+	if txt := FormatText(ev); !strings.Contains(txt, "Pendaftar Creator") || !strings.Contains(txt, "https://x/admin/stars") {
+		t.Fatalf("teks: %q", txt)
+	}
+}

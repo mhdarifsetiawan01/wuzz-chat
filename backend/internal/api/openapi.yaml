@@ -1659,6 +1659,35 @@ paths:
         '502':
           description: play_unavailable (Google Play API error)
 
+  /api/me/stars/creator-application:
+    get:
+      tags: [Stars]
+      summary: Caller's "become a Creator" application status (PAID_GROUPS_ENABLED; 404 when off)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: >
+            Body: {"is_creator": bool, "application": {"id","status": "pending|approved|rejected","message","decision_note",
+            "decided_at","created_at"} | null, "can_apply": bool, "retry_at"?: RFC3339 (rejected, 7-day re-apply wait)}
+        '404':
+          description: Paid groups disabled
+    post:
+      tags: [Stars]
+      summary: Apply to become a Creator (reviewed by wuzz_admin; approval grants partner creator)
+      description: Body {"message": 10-500 chars}. Rate limit 5/hour per user. Staff are notified (Telegram) without user data.
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Created; body is the same state object as GET
+        '400':
+          description: message_invalid
+        '409':
+          description: application_pending | already_creator
+        '429':
+          description: 'reapply_cooldown (Retry-After header; body {"retry_at","retry_after_seconds"}) or rate limit'
+
   /api/me/stars/received:
     get:
       tags: [Stars]
@@ -1762,7 +1791,10 @@ paths:
         required: true
         schema:
           type: string
-        description: settings | creators | users/{id or username} | users/{ref}/test-grant | refund
+        description: >
+          settings | creators | users/{id or username} | users/{ref}/test-grant | refund | debtors |
+          purchases?state=credited|voided&include_test=1&limit=1..200 | creator-applications?status=pending|approved|rejected |
+          creator-applications/{id}/decide
     get:
       tags: [Stars]
       summary: Star admin tools, read (wuzz_admin only)
@@ -1770,7 +1802,11 @@ paths:
         - BearerAuth: []
       responses:
         '200':
-          description: settings (with flags), creators list, or a user's wallet
+          description: >
+            settings (with flags), creators list, a user's wallet (+ play_purchases), debtors, purchases
+            ({"purchases": [...], "summary": {"count","stars","voided_count","test_count"}}; no raw tokens), or
+            creator applications ({"applications": [{"id","user_id","username","display_name","status","message",
+            "decision_note","decided_by","decided_at","created_at"}]})
         '403':
           description: admin_only
     post:
@@ -1779,7 +1815,8 @@ paths:
       description: >
         creators {user, active, note}; users/{ref}/test-grant {stars 1..10000, reason} with Idempotency-Key
         (403 test_grants_disabled unless STARS_TEST_GRANTS); refund {spend_id, reason} (409 already_refunded /
-        earning_already_paid).
+        earning_already_paid); creator-applications/{id}/decide {approve, note} (approve also grants partner creator;
+        note is shown to the applicant; 404 application_not_found, 409 application_decided, 400 note_too_long).
       security:
         - BearerAuth: []
       responses:

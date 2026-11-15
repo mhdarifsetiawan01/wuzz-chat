@@ -568,6 +568,23 @@ func (s *SQLMessageStore) autoMigrate() error {
 			updated_at TIMESTAMP NOT NULL,
 			PRIMARY KEY (tenant_id, user_id)
 		);`,
+		// Permohonan menjadi Creator (mitra kreator). Hanya permohonan; hak tetap diberikan admin (paid_group_creators).
+		// Data pribadi biasa (bukan catatan keuangan): dihapus saat akun dihapus.
+		`CREATE TABLE IF NOT EXISTS creator_applications (
+			id VARCHAR(64) PRIMARY KEY,
+			tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+			user_id VARCHAR(64) NOT NULL,
+			status VARCHAR(16) NOT NULL DEFAULT 'pending',
+			message TEXT NOT NULL DEFAULT '',
+			decided_by VARCHAR(64) NOT NULL DEFAULT '',
+			decision_note TEXT NOT NULL DEFAULT '',
+			decided_at TIMESTAMP DEFAULT NULL,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL
+		);`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS uq_creator_applications_pending ON creator_applications(tenant_id, user_id) WHERE status = 'pending';`,
+		`CREATE INDEX IF NOT EXISTS idx_creator_applications_user ON creator_applications(tenant_id, user_id, created_at);`,
+		`CREATE INDEX IF NOT EXISTS idx_creator_applications_status ON creator_applications(tenant_id, status, created_at);`,
 		`CREATE TABLE IF NOT EXISTS paid_groups (
 			group_id VARCHAR(128) PRIMARY KEY,
 			creator_id VARCHAR(64) NOT NULL,

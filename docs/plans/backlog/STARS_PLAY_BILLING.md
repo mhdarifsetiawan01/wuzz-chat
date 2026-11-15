@@ -137,7 +137,7 @@ Build 1.45.0 (77) diunggah ke **Internal testing** (hanya agar Play mengenal apl
 - Persiapan yang sudah ada: produk `star_50`/`star_100`/`star_500` aktif (hanya Indonesia, Digital content, kuantitas tunggal, opsi beli `buy`); daftar penguji lisensi khusus **`Penguji Star`** (bukan daftar "Internal Test" 11 orang, agar mereka tidak mendapat Star gratis); service account `play-billing-wc@…` diundang di Play Console; `PLAY_SERVICE_ACCOUNT_JSON` di `.env` VPS.
 - Dialog Play menampilkan "+ tax", sedangkan Console menulis "No VAT" untuk Indonesia: tanyakan ke konsultan pajak (Tahap 0 C).
 - **Belum teruji:** halaman kedua voided (`pageSelection.token`; daftar hanya satu halaman), aplikasi dimatikan setelah bayar (pemulihan saat dibuka), akun lain di perangkat yang sama (`purchase_account_mismatch`), utang (voided setelah Star dibelanjakan), refund manual dari Order management.
-- **Temuan kecil:** layar Saldo Star yang sedang terbuka tidak memuat ulang saat aplikasi kembali dari latar belakang; saldo baru setelah layar dibuka ulang.
+- **Temuan kecil:** layar Saldo Star yang sedang terbuka tidak memuat ulang saat aplikasi kembali dari latar belakang; saldo baru setelah layar dibuka ulang. **Diperbaiki di kode 15 Nov 2026** (`StarsScreen` memuat ulang saat `AppState` aktif; *tes saja*, perlu build 78+).
 
 ## 13. Urutan kerja (setelah disetujui)
 

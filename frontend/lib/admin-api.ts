@@ -3,7 +3,17 @@
 // sebenarnya ada di backend; peran dari JWT di sini hanya untuk menyembunyikan UI.
 
 import type { AdminEntitlementRow, AdminEntitlementStatus, GrandfatherPreview } from './adminPlans'
-import type { PaidCreator, StarFlags, StarSettings, StarWallet } from './adminStars'
+import type {
+  CreatorApplication,
+  CreatorApplicationStatus,
+  PaidCreator,
+  PlayPurchase,
+  PlayPurchaseSummary,
+  StarDebtor,
+  StarFlags,
+  StarSettings,
+  StarWallet,
+} from './adminStars'
 
 const TOKEN_KEY = 'wuzz_admin_token'
 
@@ -436,7 +446,7 @@ export function setPaidCreator(user: string, active: boolean, note: string) {
 }
 
 export function getStarUser(ref: string) {
-  return adminFetch<{ user_id: string; wallet: StarWallet }>(`/api/admin/stars/users/${encodeURIComponent(ref.trim().replace(/^@/, ''))}`)
+  return adminFetch<{ user_id: string; wallet: StarWallet; play_purchases?: PlayPurchase[] }>(`/api/admin/stars/users/${encodeURIComponent(ref.trim().replace(/^@/, ''))}`)
 }
 
 export function grantTestStars(ref: string, stars: number, reason: string, idempotencyKey: string) {
@@ -451,4 +461,32 @@ export function refundStarSpend(spendId: string, reason: string) {
     method: 'POST',
     body: JSON.stringify({ spend_id: spendId, reason }),
   })
+}
+
+// Pembelian Star lewat Google Play, semua pengguna (terbaru dulu, maks. 200). includeTest = sertakan penguji lisensi.
+export function listPlayPurchases(state: '' | 'credited' | 'voided', includeTest: boolean) {
+  const qs = new URLSearchParams()
+  if (state) qs.set('state', state)
+  if (includeTest) qs.set('include_test', '1')
+  const q = qs.toString()
+  return adminFetch<{ purchases: PlayPurchase[]; summary: PlayPurchaseSummary }>(`/api/admin/stars/purchases${q ? `?${q}` : ''}`)
+}
+
+export function listStarDebtors() {
+  return adminFetch<{ debtors: StarDebtor[] }>('/api/admin/stars/debtors')
+}
+
+// Permohonan "Daftar menjadi Creator". status kosong = semua.
+export function listCreatorApplications(status: '' | CreatorApplicationStatus) {
+  return adminFetch<{ applications: CreatorApplication[] }>(
+    `/api/admin/stars/creator-applications${status ? `?status=${status}` : ''}`,
+  )
+}
+
+// Setujui (= jadikan mitra kreator) atau tolak. note terlihat oleh pemohon.
+export function decideCreatorApplication(id: string, approve: boolean, note: string) {
+  return adminFetch<{ application: CreatorApplication }>(
+    `/api/admin/stars/creator-applications/${encodeURIComponent(id)}/decide`,
+    { method: 'POST', body: JSON.stringify({ approve, note }) },
+  )
 }

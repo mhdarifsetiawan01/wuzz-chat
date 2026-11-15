@@ -4,6 +4,13 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 
 ---
 
+### `/admin/stars`: Pendaftar Creator, Pembelian Star (Google Play) dan utang; `/privacy` (15 Nov 2026, di `dev`, belum dideploy)
+
+- Kartu **Pendaftar Creator** (tampil bila grup berbayar menyala): filter Menunggu/Semua, pesan pemohon, Setujui (= jadikan mitra kreator) / Tolak dengan catatan yang terlihat pemohon. Kartu **Pembelian Star (Google Play)**: 200 terbaru semua pengguna, filter status dan "sertakan pembelian uji", ringkasan, nomor pesanan GPA untuk dicocokkan dengan Play Console, klik username membuka dompetnya; daftar **Utang Star**. Badge sakelar menambah "Pembelian Play"; dompet menampilkan utang dan pembelian Play. Teks pembuka tidak lagi menyebut "belum boleh dibuka".
+- `/privacy` bagian Star: data permohonan Creator disimpan dan dihapus saat akun dihapus.
+- Berkas: `app/admin/stars/page.tsx`, `lib/adminStars.ts`, `lib/admin-api.ts`, `app/privacy/page.tsx`, tes `scripts/test/admin-stars.cjs`.
+- **Bukti:** *tes saja* (`node scripts/test/admin-stars.cjs`, `npm run build` lolos). **Belum:** deploy, dilihat di peramban.
+
 ### Halaman `/admin/stars` (V2 Tahap 2a, 14 Nov 2026, di `dev`, belum dideploy)
 
 - Halaman khusus `wuzz_admin` (tautan nav "Star"): status sakelar server (peringatan merah bila kredit uji aktif), pengaturan angka dengan contoh rumus bagian kreator dan dialog daftar perubahan, mitra kreator (jadikan/cabut, peringatan bahwa grup berbayarnya ikut nonaktif), dompet pengguna (saldo, riwayat dengan nama grup, refund per pembayaran dengan alasan wajib, kredit uji dengan kunci idempoten per dialog bila `STARS_TEST_GRANTS` menyala). Sakelar `STARS_ENABLED` mati = pesan "Star dimatikan di server". Istilah netral.

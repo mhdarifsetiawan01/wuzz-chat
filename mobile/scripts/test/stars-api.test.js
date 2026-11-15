@@ -85,7 +85,26 @@ const stars = loadFresh(['api/stars.ts']).stars;
     assert.doesNotMatch(label, /pendapatan|tarik|cair/i);
   }
 
-  console.log('stars-api: PASS (purchase idempotency header, wallet normalisation, paid settings, 404 hiding, formatting)');
+  // Daftar menjadi Creator: jalur, isi di-trim, jawaban dinormalisasi, validasi dan pesan galat.
+  nextResponse = { is_creator: false, application: { id: 'a1', status: 'pending', message: 'x', created_at: '2026-11-15T00:00:00Z' }, can_apply: false };
+  const st = await stars.starsApi.submitCreatorApplication('  Grup belajar gitar  ');
+  const post = calls[calls.length - 1];
+  assert.equal(post.path, '/api/me/stars/creator-application');
+  assert.equal(post.method, 'POST');
+  assert.deepEqual(JSON.parse(post.body), { message: 'Grup belajar gitar' });
+  assert.equal(st.application.status, 'pending');
+  assert.equal(st.retry_at, undefined);
+  nextResponse = {};
+  assert.deepEqual(await stars.starsApi.getCreatorApplication(), { is_creator: false, application: null, can_apply: false, retry_at: undefined });
+  assert.equal(calls[calls.length - 1].method, 'GET');
+  assert.match(stars.validateCreatorMessage('  pendek  '), /minimal 10/);
+  assert.match(stars.validateCreatorMessage('x'.repeat(501)), /Maksimal 500/);
+  assert.equal(stars.validateCreatorMessage('Grup belajar gitar'), null);
+  assert.match(stars.creatorApplyErrorMessage({ code: 'reapply_cooldown', status: 429 }), /ditolak/);
+  assert.match(stars.creatorApplyErrorMessage({ status: 429 }), /Terlalu banyak/);
+  assert.match(stars.creatorApplyErrorMessage({ status: 408 }), /koneksi/);
+
+  console.log('stars-api: PASS (purchase idempotency header, wallet normalisation, paid settings, 404 hiding, formatting, creator application)');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

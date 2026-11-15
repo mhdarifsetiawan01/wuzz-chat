@@ -85,6 +85,30 @@ export interface PlayCreditResult {
   debt: number;
 }
 
+export type CreatorApplicationStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CreatorApplication {
+  id: string;
+  status: CreatorApplicationStatus;
+  message: string;
+  /** Catatan admin saat memutuskan (terlihat oleh pemohon). */
+  decision_note?: string;
+  decided_at?: string;
+  created_at: string;
+}
+
+/** Status "Daftar menjadi Creator" milik pemanggil. 404 = grup berbayar mati: sembunyikan tombol. */
+export interface CreatorApplicationState {
+  is_creator: boolean;
+  application: CreatorApplication | null;
+  can_apply: boolean;
+  /** Diisi bila permohonan terakhir ditolak dan jeda pengajuan ulang (7 hari) belum lewat. */
+  retry_at?: string;
+}
+
+export const CREATOR_APP_MESSAGE_MIN = 10;
+export const CREATOR_APP_MESSAGE_MAX = 500;
+
 export interface StarPurchaseResult {
   group_id: string;
   status: 'member';
@@ -130,6 +154,22 @@ export const starsApi = {
     return { is_creator: Boolean(res?.is_creator), groups: Array.isArray(res?.groups) ? res.groups : [] };
   },
 
+  /** GET /api/me/stars/creator-application. 404 bila PAID_GROUPS_ENABLED mati. */
+  async getCreatorApplication(signal?: AbortSignal): Promise<CreatorApplicationState> {
+    const res = await apiClient<CreatorApplicationState>('/api/me/stars/creator-application', { method: 'GET', signal });
+    return normalizeCreatorState(res);
+  },
+
+  /** POST /api/me/stars/creator-application {message}: ajukan diri menjadi Creator (ditinjau admin). */
+  async submitCreatorApplication(message: string, signal?: AbortSignal): Promise<CreatorApplicationState> {
+    const res = await apiClient<CreatorApplicationState>('/api/me/stars/creator-application', {
+      method: 'POST',
+      body: JSON.stringify({ message: message.trim() }),
+      signal,
+    });
+    return normalizeCreatorState(res);
+  },
+
   /** GET /api/groups/{grp_id}/paid. 404 bila PAID_GROUPS_ENABLED mati. */
   async getGroupPaid(groupId: string, signal?: AbortSignal): Promise<PaidGroupSettings> {
     return apiClient<PaidGroupSettings>(`/api/groups/${encodeURIComponent(groupId)}/paid`, { method: 'GET', signal });
@@ -157,6 +197,38 @@ export const starsApi = {
       signal,
     });
   },
+};
+
+const normalizeCreatorState = (res: any): CreatorApplicationState => ({
+  is_creator: Boolean(res?.is_creator),
+  application: res?.application ?? null,
+  can_apply: Boolean(res?.can_apply),
+  retry_at: res?.retry_at || undefined,
+});
+
+/** Validasi isian sebelum dikirim; null = valid. Batas sama dengan server (10-500 karakter setelah trim). */
+export const validateCreatorMessage = (message: string): string | null => {
+  const n = Array.from(message.trim()).length;
+  if (n < CREATOR_APP_MESSAGE_MIN) return `Tulis minimal ${CREATOR_APP_MESSAGE_MIN} karakter.`;
+  if (n > CREATOR_APP_MESSAGE_MAX) return `Maksimal ${CREATOR_APP_MESSAGE_MAX} karakter.`;
+  return null;
+};
+
+/** Pesan galat pengajuan Creator dari kode server. */
+export const creatorApplyErrorMessage = (err: any): string => {
+  switch (err?.code) {
+    case 'message_invalid':
+      return `Ceritakan rencana grup Anda (${CREATOR_APP_MESSAGE_MIN}-${CREATOR_APP_MESSAGE_MAX} karakter).`;
+    case 'application_pending':
+      return 'Permohonan Anda masih ditinjau.';
+    case 'already_creator':
+      return 'Akun Anda sudah terdaftar sebagai Creator.';
+    case 'reapply_cooldown':
+      return 'Permohonan sebelumnya ditolak. Anda bisa mengajukan lagi nanti.';
+    default:
+      if (err?.status === 429) return 'Terlalu banyak percobaan. Coba lagi nanti.';
+      return 'Permohonan belum terkirim. Periksa koneksi lalu coba lagi.';
+  }
 };
 
 /** "1.250 Star" dengan pemisah ribuan Indonesia. */

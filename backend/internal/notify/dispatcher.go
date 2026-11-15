@@ -112,6 +112,9 @@ func (d *Dispatcher) link(ev Event) string {
 	if base == "" {
 		return ""
 	}
+	if ev.Kind == KindCreatorApplication {
+		return base + "/stars"
+	}
 	if ev.Kind == KindReport && ev.ReportID != "" {
 		return base + "/reports/" + url.PathEscape(ev.ReportID)
 	}

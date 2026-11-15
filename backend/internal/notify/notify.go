@@ -23,6 +23,8 @@ const (
 	KindReport Kind = "report" // satu laporan baru
 	KindDigest Kind = "digest" // ringkasan laporan biasa yang tidak dikirim satu per satu
 	KindTest   Kind = "test"   // uji konfigurasi saluran
+	// KindCreatorApplication: permohonan "Daftar menjadi Creator" baru (Star). Tanpa nama/username pemohon.
+	KindCreatorApplication Kind = "creator_application"
 )
 
 // Event adalah isi pemberitahuan. Sengaja tanpa field konten pengguna.
@@ -80,6 +82,8 @@ func FormatText(ev Event) string {
 	switch ev.Kind {
 	case KindDigest:
 		fmt.Fprintf(&b, "📋 Ringkasan laporan\n%d laporan biasa baru masuk dan tidak diberitahukan satu per satu.", ev.DigestCount)
+	case KindCreatorApplication:
+		b.WriteString("⭐ Pendaftar Creator baru\nAda permohonan menjadi Creator (grup berbayar) yang menunggu ditinjau.")
 	case KindTest:
 		b.WriteString("✅ Tes notifikasi moderasi Wuzz Chat\nSaluran ini berfungsi. Laporan baru akan muncul di sini.")
 	default:

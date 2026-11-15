@@ -8,7 +8,7 @@ function load(file) {
   const output = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
   const m = new Module(filename, module); m.filename = filename; m.paths = module.paths; m._compile(output, filename); return m.exports;
 }
-const { creatorShare, parseSettingsForm, settingsToForm, settingsDiff, formatStarDelta, formatMinor, starErrorMessage, newIdempotencyKey } = load('adminStars.ts');
+const { creatorShare, parseSettingsForm, settingsToForm, settingsDiff, formatStarDelta, formatMinor, starErrorMessage, newIdempotencyKey, playPurchaseLabel, CREATOR_APP_STATUS_LABEL } = load('adminStars.ts');
 
 const base = { star_value_minor: 100, currency: 'IDR', packages: [50, 100, 500], group_price_min: 10, group_price_max: 5000, store_fee_pct: 15, platform_pct: 20, hold_days: 14 };
 
@@ -46,3 +46,11 @@ assert.equal(starErrorMessage('lain', 'cadangan'), 'cadangan');
 assert.notEqual(newIdempotencyKey(), newIdempotencyKey());
 
 console.log('admin-stars: OK');
+
+// Label pembelian Play dan status pendaftar Creator.
+assert.equal(playPurchaseLabel({ state: 'credited', consumed: true, is_test: false }), 'Masuk');
+assert.equal(playPurchaseLabel({ state: 'credited', consumed: false, is_test: true }), 'Masuk · belum dikonsumsi · uji');
+assert.equal(playPurchaseLabel({ state: 'voided', consumed: true, is_test: false }), 'Dibatalkan Google');
+assert.equal(CREATOR_APP_STATUS_LABEL.pending, 'Menunggu');
+assert.match(starErrorMessage('application_decided', 'x'), /sudah diputuskan/);
+console.log('admin-stars: pembelian & pendaftar OK');

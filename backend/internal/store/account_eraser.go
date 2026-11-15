@@ -232,6 +232,7 @@ func (s *SQLAccountEraser) EraseUser(ctx context.Context, userID string) error {
 
 	// 5. Kredensial, sesi, perangkat, push token, dan token transfer/pertukaran.
 	for _, q := range []string{
+		`DELETE FROM creator_applications WHERE user_id = ?`,
 		`DELETE FROM game_attempts WHERE user_id = ?`,
 		`DELETE FROM game_streaks WHERE user_id = ?`,
 		`DELETE FROM game_settings WHERE user_id = ?`,

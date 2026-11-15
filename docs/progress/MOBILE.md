@@ -1,5 +1,11 @@
 # 📱 Mobile Progress Log — Wuzz Chat
 
+## Daftar menjadi Creator dan Saldo Star dimuat ulang saat aplikasi aktif (15 Nov 2026, di `dev`, butuh build 78+)
+
+- `StarsScreen`: kartu "Jadi Creator" (tampil bila `GET /api/me/stars/creator-application` tidak 404 dan pengguna belum Creator): tombol "Daftar menjadi Creator" membuka isian cerita grup (10-500 karakter, penghitung), lalu status "sedang ditinjau"; bila ditolak tampil catatan admin dan tanggal boleh mengajukan lagi. Galat 409/429 memuat ulang status. Layar memuat ulang saldo, Star diterima, dan status Creator setiap `AppState` kembali `active` (temuan `STARS_PLAY_BILLING.md` 12d).
+- `api/stars.ts`: `getCreatorApplication`, `submitCreatorApplication`, `validateCreatorMessage`, `creatorApplyErrorMessage`.
+- **Bukti:** *tes saja* (`npx tsc --noEmit` lolos; `npm run test:unit` 48/48, `stars-api.test.js` diperluas). **Belum** dilihat di HP (butuh build baru, backend baru, dan `PAID_GROUPS_ENABLED` menyala).
+
 ## Peringatan saldo Star di Hapus Akun, keputusan K9 (15 Nov 2026, di `dev`, butuh build baru)
 
 - `DeleteAccountModal` memuat saldo Star setiap kali dibuka (`GET /api/me/stars`; 404 = fitur mati, tanpa bagian Star). Saldo > 0: kotak peringatan "Saldo Star Anda: N Star … akan hangus" dan centang "Saya mengerti …"; tombol hapus terkunci sampai dicentang. Bila fitur aktif, daftar yang dihapus menambah baris "Catatan transaksi Star tetap disimpan sampai 10 tahun". Galat jaringan saat memuat saldo tidak menahan penghapusan.

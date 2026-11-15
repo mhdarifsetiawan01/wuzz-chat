@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bms-del112/wuzz-chat/internal/auth"
+	"github.com/bms-del112/wuzz-chat/internal/notify"
 	"github.com/bms-del112/wuzz-chat/internal/playbilling"
 	"github.com/bms-del112/wuzz-chat/internal/store"
 )
@@ -17,6 +20,7 @@ import (
 //	GET  /api/me/stars/received                 Star diterima kreator per grup
 //	GET  /api/me/stars/packages                 paket Star yang dijual (STARS_PLAY_BILLING, Tahap 2b)
 //	POST /api/me/stars/purchases                verifikasi + kredit pembelian Google Play (STARS_PLAY_BILLING)
+//	GET|POST /api/me/stars/creator-application  status / ajukan "Daftar menjadi Creator" (PAID_GROUPS_ENABLED)
 //	GET|PUT /api/groups/{grp_id}/paid           pengaturan grup berbayar (PAID_GROUPS_ENABLED; lewat GroupHandler)
 //	POST /api/invites/{token}/purchase          bayar akses grup berbayar (lewat GroupHandler)
 //	/api/admin/stars/...                        alat staf (wuzz_admin)
@@ -31,7 +35,12 @@ type StarsHandler struct {
 	onJoined func(groupID, userID string)
 	// play (opsional): pembelian Star lewat Google Play (Tahap 2b). nil = STARS_PLAY_BILLING mati = 404.
 	play *playbilling.Service
+	// notifier (opsional): memberi tahu staf (Telegram) saat ada pendaftar Creator baru.
+	notifier ReportNotifier
 }
+
+// SetNotifier memasang pemberi tahu pendaftar Creator baru (nil = tanpa pemberitahuan).
+func (h *StarsHandler) SetNotifier(n ReportNotifier) { h.notifier = n }
 
 // SetPlayBilling memasang layanan pembelian Play (STARS_PLAY_BILLING).
 func (h *StarsHandler) SetPlayBilling(svc *playbilling.Service) { h.play = svc }
@@ -81,6 +90,18 @@ func writeStarError(w http.ResponseWriter, err error) {
 		writeInviteJSON(w, http.StatusNotFound, e{"error": "Pengguna tidak ditemukan", "code": "user_not_found"})
 	case errors.Is(err, store.ErrStarsDebt):
 		writeInviteJSON(w, http.StatusPaymentRequired, e{"error": "Ada pembelian Star yang dibatalkan. Tambah Star untuk melunasinya dulu.", "code": "stars_debt"})
+	case errors.Is(err, store.ErrCreatorAppMessage):
+		writeInviteJSON(w, http.StatusBadRequest, e{"error": "Ceritakan rencana grup Anda (10-500 karakter)", "code": "message_invalid"})
+	case errors.Is(err, store.ErrCreatorAppNote):
+		writeInviteJSON(w, http.StatusBadRequest, e{"error": "Catatan maksimal 500 karakter", "code": "note_too_long"})
+	case errors.Is(err, store.ErrCreatorAppPending):
+		writeInviteJSON(w, http.StatusConflict, e{"error": "Permohonan Anda masih ditinjau", "code": "application_pending"})
+	case errors.Is(err, store.ErrAlreadyCreator):
+		writeInviteJSON(w, http.StatusConflict, e{"error": "Akun Anda sudah terdaftar sebagai Creator", "code": "already_creator"})
+	case errors.Is(err, store.ErrCreatorAppNotFound):
+		writeInviteJSON(w, http.StatusNotFound, e{"error": "Permohonan tidak ditemukan", "code": "application_not_found"})
+	case errors.Is(err, store.ErrCreatorAppNotPending):
+		writeInviteJSON(w, http.StatusConflict, e{"error": "Permohonan ini sudah diputuskan", "code": "application_decided"})
 	case errors.Is(err, store.ErrPlayUnknownProduct):
 		writeInviteJSON(w, http.StatusBadRequest, e{"error": "Paket Star tidak dikenal", "code": "unknown_product"})
 	case errors.Is(err, store.ErrPlayPurchaseOtherUser), errors.Is(err, playbilling.ErrAccountMismatch):
@@ -94,6 +115,19 @@ func writeStarError(w http.ResponseWriter, err error) {
 	case isPlayAPIError(err):
 		writeInviteJSON(w, http.StatusBadGateway, e{"error": "Google Play sedang tidak bisa dihubungi. Coba lagi sebentar lagi.", "code": "play_unavailable"})
 	default:
+		var cd *store.CreatorAppCooldownError
+		if errors.As(err, &cd) {
+			retry := int(time.Until(cd.RetryAt).Seconds())
+			if retry < 1 {
+				retry = 1
+			}
+			w.Header().Set("Retry-After", strconv.Itoa(retry))
+			writeInviteJSON(w, http.StatusTooManyRequests, map[string]any{
+				"error": "Permohonan sebelumnya ditolak. Anda bisa mengajukan lagi nanti.", "code": "reapply_cooldown",
+				"retry_at": cd.RetryAt, "retry_after_seconds": retry,
+			})
+			return
+		}
 		writeInviteError(w, err) // galat undangan/grup (invite_not_found, group_not_found, ...) atau 500
 	}
 }
@@ -125,6 +159,10 @@ func (h *StarsHandler) HandleMe(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimSuffix(r.URL.Path, "/")
 	if path == "/api/me/stars/purchases" {
 		h.handlePlayPurchase(w, r, c)
+		return
+	}
+	if path == "/api/me/stars/creator-application" {
+		h.handleCreatorApplication(w, r, c)
 		return
 	}
 	if r.Method != http.MethodGet {
@@ -164,6 +202,43 @@ func (h *StarsHandler) HandleMe(w http.ResponseWriter, r *http.Request) {
 		writeInviteJSON(w, http.StatusOK, map[string]any{"is_creator": isCreator, "groups": groups})
 	default:
 		http.NotFound(w, r)
+	}
+}
+
+// handleCreatorApplication melayani GET|POST /api/me/stars/creator-application. Hanya bila grup berbayar menyala:
+// tanpa grup berbayar, menjadi Creator tidak ada artinya (404 = tombol disembunyikan).
+func (h *StarsHandler) handleCreatorApplication(w http.ResponseWriter, r *http.Request, c *auth.UserClaims) {
+	if !h.paid {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		st, err := h.store.CreatorApplicationStatus(r.Context(), c.TenantID, c.UserID)
+		if err != nil {
+			writeStarError(w, err)
+			return
+		}
+		writeInviteJSON(w, http.StatusOK, st)
+	case http.MethodPost:
+		var req struct {
+			Message string `json:"message"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<10)).Decode(&req); err != nil {
+			writeInviteJSON(w, http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
+			return
+		}
+		st, err := h.store.SubmitCreatorApplication(r.Context(), c.TenantID, c.UserID, req.Message)
+		if err != nil {
+			writeStarError(w, err)
+			return
+		}
+		if h.notifier != nil {
+			h.notifier.Enqueue(notify.Event{Kind: notify.KindCreatorApplication})
+		}
+		writeInviteJSON(w, http.StatusCreated, st)
+	default:
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 	}
 }
 
@@ -272,6 +347,9 @@ func (h *StarsHandler) HandlePurchase(w http.ResponseWriter, r *http.Request, c 
 //	GET      /api/admin/stars/creators            POST {user, active, note}
 //	GET      /api/admin/stars/users/{ref}          saldo + riwayat + pembelian Play (ref = ID atau username)
 //	GET      /api/admin/stars/debtors              akun dengan utang Star (Tahap 2b)
+//	GET      /api/admin/stars/purchases?state=&include_test=1&limit=  pembelian Play semua pengguna + ringkasan
+//	GET      /api/admin/stars/creator-applications?status=pending     permohonan "Daftar menjadi Creator"
+//	POST     /api/admin/stars/creator-applications/{id}/decide {approve, note}  setujui (= jadikan mitra) / tolak
 //	POST     /api/admin/stars/users/{ref}/test-grant {stars, reason}  header Idempotency-Key (STARS_TEST_GRANTS)
 //	POST     /api/admin/stars/refund               {spend_id, reason}
 func (h *StarsHandler) HandleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -357,6 +435,46 @@ func (h *StarsHandler) HandleAdmin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeInviteJSON(w, http.StatusOK, map[string]any{"user_id": uid, "wallet": wallet, "play_purchases": purchases})
+	case len(parts) == 1 && parts[0] == "purchases" && r.Method == http.MethodGet:
+		qs := r.URL.Query()
+		state := qs.Get("state")
+		if state != "" && state != store.PlayStateCredited && state != store.PlayStateVoided {
+			writeInviteJSON(w, http.StatusBadRequest, map[string]string{"error": "state harus credited atau voided", "code": "invalid_state"})
+			return
+		}
+		limit, _ := strconv.Atoi(qs.Get("limit"))
+		list, err := h.store.ListPlayPurchases(ctx, state, qs.Get("include_test") == "1", limit)
+		if err != nil {
+			writeStarError(w, err)
+			return
+		}
+		writeInviteJSON(w, http.StatusOK, map[string]any{"purchases": list, "summary": store.SummarizePlayPurchases(list)})
+	case len(parts) == 1 && parts[0] == "creator-applications" && r.Method == http.MethodGet:
+		status := r.URL.Query().Get("status")
+		if status != "" && status != store.CreatorAppPending && status != store.CreatorAppApproved && status != store.CreatorAppRejected {
+			writeInviteJSON(w, http.StatusBadRequest, map[string]string{"error": "status tidak dikenal", "code": "invalid_status"})
+			return
+		}
+		list, err := h.store.ListCreatorApplications(ctx, c.TenantID, status, 100)
+		if err != nil {
+			writeStarError(w, err)
+			return
+		}
+		writeInviteJSON(w, http.StatusOK, map[string]any{"applications": list})
+	case len(parts) == 3 && parts[0] == "creator-applications" && parts[2] == "decide" && r.Method == http.MethodPost:
+		var req struct {
+			Approve bool   `json:"approve"`
+			Note    string `json:"note"`
+		}
+		if !decode(&req) {
+			return
+		}
+		app, err := h.store.DecideCreatorApplication(ctx, c.TenantID, c.UserID, parts[1], req.Approve, req.Note)
+		if err != nil {
+			writeStarError(w, err)
+			return
+		}
+		writeInviteJSON(w, http.StatusOK, map[string]any{"application": app})
 	case len(parts) == 1 && parts[0] == "debtors" && r.Method == http.MethodGet:
 		list, err := h.store.ListDebtors(ctx, 100)
 		if err != nil {

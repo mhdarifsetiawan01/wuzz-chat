@@ -476,6 +476,9 @@ func New(cfg *config.Config) (*Application, error) {
 			if app.ModerationHandler != nil {
 				app.ModerationHandler.SetNotifier(app.Notifier)
 			}
+			if app.StarsHandler != nil {
+				app.StarsHandler.SetNotifier(app.Notifier)
+			}
 		}
 	}
 

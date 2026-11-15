@@ -373,3 +373,76 @@ func (s *StarStore) SetPlayVoidedCursor(ctx context.Context, t time.Time) error 
 		updated_at = excluded.updated_at`), starTenantDefault, playVoidedCursorKey, strconv.FormatInt(t.UnixMilli(), 10), "system", s.now())
 	return err
 }
+
+// AdminPlayPurchase adalah baris pembelian untuk daftar admin (dengan username pembeli).
+type AdminPlayPurchase struct {
+	PlayPurchase
+	Username string `json:"username"`
+}
+
+// PlayPurchaseSummary meringkas pembelian non-uji dalam daftar (untuk rekonsiliasi kasar dengan laporan Play Console).
+type PlayPurchaseSummary struct {
+	Count       int `json:"count"`
+	Stars       int `json:"stars"`
+	VoidedCount int `json:"voided_count"`
+	TestCount   int `json:"test_count"`
+}
+
+// ListPlayPurchases mengembalikan pembelian Play terbaru semua pengguna (alat admin). state kosong = semua;
+// includeTest=false menyembunyikan pembelian penguji lisensi.
+func (s *StarStore) ListPlayPurchases(ctx context.Context, state string, includeTest bool, limit int) ([]AdminPlayPurchase, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 200
+	}
+	query := `SELECT p.token_hash, p.purchase_token, p.order_id, p.product_id, p.user_id, p.stars, p.state, p.consumed, p.is_test,
+		p.purchase_time, p.ledger_id, p.reversal_ledger_id, p.voided_reason, p.created_at, COALESCE(u.username, '')
+		FROM play_purchases p LEFT JOIN users u ON u.id = p.user_id WHERE p.tenant_id = ?`
+	args := []any{starTenantDefault}
+	if state != "" {
+		query += ` AND p.state = ?`
+		args = append(args, state)
+	}
+	if !includeTest {
+		query += ` AND p.is_test = ?`
+		args = append(args, false)
+	}
+	args = append(args, limit)
+	rows, err := s.db.QueryContext(ctx, s.q(query+` ORDER BY p.created_at DESC LIMIT ?`), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []AdminPlayPurchase{}
+	for rows.Next() {
+		var a AdminPlayPurchase
+		var pt sql.NullTime
+		if err := rows.Scan(&a.TokenHash, &a.PurchaseToken, &a.OrderID, &a.ProductID, &a.UserID, &a.Stars, &a.State, &a.Consumed,
+			&a.IsTest, &pt, &a.LedgerID, &a.ReversalLedgerID, &a.VoidedReason, &a.CreatedAt, &a.Username); err != nil {
+			return nil, err
+		}
+		if pt.Valid {
+			t := pt.Time
+			a.PurchaseTime = &t
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// SummarizePlayPurchases menghitung ringkasan dari daftar pembelian.
+func SummarizePlayPurchases(list []AdminPlayPurchase) PlayPurchaseSummary {
+	var sum PlayPurchaseSummary
+	for _, p := range list {
+		if p.IsTest {
+			sum.TestCount++
+			continue
+		}
+		if p.State == PlayStateVoided {
+			sum.VoidedCount++
+			continue
+		}
+		sum.Count++
+		sum.Stars += p.Stars
+	}
+	return sum
+}

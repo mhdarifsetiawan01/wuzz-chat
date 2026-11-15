@@ -482,15 +482,24 @@ func (s *StarStore) SetCreator(ctx context.Context, tenantID, actorID, userID st
 	if tenant != starTenantDefault {
 		return ErrStarsTenant
 	}
-	status, granted, revoked := "active", actorID, ""
-	if !active {
-		status, granted, revoked = "revoked", "", actorID
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if err := s.setCreatorTx(ctx, tx, actorID, userID, active, note); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// setCreatorTx menulis status mitra di dalam transaksi pemanggil. Memberi hak juga menandai permohonan Creator yang
+// masih menunggu sebagai disetujui (admin bisa memberi hak lewat formulir manual tanpa membuka permohonannya).
+func (s *StarStore) setCreatorTx(ctx context.Context, tx *sql.Tx, actorID, userID string, active bool, note string) error {
+	status, granted, revoked := "active", actorID, ""
+	if !active {
+		status, granted, revoked = "revoked", "", actorID
+	}
 	now := s.now()
 	if _, err := tx.ExecContext(ctx, s.q(`INSERT INTO paid_group_creators (tenant_id, user_id, status, granted_by, revoked_by, note, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (tenant_id, user_id) DO UPDATE SET status = excluded.status,
@@ -499,13 +508,15 @@ func (s *StarStore) SetCreator(ctx context.Context, tenantID, actorID, userID st
 		starTenantDefault, userID, status, granted, revoked, strings.TrimSpace(note), now, now); err != nil {
 		return err
 	}
-	if !active {
-		if _, err := tx.ExecContext(ctx, s.q(`UPDATE paid_groups SET enabled = ?, updated_by = ?, updated_at = ? WHERE creator_id = ? AND enabled = ?`),
-			false, actorID, now, userID, true); err != nil {
-			return err
-		}
+	if active {
+		_, err := tx.ExecContext(ctx, s.q(`UPDATE creator_applications SET status = ?, decided_by = ?, decided_at = ?, updated_at = ?
+			WHERE tenant_id = ? AND user_id = ? AND status = ?`),
+			CreatorAppApproved, actorID, now, now, starTenantDefault, userID, CreatorAppPending)
+		return err
 	}
-	return tx.Commit()
+	_, err := tx.ExecContext(ctx, s.q(`UPDATE paid_groups SET enabled = ?, updated_by = ?, updated_at = ? WHERE creator_id = ? AND enabled = ?`),
+		false, actorID, now, userID, true)
+	return err
 }
 
 func (s *StarStore) ListCreators(ctx context.Context, tenantID string) ([]PaidCreator, error) {

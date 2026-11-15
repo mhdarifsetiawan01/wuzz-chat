@@ -1,5 +1,10 @@
 # Laporan Status & Dokumentasi Proyek — Wuzz Chat
 
+### Persiapan membuka Star untuk umum (15 November 2026)
+
+- Build 1.45.0 (77) disetujui dan di-Publish di Produksi 15 Nov 2026 (sakelar Star mati). Pengguna memutuskan membuka pembelian Star untuk semua pengguna tanpa menunggu gerbang Tahap 0 B/C (risiko diterima; `plans/backlog/STARS_STAGE0.md` bagian 4). Grup berbayar tetap khusus mitra kreator.
+- Kode di `dev` (*tes saja*): "Daftar menjadi Creator" (backend + notifikasi Telegram, `/admin/stars`, mobile), daftar pembelian Play + utang di `/admin/stars`, Saldo Star dimuat ulang saat aplikasi aktif kembali, `/privacy`. Rincian: `progress/BACKEND.md`, `progress/FRONTEND.md`, `progress/MOBILE.md`; aturan `domains/STARS_WALLET.md` 6a; urutan menyalakan `OPERATIONS.md`.
+
 ### Rapikan dokumentasi, arsipkan backlog selesai, tambah runbook (28 Oktober 2026)
 
 - Tujuan: sumber kebenaran lintas sesi/AI ada di dokumen, bukan memori pribadi. Dokumen baru: [`OPERATIONS.md`](OPERATIONS.md) (sakelar env produksi, rilis, Play Console, AdMob, tenggat, jebakan) dan [`plans/backlog/README.md`](plans/backlog/README.md) (indeks backlog dan sisa).

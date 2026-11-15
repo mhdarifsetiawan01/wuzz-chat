@@ -16,6 +16,7 @@ export interface StarFlags {
   stars_enabled: boolean
   paid_groups_enabled: boolean
   test_grants: boolean
+  play_billing?: boolean
 }
 
 export interface StarLedgerEntry {
@@ -32,7 +33,67 @@ export interface StarLedgerEntry {
 
 export interface StarWallet {
   balance: number
+  debt?: number
   history: StarLedgerEntry[]
+}
+
+// Pembelian Star lewat Google Play (Tahap 2b). Token pembelian tidak pernah dikirim ke klien admin.
+export interface PlayPurchase {
+  token_hash: string
+  order_id: string
+  product_id: string
+  user_id: string
+  username?: string
+  stars: number
+  state: 'credited' | 'voided' | string
+  consumed: boolean
+  is_test: boolean
+  purchase_time?: string
+  voided_reason: number
+  created_at: string
+}
+
+export interface PlayPurchaseSummary {
+  count: number
+  stars: number
+  voided_count: number
+  test_count: number
+}
+
+export interface StarDebtor {
+  user_id: string
+  username: string
+  amount: number
+  updated_at: string
+}
+
+export type CreatorApplicationStatus = 'pending' | 'approved' | 'rejected'
+
+export interface CreatorApplication {
+  id: string
+  user_id: string
+  username?: string
+  display_name?: string
+  status: CreatorApplicationStatus
+  message: string
+  decision_note?: string
+  decided_by?: string
+  decided_at?: string
+  created_at: string
+}
+
+export const CREATOR_APP_STATUS_LABEL: Record<CreatorApplicationStatus, string> = {
+  pending: 'Menunggu',
+  approved: 'Disetujui',
+  rejected: 'Ditolak',
+}
+
+// Label status pembelian Play untuk admin; pembelian penguji lisensi ditandai terpisah.
+export function playPurchaseLabel(p: Pick<PlayPurchase, 'state' | 'is_test' | 'consumed'>): string {
+  const parts = [p.state === 'voided' ? 'Dibatalkan Google' : p.state === 'credited' ? 'Masuk' : p.state]
+  if (p.state === 'credited' && !p.consumed) parts.push('belum dikonsumsi')
+  if (p.is_test) parts.push('uji')
+  return parts.join(' · ')
 }
 
 export interface PaidCreator {
@@ -184,6 +245,12 @@ export function starErrorMessage(code: string | undefined, fallback: string): st
       return 'Jumlah Star harus 1-10.000.'
     case 'admin_only':
       return 'Tindakan ini khusus admin.'
+    case 'application_decided':
+      return 'Permohonan ini sudah diputuskan (mungkin oleh admin lain). Muat ulang daftar.'
+    case 'application_not_found':
+      return 'Permohonan tidak ditemukan.'
+    case 'note_too_long':
+      return 'Catatan maksimal 500 karakter.'
     default:
       return fallback
   }

@@ -58,6 +58,9 @@ Sumber: support.google.com/googleplay/android-developer/answer/13634885, /answer
 
 ## 4. Gerbang sebelum Tahap 2b dan rilis Star
 
+> **Keputusan pengguna 15 Nov 2026: buka pembelian Star untuk semua pengguna TANPA menunggu B1-B2 dan C1-C3** (risiko diterima secara sadar oleh pemilik akun: penolakan/penangguhan Play bila model grup berbayar dinilai melanggar, serta risiko izin BI/OJK dan pajak penghasilan pribadi). B dan C tetap dikerjakan setelah Star live. Cakupan: semua pengguna boleh membeli Star dan membayar akses grup berbayar; **membuat grup berbayar tetap khusus mitra kreator** pilihan admin, dengan tombol "Daftar menjadi Creator" (`STARS_WALLET.md` aturan 6a). E3 (perjanjian mitra kreator) wajib disepakati **sebelum** menyetujui kreator selain pemilik akun.
+> **Gerbang yang tetap wajib sebelum sakelar dinyalakan:** A2 rekening bank terpasang; D1-D2 harga paket di Play Console dan `star_settings` final (cek ulang tarif potongan Play); build 78+ (peringatan saldo saat hapus akun, tombol Creator) tayang di Produksi lalu `MIN_MOBILE_BUILD=78`; kode "Daftar menjadi Creator" dan daftar pembelian admin dideploy. Urutan menyalakan: `docs/OPERATIONS.md` bagian Star.
+
 Tahap 2b (produk Star di Play, library billing, verifikasi pembelian server) baru dimulai bila **semua** ini terpenuhi:
 - [ ] A: profil pembayaran individu aktif dan terverifikasi. *(Profil dibuat dan pendaftaran 15% selesai 14 Nov 2026; rekening bank belum ditambahkan.)*
 - [ ] B1-B2: jawaban dukungan Play tidak melarang model grup berbayar.

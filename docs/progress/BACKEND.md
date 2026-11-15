@@ -1,5 +1,12 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
+### Daftar menjadi Creator dan daftar pembelian admin, persiapan membuka Star untuk umum (15 Nov 2026, di `dev`, belum dideploy)
+
+- **Tujuan:** keputusan pengguna 15 Nov 2026 membuka pembelian Star untuk semua pengguna; grup berbayar tetap khusus mitra kreator, tetapi pengguna bisa mendaftar dan admin perlu tahu siapa yang mendaftar. Aturan: `docs/domains/STARS_WALLET.md` 6a.
+- **Perubahan:** tabel `creator_applications` (indeks unik parsial satu `pending` per pengguna); `store/creator_applications.go` (status, ajukan dengan jeda 7 hari setelah ditolak, daftar, putuskan; setujui = `setCreatorTx` dalam transaksi yang sama); `SetCreator` dipecah menjadi `setCreatorTx`, dan memberi hak manual menutup permohonan `pending` sebagai disetujui; `GET|POST /api/me/stars/creator-application` (butuh `PAID_GROUPS_ENABLED`, POST 5/jam per pengguna); admin `GET /api/admin/stars/creator-applications`, `POST …/{id}/decide`, `GET /api/admin/stars/purchases` (semua pengguna, ringkasan, tanpa token mentah); `notify.KindCreatorApplication` (tanpa data pengguna, tautan `/admin/stars`, tidak ikut kuota laporan biasa); `StarsHandler.SetNotifier` di `app/wire.go`; `creator_applications` dihapus saat akun dihapus (`account_eraser.go`).
+- **Tes:** `store/creator_applications_test.go` (siklus hidup lengkap termasuk jeda, putuskan dua kali, dicabut lalu ajukan lagi; hak manual menutup pending; daftar pembelian admin dengan filter uji/voided dan ringkasan), `api/creator_application_handler_test.go` (404 saat grup berbayar mati, kode status 201/400/409/429 + `Retry-After`, notifikasi, admin 403/404/409), `notify/notify_test.go` (tautan dan tanpa throttling).
+- **Bukti:** *tes saja*. `go test ./...` lolos (SQLite); `./internal/store ./internal/api` lolos di Postgres 16 sementara. **Belum:** deploy, migrasi di produksi, alur nyata.
+
 ### Pembelian Star lewat Google Play, Wuzz Chat V2 Tahap 2b (14 Nov 2026, di `main`, DIDEPLOY 14 Nov 2026, *terbukti* 15 Nov 2026, sakelar mati)
 
 - **Uji nyata 14-15 Nov 2026 (*terbukti*):** dengan sakelar dinyalakan sementara: log `⭐ Star aktif (… pembelian Play: true)`; `POST /api/me/stars/purchases 200` untuk pembelian disetujui dan tertunda-lalu-disetujui; konsumsi berhasil (paket sama bisa dibeli ulang); sapuan per jam `⭐ [PlayBilling] sapuan: 0 dikonsumsi, 1 dibalik (voided)` membalik 500 Star; pembayaran akses grup setelah beli Star `POST /api/invites/{token}/purchase 200`. Rincian `docs/plans/backlog/STARS_PLAY_BILLING.md` 12d. Sakelar dimatikan lagi 15 Nov 2026.

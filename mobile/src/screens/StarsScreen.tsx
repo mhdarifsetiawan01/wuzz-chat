@@ -6,13 +6,29 @@
  * Tahap 2b: bagian "Tambah Star" (paket dari server, harga dari Google Play) hanya tampil bila GET /api/me/stars/packages
  * tidak 404 dan perangkat Android. Star selalu dari jawaban server; pembelian yang belum selesai dipulihkan saat layar dibuka.
  * Tidak ada kata "pendapatan/tarik/cairkan" dan tidak ada metode bayar lain (STARS_WALLET.md aturan 13).
+ * Kartu "Daftar menjadi Creator" (15 Nov 2026) tampil bila GET /api/me/stars/creator-application tidak 404 (grup berbayar
+ * menyala) dan pengguna belum Creator; admin meninjau di /admin/stars.
  * Ketahanan jaringan: AbortController per muat, tarik-untuk-segarkan, data lama tetap tampil bila penyegaran gagal.
+ * Saat aplikasi kembali aktif (mis. setelah membayar di luar layar ini), saldo dan status dimuat ulang.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  AppState,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  CREATOR_APP_MESSAGE_MAX,
+  CreatorApplicationState,
+  creatorApplyErrorMessage,
   formatStars,
   formatThousands,
   isStarsUnavailable,
@@ -21,6 +37,7 @@ import {
   StarPackage,
   StarsReceived,
   StarWallet,
+  validateCreatorMessage,
 } from '../api/stars';
 import {
   buyStars,
@@ -70,6 +87,14 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<BillingNotice>(null);
 
+  // Daftar menjadi Creator. creator null = kartu tersembunyi (grup berbayar mati atau gagal dimuat).
+  const [creator, setCreator] = useState<CreatorApplicationState | null>(null);
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyText, setApplyText] = useState('');
+  const [applyBusy, setApplyBusy] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applySent, setApplySent] = useState(false);
+
   const loadPackages = useCallback(async () => {
     if (!isStarBillingSupported()) return;
     try {
@@ -97,9 +122,10 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
     } else {
       setIsRefreshing(true);
     }
-    const [walletRes, receivedRes] = await Promise.allSettled([
+    const [walletRes, receivedRes, creatorRes] = await Promise.allSettled([
       starsApi.getWallet(controller.signal),
       starsApi.getReceived(controller.signal),
+      starsApi.getCreatorApplication(controller.signal),
     ]);
     if (controller.signal.aborted) return;
     if (walletRes.status === 'fulfilled') {
@@ -110,6 +136,8 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
     }
     // Ringkasan Star diterima bersifat pelengkap: gagal memuatnya tidak menggagalkan layar.
     if (receivedRes.status === 'fulfilled') setReceived(receivedRes.value);
+    if (creatorRes.status === 'fulfilled') setCreator(creatorRes.value);
+    else if (isStarsUnavailable(creatorRes.reason)) setCreator(null);
     setIsLoading(false);
     setIsRefreshing(false);
   }, []);
@@ -120,6 +148,14 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
     void recoverStarPurchases();
     return () => abortRef.current?.abort();
   }, [load, loadPackages]);
+
+  // Kembali dari latar belakang: segarkan saldo, Star diterima, dan status pendaftaran Creator.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') load('refresh');
+    });
+    return () => sub.remove();
+  }, [load]);
 
   useEffect(
     () =>
@@ -245,6 +281,114 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
     );
   };
 
+  const handleApply = async () => {
+    if (applyBusy) return;
+    const invalid = validateCreatorMessage(applyText);
+    if (invalid) {
+      setApplyError(invalid);
+      return;
+    }
+    setApplyBusy(true);
+    setApplyError(null);
+    try {
+      const res = await starsApi.submitCreatorApplication(applyText);
+      setCreator(res);
+      setApplyOpen(false);
+      setApplyText('');
+      setApplySent(true);
+    } catch (err: any) {
+      setApplyError(creatorApplyErrorMessage(err));
+      // Status di server mungkin sudah berubah (sudah pending/Creator, atau masih dalam jeda): muat ulang.
+      if (err?.status === 409 || err?.status === 429) {
+        starsApi.getCreatorApplication().then(setCreator).catch(() => {});
+      }
+    } finally {
+      setApplyBusy(false);
+    }
+  };
+
+  const renderCreator = () => {
+    if (!creator || creator.is_creator) return null;
+    const app = creator.application;
+    const rejected = app?.status === 'rejected';
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Jadi Creator</Text>
+        {app?.status === 'pending' ? (
+          <Text style={styles.cardCaption}>
+            {applySent ? 'Permohonan terkirim. ' : ''}Permohonan Anda sedang ditinjau tim WuzzChat (diajukan{' '}
+            {formatStarDate(app.created_at)}). Hasilnya tampil di sini setelah ditinjau.
+          </Text>
+        ) : (
+          <>
+            <Text style={styles.cardCaption}>
+              Creator bisa membuat grup privat berbayar: anggota membayar Star untuk masuk, dan Creator menerima bagi hasil
+              sesuai perjanjian dengan WuzzChat. Setiap pendaftar ditinjau lebih dulu.
+            </Text>
+            {rejected ? (
+              <Text style={styles.notice}>
+                Permohonan sebelumnya belum disetujui{app?.decision_note ? `: ${app.decision_note}` : '.'}
+                {creator.retry_at ? ` Anda bisa mengajukan lagi mulai ${formatStarDate(creator.retry_at)}.` : ''}
+              </Text>
+            ) : null}
+            {creator.can_apply && !applyOpen ? (
+              <TouchableOpacity
+                style={styles.primaryBtn}
+                onPress={() => {
+                  setApplyOpen(true);
+                  setApplyError(null);
+                }}
+                accessibilityRole="button"
+              >
+                <Text style={styles.primaryBtnText}>Daftar menjadi Creator</Text>
+              </TouchableOpacity>
+            ) : null}
+            {creator.can_apply && applyOpen ? (
+              <View style={styles.applyForm}>
+                <Text style={styles.rowTitle}>Ceritakan grup yang ingin Anda buat</Text>
+                <TextInput
+                  style={styles.applyInput}
+                  value={applyText}
+                  onChangeText={setApplyText}
+                  placeholder="Mis. topik grup, siapa calon anggotanya, dan tautan akun/konten Anda"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  maxLength={CREATOR_APP_MESSAGE_MAX}
+                  editable={!applyBusy}
+                  textAlignVertical="top"
+                  accessibilityLabel="Cerita rencana grup Anda"
+                />
+                <Text style={styles.rowMeta}>
+                  {Array.from(applyText.trim()).length}/{CREATOR_APP_MESSAGE_MAX}
+                </Text>
+                {applyError ? <Text style={[styles.notice, styles.noticeError]}>{applyError}</Text> : null}
+                <View style={styles.applyActions}>
+                  <TouchableOpacity
+                    style={[styles.secondaryBtn, styles.applyBtn]}
+                    onPress={() => setApplyOpen(false)}
+                    disabled={applyBusy}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.secondaryBtnText}>Batal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.primaryBtn, styles.applySubmit, applyBusy && styles.packBtnDisabled]}
+                    onPress={handleApply}
+                    disabled={applyBusy}
+                    accessibilityRole="button"
+                  >
+                    {applyBusy ? <ActivityIndicator color={colors.textOnAccent} /> : <Text style={styles.primaryBtnText}>Kirim</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : null}
+            {!applyOpen && applyError ? <Text style={[styles.notice, styles.noticeError]}>{applyError}</Text> : null}
+          </>
+        )}
+      </View>
+    );
+  };
+
   const renderBody = () => {
     if (isLoading) {
       return (
@@ -304,6 +448,8 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
         {renderTopUp()}
 
         {renderReceived()}
+
+        {renderCreator()}
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Riwayat Star</Text>
@@ -423,6 +569,28 @@ const makeStyles = (colors: ColorTokens) =>
     noticeError: { color: colors.colorErrorText },
     noticeSuccess: { color: colors.accentPrimary },
     noticeLink: { fontSize: 13, color: colors.accentPrimary, marginTop: 10 },
+    primaryBtn: {
+      marginTop: 12,
+      minHeight: 46,
+      borderRadius: 14,
+      backgroundColor: colors.accentPrimary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+    },
+    primaryBtnText: { fontSize: 15, fontWeight: '700', color: colors.textOnAccent },
+    applyForm: { marginTop: 12, gap: 6 },
+    applyInput: {
+      minHeight: 110,
+      padding: 12,
+      borderRadius: 10,
+      backgroundColor: colors.bgInput,
+      fontSize: 15,
+      color: colors.textPrimary,
+    },
+    applyActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+    applyBtn: { marginTop: 0 },
+    applySubmit: { flex: 1, marginTop: 0 },
     debtCard: { padding: 16, borderRadius: 16, backgroundColor: colors.tintWarning10 },
     debtTitle: { fontSize: 14, fontWeight: '700', color: colors.colorWarningText },
     debtText: { fontSize: 13, lineHeight: 18, color: colors.textSecondary, marginTop: 6 },
