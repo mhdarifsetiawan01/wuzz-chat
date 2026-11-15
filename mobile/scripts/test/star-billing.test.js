@@ -16,7 +16,7 @@ const iap = {
   available: [],
   products: [{ id: 'star_50', displayPrice: 'Rp 5.000' }, { id: 'star_100', displayPrice: 'Rp 10.000' }],
 };
-const server = { packagesStatus: 200, submit: null, submitted: [] };
+const server = { packagesStatus: 200, packagesCalls: 0, submit: null, submitted: [] };
 
 const original = Module._load;
 Module._load = function (request, ...rest) {
@@ -51,6 +51,7 @@ Module._load = function (request, ...rest) {
       isStarsUnavailable: (e) => e && e.status === 404,
       starsApi: {
         getPackages: async () => {
+          server.packagesCalls++;
           if (server.packagesStatus !== 200) throw { status: server.packagesStatus };
           return { packages: [{ product_id: 'star_50', stars: 50 }], account_id: 'acct-hash' };
         },
@@ -148,6 +149,13 @@ const purchase = (token, state = 'purchased', productId = 'star_50') => ({ produ
   iap.available = [purchase('t-net')];
   await billing.recoverStarPurchases();
   assert.ok(iap.finished.some((f) => f.token === 't-net'), 'pembelian tertinggal dipulihkan');
+
+  // Layar Saldo Star sudah memuat paket: pemulihan tidak memeriksa /packages lagi (tanpa panggilan ganda).
+  const calls = server.packagesCalls;
+  iap.available = [purchase('t-known')];
+  await billing.recoverStarPurchases({ packagesKnown: true });
+  assert.equal(server.packagesCalls, calls, 'packagesKnown: /packages tidak dipanggil ulang');
+  assert.ok(iap.finished.some((f) => f.token === 't-known'), 'pemulihan tetap berjalan');
 
   // Fitur mati di server (404): tidak ada pengiriman.
   server.packagesStatus = 404;

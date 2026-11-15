@@ -95,8 +95,9 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applySent, setApplySent] = useState(false);
 
-  const loadPackages = useCallback(async () => {
-    if (!isStarBillingSupported()) return;
+  // true = paket berhasil dimuat (fitur pembelian menyala di server).
+  const loadPackages = useCallback(async (): Promise<boolean> => {
+    if (!isStarBillingSupported()) return false;
     try {
       const res = await starsApi.getPackages();
       setPackages(res.packages);
@@ -107,8 +108,10 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
       } catch {
         setPricesFailed(true);
       }
+      return true;
     } catch {
       setPackages(null); // 404 (sakelar mati) atau jaringan: tidak menampilkan tombol beli
+      return false;
     }
   }, []);
 
@@ -144,8 +147,10 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
 
   useEffect(() => {
     load('initial');
-    loadPackages();
-    void recoverStarPurchases();
+    // Pemulihan pembelian tertunda hanya setelah paket terbukti tersedia (tanpa memeriksa /packages dua kali).
+    void loadPackages().then((ok) => {
+      if (ok) void recoverStarPurchases({ packagesKnown: true });
+    });
     return () => abortRef.current?.abort();
   }, [load, loadPackages]);
 
@@ -231,7 +236,7 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
           })}
         </View>
         {pricesFailed ? (
-          <TouchableOpacity onPress={loadPackages} accessibilityRole="button">
+          <TouchableOpacity onPress={() => void loadPackages()} accessibilityRole="button">
             <Text style={styles.noticeLink}>Harga belum bisa dimuat dari Google Play. Ketuk untuk mencoba lagi.</Text>
           </TouchableOpacity>
         ) : null}
@@ -349,7 +354,10 @@ export const StarsScreen: React.FC<StarsScreenProps> = ({ onBack }) => {
                 <TextInput
                   style={styles.applyInput}
                   value={applyText}
-                  onChangeText={setApplyText}
+                  onChangeText={(text) => {
+                    setApplyText(text);
+                    if (applyError) setApplyError(null); // galat lama hilang begitu pengguna memperbaiki isian
+                  }}
                   placeholder="Mis. topik grup, siapa calon anggotanya, dan tautan akun/konten Anda"
                   placeholderTextColor={colors.textMuted}
                   multiline

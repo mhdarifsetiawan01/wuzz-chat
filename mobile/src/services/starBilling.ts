@@ -149,14 +149,18 @@ async function handlePurchase(purchase: Purchase): Promise<void> {
 /**
  * Mengirim ulang pembelian Star yang belum selesai. Tidak membuka koneksi Play bila fitur mati di server (404).
  * Dipanggil saat aplikasi dibuka dan saat layar Saldo Star dibuka. Galat diabaikan (akan dicoba lagi lain kali).
+ * opts.packagesKnown: pemanggil baru saja menerima paket dari server (fitur menyala), jadi pemeriksaan
+ * GET /api/me/stars/packages dilewati agar tidak ada panggilan ganda.
  */
-export async function recoverStarPurchases(): Promise<void> {
+export async function recoverStarPurchases(opts?: { packagesKnown?: boolean }): Promise<void> {
   if (!isStarBillingSupported()) return;
-  try {
-    await starsApi.getPackages();
-  } catch (err) {
-    if (isStarsUnavailable(err)) return;
-    return;
+  if (!opts?.packagesKnown) {
+    try {
+      await starsApi.getPackages();
+    } catch (err) {
+      if (isStarsUnavailable(err)) return;
+      return;
+    }
   }
   try {
     await ensureBilling();

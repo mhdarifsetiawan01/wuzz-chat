@@ -8,7 +8,7 @@
 **Mulai di sini (sesi berikutnya):**
 1. ~~Cek status build 77~~ Build 77 **disetujui dan di-Publish 15 Nov 2026** (tayang di Produksi).
 2. **Keputusan 15 Nov 2026: buka pembelian Star untuk umum tanpa menunggu gerbang Tahap 0 B/C** (risiko diterima; `STARS_STAGE0.md` bagian 4). Grup berbayar tetap khusus mitra kreator, dengan tombol "Daftar menjadi Creator". Kodenya (Creator, daftar pembelian admin, Saldo Star dimuat ulang saat aktif) di `dev`, *tes saja*.
-3. Sakelar Star di VPS tetap `false` sampai urutan menyalakan di `docs/OPERATIONS.md` (baris `STARS_ENABLED`) dijalankan: rekening bank, harga final, deploy backend+frontend, build 78+ tayang lalu `MIN_MOBILE_BUILD=78`, baru sakelar (`STARS_TEST_GRANTS` tetap mati).
+3. **Keadaan 15 Nov 2026 ±13.05 WIB: keempat sakelar Star MENYALA di produksi** (termasuk `STARS_PLAY_BILLING` dan `STARS_TEST_GRANTS`; keputusan pengguna, dibiarkan dengan sengaja), mendahului urutan di `docs/OPERATIONS.md`. Backend+frontend `295068ba` sudah dideploy dan alur Creator *terbukti* di HP. Masih belum: rekening bank, harga final, build 78+ (dengan versionCode dinaikkan; APK uji lokal masih bertanda 77) lalu `MIN_MOBILE_BUILD=78`, dan mematikan `STARS_TEST_GRANTS` sebelum ada pengguna nyata. Grup "Pasukan Gibran Bersatu" tidak lagi berbayar setelah uji (aktifkan ulang bila perlu).
 4. Sisa Tahap 0 tetap dikerjakan setelah live: pertanyaan dukungan Play (Lampiran B), konsultasi C1-C3, trader status UE, perjanjian mitra kreator (E3, wajib sebelum menyetujui kreator selain pemilik).
 
 **Fokus terakhir: Wuzz Chat V2** (Fase 15 `docs/ROADMAP.md`). Semua kode di bawah sudah di `main` dan di-push; isi `dev` sama dengan `main`. Untuk keadaan terkini pakai `git log origin/main`, bukan hash di catatan ini.

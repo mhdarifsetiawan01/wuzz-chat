@@ -9,7 +9,7 @@ Dokumen ini mencatat seluruh riwayat pengerjaan, status kapabilitas, dan rencana
 - Kartu **Pendaftar Creator** (tampil bila grup berbayar menyala): filter Menunggu/Semua, pesan pemohon, Setujui (= jadikan mitra kreator) / Tolak dengan catatan yang terlihat pemohon. Kartu **Pembelian Star (Google Play)**: 200 terbaru semua pengguna, filter status dan "sertakan pembelian uji", ringkasan, nomor pesanan GPA untuk dicocokkan dengan Play Console, klik username membuka dompetnya; daftar **Utang Star**. Badge sakelar menambah "Pembelian Play"; dompet menampilkan utang dan pembelian Play. Teks pembuka tidak lagi menyebut "belum boleh dibuka".
 - `/privacy` bagian Star: data permohonan Creator disimpan dan dihapus saat akun dihapus.
 - Berkas: `app/admin/stars/page.tsx`, `lib/adminStars.ts`, `lib/admin-api.ts`, `app/privacy/page.tsx`, tes `scripts/test/admin-stars.cjs`.
-- **Bukti:** *tes saja* (`node scripts/test/admin-stars.cjs`, `npm run build` lolos). **Belum:** deploy, dilihat di peramban.
+- **Bukti:** `node scripts/test/admin-stars.cjs`, `npm run build` lolos. **Dideploy pengguna 15 Nov 2026.** Cabut mitra dan setujui pendaftar dipakai pengguna dari peramban (log: `POST /api/admin/stars/creators 200`, `GET …/creator-applications 200`, `POST …/decide 200`). **Belum dilihat AI:** tampilan kartu Pembelian Star dan Utang Star.
 
 ### Halaman `/admin/stars` (V2 Tahap 2a, 14 Nov 2026, di `dev`, belum dideploy)
 
