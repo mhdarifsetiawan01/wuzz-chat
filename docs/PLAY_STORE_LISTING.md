@@ -139,6 +139,7 @@ Sumber kebenaran: `/privacy` (bagian 1, 3, 5, 8) yang diperbarui bersamaan denga
 - Isian per tipe (semua: Dikumpulkan, **tidak** dibagikan, **ephemeral = No**; Console memilih "Yes" secara bawaan, selalu periksa): Purchase history dan Other financial info = Opsional, Fungsi aplikasi + Pencegahan penipuan/keamanan; Other in-app messages = Wajib, Fungsi aplikasi; Crash logs dan Diagnostics = Wajib, Fungsi aplikasi + Analitik; App interactions = Wajib, Fungsi aplikasi; Other user-generated content = Opsional, Fungsi aplikasi + Pencegahan penipuan/keamanan; Device or other IDs = Wajib, Fungsi aplikasi + Analitik + Pencegahan penipuan/keamanan. Penghapusan sebagian data tanpa hapus akun: tidak disediakan.
 - **IARC:** kuesioner baru dikirim (kategori Social or Communication, jenis Communication; jawaban sama dengan 8 Okt kecuali **pembelian barang digital = Ya**, item acak/loot box = Tidak). Hasil: rating sama (ESRB E, PEGI Parental guidance, USK 0, IARC 12+, Rusia/Korea 12+) **kecuali Brasil (ClassInd) naik dari L ke 14+** karena pembelian digital; elemen interaktif bertambah "In-App Purchases". Disetujui dan **dipublikasikan 15 Nov 2026**.
 - **Build 1.45.0 (77) dikirim ke Produksi 15 Nov 2026** (dipromosikan dari Internal testing, full rollout 100% karena hanya 7 pemasangan aktif; versi sebelumnya 76/1.44.0; perangkat didukung tidak berubah). Catatan rilis: undangan grup privat dengan persetujuan admin, teks notifikasi, tab bawah/kolom ketik tidak tertutup garis gestur, perbaikan kecil; sengaja tanpa Star dan AI Memory. **Disetujui Google dan di-Publish pengguna 15 Nov 2026 (tayang di Produksi).** `MIN_MOBILE_BUILD` tidak dinaikkan.
+- **Build 1.46.0 (78) dikirim ke Produksi 15 Nov 2026 dan disetujui Google (tayang, dikonfirmasi pengguna).** Isi: "Daftar menjadi Creator" di Saldo Star, peringatan saldo Star di modal Hapus Akun, Saldo Star dimuat ulang saat aplikasi aktif kembali. Catatan rilis: "Versi 1.46.0: kini tersedia Star untuk masuk grup privat berbayar. Star dibeli lewat Google Play dan hanya bisa dipakai di WuzzChat. Ingin membuat grup berbayar sendiri? Ketuk "Daftar menjadi Creator" di Pengaturan > Saldo Star; setiap pendaftar ditinjau tim kami. Saat menghapus akun, aplikasi kini menampilkan saldo Star Anda dan meminta konfirmasi. Perbaikan kecil lainnya." Data Safety tidak berubah. Deskripsi toko baru (Star, Creator, undangan privat, Wuzz Grid) dipasang pengguna 15 Nov 2026; naskahnya di bagian 4. Sisa di server: `LATEST_MOBILE_BUILD=78`, `LATEST_MOBILE_VERSION=1.46.0`, `MIN_MOBILE_BUILD=78` (endpoint versi 15 Nov 2026 masih melaporkan min/latest 76).
 - **Trader status (UE)** tingkat aplikasi masih kosong; quick checks menandainya sebagai isu, dilewati dengan "Proceed anyway" → "I already have plans to resolve this issue". Akun developer sudah dideklarasikan sebagai trader. Putuskan terpisah (`STARS_STAGE0.md` bagian 5).
 
 ## 3. Deklarasi lain di Play Console
@@ -160,22 +161,26 @@ Sumber kebenaran: `/privacy` (bagian 1, 3, 5, 8) yang diperbarui bersamaan denga
 
 **Nama aplikasi** (8/30): `WuzzChat`
 
-**Deskripsi singkat** (75/80):
+**Deskripsi singkat** (75/80, tayang sejak 15 Nov 2026; sebelumnya "Chat, grup, dan panggilan suara. Pesan langsung terenkripsi ujung-ke-ujung."):
 ```
-Chat, grup, dan panggilan suara. Pesan langsung terenkripsi ujung-ke-ujung.
+Chat, grup, panggilan suara, dan grup privat berbayar. Pesan langsung E2EE.
 ```
 
-**Deskripsi lengkap** (1759/4000):
+**Deskripsi lengkap** (2567/4000, dipasang pengguna 15 Nov 2026 bersama build 78; sebelumnya 1759 tanpa Star, Creator, undangan privat, dan Wuzz Grid):
 ```
 WuzzChat adalah aplikasi percakapan untuk individu, tim, dan komunitas: kirim pesan, buat grup, dan telepon langsung dari satu aplikasi.
 
 FITUR UTAMA
 • Pesan langsung terenkripsi ujung-ke-ujung (E2EE). Kunci enkripsi tersimpan di perangkat Anda, sehingga server tidak dapat membaca isi pesan langsung.
 • Grup dan topik forum: ngobrol dengan banyak orang, balas pesan tertentu, sematkan pesan penting, dan atur peran admin.
+• Tautan undangan grup privat: bagikan tautan, lalu admin menyetujui siapa yang boleh masuk. Tautan bisa direset atau dimatikan kapan saja.
+• Grup privat berbayar dengan Star: masuk ke grup pilihan dengan membayar Star. Star dibeli lewat Google Play dan hanya bisa dipakai di WuzzChat.
+• Jadi Creator: ajukan diri lewat Pengaturan > Saldo Star untuk membuat grup privat berbayar sendiri. Setiap pendaftar ditinjau tim kami.
 • Masuk dengan Google. Akun lama tetap bisa masuk dengan username.
 • Panggilan suara satu lawan satu.
 • Pesan suara, foto, dan berkas.
 • Linimasa komunitas: bagikan postingan, beri komentar, dan suka.
+• Game harian Wuzz Grid: satu puzzle baru setiap hari, jaga streak Anda dan bandingkan hasil dengan teman.
 • Teman dan akun privat: kendalikan siapa yang boleh mengirim pesan atau menelepon Anda.
 • Verifikasi Nomor Keamanan dan pemindahan kunci lewat kode QR antar perangkat Anda.
 
@@ -184,6 +189,11 @@ PRIVASI DAN KENDALI ANDA
 • Blokir pengguna dan laporkan pesan, postingan, komentar, atau akun yang melanggar.
 • Hapus akun dan data pribadi kapan saja dari Pengaturan, atau lewat halaman hapus akun kami.
 • Media pesan dihapus otomatis dari server setelah masa simpan singkat.
+
+TENTANG STAR
+• Star tidak dapat dipindahkan ke akun lain, ditukar, atau diuangkan.
+• Pembayaran diproses oleh Google Play; kami tidak menyimpan data kartu atau rekening Anda.
+• Saldo Star yang tersisa hangus bila akun dihapus. Ketentuan lengkap: https://chat.wuzzhub.id/terms
 
 PERHATIAN
 • Pesan di grup, topik forum, dan Linimasa tidak dienkripsi ujung-ke-ujung agar dapat dicari dan dimoderasi. Jangan membagikan rahasia di sana.
