@@ -108,7 +108,7 @@ Kirim lewat Play Console > Help (?) > Contact support, topik terdekat *Policy* a
 
 Pemetaan ke daftar kerja: pertanyaan 1-2 = B1-B2, 3 = F1, 4 = B3, 5 = D1.
 
-**Status pengiriman:** dikirim pengguna 21 Nov 2026 lewat formulir dukungan Play Console. Nomor tiket: (belum dicatat). Menunggu jawaban manusia.
+**Status pengiriman:** tiket dibuat pengguna 21 Nov 2026 lewat formulir dukungan Play Console ("No, create support ticket" setelah saran AI). **Case ID 9-6163000041569**, judul "Policy compliance for in-app currency model", kategori Managing monetization, status Open. Menunggu jawaban staf Google (lewat email akun developer).
 
 **Jawaban Google, 21 Nov 2026: rekomendasi AI asisten Play Console** (muncul saat mengirim tiket; Google sendiri menulis "may make mistakes". **Bukan jawaban resmi peninjau**, jadi belum menutup B1-B2):
 1. **Grup berbayar dengan Star:** dinyatakan sesuai Payments policy (akses konten digital wajib lewat Play Billing; mata uang virtual hanya untuk aplikasi tempat dibeli). Syarat: patuhi kebijakan User Generated Content (laporan, blokir, moderasi; sudah ada sejak Okt 2026).
