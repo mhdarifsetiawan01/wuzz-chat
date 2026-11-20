@@ -50,6 +50,8 @@ tags:
     description: Health Probes, Client System Configuration, and OpenGraph Link Previews
   - name: Wuzz Grid (Daily Game)
     description: Daily logic-grid puzzle with streaks, friends/group/public leaderboards, reminders and staff moderation of the public board
+  - name: Connections
+    description: Friends, friend requests and blocking
 
 paths:
   # =========================================================================
@@ -2417,6 +2419,306 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/connections/request:
+    post:
+      tags:
+        - Connections
+      security:
+        - BearerAuth: []
+      summary: Send a Friend Request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_user_id]
+              properties:
+                target_user_id:
+                  type: string
+                source_type:
+                  type: string
+                  enum: [in_app_request, phone_contact]
+      responses:
+        '201':
+          description: Request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserConnection'
+        '400':
+          description: 'target_user_id missing or self request'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: 'Too many pending outgoing requests'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 'Already friends or already requested'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: 'Cooldown after a decline, rate limit or daily limit'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/connections/respond:
+    post:
+      tags:
+        - Connections
+      security:
+        - BearerAuth: []
+      summary: Accept or Decline a Friend Request
+      description: Only the receiver of the request may respond.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [connection_id, action]
+              properties:
+                connection_id:
+                  type: string
+                action:
+                  type: string
+                  enum: [accept, decline]
+      responses:
+        '200':
+          description: Updated connection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserConnection'
+        '400':
+          description: 'Missing fields or invalid action'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: 'Caller is not the receiver'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 'Connection not found'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/connections/friends:
+    get:
+      tags:
+        - Connections
+      security:
+        - BearerAuth: []
+      summary: List Friends (cursor pagination)
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: Opaque cursor from next_cursor
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Friends page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  friends:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FriendItem'
+                  next_cursor:
+                    type: string
+                  has_more:
+                    type: boolean
+        '400':
+          description: 'Invalid cursor'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/connections/pending:
+    get:
+      tags:
+        - Connections
+      security:
+        - BearerAuth: []
+      summary: List Pending Friend Requests
+      parameters:
+        - name: direction
+          in: query
+          required: false
+          description: 'incoming, outgoing, or empty for both'
+          schema:
+            type: string
+            enum: [incoming, outgoing]
+      responses:
+        '200':
+          description: Pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PendingRequestItem'
+
+  /api/connections/status/{userId}:
+    get:
+      tags:
+        - Connections
+      security:
+        - BearerAuth: []
+      summary: Relationship Status with a User
+      description: Also tells whether the caller may message or call the user (private accounts, blocks).
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [none, pending, accepted, declined, blocked]
+                  direction:
+                    type: string
+                    enum: [incoming, outgoing, '']
+                  connection_id:
+                    type: string
+                  is_private_account:
+                    type: boolean
+                  can_message:
+                    type: boolean
+                  can_call:
+                    type: boolean
+                  blocked_by_me:
+                    type: boolean
+                  blocked_by_them:
+                    type: boolean
+
+  /api/connections/block:
+    post:
+      tags:
+        - Connections
+      security:
+        - BearerAuth: []
+      summary: Block a User
+      description: 30 block/unblock actions per hour per user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: string
+      responses:
+        '200':
+          description: 'Blocked'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: 'user_id missing or block failed'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Block rate limit
+
+  /api/connections/block/{userId}:
+    delete:
+      tags:
+        - Connections
+      security:
+        - BearerAuth: []
+      summary: Unblock a User
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 'Unblocked'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: 'User is not blocked by the caller'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Block rate limit
+
+  /api/connections/{userId}:
+    delete:
+      tags:
+        - Connections
+      security:
+        - BearerAuth: []
+      summary: Unfriend a User
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 'Friendship removed'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
   /api/groups:
     post:
       tags:
@@ -4715,6 +5017,90 @@ components:
           format: date-time
         unread_count:
           type: integer
+        updated_at:
+          type: string
+          format: date-time
+
+    UserConnection:
+      type: object
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        requester_id:
+          type: string
+        receiver_id:
+          type: string
+        status:
+          type: string
+          enum: [none, pending, accepted, declined, blocked]
+        source_type:
+          type: string
+          enum: [in_app_request, phone_contact]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    FriendItem:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        display_name:
+          type: string
+        avatar_url:
+          type: string
+        status_message:
+          type: string
+        bio:
+          type: string
+        role:
+          type: string
+        is_verified:
+          type: boolean
+        is_private_account:
+          type: boolean
+        connection_id:
+          type: string
+        connected_at:
+          type: string
+          format: date-time
+
+    PendingRequestItem:
+      type: object
+      properties:
+        id:
+          type: string
+        requester_id:
+          type: string
+        receiver_id:
+          type: string
+        direction:
+          type: string
+          enum: [incoming, outgoing]
+        status:
+          type: string
+        source_type:
+          type: string
+        peer_id:
+          type: string
+        peer_username:
+          type: string
+        peer_display_name:
+          type: string
+        peer_avatar_url:
+          type: string
+        peer_is_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
         updated_at:
           type: string
           format: date-time
