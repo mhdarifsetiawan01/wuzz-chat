@@ -28,7 +28,7 @@
 
 ## 3. Angka (tabel `star_settings`, `GET/PUT /api/admin/stars/settings`)
 
-Bawaan sementara (keputusan 14 Nov 2026): 1 Star = Rp100, paket 50/100/500, harga grup 10-5.000 Star, potongan toko 15%, platform 20%, masa tahan 14 hari. Validasi: platform ≤ 90%, potongan toko ≤ 50%, masa tahan ≤ 365 hari.
+Bawaan kode (keputusan 14 Nov 2026): 1 Star = Rp100, paket 50/100/500, harga grup 10-5.000 Star, potongan toko 15%, platform 20%, masa tahan 14 hari. **Angka final produksi (21 Nov 2026):** sama, kecuali harga grup **10-1.000 Star** (`group_price_max` diubah di `/admin/stars`). Paket tanpa diskon karena `creator_earnings` memakai satu `star_value_minor`. PPN Play (11%) ditambahkan di atas harga dan dibayar pembeli, jadi `gross` = harga daftar. Validasi: platform ≤ 90%, potongan toko ≤ 50%, masa tahan ≤ 365 hari.
 
 ## 4. Endpoint
 
