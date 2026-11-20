@@ -1,9 +1,25 @@
 # Backlog Wuzz Chat — Indeks dan Sisa Pekerjaan
 
-> Diperbarui 21 Nov 2026 (build 78 tayang, `MIN_MOBILE_BUILD=78`; serah terima sesi: bagian 0). Sumber kebenaran sisa pekerjaan untuk sesi AI mana pun. Berkas selesai ada di `../archived/28-10-2026-backlog-selesai/`. Aturan kerja ada di `PROMPT.md`; runbook operasional di `docs/OPERATIONS.md`.
+> Diperbarui 21 Nov 2026 (serah terima sesi 21 Nov: bagian 0a; sesi 14-15 Nov: bagian 0). Sumber kebenaran sisa pekerjaan untuk sesi AI mana pun. Berkas selesai ada di `../archived/28-10-2026-backlog-selesai/`. Aturan kerja ada di `PROMPT.md`; runbook operasional di `docs/OPERATIONS.md`.
 > **Kerjakan hanya yang diminta pengguna.** Memiliki item di sini bukan izin implementasi.
 
-## 0. Serah terima sesi 14-15 Nov 2026 (BACA DULU)
+## 0a. Serah terima sesi 21 Nov 2026 (BACA DULU)
+
+**Keadaan:** `main` = `c5b0f23` **dideploy** 21 Nov ±02.42 WIB (cek pasca-deploy bersih). `dev` di depan `main` dengan commit dokumen saja (belum di-push). Build 1.46.0 (78) tayang di Produksi; `MIN_MOBILE_BUILD` dan `LATEST_MOBILE_*` = 78/1.46.0.
+
+**Selesai sesi ini:**
+- Star Tahap 0: harga final D1-D2 (Rp100/Star, paket 50/100/500, toko 15%, platform 20%, tahan 14 hari, grup 10-1.000 Star; `group_price_max`=1000 diterapkan). PPN 11% ditambahkan di atas harga oleh Google (bukti Order management). Tiket dukungan Play **9-6163000041569** dibuat (jawaban AI Play positif, tunggu staf). Draf perjanjian mitra kreator (E3) dan brief konsultan (C1-C6): Claude Docs pengguna + salinan `stars/CREATOR_AGREEMENT_DRAFT.md`, `stars/CONSULTANT_BRIEF.md`. Rincian `STARS_STAGE0.md`.
+- Backend (dideploy): OpenAPI YAML yang rusak sejak 15 Nov diperbaiki, dua salinan disatukan + `TestOpenAPISpecCopiesInSync`; audit OpenAPI domain auth, pesan, media, koneksi; galat JSON `chat_handler.go` di-escape; receipt dibatasi room (REST/WS/push); ACK media gagal-tertutup. Rincian `docs/progress/BACKEND.md` entri 21 Nov.
+- Dokumen: 119 tautan `file:///` diganti relatif, rujukan mati diperbaiki. Bucket R2 diukur ulang: tidak ada berkas yatim baru sejak 5 Nov (bagian 2b #12).
+
+**Mulai di sini (berurutan, kerjakan hanya yang diminta):**
+1. Uji di HP (butuh adb): receipt/ACK nyata setelah deploy (cek log), teks notifikasi `notif_text`, dua perbaikan `InviteScreen`, pemulihan pembelian Star setelah aplikasi dimatikan.
+2. Audit OpenAPI lanjutan mulai domain grup (urutan di `docs/progress/BACKEND.md`); opsional tambah dependensi `gopkg.in/yaml.v3` agar tes memvalidasi YAML (perlu persetujuan pengguna).
+3. Pengguna: rekening bank Play (A2), kirim brief + draf perjanjian ke konsultan, trader status UE, cek manual 6 kandidat berkas yatim (2b #11), tunggu jawaban tiket Play.
+
+**Jebakan sesi ini:** jaringan laptop memblokir DNS Supabase/`wuzzhub.id` (cara kerja di `OPERATIONS.md`); deskripsi YAML berisi `": "` wajib dikutip; dialog "Sukses" setelah ganti profil Android diduga bukan bug (`progress/MOBILE.md`).
+
+## 0. Serah terima sesi 14-15 Nov 2026
 
 **Mulai di sini (sesi berikutnya):**
 1. ~~Cek status build 77~~ Build 77 **disetujui dan di-Publish 15 Nov 2026** (tayang di Produksi). **Build 1.46.0 (78) disetujui Google dan tayang di Produksi** (dilaporkan pengguna 21 Nov 2026); pengguna menaikkan `MIN_MOBILE_BUILD=78` di env produksi. `LATEST_MOBILE_BUILD`/`LATEST_MOBILE_VERSION` juga 78/1.46.0.
