@@ -85,19 +85,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Missing or invalid B2B application credentials
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Tenant is inactive, suspended, or rate-limited
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/auth/exchange:
     post:
@@ -126,13 +126,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Exchange token expired, consumed, or invalid
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
 
   # =========================================================================
   # 2. AUTHENTICATION & IDENTITY
@@ -164,19 +164,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Username already exists in this tenant
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
-          description: Rate limit exceeded
+          description: Rate limit exceeded (shared per-IP auth limiter)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/auth/login:
     post:
@@ -184,7 +184,8 @@ paths:
         - Authentication & Identity
       summary: Authenticate User & Issue Session JWT
       description: |
-        Validates username and password within the tenant. Enforces a maximum of 2 active devices per user.
+        Validates username and password within the tenant. Enforces a maximum of 2 active devices per user
+        (409 DEVICE_LIMIT_REACHED; retry with `confirm_override` + `kick_device_id`). Suspended accounts get 403.
       parameters:
         - $ref: '#/components/parameters/HeaderTenantID'
       requestBody:
@@ -205,20 +206,32 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: ACCOUNT_SUSPENDED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: DEVICE_LIMIT_REACHED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceLimitConflict'
         '429':
           description: Too many failed login attempts
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/auth/me:
     get:
       tags:
         - Authentication & Identity
       summary: Get Current User Profile
-      description: Returns the authenticated user profile along with tenant information.
+      description: Returns the caller's profile with login-method flags (Google link, password, freeze, suspension).
       security:
         - BearerAuth: []
       responses:
@@ -227,13 +240,453 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/MeResponse'
         '401':
           description: Unauthorized or expired token
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Authentication & Identity
+      summary: Delete Own Account Permanently
+      description: |
+        Erases the caller's account after re-authentication with `password`, or `google_id_token` (fresh Google ID
+        token, max 5 minutes) for Google-linked accounts. Revokes all sessions and closes WebSockets
+        (`ACCOUNT_DELETED`). Star financial records are kept by user ID only (see /privacy). Limited to
+        10 password attempts per 15 minutes per user. Body max 8 KB.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                  format: password
+                google_id_token:
+                  type: string
+                  description: Alternative to password for Google-linked accounts.
+      responses:
+        '200':
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  message:
+                    type: string
+        '400':
+          description: Neither password nor google_id_token given
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Wrong password (INVALID_CREDENTIALS) or Google re-auth failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Account not found
+        '429':
+          description: Too many password attempts
+        '501':
+          description: Account deletion not wired on this server
+
+  /api/auth/me/google:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Link Google to the Signed-in Account
+      description: Body `{"id_token"}` of the Google account to link. Limited with the password-attempt limiter.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_token]
+              properties:
+                id_token:
+                  type: string
+      responses:
+        '200':
+          description: Linked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleManageResult'
+        '409':
+          description: ACCOUNT_ALREADY_HAS_GOOGLE or GOOGLE_LINKED_TO_OTHER_ACCOUNT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: VALIDATION_ERROR (bad payload) or GOOGLE_SAME_ACCOUNT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: GOOGLE_TOKEN_INVALID, GOOGLE_REAUTH_STALE, GOOGLE_MISMATCH, LINK_TOKEN_INVALID or INVALID_CREDENTIALS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: GOOGLE_NOT_CONFIGURED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Authentication & Identity
+      summary: Replace the Linked Google Account
+      description: Needs proof of both accounts. Replacements are rate-limited (429 GOOGLE_REPLACE_LIMIT).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [old_id_token, id_token]
+              properties:
+                old_id_token:
+                  type: string
+                  description: ID token of the currently linked Google account
+                id_token:
+                  type: string
+                  description: ID token of the new Google account
+      responses:
+        '200':
+          description: Replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleManageResult'
+        '404':
+          description: GOOGLE_NOT_LINKED
+        '409':
+          description: GOOGLE_LINKED_TO_OTHER_ACCOUNT
+        '429':
+          description: GOOGLE_REPLACE_LIMIT
+        '400':
+          description: VALIDATION_ERROR (bad payload) or GOOGLE_SAME_ACCOUNT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: GOOGLE_TOKEN_INVALID, GOOGLE_REAUTH_STALE, GOOGLE_MISMATCH, LINK_TOKEN_INVALID or INVALID_CREDENTIALS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: GOOGLE_NOT_CONFIGURED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Authentication & Identity
+      summary: Unlink Google
+      description: Requires the account password. Accounts without a password get 409 PASSWORD_LOGIN_UNAVAILABLE.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Unlinked (`google_linked` false)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleManageResult'
+        '404':
+          description: GOOGLE_NOT_LINKED
+        '409':
+          description: PASSWORD_LOGIN_UNAVAILABLE
+        '400':
+          description: VALIDATION_ERROR (bad payload) or GOOGLE_SAME_ACCOUNT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: GOOGLE_TOKEN_INVALID, GOOGLE_REAUTH_STALE, GOOGLE_MISMATCH, LINK_TOKEN_INVALID or INVALID_CREDENTIALS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: GOOGLE_NOT_CONFIGURED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/google:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Sign In with Google
+      description: |
+        Exchanges a Google ID token for a session. If the Google account is not linked yet, answers 200 with
+        `code: GOOGLE_NOT_LINKED` and a `link_token` for /api/auth/google/register or /api/auth/google/link.
+        Shares the per-IP auth rate limiter with password login. Body max 16 KB.
+      parameters:
+        - $ref: '#/components/parameters/HeaderTenantID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/DeviceFields'
+                - type: object
+                  required:
+                    - id_token
+                  properties:
+                    id_token:
+                      type: string
+      responses:
+        '200':
+          description: Session, or GOOGLE_NOT_LINKED with a link_token
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/AuthTokenResponse'
+                  - $ref: '#/components/schemas/GoogleLinkPending'
+        '403':
+          description: ACCOUNT_SUSPENDED or GOOGLE_TENANT_NOT_ALLOWED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: DEVICE_LIMIT_REACHED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceLimitConflict'
+        '429':
+          description: Rate limit exceeded
+        '400':
+          description: VALIDATION_ERROR (bad payload) or GOOGLE_SAME_ACCOUNT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: GOOGLE_TOKEN_INVALID, GOOGLE_REAUTH_STALE, GOOGLE_MISMATCH, LINK_TOKEN_INVALID or INVALID_CREDENTIALS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: GOOGLE_NOT_CONFIGURED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/google/register:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Create a New Account from a Google link_token
+      description: Creates a password-less account. Returns the session with 201.
+      parameters:
+        - $ref: '#/components/parameters/HeaderTenantID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/DeviceFields'
+                - type: object
+                  required:
+                    - link_token
+                    - username
+                  properties:
+                    link_token:
+                      type: string
+                    username:
+                      type: string
+                    display_name:
+                      type: string
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '403':
+          description: GOOGLE_TENANT_NOT_ALLOWED
+        '409':
+          description: USERNAME_TAKEN or GOOGLE_LINKED_TO_OTHER_ACCOUNT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+        '400':
+          description: VALIDATION_ERROR (bad payload) or GOOGLE_SAME_ACCOUNT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: GOOGLE_TOKEN_INVALID, GOOGLE_REAUTH_STALE, GOOGLE_MISMATCH, LINK_TOKEN_INVALID or INVALID_CREDENTIALS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: GOOGLE_NOT_CONFIGURED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/google/link:
+    post:
+      tags:
+        - Authentication & Identity
+      summary: Link Google to an Existing Account (username + password) and Sign In
+      parameters:
+        - $ref: '#/components/parameters/HeaderTenantID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/DeviceFields'
+                - type: object
+                  required:
+                    - link_token
+                    - username
+                    - password
+                  properties:
+                    link_token:
+                      type: string
+                    username:
+                      type: string
+                    password:
+                      type: string
+                      format: password
+      responses:
+        '200':
+          description: Linked and signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+        '403':
+          description: ACCOUNT_SUSPENDED
+        '409':
+          description: DEVICE_LIMIT_REACHED (DeviceLimitConflict), ACCOUNT_ALREADY_HAS_GOOGLE or GOOGLE_LINKED_TO_OTHER_ACCOUNT
+        '429':
+          description: Rate limit exceeded
+        '400':
+          description: VALIDATION_ERROR (bad payload) or GOOGLE_SAME_ACCOUNT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: GOOGLE_TOKEN_INVALID, GOOGLE_REAUTH_STALE, GOOGLE_MISMATCH, LINK_TOKEN_INVALID or INVALID_CREDENTIALS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: GOOGLE_NOT_CONFIGURED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/credentials:
+    get:
+      tags:
+        - Authentication & Identity
+      summary: List the Caller's Login Credentials
+      description: Credential records (password, oauth, passkey). Secrets are never returned. Empty array when none.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Credentials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    user_id:
+                      type: string
+                    type:
+                      type: string
+                      enum: [password, passkey, oauth]
+                    identifier:
+                      type: string
+                      description: username, email or credential ID
+                    name:
+                      type: string
+                    created_at:
+                      type: string
+                      format: date-time
+                    updated_at:
+                      type: string
+                      format: date-time
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/auth/refresh:
     post:
@@ -268,16 +721,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/auth/logout:
     post:
       tags:
         - Authentication & Identity
       summary: Logout & Revoke Current Session
-      description: Revokes the current JWT session and blacklists its JTI token.
+      description: Revokes the current JWT session and blacklists its JTI token. The device to sign out comes from the `X-Device-ID` header, or from an optional JSON body when the header is missing.
       security:
         - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_id:
+                  type: string
       responses:
         '200':
           description: Logged out successfully
@@ -297,7 +759,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/auth/sessions:
     get:
@@ -321,7 +783,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/auth/sessions/{id}:
     delete:
@@ -354,7 +816,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/auth/sessions/revoke-others:
     post:
@@ -438,16 +900,24 @@ paths:
           application/json:
             schema:
               type: object
+              description: Fields sent replace the stored values (send the current value to keep it). POST is accepted as an alias of PUT.
               properties:
                 display_name:
                   type: string
-                  example: Alice Smith
-                status:
+                status_message:
                   type: string
-                  example: Available for meetings
                 avatar_url:
                   type: string
-                  example: /uploads/avatar-alice.png
+                bio:
+                  type: string
+                role:
+                  type: string
+                metadata:
+                  type: object
+                  additionalProperties: true
+                is_private_account:
+                  type: boolean
+                  description: Omit to leave unchanged.
       responses:
         '200':
           description: Profile updated successfully
@@ -493,7 +963,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/auth/change-password:
     post:
@@ -575,14 +1045,14 @@ paths:
           application/json:
             schema:
               type: object
+              description: Registers the caller's E2EE public key. The server assigns `key_version` (returned in the response). POST is accepted as an alias of PUT.
               required:
                 - public_key
               properties:
                 public_key:
                   type: string
-                key_version:
-                  type: integer
-                  default: 1
+                device_id:
+                  type: string
       responses:
         '200':
           description: Public key updated successfully
@@ -594,6 +1064,12 @@ paths:
                   status:
                     type: string
                     example: ok
+
+  /api/users/public-key:
+    $ref: '#/paths/~1api~1auth~1public-key'
+
+  /api/users/public-key/reset:
+    $ref: '#/paths/~1api~1user~1public-key~1reset'
 
   /api/user/public-key/reset:
     post:
@@ -609,10 +1085,18 @@ paths:
           application/json:
             schema:
               type: object
+              description: Replaces the key after re-authentication (`password`, or `google_id_token` for Google-linked accounts). Revokes the caller's other sessions. Messages encrypted to the old key become unreadable.
               required:
                 - public_key
               properties:
                 public_key:
+                  type: string
+                device_id:
+                  type: string
+                password:
+                  type: string
+                  format: password
+                google_id_token:
                   type: string
       responses:
         '200':
@@ -1217,7 +1701,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProblemDetails'
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/media/ack:
     post:
@@ -3179,30 +3663,61 @@ components:
         status:
           type: string
           enum: [member, pending]
-    ProblemDetails:
+    ErrorResponse:
       type: object
-      description: Standardized error envelope adhering to RFC 7807 Problem Details for HTTP APIs.
+      description: |
+        Error body used by every handler: a human-readable `error` (Indonesian) and, on newer endpoints, a
+        machine-readable `code`. Some older handlers send this JSON with `Content-Type: text/plain` (Go `http.Error`).
+        RFC 7807 Problem Details are NOT used.
       required:
-        - type
-        - title
-        - status
-        - detail
+        - error
       properties:
-        type:
+        error:
           type: string
-          example: https://wuzzhub.id/errors/unauthorized
-        title:
+          example: Username atau password salah
+        code:
           type: string
-          example: Unauthorized
-        status:
+          example: INVALID_CREDENTIALS
+        message:
+          type: string
+          description: Extra human text on a few responses (e.g. ACCOUNT_SUSPENDED, DEVICE_LIMIT_REACHED).
+
+    DeviceLimitConflict:
+      type: object
+      description: 409 when the account is already active on 2 other devices. Retry with `confirm_override` and `kick_device_id`.
+      properties:
+        error:
+          type: string
+          example: DEVICE_LIMIT_REACHED
+        code:
+          type: string
+          example: DEVICE_LIMIT_REACHED
+        message:
+          type: string
+        max_devices:
           type: integer
-          example: 401
-        detail:
+          example: 2
+        active_devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+
+    DeviceFields:
+      type: object
+      description: Device fields shared by login, register and Google sign-in. `device_id` / `platform` fall back to the `X-Device-ID` / `X-Device-Platform` headers.
+      properties:
+        device_id:
           type: string
-          example: Invalid or expired Bearer token provided
-        instance:
+          example: dev_mobile_pixel8
+        platform:
           type: string
-          example: /api/conversations
+          example: android
+        confirm_override:
+          type: boolean
+          description: Set after a 409 DEVICE_LIMIT_REACHED to replace a device.
+        kick_device_id:
+          type: string
+          description: Device to sign out when `confirm_override` is true.
 
     Tenant:
       type: object
@@ -3226,6 +3741,7 @@ components:
 
     User:
       type: object
+      description: Matches `store.User` (password hash is never serialized).
       properties:
         id:
           type: string
@@ -3233,30 +3749,48 @@ components:
         tenant_id:
           type: string
           example: default
+        external_user_id:
+          type: string
+          description: Only for B2B tenants.
         username:
           type: string
           example: johndoe
         display_name:
           type: string
           example: John Doe
+        status_message:
+          type: string
+        bio:
+          type: string
+        role:
+          type: string
+        system_role:
+          type: string
+          description: Staff role (e.g. wuzz_admin, moderator) or empty.
         avatar_url:
           type: string
-          example: /uploads/avatar.png
-        status:
-          type: string
-          example: Available
+        metadata:
+          type: object
+          additionalProperties: true
+        is_verified:
+          type: boolean
+        is_private_account:
+          type: boolean
         public_key:
           type: string
           description: Base64 raw ECDH P-256 public key
         key_version:
           type: integer
           example: 1
+        active_device_id:
+          type: string
         created_at:
           type: string
           format: date-time
 
     RegisterRequest:
       type: object
+      description: Legacy password registration (new users sign up with Google). Body max 64 KB.
       required:
         - username
         - password
@@ -3271,43 +3805,96 @@ components:
         display_name:
           type: string
           example: Alice
-        public_key:
-          type: string
-        key_version:
-          type: integer
-          default: 1
-
-    LoginRequest:
-      type: object
-      required:
-        - username
-        - password
-      properties:
-        username:
-          type: string
-          example: alice
-        password:
-          type: string
-          format: password
-          example: StrongPassw0rd!
         device_id:
           type: string
-          example: dev_mobile_pixel8
-        device_name:
+        platform:
           type: string
-          example: Pixel 8 Pro
+
+    LoginRequest:
+      allOf:
+        - $ref: '#/components/schemas/DeviceFields'
+        - type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              example: alice
+            password:
+              type: string
+              format: password
+              example: StrongPassw0rd!
 
     AuthTokenResponse:
       type: object
+      description: Session response (`AuthResponse` in code) for login, register and Google sign-in/register/link.
       properties:
         token:
           type: string
-          description: 30-day session JWT
+          description: 30-day session JWT (renew with POST /api/auth/refresh)
         user:
           $ref: '#/components/schemas/User'
+        has_password:
+          type: boolean
+          description: false = Google-only account; sensitive actions need Google re-auth instead of a password.
+        google_linked:
+          type: boolean
+        google_email:
+          type: string
+          description: Linked Google email (owner only; omitted when unknown).
+        google_link_required_by:
+          type: string
+          format: date-time
+          description: Present only when the account must link Google before this time.
+        google_link_frozen:
+          type: boolean
+          description: true = account frozen until Google is linked; client shows the "link Google" screen.
+
+    GoogleManageResult:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+        google_linked:
+          type: boolean
+
+    MeResponse:
+      description: GET /api/auth/me. The user fields are inlined (not nested) next to the login-method flags.
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            google_linked:
+              type: boolean
+            google_email:
+              type: string
+            has_password:
+              type: boolean
+            google_link_required_by:
+              type: string
+              format: date-time
+            google_link_frozen:
+              type: boolean
+            account_suspended:
+              type: boolean
+              description: true = suspended by a moderator; client shows the suspended screen.
+
+    GoogleLinkPending:
+      type: object
+      description: 200 from POST /api/auth/google when the Google account is not linked yet. Use `link_token` with /api/auth/google/register or /api/auth/google/link.
+      properties:
+        code:
+          type: string
+          enum: [GOOGLE_NOT_LINKED]
+        link_token:
+          type: string
+        email:
+          type: string
         expires_in:
           type: integer
-          example: 604800
+          description: link_token lifetime in seconds
 
     ProvisionTokenRequest:
       type: object
