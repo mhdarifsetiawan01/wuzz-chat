@@ -12,7 +12,7 @@
 - Header status usang diperbaiki di `GOOGLE_LOGIN`, `VIDEO_MESSAGE_R2`, `FORUM_MONETIZATION_PLAN/_BACKLOG`, `FORUM_BUBBLE`, `FEED_UPLOAD_HARDENING`. `PROJECT_STATE.md` (bagian 2, 11, 12, 14), `ROADMAP.md` (Fase 14), `PLAY_STORE_MIGRATION.md`, indeks `domains/` dan `context/` disegarkan. Tidak ada perubahan kode (selain komentar di `mobile/src/api/gameApi.ts`).
 - Rilis produksi Play **1.43.0/75 disetujui 28 Okt 2026**; Data Safety dan IARC beres; gate web menunjuk Play (`47a9ca1`, `dfa68ae`); `MIN_MOBILE_BUILD=74`. Wuzz Grid ditutup pengguna.
 - AdMob: akun dibuat, `frontend/public/app-ads.txt` ditambahkan (`94c3ad2`), menunggu verifikasi AdMob. Belum ada kode iklan.
-- Belum diverifikasi ulang terhadap kode: isi tabel kapabilitas selain baris yang diubah, `openapi.yaml` (dua salinan berbeda ±136 baris), dan sebagian dokumen domain.
+- Belum diverifikasi ulang terhadap kode: isi tabel kapabilitas selain baris yang diubah, `openapi.yaml` (dua salinan disatukan 21 Nov 2026; skema per endpoint belum dicocokkan, ±45-50 operasi belum tercantum), dan sebagian dokumen domain.
 
 
 ### Handoff Forum Completion Loop — Paket B berikutnya (18 Oktober 2026)

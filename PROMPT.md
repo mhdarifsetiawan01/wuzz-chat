@@ -65,7 +65,7 @@ Sebelum mengeksekusi tugas, AI **HANYA PERLU MEMBACA** dokumen primer yang relev
    - **Spesifikasi domain** (`docs/domains/<DOMAIN>.md`): aturan bisnis/invarian, kontrak, perilaku, jebakan. Ini tempat utama; ubah di sini dulu.
    - **Konteks platform** (`docs/context/<BACKEND|FRONTEND|MOBILE>.md`) bila peta kode atau konvensi berubah.
    - **Log progres** (`docs/progress/<DOMAIN>.md`, dan `docs/PROGRESS.md` untuk ringkasan lintas domain): apa yang dikerjakan, berkas terdampak, bukti tes, serta yang **belum teruji**. Tandai fakta sebagai *terbukti* (dilihat/diuji di produksi atau perangkat), *tes saja* (hanya tes otomatis), atau *belum*. Jangan menulis "selesai" untuk yang belum diverifikasi.
-   - **API dan skema**: `docs/BACKEND_API.md` dan **kedua** salinan OpenAPI (`docs/openapi.yaml`, `backend/internal/api/openapi.yaml`) bila endpoint/payload berubah; `docs/ARCHITECTURE.md` bila tabel/indeks berubah.
+   - **API dan skema**: `docs/BACKEND_API.md` dan **kedua** salinan OpenAPI (`docs/openapi.yaml`, `backend/internal/api/openapi.yaml`; harus identik, dijaga `TestOpenAPISpecCopiesInSync`) bila endpoint/payload berubah; `docs/ARCHITECTURE.md` bila tabel/indeks berubah.
    - **Status produk**: baris kapabilitas di `docs/PROJECT_STATE.md` (bagian 2) dan `docs/ROADMAP.md` bila fitur baru, berubah, atau selesai.
    - **Operasional**: `docs/OPERATIONS.md` bila ada env/sakelar baru, perubahan alur rilis/Play, tenggat, atau jebakan yang baru ditemukan.
    - **Backlog**: `docs/plans/backlog/README.md` dan header status berkas rencana terkait; bila rencana tuntas, pindahkan ke `docs/plans/archived/<tanggal>-<nama>/` dan perbaiki tautan silangnya.

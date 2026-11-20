@@ -38,5 +38,5 @@ Spesifikasi definitif domain **game puzzle harian**: puzzle, percobaan, streak, 
 - **Epoch nomor puzzle** (`gridEpoch` di `service.go`, 2026-10-25) harus tidak lebih lambat dari hari pertama fitur menyala: nomor 0 hilang dari JSON (`omitempty`) dan tampil sebagai `#undefined` di klien.
 - **Menguji di Postgres**: jalankan kontainer sementara (`postgres:16-alpine`, port 54329) dan `PG_TEST_ADMIN_DSN`; SQLite tidak menegakkan `VARCHAR(n)` sehingga bug panjang kolom hanya terlihat di Postgres.
 - **Zona waktu**: klien menyinkronkan zona perangkat ke server sebelum menampilkan puzzle; server menolak ganti zona lebih sering dari sekali per 24 jam.
-- **Dua salinan OpenAPI**: `backend/internal/api/openapi.yaml` (tertanam, dilayani `/api/openapi.yaml`) dan `docs/openapi.yaml` (rujukan). Keduanya sudah berbeda di bagian non-game; ubah bagian game di **keduanya**.
+- **Dua salinan OpenAPI**: `backend/internal/api/openapi.yaml` (tertanam, dilayani `/api/openapi.yaml`) dan `docs/openapi.yaml` (rujukan). Keduanya identik sejak 21 Nov 2026 (dijaga tes); ubah salinan tertanam lalu salin ke `docs/`.
 - **Jam pengingat**: ubah `GAME_REMINDER_TIME` di env VPS lalu restart backend; aplikasi memakainya pada sinkron berikutnya. Mengubah kalimat berarti mengubah kode (`REMINDER_MESSAGES`) dan butuh build.

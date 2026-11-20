@@ -1,8 +1,10 @@
 package api_test
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -129,5 +131,17 @@ func TestOpenAPIHandler_ServeDocsUI(t *testing.T) {
 
 	if delRr.Code != http.StatusMethodNotAllowed {
 		t.Errorf("expected status 405 Method Not Allowed, got %d", delRr.Code)
+	}
+}
+
+// TestOpenAPISpecCopiesInSync menjaga agar docs/openapi.yaml (rujukan) sama persis dengan
+// salinan tertanam yang dilayani /api/openapi.yaml. Ubah salah satu, salin ke yang lain.
+func TestOpenAPISpecCopiesInSync(t *testing.T) {
+	docsCopy, err := os.ReadFile("../../../docs/openapi.yaml")
+	if err != nil {
+		t.Skipf("docs/openapi.yaml tidak terbaca dari direktori tes: %v", err)
+	}
+	if !bytes.Equal(docsCopy, api.NewOpenAPIHandler().GetSpec()) {
+		t.Fatal("docs/openapi.yaml berbeda dari backend/internal/api/openapi.yaml; salin perubahan ke keduanya (cp backend/internal/api/openapi.yaml docs/openapi.yaml)")
 	}
 }

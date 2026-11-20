@@ -1683,7 +1683,7 @@ paths:
     post:
       tags: [Stars]
       summary: Apply to become a Creator (reviewed by wuzz_admin; approval grants partner creator)
-      description: Body {"message": 10-500 chars}. Rate limit 5/hour per user. Staff are notified (Telegram) without user data.
+      description: 'Body {"message": 10-500 chars}. Rate limit 5/hour per user. Staff are notified (Telegram) without user data.'
       security:
         - BearerAuth: []
       responses:
@@ -2053,6 +2053,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Subgroup'
+        '403':
+          description: |
+            Ditolak. Selain peran yang tidak cukup, bisa berarti batas paket (hanya bila FORUM_LIMITS_ENABLED aktif):
+            `code` = `forum_limit_reached` (batas forum aktif tercapai; ada `plan`, `limit`, `active`) atau
+            `duration_not_in_plan` (durasi tidak tersedia di paket pembuat).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum: [forum_limit_reached, duration_not_in_plan]
+                  plan:
+                    type: string
+                  limit:
+                    type: integer
+                  active:
+                    type: integer
+
+  /api/me/entitlement:
+    get:
+      tags:
+        - Ephemeral Fora (Subgroups)
+      summary: Status paket dan batas forum milik pemanggil
+      description: Hanya data milik pemanggil. `limits_enforced` false berarti batas belum ditegakkan server (informasi saja).
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Status paket
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan:
+                    type: string
+                    enum: [free, pro]
+                  source:
+                    type: string
+                  valid_until:
+                    type: string
+                    format: date-time
+                  limits_enforced:
+                    type: boolean
+                  forums:
+                    type: object
+                    properties:
+                      active:
+                        type: integer
+                      limit:
+                        type: integer
+                  allowed_duration_days:
+                    type: array
+                    items:
+                      type: integer
+                  ai:
+                    type: object
+                    description: Kuota ringkasan AI Memory bulan kalender (UTC) untuk forum buatan pemanggil.
+                    properties:
+                      enforced:
+                        type: boolean
+                      used:
+                        type: integer
+                      limit:
+                        type: integer
+                      reset_at:
+                        type: string
+                        format: date-time
 
   /api/groups/{id}/subgroups/{subId}/extend:
     post:
@@ -2123,7 +2195,9 @@ paths:
       tags:
         - Ephemeral Fora (Subgroups)
       summary: Instant Expire Subgroup (Admin Force-Close)
-      description: Closes an ephemeral subgroup immediately and queues memory synthesis.
+      description: |
+        Closes an ephemeral subgroup immediately. Memory synthesis is queued only when AI Memory is enabled for the group
+        and the forum creator's monthly AI quota is not exhausted; the `memory` field reports which happened.
       security:
         - BearerAuth: []
       parameters:
@@ -2145,6 +2219,11 @@ paths:
               schema:
                 type: object
                 properties:
+                  memory:
+                    type: string
+                    enum: [queued, quota_exceeded, not_queued]
+                  message:
+                    type: string
                   status:
                     type: string
                     example: expired
@@ -3467,19 +3546,32 @@ components:
 
     CreateSubgroupRequest:
       type: object
+      description: |
+        Payload `POST /api/groups/{id}/subgroups` (sesuai `handleCreateSubGroup`). Hanya admin atau pembuat grup induk.
+        Durasi memakai SATU daftar di server (`store.SubGroupDurationDays`); selain nilai di bawah ditolak 400.
+        Dengan `FORUM_LIMITS_ENABLED`, paket Gratis hanya boleh 7 hari (30 hari ditolak 403 `duration_not_in_plan`).
       required:
-        - name
-        - ttl_minutes
+        - title
       properties:
-        name:
+        title:
           type: string
+          minLength: 2
+          maxLength: 128
           example: Incident-2026-09
         description:
           type: string
+          maxLength: 500
           example: Post-mortem war room
-        ttl_minutes:
-          type: integer
-          example: 120
+        duration:
+          type: string
+          description: Masa aktif forum. Kosong = 7_days. Alias yang diterima server tercantum di enum.
+          enum: [7_days, 7d, 1_week, week, 30_days, 30d, 1_month, month]
+          default: 7_days
+          example: 7_days
+        is_public:
+          type: boolean
+          description: true = anggota grup induk langsung bergabung; false = perlu izin admin. Default true.
+          default: true
 
     Subgroup:
       type: object
