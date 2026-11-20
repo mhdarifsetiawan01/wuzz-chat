@@ -1007,8 +1007,7 @@ paths:
         - Authentication & Identity
       summary: Fetch E2EE Public Key of a User
       description: Retrieves the public key and key_version of a specified user for ECDH secret agreement.
-      security:
-        - BearerAuth: []
+      security: []
       parameters:
         - name: id
           in: query
@@ -2218,35 +2217,146 @@ paths:
     post:
       tags:
         - Media Attachments
-      summary: Upload Encrypted Media File (Store-and-Forward)
+      summary: Upload a File through the Server (relay)
       description: |
-        Uploads encrypted media payload. Supports local disk storage and S3/Cloudflare R2.
-        For direct 1-on-1 chats, media is ephemeral and automatically deleted once the recipient sends an acknowledgement (`ACK`).
+        Multipart upload relayed through the API server (local disk / S3 drivers). Drivers that require direct upload
+        (Cloudflare R2 in production) answer 410: use POST /api/media/signed-upload-url instead. Executables are
+        rejected. 40 uploads/minute per user (shared with signed-upload-url).
       security:
         - BearerAuth: []
+      parameters:
+        - name: purpose
+          in: query
+          required: false
+          description: 'feed = image only (JPG, PNG, WebP, GIF, HEIC; magic bytes checked); video = MP4/MOV/M4V/WebM, uses the video size limit and returns a thumbnail ticket. Recorded on the upload ticket.'
+          schema:
+            type: string
+            enum: [feed, video]
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              required:
-                - file
+              required: [file]
               properties:
                 file:
                   type: string
                   format: binary
-                room_id:
-                  type: string
       responses:
         '200':
-          description: Media uploaded successfully
+          description: Uploaded
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MediaUploadResponse'
-        '413':
-          description: File size exceeds server limit
+        '400':
+          description: Missing file, file too large, forbidden type, or not an allowed feed image
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Media upload disabled by the administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: Relay upload disabled for this storage driver; use signed-upload-url
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Upload rate limit
+        '500':
+          description: Storage not configured or write failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/media/signed-upload-url:
+    post:
+      tags:
+        - Media Attachments
+      summary: Get a Direct Upload Ticket (signed URL)
+      description: |
+        Returns a pre-signed PUT URL for direct upload to object storage (R2). Upload the bytes to `signed_url`, then
+        send `public_url` in the message. For `purpose=video` and drivers that support it, `thumb_size` is required
+        and a thumbnail ticket is returned (thumbnail URL = video URL with `.thumb.jpg`). Each ticket is recorded for
+        the orphan-upload sweeper. 40 requests/minute per user.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: purpose
+          in: query
+          required: false
+          description: 'feed = image only (JPG, PNG, WebP, GIF, HEIC; magic bytes checked); video = MP4/MOV/M4V/WebM, uses the video size limit and returns a thumbnail ticket. Recorded on the upload ticket.'
+          schema:
+            type: string
+            enum: [feed, video]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [file_name]
+              properties:
+                file_name:
+                  type: string
+                file_size:
+                  type: integer
+                  format: int64
+                  description: Bytes. Required for purpose=video.
+                mime_type:
+                  type: string
+                thumb_size:
+                  type: integer
+                  format: int64
+                  description: JPEG thumbnail size in bytes (purpose=video).
+      responses:
+        '200':
+          description: Upload ticket
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  signed_url:
+                    type: string
+                  public_url:
+                    type: string
+                  object_key:
+                    type: string
+                  token:
+                    type: string
+                  thumb_signed_url:
+                    type: string
+                  thumb_public_url:
+                    type: string
+        '400':
+          description: Invalid body, size over the limit, forbidden/unsupported type, or invalid thumb_size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Media upload disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Storage not configured or signing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '501':
+          description: 'NOT_SUPPORTED - storage driver has no direct upload; use /api/media/upload'
           content:
             application/json:
               schema:
@@ -2256,8 +2366,11 @@ paths:
     post:
       tags:
         - Media Attachments
-      summary: Acknowledge Media Download (Trigger Ephemeral Deletion)
-      description: Signals the backend that the recipient successfully downloaded the media attachment. In 1-on-1 chats, this securely wipes the file from backend storage.
+      summary: Acknowledge Media Download
+      description: |
+        Tells the server the recipient downloaded a message's media. When auto-delete-on-download is enabled and every
+        recipient has acknowledged, the stored file is deleted and `media_status` becomes `downloaded`. Caller must be
+        a member of the message's conversation.
       security:
         - BearerAuth: []
       requestBody:
@@ -2266,11 +2379,9 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - media_id
-                - room_id
+              required: [message_id]
               properties:
-                media_id:
+                message_id:
                   type: string
                 room_id:
                   type: string
@@ -2284,14 +2395,28 @@ paths:
                 properties:
                   status:
                     type: string
-                    example: ok
-                  deleted:
-                    type: boolean
-                    example: true
+                    example: acknowledged
+                  media_status:
+                    type: string
+        '400':
+          description: message_id missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not a member of the conversation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Media message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  # =========================================================================
-  # 7. GROUPS & COMMUNITIES
-  # =========================================================================
   /api/groups:
     post:
       tags:
@@ -3689,23 +3814,31 @@ paths:
       tags:
         - Utility & Diagnostics
       summary: Public Client Configuration
-      description: Returns client environment config including max file upload limits and allowed MIME types.
+      description: Media feature flags and limits for clients. No authentication.
+      security: []
       responses:
         '200':
-          description: Configuration parameters
+          description: Configuration
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  max_upload_size:
+                  media_upload_enabled:
+                    type: boolean
+                  max_file_size_mb:
                     type: integer
-                    example: 26214400
-                  allowed_types:
-                    type: array
-                    items:
-                      type: string
-                    example: ["image/jpeg", "image/png", "application/pdf"]
+                  max_video_size_mb:
+                    type: integer
+                  max_video_duration_seconds:
+                    type: integer
+                  storage_driver:
+                    type: string
+                    example: r2
+                  media_retention_days:
+                    type: integer
+                  auto_delete_on_download:
+                    type: boolean
 
   /api/link-preview:
     get:
@@ -4687,19 +4820,17 @@ components:
     MediaUploadResponse:
       type: object
       properties:
-        id:
-          type: string
-        filename:
-          type: string
-        original_name:
-          type: string
-        mime_type:
-          type: string
-        size:
-          type: integer
         url:
           type: string
-        hash_sha256:
+        file_name:
+          type: string
+        file_size:
+          type: integer
+          format: int64
+        media_type:
+          type: string
+          enum: [image, audio, video, document]
+        mime_type:
           type: string
 
     CreateGroupRequest:
