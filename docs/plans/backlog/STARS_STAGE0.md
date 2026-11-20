@@ -80,31 +80,31 @@ Tahap 2b (produk Star di Play, library billing, verifikasi pembelian server) bar
 - **Untuk C (pajak):** dialog pembelian Play menulis "+ tax" sedangkan Console menulis "No VAT" untuk Indonesia. Tanyakan apakah harga sudah termasuk PPN dan siapa yang menyetor.
 - **Untuk D1 (harga):** artikel resmi tarif 15% berasal dari 2021; halaman Google yang lebih baru menyebut struktur lain (mis. 10% untuk pemasangan baru di program Apps & Games, tarif bergantung pada pemasangan baru atau lama). Periksa ulang dari support.google.com/googleplay/android-developer/answer/16954621 sebelum menetapkan `store_fee_pct`.
 
-## Lampiran B. Draf pertanyaan ke dukungan Play (disusun 14 Nov 2026; BELUM dikirim)
+## Lampiran B. Draf pertanyaan ke dukungan Play (disusun 14 Nov 2026, diperbarui 21 Nov 2026 setelah Star live; BELUM dikirim)
 
 Kirim lewat Play Console > Help (?) > Contact support, topik terdekat *Policy* atau *Monetization/Payments*. Jangan menambahkan data pribadi; tiket sudah terkait akun. Setelah dikirim, catat tanggal dan nomor tiket di bawah, lalu jawaban Google per nomor pertanyaan.
 
-> **Subject:** Policy question before launch: virtual currency used to pay for access to creator-run private groups (com.wuzzchat.mobile)
+> **Subject:** Policy confirmation: in-app currency used to pay for access to creator-run private groups (com.wuzzchat.mobile)
 >
 > Hello Google Play team,
 >
-> We publish **WuzzChat** (package `com.wuzzchat.mobile`), a messaging app with groups and forums. Before building anything with Google Play Billing, we would like to confirm that the following model complies with Google Play policies.
+> We publish **WuzzChat** (package `com.wuzzchat.mobile`), a messaging app with private and public groups, available in production. Version 1.46.0 (versionCode 78) includes an in-app currency called "Star". We would like to confirm that the model below complies with Google Play policies, and adjust it if needed.
 >
-> **Planned model**
-> 1. Users buy an in-app virtual currency called "Star" through **Google Play Billing only** (consumable in-app products, e.g. packs of 50, 100 or 500 Stars). No other payment method is offered or mentioned in the app.
-> 2. Stars can **only be spent inside WuzzChat**. They cannot be transferred between users, withdrawn or exchanged for money by the buyer.
-> 3. A small number of **approved creators** (manually approved by us) can mark their *private* group as paid. A user pays a one-time price in Stars to join that group, which gives them access to the group's chat content for as long as they remain a member.
-> 4. We plan to share part of the revenue with the creator **outside the app**: under a written agreement, we pay creators manually from our own earnings, only after Google has paid us and after a holding period. The app never offers a cash-out button and never promises payouts to regular users.
-> 5. Refunds of Stars are handled manually by our staff. We will honour Google Play refunds and revocations.
+> **Current model**
+> 1. Users buy Stars **only through Google Play Billing** (consumable in-app products `star_50`, `star_100`, `star_500`, available in Indonesia). No other payment method is offered, linked or mentioned in the app.
+> 2. Stars can **only be spent inside WuzzChat**. They cannot be transferred between users, withdrawn or exchanged for money.
+> 3. A small number of **approved creators** (users can apply in the app; we review and approve each one manually) can mark a *private* group they created as paid. Other users pay a one-time price in Stars to join, which gives access to the group's chat messages and media for as long as they remain a member.
+> 4. We intend to share part of the value with creators **outside the app**: under a written agreement, we pay creators by bank transfer from our own earnings, only after Google has paid us and after a holding period. The app has no cash-out or withdrawal feature, and creators do not hold a Star balance from these payments.
+> 5. Refunds of Stars for group access are reviewed manually by our staff. When Google refunds or voids a Star purchase, we remove those Stars from the user's balance.
 >
 > **Questions**
-> 1. Is it allowed under Google Play policies for users to pay, with a Play Billing virtual currency, for access to a private group **created and run by another user** (a creator), when the content is chat messages and media posted by that creator and other members?
-> 2. Is sharing part of the revenue with those creators **outside the app** (manual payments under a contract, not a cash-out feature) compatible with the Payments policy? Are there any requirements for how this must be disclosed to users or creators?
-> 3. Which category, if any, should we select in the **Financial features declaration** for this feature? Currently we declare that the app has no financial features.
+> 1. Is it allowed under Google Play policies for users to pay, with an in-app currency bought through Play Billing, for access to a private group **created and run by another user** (a creator), where the content is chat messages and media posted in that group?
+> 2. Is sharing part of the revenue with those creators **outside the app** (manual bank transfers under a written agreement, not an in-app cash-out feature) compatible with the Payments policy? Are there any disclosure requirements towards users or creators?
+> 3. Which category, if any, should we select in the **Financial features declaration** for this feature? We currently declare that the app has no financial features.
 > 4. Our developer account and payments profile are registered as an **individual** in Indonesia. If we later form a company, what is the recommended way to move the app and its in-app revenue to an organization account and a new payments profile without interrupting existing purchases?
-> 5. We are enrolled in the 15% service fee tier. Could you confirm which service fee applies to **consumable in-app currency** purchases in Indonesia for an app like ours (including any differences between new and existing installs)?
+> 5. We are enrolled in the 15% service fee tier. Could you confirm which service fee applies to **consumable in-app currency** purchases in Indonesia for our app (including any difference between new and existing installs)?
 >
-> Thank you. We are happy to provide screenshots or a test build if helpful.
+> Thank you. We can provide screenshots, a screen recording or test access if helpful.
 
 Pemetaan ke daftar kerja: pertanyaan 1-2 = B1-B2, 3 = F1, 4 = B3, 5 = D1.
 
