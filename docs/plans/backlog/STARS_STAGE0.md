@@ -78,7 +78,7 @@ Tahap 2b (produk Star di Play, library billing, verifikasi pembelian server) bar
 - 14-15 Nov 2026 (persiapan 2b, sisi Play): build 1.45.0 (77) ber-billing di **Internal testing** saja (lalu dikirim ke Produksi 15 Nov 2026 setelah E dan F1-F2 selesai, sakelar tetap mati); produk `star_50`/`star_100`/`star_500` aktif, hanya Indonesia, harga sementara Rp5.000/10.000/50.000; daftar penguji lisensi `Penguji Star` (hanya akun pemilik). Uji pembelian nyata lolos (`STARS_PLAY_BILLING.md` 12d); semua sakelar Star dimatikan lagi.
 - 15 Nov 2026: teks Star `/privacy` `/terms` `/delete-account` tayang; Data Safety (plus 4 kategori lama yang ternyata kurang) dipublikasikan; IARC pembelian digital Ya dikirim (Brasil naik ke 14+); Financial features dicek, tetap "tidak ada". Trader status UE tingkat aplikasi masih kosong (isu quick checks dilewati).
 - **Untuk C (pajak):** dialog pembelian Play menulis "+ tax" sedangkan Console menulis "No VAT" untuk Indonesia. Tanyakan apakah harga sudah termasuk PPN dan siapa yang menyetor.
-- **Untuk D1 (harga):** artikel resmi tarif 15% berasal dari 2021; halaman Google yang lebih baru menyebut struktur lain (mis. 10% untuk pemasangan baru di program Apps & Games, tarif bergantung pada pemasangan baru atau lama). Periksa ulang dari support.google.com/googleplay/android-developer/answer/16954621 sebelum menetapkan `store_fee_pct`.
+- **Untuk D1 (harga):** artikel resmi tarif 15% berasal dari 2021; halaman Google yang lebih baru menyebut struktur lain (mis. 10% untuk pemasangan baru di program Apps & Games, tarif bergantung pada pemasangan baru atau lama). Periksa ulang dari support.google.com/googleplay/android-developer/answer/16954621 sebelum menetapkan `store_fee_pct`. **21 Nov 2026:** AI asisten Play menyebut 15% rata untuk Indonesia (Lampiran B, jawaban 5); tunggu konfirmasi peninjau manusia.
 
 ## Lampiran B. Draf pertanyaan ke dukungan Play (disusun 14 Nov 2026, diperbarui 21 Nov 2026 setelah Star live; BELUM dikirim)
 
@@ -108,6 +108,11 @@ Kirim lewat Play Console > Help (?) > Contact support, topik terdekat *Policy* a
 
 Pemetaan ke daftar kerja: pertanyaan 1-2 = B1-B2, 3 = F1, 4 = B3, 5 = D1.
 
-**Status pengiriman:** belum dikirim.
+**Status pengiriman:** dikirim pengguna 21 Nov 2026 lewat formulir dukungan Play Console. Nomor tiket: (belum dicatat). Menunggu jawaban manusia.
 
-**Jawaban Google:** (belum ada)
+**Jawaban Google, 21 Nov 2026: rekomendasi AI asisten Play Console** (muncul saat mengirim tiket; Google sendiri menulis "may make mistakes". **Bukan jawaban resmi peninjau**, jadi belum menutup B1-B2):
+1. **Grup berbayar dengan Star:** dinyatakan sesuai Payments policy (akses konten digital wajib lewat Play Billing; mata uang virtual hanya untuk aplikasi tempat dibeli). Syarat: patuhi kebijakan User Generated Content (laporan, blokir, moderasi; sudah ada sejak Okt 2026).
+2. **Bagi hasil ke kreator di luar aplikasi:** tidak melanggar selama tidak ada fitur cash-out/penarikan/transfer uang antarpengguna, pengguna dan kreator tidak diarahkan membayar di luar Play Billing, dan syarat layanan serta perjanjian kreator menjelaskan Star tidak bisa ditransfer/ditarik dan aturan kompensasi kreator (sudah di `/terms` 5a dan draf E3).
+3. **Financial features:** "My app doesn't provide any financial features" sudah tepat untuk mata uang virtual tertutup dan pembayaran developer ke kreator di luar platform.
+4. **Pindah ke badan usaha:** akun individu bisa dikonversi langsung (Account details > About you > Change account type; butuh situs organisasi terverifikasi dan D-U-N-S; profil pembayaran organisasi baru ditautkan). Nama paket, pengguna, dan katalog produk tetap.
+5. **Potongan Google:** 15% rata untuk USD 1 juta pertama per tahun per account group, 30% di atasnya; beda pemasangan baru/lama hanya di wilayah tertentu (AS, UK, EEA, Jepang, Australia), **tidak berlaku untuk Indonesia**. Cocok dengan `store_fee_pct` 15% saat ini.
