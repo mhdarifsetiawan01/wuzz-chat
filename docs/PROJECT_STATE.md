@@ -127,15 +127,15 @@ WuzzChat mengadopsi arsitektur **Modular Monolith** dengan pendekatan *lightweig
 ### 1. Domain `authz` (Identity, Auth & Access)
 - **Responsibility**: Autentikasi pengguna, manajemen siklus hidup sesi, pelacakan perangkat aktif, penegakan kuota multi-perangkat (maksimal 2 perangkat), dan pencabutan token.
 - **Main Entities**: `User`, `SessionInfo`, `Device`, `RegisterInput`, `LoginInput`, `DeviceConflict`.
-- **Main Service**: `authz.AuthService` ([`backend/internal/authz/service.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/authz/service.go)).
-- **Repository Interface**: `authz.AuthRepository` ([`backend/internal/authz/repository.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/authz/repository.go)).
+- **Main Service**: `authz.AuthService` ([`backend/internal/authz/service.go`](../backend/internal/authz/service.go)).
+- **Repository Interface**: `authz.AuthRepository` ([`backend/internal/authz/repository.go`](../backend/internal/authz/repository.go)).
 - **Dependencies**: Mengakses basis data via `authz/infra/sql_repository.go` dan `store.UserStore`.
 - **Known Limitation**: Entitas profil pengguna (`UpdateProfile`) dan kunci E2EE (`UpdatePublicKey`) masih diakses langsung dari handler ke `store.UserStore` tanpa lewat `AuthService`.
 
 ### 2. Domain `messaging` (Chat, Direct Messaging & Message Lifecycle)
 - **Responsibility**: Mengelola percakapan 1-on-1, pencarian pesan, riwayat obrolan, penyuntingan pesan (batas 15 menit), penghapusan pesan (*Delete for Everyone* / *Delete for Me*), pesan tersemat (*pin/unpin*), dan pembaruan tanda terima (*read receipts*).
 - **Main Entities**: `Message`, `Conversation`, `ReceiptUpdate`, `MessageSearchQuery`.
-- **Main Service**: `messaging.MessageService` ([`backend/internal/messaging/service.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/messaging/service.go)).
+- **Main Service**: `messaging.MessageService` ([`backend/internal/messaging/service.go`](../backend/internal/messaging/service.go)).
 - **Repository Interfaces**: `messaging.MessageRepository`, `messaging.ConversationRepository`, `messaging.UserLookupRepository`.
 - **Dependencies**: Terhubung ke `internal/ws` untuk memicu broadcast real-time (melanggar aturan dependensi bersih).
 - **Known Limitation**: Domain mengimpor `internal/ws.Message` untuk kebutuhan broadcast transport.
@@ -143,7 +143,7 @@ WuzzChat mengadopsi arsitektur **Modular Monolith** dengan pendekatan *lightweig
 ### 3. Domain `group` (Persistent Groups & Ephemeral Forums)
 - **Responsibility**: Siklus hidup grup persisten, peran anggota (`creator`, `admin`, `member`), persetujuan permintaan bergabung (*join requests*), dan forum topik efemeral dengan batas waktu aktif (*TTL expiration*).
 - **Main Entities**: `Group`, `GroupMember`, `JoinRequest`, `ForumTopic`.
-- **Main Services**: `group.GroupService`, `group.ForumService` ([`backend/internal/group/service.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/group/service.go)).
+- **Main Services**: `group.GroupService`, `group.ForumService` ([`backend/internal/group/service.go`](../backend/internal/group/service.go)).
 - **Repository Interfaces**: `group.GroupRepository`, `group.UserLookupRepository`.
 - **Workers**: `group/worker/ttl_worker.go` (memantau forum yang kedaluwarsa).
 - **Dependencies**: Memanggil `ws.Hub` untuk event grup dan membuat job memori di `store.MemoryStore`.
@@ -151,23 +151,23 @@ WuzzChat mengadopsi arsitektur **Modular Monolith** dengan pendekatan *lightweig
 ### 4. Domain `memory` (AI Memory Engine)
 - **Responsibility**: Ekstraksi intisari, keputusan terstruktur, dan narasi alur pemikiran dari percakapan; siklus tinjauan draf oleh admin; audit aksi review; dan publikasi snapshot memori terverifikasi.
 - **Main Entities**: `MemoryJob`, `MemoryDraft`, `MemoryArtifact`, `ApprovedMemory`, `MemoryContext`.
-- **Main Service**: `memory.MemoryService` ([`backend/internal/memory/service.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/memory/service.go)).
-- **Core Abstraction**: `ContextSource` ([`backend/internal/memory/context_source.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/memory/context_source.go)) & `ContextSourceRegistry`.
+- **Main Service**: `memory.MemoryService` ([`backend/internal/memory/service.go`](../backend/internal/memory/service.go)).
+- **Core Abstraction**: `ContextSource` ([`backend/internal/memory/context_source.go`](../backend/internal/memory/context_source.go)) & `ContextSourceRegistry`.
 - **Dependencies**: `ai.AIService` (eksekusi LLM) dan `push.Service` (notifikasi draf & approval).
 - **Known Limitation**: Skema database (`forum_memory_jobs`) dan DTO JSON masih memuat atribut `forum_id` dan `group_id`.
 
 ### 5. Domain `ai` (LLM Orchestration & Prompts)
 - **Responsibility**: Komunikasi dengan provider model bahasa besar (Gemini 2.5 Flash, Groq, Mock Provider), pembuatan prompt terstruktur, validasi format JSON keluaran, dan kalkulasi confidence level.
-- **Main Service**: `ai.AIService` ([`backend/internal/ai/service.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ai/service.go)), `ai.Processor` ([`backend/internal/ai/processor.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ai/processor.go)).
+- **Main Service**: `ai.AIService` ([`backend/internal/ai/service.go`](../backend/internal/ai/service.go)), `ai.Processor` ([`backend/internal/ai/processor.go`](../backend/internal/ai/processor.go)).
 
 ### 6. Domain `push` (Multi-Platform Push Gateway)
 - **Responsibility**: Pengiriman notifikasi push ke perangkat Web/PWA (VAPID RFC 8292) dan aplikasi Android native (FCM v1).
-- **Main Service**: `push.Service` ([`backend/internal/push/push.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/push/push.go)).
+- **Main Service**: `push.Service` ([`backend/internal/push/push.go`](../backend/internal/push/push.go)).
 - **Provider Abstraction**: Interface `PushProvider` (`VAPIDWebPushProvider`, `FCMv1PushProvider`).
 
 ### 7. Domain `storage` (Store-and-Forward Media Buffer)
 - **Responsibility**: Penanganan upload file sementara (Supabase Storage / Local Disk), penghapusan berkas fisik saat di-ack oleh klien, dan background purge worker untuk berkas kedaluwarsa.
-- **Main Service**: `storage.StorageDriver`, `storage.PurgeWorker` ([`backend/internal/storage/`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/)).
+- **Main Service**: `storage.StorageDriver`, `storage.PurgeWorker` ([`backend/internal/storage/`](../backend/internal/storage)).
 
 ---
 

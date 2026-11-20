@@ -64,7 +64,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 ```
 
 ### 2.1 Mitigasi BOLA / IDOR pada WebSocket Events
-* **Lokasi Kode**: [`backend/internal/ws/client.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/client.go)
+* **Lokasi Kode**: [`backend/internal/ws/client.go`](../backend/internal/ws/client.go)
 * **Vektor Serangan**: Penyerang (*intruder*) yang terautentikasi mengirim payload JSON dengan nama `room` obrolan milik orang lain untuk menguping atau mengintervensi sinyal WebRTC (`call_offer`, `call_answer`, `ice_candidate`), tanda terima centang biru (`receipt`), reaksi emoji (`reaction`), dan status mengetik (`typing`).
 * **Solusi Implementasi**:
   Setiap client WebSocket memiliki method otorisasi terisolasi:
@@ -79,7 +79,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   Jika client mencoba mem-broadcast event ke room yang bukan haknya, server seketika memutus event, mencatat log security warning, dan mengembalikan pesan `TypeSystem` bertuliskan `"Akses ditolak: Anda bukan anggota room ini"`.
 
 ### 2.2 Proteksi IDOR pada Siklus Penghapusan Berkas Media (ACK Deletion)
-* **Lokasi Kode**: [`backend/internal/api/media_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/media_handler.go)
+* **Lokasi Kode**: [`backend/internal/api/media_handler.go`](../backend/internal/api/media_handler.go)
 * **Vektor Serangan**: Dalam arsitektur *Store-and-Forward*, berkas media fisik yang selesai diunduh oleh penerima akan dihapus dari storage (`POST /api/media/ack`). Penyerang dapat menebak parameter `message_id` milik orang lain dan memicu penghapusan berkas fisik secara paksa (*Denial of Service*).
 * **Solusi Implementasi**:
   Endpoint `AcknowledgeDownload` memvalidasi bahwa `claims.UserID` dari token JWT pemanggil adalah **anggota yang sah** dari room tempat pesan media tersebut dikirimkan sebelum mengeksekusi penghapusan fisik berkas dari disk:
@@ -91,7 +91,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   ```
 
 ### 2.3 Mitigasi TOCTOU SSRF & DNS Rebinding pada Link Preview Scraper
-* **Lokasi Kode**: [`backend/internal/api/link_preview.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/link_preview.go)
+* **Lokasi Kode**: [`backend/internal/api/link_preview.go`](../backend/internal/api/link_preview.go)
 * **Vektor Serangan**:
   1. *Direct SSRF*: Meminta preview link ke IP internal (`http://127.0.0.1:8080`, `http://10.0.0.1`, `http://169.254.169.254`).
   2. *TOCTOU (Time-of-Check to Time-of-Use) / DNS Rebinding*: Domain penyerang mengembalikan IP publik saat lookup DNS pertama (lolos filter), namun mengembalikan IP metadata cloud (`169.254.169.254`) saat TCP soket dibuka.
@@ -107,7 +107,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   3. **Transport Redirect Guard**: Membatasi redirect maksimal 3 hops dan memvalidasi skema (hanya `http` & `https`).
 
 ### 2.4 Anti-Spoofing Identitas Pengguna (JWT Enforcement) & UUID-First Identity
-* **Lokasi Kode**: [`backend/internal/ws/handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/handler.go) & [`backend/internal/auth/middleware.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/middleware.go)
+* **Lokasi Kode**: [`backend/internal/ws/handler.go`](../backend/internal/ws/handler.go) & [`backend/internal/auth/middleware.go`](../backend/internal/auth/middleware.go)
 * **Solusi Implementasi**:
   Server tidak pernah mempercayai field `from_id` atau `nickname` yang dikirimkan oleh klien di payload JSON. Identitas pengirim selalu dipaksakan (*enforced*) dari claims token JWT yang telah diverifikasi secara kriptografis menggunakan secret key backend.
 
@@ -125,26 +125,26 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 
 
 ### 2.5 Pencegahan Tabrakan Deterministik Room ID (Zero Collision)
-* **Lokasi Kode**: [`backend/internal/store/user_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/user_store.go)
+* **Lokasi Kode**: [`backend/internal/store/user_store.go`](../backend/internal/store/user_store.go)
 * **Solusi Implementasi**:
   Metode `GetOrCreateDirectConversation` menggunakan alur bertingkat yang bebas dari tabrakan data:
   1. *Relational Lookup*: Memeriksa apakah kedua user telah memiliki relasi direct di tabel `conversation_members` (100% backward-compatible).
   2. *Full UUID Deterministic ID*: Jika baru, room dibentuk dengan menggabungkan full ID kedua pengguna (`dm_<userA>_<userB>`), dengan fallback hash `SHA-256` (`dm_<sha256>`) jika panjang melebihi 128 karakter.
 
 ### 2.6 Filter Privasi Asimetris & Non-Destructive Message Lifecycle
-* **Lokasi Kode**: [`backend/internal/store/user_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/user_store.go) & [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go)
+* **Lokasi Kode**: [`backend/internal/store/user_store.go`](../backend/internal/store/user_store.go) & [`backend/internal/store/sql.go`](../backend/internal/store/sql.go)
 * **Solusi Implementasi**:
   - **Hapus Percakapan untuk Saya (*Clear Chat*)**: Menggunakan kolom `cleared_at` pada tabel `conversation_members`. Pengguna yang menghapus obrolan tidak akan melihat pesan lama sebelum `cleared_at`, namun riwayat lawan bicara tetap utuh 100%. Obrolan otomatis muncul kembali jika ada pesan baru setelah `cleared_at`.
   - **Tarik Pesan (*Delete for Everyone*)**: Hanya diizinkan jika usia pesan **≤ 60 detik (1 menit)** dan dikirim oleh user pemanggil. Melebihi batas waktu akan ditolak dengan error 400.
 
 ### 2.7 CORS Dynamic Validator & IP Rate Limiting
-* **Lokasi Kode**: [`backend/internal/auth/cors.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/cors.go) & [`backend/internal/auth/rate_limiter.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/rate_limiter.go)
+* **Lokasi Kode**: [`backend/internal/shared/cors/cors.go`](../backend/internal/shared/cors/cors.go) & [`backend/internal/shared/ratelimit/ratelimit.go`](../backend/internal/shared/ratelimit/ratelimit.go)
 * **Solusi Implementasi**:
   - Validator CORS mendukung pencocokan domain produksi `chat.wuzzhub.id` dan wildcard subdomain preview Vercel (`*.vercel.app`) secara aman tanpa membuka `*` (wildcard bebas).
   - Rate limiter berbasis sliding window per IP melindungi endpoint autentikasi (`/api/auth/login`, `/api/auth/register`) dari serangan brute-force.
 
 ### 2.8 Zero-Knowledge Push Notification & Client-Side Background Decryption
-* **Lokasi Kode**: [`backend/internal/push/push.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/push/push.go), [`frontend/public/sw.js`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/public/sw.js), & [`frontend/lib/pushNotification.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/pushNotification.ts)
+* **Lokasi Kode**: [`backend/internal/push/push.go`](../backend/internal/push/push.go), [`frontend/public/sw.js`](../frontend/public/sw.js), & [`frontend/lib/pushNotification.ts`](../frontend/lib/pushNotification.ts)
 * **Prinsip Keamanan & Keandalan**:
   - **Zero Server Decryption**: Backend Go TIDAK PERNAH memegang private key pengguna dan TIDAK BISA mendekripsi payload `e2ee:v1:...`.
   - **Static VAPID Key Persistence**: Pasangan kunci VAPID publik-privat statis dikelola aman via Fly.io Secrets dan Environment Variables, mencegah rotasi kunci acak saat server me-restart yang dapat membatalkan token FCM/Web Push di browser pengguna.
@@ -154,7 +154,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Graceful Fallback**: Jika browser belum memiliki kunci privat atau decrypt gagal, notifikasi jatuh kembali secara aman ke teks fallback `🔒 Pesan Baru (Terenkripsi)` tanpa memicu kebocoran data.
 
 ### 2.9 Pencegahan Key Overwrite & Single Active Device Guard (E2EE)
-* **Lokasi Kode**: [`backend/internal/store/user_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/user_store.go), [`backend/internal/api/auth_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/auth_handler.go), & [`frontend/lib/crypto/keyStore.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/crypto/keyStore.ts)
+* **Lokasi Kode**: [`backend/internal/store/user_store.go`](../backend/internal/store/user_store.go), [`backend/internal/api/auth_handler.go`](../backend/internal/api/auth_handler.go), & [`frontend/lib/crypto/keyStore.ts`](../frontend/lib/crypto/keyStore.ts)
 * **Latar Belakang & Masalah**:
   - Pada sistem E2EE murni (ECDH P-256), private key tersimpan secara lokal di peramban (`IndexedDB`).
   - Jika pengguna membuka aplikasi di perangkat kedua (misal: HP PWA setelah laptop), perangkat kedua yang belum memiliki kunci lokal akan membuat keypair baru dan menimpa kunci publik di server.
@@ -172,7 +172,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 * **Batas pencabutan push yang masih terbuka**: `push_subscriptions` belum memiliki identitas perangkat/sesi; pengeluaran perangkat mencabut HTTP/WebSocket, tetapi belum menjamin penghapusan subscription push dari server. Cleanup `unsubscribeDevice` bergantung pada klien dan dapat gagal setelah token dicabut/target offline. Pengikatan subscription dan pencabutan push per perangkat dicatat sebagai lanjutan di `docs/plans/backlog/MOBILE_LINKED_DEVICES.md`; jangan menyamakan hasil tes HTTP dengan bukti penghentian push.
 * **Manajemen perangkat mobile (18 Oktober 2026)**: menu Perangkat Tertaut memakai identitas perangkat stabil dan token sesi pembuka; perangkat saat ini tidak dapat dikeluarkan dari UI. Endpoint pengeluaran memvalidasi kepemilikan dan mencabut semua sesi target sebelum menonaktifkannya; kegagalan pencabutan tidak dilaporkan sukses dan target tetap tercatat untuk retry. Ini urutan operasi, bukan transaksi atomik: bila penonaktifan setelah revoke gagal, sesi telah dicabut dan request dapat diulang. Respons lama tidak mengubah sheet sesi baru; aksi ini tidak merotasi kunci E2EE akun. Tes integrasi memeriksa dua token target ditolak HTTP dan token pemanggil tetap valid, serta pemanggilan kick ke perangkat target. Uji dua perangkat nyata masih diperlukan.
 * **Pembatasan klien mobile (18 Oktober 2026)**: pengirim hanya sesi aktif dengan E2EE `ready` dan keypair, penerima hanya sesi aktif `conflict` tanpa keypair. AuthContext memeriksa sesi/status sebelum dan setelah consume/dekripsi dan selama penyimpanan. Hanya satu impor berjalan, pasangan P-256 diverifikasi, hasil sesi lama/pembatalan tidak mengaktifkan kunci atau WebSocket. SecureStore menyerialkan penulisan/reset/penghapusan keypair, memulihkan pasangan sebelumnya saat penulisan parsial gagal/dibatalkan, dan cleanup bersyarat tidak menghapus kunci reset yang lebih baru. Request consume yang sudah diproses server tidak bisa dibatalkan oleh guard lokal; buat kode baru bila sudah terpakai. Guard ini bukan pembatasan baru pada endpoint server atau klien web.
-* **Lokasi Kode**: [`backend/internal/store/transfer_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/transfer_store.go), [`backend/internal/api/transfer_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/transfer_handler.go), & [`frontend/lib/crypto/keyTransfer.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/crypto/keyTransfer.ts)
+* **Lokasi Kode**: [`backend/internal/store/transfer_store.go`](../backend/internal/store/transfer_store.go), [`backend/internal/api/transfer_handler.go`](../backend/internal/api/transfer_handler.go), & [`frontend/lib/crypto/keyTransfer.ts`](../frontend/lib/crypto/keyTransfer.ts)
 * **Prinsip Keamanan & Mitigasi Kegagalan**:
   - **Zero Server Plaintext Storage**: Server hanya menyimpan ciphertext terenkripsi AES-256-GCM. Kunci dekripsi diturunkan via PBKDF2 (100.000 iterasi, SHA-256) dari token sesi acak 32-byte (256-bit entropy) yang hanya berpindah via visual QR Code atau input manual pengguna.
   - **Atomic Single-Use Retrieval & Instant WebSocket Kick**: Pengambilan paket kunci di endpoint `POST /api/users/transfer/consume` dikunci dalam transaksi database tunggal (`SELECT ... FOR UPDATE` di PostgreSQL / `BEGIN` di SQLite). Sesi langsung ditandai `is_used = true` dan `users.active_device_id` dialihkan ke perangkat baru secara atomik. Usaha konsumsi ulang seketika menghasilkan HTTP 410 Gone (`SESSION_ALREADY_USED`). Seketika transaksi berhasil, backend memanggil `KickClientByUserID` untuk menendang koneksi WebSocket perangkat lama dengan Close Code 4001 (`SESSION_REPLACED`) dan grace period 500ms.
@@ -181,7 +181,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **State Isolation pada Kegagalan Dekripsi**: Jika dekripsi lokal di browser gagal, penyimpanan `IndexedDB` perangkat target tidak disentuh sama sekali, mencegah rusaknya state kriptografi lokal.
 
 ### 2.11 Client-Side E2EE Decrypted Persistence & Anti-Downgrade Status Guard
-* **Lokasi Kode**: [`frontend/lib/messageCache.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/messageCache.ts) & [`frontend/app/chat/page.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/app/chat/page.tsx)
+* **Lokasi Kode**: [`frontend/lib/messageCache.ts`](../frontend/lib/messageCache.ts) & [`frontend/app/chat/page.tsx`](../frontend/app/chat/page.tsx)
 * **Latar Belakang & Tantangan**:
   - Pada sistem E2EE murni, server database hanya menyimpan ciphertext (`e2ee:v1:...`).
   - Ketika lawan bicara me-reset perangkatnya dan menerbitkan keypair baru, pesan-pesan lama di server tidak lagi bisa didekripsi dengan kunci baru tersebut.
@@ -193,12 +193,12 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Security Key Change Alert**: Perubahan public key lawan bicara dideteksi saat proses dekripsi dan disisipkan sebagai notifikasi sistem visual amber (`security-notice`), menjamin transparansi kriptografi bagi pengguna.
 
 ### 2.12 Proteksi Privilese Akun Terverifikasi (Tamper-Proof `is_verified` & Anti-Self-Elevation)
-* **Lokasi Kode**: [`backend/internal/store/user_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/user_store.go)
+* **Lokasi Kode**: [`backend/internal/store/user_store.go`](../backend/internal/store/user_store.go)
 * **Prinsip Keamanan & Otorisasi**:
   - Kolom `is_verified BOOLEAN DEFAULT false` di tabel `users` tidak dapat dimodifikasi oleh pengguna reguler.
   - Query SQL pada method `UpdateProfile` secara ketat hanya mengizinkan pembaruan field `display_name`, `status_message`, dan `avatar_url`. Parameter `is_verified` diabaikan sepenuhnya dari endpoint publik `PUT /api/auth/profile`.
 ### 2.13 Pengamanan Pendaftaran Pengguna Baru (Registration Hardening & Anti-Impersonation)
-* **Lokasi Kode**: [`backend/internal/auth/validator.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/validator.go) & [`backend/internal/api/auth_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/auth_handler.go)
+* **Lokasi Kode**: [`backend/internal/shared/validator/validator.go`](../backend/internal/shared/validator/validator.go) & [`backend/internal/api/auth_handler.go`](../backend/internal/api/auth_handler.go)
 * **Prinsip Keamanan & Validasi**:
   - **Payload Body Capping (Anti-DoS)**: `r.Body = http.MaxBytesReader(w, r.Body, 64*1024)` membatasi ukuran request body maksimal 64 KB untuk mencegah memory exhaustion.
   - **Karakter Terkontrol**: Regex `^[a-zA-Z0-9_.-]+$` memastikan username hanya terdiri dari karakter aman tanpa spasi, karakter kontrol, atau path traversal (`../`).
@@ -212,7 +212,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Test Coverage**: `validator_test.go` (33 unit test cases) & `auth_register_test.go` (11 integration test cases) - 100% pass.
 
 ### 2.14 Group RBAC & Boundary Access Control Enforcement (Milestone 8.2A)
-* **Lokasi Kode**: [`backend/internal/store/group_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/group_store.go) & [`backend/internal/api/group_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/group_handler.go)
+* **Lokasi Kode**: [`backend/internal/store/group_store.go`](../backend/internal/store/group_store.go) & [`backend/internal/api/group_handler.go`](../backend/internal/api/group_handler.go)
 * **Prinsip Keamanan & Otorisasi RBAC**:
   - **Hierarki Peran Ketat**: `creator` (pembuat grup mutlak), `admin` (pengelola grup), `member` (anggota biasa).
   - **Creator Protection**: Creator tidak dapat di-kick atau diubah perannya oleh siapapun (termasuk sesama admin). Creator tidak dapat keluar dari grup sembarangan tanpa membubarkan atau mentransfer grup.
@@ -221,7 +221,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Atomic Transaction Isolation**: Seluruh operasi grup (`CreateGroup`, `AddGroupMembers`, `RemoveGroupMember`) dibungkus dalam `*sql.Tx` atomik guna mencegah *dangling members* atau korupsi hitungan anggota jika terjadi kegagalan jaringan di tengah jalan.
 
 ### 2.12 Strict Parent-Membership Gate, RBAC Creation Guard & Immutable-Only Identity Enforcement (DEC-008 & DEC-011)
-* **Lokasi Kode**: [`backend/internal/store/group_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/group_store.go), [`backend/internal/store/user_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/user_store.go), [`backend/internal/api/group_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/group_handler.go)
+* **Lokasi Kode**: [`backend/internal/store/group_store.go`](../backend/internal/store/group_store.go), [`backend/internal/store/user_store.go`](../backend/internal/store/user_store.go), [`backend/internal/api/group_handler.go`](../backend/internal/api/group_handler.go)
 * **Vektor Serangan**: Pengguna luar mencoba menginfiltrasi subgrup bertopik via direct link `sub_<UUID>`, brute-force ID, atau invite liar; serta anggota biasa melakukan *topic flooding/spamming* dengan membuat puluhan subgrup liar tanpa izin admin.
 * **Solusi Implementasi (Strict Fail-Closed)**:
   - **RBAC Creation Guard (DEC-011)**: Pembuatan topik forum (`POST /api/groups/{id}/subgroups`) dibatasi ketat hanya untuk peran `creator` dan `admin` grup induk via `GetUserRoleInGroup`. Anggota biasa (`member`) yang mencoba memanggil API langsung ditolak keras dengan status fail-closed `HTTP 403 Forbidden` (`"Akses ditolak: Hanya admin atau pembuat grup yang dapat membuat topik forum"`).
@@ -229,14 +229,14 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Enforcement Identitas Immutable (DEC-008)**: Seluruh pembanding, query filter, dan otorisasi strictly menggunakan UUID / ID immutable (`users.id`, `conversations.id`, `conversations.parent_id`). Dilarang keras membandingkan variabel yang dapat berubah (*mutable*) seperti `username`, `display_name`, atau nama grup.
 
 ### 2.13 Fail-Closed Write Gate & Ephemeral Forum Topics Lifecycle
-* **Lokasi Kode**: [`backend/internal/ws/client.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/client.go), [`backend/internal/worker/subgroup_ttl_worker.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/worker/subgroup_ttl_worker.go)
+* **Lokasi Kode**: [`backend/internal/ws/client.go`](../backend/internal/ws/client.go), [`backend/internal/worker/subgroup_ttl_worker.go`](../backend/internal/worker/subgroup_ttl_worker.go)
 * **Solusi Implementasi**:
   - **WebSocket Drop & Error**: Saat topik forum kedaluwarsa (`status = 'expired'` atau `expires_at <= NOW()`), server langsung menolak pesan masuk dengan `sendError("Topik forum ini telah kedaluwarsa dan terkunci. Pesan tidak dapat dikirim.")`.
   - **Non-Destructive AI Summary Readiness**: Riwayat pesan tidak di-hard delete saat kedaluwarsa agar dapat diakses untuk AI Summary di masa mendatang.
   - **Automated Batch Transition**: Daemon background `SubGroupTTLWorker` berjalan setiap 15 menit menjalankan kueri batch `ExpireSubGroupsBatch` tanpa membebani thread WebSocket utama.
 
 ### 2.14 Forum Topics Access Control & Join Request Purge Lifecycle
-* **Lokasi Kode**: [`backend/internal/store/group_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/group_store.go), [`backend/internal/api/group_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/group_handler.go)
+* **Lokasi Kode**: [`backend/internal/store/group_store.go`](../backend/internal/store/group_store.go), [`backend/internal/api/group_handler.go`](../backend/internal/api/group_handler.go)
 * **Vektor Serangan**: Anggota grup induk mencoba membobol topik forum privat tanpa izin melalui manipulasi request `POST /api/groups/{sub_id}/join`.
 * **Solusi Implementasi**:
   - **Fail-Closed Direct Join Check**: Saat `is_public = false`, pemanggilan `/join` langsung ditolak dengan pesan instruksi mengajukan izin (`HTTP 400 Bad Request`).
@@ -245,7 +245,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Automated Expired Data Purge**: Saat topik forum kedaluwarsa, seluruh baris izin di `conversation_join_requests` langsung dihapus secara atomik oleh `ExpireSubGroupsBatch` untuk mencegah kebocoran antrean dan menghemat ruang database.
 
 ### 2.15 Mitigasi Akses Tautan Langsung Grup Privat & WebSocket Drop Guard (DEC-013)
-* **Lokasi Kode**: [`frontend/app/chat/page.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/app/chat/page.tsx) & [`backend/internal/store/group_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/group_store.go)
+* **Lokasi Kode**: [`frontend/app/chat/page.tsx`](../frontend/app/chat/page.tsx) & [`backend/internal/store/group_store.go`](../backend/internal/store/group_store.go)
 * **Vektor Serangan & Isu Kebocoran UX**: Pengguna membagikan tautan grup privat (`/chat?room=grp_<UUID>`) ke luar. Non-anggota yang membuka tautan sebelumnya langsung diarahkan ke layar ruang obrolan kosong yang menginisialisasi koneksi WebSocket join tanpa otorisasi. Penolakan backend (BOLA protection) menyebabkan timer timeout riwayat pesan 7.5 detik terpicu dan memunculkan notifikasi keliru seolah-olah server mengalami hambatan jaringan.
 * **Solusi Implementasi (Zero-Leakage & Fail-Closed Guard)**:
   1. **Dual Gate Verification**: Endpoint `GET /api/groups/{id}` memverifikasi status `is_public` dan keanggotaan `myRole`. Jika `!is_public && myRole == ""`, backend mengembalikan `HTTP 403 Forbidden` (`ErrUnauthorizedGroup`).
@@ -253,7 +253,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   3. **Shielding UI Aurora Glassmorphism**: Seluruh komponen percakapan (`StatusBar`, `ChatWindow`, `MessageInput`) digantikan oleh kartu proteksi otorisasi bertema *Aurora Glassmorphism* yang menjelaskan status privat grup tanpa membocorkan isi obrolan, jumlah anggota, atau identitas admin. Tombol kembali mengeksekusi `router.replace('/chat')` untuk membersihkan URL history.
 
 ### 2.16 Keamanan Message Management Suite (BOLA, Recall Unpin, Edit Window, & Search Privacy)
-* **Lokasi Kode**: [`backend/internal/api/chat_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/chat_handler.go) & [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go)
+* **Lokasi Kode**: [`backend/internal/api/chat_handler.go`](../backend/internal/api/chat_handler.go) & [`backend/internal/store/sql.go`](../backend/internal/store/sql.go)
 * **Vektor Ancaman yang Dimigasikasi**:
   1. **BOLA pada Forward Pesan**: Penyerang menyertakan `target_room_ids` milik orang lain. Handler memvalidasi `IsUserInRoom` untuk setiap room target secara individual; jika satu saja tidak sah, request langsung dibatalkan dengan status `403 Forbidden`. Batas maksimal 5 target juga mencegah eksploitasi spam massal.
   2. **BOLA pada Pin & Unpin**: Endpoint `/api/messages/pin`, `/unpin`, dan `/pinned` memverifikasi keanggotaan pengguna di room target (`IsUserInRoom`). Bukan anggota ditolak dengan `403 Forbidden`.
@@ -263,7 +263,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   6. **Privasi In-Chat Search**: Mesin kueri pencarian menerapkan filter `AND (cm.cleared_at IS NULL OR m.created_at > cm.cleared_at)` sehingga pesan-pesan lama sebelum pengguna melakukan *Clear Chat* tidak akan bocor ke hasil pencarian.
 
 ### 2.17 Identity & Auth Hardening: JWT Revocation Blacklist, E2EE Reset Re-auth Gate, & Global Invalidation
-* **Lokasi Kode**: [`backend/internal/auth/jwt.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/jwt.go), [`backend/internal/auth/middleware.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/middleware.go), [`backend/internal/store/token_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/token_store.go), & [`backend/internal/api/auth_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/auth_handler.go)
+* **Lokasi Kode**: [`backend/internal/auth/jwt.go`](../backend/internal/auth/jwt.go), [`backend/internal/auth/middleware.go`](../backend/internal/auth/middleware.go), [`backend/internal/store/token_store.go`](../backend/internal/store/token_store.go), & [`backend/internal/api/auth_handler.go`](../backend/internal/api/auth_handler.go)
 * **Vektor Ancaman yang Dimigasikasi**:
   1. **Stateless JWT Replay / Zombie Token After Logout (R1)**:
      - *Masalah*: Token JWT 7 hari sebelumnya tetap valid meskipun pengguna sudah menekan tombol logout.
@@ -295,7 +295,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 ```
 
 ### 3.1 Penyelesaian Masalah $N+1$ Query pada `GetUserConversations`
-* **Lokasi Kode**: [`backend/internal/store/user_store.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/user_store.go#L354-L525)
+* **Lokasi Kode**: [`backend/internal/store/user_store.go`](../backend/internal/store/user_store.go#L354-L525)
 * **Masalah Sebelumnya**: Pada user yang memiliki 50 obrolan aktif, endpoint memicu $1 + 3(50) = 151$ kueri SQL individual ke database secara berulang.
 * **Solusi $O(1)$ Batched CTE**:
   Direfaktor menjadi **tepat 3 kueri database independen** menggunakan fitur canggih SQL standar (didukung penuh di PostgreSQL & SQLite 3.25+):
@@ -305,7 +305,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
 * **Dampak**: Menghemat **98% konsumsi koneksi database** dan memangkas waktu respon API hingga **< 15ms**.
 
 ### 3.2 Indeks Performa Database (PostgreSQL & SQLite)
-* **Lokasi Kode**: [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go#L100-L148)
+* **Lokasi Kode**: [`backend/internal/store/sql.go`](../backend/internal/store/sql.go#L100-L148)
 * **Indeks yang Diterapkan**:
   - `idx_conv_members_user ON conversation_members(user_id)`: Mempercepat lookup daftar room milik user.
   - `idx_conv_members_conv ON conversation_members(conversation_id)`: Mempercepat lookup anggota dalam room.
@@ -321,7 +321,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - `idx_join_requests_conv_user ON conversation_join_requests(conversation_id, user_id)`: Indeks unik mencegah duplikasi permohonan bergabung per user per subgrup.
 
 ### 3.3 Keandalan Concurrency SQLite (WAL Mode & Busy Timeout)
-* **Lokasi Kode**: [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go#L44-L62)
+* **Lokasi Kode**: [`backend/internal/store/sql.go`](../backend/internal/store/sql.go#L44-L62)
 * **Solusi Implementasi**:
   Saat menggunakan SQLite (development/local fallback), database dikonfigurasi dengan:
   - `PRAGMA journal_mode=WAL;` (Write-Ahead Logging): Pembaca (*readers*) tidak memblokir penulis (*writers*), dan penulis tidak memblokir pembaca.
@@ -329,19 +329,19 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - `db.SetMaxOpenConns(25)`: Pool koneksi multi-goroutine yang stabil.
 
 ### 3.4 Goroutine Concurrency & Buffered WebSocket Channels
-* **Lokasi Kode**: [`backend/internal/ws/client.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/client.go) & [`backend/internal/ws/hub.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go)
+* **Lokasi Kode**: [`backend/internal/ws/client.go`](../backend/internal/ws/client.go) & [`backend/internal/ws/hub.go`](../backend/internal/ws/hub.go)
 * **Solusi Implementasi**:
   - Arsitektur pump independen: Setiap koneksi WebSocket memiliki goroutine `readPump` dan `writePump` terpisah.
   - Channel `send chan []byte` dengan buffer kapasitas `256` pesan per client untuk mencegah *head-of-line blocking* jika salah satu client mengalami koneksi lambat (*slow consumer*).
 
 ### 3.5 Skalabilitas Horizontal Multi-Node (Redis Cluster Pub/Sub)
-* **Lokasi Kode**: [`backend/internal/ws/hub.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go) & [`backend/internal/broker/redis_broker.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/broker/redis_broker.go)
+* **Lokasi Kode**: [`backend/internal/ws/hub.go`](../backend/internal/ws/hub.go) & [`backend/internal/broker/redis_broker.go`](../backend/internal/broker/redis_broker.go)
 * **Solusi Implementasi**:
   - Backend mendukung deployment multi-instance (*horizontal scaling* di Fly.io / Kubernetes).
   - Sinkronisasi event real-time antar instance backend menggunakan channel Pub/Sub Redis `wuzz:cluster:events` dan caching MD5 metadata link preview.
 
 ### 3.6 Arsitektur Ketahanan Jaringan Latensi Tinggi & Server Lambat / Flaky
-* **Lokasi Kode**: [`backend/internal/ws/handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/handler.go), [`backend/internal/ws/hub.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go), [`frontend/lib/api.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/api.ts), [`frontend/lib/ws-client.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/ws-client.ts)
+* **Lokasi Kode**: [`backend/internal/ws/handler.go`](../backend/internal/ws/handler.go), [`backend/internal/ws/hub.go`](../backend/internal/ws/hub.go), [`frontend/lib/api.ts`](../frontend/lib/api.ts), [`frontend/lib/ws-client.ts`](../frontend/lib/ws-client.ts)
 * **Vektor Kegagalan**: Jaringan seluler pengguna (3G/4G/WiFi lemah) dan server berlatensi sedang-tinggi (200–800ms+) sering mengalami *bufferbloat*, paket hilang, atau soket putus tanpa sinyal penutupan tertib. Kondisi ini dapat memicu *race condition* (klien lama reconnect dan menendang klien baru) atau UI menggantung (*hanging requests*).
 * **Solusi Implementasi Arsitektur**:
   1. **Handshake Level Single Device Gatekeeper**: Validasi otoritas `device_id` terhadap database `active_device_id` langsung saat HTTP upgrade handshake. Klien dengan `device_id` usang atau kosong ditolak seketika dengan status `HTTP 403 Forbidden` (`DEVICE_MISMATCH` / `SESSION_REPLACED`), mencegah klien usang masuk kembali ke Hub.
@@ -351,7 +351,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   5. **Terminal WebSocket Close Code & Backoff**: Penerimaan Close Code `4001` langsung mematikan loop auto-reconnect (`this.destroyed = true`). Reconnect koneksi biasa diatur dengan exponential backoff bertingkat (1s s/d 30s) dengan batas maksimal 5 kali percobaan.
 
 ### 3.7 Proteksi Profil Pengguna & Sanitasi Media Avatar
-* **Lokasi Kode**: [`frontend/lib/imageCompressor.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/imageCompressor.ts), [`frontend/app/chat/AvatarStudio.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/app/chat/AvatarStudio.tsx), [`backend/internal/api/auth_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/auth_handler.go)
+* **Lokasi Kode**: [`frontend/lib/imageCompressor.ts`](../frontend/lib/imageCompressor.ts), [`frontend/app/chat/AvatarStudio.tsx`](../frontend/app/chat/AvatarStudio.tsx), [`backend/internal/api/auth_handler.go`](../backend/internal/api/auth_handler.go)
 * **Vektor Serangan & Beban Jaringan**: Unggahan foto profil mentah berukuran besar (>10MB) dapat menghabiskan kuota transfer database, membebani bandwidth klien seluler saat merender daftar obrolan, atau menjadi vektor serangan injeksi SVG/XSS jika file gambar tidak disanitasi.
 * **Solusi Implementasi Arsitektur**:
   1. **Client-Side Canvas Downscaling & Re-Encoding (Zero-XSS)**: Setiap foto yang diunggah pengguna diproses melalui elemen `<canvas>` HTML5 offscreen (`imageCompressor.ts`), diperkecil hingga batas resolusi ideal avatar (maksimal 512x512px), dan di-encode ulang menjadi format **WebP** dengan kualitas kompresi optimal. Skrip jahat atau payload SVG yang disisipkan dalam berkas otomatis ternetralisir karena hanya data piksel murni yang digambar ke kanvas.
@@ -359,7 +359,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   3. **Fallback Error Isolation**: Komponen `UserAvatar.tsx` mengisolasi kegagalan pemuatan gambar (`onError`) dan seketika beralih ke inisial deterministik dengan palet warna lembut tanpa merusak tata letak antarmuka pengguna (*graceful degradation*).
 
 ### 3.8 Storage Retention & Anti-Resource Exhaustion: Direct Message vs Shared Group Media
-* **Lokasi Kode**: [`backend/internal/storage/purge_worker.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/purge_worker.go), [`backend/internal/api/media_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/media_handler.go), & [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go)
+* **Lokasi Kode**: [`backend/internal/storage/purge_worker.go`](../backend/internal/storage/purge_worker.go), [`backend/internal/api/media_handler.go`](../backend/internal/api/media_handler.go), & [`backend/internal/store/sql.go`](../backend/internal/store/sql.go)
 * **Tantangan Arsitektur**: Berkas media (gambar, audio, dokumen) dapat menghabiskan kuota disk server dengan cepat jika tidak dikelola dengan siklus hidup (*lifecycle*) yang tegas. Di sisi lain, pada obrolan grup dan forum topik dengan banyak anggota, file tidak boleh langsung dihapus saat satu orang pertama mengunduhnya.
 * **Solusi Implementasi Dual-Retention**:
   1. **Direct Message (Immediate Store-and-Forward)**: Menggunakan pola ACK download tunggal (`POST /api/media/ack`). Begitu penerima selesai mendownload berkas ke IndexedDB lokalnya, server langsung menghapus berkas fisik dari storage ($0 server storage maintenance cost).
@@ -367,13 +367,13 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   3. **Client-Side Deduplicated IndexedDB (`wuzzchat_media_db`)**: Pengguna yang sudah pernah membuka gambar otomatis menyimpan salinan blob secara lokal, membebaskan server dari pengunduhan ulang.
 
 ### 3.9 Query Pagination & Memory Bounding: Limitasi 50 Pesan Awal & Cache-First IndexedDB
-* **Lokasi Kode**: [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go#L490) & [`frontend/lib/messageCache.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/messageCache.ts)
+* **Lokasi Kode**: [`backend/internal/store/sql.go`](../backend/internal/store/sql.go#L490) & [`frontend/lib/messageCache.ts`](../frontend/lib/messageCache.ts)
 * **Tantangan Skalabilitas**: Ketika ruang obrolan grup terakumulasi hingga ratusan ribu pesan, pengambilan riwayat tanpa batas (*unbounded query*) akan memicu lonjakan memori database, latensi jaringan berlebih, dan *DOM freeze* di browser ponsel pengguna.
 * **Solusi Implementasi**:
   1. **Batas Riwayat Awal Server (`LIMIT 50`)**: Backend Go membatasi query riwayat saat event `join` ke 50 pesan terbaru (`ORDER BY created_at DESC LIMIT 50`), dipadukan dengan indeks komposit `idx_messages_room_created (room_id, created_at DESC)` sehingga kecepatan respons tetap konstan pada tingkat **$O(\log N)$**.
   2. **Cache-First 0ms Load**: Klien merender pesan lokal dari IndexedDB (`wuzzchat_msg_db`) terlebih dahulu (0 milidetik), lalu menggabungkan (*upsert*) riwayat 50 pesan server di latar belakang tanpa mengunci UI pengguna.
 ### 3.10 Core Fanout Optimization $O(M)$ & In-Memory Membership Cache
-* **Lokasi Kode**: [`backend/internal/ws/hub.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go)
+* **Lokasi Kode**: [`backend/internal/ws/hub.go`](../backend/internal/ws/hub.go)
 * **Tantangan Performa**: Sebelumnya, fungsi `broadcastLocal` melakukan scan linier $O(N)$ ke seluruh koneksi aktif (`h.clients`) dan mengeksekusi query database SQL `GetConversationMemberUsernames` di setiap pengiriman pesan. Pada ribuan pengguna terkoneksi, hal ini memicu lonjakan CPU dan kejenuhan pool koneksi database.
 * **Solusi Implementasi**:
   - Mengimplementasikan `roomMembersCache map[string][]string` dengan lock terisolasi `roomMembersMu sync.RWMutex` pada `Hub`.
@@ -381,21 +381,21 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - Invalidation otomatis saat terjadi perubahan keanggotaan grup (`BroadcastGroupSystemEvent`).
 
 ### 3.11 Sliding-Window Typing Rate Limiter (Anti-Flood DoS)
-* **Lokasi Kode**: [`backend/internal/ws/client.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/client.go)
+* **Lokasi Kode**: [`backend/internal/ws/client.go`](../backend/internal/ws/client.go)
 * **Mitigasi Serangan**: Mencegah serangan denial-of-service melalui pembanjiran frame event `typing` dari bot atau klien modifikasi.
 * **Solusi Implementasi**: Menggunakan algoritma sliding-window rate limit per koneksi klien dengan kuota maksimal **3 event typing per 2 detik**. Event berlebih diabaikan secara silent tanpa membebani broadcast goroutine.
 
 ### 3.12 Delta Offline History Sync with Checkpoint Timestamp
-* **Lokasi Kode**: [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go) & [`backend/internal/ws/hub.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go)
+* **Lokasi Kode**: [`backend/internal/store/sql.go`](../backend/internal/store/sql.go) & [`backend/internal/ws/hub.go`](../backend/internal/ws/hub.go)
 * **Tantangan Efisiensi**: Saat perangkat mobile reconnect setelah offline singkat, pengunduhan ulang 50 pesan penuh memboroskan kuota data seluler dan memori.
 * **Solusi Implementasi**: Method `GetRoomHistorySince(roomID, userID, since, limit)` mengeksekusi query delta `WHERE room_id = $1 AND timestamp > $2 ORDER BY timestamp ASC LIMIT $3`. Dikombinasikan dengan pembacaan timestamp pesan terakhir di IndexedDB lokal (`messageCache.ts`), transmisi riwayat pesan dipangkas hingga 90%.
 
 ### 3.13 Client-Side Outbound Queue & Auto-Retry Resiliency
-* **Lokasi Kode**: [`frontend/lib/ws-client.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/ws-client.ts)
+* **Lokasi Kode**: [`frontend/lib/ws-client.ts`](../frontend/lib/ws-client.ts)
 * **Ketahanan Jaringan Mobile**: Menampung pesan ke dalam FIFO `outboundQueue` (maksimal 100 pesan) saat WebSocket dalam status terputus (`reconnecting` / `connecting`), dan mem-flush antrean secara otomatis seketika saat event `onopen` terpicu. Mengeliminasi *blind pop* dengan menahan pesan sampai paket `ack` atau `receipt` yang sesuai diterima dari server.
 
 ### 3.14 Server-Side In-Memory Idempotency Guard & Transport ACK (DEC-015)
-* **Lokasi Kode**: [`backend/internal/ws/hub.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go) & [`backend/internal/ws/client.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/client.go)
+* **Lokasi Kode**: [`backend/internal/ws/hub.go`](../backend/internal/ws/hub.go) & [`backend/internal/ws/client.go`](../backend/internal/ws/client.go)
 * **Vektor Resend Duplikat**: Klien mobile yang terputus di tengah jalan saat mengirim pesan akan mengirim ulang (*retransmit*) pesan yang sama dengan `ID` yang sama begitu soket pulih. Tanpa idempotensi, server akan membroadcast pesan yang sama dua kali ke anggota room sebelum gagal di SQL constraint.
 * **Solusi Implementasi**:
   - `Hub` memelihara in-memory cache `dedupHistory map[string]int64` dengan proteksi mutex `dedupMu sync.RWMutex` dan pembersihan otomatis.
@@ -403,13 +403,13 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - Setiap pengiriman pesan masuk yang menyertakan `request_id` otomatis dibalas dengan paket transport `{ type: "ack", request_id: "...", status: "ok" }`.
 
 ### 3.15 Optimasi Indeks Pinned Messages & In-Chat Search Query
-* **Lokasi Kode**: [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go)
+* **Lokasi Kode**: [`backend/internal/store/sql.go`](../backend/internal/store/sql.go)
 * **Karakteristik Kueri**:
   - Pinned Messages menggunakan composite index `idx_pinned_messages_conv(conversation_id, created_at DESC)` dengan batas maksimal 3 entri, memastikan performa baca $O(1)$ tanpa full-table scan.
   - In-Chat Search memanfaatkan parameter terikat SQL (`ILIKE $3` pada Postgres, `LIKE ?` pada SQLite) yang mengecualikan pesan terhapus dan pesan sebelum `cleared_at`, menghasilkan kueri yang aman dari SQL injection serta efisien pada dataset ratusan ribu pesan.
 
 ### 3.16 Server Timeout Resilient Logout, 0ms Local-First Purge & Anti-Stale History Sanitizer
-* **Lokasi Kode**: [`frontend/lib/auth-context.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/auth-context.tsx) & [`frontend/app/login/page.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/app/login/page.tsx)
+* **Lokasi Kode**: [`frontend/lib/auth-context.tsx`](../frontend/lib/auth-context.tsx) & [`frontend/app/login/page.tsx`](../frontend/app/login/page.tsx)
 * **Ketahanan Flaky/Slow Server, Anti-Loop Reset & Anti-Stale History Poisoning**:
   - **Synchronous 0ms Purge**: Pembersihan `localStorage` (`wuzz_auth_token`, profil) dan auth state React ditaruh di awal eksekusi `logout()` sebelum pemanggilan API jaringan. Hal ini menjamin bahwa kegagalan jaringan atau timeout server tidak akan meninggalkan residu kredensial yang dapat memicu auto-redirect looping.
   - **Managed 30s Abort Timeout**: Request `POST /api/auth/logout` dibatasi dengan `AbortController` berdurasi maksimal **30 detik**. Klien tetap membebaskan sumber daya secara graceful jika server lambat atau tidak terjangkau.
@@ -417,7 +417,7 @@ Seluruh tantangan tersebut telah diselesaikan secara sistemik pada backend Wuzz 
   - **Anti-Stale History Poisoning (`history.replaceState` & Auth Priority)**: Jika pengguna telah login kembali dan menekan tombol *Back* hingga mencapai rute login, pengecekan `!isAuthLoading && user` diprioritaskan di baris pertama `useEffect` untuk langsung memantulkan pengguna ke `/chat` (`router.replace`) tanpa memanggil `localLogout()`. Selain itu, saat pertama kali mendarat di `/login?logout=1`, parameter kueri langsung dibersihkan seketika via `window.history.replaceState` agar tidak tertinggal di history stack peramban.
 
 ### 3.17 Dual-Tier Rate Limiting & Database Pool Tuning (DEC-001)
-* **Lokasi Kode**: [`backend/internal/auth/ratelimit.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/auth/ratelimit.go) & [`backend/internal/store/sql.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql.go)
+* **Lokasi Kode**: [`backend/internal/shared/ratelimit/ratelimit.go`](../backend/internal/shared/ratelimit/ratelimit.go) & [`backend/internal/store/sql.go`](../backend/internal/store/sql.go)
 * **Proteksi Multi-Layer Auth**:
   - **Layer 1 (Per-IP / 100 req/menit)**: Mencegah banjir trafik DDoS pada endpoint autentikasi (`/api/auth/login` & `/api/auth/register`) sekaligus aman untuk pengguna di satu WiFi/kantor (shared NAT IP).
   - **Layer 2 (Per-Username / 15 req/menit)**: Mengunci batas tebak password per akun spesifik. Kegagalan berulang hanya memblokir username yang diserang tanpa mempengaruhi pengguna lain di IP yang sama.
@@ -433,17 +433,17 @@ Seluruh lapisan keamanan dan optimasi performa di atas dilindungi oleh suite pen
 
 | Suite Pengujian | File Pengujian | Cakupan Skenario | Status |
 | :--- | :--- | :--- | :---: |
-| **WebSocket Security & Multi-User Lifecycle E2E** | [`backend/internal/ws/e2e_full_flow_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/e2e_full_flow_test.go) | • Multi-client WebSocket join<br>• WebRTC signaling & message broadcast<br>• Attacker intrusion rejection (BOLA isolation) | ✅ **100% PASS** |
-| **Realtime Scalability & Optimization Suite** | [`backend/internal/ws/scalability_optimizations_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/scalability_optimizations_test.go) | • Direct lookup $O(M)$ member routing<br>• Sliding-window typing rate limit<br>• Delta history since checkpoint | ✅ **100% PASS** |
-| **Transport ACK & Idempotency Suite** | [`backend/internal/ws/ack_idempotency_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/ack_idempotency_test.go) | • Request ID ACK correlation<br>• Server duplicate broadcast suppression<br>• UnixNano TTL expiration | ✅ **100% PASS** |
-| **REST API & Store Lifecycle E2E** | [`backend/internal/api/chat_and_media_e2e_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/chat_and_media_e2e_test.go) | • Media ACK IDOR protection & physical file delete<br>• Batched CTE conversation list<br>• Privacy filter (`cleared_at`) & reappearance | ✅ **100% PASS** |
-| **SSRF & DNS Rebinding E2E** | [`backend/internal/api/link_preview_e2e_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/link_preview_e2e_test.go) | • Block 14 vektor SSRF (Loopback, Cloud Metadata, CGNAT)<br>• Block Redirect SSRF & Loop<br>• Safe scraping & Redis caching | ✅ **100% PASS** |
-| **Collision & Deterministic Direct Room E2E** | [`backend/internal/store/sql_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/store/sql_test.go) | • Stress-test prefix collision (0 tabrakan)<br>• Order-invariance & idempotency<br>• Legacy direct room backward compatibility | ✅ **100% PASS** |
-| **Purge Worker & Storage Lifecycle** | [`backend/internal/storage/purge_worker_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/purge_worker_test.go) | • Store-and-forward physical file purging | ✅ **100% PASS** |
-| **Push Notification Lifecycle E2E** | [`backend/internal/ws/e2e_push_notification_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/e2e_push_notification_test.go) | • Subscribe VAPID endpoint<br>• Offline push dispatch<br>• Unsubscribe endpoint & cleanup | ✅ **100% PASS** |
-| **Zero-Knowledge Key Migration & Transfer** | [`backend/internal/api/transfer_handler_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/transfer_handler_test.go) | • Atomic session consume<br>• Anti-replay 410 Gone<br>• Unauthorized 403 Forbidden & Expired TTL | ✅ **100% PASS** |
-| **Single Active Device WebSocket Kick** | [`backend/internal/ws/hub_single_device_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub_single_device_test.go) | • Sesi WebSocket lama otomatis di-kick (`SESSION_REPLACED`) saat login baru<br>• Hard conflict blocker & 0% kebocoran plaintext | ✅ **100% PASS** |
-| **Message Management Suite (Edit, Forward, Pin, Search)** | [`backend/internal/api/chat_handler_message_pin_search_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/chat_handler_message_pin_search_test.go) | • Pin message max 3 (FIFO unpin)<br>• BOLA protection on pin, unpin, search<br>• Auto unpin on recalled message<br>• Search respects cleared_at privacy<br>• Edit 15m window & forward 1-5 rooms | ✅ **100% PASS** |
+| **WebSocket Security & Multi-User Lifecycle E2E** | [`backend/internal/ws/e2e_full_flow_test.go`](../backend/internal/ws/e2e_full_flow_test.go) | • Multi-client WebSocket join<br>• WebRTC signaling & message broadcast<br>• Attacker intrusion rejection (BOLA isolation) | ✅ **100% PASS** |
+| **Realtime Scalability & Optimization Suite** | [`backend/internal/ws/scalability_optimizations_test.go`](../backend/internal/ws/scalability_optimizations_test.go) | • Direct lookup $O(M)$ member routing<br>• Sliding-window typing rate limit<br>• Delta history since checkpoint | ✅ **100% PASS** |
+| **Transport ACK & Idempotency Suite** | [`backend/internal/ws/ack_idempotency_test.go`](../backend/internal/ws/ack_idempotency_test.go) | • Request ID ACK correlation<br>• Server duplicate broadcast suppression<br>• UnixNano TTL expiration | ✅ **100% PASS** |
+| **REST API & Store Lifecycle E2E** | [`backend/internal/api/chat_and_media_e2e_test.go`](../backend/internal/api/chat_and_media_e2e_test.go) | • Media ACK IDOR protection & physical file delete<br>• Batched CTE conversation list<br>• Privacy filter (`cleared_at`) & reappearance | ✅ **100% PASS** |
+| **SSRF & DNS Rebinding E2E** | [`backend/internal/api/link_preview_e2e_test.go`](../backend/internal/api/link_preview_e2e_test.go) | • Block 14 vektor SSRF (Loopback, Cloud Metadata, CGNAT)<br>• Block Redirect SSRF & Loop<br>• Safe scraping & Redis caching | ✅ **100% PASS** |
+| **Collision & Deterministic Direct Room E2E** | [`backend/internal/store/sql_test.go`](../backend/internal/store/sql_test.go) | • Stress-test prefix collision (0 tabrakan)<br>• Order-invariance & idempotency<br>• Legacy direct room backward compatibility | ✅ **100% PASS** |
+| **Purge Worker & Storage Lifecycle** | [`backend/internal/storage/purge_worker_test.go`](../backend/internal/storage/purge_worker_test.go) | • Store-and-forward physical file purging | ✅ **100% PASS** |
+| **Push Notification Lifecycle E2E** | [`backend/internal/ws/e2e_push_notification_test.go`](../backend/internal/ws/e2e_push_notification_test.go) | • Subscribe VAPID endpoint<br>• Offline push dispatch<br>• Unsubscribe endpoint & cleanup | ✅ **100% PASS** |
+| **Zero-Knowledge Key Migration & Transfer** | [`backend/internal/api/transfer_handler_test.go`](../backend/internal/api/transfer_handler_test.go) | • Atomic session consume<br>• Anti-replay 410 Gone<br>• Unauthorized 403 Forbidden & Expired TTL | ✅ **100% PASS** |
+| **Single Active Device WebSocket Kick** | [`backend/internal/ws/hub_single_device_test.go`](../backend/internal/ws/hub_single_device_test.go) | • Sesi WebSocket lama otomatis di-kick (`SESSION_REPLACED`) saat login baru<br>• Hard conflict blocker & 0% kebocoran plaintext | ✅ **100% PASS** |
+| **Message Management Suite (Edit, Forward, Pin, Search)** | [`backend/internal/api/chat_handler_message_pin_search_test.go`](../backend/internal/api/chat_handler_message_pin_search_test.go) | • Pin message max 3 (FIFO unpin)<br>• BOLA protection on pin, unpin, search<br>• Auto unpin on recalled message<br>• Search respects cleared_at privacy<br>• Edit 15m window & forward 1-5 rooms | ✅ **100% PASS** |
 
 ---
 

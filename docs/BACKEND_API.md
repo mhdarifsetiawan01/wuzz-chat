@@ -5,7 +5,7 @@ Dokumen ini adalah **panduan integrasi resmi dan menyeluruh** bagi pengembang ya
 > 🚀 **Spesifikasi Mesin & Panduan B2B**:
 > - **OpenAPI 3.1.0 Contract**: [`docs/openapi.yaml`](./openapi.yaml) (Disajikan langsung via backend di `GET /api/openapi.yaml`).
 > - **Interactive API Docs (Scalar UI)**: `GET /api/docs`.
-> - **Headless B2B Integration Guide**: [`docs/HEADLESS_INTEGRATION_GUIDE.md`](./HEADLESS_INTEGRATION_GUIDE.md) (Panduan JIT Provisioning, WebSocket Wire Format, dan E2EE Klien Eksternal).
+> - **Headless B2B Integration Guide**: `docs/HEADLESS_INTEGRATION_GUIDE.md` (berkas lama dihapus 27 Sep 2026, `b2f53ec`; isinya kini di [`context/MULTI_TENANT.md`](context/MULTI_TENANT.md)) (Panduan JIT Provisioning, WebSocket Wire Format, dan E2EE Klien Eksternal).
 
 Seluruh kapabilitas, format payload REST API, katalog event WebSocket, standar enkripsi E2EE, dan siklus hidup media terdokumentasi di sini sesuai dengan kode aktual backend Go (`backend/internal/...`).
 

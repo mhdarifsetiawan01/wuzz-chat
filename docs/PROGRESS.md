@@ -111,7 +111,7 @@
   - Pembuatan Direct Message 1-on-1 antar dua user (`POST /api/conversations`).
   - Daftar obrolan aktif dengan cuplikan pesan terakhir (`GET /api/conversations`).
 - [x] **Frontend Modern 2-Kolom (WhatsApp / Telegram Grade)**:
-  - Halaman Login ([`/login`](frontend/app/login/page.tsx)) dan Register ([`/register`](frontend/app/register/page.tsx)).
+  - Halaman Login ([`/login`](../frontend/app/login/page.tsx)) dan Register ([`/register`](../frontend/app/register/page.tsx)).
   - Global `AuthProvider` & `useAuth` hook.
   - **Sidebar Kiri**: Info akun, pencarian kontak, daftar *Recent Chats*.
   - **Layar Standby (Welcome Screen)**: Muncul saat belum ada obrolan yang dipilih di `/chat`.
@@ -264,7 +264,7 @@
   - **Anti-SSRF Protection**: Validasi DNS resolution dan pemblokiran otomatis seluruh private IP subnets (`127.0.0.1`, `10.0.0.0/8`, `192.168.0.0/16`, `169.254.169.254`, `localhost`, `::1`).
   - **OpenGraph Metadata Extraction**: Ekstraksi meta tag `og:title`, `og:description`, `og:image`, `og:site_name`, dan favicon dengan batasan ukuran body 512KB.
   - **Redis & In-Memory Caching (TTL 24 Jam)**: Caching MD5 key untuk menghindari redundant scraping dari URL yang sama.
-  - **Frontend UI Card (`LinkPreviewCard.tsx`)**: Menampilkan kartu preview thumbnail, judul, deskripsi, favicon, dan domain badge di dalam balon chat [`MessageBubble.tsx`](frontend/app/chat/MessageBubble.tsx).
+  - **Frontend UI Card (`LinkPreviewCard.tsx`)**: Menampilkan kartu preview thumbnail, judul, deskripsi, favicon, dan domain badge di dalam balon chat [`MessageBubble.tsx`](../frontend/app/chat/MessageBubble.tsx).
   - Unit test `link_preview_test.go` lulus 100% dan frontend build `npm run build` sukses 100%.
 - [x] **Milestone 6.4: Production Deployment Configuration & Live Launch**:
   - **Multi-Stage Dockerfile (`backend/Dockerfile`)**: Build Go Alpine super ringan (< 25MB image size), unprivileged non-root user `appuser`, dan sertifikat SSL bawaan.
@@ -466,7 +466,7 @@
      - Memperbaiki bug di hard blocker `DeviceConflictModal` di mana `onClose` salah mengarahkan ke `handleDeviceConflictLogout` saat user mengklik "Reset & Masuk di Perangkat Ini", yang menyebabkan Device 2 terlempar kembali ke `/login` dan menimbulkan perebutan sesi enkripsi (*ping-pong race condition*).
      - Diperbaiki menjadi `onClose={() => setDeviceConflict({ isOpen: false })}` sehingga Device 2 langsung masuk ke obrolan secara mulus.
      - Menambahkan pembersihan kunci lokal `clearLocalKeyPair(user.id)` saat logout konflik agar perangkat lama bersih dari sisa kunci usang saat user login ulang.
-     - Menambahkan script pengujian simulasi otomatis 2-device ([`frontend/test-two-device-simulation.mjs`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/test-two-device-simulation.mjs)) yang memvalidasi otentikasi akun, 409 conflict detection, key reset, transfer sesi WebSocket, dan pengiriman `SESSION_REPLACED` ke Device 1 dengan 100% kelulusan.
+     - Menambahkan script pengujian simulasi otomatis 2-device ([`frontend/test-two-device-simulation.mjs`](../frontend/test-two-device-simulation.mjs)) yang memvalidasi otentikasi akun, 409 conflict detection, key reset, transfer sesi WebSocket, dan pengiriman `SESSION_REPLACED` ke Device 1 dengan 100% kelulusan.
   7. [x] **Decoupled WebSocket Connection & Room Switcher (Eliminasi Self-Kick & Race Condition `page.tsx`)**:
      - Memisahkan siklus hidup koneksi WebSocket dari state `roomId`. Sebelumnya, setiap kali user berpindah ruang obrolan atau menekan tombol `← Back` di mobile, koneksi WebSocket di-destroy dan dibuat ulang, yang memicu backend Hub mengirim `SESSION_REPLACED` ke koneksi lama yang belum tuntas di socket TCP (menendang diri sendiri).
      - WebSocket kini hanya diinisialisasi **SATU KALI** per sesi login, dan perpindahan ruang obrolan hanya mengirimkan event `{ type: 'join', room: roomId }` seketika (0ms reconnect).
@@ -2219,8 +2219,8 @@ Di [`frontend/app/chat/ProfileModal.tsx`](../frontend/app/chat/ProfileModal.tsx)
 1. Melakukan harmonisasi master roadmap tanpa membuang artefak historis maupun rencana fitur masa depan, bertransformasi menjadi **Dual-Track Evolving Architecture v2.0**:
    - **Track A (Product Features & Platform Parity)**: Mempertahankan kontinuitas fitur Fase 1–8, Fase 10 (Group Memory AI), Fase 11 (Multi-Device Sessions & Continuity), serta rencana Fase 9 (Avatar & Monetisasi) dan Mobile Native.
    - **Track B (Modular Monolith & DDD Engine)**: Mengintegrasikan transisi arsitektur backend Go menjadi Reusable Messaging Engine (Fase 1 GroupStore Decoupling [Done], Fase 2 Auth Application Service [Next]).
-2. Menyinkronkan [PROMPT.md](file:///home/bms-del112/BMS/personal-project/wuzz-chat/PROMPT.md) sebagai Single Source of Truth context primer AI:
-   - Menambahkan rujukan dokumen [`docs/MODULAR_MONOLITH_DDD.md`](MODULAR_MONOLITH_DDD.md), [`docs/ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md), dan [`docs/GROUP_MEMORY_AI_SPEC.md`](GROUP_MEMORY_AI_SPEC.md).
+2. Menyinkronkan [PROMPT.md](../PROMPT.md) sebagai Single Source of Truth context primer AI:
+   - Menambahkan rujukan dokumen `docs/MODULAR_MONOLITH_DDD.md`, `docs/ARCHITECTURE_AUDIT.md`, dan `docs/GROUP_MEMORY_AI_SPEC.md` (ketiganya dihapus 27 Sep 2026, `b2f53ec`; penggantinya di [`context/`](context/README.md) dan [`domains/`](domains/README.md)).
    - Memperbarui tabel tech stack dan daftar kemajuan terkini (Fase 9, 10, 11, serta Track Modular Monolith).
 
 ### Test Evidence
@@ -4149,9 +4149,9 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
   - Menghindarkan Web browser User A dari `InvalidStateError` akibat *duplicate SDP answer*.
   - Menyertakan **Auto-TTL Eviction** (> 2 jam) jika map aktif melebihi 500 entri untuk menjamin nol kebocoran memori (*leak-free*).
 - **Penyempurnaan Mobile React Native**:
-  - [`mobile/src/services/notificationBackgroundTask.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/services/notificationBackgroundTask.ts): Menyelaraskan identifier panggilan berbasis `room_id` agar pembatalan `call_cancelled` membersihkan semua varian identifier notifikasi.
-  - [`mobile/src/context/CallContext.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/context/CallContext.tsx): Mengawal `rejectCall` dengan `ensureConnected(3000)` dan menambahkan penutupan modal otomatis pada perangkat kedua saat panggilan dijawab di perangkat lain.
-- **Pengujian Otomatis End-to-End ([`backend/internal/ws/e2e_push_notification_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/e2e_push_notification_test.go))**:
+  - [`mobile/src/services/notificationBackgroundTask.ts`](../mobile/src/services/notificationBackgroundTask.ts): Menyelaraskan identifier panggilan berbasis `room_id` agar pembatalan `call_cancelled` membersihkan semua varian identifier notifikasi.
+  - [`mobile/src/context/CallContext.tsx`](../mobile/src/context/CallContext.tsx): Mengawal `rejectCall` dengan `ensureConnected(3000)` dan menambahkan penutupan modal otomatis pada perangkat kedua saat panggilan dijawab di perangkat lain.
+- **Pengujian Otomatis End-to-End ([`backend/internal/ws/e2e_push_notification_test.go`](../backend/internal/ws/e2e_push_notification_test.go))**:
   - `TestE2E_MultiDevice_WebToMobileCalling_BackgroundPush`: PASS (0.89s).
   - `TestE2E_MultiDevice_WebToMobileCalling_Device1Answers`: PASS (0.70s).
   - `TestE2E_MultiDevice_WebToMobileCalling_RaceConditionSimultaneousAnswer`: PASS (1.49s).
@@ -4169,14 +4169,14 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 - **Penyelesaian Bug Self-Calling Penelepon**:
   - Ditemukan isu ketika User B login di 2 device dan melakukan panggilan ke User A menggunakan Device 1, Device 2 milik User B justru ikut berdering dan menampilkan notifikasi panggilan masuk dari akun sendiri.
 - **Perbaikan 3-Lapis (Triple-Layer Defense)**:
-  1. **Backend WebSocket ([`backend/internal/ws/hub.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/hub.go))**:
+  1. **Backend WebSocket ([`backend/internal/ws/hub.go`](../backend/internal/ws/hub.go))**:
      - Memfilter pengiriman sinyal WebRTC (`TypeCallOffer`, `TypeCallAnswer`, `TypeIceCandidate`) pada `broadcastLocal` agar perangkat lain milik pengirim itu sendiri (`client.ID == msg.From || client.Username == msg.From`) tidak pernah menerima sinyal tersebut.
-  2. **Backend Push Notification ([`backend/internal/push/push.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/push/push.go))**:
+  2. **Backend Push Notification ([`backend/internal/push/push.go`](../backend/internal/push/push.go))**:
      - Menyaring seluruh identitas penelepon (ID, Username, Display Name) ke dalam `skipMap` pada `NotifyIncomingCall`, memastikan push notifikasi dering hanya ditujukan ke penerima sah (User A) dan tidak pernah dikirim ke perangkat penelepon lain.
-  3. **Mobile Client Guards ([`mobile/src/context/CallContext.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/context/CallContext.tsx), [`mobile/App.tsx`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/App.tsx), [`mobile/src/services/notificationBackgroundTask.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/services/notificationBackgroundTask.ts))**:
+  3. **Mobile Client Guards ([`mobile/src/context/CallContext.tsx`](../mobile/src/context/CallContext.tsx), [`mobile/App.tsx`](../mobile/App.tsx), [`mobile/src/services/notificationBackgroundTask.ts`](../mobile/src/services/notificationBackgroundTask.ts))**:
      - Mengabaikan sinyal dan notifikasi panggilan masuk jika `caller_id` / `peerId` sama dengan ID atau username akun yang sedang aktif.
 - **Pengujian Otomatis**:
-  - Menambahkan `TestE2E_MultiDevice_CallerSecondaryDevicesDoNotRingWhenCalling` di [`backend/internal/ws/e2e_push_notification_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/ws/e2e_push_notification_test.go) (PASS 0.83s).
+  - Menambahkan `TestE2E_MultiDevice_CallerSecondaryDevicesDoNotRingWhenCalling` di [`backend/internal/ws/e2e_push_notification_test.go`](../backend/internal/ws/e2e_push_notification_test.go) (PASS 0.83s).
 
 ### 2. Bukti Pengujian Otomatis
 - **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
@@ -4196,10 +4196,10 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
   - Menguji CORS preflight `OPTIONS /api/auth/login` (HTTP 200 OK dengan origin `chat.wuzzhub.id`).
   - Menguji WebSocket upgrade `wss://chat-api.wuzzhub.id/ws` (HTTP 101 Switching Protocols terverifikasi dengan JWT handshake).
 - **Pembaruan Konfigurasi Mobile**:
-  - Mengarahkan `LIVE_PRODUCTION_URL` di [`mobile/src/api/config.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/api/config.ts) ke `https://chat-api.wuzzhub.id` dan WebSocket ke `wss://chat-api.wuzzhub.id/ws`.
+  - Mengarahkan `LIVE_PRODUCTION_URL` di [`mobile/src/api/config.ts`](../mobile/src/api/config.ts) ke `https://chat-api.wuzzhub.id` dan WebSocket ke `wss://chat-api.wuzzhub.id/ws`.
   - Berhasil di-build dan di-install release APK via `./gradlew assembleRelease` dan `adb install`.
 - **Sinkronisasi Dokumentasi**:
-  - Memperbarui tabel endpoint di [`docs/MOBILE_INTEGRATION_GUIDE.md`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/docs/MOBILE_INTEGRATION_GUIDE.md).
+  - Memperbarui tabel endpoint di [`docs/MOBILE_INTEGRATION_GUIDE.md`](MOBILE_INTEGRATION_GUIDE.md).
 
 ### 2. Bukti Pengujian Otomatis
 - **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
@@ -4216,21 +4216,21 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
   - Mengubah alur unggah berkas media dari client (Web Next.js & Mobile React Native) agar mengunggah langsung (*direct upload*) ke Supabase Storage via Pre-signed Upload URL.
   - Server VPS Go kini hanya bertugas mengotentikasi user dan menerbitkan tiket upload bertanda tangan berukuran beberapa byte JSON, mengeliminasi 100% konsumsi egress VPS saat upload.
 - **Backend (Golang)**:
-  - **Storage Layer ([`backend/internal/storage/storage.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/storage.go))**: Menambahkan struct `SignedUploadResult` dan method `CreateSignedUploadURL(ctx context.Context, filename string, contentType string) (*SignedUploadResult, error)` pada interface `MediaStorage`.
-  - **Supabase Storage ([`backend/internal/storage/supabase_storage.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/supabase_storage.go))**: Mengimplementasikan `CreateSignedUploadURL` yang menghubungi REST API Supabase Storage `POST /storage/v1/object/upload/sign/{bucket}/{objectKey}`, menghasilkan signed upload URL lengkap dengan token otorisasi dan public CDN URL. Mendukung multi-tenant prefixing.
-  - **Local Storage ([`backend/internal/storage/local_storage.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/local_storage.go))**: Mengembalikan `ErrSignedUploadNotSupported` agar client otomatis fallback ke endpoint VPS saat driver lokal aktif.
-  - **Endpoint Handler ([`backend/internal/api/media_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/media_handler.go))**: Membuat handler `CreateSignedUploadURL` dengan validasi ukuran berkas (`MAX_UPLOAD_SIZE_MB`), pemblokiran ekstensi berbahaya (`.exe`, `.sh`, `.bat`, dll), dan dynamic feature toggle.
-  - **Router ([`backend/internal/app/router.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/app/router.go))**: Mendaftarkan `POST /api/media/signed-upload-url` dilindungi middleware `auth.RequireJWT()`.
+  - **Storage Layer ([`backend/internal/storage/storage.go`](../backend/internal/storage/storage.go))**: Menambahkan struct `SignedUploadResult` dan method `CreateSignedUploadURL(ctx context.Context, filename string, contentType string) (*SignedUploadResult, error)` pada interface `MediaStorage`.
+  - **Supabase Storage ([`backend/internal/storage/supabase_storage.go`](../backend/internal/storage/supabase_storage.go))**: Mengimplementasikan `CreateSignedUploadURL` yang menghubungi REST API Supabase Storage `POST /storage/v1/object/upload/sign/{bucket}/{objectKey}`, menghasilkan signed upload URL lengkap dengan token otorisasi dan public CDN URL. Mendukung multi-tenant prefixing.
+  - **Local Storage ([`backend/internal/storage/local_storage.go`](../backend/internal/storage/local_storage.go))**: Mengembalikan `ErrSignedUploadNotSupported` agar client otomatis fallback ke endpoint VPS saat driver lokal aktif.
+  - **Endpoint Handler ([`backend/internal/api/media_handler.go`](../backend/internal/api/media_handler.go))**: Membuat handler `CreateSignedUploadURL` dengan validasi ukuran berkas (`MAX_UPLOAD_SIZE_MB`), pemblokiran ekstensi berbahaya (`.exe`, `.sh`, `.bat`, dll), dan dynamic feature toggle.
+  - **Router ([`backend/internal/app/router.go`](../backend/internal/app/router.go))**: Mendaftarkan `POST /api/media/signed-upload-url` dilindungi middleware `auth.RequireJWT()`.
   - **Graceful Fallback & Store-and-Forward**: Endpoint legacy `POST /api/media/upload`, ACK `/api/media/ack`, dan `PurgeWorker` tetap berjalan tanpa hambatan.
-- **Frontend Next.js ([`frontend/lib/api.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/frontend/lib/api.ts))**:
+- **Frontend Next.js ([`frontend/lib/api.ts`](../frontend/lib/api.ts))**:
   - Memperbarui fungsi `uploadMedia` untuk meminta tiket pre-signed URL dari backend, lalu mengeksekusi `PUT` biner langsung ke Supabase Storage dengan timeout 60 detik.
   - Menyediakan fallback transparan ke `POST /api/media/upload` jika signed URL tidak didukung atau mengalami kegagalan.
-- **Mobile Expo ([`mobile/src/api/media.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/api/media.ts), [`mobile/src/api/types.ts`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/mobile/src/api/types.ts))**:
+- **Mobile Expo ([`mobile/src/api/media.ts`](../mobile/src/api/media.ts), [`mobile/src/api/types.ts`](../mobile/src/api/types.ts))**:
   - Menambahkan tipe `SignedUploadTicketRequest` dan `SignedUploadTicketResponse`.
   - Mengarahkan alur `uploadMedia` mobile untuk meminta signed upload ticket dan melakukan direct `PUT` ke Supabase CDN dengan automatic fallback ke VPS.
 - **Pengujian Otomatis**:
-  - Menambahkan unit test `TestSupabaseStorage_CreateSignedUploadURL` di [`backend/internal/storage/storage_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/storage/storage_test.go).
-  - Menambahkan unit test `TestMediaHandler_CreateSignedUploadURL_*` di [`backend/internal/api/media_handler_test.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/media_handler_test.go).
+  - Menambahkan unit test `TestSupabaseStorage_CreateSignedUploadURL` di [`backend/internal/storage/storage_test.go`](../backend/internal/storage/storage_test.go).
+  - Menambahkan unit test `TestMediaHandler_CreateSignedUploadURL_*` di [`backend/internal/api/media_handler_test.go`](../backend/internal/api/media_handler_test.go).
 
 ### 2. Bukti Pengujian Otomatis
 - **Backend Test Suite (`cd backend && go test ./...`)**: **PASS 100%**.
@@ -4261,8 +4261,8 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 ### 1. Deskripsi & Rincian Perubahan
 - **Latar Belakang Masalah**: Pengguna melaporkan bahwa saat mencoba login dari aplikasi mobile Android yang baru di-build, login tidak berhasil dan sama sekali tidak memunculkan log di terminal backend VPS (`journalctl -u wuzz-chat`).
 - **Akar Masalah (Diagnosis)**:
-  1. Backend Go `setupRouter()` di [`backend/internal/app/router.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/app/router.go) tidak memiliki middleware HTTP request logging. Hanya event WebSocket dan system error yang dicetak ke stdout/stderr.
-  2. Method `Login` dan `Register` di [`backend/internal/api/auth_handler.go`](file:///home/bms-del112/BMS/personal-project/wuzz-chat/backend/internal/api/auth_handler.go) tidak memiliki logging sama sekali untuk percobaan login, kegagalan 401, maupun konflik limit perangkat 409.
+  1. Backend Go `setupRouter()` di [`backend/internal/app/router.go`](../backend/internal/app/router.go) tidak memiliki middleware HTTP request logging. Hanya event WebSocket dan system error yang dicetak ke stdout/stderr.
+  2. Method `Login` dan `Register` di [`backend/internal/api/auth_handler.go`](../backend/internal/api/auth_handler.go) tidak memiliki logging sama sekali untuk percobaan login, kegagalan 401, maupun konflik limit perangkat 409.
 - **Solusi & Implementasi**:
   1. **HTTP Request Logger Middleware (`backend/internal/app/router.go`)**:
      - Membungkus seluruh HTTP handler dengan `requestLoggerMiddleware`.
@@ -4510,7 +4510,7 @@ Mengimplementasikan alur **Zero-Knowledge QR Code E2EE Device Transfer & Multi-D
 3. **Standarisasi Konfigurasi Sistem Desain & Aturan Workspace**:
    - Menetapkan `android:windowSoftInputMode="adjustResize"` di `mobile/android/app/src/main/AndroidManifest.xml`.
    - Menambahkan `"softwareKeyboardLayoutMode": "resize"` di `mobile/app.json`.
-   - Mengkodifikasikan 4 pilar arsitektur penanganan keyboard ke dalam [mobile/DESIGN.md](mobile/DESIGN.md) dan [.agents/AGENTS.md](.agents/AGENTS.md).
+   - Mengkodifikasikan 4 pilar arsitektur penanganan keyboard ke dalam [mobile/DESIGN.md](../mobile/DESIGN.md) dan [.agents/AGENTS.md](../.agents/AGENTS.md).
 
 ### 2. Bukti Pengujian Otomatis
 - **Mobile TypeScript**: `cd mobile && npx tsc --noEmit` → **PASS (0 errors, Code 0)**.

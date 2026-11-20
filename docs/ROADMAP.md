@@ -406,7 +406,7 @@ Dokumen ini mendefinisikan peta jalan (*strategic roadmap*), target arsitektur, 
 ### Fase 11: Seamless Continuity, Multi-Device & Identity Architecture (Status: Phase 0, 1, 2, 3, 5 SELESAI ✅ | Phase 4 🔮)
 *Tujuan: Memisahkan kopling monolitik identitas pengguna, mendukung banyak sesi dan perangkat fisik aktif (Desktop & Mobile) secara simultan dengan sinkronisasi E2EE dan rekonsiliasi koneksi yang tahan uji.*
 
-*Dokumen Spesifikasi & Audit Utama: [`docs/ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md)*
+*Dokumen Spesifikasi & Audit Utama: `docs/ARCHITECTURE_AUDIT.md` (berkas lama dihapus 27 Sep 2026, `b2f53ec`; isinya kini di [`context/ARCHITECTURE.md`](context/ARCHITECTURE.md))*
 
 - [ ] **Perangkat Tertaut Mobile — Menunggu uji perangkat (18 Oktober 2026)**: tahap pertama sudah diimplementasikan: daftar perangkat aktif, penanda Perangkat Ini, platform/aktivitas terakhir, konfirmasi keluarkan perangkat lain, serta akses transfer kunci. Tes otomatis lulus; uji UI/dua perangkat nyata dan deployment belum dilakukan. Rincian: [MOBILE_LINKED_DEVICES.md](./plans/backlog/MOBILE_LINKED_DEVICES.md).
 

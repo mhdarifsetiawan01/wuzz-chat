@@ -5,7 +5,7 @@ Dokumen ini mendefinisikan desain skema data, alur komunikasi WebSocket, dan sta
 > 📌 **Single Source of Truth (SSOT)**: Untuk ringkasan eksekutif arsitektur aktual, pemetaan domain modular monolit, kesiapan mobile, dan daftar utang teknis yang diketahui, lihat:  
 > 👉 **[`docs/PROJECT_STATE.md`](PROJECT_STATE.md)**  
 > 📖 **Arsitektur Identitas & Multi-Device**: Untuk peta jalan pemisahan sesi (`sessions`), registrasi perangkat (`devices`), multi-credential (`user_credentials`), Passkey WebAuthn, dan E2EE multi-device, lihat dokumen:  
-> 👉 **[`docs/ARCHITECTURE_AUDIT.md`](ARCHITECTURE_AUDIT.md)** (Status: Phase 0, 1, 2, 3, 5 SELESAI ✅).
+> 👉 **`docs/ARCHITECTURE_AUDIT.md` (berkas lama dihapus 27 Sep 2026, `b2f53ec`; isinya kini di [`context/ARCHITECTURE.md`](context/ARCHITECTURE.md))** (Status: Phase 0, 1, 2, 3, 5 SELESAI ✅).
 
 ---
 
@@ -825,7 +825,7 @@ Seksi ini mendokumentasikan desain arsitektur untuk fitur monetisasi (Avatar Pre
 
 ## 🧠 8. Group Memory AI Architecture (Forum Intelligence & Knowledge Engine)
 
-Dokumen Spesifikasi Detail: [`docs/GROUP_MEMORY_AI_SPEC.md`](./GROUP_MEMORY_AI_SPEC.md)
+Dokumen Spesifikasi Detail: `docs/GROUP_MEMORY_AI_SPEC.md` (berkas lama dihapus 27 Sep 2026, `b2f53ec`; isinya kini di [`context/AI_MEMORY.md`](context/AI_MEMORY.md) dan [`domains/AI_MEMORY.md`](domains/AI_MEMORY.md))
 
 Fitur Group Memory AI mewujudkan visi *"AI captures. Humans validate. Wuzz remembers."* untuk mentransformasikan forum diskusi (sub-group) yang kedaluwarsa menjadi memori terstruktur grup yang telah divalidasi manusia.
 
