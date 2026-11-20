@@ -43,7 +43,7 @@ Sumber: support.google.com/googleplay/android-developer/answer/13634885, /answer
 1. Harga paket Star dalam rupiah mengikuti tingkat harga Play, lalu sesuaikan `star_value_minor` (kini Rp100/Star, sementara).
 2. Persentase platform (kini 20%, sementara), masa tahan (kini 14 hari), batas harga grup (kini 10-5.000 Star).
 
-> **Keputusan pengguna 21 Nov 2026 (D1-D2): angka FINAL.** 1 Star = Rp100; paket 50/100/500 Star = Rp5.000/10.000/50.000 tanpa diskon (bagian kreator dihitung dari satu nilai per Star, diskon paket akan ditanggung platform); potongan toko 15% (AI asisten Play + order nyata: diterima 85% harga daftar, PPN 11% ditambahkan di atas harga dan dibayar pembeli); platform 20%; masa tahan 14 hari; **harga grup 10-1.000 Star** (turun dari 5.000 karena paket terbesar 500; bila perlu grup lebih mahal, tambah produk `star_1000` dulu). Per Rp10.000: Google 1.500, platform 1.700, kreator 6.800. **Tindakan pengguna:** ubah `group_price_max` ke 1000 di `/admin/stars` (belum dicatat selesai). Harga produk di Play Console tidak berubah.
+> **Keputusan pengguna 21 Nov 2026 (D1-D2): angka FINAL.** 1 Star = Rp100; paket 50/100/500 Star = Rp5.000/10.000/50.000 tanpa diskon (bagian kreator dihitung dari satu nilai per Star, diskon paket akan ditanggung platform); potongan toko 15% (AI asisten Play + order nyata: diterima 85% harga daftar, PPN 11% ditambahkan di atas harga dan dibayar pembeli); platform 20%; masa tahan 14 hari; **harga grup 10-1.000 Star** (turun dari 5.000 karena paket terbesar 500; bila perlu grup lebih mahal, tambah produk `star_1000` dulu). Per Rp10.000: Google 1.500, platform 1.700, kreator 6.800. `group_price_max`=1000 **sudah diubah pengguna di `/admin/stars` 21 Nov 2026**. Harga produk di Play Console tidak berubah.
 3. Syarat mitra kreator: siapa yang boleh, verifikasi identitas dan rekening kreator, minimum pembayaran, jadwal pembayaran manual.
 4. Ambang "penyesuaian besar" yang butuh persetujuan kedua (rencana bagian 14, keputusan terbuka 7).
 
@@ -61,13 +61,13 @@ Sumber: support.google.com/googleplay/android-developer/answer/13634885, /answer
 ## 4. Gerbang sebelum Tahap 2b dan rilis Star
 
 > **Keputusan pengguna 15 Nov 2026: buka pembelian Star untuk semua pengguna TANPA menunggu B1-B2 dan C1-C3** (risiko diterima secara sadar oleh pemilik akun: penolakan/penangguhan Play bila model grup berbayar dinilai melanggar, serta risiko izin BI/OJK dan pajak penghasilan pribadi). B dan C tetap dikerjakan setelah Star live. Cakupan: semua pengguna boleh membeli Star dan membayar akses grup berbayar; **membuat grup berbayar tetap khusus mitra kreator** pilihan admin, dengan tombol "Daftar menjadi Creator" (`STARS_WALLET.md` aturan 6a). E3 (perjanjian mitra kreator) wajib disepakati **sebelum** menyetujui kreator selain pemilik akun.
-> **Gerbang yang tetap wajib sebelum sakelar dinyalakan:** A2 rekening bank terpasang; ~~D1-D2 harga paket di Play Console dan `star_settings` final~~ (diputuskan 21 Nov 2026, tinggal `group_price_max`=1000 di `/admin/stars`); ~~build 78+ (peringatan saldo saat hapus akun, tombol Creator) tayang di Produksi lalu `MIN_MOBILE_BUILD=78`~~ (selesai 21 Nov 2026); kode "Daftar menjadi Creator" dan daftar pembelian admin dideploy. Urutan menyalakan: `docs/OPERATIONS.md` bagian Star.
+> **Gerbang yang tetap wajib sebelum sakelar dinyalakan:** A2 rekening bank terpasang; ~~D1-D2 harga paket di Play Console dan `star_settings` final~~ (diputuskan dan diterapkan 21 Nov 2026); ~~build 78+ (peringatan saldo saat hapus akun, tombol Creator) tayang di Produksi lalu `MIN_MOBILE_BUILD=78`~~ (selesai 21 Nov 2026); kode "Daftar menjadi Creator" dan daftar pembelian admin dideploy. Urutan menyalakan: `docs/OPERATIONS.md` bagian Star.
 
 Tahap 2b (produk Star di Play, library billing, verifikasi pembelian server) baru dimulai bila **semua** ini terpenuhi:
 - [ ] A: profil pembayaran individu aktif dan terverifikasi. *(Profil dibuat dan pendaftaran 15% selesai 14 Nov 2026; rekening bank belum ditambahkan.)*
 - [ ] B1-B2: jawaban dukungan Play tidak melarang model grup berbayar.
 - [ ] C1-C3: hasil konsultasi tertulis tidak mewajibkan izin yang belum dimiliki.
-- [x] D1-D2: harga paket dan persentase diputuskan. *(21 Nov 2026; `group_price_max` 1000 di `/admin/stars` menunggu diubah pengguna)*
+- [x] D1-D2: harga paket dan persentase diputuskan. *(21 Nov 2026; `group_price_max`=1000 sudah diterapkan)*
 - [ ] E1-E3 siap terbit sebelum rilis (boleh paralel dengan 2b).
 - [x] F1-F2 diperbarui sebelum build ber-Star masuk track Play mana pun. *(15 Nov 2026)*
 
