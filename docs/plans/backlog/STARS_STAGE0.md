@@ -32,6 +32,8 @@ Sumber: support.google.com/googleplay/android-developer/answer/13634885, /answer
 3. Bila kelak pindah ke badan usaha: bagaimana memindahkan aplikasi berbayar dan profil pembayaran tanpa memutus pembelian dan langganan yang ada?
 
 ### C. Konsultasi hukum dan pajak (P; AI bisa menyusun brief bila diminta)
+
+> **Brief untuk konsultan dibuat 21 Nov 2026** di Claude Docs "Ringkasan untuk Konsultan: Star WuzzChat" (https://claude.ai/artifact/PhLBj9Wh92hinSrsSLiayb, privat milik pengguna): inti permintaan, profil usaha, diagram alur uang per 100 Star, pertanyaan C1-C6 yang dirinci, keputusan yang sudah berlaku, lampiran. Belum dikirim ke konsultan.
 1. **Mata uang virtual tertutup:** apakah Star (dibeli lewat Google, hanya bisa dibelanjakan di Wuzz Chat, tidak bisa ditransfer atau ditarik) termasuk uang elektronik atau layanan sistem pembayaran yang perlu izin BI/OJK? **(verifikasi)**
 2. **Bagi hasil ke kreator:** apakah membayar kreator berdasarkan perjanjian bagi hasil (bukan "menukar Star jadi uang") aman dilakukan perorangan, dan perjanjian seperti apa yang dibutuhkan?
 3. **Pajak penjual perorangan:** PPh atas penghasilan dari Google (tarif, kewajiban NPWP, pencatatan); siapa yang memungut PPN atas penjualan lewat Google Play di Indonesia **(verifikasi: dugaan Google sebagai pemungut PPN PMSE)**; apakah pembayaran ke kreator menimbulkan kewajiban potong pajak.
