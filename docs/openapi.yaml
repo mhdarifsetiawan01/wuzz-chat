@@ -1010,10 +1010,15 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - name: user_id
+        - name: id
           in: query
-          required: true
-          description: Target user UUID
+          required: false
+          description: Target user ID or username (leading @ allowed). One of id / username is required. No authentication needed.
+          schema:
+            type: string
+        - name: username
+          in: query
+          required: false
           schema:
             type: string
       responses:
@@ -1029,9 +1034,6 @@ paths:
                   public_key:
                     type: string
                     description: Base64-encoded raw uncompressed P-256 public key
-                  key_version:
-                    type: integer
-                    example: 1
     put:
       tags:
         - Authentication & Identity
@@ -1181,59 +1183,79 @@ paths:
     get:
       tags:
         - Conversations & Chat
-      summary: Search Users by Username or Name
-      description: Searches directory within the caller's tenant.
+      summary: 'Search Users'
+      description: 'Empty q returns an empty array.'
       security:
         - BearerAuth: []
       parameters:
         - name: q
           in: query
-          required: true
-          description: Search keyword
+          required: false
+          description: 'Search text'
           schema:
             type: string
       responses:
         '200':
-          description: Search results
+          description: Users
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/User'
+                  $ref: '#/components/schemas/UserSummary'
 
   /api/users/profile:
     get:
       tags:
         - Conversations & Chat
-      summary: Get Target User Public Profile
+      summary: 'Get a User Profile'
+      description: 'By id or username (leading @ allowed), within the caller tenant.'
       security:
         - BearerAuth: []
       parameters:
-        - name: user_id
+        - name: id
           in: query
-          required: true
+          required: false
+          description: 'User ID'
+          schema:
+            type: string
+        - name: username
+          in: query
+          required: false
+          description: 'Username'
           schema:
             type: string
       responses:
         '200':
-          description: User profile
+          description: Profile
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '400':
+          description: id or username missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/conversations:
     get:
       tags:
         - Conversations & Chat
-      summary: List User Conversations
-      description: Returns active direct chats and group conversations with last message and unread counts.
+      summary: 'List My Conversations'
+      description: ''
       security:
         - BearerAuth: []
       responses:
         '200':
-          description: List of conversations
+          description: Conversations
           content:
             application/json:
               schema:
@@ -1243,8 +1265,8 @@ paths:
     post:
       tags:
         - Conversations & Chat
-      summary: Start Direct (1-on-1) Conversation
-      description: Resolves or creates a deterministic 1-on-1 direct chat room with another user.
+      summary: 'Start or Open a Direct Chat'
+      description: 'Returns the existing room when one exists. Private accounts accept only friends (403).'
       security:
         - BearerAuth: []
       requestBody:
@@ -1253,56 +1275,151 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - recipient_id
+              required: [target_user_id]
               properties:
-                recipient_id:
+                target_user_id:
                   type: string
-                  example: usr_99887766
       responses:
         '200':
-          description: Conversation resolved or created
+          description: Room
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Conversation'
+                type: object
+                properties:
+                  room_id:
+                    type: string
+        '400':
+          description: target_user_id missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Target account is private and not a friend
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Conversations & Chat
+      summary: 'Clear a Conversation for Me'
+      description: 'Same as POST /api/conversations/clear. ID via query id / conversation_id or body.'
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: 'Conversation ID (alias conversation_id)'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  id:
+                    type: string
+        '400':
+          description: ID missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: CONVERSATION_NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/conversations/clear:
     post:
       tags:
         - Conversations & Chat
-      summary: Clear Conversation History
-      description: Clears conversation messages for the current user without affecting the other party.
+      summary: 'Clear a Conversation for Me'
+      description: 'Hides existing messages for the caller only. ID via query id / conversation_id or body.'
       security:
         - BearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: false
+          description: 'Conversation ID (alias conversation_id)'
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required:
-                - room_id
               properties:
-                room_id:
+                conversation_id:
                   type: string
+                id:
+                  type: string
+                  description: Alias of conversation_id
       responses:
         '200':
-          description: Conversation cleared
+          description: Cleared
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status:
+                  success:
+                    type: boolean
+                  message:
                     type: string
-                    example: ok
+                  id:
+                    type: string
+        '400':
+          description: ID missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: CONVERSATION_NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/conversations/pin:
     post:
       tags:
         - Conversations & Chat
-      summary: Pin Conversation to Top
+      summary: 'Pin a Conversation'
+      description: 'ID via body or query (conversation_id / id).'
       security:
         - BearerAuth: []
       requestBody:
@@ -1311,28 +1428,41 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - room_id
               properties:
-                room_id:
+                conversation_id:
                   type: string
+                id:
+                  type: string
+                  description: Alias of conversation_id
       responses:
         '200':
-          description: Pinned successfully
+          description: Done
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status:
+                  success:
+                    type: boolean
+                  conversation_id:
                     type: string
-                    example: ok
+                  is_pinned:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: ID missing or operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/conversations/unpin:
     post:
       tags:
         - Conversations & Chat
-      summary: Unpin Conversation
+      summary: 'Unpin a Conversation'
+      description: 'ID via body or query (conversation_id / id).'
       security:
         - BearerAuth: []
       requestBody:
@@ -1341,26 +1471,35 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - room_id
               properties:
-                room_id:
+                conversation_id:
                   type: string
+                id:
+                  type: string
+                  description: Alias of conversation_id
       responses:
         '200':
-          description: Unpinned successfully
+          description: Done
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status:
+                  success:
+                    type: boolean
+                  conversation_id:
                     type: string
-                    example: ok
+                  is_pinned:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: ID missing or operation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  # =========================================================================
-  # 5. MESSAGES
-  # =========================================================================
   /api/messages:
     get:
       tags:
@@ -1373,6 +1512,7 @@ paths:
         - name: room_id
           in: query
           required: true
+          description: Conversation ID (alias conversation_id)
           schema:
             type: string
         - name: limit
@@ -1381,10 +1521,11 @@ paths:
           schema:
             type: integer
             default: 50
+            maximum: 100
         - name: before
           in: query
           required: false
-          description: RFC3339 timestamp cursor for backward pagination (ignored when message_id is provided)
+          description: RFC3339 timestamp cursor for backward pagination (ignored when message_id is provided). Invalid format = 400.
           schema:
             type: string
         - name: message_id
@@ -1404,45 +1545,23 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Message'
-    put:
-      tags:
-        - Messages
-      summary: Edit Message Content
-      description: Edits an existing message sent by the caller. Broadcasts update to room participants.
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - message_id
-                - room_id
-                - content
-              properties:
-                message_id:
-                  type: string
-                room_id:
-                  type: string
-                content:
-                  type: string
-      responses:
-        '200':
-          description: Message updated
+        '400':
+          description: room_id missing or invalid before cursor
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Message'
-    delete:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Caller is not a member of the room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
       tags:
         - Messages
-      summary: Delete Message
-      description: |
-        Deletes a message.
-        - `delete_for_everyone=true`: Permitted only within 1 minute of sending by the original author.
-        - `delete_for_everyone=false`: Removes message view only for caller.
+      summary: 'Edit a Message'
+      description: 'Sender only, within 15 minutes. The message ID may also come from the id / message_id query.'
       security:
         - BearerAuth: []
       requestBody:
@@ -1451,34 +1570,340 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - message_id
-                - room_id
               properties:
                 message_id:
                   type: string
-                room_id:
+                id:
                   type: string
-                delete_for_everyone:
-                  type: boolean
-                  default: false
+                  description: Alias of message_id
+                new_content:
+                  type: string
+                content:
+                  type: string
+                  description: Alias of new_content
       responses:
         '200':
-          description: Message deleted
+          description: Edited
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status:
+                  success:
+                    type: boolean
+                  message_id:
                     type: string
-                    example: ok
+                  new_content:
+                    type: string
+                  is_edited:
+                    type: boolean
+                  edited_at:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+        '400':
+          description: Missing id/content, edit window passed, not the sender, or message not editable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Messages
+      summary: 'Delete a Message'
+      description: 'Delete for me (default) or for everyone (sender only, within 1 minute). The ID and type may also be given as query parameters (id, message_id, type, for_everyone, delete_for_everyone).'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message_id:
+                  type: string
+                id:
+                  type: string
+                  description: Alias of message_id
+                delete_for_everyone:
+                  type: boolean
+                type:
+                  type: string
+                  description: 'for_everyone or delete_for_everyone (alternative to the boolean); default = delete for me'
+                delete_type:
+                  type: string
+                  description: Alias of type
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message_id:
+                    type: string
+                  delete_for_everyone:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: Missing ID, or delete-for-everyone window passed / not the sender
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Messages
+      summary: 'Delete a Message (POST alias of DELETE)'
+      description: 'Delete for me (default) or for everyone (sender only, within 1 minute). The ID and type may also be given as query parameters (id, message_id, type, for_everyone, delete_for_everyone).'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message_id:
+                  type: string
+                id:
+                  type: string
+                  description: Alias of message_id
+                delete_for_everyone:
+                  type: boolean
+                type:
+                  type: string
+                  description: 'for_everyone or delete_for_everyone (alternative to the boolean); default = delete for me'
+                delete_type:
+                  type: string
+                  description: Alias of type
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message_id:
+                    type: string
+                  delete_for_everyone:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: Missing ID, or delete-for-everyone window passed / not the sender
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/messages/edit:
+    put:
+      tags:
+        - Messages
+      summary: 'Edit a Message'
+      description: 'Sender only, within 15 minutes. The message ID may also come from the id / message_id query.'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message_id:
+                  type: string
+                id:
+                  type: string
+                  description: Alias of message_id
+                new_content:
+                  type: string
+                content:
+                  type: string
+                  description: Alias of new_content
+      responses:
+        '200':
+          description: Edited
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message_id:
+                    type: string
+                  new_content:
+                    type: string
+                  is_edited:
+                    type: boolean
+                  edited_at:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+        '400':
+          description: Missing id/content, edit window passed, not the sender, or message not editable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Messages
+      summary: 'Edit a Message (POST alias)'
+      description: 'Sender only, within 15 minutes. The message ID may also come from the id / message_id query.'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message_id:
+                  type: string
+                id:
+                  type: string
+                  description: Alias of message_id
+                new_content:
+                  type: string
+                content:
+                  type: string
+                  description: Alias of new_content
+      responses:
+        '200':
+          description: Edited
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message_id:
+                    type: string
+                  new_content:
+                    type: string
+                  is_edited:
+                    type: boolean
+                  edited_at:
+                    type: string
+                    format: date-time
+                  message:
+                    type: string
+        '400':
+          description: Missing id/content, edit window passed, not the sender, or message not editable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/messages/delete:
+    post:
+      tags:
+        - Messages
+      summary: 'Delete a Message (alias; any method is accepted)'
+      description: 'Delete for me (default) or for everyone (sender only, within 1 minute). The ID and type may also be given as query parameters (id, message_id, type, for_everyone, delete_for_everyone).'
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message_id:
+                  type: string
+                id:
+                  type: string
+                  description: Alias of message_id
+                delete_for_everyone:
+                  type: boolean
+                type:
+                  type: string
+                  description: 'for_everyone or delete_for_everyone (alternative to the boolean); default = delete for me'
+                delete_type:
+                  type: string
+                  description: Alias of type
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message_id:
+                    type: string
+                  delete_for_everyone:
+                    type: boolean
+                  message:
+                    type: string
+        '400':
+          description: Missing ID, or delete-for-everyone window passed / not the sender
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/messages/forward:
     post:
       tags:
         - Messages
-      summary: Forward Message to Target Room
+      summary: 'Forward a Message to 1-5 Conversations'
+      description: 'Creates a copy in each target room. For E2EE sources, send plaintext_content so ciphertext is not copied.'
       security:
         - BearerAuth: []
       requestBody:
@@ -1487,30 +1912,62 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - message_id
-                - source_room_id
-                - target_room_id
+              required: [target_room_ids]
               properties:
                 message_id:
                   type: string
-                source_room_id:
+                id:
                   type: string
-                target_room_id:
+                  description: Alias of message_id
+                target_room_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 5
+                  items:
+                    type: string
+                plaintext_content:
                   type: string
       responses:
         '200':
-          description: Message forwarded
+          description: Forwarded
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Message'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  message:
+                    type: string
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not a member of a target room, or target forum has ended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Source message not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/messages/receipt:
     post:
       tags:
         - Messages
-      summary: Update Message Receipt Status (Delivered / Read)
+      summary: 'Report a Delivery/Read Receipt'
+      description: 'One message (or the room when message_id is empty) per call.'
       security:
         - BearerAuth: []
       requestBody:
@@ -1519,37 +1976,46 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - room_id
-                - message_ids
-                - status
+              required: [room_id, status]
               properties:
                 room_id:
                   type: string
-                message_ids:
-                  type: array
-                  items:
-                    type: string
+                message_id:
+                  type: string
                 status:
                   type: string
                   enum: [delivered, read]
       responses:
         '200':
-          description: Receipt updated
+          description: Recorded
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
                   status:
                     type: string
-                    example: ok
+        '400':
+          description: Invalid payload or status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/messages/pin:
     post:
       tags:
         - Messages
-      summary: Pin Message in Room
+      summary: 'Pin a Message'
+      description: 'At most 3 pinned messages per room.'
       security:
         - BearerAuth: []
       requestBody:
@@ -1558,31 +2024,53 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - room_id
-                - message_id
               properties:
+                conversation_id:
+                  type: string
                 room_id:
                   type: string
+                  description: Alias of conversation_id
                 message_id:
                   type: string
+                id:
+                  type: string
+                  description: Alias of message_id
+                duration_hours:
+                  type: integer
+                  description: Optional pin lifetime in hours
       responses:
         '200':
-          description: Message pinned
+          description: Pinned
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status:
+                  success:
+                    type: boolean
+                  pinned:
+                    $ref: '#/components/schemas/PinnedMessage'
+                  message:
                     type: string
-                    example: ok
+        '400':
+          description: Missing IDs or pin limit reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/messages/unpin:
     post:
       tags:
         - Messages
-      summary: Unpin Message
+      summary: 'Unpin a Message'
+      description: 'IDs may also come from query parameters.'
       security:
         - BearerAuth: []
       requestBody:
@@ -1591,80 +2079,141 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - room_id
-                - message_id
               properties:
+                conversation_id:
+                  type: string
                 room_id:
                   type: string
+                  description: Alias of conversation_id
                 message_id:
                   type: string
+                id:
+                  type: string
+                  description: Alias of message_id
       responses:
         '200':
-          description: Message unpinned
+          description: Unpinned
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  status:
+                  success:
+                    type: boolean
+                  message:
                     type: string
-                    example: ok
+        '400':
+          description: Missing IDs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/messages/pinned:
     get:
       tags:
         - Messages
-      summary: List Pinned Messages in Room
+      summary: 'List Pinned Messages'
+      description: ''
       security:
         - BearerAuth: []
       parameters:
         - name: room_id
           in: query
           required: true
+          description: 'Conversation ID (alias: conversation_id)'
           schema:
             type: string
       responses:
         '200':
-          description: Pinned messages list
+          description: Pinned messages
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Message'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  pinned:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PinnedMessage'
+        '400':
+          description: room_id missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/messages/search:
     get:
       tags:
         - Messages
-      summary: Search Messages in Room
+      summary: 'Search Messages in a Room'
+      description: 'Text search over messages the caller can see.'
       security:
         - BearerAuth: []
       parameters:
         - name: room_id
           in: query
           required: true
+          description: 'Conversation ID (alias: conversation_id)'
           schema:
             type: string
         - name: q
           in: query
           required: true
+          description: 'Search text (alias: query)'
           schema:
             type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
       responses:
         '200':
-          description: Matching messages
+          description: Results
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Message'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  count:
+                    type: integer
+        '400':
+          description: room_id or q missing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not a member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
-  # =========================================================================
-  # 6. MEDIA ATTACHMENTS
-  # =========================================================================
   /api/media/upload:
     post:
       tags:
@@ -3983,74 +4532,155 @@ components:
 
     Conversation:
       type: object
+      description: Conversation list item (`store.ConversationItem`). `peer_*` fields are set for direct chats only.
       properties:
         id:
           type: string
-        room_id:
+        tenant_id:
           type: string
-          example: dm_default_usrA_usrB
-        name:
-          type: string
-          example: Alice Smith
         type:
           type: string
-          enum: [direct, group, subgroup]
-          example: direct
-        is_group:
+          enum: [direct, group]
+        title:
+          type: string
+        avatar_url:
+          type: string
+        description:
+          type: string
+        is_public:
           type: boolean
-        is_subgroup:
-          type: boolean
-        unread_count:
-          type: integer
-          example: 0
-        pinned:
+        group_username:
+          type: string
+        parent_id:
+          type: string
+          description: Parent group ID for forum (sub_) rooms
+        role:
+          type: string
+          description: Caller's role in the group
+        peer_id:
+          type: string
+        peer_nickname:
+          type: string
+        peer_public_key:
+          type: string
+        peer_avatar_url:
+          type: string
+        peer_is_verified:
           type: boolean
         last_message:
-          $ref: '#/components/schemas/Message'
-        participants:
-          type: array
-          items:
-            $ref: '#/components/schemas/User'
+          type: string
+        last_sender:
+          type: string
+        last_sender_id:
+          type: string
+        last_status:
+          type: string
+        is_pinned:
+          type: boolean
+        pinned_at:
+          type: string
+          format: date-time
+        unread_count:
+          type: integer
         updated_at:
           type: string
           format: date-time
 
+    PinnedMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        conversation_id:
+          type: string
+        message_id:
+          type: string
+        pinned_by:
+          type: string
+        pinned_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        message:
+          $ref: '#/components/schemas/Message'
+
+    UserSummary:
+      type: object
+      description: User search result.
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        display_name:
+          type: string
+        status_message:
+          type: string
+        avatar_url:
+          type: string
+        is_verified:
+          type: boolean
+        public_key:
+          type: string
+
     Message:
       type: object
+      description: Stored message (`store.StoredMessage`). Content of DM messages is E2EE ciphertext. Sending happens over the WebSocket, not REST.
       properties:
         id:
           type: string
         room_id:
           type: string
-        sender_id:
+        from_id:
+          type: string
+        nickname:
+          type: string
+        to_id:
           type: string
         content:
           type: string
-          description: Ciphertext string (if E2EE) or plain text
-        type:
-          type: string
-          enum: [text, image, file, audio, system]
-          example: text
         status:
           type: string
-          enum: [sent, delivered, read]
-          example: read
-        media_url:
-          type: string
+          enum: [pending, sent, delivered, read]
         reply_to_id:
           type: string
+        reply_to_nickname:
+          type: string
+        reply_to_content:
+          type: string
         reactions:
-          type: object
-          additionalProperties:
-            type: array
-            items:
-              type: string
-        is_pinned:
+          type: string
+          description: JSON-encoded array of reactions (a string, not an array)
+        media_url:
+          type: string
+        media_type:
+          type: string
+        file_name:
+          type: string
+        file_size:
+          type: integer
+          format: int64
+        media_status:
+          type: string
+          enum: [active, downloaded, expired]
+        is_deleted:
           type: boolean
-        created_at:
+        deleted_for_users:
+          type: string
+          description: JSON-encoded array of user IDs (a string)
+        mentions:
+          type: string
+          description: JSON-encoded array of mentioned user IDs (a string)
+        is_edited:
+          type: boolean
+        edited_at:
           type: string
           format: date-time
-        updated_at:
+        is_forwarded:
+          type: boolean
+        timestamp:
           type: string
           format: date-time
 
