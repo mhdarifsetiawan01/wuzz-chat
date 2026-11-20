@@ -40,7 +40,7 @@
 - Hindari mengendalikan Chrome di HP pengguna untuk uji web (tab pribadi dan lembar kata sandi tersimpan muncul); pakai Chrome headless di laptop dengan profil sementara.
 - Uji backend lokal tanpa menyentuh produksi: jalankan binari dari folder yang tidak berisi `.env` (`.env` lokal = produksi), `DATABASE_URL=sqlite://...`; rewrite `/api` frontend terkunci ke `localhost:8080` saat build.
 - SQLite: `busy_timeout` hanya terpasang di satu koneksi pool, jadi tulis bersamaan bisa `SQLITE_BUSY`; uji konkurensi di Postgres (`PG_TEST_ADMIN_DSN`, kontainer `postgres:16-alpine` port 54329).
-- Teramati, belum diselidiki: setelah mengeluarkan anggota lalu berpindah profil Android, dialog "Sukses" tampil di atas daftar obrolan, bukan di Info Grup.
+- Dialog "Sukses" tampil di atas daftar obrolan setelah mengeluarkan anggota lalu berpindah profil Android: diselidiki 21 Nov 2026, dugaan kuat bukan bug (dialog global + navigasi kembali ke beranda saat root dipasang ulang); tidak diubah. Rincian `docs/progress/MOBILE.md`.
 - Uji Play Billing: penguji lisensi boleh memakai APK sideload (nama paket sama), tapi Play baru mengenal produk setelah satu build ber-billing diunggah ke track mana pun. Kartu uji ada di dialog Play (approves, declines, slow approve/decline, approves then charges back). Voided baru terbaca pada sapuan per jam berikutnya (jam ke-n sejak backend dinyalakan).
 - Saat mengendalikan HP lewat adb, ambil tangkapan layar sebelum setiap ketukan: pengguna bisa sedang memakai HP yang sama, dan ketukan yang meleset bisa membuka aplikasi lain (sempat membuka aplikasi Pesan).
 - Di kolom harga Grup Berbayar, ketukan pertama pada "Simpan" saat keyboard terbuka hanya menutup keyboard; ketuk sekali lagi dan pastikan `PUT /api/groups/{id}/paid` muncul di log.
