@@ -91,6 +91,14 @@ func (h *ChatHandler) SetConnectionService(connSvc *connection.ConnectionService
 }
 
 // SearchUsers mencari user lain untuk diajak chat.
+// writeChatError menulis {"error": message} sebagai JSON yang di-escape dengan benar. Pesan galat dari service bisa
+// mengandung tanda kutip atau garis miring terbalik, jadi jangan menyusun JSON dengan penggabungan string.
+func writeChatError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
 func (h *ChatHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.GetUserFromContext(r.Context())
 	if !ok {
@@ -227,14 +235,14 @@ func (h *ChatHandler) ClearConversation(w http.ResponseWriter, r *http.Request) 
 
 	if err := h.service.ClearConversation(r.Context(), conversationID, claims.UserID); err != nil {
 		if strings.Contains(err.Error(), "Akses ditolak") {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			writeChatError(w, http.StatusForbidden, err.Error())
 			return
 		}
 		if strings.Contains(err.Error(), "tidak ditemukan") {
 			http.Error(w, `{"error":"Percakapan tidak ditemukan","code":"CONVERSATION_NOT_FOUND"}`, http.StatusNotFound)
 			return
 		}
-		http.Error(w, `{"error":"Gagal menghapus percakapan: `+err.Error()+`"}`, http.StatusInternalServerError)
+		writeChatError(w, http.StatusInternalServerError, "Gagal menghapus percakapan: "+err.Error())
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -402,14 +410,14 @@ func (h *ChatHandler) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "lebih dari 1 menit") || strings.Contains(errMsg, "hanya pengirim") {
-			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusBadRequest)
+			writeChatError(w, http.StatusBadRequest, errMsg)
 			return
 		}
 		if strings.Contains(errMsg, "tidak ditemukan") {
-			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusNotFound)
+			writeChatError(w, http.StatusNotFound, errMsg)
 			return
 		}
-		http.Error(w, `{"error":"Gagal menghapus pesan: `+errMsg+`"}`, http.StatusInternalServerError)
+		writeChatError(w, http.StatusInternalServerError, "Gagal menghapus pesan: "+errMsg)
 		return
 	}
 
@@ -474,14 +482,14 @@ func (h *ChatHandler) EditMessage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "15 menit") || strings.Contains(errMsg, "hanya pengirim") || strings.Contains(errMsg, "tidak dapat diedit") || strings.Contains(errMsg, "tidak boleh kosong") {
-			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusBadRequest)
+			writeChatError(w, http.StatusBadRequest, errMsg)
 			return
 		}
 		if strings.Contains(errMsg, "tidak ditemukan") {
-			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusNotFound)
+			writeChatError(w, http.StatusNotFound, errMsg)
 			return
 		}
-		http.Error(w, `{"error":"Gagal mengedit pesan: `+errMsg+`"}`, http.StatusInternalServerError)
+		writeChatError(w, http.StatusInternalServerError, "Gagal mengedit pesan: "+errMsg)
 		return
 	}
 
@@ -543,22 +551,22 @@ func (h *ChatHandler) ForwardMessage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errMsg := err.Error()
 		if errors.Is(err, messaging.ErrTargetRoomExpired) {
-			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusForbidden)
+			writeChatError(w, http.StatusForbidden, errMsg)
 			return
 		}
 		if strings.Contains(errMsg, "tidak ditemukan") {
-			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusNotFound)
+			writeChatError(w, http.StatusNotFound, errMsg)
 			return
 		}
 		if strings.Contains(errMsg, "bukan anggota") {
-			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusForbidden)
+			writeChatError(w, http.StatusForbidden, errMsg)
 			return
 		}
 		if strings.Contains(errMsg, "maksimal") || strings.Contains(errMsg, "minimal") || strings.Contains(errMsg, "wajib") || strings.Contains(errMsg, "tidak boleh kosong") || strings.Contains(errMsg, "tidak dapat meneruskan") {
-			http.Error(w, `{"error":"`+errMsg+`"}`, http.StatusBadRequest)
+			writeChatError(w, http.StatusBadRequest, errMsg)
 			return
 		}
-		http.Error(w, `{"error":"Gagal meneruskan pesan: `+errMsg+`"}`, http.StatusInternalServerError)
+		writeChatError(w, http.StatusInternalServerError, "Gagal meneruskan pesan: "+errMsg)
 		return
 	}
 
@@ -603,7 +611,7 @@ func (h *ChatHandler) PinConversation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.PinConversation(r.Context(), convID, claims.UserID); err != nil {
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		writeChatError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -649,7 +657,7 @@ func (h *ChatHandler) UnpinConversation(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if err := h.service.UnpinConversation(r.Context(), convID, claims.UserID); err != nil {
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		writeChatError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -703,10 +711,10 @@ func (h *ChatHandler) PinMessage(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "bukan anggota") {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			writeChatError(w, http.StatusForbidden, err.Error())
 			return
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		writeChatError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -770,10 +778,10 @@ func (h *ChatHandler) UnpinMessage(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "bukan anggota") {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			writeChatError(w, http.StatusForbidden, err.Error())
 			return
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		writeChatError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -804,10 +812,10 @@ func (h *ChatHandler) GetPinnedMessages(w http.ResponseWriter, r *http.Request) 
 	pins, err := h.service.GetPinnedMessages(r.Context(), convID, claims.UserID)
 	if err != nil {
 		if strings.Contains(err.Error(), "bukan anggota") {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			writeChatError(w, http.StatusForbidden, err.Error())
 			return
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+		writeChatError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -854,10 +862,10 @@ func (h *ChatHandler) SearchMessages(w http.ResponseWriter, r *http.Request) {
 	results, err := h.service.SearchMessages(r.Context(), roomID, claims.UserID, query, limit)
 	if err != nil {
 		if strings.Contains(err.Error(), "bukan anggota") {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			writeChatError(w, http.StatusForbidden, err.Error())
 			return
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+		writeChatError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -905,10 +913,10 @@ func (h *ChatHandler) UpdateReceipt(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "Akses ditolak") {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			writeChatError(w, http.StatusForbidden, err.Error())
 			return
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		writeChatError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -990,10 +998,10 @@ func (h *ChatHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if strings.Contains(err.Error(), "bukan anggota") {
-			http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusForbidden)
+			writeChatError(w, http.StatusForbidden, err.Error())
 			return
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+		writeChatError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
