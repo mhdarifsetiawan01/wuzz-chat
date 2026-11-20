@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -550,3 +551,44 @@ func TestMediaHandler_CreateSignedUploadURL_Supabase_Success(t *testing.T) {
 
 
 
+
+// failingMembershipStore mensimulasikan galat DB saat memeriksa keanggotaan.
+type failingMembershipStore struct{ store.UserStore }
+
+func (failingMembershipStore) IsUserInConversation(string, string) (bool, error) {
+	return false, errors.New("db down")
+}
+
+// ACK media harus gagal-tertutup: bila keanggotaan tidak bisa dipastikan, media tidak boleh ditandai/dihapus.
+func TestMediaHandler_AcknowledgeDownload_FailsClosedOnMembershipError(t *testing.T) {
+	msgStore, err := store.NewSQLMessageStore("sqlite", filepath.Join(t.TempDir(), "ack_fail_closed.db"))
+	if err != nil {
+		t.Fatalf("failed to create sql message store: %v", err)
+	}
+	userStore := store.NewSQLUserStore(msgStore.DB(), msgStore.DriverName())
+	alice, _ := userStore.Register("alice_failclosed", "Alice", "pass123")
+	bob, _ := userStore.Register("bob_failclosed", "Bob", "pass123")
+	roomID, _ := userStore.GetOrCreateDirectConversation(alice.ID, bob.ID)
+	_ = msgStore.Save(store.StoredMessage{
+		ID: "msg-failclosed", RoomID: roomID, FromID: alice.ID, ToID: bob.ID, Content: "foto",
+		MediaURL: "/uploads/photo.jpg", MediaType: "image", MediaStatus: "active", Timestamp: time.Now().UTC(),
+	})
+
+	ls, _ := storage.NewLocalStorage(t.TempDir(), "/uploads")
+	handler := NewMediaHandler(ls, msgStore)
+	handler.SetUserStore(failingMembershipStore{userStore})
+
+	body, _ := json.Marshal(MediaAckRequest{MessageID: "msg-failclosed"})
+	req := httptest.NewRequest(http.MethodPost, "/api/media/ack", bytes.NewReader(body))
+	req = req.WithContext(auth.SetUserContext(req.Context(), &auth.UserClaims{UserID: bob.ID, Username: bob.Username}))
+	rr := httptest.NewRecorder()
+	handler.AcknowledgeDownload(rr, req)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503 (body %s)", rr.Code, rr.Body.String())
+	}
+	msg, _ := msgStore.GetMessageByID("msg-failclosed")
+	if msg == nil || msg.MediaStatus != "active" {
+		t.Fatalf("media_status berubah walau keanggotaan tidak terverifikasi: %+v", msg)
+	}
+}

@@ -91,7 +91,7 @@ func (m *mockMessageRepo) ForwardMessage(srcMsgID, senderID, senderNickname stri
 	return res, nil
 }
 
-func (m *mockMessageRepo) UpdateMessageStatus(msgID string, status string) error {
+func (m *mockMessageRepo) UpdateMessageStatus(msgID, roomID, status string) error {
 	return nil
 }
 

@@ -91,10 +91,13 @@ func (s *MemoryMessageStore) Save(msg StoredMessage) error {
 	return nil
 }
 
-func (s *MemoryMessageStore) UpdateMessageStatus(msgID string, status string) error {
+func (s *MemoryMessageStore) UpdateMessageStatus(msgID, roomID, status string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for roomID, msgs := range s.messages {
+	if roomID == "" {
+		return nil
+	}
+	if msgs, ok := s.messages[roomID]; ok {
 		for i, m := range msgs {
 			if m.ID == msgID {
 				if status == "delivered" && (m.Status == "read" || m.Status == "deleted") {

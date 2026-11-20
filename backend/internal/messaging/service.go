@@ -337,7 +337,7 @@ func (s *MessageService) UpdateReceipt(ctx context.Context, input UpdateReceiptI
 
 	msgID := strings.TrimSpace(input.MessageID)
 	if msgID != "" {
-		_ = s.msgRepo.UpdateMessageStatus(msgID, status)
+		_ = s.msgRepo.UpdateMessageStatus(msgID, roomID, status)
 	} else if status == "read" {
 		_ = s.msgRepo.MarkRoomMessagesAsRead(roomID, input.UserID)
 	} else if status == "delivered" {

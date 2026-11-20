@@ -87,8 +87,9 @@ type MessageStore interface {
 	// plaintextContent adalah teks plaintext dari frontend sebagai override agar tidak menyalin ciphertext E2EE antar room.
 	ForwardMessage(srcMsgID, senderID, senderNickname string, targetRoomIDs []string, plaintextContent string) ([]StoredMessage, error)
 
-	// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
-	UpdateMessageStatus(msgID string, status string) error
+	// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read). Hanya pesan di roomID yang
+	// diubah (pemanggil sudah memeriksa keanggotaan room itu); roomID kosong = tidak ada yang diubah.
+	UpdateMessageStatus(msgID, roomID, status string) error
 
 	// ToggleReaction menambah atau menghapus reaksi emoji user terhadap pesan tertentu.
 	// Reaksi disimpan menggunakan userID (users.id UUID) agar tetap valid jika user mengganti display_name.

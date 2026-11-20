@@ -448,7 +448,7 @@ func (c *Client) onReceipt(msg Message) {
 
 	if msg.ID != "" {
 		// Update status single message di database / memory store
-		if err := c.hub.UpdateMessageStatus(msg.ID, string(msg.Status)); err != nil {
+		if err := c.hub.UpdateMessageStatus(msg.ID, targetRoom, string(msg.Status)); err != nil {
 			log.Printf("[Client %s] gagal update status message %s ke %s: %v", c.ID, msg.ID, msg.Status, err)
 		}
 	} else if msg.Status == StatusRead {

@@ -1029,22 +1029,26 @@ func (s *SQLMessageStore) Save(msg StoredMessage) error {
 }
 
 // UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
-func (s *SQLMessageStore) UpdateMessageStatus(msgID string, status string) error {
+func (s *SQLMessageStore) UpdateMessageStatus(msgID, roomID, status string) error {
+	// Dibatasi ke room_id: keanggotaan diperiksa untuk room itu, jadi pesan di room lain tidak boleh ikut berubah.
+	if roomID == "" {
+		return nil
+	}
 	var query string
 	if status == "delivered" {
 		if s.driverName == "postgres" {
-			query = `UPDATE messages SET status = $1 WHERE id = $2 AND status != 'read' AND status != 'deleted'`
+			query = `UPDATE messages SET status = $1 WHERE id = $2 AND room_id = $3 AND status != 'read' AND status != 'deleted'`
 		} else {
-			query = `UPDATE messages SET status = ? WHERE id = ? AND status != 'read' AND status != 'deleted'`
+			query = `UPDATE messages SET status = ? WHERE id = ? AND room_id = ? AND status != 'read' AND status != 'deleted'`
 		}
 	} else {
 		if s.driverName == "postgres" {
-			query = `UPDATE messages SET status = $1 WHERE id = $2`
+			query = `UPDATE messages SET status = $1 WHERE id = $2 AND room_id = $3`
 		} else {
-			query = `UPDATE messages SET status = ? WHERE id = ?`
+			query = `UPDATE messages SET status = ? WHERE id = ? AND room_id = ?`
 		}
 	}
-	_, err := s.db.Exec(query, status, msgID)
+	_, err := s.db.Exec(query, status, msgID, roomID)
 	return err
 }
 

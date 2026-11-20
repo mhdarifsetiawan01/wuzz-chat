@@ -124,7 +124,7 @@ func TestChatHandler_UpdateReceipt(t *testing.T) {
 
 	t.Run("Anti-Downgrade: Delivered tidak boleh menimpa status read", func(t *testing.T) {
 		// Ubah status pesan menjadi 'read'
-		_ = sqlStore.UpdateMessageStatus(msgID, "read")
+		_ = sqlStore.UpdateMessageStatus(msgID, roomID, "read")
 
 		// Coba kirim delivered lagi
 		payload := map[string]string{

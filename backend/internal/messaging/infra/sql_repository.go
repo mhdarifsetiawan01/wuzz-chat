@@ -52,8 +52,8 @@ func (r *SQLMessagingRepository) ForwardMessage(srcMsgID, senderID, senderNickna
 	return r.msgStore.ForwardMessage(srcMsgID, senderID, senderNickname, targetRoomIDs, plaintextContent)
 }
 
-func (r *SQLMessagingRepository) UpdateMessageStatus(msgID string, status string) error {
-	return r.msgStore.UpdateMessageStatus(msgID, status)
+func (r *SQLMessagingRepository) UpdateMessageStatus(msgID, roomID, status string) error {
+	return r.msgStore.UpdateMessageStatus(msgID, roomID, status)
 }
 
 func (r *SQLMessagingRepository) ToggleReaction(msgID, emoji, userID string) (string, error) {

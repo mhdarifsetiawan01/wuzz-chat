@@ -22,8 +22,8 @@ type MessageRepository interface {
 	// ForwardMessage meneruskan pesan ke 1 sampai 5 percakapan target.
 	ForwardMessage(srcMsgID, senderID, senderNickname string, targetRoomIDs []string, plaintextContent string) ([]Message, error)
 
-	// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read).
-	UpdateMessageStatus(msgID string, status string) error
+	// UpdateMessageStatus memperbarui status tanda terima pesan (sent, delivered, read), dibatasi ke roomID.
+	UpdateMessageStatus(msgID, roomID, status string) error
 
 	// ToggleReaction menambah atau menghapus reaksi emoji user terhadap pesan tertentu.
 	ToggleReaction(msgID, emoji, userID string) (string, error)

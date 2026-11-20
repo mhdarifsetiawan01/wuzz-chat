@@ -1,5 +1,12 @@
 # ⚙️ Backend Progress Log — Wuzz Chat
 
+### Celah akses receipt dan ACK media (21 Nov 2026, di `dev`, belum dideploy)
+
+- **Receipt tidak dibatasi room:** REST `POST /api/messages/receipt`, WebSocket `receipt`, dan callback pengiriman push memeriksa keanggotaan untuk `room_id`, tetapi `UpdateMessageStatus` mengubah pesan berdasarkan ID saja; anggota room A bisa mengubah status (dibaca/terkirim) pesan di room lain bila tahu ID-nya (UUID, jadi sulit ditebak). Kini signature `UpdateMessageStatus(msgID, roomID, status)` di `store.MessageStore`, `messaging.MessageRepository`, `ws` hub; SQL menambah `AND room_id = ?`, store memori hanya mencari di room itu; `roomID` kosong = tidak mengubah apa pun.
+- **ACK media gagal-terbuka:** bila `IsUserInConversation` galat, `POST /api/media/ack` tetap memproses ACK (dan bisa menghapus berkas media DM). Kini menjawab 503 tanpa mengubah apa pun.
+- **Tes:** `store/message_status_scope_test.go` (SQL dan memori: room lain dan room kosong tidak mengubah status), `TestMediaHandler_AcknowledgeDownload_FailsClosedOnMembershipError` (terbukti gagal pada kode lama: 200 + `media_status: downloaded`; lolos pada kode baru); `go test ./...` lolos (SQLite).
+- **Tidak dikerjakan (keputusan):** melebur cek keanggotaan ke query untuk menghemat satu putaran DB; alasan di `docs/SECURITY_AND_PERFORMANCE.md`.
+
 ### Audit OpenAPI tahap 1: dua salinan disatukan, YAML diperbaiki, cakupan dipetakan (21 Nov 2026, di `dev`, belum dideploy)
 
 - **Temuan utama:** kedua `openapi.yaml` **tidak valid YAML sejak `295068ba` (15 Nov 2026)**: `description` POST `/api/me/stars/creator-application` berisi `": "` tanpa kutip. Akibatnya `/api/openapi.yaml` produksi tidak bisa diurai dan halaman `/api/docs` kemungkinan gagal menampilkan spek (belum dilihat di produksi). Diperbaiki dengan mengutip string itu.

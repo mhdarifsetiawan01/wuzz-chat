@@ -54,7 +54,7 @@ type PrivacyCallChecker interface {
 // Interface ini memutus ketergantungan langsung WebSocket Hub ke implementasi store.MessageStore (Milestone 2 Decoupling).
 type RealtimeMessageManager interface {
 	Save(msg store.StoredMessage) error
-	UpdateMessageStatus(msgID string, status string) error
+	UpdateMessageStatus(msgID, roomID, status string) error
 	MarkRoomMessagesAsRead(roomID, excludeUserID string) error
 	MarkUserMessagesAsDelivered(userID string) ([]string, error)
 	ToggleReaction(msgID, emoji, userID string) (string, error)
@@ -154,14 +154,14 @@ func (h *Hub) SaveMessage(msg store.StoredMessage) error {
 }
 
 // UpdateMessageStatus memperbarui status tanda terima pesan.
-func (h *Hub) UpdateMessageStatus(msgID, status string) error {
+func (h *Hub) UpdateMessageStatus(msgID, roomID, status string) error {
 	h.mu.RLock()
 	ms := h.messageStore
 	h.mu.RUnlock()
 	if ms == nil {
 		return nil
 	}
-	return ms.UpdateMessageStatus(msgID, status)
+	return ms.UpdateMessageStatus(msgID, roomID, status)
 }
 
 // MarkRoomMessagesAsRead menandai pesan di room sebagai read.
@@ -240,7 +240,7 @@ func (h *Hub) SetPushService(ps *push.Service) {
 				return
 			}
 			// Update status pesan menjadi 'delivered' di DB jika belum 'read'
-			if err := h.UpdateMessageStatus(msgID, string(StatusDelivered)); err == nil {
+			if err := h.UpdateMessageStatus(msgID, roomID, string(StatusDelivered)); err == nil {
 				// Broadcast status delivered ke room agar pengirim menerima centang 2 abu-abu
 				h.BroadcastRoom(roomID, Message{
 					ID:        msgID,

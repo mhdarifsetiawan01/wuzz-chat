@@ -514,7 +514,15 @@ func (h *MediaHandler) AcknowledgeDownload(w http.ResponseWriter, r *http.Reques
 		}
 		if targetMsg.RoomID != "" {
 			allowed, err := h.userStore.IsUserInConversation(targetMsg.RoomID, claims.UserID)
-			if err == nil && !allowed {
+			if err != nil {
+				// Gagal-tertutup: tanpa kepastian keanggotaan, ACK bisa memicu penghapusan media milik orang lain.
+				log.Printf("[Security] Cek keanggotaan gagal untuk ACK media %s (user %s): %v", req.MessageID, claims.UserID, err)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "Tidak dapat memverifikasi akses, coba lagi"})
+				return
+			}
+			if !allowed {
 				log.Printf("[Security] Akses ditolak: User %s (%s) bukan anggota room %s untuk ACK media %s", claims.UserID, claims.Username, targetMsg.RoomID, req.MessageID)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
